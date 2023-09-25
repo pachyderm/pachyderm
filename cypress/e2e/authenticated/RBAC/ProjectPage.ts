@@ -222,7 +222,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
 
-      cy.findByRole('link', {
+      cy.findAllByRole('link', {
         name: /upload files/i,
       });
 
@@ -245,7 +245,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
 
-      cy.findByRole('link', {
+      cy.findAllByRole('link', {
         name: /upload files/i,
       });
 
@@ -341,7 +341,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
 
-      cy.findByRole('link', {
+      cy.findAllByRole('link', {
         name: /upload files/i,
       });
 
@@ -354,7 +354,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
 
-      cy.findByRole('link', {
+      cy.findAllByRole('link', {
         name: /upload files/i,
       });
 

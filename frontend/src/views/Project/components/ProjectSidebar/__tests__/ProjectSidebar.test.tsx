@@ -482,7 +482,7 @@ reprocessSpec: until_success
       );
     });
 
-    it('should show no branches when the repo has no branches', async () => {
+    it('should show no data when the repo has no data', async () => {
       server.use(
         mockRepoQuery((req, res, ctx) =>
           res(
@@ -516,11 +516,25 @@ reprocessSpec: until_success
         screen.queryByTestId('RepoDetails__repoNameSkeleton'),
       );
 
-      const emptyMessage = await screen.findByText(
-        `This repo doesn't have any branches`,
-      );
+      expect(
+        await screen.findByText(`This repo doesn't have any data`),
+      ).toBeInTheDocument();
 
-      expect(emptyMessage).toBeInTheDocument();
+      const docsLink = (
+        await screen.findByText('View our documentation about managing data')
+      ).closest('a');
+
+      expect(docsLink).toHaveAttribute(
+        'href',
+        'https://docs.pachyderm.com/latest/prepare-data/ingest-data/',
+      );
+      expect(docsLink).toHaveAttribute('target', '_blank');
+      expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');
+
+      expect(await screen.findByText('Upload files')).toHaveAttribute(
+        'href',
+        '/lineage/default/repos/test/upload',
+      );
     });
 
     it('should not display logs button', async () => {

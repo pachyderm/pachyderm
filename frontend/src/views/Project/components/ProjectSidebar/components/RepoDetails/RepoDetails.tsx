@@ -22,6 +22,7 @@ import {
 } from '@pachyderm/components';
 
 import Title from '../Title';
+import UploadFilesButton from '../UploadFilesButton';
 
 import CommitDetails from './components/CommitDetails';
 import CommitList from './components/CommitList';
@@ -159,19 +160,22 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       </div>
 
       {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
-        <EmptyState
-          title={<>This repo doesn&apos;t have any branches</>}
-          message={
-            <>
-              This is normal for new repositories, but we still wanted to notify
-              you because Pachyderm didn&apos;t detect a branch on our end.
-            </>
-          }
-          linkToDocs={{
-            text: 'Try creating a branch and pushing a commit.',
-            pathWithoutDomain: 'concepts/data-concepts/branch/',
-          }}
-        />
+        <>
+          <EmptyState
+            title={<>This repo doesn&apos;t have any data</>}
+            message={
+              <>
+                This is normal for new repositories. If you are interested in
+                learning more:
+              </>
+            }
+            linkToDocs={{
+              text: 'View our documentation about managing data',
+              pathWithoutDomain: '/prepare-data/ingest-data/',
+            }}
+          />
+          <UploadFilesButton link />
+        </>
       )}
 
       {commit?.id && (

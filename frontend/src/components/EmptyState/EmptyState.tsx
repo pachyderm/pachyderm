@@ -55,7 +55,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
       {linkExternal && (
         <Link externalLink to={linkExternal.link} className={styles.docsLink}>
           {linkExternal.text}
-          <Icon small>
+          <Icon small color="inherit">
             <ExternalLinkSVG aria-hidden />
           </Icon>
         </Link>

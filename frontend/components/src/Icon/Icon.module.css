@@ -53,6 +53,11 @@
   color: var(--pachyderm-yellow);
 }
 
+.inherit-hover:hover,
+.inherit {
+  color: inherit;
+}
+
 /* Highlights */
 
 .highlightGreen {

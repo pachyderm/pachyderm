@@ -14,6 +14,7 @@ const Colors = {
   yellow: 'yellow',
   highlightGreen: 'highlightGreen',
   highlightOrange: 'highlightOrange',
+  inherit: 'inherit',
 };
 
 export type IconColor = keyof typeof Colors;

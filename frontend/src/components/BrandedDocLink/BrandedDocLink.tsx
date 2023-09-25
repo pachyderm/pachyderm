@@ -5,7 +5,9 @@ import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
 
 import styles from './BrandedDocLink.module.css';
 
-type BrandedDocLinkProps = {pathWithoutDomain: string};
+type BrandedDocLinkProps = {
+  pathWithoutDomain: string;
+};
 
 const BrandedDocLink: React.FC<
   BrandedDocLinkProps & React.ComponentPropsWithoutRef<typeof Link>
@@ -21,7 +23,7 @@ const BrandedDocLink: React.FC<
     <Link externalLink to={to} {...rest}>
       <span className={styles.linkText}>
         {children}{' '}
-        <Icon className={styles.externalIcon} color="plum" small>
+        <Icon className={styles.externalIcon} color="inherit" small>
           <ExternalLinkSVG aria-hidden />
         </Icon>
       </span>
