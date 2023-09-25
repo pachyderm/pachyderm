@@ -8,4 +8,3 @@ pytest-tornasync==0.6.0.post2
 pytest==6.2.5
 python-pachyderm>=7.4.0
 twine==3.7.1
-pycurl==7.45.2
