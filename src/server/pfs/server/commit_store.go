@@ -229,9 +229,6 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 		return errors.EnsureStack(err)
 	}
 	if err := checkCommitDB(tx, commit); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.EnsureStack(err)
-		}
 		return errors.EnsureStack(err)
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
@@ -250,9 +247,6 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 		return errors.EnsureStack(err)
 	}
 	if err := checkCommitDB(tx, commit); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return errors.EnsureStack(err)
-		}
 		return errors.EnsureStack(err)
 	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
