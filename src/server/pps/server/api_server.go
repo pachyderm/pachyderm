@@ -1827,8 +1827,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
-	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
+func (a *apiServer) validateEnterpriseChecksInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest) error {
+	if _, err := a.InspectPipelineInTransaction(ctx, txnCtx, req.Pipeline); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
@@ -1847,7 +1847,7 @@ func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.Creat
 	}
 	var info pps.PipelineInfo
 	seen := make(map[string]struct{})
-	if err := a.pipelines.ReadOnly(ctx).List(&info, col.DefaultOptions(), func(_ string) error {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(&info, col.DefaultOptions(), func(_ string) error {
 		seen[info.Pipeline.Name] = struct{}{}
 		return nil
 	}); err != nil {
@@ -2125,9 +2125,15 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
-
-	js, err := a.createPipeline(ctx, request)
-	if err != nil {
+	var js string
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		var err error
+		js, err = a.createPipelineInTransaction(ctx, txnCtx, request)
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		return nil, err
 	}
 	return &pps.CreatePipelineV2Response{
@@ -2139,22 +2145,23 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
 
-	info, err := a.inspectPipeline(ctx, request.Pipeline, true)
-
-	if err != nil {
-		return nil, err
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
+		if err != nil {
+			return errors.Wrap(err, "inspect")
+		}
+		newReq := &pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: info.GetUserSpecJson(),
+			Update:                    true,
+			Reprocess:                 request.GetReprocess(),
+		}
+		if _, err := a.createPipelineInTransaction(ctx, txnCtx, newReq); err != nil {
+			return errors.Wrap(err, "update pipeline")
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "do txn")
 	}
-
-	v2Req := &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: info.UserSpecJson,
-		Update:                    true,
-		Reprocess:                 request.Reprocess,
-		DryRun:                    false,
-	}
-	if _, err := a.createPipeline(ctx, v2Req); err != nil {
-		return nil, err
-	}
-
 	return &emptypb.Empty{}, nil
 }
 
@@ -2194,14 +2201,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Reprocess:                 request.Reprocess,
 		DryRun:                    request.DryRun,
 	}
-	if _, err := a.createPipeline(ctx, v2Req); err != nil {
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		_, err := a.createPipelineInTransaction(ctx, txnCtx, v2Req)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
-	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
+	clusterDefaultsResponse, err := a.GetClusterDefaultsInTransaction(ctx, txnCtx, &pps.GetClusterDefaultsRequest{})
 	if err != nil {
 		return "", status.Error(codes.Internal, "could not get cluster defaults")
 	}
@@ -2240,7 +2250,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, effectiveSpec.Pipeline)
 
-	if err := a.validateEnterpriseChecks(ctx, effectiveSpec); err != nil {
+	if err := a.validateEnterpriseChecksInTransaction(ctx, txnCtx, effectiveSpec); err != nil {
 		return "", err
 	}
 
@@ -2252,14 +2262,13 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
-	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
-		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
-			CreatePipelineRequest: effectiveSpec,
-			EffectiveJson:         effectiveSpecJSON,
-			UserJson:              req.CreatePipelineRequestJson,
-		}))
+	d := txnenv.NewDirectTransaction(ctx, a.txnEnv, txnCtx)
+	if err := d.CreatePipeline(&pps.CreatePipelineTransaction{
+		CreatePipelineRequest: effectiveSpec,
+		EffectiveJson:         effectiveSpecJSON,
+		UserJson:              req.CreatePipelineRequestJson,
 	}); err != nil {
-		return "", err
+		return "", errors.Wrap(err, "underlying create")
 	}
 	return string(b), nil
 }
@@ -3729,9 +3738,9 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
-func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+func (a *apiServer) GetClusterDefaultsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults ppsdb.ClusterDefaultsWrapper
-	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
+	if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
