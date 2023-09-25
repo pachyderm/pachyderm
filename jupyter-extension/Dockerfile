@@ -10,6 +10,7 @@ ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
 
 USER root
 RUN mkdir -p /pfs /mnt/pfs && chown jovyan:users /pfs /mnt/pfs
+RUN apt-get update && apt-get -y libcurl4-openssl-dev libssl-dev
 RUN apt-get update && apt-get -y install curl fuse
 RUN echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
 COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
