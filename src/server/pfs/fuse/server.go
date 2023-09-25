@@ -627,7 +627,11 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := mm.GetDatums(pipelineReq.Input); err != nil {
+		if err := mm.sanitizeInputAndSaveAliasMap(pipelineReq.Input); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		if err := mm.GetDatums(); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -1150,9 +1154,9 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func (mm *MountManager) sanitizeInputAndCreateAliasMap(datumInput *pps.Input) (map[string]string, error) {
+func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) error {
 	if datumInput == nil {
-		return nil, errors.New("datum input is not specified")
+		return errors.New("datum input is not specified")
 	}
 
 	datumInputsToMounts := map[string]string{} // Maps input to mount name
@@ -1184,12 +1188,17 @@ func (mm *MountManager) sanitizeInputAndCreateAliasMap(datumInput *pps.Input) (m
 		}
 		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
 		datumInputsToMounts[pfsInput] = input.Pfs.Name
-
 		return nil
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	return datumInputsToMounts, nil
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.DatumInput = datumInput
+		mm.DatumInputsToMounts = datumInputsToMounts
+	}()
+	return nil
 }
 
 func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
@@ -1218,20 +1227,15 @@ func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) (
 	}
 }
 
-func (mm *MountManager) GetDatums(datumInput *pps.Input) (retErr error) {
+func (mm *MountManager) GetDatums() (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	datumInputsToMounts, err := mm.sanitizeInputAndCreateAliasMap(datumInput)
-	if err != nil {
-		return err
+	// If mm.DatumInput is a single PFS input, use GlobFile instead because
+	// it's faster than ListDatum (pagination as of now doesn't speed up RPC)
+	if mm.DatumInput.Pfs != nil {
+		return mm.GetGlobFiles()
 	}
-	func() {
-		mm.mu.Lock()
-		defer mm.mu.Unlock()
-		mm.DatumInput = datumInput
-		mm.DatumInputsToMounts = datumInputsToMounts
-	}()
 	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
 	if err != nil {
 		return err
@@ -1247,6 +1251,32 @@ func (mm *MountManager) GetDatums(datumInput *pps.Input) (retErr error) {
 		if len(datums) < NumDatumsPerPage {
 			mm.AllDatumsReceived = true
 		}
+	}()
+	return nil
+}
+
+func (mm *MountManager) GetGlobFiles() error {
+	commit := client.NewCommit(mm.DatumInput.Pfs.Project, mm.DatumInput.Pfs.Repo, mm.DatumInput.Pfs.Branch, "")
+	datums := []*pps.DatumInfo{}
+	if err := mm.Client.GlobFile(commit, mm.DatumInput.Pfs.Glob, func(fi *pfs.FileInfo) error {
+		datums = append(datums, &pps.DatumInfo{
+			Data: []*pfs.FileInfo{fi},
+			Datum: &pps.Datum{
+				Id: fi.File.Commit.Id,
+			},
+		})
+		return nil
+	}); err != nil {
+		return err
+	}
+	if len(datums) == 0 {
+		return errors.New("no datums to mount")
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.Datums = datums
+		mm.AllDatumsReceived = true
 	}()
 	return nil
 }

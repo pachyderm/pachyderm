@@ -182,6 +182,7 @@ class MountServerClient(MountInterface):
             f"{self.address}/datums/_mount",
             method="PUT",
             body=json.dumps(body),
+            request_timeout=0
         )
         return response.body
 

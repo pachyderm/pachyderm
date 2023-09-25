@@ -134,7 +134,7 @@ export const useDatum = (
 
   const callMountDatums = async () => {
     setLoading(true);
-    setErrorMessage('');
+    setErrorMessage('This could take a few minutes...');
 
     try {
       const spec = inputSpecTextToObj();
@@ -145,6 +145,7 @@ export const useDatum = (
       setCurrDatum(res);
       setShouldShowCycler(true);
       setInputSpec(inputSpecObjToText(spec));
+      setErrorMessage('');
     } catch (e) {
       console.log(e);
       if (e instanceof YAML.YAMLParseError) {
