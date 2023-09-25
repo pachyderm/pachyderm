@@ -1,6 +1,6 @@
 import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
 
-export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; k:mm';
+export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; H:mm';
 
 export const SECONDS_IN_MINUTE = 60;
 export const SECONDS_IN_HOUR = 60 * SECONDS_IN_MINUTE;
