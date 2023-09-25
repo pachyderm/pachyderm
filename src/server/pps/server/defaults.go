@@ -17,6 +17,27 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
+var builtInDefaults = &pps.ClusterDefaults{
+	CreatePipelineRequest: &pps.CreatePipelineRequest{
+		Transform: &pps.Transform{
+			Image: DefaultUserImage,
+		},
+		OutputBranch:  "master",
+		DatumTries:    DefaultDatumTries,
+		ReprocessSpec: client.ReprocessSpecUntilSuccess,
+	},
+}
+
+var builtInDefaultsJSON string
+
+func init() {
+	js, err := protojson.Marshal(builtInDefaults)
+	if err != nil {
+		panic(fmt.Sprintf("could not marshal builtInDefaults %v; this should be impossible: %v", builtInDefaults, err))
+	}
+	builtInDefaultsJSON = string(js)
+}
+
 type canonicalizer func(value any) (any, error)
 
 var canonicalizerMap sync.Map
@@ -290,13 +311,17 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 	type wrapper struct {
 		CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
 	}
+	effectiveClusterDefaults, err := jsonMergePatch(builtInDefaultsJSON, clusterDefaultsJSON, clusterDefaultsCanonicalizer)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not merge cluster defaults %s into built-in defaults %s", clusterDefaultsJSON, builtInDefaultsJSON)
+	}
 	userWrapper, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(userSpecJSON)})
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "could not marshal user spec %s", userSpecJSON)
 	}
-	wrappedSpecJSON, err := jsonMergePatch(clusterDefaultsJSON, string(userWrapper), clusterDefaultsCanonicalizer)
+	wrappedSpecJSON, err := jsonMergePatch(effectiveClusterDefaults, string(userWrapper), clusterDefaultsCanonicalizer)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into cluster defaults %s", string(userWrapper), clusterDefaultsJSON)
+		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into effective cluster defaults %s", string(userWrapper), effectiveClusterDefaults)
 	}
 	d := json.NewDecoder(strings.NewReader(wrappedSpecJSON))
 	var w map[string]any
