@@ -737,6 +737,7 @@ jobs:
         default: false
     machine:
       image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
     resource_class: xlarge
     steps:
       - go/install:
