@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"path"
 	"time"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -206,7 +206,7 @@ func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, r
 		var eg errgroup.Group
 		eg.Go(func() error {
 			return backoff.RetryUntilCancel(ctx, func() error {
-				return d.manageBranches(ctx, key)
+				return d.manageBranches(ctx, repoPair)
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				log.Error(ctx, "managing branches", zap.String("repo", key), zap.Error(err), zap.Duration("retryAfter", d))
 				return nil
@@ -227,61 +227,100 @@ func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, r
 	})
 }
 
-func (d *driver) manageBranches(ctx context.Context, repoKey string) error {
+type cronTrigger struct {
+	cancel context.CancelFunc
+	spec   string
+}
+
+func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoPair) error {
+	repoKey := repoPair.RepoInfo.Repo.Key()
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	type cronTrigger struct {
-		cancel context.CancelFunc
-		spec   string
-	}
-	cronTriggers := make(map[string]*cronTrigger)
+	cronTriggers := make(map[pfsdb.BranchID]*cronTrigger)
 	defer func() {
 		for _, ct := range cronTriggers {
 			ct.cancel()
 		}
 	}()
-	return d.branches.ReadOnly(ctx).WatchByIndexF(pfsdb.BranchesRepoIndex, repoKey, func(ev *watch.Event) error {
-		if ev.Type == watch.EventError {
-			return ev.Err
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(d.prefix, "manageBranches", repoKey),
+		fmt.Sprintf("%s%d", pfsdb.BranchesRepoChannelName, repoPair.ID))
+	if err != nil {
+		return errors.Wrap(err, "manage branches")
+	}
+	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, &pfs.Branch{
+			Repo: repoPair.RepoInfo.Repo,
+		}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
+		if err != nil {
+			return errors.Wrap(err, "manage branches")
 		}
-		key := string(ev.Key)
-		if ev.Type == watch.EventDelete {
+		return stream.ForEach[pfsdb.BranchInfoWithID](cbCtx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+			return d.manageBranch(ctx, branchInfoWithID, cronTriggers)
+		})
+	}); err != nil {
+		return err
+	}
+	for {
+		event, ok := <-watcher.Watch()
+		if !ok {
+			return errors.Errorf("watcher for branch repo %d %s closed channel", repoPair.ID, repoKey)
+		}
+		key := pfsdb.BranchID(event.Id)
+		if event.Type == postgres.EventDelete {
 			if ct, ok := cronTriggers[key]; ok {
 				ct.cancel()
 				delete(cronTriggers, key)
 			}
 			return nil
 		}
-		branchInfo, err := d.inspectBranch(ctx, pfsdb.ParseBranch(key))
-		if err != nil {
+		if event.Err != nil {
+			return event.Err
+		}
+		var branchInfo *pfs.BranchInfo
+		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+			branchInfo, err = pfsdb.GetBranchInfo(ctx, tx, key)
 			return err
+		}, dbutil.WithReadOnly()); err != nil {
+			return errors.Wrap(err, "getting commit from event")
 		}
-		// Only create a new goroutine if one doesn't already exist or the spec changed.
-		if ct, ok := cronTriggers[key]; ok {
-			if branchInfo.Trigger != nil && ct.spec == branchInfo.Trigger.CronSpec {
-				return nil
-			}
-			ct.cancel()
-			delete(cronTriggers, key)
+		branchInfoWithID := pfsdb.BranchInfoWithID{
+			ID:         key,
+			BranchInfo: branchInfo,
 		}
-		if branchInfo.Trigger == nil || branchInfo.Trigger.CronSpec == "" {
+		if err := d.manageBranch(ctx, branchInfoWithID, cronTriggers); err != nil {
+			return errors.Wrap(err, "manage branch")
+		}
+	}
+}
+
+func (d *driver) manageBranch(ctx context.Context, branchInfoWithID pfsdb.BranchInfoWithID, cronTriggers map[pfsdb.BranchID]*cronTrigger) error {
+	branchInfo := branchInfoWithID.BranchInfo
+	key := branchInfoWithID.ID
+	// Only create a new goroutine if one doesn't already exist or the spec changed.
+	if ct, ok := cronTriggers[key]; ok {
+		if branchInfo.Trigger != nil && ct.spec == branchInfo.Trigger.CronSpec {
 			return nil
 		}
-		ctx, cancel := pctx.WithCancel(ctx)
-		cronTriggers[key] = &cronTrigger{
-			cancel: cancel,
-			spec:   branchInfo.Trigger.CronSpec,
-		}
-		go func() {
-			backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
-				return d.runCronTrigger(ctx, branchInfo.Branch)
-			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
-				log.Error(ctx, "error running cron trigger", zap.String("branch", key), zap.Error(err), zap.Duration("retryAfter", d))
-				return nil
-			})
-		}()
+		ct.cancel()
+		delete(cronTriggers, key)
+	}
+	if branchInfo.Trigger == nil || branchInfo.Trigger.CronSpec == "" {
 		return nil
-	})
+	}
+	ctx, cancel := pctx.WithCancel(ctx)
+	cronTriggers[key] = &cronTrigger{
+		cancel: cancel,
+		spec:   branchInfo.Trigger.CronSpec,
+	}
+	go func() {
+		backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+			return d.runCronTrigger(ctx, branchInfo.Branch)
+		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
+			log.Error(ctx, "error running cron trigger", zap.Uint64("branch id", uint64(branchInfoWithID.ID)), zap.String("branch", branchInfo.Branch.Key()), zap.Error(err), zap.Duration("retryAfter", d))
+			return nil
+		})
+	}()
+	return nil
 }
 
 func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {

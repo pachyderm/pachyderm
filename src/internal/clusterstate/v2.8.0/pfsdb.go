@@ -4,16 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
-	"google.golang.org/protobuf/proto"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	"google.golang.org/protobuf/proto"
 
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -541,15 +542,15 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS pfs.branch_triggers (
-			from_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
+			from_branch_id bigint REFERENCES pfs.branches(id) PRIMARY KEY,
 			to_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
 			cron_spec text,
 			rate_limit_spec text,
 			size text,
 			num_commits bigint,
-			all_conditions bool,
-			PRIMARY KEY (from_branch_id, to_branch_id)
+			all_conditions bool
 		);
+		CREATE INDEX ON pfs.branch_triggers (to_branch_id);
 	`); err != nil {
 		return errors.Wrap(err, "creating branch triggers table")
 	}

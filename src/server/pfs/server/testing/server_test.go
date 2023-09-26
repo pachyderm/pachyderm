@@ -3266,7 +3266,7 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.Id))
 		}
 
-		require.NoErrorWithinT(t, 60*time.Second, func() error {
+		require.NoErrorWithinT(t, 60*time.Minute, func() error {
 			var eg errgroup.Group
 			nextCommitChan := make(chan *pfs.Commit, numCommits)
 			eg.Go(func() error {

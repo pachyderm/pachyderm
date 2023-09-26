@@ -3,6 +3,8 @@ package pfsdb
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -12,13 +14,34 @@ import (
 type sortOrder string
 
 const (
-	SortAscend  = sortOrder("ASC")
-	SortDescend = sortOrder("DESC")
+	SortOrderNone = sortOrder("")
+	SortOrderAsc  = sortOrder("ASC")
+	SortOrderDesc = sortOrder("DESC")
 )
 
 type (
-	ModelType interface{ Repo | Commit | Branch }
+	ModelType interface {
+		Repo | Commit | Branch
+		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
+	}
+	ColumnName interface{ string | branchColumn }
 )
+
+type OrderByColumn[T ColumnName] struct {
+	Column T
+	Order  sortOrder
+}
+
+func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
+	if len(orderBys) == 0 {
+		return ""
+	}
+	values := make([]string, len(orderBys))
+	for i, col := range orderBys {
+		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
+	}
+	return "ORDER BY " + strings.Join(values, ", ")
+}
 
 type pageIterator[T ModelType] struct {
 	query         string
@@ -26,14 +49,17 @@ type pageIterator[T ModelType] struct {
 	limit, offset uint64
 	page          []T
 	pageIdx       int
+	lastTimestamp time.Time
+	revision      int64
 }
 
-func newPageIterator[T ModelType](ctx context.Context, tx *pachsql.Tx, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
+func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
 	return pageIterator[T]{
-		query:  query,
-		values: values,
-		limit:  pageSize,
-		offset: startPage * pageSize,
+		query:    query,
+		values:   values,
+		revision: -1, // first revision should be 0 and we increment before returning.
+		limit:    pageSize,
+		offset:   startPage * pageSize,
 	}
 }
 
@@ -56,13 +82,18 @@ func (i *pageIterator[T]) hasNext() bool {
 	return i.pageIdx < len(i.page)
 }
 
-func (i *pageIterator[T]) next(ctx context.Context, tx *pachsql.Tx) (*T, error) {
+func (i *pageIterator[T]) next(ctx context.Context, tx *pachsql.Tx) (*T, int64, error) {
 	if !i.hasNext() {
 		if err := i.nextPage(ctx, tx); err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 	}
 	t := i.page[i.pageIdx]
+	createdAt := t.GetCreatedAtUpdatedAt().CreatedAt
+	if i.lastTimestamp.Before(createdAt) {
+		i.revision++
+		i.lastTimestamp = createdAt
+	}
 	i.pageIdx++
-	return &t, nil
+	return &t, i.revision, nil
 }

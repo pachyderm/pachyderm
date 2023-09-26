@@ -43,6 +43,10 @@ type Repo struct {
 	Branches string `db:"branches"`
 }
 
+func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return repo.CreatedAtUpdatedAt
+}
+
 func (repo *Repo) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
@@ -105,6 +109,10 @@ type Commit struct {
 	CreatedAtUpdatedAt
 }
 
+func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return commit.CreatedAtUpdatedAt
+}
+
 func (commit *Commit) Pb() *pfs.Commit {
 	return &pfs.Commit{
 		Id:   commit.CommitSetID,
@@ -121,9 +129,34 @@ type Branch struct {
 	CreatedAtUpdatedAt
 }
 
+func (branch Branch) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return branch.CreatedAtUpdatedAt
+}
+
 func (branch *Branch) Pb() *pfs.Branch {
 	return &pfs.Branch{
 		Name: branch.Name,
 		Repo: branch.Repo.Pb(),
+	}
+}
+
+type BranchTrigger struct {
+	FromBranch    Branch `db:"from_branch"`
+	ToBranch      Branch `db:"to_branch"`
+	CronSpec      string `db:"cron_spec"`
+	RateLimitSpec string `db:"rate_limit_spec"`
+	Size          string `db:"size"`
+	NumCommits    int64  `db:"num_commits"`
+	AllConditions bool   `db:"all_conditions"`
+}
+
+func (trigger *BranchTrigger) Pb() *pfs.Trigger {
+	return &pfs.Trigger{
+		Branch:        trigger.ToBranch.Name,
+		CronSpec:      trigger.CronSpec,
+		RateLimitSpec: trigger.RateLimitSpec,
+		Size:          trigger.Size,
+		Commits:       trigger.NumCommits,
+		All:           trigger.AllConditions,
 	}
 }
