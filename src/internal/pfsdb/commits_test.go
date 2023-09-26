@@ -170,7 +170,7 @@ func TestGetCommit(t *testing.T) {
 }
 
 func TestGetCommitPair(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)

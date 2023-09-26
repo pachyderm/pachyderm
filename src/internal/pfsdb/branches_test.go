@@ -2,6 +2,7 @@ package pfsdb_test
 
 import (
 	"context"
+	"github.com/pkg/errors"
 	"testing"
 	"time"
 
@@ -343,7 +344,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
-			require.ErrorContains(t, err, "sql: no rows in result set")
+			require.True(t, errors.Is(pfsdb.ErrBranchNotFound{ID: branchBID}, errors.Cause(err)))
 			// Verify that BranchA no longer has BranchB in its subvenance
 			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
 			branchAID, err := pfsdb.GetBranchID(ctx, tx, branchAInfo.Branch)
@@ -418,7 +419,7 @@ func TestBranchTrigger(t *testing.T) {
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
 			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
 			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
-			require.ErrorContains(t, err, "no rows in result set")
+			require.True(t, errors.Is(pfsdb.ErrBranchNotFound{BranchKey: "project1/repo1.user@nonexistent"}, errors.Cause(err)))
 		})
 	})
 }
