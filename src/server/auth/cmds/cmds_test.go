@@ -5,9 +5,11 @@ package cmds
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"os/exec"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -15,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -117,20 +120,38 @@ func TestLogin(t *testing.T) {
 	// Configure OIDC login
 	require.NoError(t, tu.ConfigureOIDCProvider(t, tu.AuthenticateClient(t, c, auth.RootUser), false))
 
-	cmd := tu.PachctlBashCmd(t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
-	out, err := cmd.StdoutPipe()
-	require.NoError(t, err)
-
-	c = tu.UnauthenticatedPachClient(t, c)
-	require.NoError(t, cmd.Start())
-	sc := bufio.NewScanner(out)
-	for sc.Scan() {
-		if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
-			tu.DoOAuthExchange(t, c, c, sc.Text())
-			break
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
+		ctx, done := context.WithTimeout(pctx.Background("auth.login"), 30*time.Second)
+		defer done()
+		cmd := tu.PachctlBashCmdCtx(ctx, t, c, "echo '' | pachctl auth use-auth-token && pachctl auth login --no-browser")
+		out, err := cmd.StdoutPipe()
+		if err != nil {
+			return errors.Wrap(err, "StdoutPipe")
 		}
-	}
-	require.NoError(t, cmd.Wait())
+		var buf bytes.Buffer
+		cmd.Stderr = &buf
+
+		c = tu.UnauthenticatedPachClient(t, c)
+		if err := cmd.Start(); err != nil {
+			return errors.Wrap(err, "cmd.Start")
+		}
+		sc := bufio.NewScanner(out)
+		for sc.Scan() {
+			if strings.HasPrefix(strings.TrimSpace(sc.Text()), "http://") {
+				url := sc.Text()
+				t.Logf("doing OAuth exchange against %v", url)
+				if err := tu.DoOAuthExchangeOnce(t, c, c, url); err != nil {
+					return errors.Wrap(err, "DoOAuthExchangeOnce")
+				}
+				break
+			}
+		}
+		if err := cmd.Wait(); err != nil {
+			return errors.Wrap(err, "cmd.Wait")
+		}
+		require.False(t, strings.Contains(buf.String(), "Could not inspect"), "does not inspect project when auth is enabled and no credentials are provided")
+		return nil
+	}, time.Second, "should pachctl auth login")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
@@ -224,7 +245,7 @@ func TestCheckGetSetProject(t *testing.T) {
 		pachctl auth get project {{.project}} | match projectOwner
 		pachctl auth set project {{.project}} repoReader,projectOwner pach:root
 		pachctl auth get project {{.project}} | match projectOwner | match repoReader
-	
+
 		pachctl auth get robot-auth-token {{.alice}}
 		pachctl auth check project {{.project}} {{.alice}} | match "Roles: \[\]"
 		pachctl auth set project {{.project}} projectOwner {{.alice}}

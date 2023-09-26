@@ -10,7 +10,7 @@ docker-image:
 	@docker push $(CONTAINER_TAG)
 
 
-# This target can be used during the development/update of a pipeline's code. 
+# This target can be used during the development/update of a pipeline's code.
 # Change your python's file (check the `src` dir of this example) or update your template, then run the following target.
 # Your code will be built, tagged, and your pipeline updated all at once, using Minikube's local registry.
 # Make sure that you have run `make setup` and `make deploy` first to create your mockup data and repos.
@@ -22,7 +22,7 @@ update-image:
 	docker tag $(CONTAINER_TAG) $(CONTAINER_TAG).$(IMAGE_TAG)
 	pachctl update pipeline --jsonnet pipelines/$(join-type)/$(join-type)_join.jsonnet --arg tag=$(CONTAINER_VERSION).$(IMAGE_TAG) --arg suffix=jsonnet
 
-# 1- Create mockup data  
+# 1- Create mockup data
 setup:
 	mkdir -p ./stores ./purchases ./returns
 	echo "Creating stores..."
@@ -69,10 +69,10 @@ deploy:
 	pachctl put file -r purchases@master:/ -f purchases
 	pachctl list file purchases@master
 	pachctl put file -r returns@master:/ -f returns
-	pachctl list file returns@master	
+	pachctl list file returns@master
 
 # Run `make create-pipeline-join join-type=inner` or `make create-pipeline-join join-type=outer`
 # 3- Create pipelines
 create-pipeline-join:
-	pachctl create pipeline -f pipelines/$(join-type)/$(join-type)_join.json
-	pachctl create pipeline -f pipelines/$(join-type)/reduce_$(join-type).json
+	pachctl create pipeline -f pipelines/$(join-type)/$(join-type)_join.pipeline.json
+	pachctl create pipeline -f pipelines/$(join-type)/reduce_$(join-type).pipeline.json

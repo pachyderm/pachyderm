@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -13,7 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
@@ -48,29 +46,6 @@ type Env struct {
 	PachwInSidecar    bool
 }
 
-func EnvFromServiceEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter *metrics.Reporter) Env {
-	etcdPrefix := path.Join(senv.Config().EtcdPrefix, senv.Config().PPSEtcdPrefix)
-	return Env{
-		DB:            senv.GetDBClient(),
-		TxnEnv:        txnEnv,
-		Listener:      senv.GetPostgresListener(),
-		KubeClient:    senv.GetKubeClient(),
-		EtcdClient:    senv.GetEtcdClient(),
-		EtcdPrefix:    etcdPrefix,
-		TaskService:   senv.GetTaskService(etcdPrefix),
-		GetLokiClient: senv.GetLokiClient,
-
-		PFSServer:     senv.PfsServer(),
-		AuthServer:    senv.AuthServer(),
-		GetPachClient: senv.GetPachClient,
-
-		Reporter:          reporter,
-		BackgroundContext: pctx.Child(senv.Context(), "PPS"),
-		Config:            *senv.Config(),
-		PachwInSidecar:    senv.Config().PachwInSidecars,
-	}
-}
-
 // NewAPIServer creates an APIServer and runs the master loop in the background
 func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	srv, err := NewAPIServerNoMaster(env)
@@ -84,7 +59,6 @@ func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 		log.Error(env.BackgroundContext, "Preflight checks are disabled. This is not recommended.")
 	}
 	go apiServer.master(env.BackgroundContext)
-	go apiServer.worker(env.BackgroundContext)
 	return apiServer, nil
 }
 

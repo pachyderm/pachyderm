@@ -4,9 +4,11 @@ import (
 	"bufio"
 	"context"
 	"fmt"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"io"
 	"strings"
+
+	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 
 	"google.golang.org/protobuf/proto"
 
@@ -16,7 +18,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -485,7 +486,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 		if err != nil {
 			return err
 		}
-		_, metaFS, err := d.openCommit(ctx, ppsutil.MetaCommit(outputCommit))
+		_, metaFS, err := d.openCommit(ctx, pfsutil.MetaCommit(outputCommit))
 		if err != nil {
 			return err
 		}

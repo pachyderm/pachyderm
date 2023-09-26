@@ -1,0 +1,27 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/FinishTransactionRequest",
+    "definitions": {
+        "FinishTransactionRequest": {
+            "properties": {
+                "transaction": {
+                    "$ref": "#/definitions/transaction_v2.Transaction",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Finish Transaction Request"
+        },
+        "transaction_v2.Transaction": {
+            "properties": {
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Transaction"
+        }
+    }
+}

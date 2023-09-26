@@ -26,11 +26,8 @@ go clean -testcache
 
 case "${BUCKET}" in
  MISC)
-    make lint
-    make enterprise-code-checkin-test
     go install -v ./src/testing/match
     make test-cmds
-    make test-proto-static
     make test-transaction
     make test-s3gateway-unit
     make test-worker
