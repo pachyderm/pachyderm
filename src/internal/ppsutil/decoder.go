@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -168,6 +169,8 @@ func (r *SpecReader) validateRequest(b []byte) (string, error) {
 	return string(b), nil
 }
 
+var intRegexp = regexp.MustCompile("^(0|(-?[1-9][0-9]*))$")
+
 // yamlToJSON converts a YAML node into an any value which represents a JSON
 // value.  Strings are strings; numbers are json.Number; booleans are bools;
 // nulls are nil; arrays are []any; and maps are map[string]any.
@@ -183,8 +186,8 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		case "!!str":
 			return n.Value, nil
 		case "!!int":
-			if strings.HasPrefix(n.Value, "0") && n.Value != "0" {
-				return nil, errors.Errorf("number %s has a leading zero", n.Value)
+			if !intRegexp.MatchString(n.Value) {
+				return nil, errors.Errorf("integer value %q does not match regexp %s", n.Value, intRegexp)
 			}
 			return json.Number(n.Value), nil
 		case "!!float":
