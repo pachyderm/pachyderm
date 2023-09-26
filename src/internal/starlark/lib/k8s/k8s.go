@@ -37,7 +37,11 @@ func (r *resource) MarshalJSON() ([]byte, error) {
 	if r.Unstructured == nil {
 		return nil, nil
 	}
-	return r.Unstructured.MarshalJSON()
+	js, err := r.Unstructured.MarshalJSON()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal underlying object")
+	}
+	return js, nil
 }
 func (r *resource) ToGo() any {
 	return r.Unstructured
@@ -75,10 +79,16 @@ func (r *resource) Unpack(v starlark.Value) error {
 	switch x := v.(type) {
 	case starlark.String:
 		us := unstructured.Unstructured{}
-		return us.UnmarshalJSON([]byte(x))
+		if err := us.UnmarshalJSON([]byte(x)); err != nil {
+			return errors.Wrap(err, "unmarshal")
+		}
+		return nil
 	case starlark.Bytes:
 		us := unstructured.Unstructured{}
-		return us.UnmarshalJSON([]byte(x))
+		if err := us.UnmarshalJSON([]byte(x)); err != nil {
+			return errors.Wrap(err, "unmarshal")
+		}
+		return nil
 	case *starlark.Dict:
 		obj := make(map[string]any)
 		for _, item := range x.Items() {
@@ -118,7 +128,11 @@ func (r *resourceList) MarshalJSON() ([]byte, error) {
 	if r == nil || r.UnstructuredList == nil {
 		return nil, nil
 	}
-	return r.UnstructuredList.MarshalJSON()
+	js, err := r.UnstructuredList.MarshalJSON()
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal underlying list")
+	}
+	return js, nil
 }
 func (r *resourceList) ToGo() any {
 	return r.UnstructuredList
@@ -216,7 +230,11 @@ func (e *wrappedError) Get(x starlark.Value) (starlark.Value, bool, error) {
 func (e *wrappedError) Iterate() starlark.Iterator { return &emptyIterator{} }
 func (e *wrappedError) Items() []starlark.Tuple    { return nil }
 func (e *wrappedError) MarshalJSON() ([]byte, error) {
-	return json.Marshal(map[string]string{"error": e.Error()})
+	js, err := json.Marshal(map[string]string{"error": e.Error()})
+	if err != nil {
+		return nil, errors.Wrap(err, "marshal error message")
+	}
+	return js, nil
 }
 
 type emptyIterator struct{}
