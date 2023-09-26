@@ -27,7 +27,9 @@ func RunShell(ctx context.Context, path string, opts Options) error {
 			if err != nil {
 				return nil, errors.Wrapf(err, "run %v", module)
 			}
-			globals = result
+			for k, v := range result {
+				globals[k] = v
+			}
 		}
 		for k, v := range opts.REPLPredefined {
 			globals[k] = v
