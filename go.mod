@@ -346,3 +346,6 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
+
+// until the changes in github.com/pachyderm/dex are upstreamed to github.com/dexidp/dex, we swap in our repo
+replace github.com/dexidp/dex => github.com/pachyderm/dex v0.0.0-20230426001747-706aec218aba
