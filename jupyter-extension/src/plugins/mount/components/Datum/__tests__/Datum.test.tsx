@@ -216,7 +216,9 @@ describe('datum screen', () => {
       expect(input).toHaveValue('{"pfs": "repo"}');
       submit.click();
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
+        'This could take a few minutes...',
+      );
     });
 
     it('valid yaml input spec', async () => {
@@ -241,7 +243,9 @@ describe('datum screen', () => {
       expect(input).toHaveValue(YAML.stringify({pfs: 'repo'}));
       submit.click();
 
-      expect(getByTestId('Datum__errorMessage')).toHaveTextContent('');
+      expect(getByTestId('Datum__errorMessage')).toHaveTextContent(
+        'This could take a few minutes...',
+      );
     });
   });
 });
