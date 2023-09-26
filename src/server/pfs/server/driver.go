@@ -876,6 +876,9 @@ func (d *driver) startCommit(
 	if parent == nil {
 		parent = branchInfo.Head
 	}
+	if err := d.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
+		return nil, err
+	}
 	// Point 'branch' at the new commit
 	branchInfo.Head = newCommitInfo.Commit
 	if _, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
@@ -887,9 +890,6 @@ func (d *driver) startCommit(
 	if !(ok1 && ok2) && len(branchInfo.Provenance) > 0 {
 		// Otherwise, we don't allow user code to start commits on output branches
 		return nil, pfsserver.ErrCommitOnOutputBranch{Branch: branch}
-	}
-	if err := d.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
-		return nil, err
 	}
 	// Defer propagation of the commit until the end of the transaction so we can
 	// batch downstream commits together if there are multiple changes.
@@ -928,9 +928,9 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
-			branchInfo := &pfs.BranchInfo{}
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(branch, branchInfo); err != nil {
-				return 0, errors.EnsureStack(err)
+			branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+			if err != nil {
+				return 0, errors.Wrap(err, "repo size")
 			}
 			commit := branchInfo.Head
 			for commit != nil {
@@ -971,19 +971,19 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	}
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
-	bi := &pfs.BranchInfo{}
 	for _, b := range branches {
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-			return errors.EnsureStack(err)
+		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		if err != nil {
+			return errors.Wrapf(err, "propagate branches: get branch %q", pfsdb.BranchKey(b))
 		}
-		for _, b := range bi.Subvenance {
-			if _, ok := seen[pfsdb.BranchKey(b)]; !ok {
-				bi := &pfs.BranchInfo{}
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
-					return errors.Wrapf(err, "get subvenant branch %q", pfsdb.BranchKey(b))
+		for _, subvenantB := range bi.Subvenance {
+			if _, ok := seen[pfsdb.BranchKey(subvenantB)]; !ok {
+				subvenantBi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, subvenantB.Repo.Project.Name, subvenantB.Repo.Name, subvenantB.Repo.Type, subvenantB.Name)
+				if err != nil {
+					return errors.Wrapf(err, "propagate branches: get subvenant branch %q", pfsdb.BranchKey(subvenantB))
 				}
-				seen[pfsdb.BranchKey(b)] = bi
-				propagatedBranches = append(propagatedBranches, bi)
+				seen[pfsdb.BranchKey(subvenantB)] = subvenantBi
+				propagatedBranches = append(propagatedBranches, subvenantBi)
 			}
 		}
 	}
@@ -1019,8 +1019,8 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
 				provCommit = client.NewCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
 			} else {
-				provBranchInfo := &pfs.BranchInfo{}
-				if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(pfsdb.BranchKey(b), provBranchInfo); err != nil {
+				provBranchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+				if err != nil {
 					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
 				}
 				provCommit = provBranchInfo.Head
@@ -1030,7 +1030,7 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = proto.Clone(bi.Head).(*pfs.Commit)
 		bi.Head = newCommit
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Put(bi.Branch, bi); err != nil {
+		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
 			return errors.Wrapf(err, "put branch %q with head %q", pfsdb.BranchKey(bi.Branch), pfsdb.CommitKey(bi.Head))
 		}
 		// create open 'commit'.
@@ -1635,14 +1635,14 @@ func (d *driver) computeBranchProvenance(txnCtx *txncontext.TransactionContext, 
 
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
-func (d *driver) validateDAGStructure(txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
+func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
 	cache := make(map[string]*pfs.BranchInfo)
 	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
 		if bi, ok := cache[pfsdb.BranchKey(b)]; ok {
 			return bi, nil
 		}
-		bi := &pfs.BranchInfo{}
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Get(b, bi); err != nil {
+		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		if err != nil {
 			return nil, errors.Wrapf(err, "get branch info")
 		}
 		cache[pfsdb.BranchKey(b)] = bi

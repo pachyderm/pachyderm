@@ -68,14 +68,14 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Fire the trigger.
-		var trigBI pfs.BranchInfo
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBI, func() error {
-			trigBI.Head = newHead.Commit
-			return nil
-		}); err != nil {
-			return nil, errors.EnsureStack(err)
+		trigBI, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, bi.Branch.Repo.Project.Name, bi.Branch.Repo.Name,
+			bi.Branch.Repo.Type, bi.Branch.Name)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
 		}
-		if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
+		trigBI.Head = newHead.Commit
+		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
+		if err != nil {
 			return nil, err
 		}
 		newHeads[branchKey] = newHead
