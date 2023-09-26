@@ -32,7 +32,7 @@ func DeactivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comma
 	deactivate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
-		Long:  "This command deactivates the enterprise service. Note that authentication will be disabled and all repos will be publicly accessible.",
+		Long:  "This command deactivates the enterprise service.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
@@ -184,7 +184,7 @@ func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 func SyncContextsCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
-		Long:  "This command pulls all available Pachyderm Cluster contexts into your pachctl config",
+		Long:  "This command pulls all available Pachyderm Cluster contexts into your pachctl config.",
 		Run: cmdutil.Run(func(args []string) error {
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -303,7 +303,7 @@ func UnpauseCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command 
 func PauseStatusCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	pauseStatus := &cobra.Command{
 		Short: "Get the pause status of the cluster.",
-		Long:  "This command returns the pause the cluster: normal, partially-paused or paused.",
+		Long:  "This command returns the pause state of the cluster: `normal`, `partially-paused` or `paused`.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
