@@ -5,6 +5,7 @@ import json
 import asyncio
 import os
 from pathlib import Path
+from pachyderm_sdk import Client
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
 from tornado import locks
@@ -23,6 +24,7 @@ class MountServerClient(MountInterface):
     def __init__(
         self,
         mount_dir: str,
+        pfs_client: Client
     ):
         self.client = AsyncHTTPClient()
         self.mount_dir = mount_dir
@@ -30,6 +32,7 @@ class MountServerClient(MountInterface):
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # TODO: Would be preferable to auto-detect this, but unclear how
         self.nopriv = NONPRIV_CONTAINER
+        self.pfs_client = pfs_client
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
@@ -141,9 +144,9 @@ class MountServerClient(MountInterface):
         return response.body
 
     async def list_projects(self):
-        await self._ensure_mount_server()
-        response = await self.client.fetch(f"{self.address}/projects")
-        return response.body
+        response = self.pfs_client.pfs.list_project()
+        projects = [p.to_dict() for p in response]
+        return json.dumps(projects)
         
     async def mount(self, body):
         await self._ensure_mount_server()

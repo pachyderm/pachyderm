@@ -88,7 +88,9 @@ export type ProjectAuthInfo = {
 
 export type ProjectInfo = {
   project: Project;
-  auth: ProjectAuthInfo;
+  description: string;
+  auth_info: ProjectAuthInfo;
+  created_at: string;
 };
 
 export type AuthConfig = {

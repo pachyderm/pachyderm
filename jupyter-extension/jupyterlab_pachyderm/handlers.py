@@ -9,7 +9,7 @@ from .env import PFS_MOUNT_DIR
 from .filemanager import PFSContentsManager
 from .log import get_logger
 from .pachyderm import MountInterface
-from .pfs_manager import PFSManager
+from .pfs_manager import PFSManager, DatumManager
 from .mount_server_client import MountServerClient
 from .pps_client import PPSClient
 
@@ -56,7 +56,8 @@ class MountsHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error listing mounts.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error listing mounts: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error listing mounts: {e}.",
             )
 
 
@@ -70,7 +71,8 @@ class ProjectsHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error listing projects.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error listing projects: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error listing projects: {e}.",
             )
 
 
@@ -85,7 +87,8 @@ class MountHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error mounting {body}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error mounting {body}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting {body}: {e}.",
             )
 
 
@@ -100,7 +103,8 @@ class UnmountHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error unmounting {body}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error unmounting {body}: {e}.",
+                status_code=getattr(e, "code", 500),
+                reason=f"Error unmounting {body}: {e}.",
             )
 
 
@@ -115,7 +119,8 @@ class CommitHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error committing {body}.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error committing {body}: {e}.",
+                status_code=getattr(e, "code", 500),
+                reason=f"Error committing {body}: {e}.",
             )
 
 
@@ -131,7 +136,8 @@ class UnmountAllHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error unmounting all.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error unmounting all: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error unmounting all: {e}.",
             )
 
 
@@ -144,9 +150,12 @@ class MountDatumsHandler(BaseHandler):
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
         except Exception as e:
-            get_logger().error(f"Error mounting datums with input {body}", exc_info=True)
+            get_logger().error(
+                f"Error mounting datums with input {body}", exc_info=True
+            )
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error mounting datums with input {body}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error mounting datums with input {body}: {e}.",
             )
 
 
@@ -156,7 +165,7 @@ class ShowDatumHandler(BaseHandler):
         try:
             slug = {
                 "idx": self.get_argument("idx", None),
-                "id": self.get_argument("id", None)
+                "id": self.get_argument("id", None),
             }
             response = await self.mount_client.show_datum(slug)
             get_logger().debug(f"Show datum: {response}")
@@ -164,7 +173,8 @@ class ShowDatumHandler(BaseHandler):
         except Exception as e:
             get_logger().error(f"Error showing datum {slug}", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error showing datum {slug}: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error showing datum {slug}: {e}.",
             )
 
 
@@ -178,7 +188,8 @@ class DatumsHandler(BaseHandler):
         except Exception as e:
             get_logger().error("Error getting datum info.", exc_info=True)
             raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error getting datum info: {e}."
+                status_code=getattr(e, "code", 500),
+                reason=f"Error getting datum info: {e}.",
             )
 
 
@@ -288,7 +299,6 @@ class HealthHandler(BaseHandler):
 
 
 class PPSCreateHandler(BaseHandler):
-
     @tornado.web.authenticated
     async def get(self, path):
         """Get the pipeline spec for the specified notebook."""
@@ -300,8 +310,9 @@ class PPSCreateHandler(BaseHandler):
             if isinstance(e, tornado.web.HTTPError):
                 # Common case: only way to print the "reason" field of HTTPError
                 get_logger().error(f"couldn't create pipeline: {e.reason}")
-            get_logger().error("\n".join(traceback.format_exception(
-              type(e), value=e, tb=None)))
+            get_logger().error(
+                "\n".join(traceback.format_exception(type(e), value=e, tb=None))
+            )
             raise e
 
     @tornado.web.authenticated
@@ -316,22 +327,25 @@ class PPSCreateHandler(BaseHandler):
             if isinstance(e, tornado.web.HTTPError):
                 # Common case: only way to print the "reason" field of HTTPError
                 get_logger().error(f"couldn't create pipeline: {e.reason}")
-            get_logger().error("\n".join(traceback.format_exception(
-              type(e), value=e, tb=None)))
+            get_logger().error(
+                "\n".join(traceback.format_exception(type(e), value=e, tb=None))
+            )
             raise e
+
 
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
     web_app.settings["pachyderm_pps_client"] = PPSClient()
 
+    client = Client(host="host.docker.internal", port=30650)
+    web_app.settings["pachyderm_mount_client"] = MountServerClient(
+        mount_dir=PFS_MOUNT_DIR, pfs_client=client
+    )
+
     # uncomment below to use the pachyderm sdk based file manager
-    # client = Client(
-    #     host="host.docker.internal",
-    #     port=30650
-    # )
     # web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
+    # web_app.settings["pfs_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
         ("/repos", ReposHandler),
