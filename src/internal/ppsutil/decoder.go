@@ -183,7 +183,7 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		case "!!str":
 			return n.Value, nil
 		case "!!int":
-			if strings.HasPrefix(n.Value, "0") {
+			if strings.HasPrefix(n.Value, "0") && n.Value != "0" {
 				return nil, errors.Errorf("number %s has a leading zero", n.Value)
 			}
 			return json.Number(n.Value), nil
