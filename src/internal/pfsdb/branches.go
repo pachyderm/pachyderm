@@ -2,6 +2,7 @@ package pfsdb
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
 
@@ -35,6 +36,14 @@ const (
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
 )
 
+type branchColumn string
+
+const (
+	BranchColumnID        = branchColumn("branch.id")
+	BranchColumnCreatedAt = branchColumn("branch.created_at")
+	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
+)
+
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
 // TODO this can be moved to a more generic package.
 func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
@@ -49,6 +58,76 @@ func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
 		}
 	}
 	return result
+}
+
+type BranchIterator struct {
+	paginator pageIterator[Branch]
+	tx        *pachsql.Tx
+}
+type BranchInfoWithID struct {
+	ID BranchID
+	*pfs.BranchInfo
+}
+
+type OrderByBranchColumn OrderByColumn[branchColumn]
+
+func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Branch, orderBys ...OrderByBranchColumn) (*BranchIterator, error) {
+	var conditions []string
+	var values []any
+	// Note that using ? as the bindvar is okay because we rebind it later.
+	if filter != nil {
+		if filter.Repo.Project != nil && filter.Repo.Project.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Repo.Project.Name)
+		}
+		if filter.Repo != nil && filter.Repo.Name != "" {
+			conditions = append(conditions, "repo.name = ?")
+			values = append(values, filter.Repo.Name)
+		}
+		if filter.Repo != nil && filter.Repo.Type != "" {
+			conditions = append(conditions, "repo.type = ?")
+			values = append(values, filter.Repo.Type)
+		}
+		if filter.Name != "" {
+			conditions = append(conditions, "branch.name = ?")
+			values = append(values, filter.Name)
+		}
+	}
+	query := getBranchBaseQuery
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+	}
+	// Compute ORDER BY
+	var orderByGeneric []OrderByColumn[branchColumn]
+	if len(orderBys) == 0 {
+		orderByGeneric = []OrderByColumn[branchColumn]{{Column: BranchColumnID, Order: SortOrderAsc}}
+	} else {
+		for _, orderBy := range orderBys {
+			orderByGeneric = append(orderByGeneric, OrderByColumn[branchColumn](orderBy))
+		}
+	}
+	query = tx.Rebind(query + OrderByQuery[branchColumn](orderByGeneric...))
+	return &BranchIterator{
+		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
+		tx:        tx,
+	}, nil
+}
+
+func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error {
+	if dst == nil {
+		return errors.Errorf("dst BranchInfo cannot be nil")
+	}
+	branch, err := i.paginator.next(ctx, i.tx)
+	if err != nil {
+		return err
+	}
+	branchInfo, err := fetchBranchInfoByBranch(ctx, i.tx, branch)
+	if err != nil {
+		return err
+	}
+	dst.ID = branch.ID
+	dst.BranchInfo = branchInfo
+	return nil
 }
 
 // GetBranchInfo returns a *pfs.BranchInfo by id.
@@ -70,7 +149,7 @@ func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, rep
 }
 
 // GetBranchID returns the id of a branch given a set strings that uniquely identify a branch.
-func GetBranchID(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (BranchID, error) {
+func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (BranchID, error) {
 	var id BranchID
 	if err := tx.GetContext(ctx, &id, `
 		SELECT branch.id
@@ -78,8 +157,13 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, b
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 			JOIN core.projects project ON repo.project_id = project.id
 		WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4
-	`, project, repo, repoType, branch); err != nil {
-		return 0, errors.Wrapf(err, "could not get id for branch %v", branch)
+	`,
+		branch.Repo.Project.Name,
+		branch.Repo.Name,
+		branch.Repo.Type,
+		branch.Name,
+	); err != nil {
+		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
 	return id, nil
 }
@@ -131,7 +215,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	toAdd := SliceDiff[string, *pfs.Branch](newDirectProv, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
 	toAddIDs := make([]BranchID, len(toAdd))
 	for i, branch := range toAdd {
-		toAddIDs[i], err = GetBranchID(ctx, tx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+		toAddIDs[i], err = GetBranchID(ctx, tx, branch)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
 		}
@@ -143,7 +227,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	toRemove := SliceDiff[string, *pfs.Branch](oldDirectProv, newDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
 	toRemoveIDs := make([]BranchID, len(toRemove))
 	for i, branch := range toRemove {
-		toRemoveIDs[i], err = GetBranchID(ctx, tx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+		toRemoveIDs[i], err = GetBranchID(ctx, tx, branch)
 		if err != nil {
 			return 0, errors.Wrap(err, "could not get to_id")
 		}
@@ -151,7 +235,31 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if err := DeleteDirectBranchProvenanceBatch(ctx, tx, branchID, toRemoveIDs); err != nil {
 		return 0, errors.Wrap(err, "could not delete branch provenance")
 	}
+	// Create or update this branch's trigger.
+	if branchInfo.Trigger != nil {
+		toBranchID, err := GetBranchID(ctx, tx, &pfs.Branch{Repo: branchInfo.Branch.Repo, Name: branchInfo.Trigger.Branch})
+		if err != nil {
+			return 0, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
+		}
+		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
+			return 0, errors.Wrap(err, "could not create branch trigger")
+		}
+	}
 	return branchID, nil
+}
+
+// DeleteBranch deletes a branch.
+func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch provenance for branch %d", id)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch trigger for branch %d", id)
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {
+		return errors.Wrapf(err, "could not delete branch %d", id)
+	}
+	return nil
 }
 
 // GetDirectBranchProvenance returns the direct provenance of a branch, i.e. all branches that it directly depends on.
@@ -294,7 +402,70 @@ func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from
 	return errors.Wrap(err, "could not delete branch provenance")
 }
 
+func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.Trigger, error) {
+	trigger := BranchTrigger{}
+	if err := tx.GetContext(ctx, &trigger, `
+		SELECT
+			branch.name as "to_branch.name",
+			cron_spec,
+			rate_limit_spec,
+			size, num_commits,
+			all_conditions
+		FROM pfs.branch_triggers trigger
+			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
+		WHERE trigger.from_branch_id = $1
+	`, from); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			// Branches don't need to have triggers
+			return nil, nil
+		}
+		return nil, errors.Wrap(err, "could not get branch trigger")
+	}
+	return trigger.Pb(), nil
+}
+
+func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to BranchID, trigger *pfs.Trigger) error {
+	if trigger == nil {
+		return nil
+	}
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO pfs.branch_triggers(from_branch_id, to_branch_id, cron_spec, rate_limit_spec, size, num_commits, all_conditions)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		ON CONFLICT (from_branch_id) DO UPDATE SET
+			to_branch_id = EXCLUDED.to_branch_id,
+			cron_spec = EXCLUDED.cron_spec,
+			rate_limit_spec = EXCLUDED.rate_limit_spec,
+			size = EXCLUDED.size,
+			num_commits = EXCLUDED.num_commits,
+			all_conditions = EXCLUDED.all_conditions;
+	`,
+		from,
+		to,
+		trigger.CronSpec,
+		trigger.RateLimitSpec,
+		trigger.Size,
+		trigger.Commits,
+		trigger.All,
+	); err != nil {
+		return errors.Wrap(err, "could not create branch trigger")
+	}
+	return nil
+}
+
+func DeleteBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) error {
+	if _, err := tx.ExecContext(ctx, `
+		DELETE FROM pfs.branch_triggers
+		WHERE from_branch_id = $1
+	`, from); err != nil {
+		return errors.Wrapf(err, "could not delete branch trigger for branch %d", from)
+	}
+	return nil
+}
+
 func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+	if branch == nil {
+		return nil, errors.Errorf("branch cannot be nil")
+	}
 	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, branch.ID)
@@ -308,6 +479,11 @@ func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch
 	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, tx, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch subvenance")
+	}
+	// trigger info
+	branchInfo.Trigger, err = GetBranchTrigger(ctx, tx, branch.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get branch trigger")
 	}
 	return branchInfo, nil
 }

@@ -105,6 +105,7 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.internallyListen,
 		pachwb.resumeHealth,
 		pachwb.startPFSWorker,
+		pachwb.startPPSWorker,
 		pachwb.startDebugWorker,
 		pachwb.daemon.serve,
 	)

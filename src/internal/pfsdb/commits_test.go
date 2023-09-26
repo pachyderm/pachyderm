@@ -22,7 +22,7 @@ import (
 )
 
 func TestCreateCommitWithParent(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -39,7 +39,7 @@ func TestCreateCommitWithParent(t *testing.T) {
 }
 
 func TestCreateCommitWithMissingParent(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -59,7 +59,7 @@ func TestCreateCommitWithMissingParent(t *testing.T) {
 }
 
 func TestCreateCommitWithMissingChild(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
@@ -79,7 +79,7 @@ func TestCreateCommitWithMissingChild(t *testing.T) {
 }
 
 func TestCreateCommitWithRelatives(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -105,7 +105,7 @@ func TestCreateCommitWithRelatives(t *testing.T) {
 }
 
 func TestCreateCommit(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
@@ -143,7 +143,7 @@ func TestCreateCommit(t *testing.T) {
 }
 
 func TestGetCommit(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
@@ -170,7 +170,7 @@ func TestGetCommit(t *testing.T) {
 }
 
 func TestDeleteCommitWithNoRelatives(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
@@ -192,7 +192,7 @@ func TestDeleteCommitWithNoRelatives(t *testing.T) {
 }
 
 func TestDeleteCommitWithParent(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// setup parent and commit
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -224,7 +224,7 @@ func TestDeleteCommitWithParent(t *testing.T) {
 }
 
 func TestDeleteCommitWithChildren(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// setup parent and commit
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
@@ -267,7 +267,7 @@ func TestDeleteCommitWithChildren(t *testing.T) {
 }
 
 func TestDeleteCommitWithRelatives(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -326,7 +326,7 @@ func TestDeleteCommitWithRelatives(t *testing.T) {
 }
 
 func TestUpdateCommitWithParent(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -352,7 +352,7 @@ func TestUpdateCommitWithParent(t *testing.T) {
 }
 
 func TestUpdateCommitRemoveParent(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -373,7 +373,7 @@ func TestUpdateCommitRemoveParent(t *testing.T) {
 }
 
 func TestUpdateCommitWithChildren(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			childInfo := testCommit(ctx, t, tx, testRepoName)
 			_, err := pfsdb.CreateCommit(ctx, tx, childInfo)
@@ -397,7 +397,7 @@ func TestUpdateCommitWithChildren(t *testing.T) {
 }
 
 func TestUpdateCommitRemoveChild(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			childInfo := testCommit(ctx, t, tx, testRepoName)
@@ -418,7 +418,7 @@ func TestUpdateCommitRemoveChild(t *testing.T) {
 }
 
 func TestUpsertCommit(t *testing.T) {
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			_, err := pfsdb.UpsertCommit(ctx, tx, commitInfo)
@@ -452,7 +452,7 @@ func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.C
 func TestListCommit(t *testing.T) {
 	size := 3
 	expectedInfos := make([]*pfs.CommitInfo, size)
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var prevCommit *pfs.CommitInfo
 			for i := 0; i < size; i++ {
@@ -483,7 +483,7 @@ func TestListCommit(t *testing.T) {
 func TestListCommitRev(t *testing.T) {
 	size := 210
 	expectedInfos := make([]*pfs.CommitInfo, size)
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var prevCommit *pfs.CommitInfo
 			for i := size - 1; i >= 0; i-- {
@@ -523,7 +523,7 @@ func TestListCommitsFilter(t *testing.T) {
 		pfsdb.CommitBranches: []string{"master"},
 		pfsdb.CommitProjects: []string{"default"},
 	}
-	testCommitDataModelAPI(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			for i := 0; i < size; i++ {
 				commitInfo := testCommit(ctx, t, tx, repos[i%len(repos)])
@@ -548,7 +548,8 @@ func TestListCommitsFilter(t *testing.T) {
 
 type commitTestCase func(context.Context, *testing.T, *pachsql.DB)
 
-func testCommitDataModelAPI(t *testing.T, testCase commitTestCase) {
+func withDB(t *testing.T, testCase commitTestCase) {
+	t.Helper()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
