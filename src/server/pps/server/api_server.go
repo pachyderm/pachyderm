@@ -2543,8 +2543,8 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
-	if request.Spout == nil {
-		c := &pfs.Commit{Branch: outputBranch, Repo: outputBranch.Repo}
+	if request.Spout != nil {
+		c := &pfs.Commit{Repo: outputBranch.Repo, Id: txnCtx.CommitSetID}
 		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{Commit: c, Description: "close spout commit"}); err != nil {
 			return errors.Wrapf(err, "could not finish the spout's commit %q", outputBranch.String())
 		}
