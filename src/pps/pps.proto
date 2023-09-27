@@ -693,7 +693,7 @@ message SchedulingSpec {
 }
 
 message RerunPipelineRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
   // Reprocess forces the pipeline to reprocess all datums.
   bool reprocess = 15;
 }

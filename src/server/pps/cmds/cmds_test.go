@@ -1430,7 +1430,7 @@ func TestRerunPipeline(t *testing.T) {
 		"pipeline", pipelineName,
 	).Run())
 
-	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, true)
+	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
 
