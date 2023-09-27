@@ -23,6 +23,10 @@ func main() {
 }
 
 func run(ctx context.Context) error {
+	err := exec.Command("clear").Run()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
 	testNamesK8s, err := testNames("-tags=k8s")
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -60,8 +64,8 @@ func testNames(addtlCmdArgs ...string) ([]string, error) {
 	var testNames = []string{}
 	for _, test := range testsK8s {
 		if !strings.HasPrefix(test, "Benchmark") &&
-			!strings.HasPrefix(test, "?") &&
-			!strings.HasPrefix(test, "ok") {
+			!strings.HasPrefix(test, "? ") &&
+			!strings.HasPrefix(test, "ok ") {
 			testNames = append(testNames, test)
 		}
 	}
