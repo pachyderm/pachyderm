@@ -103,10 +103,12 @@ func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 }
 
 func (commit *Commit) Pb() *pfs.Commit {
-	return &pfs.Commit{
-		Id:   commit.CommitSetID,
-		Repo: commit.Repo.Pb(),
+	pb := ParseCommit(commit.CommitID)
+	pb.Branch = &pfs.Branch{
+		Repo: pb.Repo,
+		Name: commit.BranchName.String,
 	}
+	return pb
 }
 
 // Branch is a row in the pfs.branches table.

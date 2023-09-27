@@ -250,17 +250,19 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	for _, b := range repoInfo.Branches {
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(b, branchInfo, func() error {
-			if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
-				if ci.ParentCommit == nil {
-					headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
-				} else {
-					branchInfo.Head = ci.ParentCommit
-				}
+		branchInfo, err = pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		if err != nil {
+			return errors.Wrapf(err, "delete commit: getting branch %s", b)
+		}
+		if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
+			if ci.ParentCommit == nil {
+				headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
+			} else {
+				branchInfo.Head = ci.ParentCommit
 			}
-			return nil
-		}); err != nil {
-			return err
+		}
+		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+			return errors.Wrapf(err, "delete commit: updating branch %s", branchInfo.Branch)
 		}
 	}
 	if len(headlessBranches) > 0 {
@@ -269,11 +271,9 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 			return err
 		}
 		for _, bi := range headlessBranches {
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
-				bi.Head = repoCommit
-				return nil
-			}); err != nil {
-				return errors.Wrapf(err, "error updating branch %s", bi.Branch)
+			bi.Head = repoCommit
+			if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
+				return errors.Wrapf(err, "delete commit: updating branch %s", bi.Branch)
 			}
 		}
 	}

@@ -2,13 +2,13 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"time"
 
 	units "github.com/docker/go-units"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -20,9 +20,14 @@ import (
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(commitInfo.Commit.Repo), branchInfo, col.DefaultOptions(), func(_ string) error {
-		branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{
+		Repo: commitInfo.Commit.Repo,
+	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
+	if err != nil {
+		return errors.Wrap(err, "trigger commit")
+	}
+	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+		branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
 		return nil
 	}); err != nil {
 		return err
