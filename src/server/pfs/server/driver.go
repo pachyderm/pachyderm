@@ -1049,9 +1049,6 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 		// Set 'newCommit's ParentCommit, 'branch.Head's ChildCommits and 'branch.Head'
 		newCommitInfo.ParentCommit = proto.Clone(bi.Head).(*pfs.Commit)
 		bi.Head = newCommit
-		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
-			return errors.Wrapf(err, "put branch %q with head %q", pfsdb.BranchKey(bi.Branch), pfsdb.CommitKey(bi.Head))
-		}
 		// create open 'commit'.
 		commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
 		if err != nil {
@@ -1067,6 +1064,10 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			if err := pfsdb.AddCommitProvenance(txnCtx.SqlTx, newCommit, c); err != nil {
 				return errors.Wrapf(err, "add commit provenance from %q to %q", pfsdb.CommitKey(newCommit), pfsdb.CommitKey(c))
 			}
+		}
+		// update branch head.
+		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
+			return errors.Wrapf(err, "put branch %q with head %q", pfsdb.BranchKey(bi.Branch), pfsdb.CommitKey(bi.Head))
 		}
 	}
 	txnCtx.PropagateJobs()
@@ -1641,10 +1642,11 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 			branch.Repo.Project = &pfs.Project{Name: "default"}
 		}
 		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, p.Repo.Project.Name, p.Repo.Name, p.Repo.Type, p.Name)
-		if err != nil {
+		if err != nil && !errors.Is(pfsdb.ErrBranchNotFound{BranchKey: p.Key()}, errors.Cause(err)) {
 			return errors.Wrap(err, "fill new branches")
 		}
-		if branchInfo.Branch == nil {
+		if branchInfo == nil {
+			branchInfo = &pfs.BranchInfo{}
 			branchInfo.Branch = p
 			var head *pfs.Commit
 			var ok bool
