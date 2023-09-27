@@ -1598,6 +1598,36 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
 	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
 
+	rerunPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline>",
+		Short: "Rerun a pipeline.",
+		Long:  "This command is used to rerun an existing pipeline.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --reprocess\n" +
+			"\t- {{alias}} foo --project bar\n",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+
+			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
+				_, err := txClient.PpsAPIClient.RerunPipeline(
+					txClient.Ctx(),
+					&pps.RerunPipelineRequest{
+						Pipeline:  pachdclient.NewPipeline(project, args[0]),
+						Reprocess: reprocess,
+					},
+				)
+				return grpcutil.ScrubGRPC(err)
+			})
+		}),
+	}
+	rerunPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	rerunPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing project")
+	commands = append(commands, cmdutil.CreateAlias(rerunPipeline, "rerun pipeline"))
+
 	var cluster bool
 	inspectDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
