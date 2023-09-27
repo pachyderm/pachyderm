@@ -69,6 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
+    parallelism: 4
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -88,6 +89,9 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |- 
+            tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            echo "Running tests: "
+            echo "${tests}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --raw-command \
@@ -98,7 +102,7 @@ jobs:
             --debug \
             -- \
             go test ./... -json \
-            -tags=unit_test \
+            -run "$tests" \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
@@ -183,11 +187,11 @@ jobs:
       bucket:
         type: string
     resource_class: xlarge
+    parallelism: 8
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
       GOPROXY: https://proxy.golang.org
-      BUCKET: << parameters.bucket >>
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
@@ -262,7 +266,23 @@ jobs:
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
-          command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
+          command: |- 
+            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            echo "Running tests: "
+            echo "${tests}"
+            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            gotestsum \
+            --raw-command \
+            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
+            --rerun-fails \
+            --rerun-fails-max-failures=100 \
+            --debug \
+            -- \
+            go test ./... -json \
+            -run "$tests" \
+            -count=1 \
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
           command: etc/testing/circle/upload_stats.sh
           when: always
@@ -500,7 +520,7 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  deploy-tests:
+  deploy-tests: # DNJ TOD - run only arm64 now that integration test runs these
     parameters:
       num_executors:
         type: integer
@@ -1559,16 +1579,7 @@ workflows:
       - govulncheck
       - static-checks
       - test-envoy
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
-                - CONNECTORS
+      - integration-tests
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
@@ -1784,14 +1795,6 @@ workflows:
       - static-checks:
           filters: *only-release-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
@@ -2009,14 +2012,6 @@ workflows:
       - static-checks:
           filters: *only-nightly-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-nightly-tags
       - helm-build:
           filters: *only-nightly-tags
