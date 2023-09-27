@@ -467,7 +467,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	return stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
 		if err := pfsdb.DeleteBranchTrigger(ctx, txnCtx.SqlTx, branchInfoWithID.ID); err != nil {
 			return errors.Wrap(err, "delete repo info")
 		}
@@ -475,7 +475,9 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 			return errors.Wrap(err, "delete repo info")
 		}
 		return nil
-	})
+	}); err != nil {
+		return errors.Wrap(err, "delete repo info")
+	}
 	// Similarly with commits
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
 		return errors.EnsureStack(err)
