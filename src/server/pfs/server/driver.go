@@ -2088,7 +2088,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 			return errors.Wrapf(err, "get branch %q", branch.Key())
 		}
 	}
-	if branchInfo.Branch != nil {
+	if branchInfo != nil && branchInfo.Branch != nil {
 		if !force {
 			if len(branchInfo.Subvenance) > 0 {
 				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
