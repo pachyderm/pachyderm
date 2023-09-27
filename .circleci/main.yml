@@ -84,8 +84,7 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - run: collect tests 
-          command: go run src/testing/cmds/test-splitting/main.go
+      - run: go run src/testing/cmds/test-splitting/main.go          
       - run:
           no_output_timeout: 20m
           command: |- 
@@ -227,8 +226,7 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
-      - run: collect tests 
-          command: go run src/testing/cmds/test-splitting/main.go
+      - run: go run src/testing/cmds/test-splitting/main.go
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
