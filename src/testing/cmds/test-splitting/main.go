@@ -76,7 +76,7 @@ func outputToFile(fileName string, testNames []string) error {
 	defer f.Close()
 	w := bufio.NewWriter(f)
 	for _, test := range testNames {
-		_, err := w.WriteString(test + " ")
+		_, err := w.WriteString(test + "\n")
 		if err != nil {
 			return err
 		}

@@ -84,14 +84,14 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - run: go run src/testing/cmds/test-splitting/main.go          
+      - run: go run src/testing/cmds/test-splitting/main.go
       - run:
           no_output_timeout: 20m
-          command: |- 
+          command: |-
             tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
             echo "Running tests: "
             echo "${tests}"
-            ls /tmp/tests-to-run
+            echo "${tests[@]}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --raw-command \
@@ -262,11 +262,11 @@ jobs:
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
-          command: |- 
+          command: |-
             tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
             echo "Running tests: "
             echo "${tests}"
-            cat /tmp/tests-to-run
+            echo "${tests[@]}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
             --raw-command \
