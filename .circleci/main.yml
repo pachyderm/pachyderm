@@ -88,7 +88,8 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )[@]
+            tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
@@ -262,7 +263,8 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )[@]
+            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
