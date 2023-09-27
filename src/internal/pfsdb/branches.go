@@ -30,7 +30,9 @@ const (
 			repo.type as "repo.type",
 			project.id as "repo.project.id",
 			project.name as "repo.project.name",
+			commit.commit_id as "head.commit_id",
 			commit.commit_set_id as "head.commit_set_id",
+			headBranch.name as "head.branch_name",
 			repo.name as "head.repo.name",
 			repo.type as "head.repo.type",
 			project.name as "head.repo.project.name"
@@ -38,6 +40,7 @@ const (
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 			JOIN core.projects project ON repo.project_id = project.id
 			JOIN pfs.commits commit ON branch.head = commit.int_id
+			LEFT JOIN pfs.branches headBranch on commit.branch_id = headBranch.id
 	`
 	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
@@ -180,9 +183,10 @@ func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, rep
 				},
 				Name: branch,
 			}
-			return nil, ErrBranchNotFound{
+			err := ErrBranchNotFound{
 				BranchKey: errBranch.Key(),
 			}
+			return nil, err
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
