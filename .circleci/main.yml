@@ -182,9 +182,6 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    parameters:
-      bucket:
-        type: string
     resource_class: xlarge
     parallelism: 8
     machine:
