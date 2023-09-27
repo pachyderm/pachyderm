@@ -237,7 +237,7 @@ func TestUpdateClusterDefaults(t *testing.T) {
 		echo '{"create_pipeline_request": {"autoscaling": false}}' | pachctl create defaults --cluster -f - || exit 1
 		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"autoscaling":false}}'
 		echo '{"create_pipeline_request": {"datum_tries": "4"}}' | pachctl update defaults --cluster -f - || exit 1
-		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"datum_tries": "4"}}'
+		pachctl inspect defaults --cluster | match '{"create_pipeline_request":{"datum_tries":"4"}}'
 		pachctl delete defaults --cluster
 		pachctl inspect defaults --cluster | match '{}'
 	`,
