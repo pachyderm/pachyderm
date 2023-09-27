@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -668,22 +667,45 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	}
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
-	// If mounting just a subset of files in a repo, mount just those files
-	if len(ro.Subpaths) != 0 {
-		for _, path := range ro.Subpaths {
-			if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), path, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-				!pfsserver.IsOutputCommitNotFinishedErr(err) {
-				return err
-			}
-		}
-	} else {
-		filePath := pathpkg.Join(parts[1:]...)
-		if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+	subpaths := subpathsToMount(ro.Subpaths, filepath.Join(parts[1:]...))
+	log.Info(pctx.TODO(), "subpathsToMount", zap.Any("ro.Subpaths", ro.Subpaths), zap.String("filePath", filepath.Join(parts[1:]...)), zap.String("subpaths", fmt.Sprintf("%v", subpaths)))
+	for _, subpath := range subpaths {
+		log.Info(pctx.TODO(), "Calling ListFile", zap.String("path", subpath))
+		if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), subpath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 			!pfsserver.IsOutputCommitNotFinishedErr(err) {
 			return err
 		}
 	}
 	return nil
+}
+
+// If we're only mounting a subset of the repo, we need to determine what needs to be mounted
+// given that the user is trying to access the filesystem at filePath
+func subpathsToMount(subpaths []string, filePath string) []string {
+	filePath = filepath.Join("/", filePath)
+	// Whole repo is being mounted so no need to filter
+	if len(subpaths) == 0 {
+		return []string{filePath}
+	}
+	var paths []string
+	for _, path := range subpaths {
+		if path == "" || path == "/" {
+			// One of the subpaths is full repo so no need to filter
+			return []string{filePath}
+		}
+		if strings.HasPrefix(filePath, path) { 
+			// filePath is a descendant of path
+			paths = append(paths, filePath)
+		} else if strings.HasPrefix(path, filePath) { 
+			// filePath is an ancestor of path
+			// Mount the portion of path that is an immediate child of filePath
+			childPath := strings.TrimPrefix(path, filePath)
+			childPath = strings.TrimPrefix(childPath, "/")
+			childPathParts := strings.Split(childPath, "/")
+			paths = append(paths, filepath.Join(filePath, childPathParts[0]))
+		}
+	}
+	return paths
 }
 
 func (n *loopbackNode) trimPath(path string) string {
