@@ -31,12 +31,12 @@ type Iterator interface {
 
 // NewIterator creates a new datum iterator.
 // TODO: Maybe add a renewer parameter to keep file set alive?
-func NewIterator(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (Iterator, error) {
-	fileSetID, err := Create(pachClient, taskDoer, input)
+func NewIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) (Iterator, error) {
+	fileSetID, err := Create(ctx, c, taskDoer, input)
 	if err != nil {
 		return nil, err
 	}
-	return NewFileSetIterator(pachClient, fileSetID, nil), nil
+	return NewFileSetIterator(ctx, c, fileSetID, nil), nil
 }
 
 // Hasher is the standard interface for a datum hasher.
@@ -70,22 +70,24 @@ func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
 }
 
 type commitIterator struct {
-	pachClient *client.APIClient
-	commit     *pfs.Commit
-	pathRange  *pfs.PathRange
+	ctx       context.Context
+	c         pfs.APIClient
+	commit    *pfs.Commit
+	pathRange *pfs.PathRange
 }
 
 // NewCommitIterator creates an iterator for the specified commit and repo.
-func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange) Iterator {
+func NewCommitIterator(ctx context.Context, c pfs.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange) Iterator {
 	return &commitIterator{
-		pachClient: pachClient,
-		commit:     commit,
-		pathRange:  pathRange,
+		ctx:       ctx,
+		c:         c,
+		commit:    commit,
+		pathRange: pathRange,
 	}
 }
 
 func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
-	return iterateMeta(ci.pachClient.Ctx(), ci.pachClient.PfsAPIClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
+	return iterateMeta(ci.ctx, ci.c, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
 		return cb(meta)
 	})
 }
@@ -150,21 +152,23 @@ func migrateMetaInputsV2_6_0(meta *Meta) {
 }
 
 // NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
-	return NewCommitIterator(pachClient, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
+func NewFileSetIterator(ctx context.Context, c pfs.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
+	return NewCommitIterator(ctx, c, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
 }
 
 type fileSetMultiIterator struct {
-	pachClient *client.APIClient
-	commit     *pfs.Commit
-	pathRange  *pfs.PathRange
+	ctx       context.Context
+	pfs       pfs.APIClient
+	commit    *pfs.Commit
+	pathRange *pfs.PathRange
 }
 
-func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
+func newFileSetMultiIterator(ctx context.Context, c pfs.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
-		pachClient: pachClient,
-		commit:     client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
-		pathRange:  pathRange,
+		ctx:       ctx,
+		pfs:       c,
+		commit:    client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
+		pathRange: pathRange,
 	}
 }
 
@@ -173,9 +177,9 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		File:      mi.commit.NewFile("/*"),
 		PathRange: mi.pathRange,
 	}
-	ctx, cancel := pctx.WithCancel(mi.pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(mi.ctx)
 	defer cancel()
-	client, err := mi.pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := mi.pfs.GetFileTAR(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

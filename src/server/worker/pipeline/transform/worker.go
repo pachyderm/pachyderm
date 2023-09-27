@@ -43,7 +43,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 			switch {
 			case datum.IsTask(input):
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return datum.ProcessTask(pachClient, input)
+				return datum.ProcessTask(ctx, pachClient.PfsAPIClient, input)
 			case input.MessageIs(&CreateParallelDatumsTask{}):
 				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
@@ -82,13 +82,13 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*anypb.Any, error) {
 	var dits []datum.Iterator
 	if task.BaseFileSetId != "" {
-		dits = append(dits, datum.NewFileSetIterator(pachClient, task.BaseFileSetId, task.PathRange))
+		dits = append(dits, datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.BaseFileSetId, task.PathRange))
 	}
-	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+	dit := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits = append(dits, dit)
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient.Ctx(), pachClient.PfsAPIClient, "pachyderm-create-parallel-datums", func(outputSet *datum.Set) error {
 		return datum.Merge(dits, func(metas []*datum.Meta) error {
 			// Datum exists in both jobs.
 			if len(metas) > 1 {
@@ -116,15 +116,15 @@ func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateP
 }
 
 func processCreateSerialDatumsTask(pachClient *client.APIClient, task *CreateSerialDatumsTask) (*anypb.Any, error) {
-	dit := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+	dit := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
 	dit = datum.NewJobIterator(dit, task.Job, &hasher{salt: task.Salt})
 	dits := []datum.Iterator{
-		datum.NewCommitIterator(pachClient, task.BaseMetaCommit, task.PathRange),
+		datum.NewCommitIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.BaseMetaCommit, task.PathRange),
 		dit,
 	}
 	var metaDeleteFileSetID, outputDeleteFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	outputFileSetID, err := datum.WithCreateFileSet(pachClient, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
+	outputFileSetID, err := datum.WithCreateFileSet(pachClient.Ctx(), pachClient.PfsAPIClient, "pachyderm-create-serial-datums", func(outputSet *datum.Set) error {
 		var err error
 		outputDeleteFileSetID, metaDeleteFileSetID, err = withDeleter(pachClient, task.BaseMetaCommit, func(deleter datum.Deleter) error {
 			return datum.Merge(dits, func(metas []*datum.Meta) error {
@@ -272,7 +272,7 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 		resp, err := cacheClient.WithCreateFileSetClient(func(mfMeta client.ModifyFile) error {
 			// Setup file operation client for output PFS commit.
 			resp, err := cacheClient.WithCreateFileSetClient(func(mfPFS client.ModifyFile) error {
-				di := datum.NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+				di := datum.NewFileSetIterator(pachClient.Ctx(), pachClient.PfsAPIClient, task.FileSetId, task.PathRange)
 				opts := []datum.SetOption{
 					datum.WithMetaOutput(mfMeta),
 					datum.WithPFSOutput(mfPFS),

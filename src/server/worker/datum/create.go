@@ -16,40 +16,40 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func Create(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
-	pachClient = pachClient.WithCtx(pachClient.Ctx())
-	authToken, _ := auth.GetAuthToken(pachClient.Ctx())
-	pachClient.SetAuthToken(authToken)
+func Create(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) (string, error) {
 	switch {
 	case input.Pfs != nil:
-		return createPFS(pachClient, taskDoer, input.Pfs)
+		return createPFS(ctx, c, taskDoer, input.Pfs)
 	case input.Union != nil:
-		return createUnion(pachClient, taskDoer, input.Union)
+		return createUnion(ctx, c, taskDoer, input.Union)
 	case input.Cross != nil:
-		return createCross(pachClient, taskDoer, input.Cross)
+		return createCross(ctx, c, taskDoer, input.Cross)
 	case input.Join != nil:
-		return createJoin(pachClient, taskDoer, input.Join)
+		return createJoin(ctx, c, taskDoer, input.Join)
 	case input.Group != nil:
-		return createGroup(pachClient, taskDoer, input.Group)
+		return createGroup(ctx, c, taskDoer, input.Group)
 	case input.Cron != nil:
-		return createCron(pachClient, taskDoer, input.Cron)
+		return createCron(ctx, c, taskDoer, input.Cron)
 	default:
 		return "", errors.Errorf("unrecognized input type: %v", input)
 	}
 }
 
-func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSInput) (string, error) {
+func createPFS(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.PFSInput) (string, error) {
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return "", err
+	}
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		fileSetID, err := pachClient.GetFileSet(input.Project, input.Repo, input.Branch, input.Commit)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetID, err := client.GetFileSet(ctx, c, input.Project, input.Repo, input.Branch, input.Commit)
 		if err != nil {
 			return err
 		}
 		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
-		shards, err := pachClient.ShardFileSet(fileSetID)
+		shards, err := client.ShardFileSet(ctx, c, fileSetID)
 		if err != nil {
 			return err
 		}
@@ -59,7 +59,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 				Input:     input,
 				PathRange: shard,
 				BaseIndex: createBaseIndex(int64(i)),
-				AuthToken: pachClient.AuthToken(),
+				AuthToken: authToken,
 			})
 			if err != nil {
 				return err
@@ -83,7 +83,7 @@ func createPFS(pachClient *client.APIClient, taskDoer task.Doer, input *pps.PFSI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(ctx, c, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -95,15 +95,19 @@ func createBaseIndex(index int64) int64 {
 	return index * int64(math.Pow(float64(10), float64(16)))
 }
 
-func ComposeFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetIDs []string) (string, error) {
+func ComposeFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetIDs []string) (string, error) {
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return "", err
+	}
 	input, err := serializeComposeTask(&ComposeTask{
 		FileSetIds: fileSetIDs,
-		AuthToken:  pachClient.AuthToken(),
+		AuthToken:  authToken,
 	})
 	if err != nil {
 		return "", err
 	}
-	output, err := task.DoOne(pachClient.Ctx(), taskDoer, input)
+	output, err := task.DoOne(ctx, taskDoer, input)
 	if err != nil {
 		return "", err
 	}
@@ -114,15 +118,14 @@ func ComposeFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetID
 	return result.FileSetId, nil
 }
 
-func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
+func createUnion(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, fileSetIDs)
+		outputFileSetID, err = ComposeFileSets(ctx, c, taskDoer, fileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -130,15 +133,14 @@ func createUnion(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	return outputFileSetID, nil
 }
 
-func createInputs(pachClient *client.APIClient, taskDoer task.Doer, renewer *renew.StringSet, inputs []*pps.Input) ([]string, error) {
-	eg, ctx := errgroup.WithContext(pachClient.Ctx())
-	pachClient = pachClient.WithCtx(ctx)
+func createInputs(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, renewer *renew.StringSet, inputs []*pps.Input) ([]string, error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	outputFileSetIDs := make([]string, len(inputs))
 	for i, input := range inputs {
 		i := i
 		input := input
 		eg.Go(func() error {
-			outputFileSetID, err := Create(pachClient, taskDoer, input)
+			outputFileSetID, err := Create(ctx, c, taskDoer, input)
 			if err != nil {
 				return err
 			}
@@ -155,18 +157,21 @@ func createInputs(pachClient *client.APIClient, taskDoer task.Doer, renewer *ren
 	return outputFileSetIDs, nil
 }
 
-func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
+func createCross(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
 			return err
 		}
 		var baseFileSetIndex int
 		var baseFileSetShards []*pfs.PathRange
 		for i, fileSetID := range fileSetIDs {
-			shards, err := pachClient.ShardFileSet(fileSetID)
+			shards, err := client.ShardFileSet(ctx, c, fileSetID)
 			if err != nil {
 				return err
 			}
@@ -182,7 +187,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 				BaseFileSetIndex:     int64(baseFileSetIndex),
 				BaseFileSetPathRange: shard,
 				BaseIndex:            createBaseIndex(int64(i)),
-				AuthToken:            pachClient.AuthToken(),
+				AuthToken:            authToken,
 			})
 			if err != nil {
 				return err
@@ -206,7 +211,7 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(ctx, c, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -214,19 +219,18 @@ func createCross(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	return outputFileSetID, nil
 }
 
-func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
+func createJoin(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
 			return err
 		}
-		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_JOIN)
+		keyFileSetIDs, err := createKeyFileSets(ctx, c, taskDoer, renewer, fileSetIDs, KeyTask_JOIN)
 		if err != nil {
 			return err
 		}
-		outputFileSetID, err = mergeKeyFileSets(pachClient, taskDoer, keyFileSetIDs, MergeTask_JOIN)
+		outputFileSetID, err = mergeKeyFileSets(ctx, c, taskDoer, keyFileSetIDs, MergeTask_JOIN)
 		return err
 	}); err != nil {
 		return "", err
@@ -234,15 +238,14 @@ func createJoin(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.
 	return outputFileSetID, nil
 }
 
-func createKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, renewer *renew.StringSet, fileSetIDs []string, keyType KeyTask_Type) ([]string, error) {
-	eg, ctx := errgroup.WithContext(pachClient.Ctx())
-	pachClient = pachClient.WithCtx(ctx)
+func createKeyFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, renewer *renew.StringSet, fileSetIDs []string, keyType KeyTask_Type) ([]string, error) {
+	eg, ctx := errgroup.WithContext(ctx)
 	outputFileSetIDs := make([]string, len(fileSetIDs))
 	for i, fileSetID := range fileSetIDs {
 		i := i
 		fileSetID := fileSetID
 		eg.Go(func() error {
-			outputFileSetID, err := createKeyFileSet(pachClient, taskDoer, fileSetID, keyType)
+			outputFileSetID, err := createKeyFileSet(ctx, c, taskDoer, fileSetID, keyType)
 			if err != nil {
 				return err
 			}
@@ -259,11 +262,14 @@ func createKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, renewer
 	return outputFileSetIDs, nil
 }
 
-func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetID string, keyType KeyTask_Type) (string, error) {
+func createKeyFileSet(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetID string, keyType KeyTask_Type) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		shards, err := pachClient.ShardFileSet(fileSetID)
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		shards, err := client.ShardFileSet(ctx, c, fileSetID)
 		if err != nil {
 			return err
 		}
@@ -273,7 +279,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 				FileSetId: fileSetID,
 				PathRange: shard,
 				Type:      keyType,
-				AuthToken: pachClient.AuthToken(),
+				AuthToken: authToken,
 			})
 			if err != nil {
 				return err
@@ -297,7 +303,7 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(ctx, c, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -305,11 +311,14 @@ func createKeyFileSet(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 	return outputFileSetID, nil
 }
 
-func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetIDs []string, mergeType MergeTask_Type) (string, error) {
+func mergeKeyFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetIDs []string, mergeType MergeTask_Type) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		shards, err := common.Shard(pachClient, fileSetIDs)
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		return "", err
+	}
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		shards, err := common.Shard(ctx, c, fileSetIDs)
 		if err != nil {
 			return err
 		}
@@ -319,7 +328,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 				FileSetIds: fileSetIDs,
 				PathRange:  shard,
 				Type:       mergeType,
-				AuthToken:  pachClient.AuthToken(),
+				AuthToken:  authToken,
 			})
 			if err != nil {
 				return err
@@ -343,7 +352,7 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 		}); err != nil {
 			return err
 		}
-		outputFileSetID, err = ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+		outputFileSetID, err = ComposeFileSets(ctx, c, taskDoer, resultFileSetIDs)
 		return err
 	}); err != nil {
 		return "", err
@@ -351,19 +360,18 @@ func mergeKeyFileSets(pachClient *client.APIClient, taskDoer task.Doer, fileSetI
 	return outputFileSetID, nil
 }
 
-func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
+func createGroup(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
-	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		pachClient := pachClient.WithCtx(ctx)
-		fileSetIDs, err := createInputs(pachClient, taskDoer, renewer, inputs)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
 			return err
 		}
-		keyFileSetIDs, err := createKeyFileSets(pachClient, taskDoer, renewer, fileSetIDs, KeyTask_GROUP)
+		keyFileSetIDs, err := createKeyFileSets(ctx, c, taskDoer, renewer, fileSetIDs, KeyTask_GROUP)
 		if err != nil {
 			return err
 		}
-		outputFileSetID, err = mergeKeyFileSets(pachClient, taskDoer, keyFileSetIDs, MergeTask_GROUP)
+		outputFileSetID, err = mergeKeyFileSets(ctx, c, taskDoer, keyFileSetIDs, MergeTask_GROUP)
 		return err
 	}); err != nil {
 		return "", err
@@ -371,8 +379,8 @@ func createGroup(pachClient *client.APIClient, taskDoer task.Doer, inputs []*pps
 	return outputFileSetID, nil
 }
 
-func createCron(pachClient *client.APIClient, taskDoer task.Doer, input *pps.CronInput) (string, error) {
-	return createPFS(pachClient, taskDoer, &pps.PFSInput{
+func createCron(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.CronInput) (string, error) {
+	return createPFS(ctx, c, taskDoer, &pps.PFSInput{
 		Name:    input.Name,
 		Project: input.Project,
 		Repo:    input.Repo,

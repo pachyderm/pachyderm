@@ -5,18 +5,18 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
 type WorkerEnv struct {
-	TaskService   task.Service
-	GetPachClient func(context.Context) *client.APIClient
+	TaskService task.Service
+	PFS         pfs.APIClient
 }
 
 type Worker struct {
@@ -34,8 +34,7 @@ func (w *Worker) Run(ctx context.Context) error {
 			defer log.Span(ctx, "pps task", log.Proto("input", input))(log.Errorp(&retErr))
 			switch {
 			case datum.IsTask(input):
-				pachClient := w.env.GetPachClient(ctx)
-				return datum.ProcessTask(pachClient, input)
+				return datum.ProcessTask(ctx, w.env.PFS, input)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in pps worker", input.TypeUrl)
 			}
