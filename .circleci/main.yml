@@ -230,10 +230,6 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
-      - run: 
-          name: collect test names
-          background: false # DNJ TODO - need to make sure we wait for this
-          command: go run src/testing/cmds/test-splitting/main.go
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -250,6 +246,10 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
+      - run: 
+          name: collect test names
+          background: false # DNJ TODO - need to make sure we wait for this
+          command: go run src/testing/cmds/test-splitting/main.go
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:

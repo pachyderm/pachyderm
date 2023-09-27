@@ -23,10 +23,6 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	err := exec.Command("clear").Run()
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
 	testNamesK8s, err := testNames("-tags=k8s")
 	if err != nil {
 		return errors.EnsureStack(err)
