@@ -479,8 +479,16 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 		return errors.Wrap(err, "delete repo info")
 	}
 	// Similarly with commits
+<<<<<<< Updated upstream
 	if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
 		return errors.EnsureStack(err)
+=======
+	// todo(fahad): write delete
+	for _, commitInfo := range commitInfos {
+		if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, commitInfo.Commit); err != nil {
+			return errors.Wrap(err, "delete repo info")
+		}
+>>>>>>> Stashed changes
 	}
 	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Project.Name, ri.Repo.Name, ri.Repo.Type); err != nil && !pfsdb.IsErrRepoNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
