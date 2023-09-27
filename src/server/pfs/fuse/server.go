@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +49,8 @@ type ServerOptions struct {
 	Unmount chan struct{}
 	// True if allow-other option is to be specified
 	AllowOther bool
+	// Socket directory for Unix Domain Socket
+	SockPath string
 }
 
 type ConfigRequest struct {
@@ -943,10 +946,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// TODO: switch http server for gRPC server and bind to a unix socket not a
-	// TCP port (just for convenient manual testing with curl for now...)
-	// TODO: make port and bind ip parameterizable
-	srv := &http.Server{Addr: ":9002", Handler: router}
+	// Using unix domain socket
+	var sockPath string
+	var srv *http.Server
+	if len(sopts.SockPath) > 0 {
+		sockPath = sopts.SockPath
+		srv = &http.Server{Handler: router}
+	} else {
+		srv = &http.Server{Addr: ":9002", Handler: router}
+	}
+
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
@@ -954,6 +963,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
+			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
 		if mm.Client != nil {
@@ -963,7 +973,19 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	return errors.EnsureStack(srv.ListenAndServe())
+	var socket net.Listener
+	var err1 error
+	var err2 error
+	var err error
+	if len(sopts.SockPath) > 0 {
+		socket, err1 = net.Listen("unix", sockPath)
+		err2 = srv.Serve(socket)
+		err = errors.Join(err1, err2)
+	} else {
+		err = srv.ListenAndServe()
+	}
+
+	return errors.EnsureStack(err)
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
