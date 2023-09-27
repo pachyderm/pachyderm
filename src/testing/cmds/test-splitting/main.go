@@ -22,8 +22,7 @@ func main() {
 	}
 }
 
-func run(ctx context.Context) error { //`go test -v ./src/... -list ".*" -tags="k8s"`)
-	_, _ = exec.Command("go", "test", "-v", "./", "-list=.").CombinedOutput() // sadly needed so we don't get dependencies downloaded in std out on subsequent calls
+func run(ctx context.Context) error {
 	testNamesK8s, err := testNames("-tags=k8s")
 	if err != nil {
 		return errors.EnsureStack(err)
@@ -51,7 +50,7 @@ func run(ctx context.Context) error { //`go test -v ./src/... -list ".*" -tags="
 }
 
 func testNames(addtlCmdArgs ...string) ([]string, error) {
-	findTestArgs := append([]string{"test", "-v", "./src/...", "-list=."}, addtlCmdArgs...)
+	findTestArgs := append([]string{"test", "./src/...", "-list=."}, addtlCmdArgs...)
 	testsOutput, err := exec.Command("go", findTestArgs...).CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrapf(err, string(testsOutput))
