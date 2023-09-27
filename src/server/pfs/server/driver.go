@@ -2012,6 +2012,11 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 		commitInfo.Finishing = txnCtx.Timestamp
 		commitInfo.Finished = txnCtx.Timestamp
 		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
+	if err := d.addCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */); err != nil {
+		return nil, err
+	}
+	if closed {
 		total, err := d.storage.Filesets.ComposeTx(txnCtx.SqlTx, nil, defaultTTL)
 		if err != nil {
 			return nil, err
@@ -2019,9 +2024,6 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 		if err := d.commitStore.SetTotalFileSetTx(txnCtx.SqlTx, commit, *total); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
-	}
-	if err := d.addCommit(ctx, txnCtx, commitInfo, parent, directProvenance, false /* needsFinishedParent */); err != nil {
-		return nil, err
 	}
 	return commit, nil
 }

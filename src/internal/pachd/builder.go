@@ -3,6 +3,7 @@ package pachd
 import (
 	"context"
 	"math"
+	"path"
 	"runtime/debug"
 
 	"github.com/dustin/go-humanize"
@@ -442,6 +443,21 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 		ctx := pctx.Child(ctx, "pfs-master")
 		if err := m.Run(ctx); err != nil {
 			log.Error(ctx, "from pfs-master", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startPPSWorker(ctx context.Context) error {
+	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
+	w := pps_server.NewWorker(pps_server.WorkerEnv{
+		TaskService:   b.env.GetTaskService(etcdPrefix),
+		GetPachClient: b.env.GetPachClient,
+	})
+	go func() {
+		ctx := pctx.Child(ctx, "pps-worker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
 		}
 	}()
 	return nil
