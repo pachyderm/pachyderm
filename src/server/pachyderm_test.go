@@ -9677,12 +9677,10 @@ func TestCreatePipelineError(t *testing.T) {
 	// Create pipeline w/ no transform--make sure we get a response (& make sure
 	// it explains the problem)
 	pipeline := tu.UniqueString("no-transform-")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipelineV2(
 		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: nil,
-			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
