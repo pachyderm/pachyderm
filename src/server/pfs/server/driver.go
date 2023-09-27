@@ -1994,8 +1994,10 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 	// Input repos want a closed head commit, so decide if we leave
 	// it open by the presence of branch provenance.
 	closed := true
-	if len(directProvenance) > 0 {
-		closed = false
+	for _, prov := range directProvenance {
+		if prov.Repo.Type != pfs.SpecRepoType {
+			closed = false
+			break
 	}
 	commit := branch.NewCommit(txnCtx.CommitSetID)
 	commit.Repo = branch.Repo
