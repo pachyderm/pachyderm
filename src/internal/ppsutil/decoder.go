@@ -245,3 +245,31 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		return nil, errors.Errorf("unknown kind %d", int(n.Kind))
 	}
 }
+
+// ReadYAMLAsJSON reads r as either YAML (or JSON, which is a subset of YAML),
+// and returns JSON.
+func ReadYAMLAsJSON(r io.Reader) (string, error) {
+	var holder yaml.Node
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return "", errors.Wrap(err, "could not read all")
+	}
+	if err := yaml.Unmarshal(b, &holder); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal YAML")
+	}
+	if holder.Kind != yaml.DocumentNode {
+		return "", errors.Errorf("unexpected YAML kind %v", holder.Kind)
+	}
+	content := holder.Content
+	if len(content) != 1 {
+		return "", errors.Errorf("expected a single YAML document; got %d", len(content))
+	}
+	js, err := yamlToJSON(content[0])
+	if err != nil {
+		return "", errors.Wrap(err, "could not convert YAML to JSON")
+	}
+	if b, err = json.Marshal(js); err != nil {
+		return "", errors.Wrap(err, "could not marshal JSON")
+	}
+	return string(b), nil
+}
