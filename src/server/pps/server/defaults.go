@@ -385,7 +385,7 @@ func validateSpec(req *pps.CreatePipelineRequest) error {
 			v1.ServiceTypeNodePort:     true,
 		}
 
-		if !validServiceTypes[v1.ServiceType(req.Service.Type)] {
+		if req.Service.Type != "" && !validServiceTypes[v1.ServiceType(req.Service.Type)] {
 			return errors.Errorf("the following service type %s is not allowed", req.Service.Type)
 		}
 	}
