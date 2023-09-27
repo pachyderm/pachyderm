@@ -83,8 +83,10 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
+      - run: collect tests 
+          command: go run src/testing/cmds/test-splitting/main.go
       - run:
-          no_output_timeout: 20m # DNJ TODO  - calculate test names with circle split
+          no_output_timeout: 20m
           command: |- 
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             gotestsum \
@@ -221,6 +223,8 @@ jobs:
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
+      - run: collect tests 
+          command: go run src/testing/cmds/test-splitting/main.go
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
