@@ -434,10 +434,7 @@ func GetCommitParent(ctx context.Context, tx *pachsql.Tx, childCommit CommitID) 
 	if err != nil {
 		return nil, errors.Wrap(err, "getting parent commit row")
 	}
-	parentCommitInfo, err := parseCommitInfoFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "get parent commit from row")
-	}
+	parentCommitInfo := parseCommitInfoFromRow(row)
 	return parentCommitInfo.Commit, nil
 }
 
@@ -457,10 +454,7 @@ func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitI
 		if err := rows.StructScan(row); err != nil {
 			return nil, errors.Wrap(err, "scanning commit row for child")
 		}
-		childCommitInfo, err := parseCommitInfoFromRow(row)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting child commit from row")
-		}
+		childCommitInfo := parseCommitInfoFromRow(row)
 		children = append(children, childCommitInfo.Commit)
 	}
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
@@ -573,10 +567,8 @@ func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 }
 
 func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit) (*pfs.CommitInfo, error) {
-	commitInfo, err := parseCommitInfoFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "get commit from row")
-	}
+	var err error
+	commitInfo := parseCommitInfoFromRow(row)
 	commitInfo.ParentCommit, commitInfo.ChildCommits, err = getCommitRelatives(ctx, tx, row.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
@@ -661,13 +653,9 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 	return row, nil
 }
 
-func parseCommitInfoFromRow(row *Commit) (*pfs.CommitInfo, error) {
-	commit, err := parseCommitFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting commit from row")
-	}
+func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 	commitInfo := &pfs.CommitInfo{
-		Commit:      commit,
+		Commit:      row.Pb(),
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(row.Origin)])},
 		Started:     pbutil.TimeToTimestamppb(row.StartTime),
 		Finishing:   pbutil.TimeToTimestamppb(row.FinishingTime),
@@ -679,30 +667,7 @@ func parseCommitInfoFromRow(row *Commit) (*pfs.CommitInfo, error) {
 			SizeBytes:      row.Size,
 		},
 	}
-	return commitInfo, nil
-}
-
-func parseCommitFromRow(row *Commit) (*pfs.Commit, error) {
-	repo := &pfs.Repo{
-		Name: row.Repo.Name,
-		Type: row.Repo.Type,
-		Project: &pfs.Project{
-			Name: row.Repo.Project.Name,
-		},
-	}
-	parsedId := strings.Split(row.CommitID, "@")
-	if len(parsedId) != 2 {
-		return nil, errors.New(fmt.Sprintf("got invalid commit id from postgres: %s", row.CommitID))
-	}
-	commit := &pfs.Commit{
-		Repo: repo,
-		Id:   parsedId[1],
-		Branch: &pfs.Branch{
-			Repo: repo,
-			Name: row.BranchName.String,
-		},
-	}
-	return commit, nil
+	return commitInfo
 }
 
 // CommitWithID is an (id, commitInfo) tuple returned by the commit iterator.
