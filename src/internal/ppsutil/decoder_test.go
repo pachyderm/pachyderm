@@ -32,8 +32,8 @@ func TestSpecReader(t *testing.T) {
 			expected: []string{`{"pipeline": {"name": "test"}}`},
 		},
 		"valid spec is valid": {
-			input:    `{"pipeline": {"name": "test"}, "datumTries": 1, "resourceRequests":{"disk":"256Mi", "cpu": .5}, "autoscaling":true}`,
-			expected: []string{`{"pipeline": {"name": "test"},"resourceRequests":{"disk":"256Mi", "cpu": 0.5},"datumTries": 1, "autoscaling":true}`},
+			input:    `{"pipeline": {"name": "test"}, "datumTries": 0, "resourceRequests":{"disk":"256Mi", "cpu": .5}, "autoscaling":true}`,
+			expected: []string{`{"pipeline": {"name": "test"},"resourceRequests":{"disk":"256Mi", "cpu": 0.5},"datumTries": 0, "autoscaling":true}`},
 		},
 		"invalid spec is invalid": {
 			input:     `{"not_aField": 2}`,
