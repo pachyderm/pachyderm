@@ -76,6 +76,10 @@ jobs:
       - checkout
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run: 
+          name: collect test names
+          background: true # DNJ TODO - need to make sure we wait for this
+          command: go run src/testing/cmds/test-splitting/main.go
       - run: mkdir ${TEST_RESULTS}
       - restore_cache:
           keys:
@@ -84,10 +88,11 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - run: go run src/testing/cmds/test-splitting/main.go
       - run:
           no_output_timeout: 20m
           command: |-
+            echo "Tests found: "
+            cat tests_unit.txt 
             tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
@@ -264,6 +269,8 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
+            echo "Tests found: "
+            cat tests_k8s.txt 
             tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
