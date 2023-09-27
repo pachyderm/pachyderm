@@ -1991,15 +1991,11 @@ func (d *driver) deleteAll(ctx context.Context) error {
 
 // only transform source repos and spouts get a closed commit
 func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, directProvenance []*pfs.Branch, parent *pfs.Commit) (*pfs.Commit, error) {
-	// Input repos and spouts want a closed head commit, so decide if we leave
-	// it open by the presence of branch provenance.  If it's only provenant on
-	// a spec repo, we assume it's a spout and close the commit.
+	// Input repos want a closed head commit, so decide if we leave
+	// it open by the presence of branch provenance.
 	closed := true
-	for _, prov := range directProvenance {
-		if prov.Repo.Type != pfs.SpecRepoType {
-			closed = false
-			break
-		}
+	if len(directProvenance) > 0 {
+		closed = false
 	}
 	commit := branch.NewCommit(txnCtx.CommitSetID)
 	commit.Repo = branch.Repo
