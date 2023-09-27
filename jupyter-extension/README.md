@@ -11,6 +11,9 @@ for the frontend extension.
 
 # Requirements
 
+- SSL (a dependency of pycurl)
+  - On Ubuntu 22.04, this can be satisfied by running `sudo apt-get install libssl-dev libcurl4-openssl-dev`
+
 - JupyterLab >= 3.0
 
 - Python >=3.7,<4
