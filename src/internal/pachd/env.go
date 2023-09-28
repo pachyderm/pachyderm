@@ -109,12 +109,11 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
 
-		AuthServer:           env.AuthServer(),
+		Auth:                 env.AuthServer(),
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
-		PachwInSidecar:    env.Config().PachwInSidecars,
 	}, nil
 }
 
