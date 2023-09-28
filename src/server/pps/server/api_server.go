@@ -2211,12 +2211,15 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 }
 
 func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
-	clusterDefaultsResponse, err := a.GetClusterDefaultsInTransaction(ctx, txnCtx, &pps.GetClusterDefaultsRequest{})
-	if err != nil {
-		return "", status.Error(codes.Internal, "could not get cluster defaults")
+	var clusterDefaults ppsdb.ClusterDefaultsWrapper
+	if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Get("", &clusterDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return "", status.Error(codes.Internal, "could not get cluster defaults")
+		}
+		clusterDefaults.Json = "{}"
 	}
 
-	defaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
+	defaultsJSON := clusterDefaults.Json
 	if defaultsJSON == "" {
 		defaultsJSON = "{}"
 	}
@@ -3738,9 +3741,9 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 	}, nil
 }
 
-func (a *apiServer) GetClusterDefaultsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
+func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults ppsdb.ClusterDefaultsWrapper
-	if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Get("", &clusterDefaults); err != nil {
+	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
