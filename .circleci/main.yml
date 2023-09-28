@@ -316,7 +316,7 @@ jobs:
             --debug \
             -- \
             go test ./... -json \
-            -run="^TestPipelineJobHasAuthToken$|^TestPipelineState$" \
+            -run "^${tests// /$|^}$" \
             -tags=k8s \
             -parallel=1 \
             -count=1 \
