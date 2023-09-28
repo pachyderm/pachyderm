@@ -62,6 +62,12 @@ protoc \
     --grpc-gateway_opt generate_unbound_methods=true \
     --openapiv2_out v2/src/openapi \
 		--openapiv2_opt logtostderr=true \
+		--openapiv2_opt generate_unbound_methods=true \
+		--openapiv2_opt merge_file_name=pachyderm_api \
+		--openapiv2_opt disable_service_tags=true \
+		--openapiv2_opt preserve_rpc_order=true \
+		--openapiv2_opt allow_merge=true \
+		--openapiv2_opt merge_file_name=pachyderm_api \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr

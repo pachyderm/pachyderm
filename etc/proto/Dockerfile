@@ -47,7 +47,7 @@ COPY protoc-gen-zap ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/proto
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
 RUN go build -mod=readonly -o "${GOPATH}/bin/protoc-gen-zap"
 
-ADD run.sh /
+COPY run.sh /run.sh
 
 # Copy over the proto modification patch.
 COPY proto.patch /proto.patch
