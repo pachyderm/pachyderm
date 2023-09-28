@@ -273,11 +273,30 @@ jobs:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
       - run:
+          name: Install prom # Make Launch stats
+          command: kubectl apply --filename etc/kubernetes-prometheus -R
+      - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 20m
           command: |-
+            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
+            export PROM_PORT
+
+            VM_IP="$(minikube ip)"
+            export VM_IP
+
+            ENTERPRISE_PORT="31650"
+            export ENTEPRRISE_PORT
+            minikube status
+            kubectl version
+
+            # any tests that build images will do it directly in minikube's docker registry
+            eval "$(minikube docker-env)"
+
+            go clean -testcache
+
             echo "Tests found: "
             cat tests_k8s.txt 
             tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
@@ -290,7 +309,8 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --rerun-fails \
-            --rerun-fails-max-failures=100 \
+            --rerun-fails-max-failures=25 \
+            --format testname \
             --debug \
             -- \
             go test ./... -json \
