@@ -7,11 +7,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
+	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -36,10 +38,7 @@ func Create(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps
 }
 
 func createPFS(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.PFSInput) (string, error) {
-	authToken, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return "", err
-	}
+	authToken := getAuthToken(ctx)
 	var outputFileSetID string
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		fileSetID, err := client.GetFileSet(ctx, c, input.Project, input.Repo, input.Branch, input.Commit)
@@ -96,13 +95,9 @@ func createBaseIndex(index int64) int64 {
 }
 
 func ComposeFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetIDs []string) (string, error) {
-	authToken, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return "", err
-	}
 	input, err := serializeComposeTask(&ComposeTask{
 		FileSetIds: fileSetIDs,
-		AuthToken:  authToken,
+		AuthToken:  getAuthToken(ctx),
 	})
 	if err != nil {
 		return "", err
@@ -159,10 +154,6 @@ func createInputs(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, rene
 
 func createCross(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, inputs []*pps.Input) (string, error) {
 	var outputFileSetID string
-	authToken, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return "", err
-	}
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
@@ -187,7 +178,7 @@ func createCross(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input
 				BaseFileSetIndex:     int64(baseFileSetIndex),
 				BaseFileSetPathRange: shard,
 				BaseIndex:            createBaseIndex(int64(i)),
-				AuthToken:            authToken,
+				AuthToken:            getAuthToken(ctx),
 			})
 			if err != nil {
 				return err
@@ -264,10 +255,6 @@ func createKeyFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer,
 
 func createKeyFileSet(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetID string, keyType KeyTask_Type) (string, error) {
 	var outputFileSetID string
-	authToken, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return "", err
-	}
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		shards, err := client.ShardFileSet(ctx, c, fileSetID)
 		if err != nil {
@@ -279,7 +266,7 @@ func createKeyFileSet(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, 
 				FileSetId: fileSetID,
 				PathRange: shard,
 				Type:      keyType,
-				AuthToken: authToken,
+				AuthToken: getAuthToken(ctx),
 			})
 			if err != nil {
 				return err
@@ -313,10 +300,6 @@ func createKeyFileSet(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, 
 
 func mergeKeyFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, fileSetIDs []string, mergeType MergeTask_Type) (string, error) {
 	var outputFileSetID string
-	authToken, err := auth.GetAuthToken(ctx)
-	if err != nil {
-		return "", err
-	}
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		shards, err := common.Shard(ctx, c, fileSetIDs)
 		if err != nil {
@@ -328,7 +311,7 @@ func mergeKeyFileSets(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, 
 				FileSetIds: fileSetIDs,
 				PathRange:  shard,
 				Type:       mergeType,
-				AuthToken:  authToken,
+				AuthToken:  getAuthToken(ctx),
 			})
 			if err != nil {
 				return err
@@ -448,4 +431,12 @@ func deserializeComposeTaskResult(taskAny *anypb.Any) (*ComposeTaskResult, error
 		return nil, errors.EnsureStack(err)
 	}
 	return task, nil
+}
+
+func getAuthToken(ctx context.Context) string {
+	authToken, err := auth.GetAuthToken(ctx)
+	if err != nil {
+		log.Error(ctx, "no auth token", zap.Error(err))
+	}
+	return authToken
 }
