@@ -298,9 +298,6 @@ type resourceClient struct {
 var _ starlark.Value = (*resourceClient)(nil)
 var _ starlark.HasAttrs = (*resourceClient)(nil)
 
-func (c *resourceClient) shorten(r metav1.APIResource) string {
-	return strings.TrimPrefix(r.Name, c.resource.Name+"/")
-}
 func (c *resourceClient) verbs() []string {
 	var verbs []string
 	for _, v := range c.resource.Verbs {
