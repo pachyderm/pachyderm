@@ -78,6 +78,7 @@ type commitIterator struct {
 
 // NewCommitIterator creates an iterator for the specified commit and repo.
 func NewCommitIterator(ctx context.Context, c pfs.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange) Iterator {
+	ctx = pctx.Child(ctx, "commitIterator")
 	return &commitIterator{
 		ctx:       ctx,
 		c:         c,
