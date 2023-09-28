@@ -7,18 +7,21 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
 	"github.com/zeebo/xxh3"
 	"go.starlark.net/starlark"
 	"go.starlark.net/starlarkstruct"
 	"go.starlark.net/syntax"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/utils/pointer"
 )
 
 // resource is a starlark.Value wrapper around unstructured.Unstructured.  It is used over
@@ -28,7 +31,7 @@ type resource struct {
 }
 
 var _ json.Marshaler = (*resource)(nil)
-var _ ourstar.ToGoer = (*resourceList)(nil)
+var _ ourstar.ToGoer = (*resource)(nil)
 var _ starlark.Value = (*resource)(nil)
 var _ starlark.Mapping = (*resource)(nil)
 var _ starlark.Unpacker = (*resource)(nil)
@@ -230,7 +233,7 @@ func (e *wrappedError) Get(x starlark.Value) (starlark.Value, bool, error) {
 func (e *wrappedError) Iterate() starlark.Iterator { return &emptyIterator{} }
 func (e *wrappedError) Items() []starlark.Tuple    { return nil }
 func (e *wrappedError) MarshalJSON() ([]byte, error) {
-	js, err := json.Marshal(map[string]string{"error": e.Error()})
+	js, err := json.Marshal(map[string]string{"error": fmt.Sprintf("%+v", e.err)})
 	if err != nil {
 		return nil, errors.Wrap(err, "marshal error message")
 	}
@@ -284,14 +287,12 @@ func (s *selector) Unpack(v starlark.Value) error {
 	return errors.Errorf("invalid selector %#v", v)
 }
 
-// resourceClient is a k8s client for a particular resource (or subresource) available to Starlark.
-// Each client has attributes like client.get(name), client.list(), and .<subresource>.
+// resourceClient is a k8s client for a particular resource.  Each client has attributes like
+// client.get(name) and client.list().
 type resourceClient struct {
-	resource    metav1.APIResource
-	subresource string
-	extra       []metav1.APIResource
-	namespace   string
-	client      dynamic.Interface
+	resource  metav1.APIResource
+	namespace string
+	client    dynamic.Interface
 }
 
 var _ starlark.Value = (*resourceClient)(nil)
@@ -313,21 +314,9 @@ func (c *resourceClient) verbs() []string {
 func (c *resourceClient) String() string {
 	b := new(strings.Builder)
 	b.WriteRune('<')
-	if c.subresource == "" {
-		fmt.Fprintf(b, "%v_client", c.resource.Name)
-	} else {
-		fmt.Fprintf(b, "%v.%v_client", c.resource.Name, c.subresource)
-	}
+	fmt.Fprintf(b, "%v_client", c.resource.Name)
 	if c.resource.Namespaced {
 		fmt.Fprintf(b, " namespace=%q", c.namespace)
-	}
-	if len(c.extra) > 0 {
-		var extras []string
-		for _, e := range c.extra {
-			extras = append(extras, c.shorten(e))
-		}
-		sort.Strings(extras)
-		fmt.Fprintf(b, " subresources=%v", extras)
 	}
 	if len(c.resource.Verbs) > 0 {
 		fmt.Fprintf(b, " verbs=%v", c.verbs())
@@ -343,24 +332,10 @@ func (c *resourceClient) Hash() (uint32, error) {
 }
 
 func (c *resourceClient) AttrNames() []string {
-	result := c.verbs()
-	for _, e := range c.extra {
-		result = append(result, c.shorten(e))
-	}
-	return result
+	return c.verbs()
 }
 
 func (c *resourceClient) Attr(attr string) (starlark.Value, error) {
-	for _, e := range c.extra {
-		if c.shorten(e) == attr {
-			return &resourceClient{
-				client:      c.client,
-				namespace:   c.namespace,
-				subresource: c.shorten(e),
-				resource:    c.resource,
-			}, nil
-		}
-	}
 	if attr == "get" && c.can("get") {
 		return c.makeGet(), nil
 	}
@@ -399,11 +374,7 @@ func (c *resourceClient) makeGet() *starlark.Builtin {
 			return nil, errors.Wrap(err, "unpack args")
 		}
 		ctx := ourstar.GetContext(t)
-		var sr []string
-		if c.subresource != "" {
-			sr = append(sr, c.subresource)
-		}
-		got, err := c.getClient().Get(ctx, name, metav1.GetOptions{ResourceVersion: resourceVersion}, sr...)
+		got, err := c.getClient().Get(ctx, name, metav1.GetOptions{ResourceVersion: resourceVersion})
 		if err != nil {
 			return &wrappedError{err: err}, nil
 		}
@@ -430,6 +401,8 @@ func (c *resourceClient) makeList() *starlark.Builtin {
 }
 
 func NewClientset(namespace string, sc kubernetes.Interface, dc dynamic.Interface) (*starlarkstruct.Module, error) {
+	// Discovery annoyingly doesn't take a context, so we cross our fingers that this doesn't
+	// run forever.
 	_, rls, err := sc.Discovery().ServerGroupsAndResources()
 	if err != nil {
 		return nil, errors.Wrap(err, "discover server resources")
@@ -437,12 +410,33 @@ func NewClientset(namespace string, sc kubernetes.Interface, dc dynamic.Interfac
 	result := &starlarkstruct.Module{
 		Name: "k8s",
 		Members: starlark.StringDict{
-			"resource": starlark.NewBuiltin("resource", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			// resource(object) returns an object from a string or dict for testing.
+			"resource": starlark.NewBuiltin("resource", func(t *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
 				var object resource
 				if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "object", &object); err != nil {
 					return nil, errors.Wrap(err, "unpack args")
 				}
 				return &object, nil
+			}),
+
+			// logs(name, previous=None, container=None) returns 10MB of pod logs.
+			"logs": starlark.NewBuiltin("logs", func(t *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+				var name, container string
+				var previous bool
+				if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "name", &name, "container", &container, "previous?", &previous); err != nil {
+					return nil, errors.Wrap(err, "unpack args")
+				}
+				opts := &v1.PodLogOptions{
+					Container:  container,
+					LimitBytes: pointer.Int64(10 * units.MB),
+					Previous:   previous,
+				}
+				ctx := ourstar.GetContext(t)
+				bytes, err := sc.CoreV1().Pods(namespace).GetLogs(name, opts).DoRaw(ctx)
+				if err != nil {
+					return &wrappedError{err: err}, nil
+				}
+				return starlark.Bytes(bytes), nil
 			}),
 		},
 	}
@@ -477,9 +471,13 @@ func NewClientset(namespace string, sc kubernetes.Interface, dc dynamic.Interfac
 				r.Group = gv.Group
 				r.Version = gv.Version
 				client.resource = r
-			} else {
-				client.extra = append(client.extra, r)
 			}
+			// Otherwise: the resource is a subresource (like pods/log), which discovery
+			// returns wrong information for (it says that everything has get/list,
+			// which is not true; the scale resources are update/patch, the log resource
+			// is get, etc.), and the dynamic client is completely broken for (it can't
+			// take parameters, and attempts to unmarshal everything as JSON, which
+			// doesn't work for logs).
 		}
 	}
 	return result, nil
