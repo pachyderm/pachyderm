@@ -43,7 +43,7 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 			switch {
 			case datum.IsTask(input):
 				pachClient := driver.PachClient().WithCtx(ctx)
-				return datum.ProcessTask(ctx, pachClient.PfsAPIClient, input)
+				return datum.ProcessTask(pachClient.Ctx(), pachClient.PfsAPIClient, input)
 			case input.MessageIs(&CreateParallelDatumsTask{}):
 				createParallelDatumsTask, err := deserializeCreateParallelDatumsTask(input)
 				if err != nil {
