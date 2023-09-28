@@ -17816,11 +17816,19 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "reprocess",
-              "description": "Reprocess forces the pipeline to reprocess all datums.\nIt only has meaning if Update is true",
+              "description": "Reprocess forces the pipeline to reprocess all datums.",
               "label": "",
               "type": "bool",
               "longType": "bool",

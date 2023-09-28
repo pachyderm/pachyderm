@@ -6864,7 +6864,7 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | pipeline | [Pipeline](#pps_v2-Pipeline) |  |  |
-| reprocess | [bool](#bool) |  | Reprocess forces the pipeline to reprocess all datums. It only has meaning if Update is true |
+| reprocess | [bool](#bool) |  | Reprocess forces the pipeline to reprocess all datums. |
 
 
 

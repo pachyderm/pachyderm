@@ -10,7 +10,7 @@
                 },
                 "reprocess": {
                     "type": "boolean",
-                    "description": "Reprocess forces the pipeline to reprocess all datums. It only has meaning if Update is true"
+                    "description": "Reprocess forces the pipeline to reprocess all datums."
                 }
             },
             "additionalProperties": false,

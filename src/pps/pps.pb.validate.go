@@ -7145,6 +7145,17 @@ func (m *RerunPipelineRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetPipeline() == nil {
+		err := RerunPipelineRequestValidationError{
+			field:  "Pipeline",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetPipeline()).(type) {
 		case interface{ ValidateAll() error }:
