@@ -568,9 +568,10 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	_, err = c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	require.NoError(t, err)
 	var date1 bytes.Buffer
-	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date1)
+	require.NoError(t, c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date1))
 	require.NotEqual(t, date1.String(), "")
 
 	// rerun pipeline
@@ -588,9 +589,10 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	_, err = c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	require.NoError(t, err)
 	var date2 bytes.Buffer
-	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date2)
+	require.NoError(t, c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date2))
 	require.NotEqual(t, date2.String(), "")
 	require.Equal(t, date1.String(), date2.String())
 
@@ -610,9 +612,10 @@ func TestRerunPipeline(t *testing.T) {
 	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	_, err = c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	require.NoError(t, err)
 	var date3 bytes.Buffer
-	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date3)
+	require.NoError(t, c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date3))
 	fmt.Println(date1.String(), date3.String())
 	require.NotEqual(t, date3.String(), "")
 	require.NotEqual(t, date1.String(), date3.String())
