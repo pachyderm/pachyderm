@@ -295,6 +295,7 @@ jobs:
             -- \
             go test ./... -json \
             -run "^${tests// /$|^}$" \
+            -tags=k8s \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
