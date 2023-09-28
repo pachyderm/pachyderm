@@ -1247,7 +1247,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
 	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
-	di, err := datum.NewIterator(ctx, pachClient.PfsAPIClient, taskDoer, input)
+	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err
 	}
@@ -1296,7 +1296,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	metaCommit := ppsutil.MetaCommit(jobInfo.OutputCommit)
-	fsi := datum.NewCommitIterator(ctx, pachClient.PfsAPIClient, metaCommit, nil)
+	fsi := datum.NewCommitIterator(pachClient.Ctx(), pachClient.PfsAPIClient, metaCommit, nil)
 	err = fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
