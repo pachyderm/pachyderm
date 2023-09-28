@@ -1709,7 +1709,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 		return errors.Wrapf(err, "invalid cluster defaults")
 	}
 	var req = &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: string(js),
+		ClusterDefaultsJson: js,
 		Regenerate:          regenerate,
 		Reprocess:           reprocess,
 		DryRun:              dryRun,
