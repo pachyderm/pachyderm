@@ -515,6 +515,12 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}
 
 	if options.sidecarResourceLimits != nil {
+		if m := options.sidecarResourceLimits.Memory(); m != nil {
+			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
+				Name:  "K8S_MEMORY_LIMIT",
+				Value: m.AsDec().String(),
+			})
+		}
 		podSpec.Containers[1].Resources.Limits = make(v1.ResourceList)
 		for k, v := range *options.sidecarResourceLimits {
 			podSpec.Containers[1].Resources.Limits[k] = v
@@ -522,6 +528,12 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}
 
 	if options.sidecarResourceRequests != nil {
+		if m := options.sidecarResourceRequests.Memory(); m != nil {
+			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
+				Name:  "K8S_MEMORY_REQUEST",
+				Value: m.AsDec().String(),
+			})
+		}
 		podSpec.Containers[1].Resources.Requests = make(v1.ResourceList)
 		for k, v := range *options.sidecarResourceRequests {
 			podSpec.Containers[1].Resources.Requests[k] = v
