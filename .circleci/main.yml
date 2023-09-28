@@ -316,9 +316,9 @@ jobs:
             --debug \
             -- \
             go test ./... -json \
-            -run ^TestPipelineState$ \
-            -tags=k8s \
-            -parallel=1
+            -run \
+            -tags=k8s ^TestPipelineJobHasAuthToken$|^TestPipelineState$ \
+            -parallel=1 \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
