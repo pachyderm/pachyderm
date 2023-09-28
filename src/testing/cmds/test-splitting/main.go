@@ -56,12 +56,13 @@ func testNames(addtlCmdArgs ...string) ([]string, error) {
 		return nil, errors.Wrapf(err, string(testsOutput))
 	}
 	// Note that this includes k8s and non-k8s tests since tags are inclusive
-	testsK8s := strings.Split(string(testsOutput), "\n")
+	testList := strings.Split(string(testsOutput), "\n")
 	var testNames = []string{}
-	for _, test := range testsK8s {
+	for _, test := range testList {
 		if !strings.HasPrefix(test, "Benchmark") &&
 			!strings.HasPrefix(test, "? ") &&
-			!strings.HasPrefix(test, "ok ") {
+			!strings.HasPrefix(test, "ok ") &&
+			!strings.HasPrefix(test, "go: downloading") {
 			testNames = append(testNames, test)
 		}
 	}
