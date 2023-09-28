@@ -1998,6 +1998,7 @@ func (d *driver) makeEmptyCommit(ctx context.Context, txnCtx *txncontext.Transac
 		if prov.Repo.Type != pfs.SpecRepoType {
 			closed = false
 			break
+		}
 	}
 	commit := branch.NewCommit(txnCtx.CommitSetID)
 	commit.Repo = branch.Repo
