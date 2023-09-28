@@ -93,8 +93,10 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            echo "Tests found: "
+            echo "*** Tests found: "
             cat tests_unit.txt 
+            echo "*** k8s Tests found: "
+            cat tests_k8s.txt 
             tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
@@ -277,7 +279,7 @@ jobs:
           no_output_timeout: 20m
           command: |-
             echo "Tests found: "
-            cat test_k8s.txt 
+            cat tests_k8s.txt 
             tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
