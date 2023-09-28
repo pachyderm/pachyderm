@@ -264,6 +264,7 @@ jobs:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
+      - run: go mod download
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
@@ -286,11 +287,12 @@ jobs:
 
             VM_IP="$(minikube ip)"
             export VM_IP
-
+            
             ENTERPRISE_PORT="31650"
             export ENTEPRRISE_PORT
             minikube status
             kubectl version
+            go install -v ./src/testing/match
 
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
@@ -303,7 +305,7 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
-            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            CGO_ENABLED=0 \
             gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
