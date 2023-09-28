@@ -154,11 +154,15 @@ func (c APIClient) DeleteRepo(projectName, repoName string, force bool) error {
 // When the commit is started on a branch the previous head of the branch is
 // used as the parent of the commit.
 func (c APIClient) StartCommit(projectName, repoName string, branchName string) (_ *pfs.Commit, retErr error) {
+	return StartCommit(c.Ctx(), c.PfsAPIClient, projectName, repoName, branchName)
+}
+
+func StartCommit(ctx context.Context, c pfs.APIClient, projectName, repoName string, branchName string) (_ *pfs.Commit, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	return c.PfsAPIClient.StartCommit(
-		c.Ctx(),
+	return c.StartCommit(
+		ctx,
 		&pfs.StartCommitRequest{
 			Branch: NewBranch(projectName, repoName, branchName),
 		},
@@ -169,9 +173,13 @@ func (c APIClient) StartCommit(projectName, repoName string, branchName string) 
 // persists the Commit.  Once a Commit is finished the data becomes immutable and
 // future attempts to write to it with PutFile will error.
 func (c APIClient) FinishCommit(projectName, repoName, branchName, commitID string) (retErr error) {
+	return FinishCommit(c.Ctx(), c.PfsAPIClient, projectName, repoName, branchName, commitID)
+}
+
+func FinishCommit(ctx context.Context, c pfs.APIClient, projectName, repoName, branchName, commitID string) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	_, err := c.PfsAPIClient.FinishCommit(
-		c.Ctx(),
+	_, err := c.FinishCommit(
+		ctx,
 		&pfs.FinishCommitRequest{
 			Commit: NewCommit(projectName, repoName, branchName, commitID),
 		},
@@ -458,14 +466,14 @@ func (c APIClient) DeleteProject(projectName string, force bool) error {
 	return grpcutil.ScrubGRPC(err)
 }
 
-func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInfo) error) error {
+func inspectCommitSet(ctx context.Context, c pfs.APIClient, id string, wait bool, cb func(*pfs.CommitInfo) error) error {
 	req := &pfs.InspectCommitSetRequest{
 		CommitSet: NewCommitSet(id),
 		Wait:      wait,
 	}
-	ctx, cf := context.WithCancel(c.Ctx())
+	ctx, cf := context.WithCancel(ctx)
 	defer cf()
-	client, err := c.PfsAPIClient.InspectCommitSet(ctx, req)
+	client, err := c.InspectCommitSet(ctx, req)
 	if err != nil {
 		return err
 	}
@@ -488,9 +496,13 @@ func (c APIClient) inspectCommitSet(id string, wait bool, cb func(*pfs.CommitInf
 
 // InspectCommitSet returns info about a specific CommitSet.
 func (c APIClient) InspectCommitSet(id string) (_ []*pfs.CommitInfo, retErr error) {
+	return InspectCommitSet(c.Ctx(), c.PfsAPIClient, id)
+}
+
+func InspectCommitSet(ctx context.Context, c pfs.APIClient, id string) (_ []*pfs.CommitInfo, retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
 	result := []*pfs.CommitInfo{}
-	if err := c.inspectCommitSet(id, false, func(ci *pfs.CommitInfo) error {
+	if err := inspectCommitSet(ctx, c, id, false, func(ci *pfs.CommitInfo) error {
 		result = append(result, ci)
 		return nil
 	}); err != nil {
@@ -517,8 +529,12 @@ func (c APIClient) WaitCommitSetAll(id string) (_ []*pfs.CommitInfo, retErr erro
 // passing them to the given callback as they finish.  To wait for an individual
 // commit, use WaitCommit instead.
 func (c APIClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) (retErr error) {
+	return WaitCommitSet(c.Ctx(), c.PfsAPIClient, id, cb)
+}
+
+func WaitCommitSet(ctx context.Context, c pfs.APIClient, id string, cb func(*pfs.CommitInfo) error) (retErr error) {
 	defer func() { retErr = grpcutil.ScrubGRPC(retErr) }()
-	if err := c.inspectCommitSet(id, true, cb); err != nil {
+	if err := inspectCommitSet(ctx, c, id, true, cb); err != nil {
 		return err
 	}
 	return nil
