@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
 
@@ -17,10 +16,10 @@ import (
 
 type validatedAPIServer struct {
 	*apiServer
-	auth authserver.APIServer
+	auth PFSAuth
 }
 
-func newValidatedAPIServer(embeddedServer *apiServer, auth authserver.APIServer) *validatedAPIServer {
+func newValidatedAPIServer(embeddedServer *apiServer, auth PFSAuth) *validatedAPIServer {
 	return &validatedAPIServer{
 		apiServer: embeddedServer,
 		auth:      auth,
