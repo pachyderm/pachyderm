@@ -2,6 +2,7 @@ package pfsload
 
 import (
 	"bytes"
+	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -10,39 +11,39 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.Branch, spec *CommitSpec, seed int64, stateID string) (string, error) {
-	env, err := NewEnv(pachClient, taskService, spec, seed)
+func Commit(ctx context.Context, c pfs.APIClient, taskService task.Service, branch *pfs.Branch, spec *CommitSpec, seed int64, stateID string) (string, error) {
+	env, err := NewEnv(ctx, c, taskService, spec, seed)
 	if err != nil {
 		return "", err
 	}
 	state := &State{}
 	if stateID != "" {
-		state, err = deserializeState(pachClient, stateID)
+		state, err = deserializeState(ctx, c, stateID)
 		if err != nil {
 			return "", err
 		}
-		if err := validateState(env, state); err != nil {
+		if err := validateState(ctx, env, state); err != nil {
 			return "", err
 		}
 	}
 	project := branch.Repo.Project.GetName()
 	repo := branch.Repo.Name
 	for i := 0; i < int(spec.Count); i++ {
-		commit, err := pachClient.StartCommit(project, repo, branch.Name)
+		commit, err := client.StartCommit(ctx, c, project, repo, branch.Name)
 		if err != nil {
 			return "", err
 		}
 		for _, mod := range spec.Modifications {
-			if err := Modification(env, commit, mod); err != nil {
+			if err := Modification(ctx, env, commit, mod); err != nil {
 				return "", err
 			}
 		}
-		if err := pachClient.FinishCommit(project, repo, branch.Name, commit.Id); err != nil {
+		if err := client.FinishCommit(ctx, c, project, repo, branch.Name, commit.Id); err != nil {
 			return "", err
 		}
 		validator := env.Validator()
 		if validator != nil {
-			if err := validator.Validate(env.Client(), commit); err != nil {
+			if err := validator.Validate(ctx, env.Client(), commit); err != nil {
 				return "", err
 			}
 			state.Commits = append(state.Commits, &State_Commit{
@@ -51,17 +52,17 @@ func Commit(pachClient *client.APIClient, taskService task.Service, branch *pfs.
 			})
 		}
 	}
-	return serializeState(pachClient, state)
+	return serializeState(ctx, c, state)
 }
 
-func validateState(env *Env, state *State) error {
+func validateState(ctx context.Context, env *Env, state *State) error {
 	validator := env.Validator()
 	if validator == nil {
 		return nil
 	}
 	for _, commit := range state.Commits {
 		validator.SetHash(commit.Hash)
-		if err := validator.Validate(env.Client(), commit.Commit); err != nil {
+		if err := validator.Validate(ctx, env.Client(), commit.Commit); err != nil {
 			return err
 		}
 	}
@@ -70,8 +71,8 @@ func validateState(env *Env, state *State) error {
 
 const stateFileName = "state"
 
-func serializeState(pachClient *client.APIClient, state *State) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+func serializeState(ctx context.Context, c pfs.APIClient, state *State) (string, error) {
+	resp, err := client.WithCreateFileSetClient(ctx, c, func(mf client.ModifyFile) error {
 		data, err := proto.Marshal(state)
 		if err != nil {
 			return errors.EnsureStack(err)
@@ -84,10 +85,10 @@ func serializeState(pachClient *client.APIClient, state *State) (string, error) 
 	return resp.FileSetId, nil
 }
 
-func deserializeState(pachClient *client.APIClient, stateID string) (*State, error) {
+func deserializeState(ctx context.Context, c pfs.APIClient, stateID string) (*State, error) {
 	commit := client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", stateID)
 	buf := &bytes.Buffer{}
-	if err := pachClient.GetFile(commit, stateFileName, buf); err != nil {
+	if err := client.GetFile(ctx, c, commit, stateFileName, buf); err != nil {
 		return nil, err
 	}
 	state := &State{}

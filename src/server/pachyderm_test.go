@@ -8450,7 +8450,7 @@ func TestPipelineEmptyInput(t *testing.T) {
 	require.NoError(t, err)
 	jis, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, false)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(jis))
+	require.Equal(t, 3, len(jis))
 	require.Equal(t, jis[0].State, pps.JobState_JOB_SUCCESS)
 }
 

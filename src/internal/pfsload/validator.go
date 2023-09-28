@@ -55,7 +55,7 @@ func xor(b1, b2 []byte) []byte {
 	return result
 }
 
-func (v *Validator) Validate(client Client, commit *pfs.Commit) error {
+func (v *Validator) Validate(ctx context.Context, client Client, commit *pfs.Commit) error {
 	if v.spec.Frequency != nil {
 		freq := v.spec.Frequency
 		if freq.Count > 0 {
@@ -68,11 +68,11 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) error {
 			return nil
 		}
 	}
-	err := client.WaitCommitSet(commit.Id, func(ci *pfs.CommitInfo) error {
+	err := client.WaitCommitSet(ctx, commit.Id, func(ci *pfs.CommitInfo) error {
 		if ci.Commit.Repo.Type != pfs.UserRepoType {
 			return nil
 		}
-		hash, err := computeCommitHash(client, ci.Commit)
+		hash, err := computeCommitHash(ctx, client, ci.Commit)
 		if err != nil {
 			return err
 		}
@@ -86,9 +86,9 @@ func (v *Validator) Validate(client Client, commit *pfs.Commit) error {
 
 // TODO: Distribute validation and revert back to being based on file path + content rather than
 // file path + size.
-func computeCommitHash(client Client, commit *pfs.Commit) ([]byte, error) {
+func computeCommitHash(ctx context.Context, client Client, commit *pfs.Commit) ([]byte, error) {
 	hash := pfs.NewHash().Sum(nil)
-	if err := client.GlobFile(client.Ctx(), commit, "**", func(fi *pfs.FileInfo) error {
+	if err := client.GlobFile(ctx, commit, "**", func(fi *pfs.FileInfo) error {
 		if strings.HasSuffix(fi.File.Path, "/") {
 			return nil
 		}
