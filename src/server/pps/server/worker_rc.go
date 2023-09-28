@@ -59,6 +59,8 @@ const (
 	StorageMaxOpenFileSetsEnvVar               = "STORAGE_FILESETS_MAX_OPEN"
 	StorageDiskCacheSizeEnvVar                 = "STORAGE_DISK_CACHE_SIZE"
 	StorageMemoryCacheSizeEnvVar               = "STORAGE_MEMORY_CACHE_SIZE"
+	SidecarMemoryRequestEnvVar                 = "K8S_MEMORY_REQUEST"
+	SidecarMemoryLimitEnvVar                   = "K8S_MEMORY_LIMIT"
 )
 
 // Parameters used when creating the kubernetes replication controller in charge
@@ -517,7 +519,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	if options.sidecarResourceLimits != nil {
 		if m := options.sidecarResourceLimits.Memory(); m != nil {
 			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
-				Name:  "K8S_MEMORY_LIMIT",
+				Name:  SidecarMemoryLimitEnvVar,
 				Value: m.AsDec().String(),
 			})
 		}
@@ -530,7 +532,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	if options.sidecarResourceRequests != nil {
 		if m := options.sidecarResourceRequests.Memory(); m != nil {
 			podSpec.Containers[1].Env = append(podSpec.Containers[1].Env, v1.EnvVar{
-				Name:  "K8S_MEMORY_REQUEST",
+				Name:  SidecarMemoryRequestEnvVar,
 				Value: m.AsDec().String(),
 			})
 		}
