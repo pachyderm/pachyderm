@@ -13,6 +13,8 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -526,57 +528,95 @@ func TestSetClusterDefaults(t *testing.T) {
 
 func TestRerunPipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	c, _ := minikubetestenv.AcquireCluster(t)
 
-	repo := "input"
-	pipeline := "pipeline"
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	var pipelineTemplate = `{
-		"pipeline": {
-			"project": {
-				"name": "{{.ProjectName | js}}"
+	repo := tu.UniqueString("input")
+	pipeline := tu.UniqueString("pipeline")
+
+	// commit data to the repo so there will be datums to process
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	commit1, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit1, "/file.txt", &bytes.Buffer{}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", commit1.Id))
+	_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "master", commit1.Id)
+	require.NoError(t, err)
+
+	// create the pipelne
+	spec := &pps.CreatePipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{
+				Name: pfs.DefaultProjectName,
 			},
-			"name": "{{.PipelineName | js}}"
+			Name: pipeline,
 		},
-		"transform": {
-			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		Transform: &pps.Transform{Cmd: []string{"bash"}, Stdin: []string{"date > /pfs/out/date.txt"}},
+		Input: &pps.Input{
+			Pfs: &pps.PFSInput{
+				Repo: repo,
+				Glob: "/",
+			},
 		},
-		"input": {
-			"pfs": {
-				"project": "default",
-				"repo": "{{.RepoName | js}}",
-				"glob": "/*",
-				"name": "in"
-			}
-		},
-		"autoscaling": false
-	}`
-	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
-	require.NoError(t, err, "template must parse")
-	var buf bytes.Buffer
-	require.NoError(t, tmpl.Execute(&buf, struct {
-		ProjectName, PipelineName, RepoName string
-	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
-	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: buf.String(),
+	}
+	js, err := protojson.Marshal(spec)
+	require.NoError(t, err, "marshalling JSON must not error")
+	_, err = c.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: string(js),
 	})
 	require.NoError(t, err, "CreatePipelineV2 must succeed")
-	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
-	var req pps.CreatePipelineRequest
-	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	// wait for job to finish and get output commit data
+	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	var date1 bytes.Buffer
+	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date1)
+	require.NotEqual(t, date1.String(), "")
 
-	_, err = env.PachClient.PpsAPIClient.RerunPipeline(ctx, &pps.RerunPipelineRequest{
+	// rerun pipeline
+	_, err = c.PpsAPIClient.RerunPipeline(ctx, &pps.RerunPipelineRequest{
 		Pipeline: &pps.Pipeline{
 			Project: &pfs.Project{Name: pfs.DefaultProjectName},
 			Name:    pipeline,
 		},
-		Reprocess: false,
 	})
-	require.NoError(t, err, "no error on rerun")
-	// validate that the pipeline version increments
-	r, err := env.PachClient.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	require.NoError(t, err, "RerunPipeline must succeed")
+	r, err := c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
 	require.NoError(t, err, "InspectPipeline must succeed")
 	require.Equal(t, r.Version, uint64(2), "pipeline version should = 2")
+	// wait for job to finish and get output commit data
+	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	var date2 bytes.Buffer
+	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date2)
+	require.NotEqual(t, date2.String(), "")
+	require.Equal(t, date1.String(), date2.String())
+
+	// rerun pipeline with reprocess
+	_, err = c.PpsAPIClient.RerunPipeline(ctx, &pps.RerunPipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{Name: pfs.DefaultProjectName},
+			Name:    pipeline,
+		},
+		Reprocess: true,
+	})
+	require.NoError(t, err, "RerunPipeline must succeed")
+	r, err = c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, r.Version, uint64(3), "pipeline version should = 3")
+	// wait for job to finish and get output commit data
+	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	c.WaitJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	var date3 bytes.Buffer
+	c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date3)
+	fmt.Println(date1.String(), date3.String())
+	require.NotEqual(t, date3.String(), "")
+	require.NotEqual(t, date1.String(), date3.String())
+	require.NotEqual(t, date2.String(), date3.String())
 }
 
 // TestCreatePipelineMultipleNames tests that camelCase and snake_case names map
