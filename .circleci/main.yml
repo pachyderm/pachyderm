@@ -87,7 +87,9 @@ jobs:
       - run: 
           name: collect test names
           background: false # DNJ TODO - need to make sure we wait for this
-          command: go run src/testing/cmds/test-splitting/main.go
+          command: |- 
+            go build -o=test-split src/testing/cmds/test-splitting/main.go
+            ./test-split
       - run:
           no_output_timeout: 20m
           command: |-
@@ -249,7 +251,9 @@ jobs:
       - run: 
           name: collect test names
           background: false # DNJ TODO - need to make sure we wait for this
-          command: go run src/testing/cmds/test-splitting/main.go
+          command: |- 
+            go build -o=test-split src/testing/cmds/test-splitting/main.go
+            ./test-split
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:
@@ -273,7 +277,7 @@ jobs:
           no_output_timeout: 20m
           command: |-
             echo "Tests found: "
-            cat tests_k8s.txt 
+            cat test_k8s.txt 
             tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
