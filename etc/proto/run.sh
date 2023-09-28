@@ -20,6 +20,7 @@ fi
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 mkdir -p v2/src/internal/jsonschema
+mkdir -p v2/src/openapi
 
 mapfile -t PROTOS < <(find src -name "*.proto" | sort)
 
@@ -59,6 +60,8 @@ protoc \
     --grpc-gateway_opt logtostderr=true \
     --grpc-gateway_opt paths=source_relative \
     --grpc-gateway_opt generate_unbound_methods=true \
+    --openapiv2_out v2/src/openapi \
+		--openapiv2_opt logtostderr=true \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr

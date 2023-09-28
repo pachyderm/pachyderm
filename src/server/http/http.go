@@ -17,24 +17,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restgateway"
 	"go.uber.org/zap"
-
-	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
-
-	pfsgw "github.com/pachyderm/pachyderm/v2/src/pfs"
-	ppsgw "github.com/pachyderm/pachyderm/v2/src/pps"
-
-	admingw "github.com/pachyderm/pachyderm/v2/src/admin"
-	authgw "github.com/pachyderm/pachyderm/v2/src/auth"
-	debuggw "github.com/pachyderm/pachyderm/v2/src/debug"
-	enterprisegw "github.com/pachyderm/pachyderm/v2/src/enterprise"
-	identitygw "github.com/pachyderm/pachyderm/v2/src/identity"
-	licensegw "github.com/pachyderm/pachyderm/v2/src/license"
-	proxygw "github.com/pachyderm/pachyderm/v2/src/proxy"
-	transactiongw "github.com/pachyderm/pachyderm/v2/src/transaction"
-	versiongw "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
-	workergw "github.com/pachyderm/pachyderm/v2/src/worker"
-
 )
 
 // Server is an http.Server that serves public requests.
@@ -62,10 +46,14 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 	// JSON schemas.
 	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
-	log.Info(context.Background(), "httpserver: start restapi registrations with new gateway mux")
 	// GRPC gateway.
-	gwmux := NewGatewayMux(pachClientFactory)
+	gwmux := restgateway.NewRestGatewayMux(pachClientFactory)
+	if gwmux == nil {
+		log.Error(context.Background(), "httpserver: failed to register rest api handlers with grpc-gateway")
+		return nil
+	}
 	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
+	log.Info(context.Background(), "httpserver: completed grpc gateway rest api registrations")
 
 	return &Server{
 		mux: mux,
@@ -74,88 +62,6 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 			Handler: mux,
 		},
 	}
-}
-
-func NewGatewayMux(pachClientFactory func(context.Context) *client.APIClient) http.Handler {
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	log.Info(ctx, "restapi: get pach client")
-	client := pachClientFactory(ctx)
-
-	log.Info(ctx, "restapi: create new mux that passes all headers except contentlength")
-	mux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(func(s string) (string, bool) {
-		if s != "Content-Length" {
-			return s, true
-		}
-		return s, false
-	}))
-
-	err := ppsgw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = pfsgw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = workergw.RegisterWorkerHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = proxygw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = admingw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = authgw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = licensegw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = identitygw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = debuggw.RegisterDebugHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = enterprisegw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	err = transactiongw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		return nil
-	}
-
-	log.Info(ctx, "restapi: register version api handler")
-	err = versiongw.RegisterAPIHandler(ctx, mux, client.ClientConn())
-	if err != nil {
-		log.Info(ctx, "restapi: version api registration failed")
-		return nil
-	}
-	log.Info(ctx, "restapi: version api registration success")
-
-	return mux
 }
 
 // CSRFWrapper is an http.Handler that provides CSRF protection to the underlying handler.
