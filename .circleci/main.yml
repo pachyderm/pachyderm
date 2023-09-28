@@ -305,7 +305,7 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
-            CGO_ENABLED=0 \
+            
             gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
