@@ -898,6 +898,9 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 }
 
 func SetAuthToken(ctx context.Context, token string) context.Context {
+	if token == "" {
+		return ctx
+	}
 	// Rescue any metadata pairs already in 'ctx' (otherwise
 	// metadata.NewOutgoingContext() would drop them). Note that this is similar
 	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
