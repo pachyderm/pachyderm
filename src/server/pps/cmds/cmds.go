@@ -1695,18 +1695,17 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	if reprocess {
 		regenerate = true
 	}
-	b, err := io.ReadAll(r)
+	js, err := ppsutil.ReadYAMLAsJSON(r)
 	if err != nil {
-		return errors.Wrap(err, "could not read cluster defaults")
+		return errors.Wrap(err, "could not read input as YAML")
 	}
-	b = bytes.TrimSpace(b) // remove leading & trailing whitespace
 	// validate that the provided defaults parse
 	var cd pps.ClusterDefaults
-	if err := protojson.Unmarshal(b, &cd); err != nil {
+	if err := protojson.Unmarshal([]byte(js), &cd); err != nil {
 		return errors.Wrapf(err, "invalid cluster defaults")
 	}
 	var req = &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: string(b),
+		ClusterDefaultsJson: js,
 		Regenerate:          regenerate,
 		Reprocess:           reprocess,
 		DryRun:              dryRun,
