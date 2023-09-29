@@ -256,6 +256,9 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <message type> <message bytes>",
 		Short: "Decode a protocol buffer message",
 		Long:  "This command decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.  If the message type is @, then try all message types and print any messages that result in non-empty JSON.",
+		Example: "\t- {{alias}} pfs_v2.BranchInfo\n " +
+			"\t- {{alias}} pfs_v2.BranchInfo  --format hex\n" +
+			"\t- {{alias}} pfs_v2.BranchInfo --format base64 --compact\n",
 		Run: cmdutil.RunBoundedArgs(0, 2, func(args []string) error {
 			all := allProtoMessages()
 
@@ -349,8 +352,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 			return nil
 		}),
 	}
-	decodeProto.PersistentFlags().StringVarP(&decodeProtoFormat, "format", "f", "hex", "The format of binary data to read; 'go', 'hex', 'base64', or 'raw'")
-	decodeProto.PersistentFlags().BoolVarP(&decodeCompact, "compact", "c", false, "If true, print the output on a single line.")
+	decodeProto.PersistentFlags().StringVarP(&decodeProtoFormat, "format", "f", "hex", "Set the format of binary data to read; 'go', 'hex', 'base64', or 'raw'.")
+	decodeProto.PersistentFlags().BoolVarP(&decodeCompact, "compact", "c", false, "If true, prints the output on a single line.")
 	commands = append(commands, cmdutil.CreateAlias(decodeProto, "misc decode-proto"))
 
 	misc := &cobra.Command{
