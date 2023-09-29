@@ -560,7 +560,8 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if len(pvcs.Items) == 0 {
 			return nil
 		}
-		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v", pvcs)
+		pvs, _ := kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"}) // DNJ TODO debug
+		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v \n pvs: %#v", pvcs, pvs)
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
