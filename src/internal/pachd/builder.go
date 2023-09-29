@@ -440,7 +440,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		ctx := pctx.Child(ctx, "pfs-master")
+		ctx := pctx.Child(ctx, "pfsMaster")
 		if err := m.Run(ctx); err != nil {
 			log.Error(ctx, "from pfs-master", zap.Error(err))
 		}
@@ -449,13 +449,16 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 }
 
 func (b *builder) startPPSWorker(ctx context.Context) error {
+	pachClient := b.env.GetPachClient(ctx)
 	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
 	w := pps_server.NewWorker(pps_server.WorkerEnv{
-		TaskService:   b.env.GetTaskService(etcdPrefix),
-		GetPachClient: b.env.GetPachClient,
+		TaskService: b.env.GetTaskService(etcdPrefix),
+		PFS:         pachClient.PfsAPIClient,
 	})
 	go func() {
-		ctx := pctx.Child(ctx, "pps-worker")
+		// This is necessary to set the auth token on the context
+		ctx := pachClient.Ctx()
+		ctx = pctx.Child(ctx, "ppsWorker")
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from pps-worker", zap.Error(err))
 		}
@@ -464,12 +467,16 @@ func (b *builder) startPPSWorker(ctx context.Context) error {
 }
 
 func (b *builder) startDebugWorker(ctx context.Context) error {
+	pachClient := b.env.GetPachClient(ctx)
 	env := DebugEnv(b.env)
 	w := debugserver.NewWorker(debugserver.WorkerEnv{
-		PFS:         env.GetPachClient(ctx).PfsAPIClient,
+		PFS:         pachClient.PfsAPIClient,
 		TaskService: env.TaskService,
 	})
 	go func() {
+		// This is necessary to set the auth token on the context
+		ctx = pachClient.Ctx()
+		ctx = pctx.Child(ctx, "debugWorker")
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from debug worker", zap.Error(err))
 		}

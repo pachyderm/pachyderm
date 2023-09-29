@@ -30,6 +30,7 @@ func TestIterators(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
+	pfsC := c.PfsAPIClient
 	dataRepo := tu.UniqueString(t.Name() + "_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 	// Put files in structured in a way so that there are many ways to glob it.
@@ -43,7 +44,7 @@ func TestIterators(t *testing.T) {
 	in0 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "!(**)")
 	in0.Pfs.Commit = commit.Id
 	t.Run("ZeroDatums", func(t *testing.T) {
-		pfs0, err := datum.NewIterator(c, taskDoer, in0)
+		pfs0, err := datum.NewIterator(ctx, pfsC, taskDoer, in0)
 		require.NoError(t, err)
 		validateDI(t, pfs0)
 	})
@@ -53,9 +54,9 @@ func TestIterators(t *testing.T) {
 	in2 := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/foo*2")
 	in2.Pfs.Commit = commit.Id
 	t.Run("Basic", func(t *testing.T) {
-		pfs1, err := datum.NewIterator(c, taskDoer, in1)
+		pfs1, err := datum.NewIterator(ctx, pfsC, taskDoer, in1)
 		require.NoError(t, err)
-		pfs2, err := datum.NewIterator(c, taskDoer, in2)
+		pfs2, err := datum.NewIterator(ctx, pfsC, taskDoer, in2)
 		require.NoError(t, err)
 		validateDI(t, pfs1, "/foo11", "/foo21", "/foo31", "/foo41")
 		validateDI(t, pfs2, "/foo12", "/foo2", "/foo22", "/foo32", "/foo42")
@@ -63,14 +64,14 @@ func TestIterators(t *testing.T) {
 	// Union input.
 	in3 := client.NewUnionInput(in1, in2)
 	t.Run("Union", func(t *testing.T) {
-		union1, err := datum.NewIterator(c, taskDoer, in3)
+		union1, err := datum.NewIterator(ctx, pfsC, taskDoer, in3)
 		require.NoError(t, err)
 		validateDI(t, union1, "/foo11", "/foo12", "/foo2", "/foo21", "/foo22", "/foo31", "/foo32", "/foo41", "/foo42")
 	})
 	// Cross input.
 	in4 := client.NewCrossInput(in1, in2)
 	t.Run("Cross", func(t *testing.T) {
-		cross1, err := datum.NewIterator(c, taskDoer, in4)
+		cross1, err := datum.NewIterator(ctx, pfsC, taskDoer, in4)
 		require.NoError(t, err)
 		validateDI(t, cross1,
 			"/foo11/foo12", "/foo11/foo2", "/foo11/foo22", "/foo11/foo32", "/foo11/foo42",
@@ -82,14 +83,14 @@ func TestIterators(t *testing.T) {
 	// Empty cross.
 	in6 := client.NewCrossInput(in3, in0, in2, in4)
 	t.Run("EmptyCross", func(t *testing.T) {
-		cross3, err := datum.NewIterator(c, taskDoer, in6)
+		cross3, err := datum.NewIterator(ctx, pfsC, taskDoer, in6)
 		require.NoError(t, err)
 		validateDI(t, cross3)
 	})
 	// Nested empty cross.
 	in7 := client.NewCrossInput(in6, in1)
 	t.Run("NestedEmptyCross", func(t *testing.T) {
-		cross4, err := datum.NewIterator(c, taskDoer, in7)
+		cross4, err := datum.NewIterator(ctx, pfsC, taskDoer, in7)
 		require.NoError(t, err)
 		validateDI(t, cross4)
 	})
@@ -100,7 +101,7 @@ func TestIterators(t *testing.T) {
 	in9.Pfs.Commit = commit.Id
 	in10 := client.NewJoinInput(in8, in9)
 	t.Run("Join", func(t *testing.T) {
-		join1, err := datum.NewIterator(c, taskDoer, in10)
+		join1, err := datum.NewIterator(ctx, pfsC, taskDoer, in10)
 		require.NoError(t, err)
 		validateDI(t, join1,
 			"/foo11/foo11",
@@ -127,7 +128,7 @@ func TestIterators(t *testing.T) {
 	in12.Pfs.Commit = commit.Id
 	in13 := client.NewJoinInput(in11, in12)
 	t.Run("OuterJoin", func(t *testing.T) {
-		join1, err := datum.NewIterator(c, taskDoer, in13)
+		join1, err := datum.NewIterator(ctx, pfsC, taskDoer, in13)
 		require.NoError(t, err)
 		validateDI(t, join1,
 			"/foo10",
@@ -146,7 +147,7 @@ func TestIterators(t *testing.T) {
 	in14.Pfs.Commit = commit.Id
 	in15 := client.NewGroupInput(in14)
 	t.Run("GroupSingle", func(t *testing.T) {
-		group1, err := datum.NewIterator(c, taskDoer, in15)
+		group1, err := datum.NewIterator(ctx, pfsC, taskDoer, in15)
 		require.NoError(t, err)
 		validateDI(t, group1,
 			"/foo10/foo11/foo12/foo13/foo14/foo15/foo16/foo17/foo18/foo19",
@@ -161,7 +162,7 @@ func TestIterators(t *testing.T) {
 	in17.Pfs.Commit = commit.Id
 	in18 := client.NewGroupInput(in16, in17)
 	t.Run("GroupDoubles", func(t *testing.T) {
-		group2, err := datum.NewIterator(c, taskDoer, in18)
+		group2, err := datum.NewIterator(ctx, pfsC, taskDoer, in18)
 		require.NoError(t, err)
 		validateDI(t, group2,
 			"/foo10/foo20/foo30/foo40",
@@ -184,7 +185,7 @@ func TestIterators(t *testing.T) {
 	in21 := client.NewJoinInput(in19, in20)
 	in22 := client.NewGroupInput(in21)
 	t.Run("GroupJoin", func(t *testing.T) {
-		groupJoin1, err := datum.NewIterator(c, taskDoer, in22)
+		groupJoin1, err := datum.NewIterator(ctx, pfsC, taskDoer, in22)
 		require.NoError(t, err)
 		validateDI(t, groupJoin1,
 			"/foo11/foo11/foo12/foo21/foo13/foo31/foo14/foo41",
@@ -202,7 +203,7 @@ func TestIterators(t *testing.T) {
 	in26 := client.NewUnionInput(in23, in25)
 
 	t.Run("UnionGroup", func(t *testing.T) {
-		unionGroup1, err := datum.NewIterator(c, taskDoer, in26)
+		unionGroup1, err := datum.NewIterator(ctx, pfsC, taskDoer, in26)
 		require.NoError(t, err)
 		validateDI(t, unionGroup1,
 			"/foo10/foo20/foo30/foo40",
@@ -261,7 +262,7 @@ func TestIterators(t *testing.T) {
 	in27 := client.NewS3PFSInput("", pfs.DefaultProjectName, dataRepo, "")
 	in27.Pfs.Commit = commit.Id
 	t.Run("PlainS3", func(t *testing.T) {
-		di, err := datum.NewIterator(c, taskDoer, in27)
+		di, err := datum.NewIterator(ctx, pfsC, taskDoer, in27)
 		require.NoError(t, err)
 		validateDI(t, di, "/")
 		// Check that every datum has an S3 input
@@ -274,7 +275,7 @@ func TestIterators(t *testing.T) {
 	// in28 is a cross that contains an S3 input and two non-s3 inputs
 	in28 := client.NewCrossInput(in1, in2, in27)
 	t.Run("S3MixedCross", func(t *testing.T) {
-		di, err := datum.NewIterator(c, taskDoer, in28)
+		di, err := datum.NewIterator(ctx, pfsC, taskDoer, in28)
 		require.NoError(t, err)
 		validateDI(t, di,
 			"/foo11/foo12/", "/foo11/foo2/", "/foo11/foo22/", "/foo11/foo32/", "/foo11/foo42/",
@@ -287,7 +288,7 @@ func TestIterators(t *testing.T) {
 	// in29 is a cross consisting of exclusively S3 inputs
 	in29 := client.NewCrossInput(in27, in27, in27)
 	t.Run("S3OnlyCrossUnionJoin", func(t *testing.T) {
-		di, err := datum.NewIterator(c, taskDoer, in29)
+		di, err := datum.NewIterator(ctx, pfsC, taskDoer, in29)
 		require.NoError(t, err)
 		validateDI(t, di, "///")
 	})
@@ -303,8 +304,7 @@ func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case datum.IsTask(input):
-				pachClient := env.PachClient.WithCtx(ctx)
-				return datum.ProcessTask(pachClient, input)
+				return datum.ProcessTask(ctx, env.PachClient.PfsAPIClient, input)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in test iterators worker", input.TypeUrl)
 			}
@@ -324,6 +324,7 @@ func TestJoinTrailingSlash(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	pfsC := env.PachClient.PfsAPIClient
 	taskDoer := createTaskDoer(t, env)
 
 	c := env.PachClient
@@ -354,7 +355,7 @@ func TestJoinTrailingSlash(t *testing.T) {
 	// Test without trailing slashes
 	input[0].Pfs.Glob = "/(*)"
 	input[1].Pfs.Glob = "/(*)"
-	itr, err := datum.NewIterator(c, taskDoer, client.NewJoinInput(input...))
+	itr, err := datum.NewIterator(ctx, pfsC, taskDoer, client.NewJoinInput(input...))
 	require.NoError(t, err)
 	validateDI(t, itr,
 		"/foo-0/foo-0",
@@ -371,7 +372,7 @@ func TestJoinTrailingSlash(t *testing.T) {
 	// Test with trailing slashes
 	input[0].Pfs.Glob = "/(*)/"
 	input[1].Pfs.Glob = "/(*)/"
-	itr, err = datum.NewIterator(c, taskDoer, client.NewJoinInput(input...))
+	itr, err = datum.NewIterator(ctx, pfsC, taskDoer, client.NewJoinInput(input...))
 	require.NoError(t, err)
 	validateDI(t, itr,
 		"/foo-0/foo-0",
