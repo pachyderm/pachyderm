@@ -246,12 +246,12 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 }
 
 // alterCommitsTable adds useful new columns to pfs.commits table.
-// Note that this is not the end all be all. We will need to make more changes after data has been migrated.
+// Note: that this is not the end all be all. We will need to make more changes after data has been migrated.
+// Note: we don't cascade deleting on branch_id because we need to delete the commit_totals and commit_diffs.
 // TODO
 //   - rename int_id to id? This will requires changing all references as well.
 //   - make repo_id not null
 //   - make origin not null
-//   - make updated_at not null and default to current timestamp
 func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
@@ -268,7 +268,7 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN error text,
 		ADD COLUMN size bigint,
 		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id) ON DELETE CASCADE;
+		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id);
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits

@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 
 	"google.golang.org/protobuf/proto"
@@ -383,13 +382,17 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			}
 			for _, commitInfo := range commits {
 				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
-				return nil
 			}
-			branchInfo := &pfs.BranchInfo{}
-			err = d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
-				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+			iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, &pfs.Branch{Repo: repo.Repo})
+			if err != nil {
+				return errors.Wrap(err, "delete repo info")
+			}
+			if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
 				return nil
-			})
+			}); err != nil {
+				return errors.Wrap(err, "delete repo info")
+			}
 			return errors.Wrap(err, "get commits by branch repo index")
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "for each repo")

@@ -21,8 +21,7 @@ import (
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
 	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{
-		Repo: commitInfo.Commit.Repo,
-	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
+		Repo: commitInfo.Commit.Repo})
 	if err != nil {
 		return errors.Wrap(err, "trigger commit")
 	}

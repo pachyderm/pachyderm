@@ -852,27 +852,45 @@ func (iter *commitIteratorTx) Next(ctx context.Context, dst *CommitWithID) error
 	return nil
 }
 
+func UpdateCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, reverse, revision bool, cb func(commitWithID CommitWithID) error) error {
+	return errors.Wrap(listCommitTxByFilter(ctx, tx, filter, reverse, revision, func(commitWithID CommitWithID) error {
+		if err := cb(commitWithID); err != nil {
+			return err
+		}
+		return UpdateCommit(ctx, tx, commitWithID.ID, commitWithID.CommitInfo)
+	}), "list commits tx by filter")
+}
+
 func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, reverse, revision bool) ([]*pfs.CommitInfo, error) {
+	var commits []*pfs.CommitInfo
+	if err := listCommitTxByFilter(ctx, tx, filter, reverse, revision, func(commitWithID CommitWithID) error {
+		commits = append(commits, commitWithID.CommitInfo)
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "list commits tx by filter")
+	}
+	return commits, nil
+}
+
+func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter CommitListFilter, reverse, revision bool, cb func(commitWithID CommitWithID) error) error {
 	if len(filter) == 0 {
-		return nil, errors.Errorf("filter cannot be empty")
+		return errors.Errorf("filter cannot be empty")
 	}
 	for key, val := range filter {
 		if len(val) == 0 {
-			return nil, errors.Errorf("filter values for key %q cannot be empty", key)
+			return errors.Errorf("filter values for key %q cannot be empty", key)
 		}
 	}
 	iter, err := listCommitTx(ctx, tx, filter, reverse, revision)
 	if err != nil {
-		return nil, errors.Wrap(err, "create iterator for listCommitTx")
+		return errors.Wrap(err, "create iterator for listCommitTx")
 	}
-	var commits []*pfs.CommitInfo
-	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitPair CommitWithID) error {
-		commits = append(commits, commitPair.CommitInfo)
-		return nil
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
+		return cb(commitWithID)
 	}); err != nil {
-		return nil, errors.Wrap(err, "list index")
+		return errors.Wrap(err, "list index")
 	}
-	return commits, nil
+	return nil
 }
 
 func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Context, tx *pachsql.Tx) error {
@@ -921,31 +939,33 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		}
 		switch key {
 		case CommitBranches:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s)))", string(key), strings.Join(quotedVals, ",")))
 		case CommitRepos:
 			var subconditions []string
 			for _, repoStr := range vals {
 				repo := ParseRepo(repoStr)
 				subcondition := fmt.Sprintf(
-					`(name = '%s' AND type = '%s' AND project_id = (SELECT id FROM core.projects WHERE name = '%s'))`,
+					`(repo.name = '%s' AND repo.type = '%s' AND repo.project_id = (SELECT id FROM core.projects project WHERE project.name = '%s'))`,
 					repo.Name, repo.Type, repo.Project.Name,
+				)
+				subcondition = fmt.Sprintf(
+					`(repo.name = '%s')`, repo.Name,
 				)
 				subconditions = append(subconditions, subcondition)
 			}
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN "+
-				"(SELECT id FROM pfs.repos WHERE %s)", string(key), strings.Join(subconditions, " OR ")))
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.repos repo WHERE (%s)))",
+				string(key), strings.Join(subconditions, " OR ")))
 		case CommitProjects:
-			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
+			conditions = append(conditions, fmt.Sprintf("(repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s)))", string(key), strings.Join(quotedVals, ",")))
 		default:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (%s))", string(key), strings.Join(quotedVals, ",")))
 		}
 	}
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
 	fullQuery := fmt.Sprintf("%s %s ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, revisionTimestamp, order)
-	if err := tx.SelectContext(ctx, &page,
-		fullQuery, limit, offset); err != nil {
+	if err := tx.SelectContext(ctx, &page, fullQuery, limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil

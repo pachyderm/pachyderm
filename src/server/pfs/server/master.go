@@ -248,8 +248,7 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoPair) er
 	}
 	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, &pfs.Branch{
-			Repo: repoPair.RepoInfo.Repo,
-		}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
+			Repo: repoPair.RepoInfo.Repo})
 		if err != nil {
 			return errors.Wrap(err, "manage branches")
 		}

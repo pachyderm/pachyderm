@@ -271,7 +271,7 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 			return err
 		}
 		for _, bi := range headlessBranches {
-			bi.Head = repoCommit
+			bi.Head = repoCommit.CommitInfo.Commit
 			if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
 				return errors.Wrapf(err, "delete commit: updating branch %s", bi.Branch)
 			}

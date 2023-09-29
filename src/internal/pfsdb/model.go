@@ -85,7 +85,7 @@ type Commit struct {
 	Origin         string        `db:"origin"`
 	Description    string        `db:"description"`
 	StartTime      sql.NullTime  `db:"start_time"`
-	FinishingTime  sql.NullTime  `db:"finishing_time"'`
+	FinishingTime  sql.NullTime  `db:"finishing_time"`
 	FinishedTime   sql.NullTime  `db:"finished_time"`
 	CompactingTime sql.NullInt64 `db:"compacting_time_s"`
 	ValidatingTime sql.NullInt64 `db:"validating_time_s"`

@@ -528,7 +528,8 @@ func TestListCommitRev(t *testing.T) {
 }
 
 func TestListCommitsFilter(t *testing.T) {
-	repos := []string{"default/a.user", "default/b.user", "default/c.user"}
+	repos := []*pfs.Repo{
+		pfsdb.ParseRepo("default/a.user"), pfsdb.ParseRepo("default/b.user"), pfsdb.ParseRepo("default/c.user")}
 	size := 330
 	expectedInfos := make([]*pfs.CommitInfo, 0)
 	commitSetIds := make([]string, 0)
@@ -542,7 +543,7 @@ func TestListCommitsFilter(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			for i := 0; i < size; i++ {
-				commitInfo := testCommit(ctx, t, tx, repos[i%len(repos)])
+				commitInfo := testCommit(ctx, t, tx, repos[i%len(repos)].Name)
 				if commitInfo.Commit.Repo.Name == "b" && i%10 == 0 {
 					expectedInfos = append(expectedInfos, commitInfo)
 					commitSetIds = append(commitSetIds, commitInfo.Commit.Id)
@@ -559,11 +560,10 @@ func TestListCommitsFilter(t *testing.T) {
 		iter, err := pfsdb.ListCommit(ctx, db, filter, false, false)
 		require.NoError(t, err, "should be able to list repos")
 		checkOutput(ctx, t, iter, expectedInfos)
-		delete(filter, pfsdb.CommitSetIDs)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false, false)
 			require.NoError(t, err, "should be able to list repos")
-			for i := range gotInfos {
+			for i := range expectedInfos {
 				commitsMatch(t, expectedInfos[i], gotInfos[i])
 			}
 		})
