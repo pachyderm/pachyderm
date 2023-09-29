@@ -224,6 +224,33 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 	return nil
 }
 
+func (d *driver) squashCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit) error {
+	css, err := d.subvenantCommitSets(txnCtx, &pfs.CommitSet{Id: commit.Id})
+	if err != nil {
+		return err
+	}
+	if len(css) > 0 {
+		return &pfsserver.ErrSquashWithSubvenance{CommitSet: &pfs.CommitSet{Id: commit.Id}, SubvenantCommitSets: css}
+	}
+	ci := &pfs.CommitInfo{}
+	if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(commit.Id, ci); err != nil {
+		return errors.Wrap(err, "squash commit")
+	}
+	if ci.Commit.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+		return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+	}
+	if len(ci.ChildCommits) == 0 {
+		return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
+	}
+	if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
+		return err
+	}
+	// notify PPS that this commitset has been squashed so it can clean up any
+	// jobs associated with it at the end of the transaction
+	txnCtx.FailIfJobsNotFinished(ci)
+	return nil
+}
+
 // Since commits are only deleted as part of deleting a commit set, in most cases
 // we will delete many commits at a time. The graph traversal computations can result
 // in many I/Os. Therefore, this function bulkifies the graph traversals to run the

@@ -133,3 +133,45 @@ func (jf *JobFinisher) Run(ctx context.Context) error {
 	}
 	return nil
 }
+
+type FailIfJobsNotFinisher struct {
+	a           *apiServer
+	txnCtx      *txncontext.TransactionContext
+	commitInfos []*pfs.CommitInfo
+}
+
+func (a *apiServer) NewFailIfJobNotFinisher(txnCtx *txncontext.TransactionContext) txncontext.PpsFailIfJobsNotFinisher {
+	return &FailIfJobsNotFinisher{
+		a:      a,
+		txnCtx: txnCtx,
+	}
+}
+
+func (f *FailIfJobsNotFinisher) FailIfJobsNotFinished(commitInfo *pfs.CommitInfo) {
+	f.commitInfos = append(f.commitInfos, commitInfo)
+}
+
+func (f *FailIfJobsNotFinisher) Run(ctx context.Context) error {
+	if len(f.commitInfos) > 0 {
+		jobs := f.a.jobs.ReadWrite(f.txnCtx.SqlTx)
+		for _, commitInfo := range f.commitInfos {
+			if commitInfo.Commit.Repo.Type != pfs.UserRepoType {
+				continue
+			}
+			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.Id))
+			jobInfo := &pps.JobInfo{}
+			if err := jobs.Get(jobKey, jobInfo); err != nil {
+				// Commits in source repos will not have a job associated with them.
+				if col.IsErrNotFound(err) {
+					continue
+				}
+				return errors.EnsureStack(err)
+			}
+			if !pps.IsTerminal(jobInfo.State) {
+				return errors.Errorf("job %q must be in a terminal state to squash or drop commit %q", jobInfo.Job.Id, commitInfo.Commit.Key())
+			}
+			return nil
+		}
+	}
+	return nil
+}

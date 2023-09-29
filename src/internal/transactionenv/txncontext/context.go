@@ -31,8 +31,9 @@ type TransactionContext struct {
 	// PpsPropagater starts Jobs in any pipelines that have new output commits at the end of the transaction.
 	PpsPropagater PpsPropagater
 	// PpsJobStopper stops Jobs in any pipelines that are associated with a removed commitset
-	PpsJobStopper  PpsJobStopper
-	PpsJobFinisher PpsJobFinisher
+	PpsJobStopper            PpsJobStopper
+	PpsJobFinisher           PpsJobFinisher
+	PpsFailIfJobsNotFinisher PpsFailIfJobsNotFinisher
 
 	// We rely on listener events to determine whether or not auth is activated, but this is
 	// problematic when activating auth in a transaction.  The cache isn't updated because the
@@ -99,6 +100,10 @@ func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
 	t.PpsJobFinisher.FinishJob(commitInfo)
 }
 
+func (t *TransactionContext) FailIfJobsNotFinished(commitInfo *pfs.CommitInfo) {
+	t.PpsFailIfJobsNotFinisher.FailIfJobsNotFinished(commitInfo)
+}
+
 // PropagateBranch saves a branch to be propagated at the end of the transaction
 // (if all operations complete successfully).  This is used to batch together
 // propagations and dedupe downstream commits in PFS.
@@ -135,6 +140,11 @@ func (t *TransactionContext) Finish(ctx context.Context) error {
 			return errors.EnsureStack(err)
 		}
 	}
+	if t.PpsFailIfJobsNotFinisher != nil {
+		if err := t.PpsFailIfJobsNotFinisher.Run(ctx); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
 	return nil
 }
 
@@ -163,5 +173,10 @@ type PpsJobStopper interface {
 
 type PpsJobFinisher interface {
 	FinishJob(commitInfo *pfs.CommitInfo)
+	Run(context.Context) error
+}
+
+type PpsFailIfJobsNotFinisher interface {
+	FailIfJobsNotFinished(commitInfo *pfs.CommitInfo)
 	Run(context.Context) error
 }
