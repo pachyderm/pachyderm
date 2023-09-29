@@ -552,9 +552,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
-
-	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
 		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
 		if err != nil {
 			return errors.Wrap(err, "error on pod list")
@@ -567,7 +565,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		}
 		pvs, _ := kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"}) // DNJ TODO debug
 		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v \n pvs: %#v", pvcs, pvs)
-	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
+	}, 5*time.Second)
 }
 
 // returns the Nodeport url for accessing the determined service via REST/HTTP with an empty Path
