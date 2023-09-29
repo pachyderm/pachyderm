@@ -234,6 +234,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -293,7 +294,9 @@ jobs:
             minikube status
             kubectl version
             go install -v ./src/testing/match
-
+            pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
+            helm repo add pachyderm https://helm.pachyderm.com
+            helm repo update
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
