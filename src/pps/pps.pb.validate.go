@@ -4132,7 +4132,16 @@ func (m *Pipeline) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for Name
+	if len(m.GetName()) < 1 {
+		err := PipelineValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 bytes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return PipelineMultiError(errors)

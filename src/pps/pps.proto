@@ -331,7 +331,7 @@ message Worker {
 
 message Pipeline {
   pfs_v2.Project project = 2;
-  string name = 1;
+  string name = 1 [(validate.rules).string.min_bytes = 1];
 }
 
 enum PipelineState {
