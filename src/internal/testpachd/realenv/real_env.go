@@ -282,7 +282,10 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	realEnv.PachClient.DebugClient = debug.NewDebugClient(grpcutil.NewTestClient(t, func(gs *grpc.Server) {
 		debug.RegisterDebugServer(gs, realEnv.DebugServer)
 	}))
-	debugWorker := debugserver.NewWorker(debugEnv)
+	debugWorker := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         realEnv.PachClient.PfsAPIClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(realEnv.ServiceEnv.Config().EtcdPrefix),
+	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
