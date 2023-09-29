@@ -560,7 +560,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if len(pvcs.Items) == 0 {
 			return nil
 		}
-		return errors.Errorf("pvcs have yet to be deleted")
+		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v", pvcs)
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
