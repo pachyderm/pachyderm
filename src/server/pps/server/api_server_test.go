@@ -528,6 +528,7 @@ func TestSetClusterDefaults(t *testing.T) {
 
 func TestRerunPipeline(t *testing.T) {
 	ctx := pctx.TestContext(t)
+	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
 	repo := tu.UniqueString("input")
