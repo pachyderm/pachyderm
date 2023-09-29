@@ -1201,7 +1201,6 @@ func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]stri
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
-	log.Info(pctx.TODO(), "HERE")
 	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
 	mis := []*MountInfo{}
 	for _, fi := range d.Data {
