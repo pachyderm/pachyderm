@@ -66,7 +66,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	dnsLookup := &cobra.Command{
 		Use:   "{{alias}} <hostname>",
 		Short: "Do a DNS lookup on a hostname.",
-		Long:  "Do a DNS lookup on a hostname.",
+		Long:  "This command does a DNS lookup on a hostname and returns records such as A and CNAME.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			var errs error
 			if result, err := r.LookupHost(ctx, args[0]); err != nil {
@@ -95,7 +95,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	httpHead := &cobra.Command{
 		Use:   "{{alias}} <url>",
 		Short: "Make an HTTP HEAD request.",
-		Long:  "Make an HTTP HEAD request.",
+		Long:  "This command makes an HTTP HEAD request.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			ctx := pctx.Background("")
 			req, err := http.NewRequestWithContext(ctx, "HEAD", args[0], nil)
@@ -122,8 +122,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 
 	dial := &cobra.Command{
 		Use:   "{{alias}} <network(tcp|udp)> <address>",
-		Short: "Dials a network server and then disconnects.",
-		Long:  "Dials a network server and then disconnects.",
+		Short: "Dial a network server and then disconnect.",
+		Long:  "This command dials a network server and then disconnects.",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			ctx := pctx.Background("")
 			conn, err := d.DialContext(ctx, args[0], args[1])
@@ -141,8 +141,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	// you click it).
 	generateURL := &cobra.Command{
 		Use:   "{{alias}} project/repo@branch_or_commit:/file_or_directory ...",
-		Short: "Generates the encoded part of an archive download URL.",
-		Long:  "Generates the encoded part of an archive download URL.",
+		Short: "Generate the encoded part of an archive download URL.",
+		Long:  "This command generates the encoded part of an archive download URL.",
 		Run: cmdutil.Run(func(args []string) error {
 			path, err := archiveserver.EncodeV1(args)
 			if err != nil {
@@ -175,8 +175,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 
 	decodeURL := &cobra.Command{
 		Use:   "{{alias}} <url>",
-		Short: "Decodes the encoded part of an archive download URL.",
-		Long:  "Decodes the encoded part of an archive download URL.",
+		Short: "Decode the encoded part of an archive download URL.",
+		Long:  "This command decodes the encoded part of an archive download URL.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			u, err := url.Parse(args[0])
 			if err != nil {
@@ -205,8 +205,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 
 	testMigrations := &cobra.Command{
 		Use:   "{{alias}} <postgres dsn>",
-		Short: "Runs the database migrations against the supplied database, then rolls them back.",
-		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
+		Short: "Run database migrations against the supplied database, then roll them back.",
+		Long:  "This command runs the database migrations against the supplied database, then rolls them back.",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
 			defer c()
@@ -233,7 +233,10 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	grpc := &cobra.Command{
 		Use:   "{{alias}} service.Method {msg}... ",
 		Short: "Call a gRPC method on the server.",
-		Long:  "Call a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
+		Long:  "This command calls a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
+		Example: "{{alias}} pfs_v2.API.ListRepo {msg}" +
+			"\t- {{alias}} pfs_v2.API.ListRepo --address dns:///example.com:50051 {msg}\n" +
+			"\t- {{alias}} pfs_v2.API.ListRepo --address dns:///example.com:50051 --tls {msg}",
 		Run: cmdutil.Run(func(args []string) error {
 			return gRPCParams{
 				Address: grpcAddress,
@@ -251,8 +254,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var decodeCompact bool
 	decodeProto := &cobra.Command{
 		Use:   "{{alias}} <message type> <message bytes>",
-		Short: "Decodes a protocol buffer message",
-		Long:  "Decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.  If the message type is @, then try all message types and print any messages that result in non-empty JSON.",
+		Short: "Decode a protocol buffer message",
+		Long:  "This command decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.  If the message type is @, then try all message types and print any messages that result in non-empty JSON.",
 		Run: cmdutil.RunBoundedArgs(0, 2, func(args []string) error {
 			all := allProtoMessages()
 
