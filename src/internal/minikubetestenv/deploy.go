@@ -25,6 +25,7 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -551,6 +552,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
+
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, backoff.Retry(func() error {
 		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
@@ -559,6 +561,9 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		}
 		if len(pvcs.Items) == 0 {
 			return nil
+		}
+		for _, pvc := range pvcs.Items {
+			kubeClient.CoreV1().PersistentVolumeClaims(namespace).Patch(ctx, pvc.Name, types.JSONPatchType, []byte(`{"metadata":{"finalizers":null}}`), metav1.PatchOptions{})
 		}
 		pvs, _ := kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"}) // DNJ TODO debug
 		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v \n pvs: %#v", pvcs, pvs)
