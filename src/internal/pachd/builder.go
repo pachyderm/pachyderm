@@ -465,7 +465,10 @@ func (b *builder) startPPSWorker(ctx context.Context) error {
 
 func (b *builder) startDebugWorker(ctx context.Context) error {
 	env := DebugEnv(b.env)
-	w := debugserver.NewWorker(env)
+	w := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         env.GetPachClient(ctx).PfsAPIClient,
+		TaskService: env.TaskService,
+	})
 	go func() {
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from debug worker", zap.Error(err))
