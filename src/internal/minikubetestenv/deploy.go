@@ -547,10 +547,16 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	options := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 	}
-	mu.Lock()
-	err := helm.DeleteE(t, options, namespace, true)
-	mu.Unlock()
-	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
+	// mu.Lock()
+	// require.NoError(t, kubeClient.CoreV1().Namespaces().Delete(ctx, namespace, *metav1.NewDeleteOptions(0)))
+	// mu.Unlock()
+	require.NoErrorWithinTRetryConstant(t, time.Minute, func() error {
+		// mu.Lock()
+		// defer mu.Unlock()
+		return helm.DeleteE(t, options, namespace, true)
+	}, time.Second*5)
+	// mu.Unlock()
+	// require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
@@ -561,8 +567,13 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if len(pvcs.Items) == 0 {
 			return nil
 		}
-		pvs, _ := kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"}) // DNJ TODO debug
-		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v \n pvs: %#v", pvcs, pvs)
+		// for _, pvc := range pvcs.Items {
+		// 	// https://www.rfc-editor.org/rfc/rfc6902
+		// 	_, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).Patch(ctx, pvc.Name, types.JSONPatchType, []byte(`[{ "op": "replace", "path": "/metadata/finalizers", "value": null }]`), metav1.PatchOptions{})
+		// 	return errors.EnsureStack(err)
+		// }
+		// pvs, _ := kubeClient.CoreV1().PersistentVolumes().List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"}) // DNJ TODO debug
+		return errors.Errorf("pvcs have yet to be deleted. pvcs: %#v", pvcs)
 	}, 5*time.Second)
 }
 

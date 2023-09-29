@@ -27,9 +27,13 @@ const (
 )
 
 var (
-	clusterFactory      *ClusterFactory
+	clusterFactory *ClusterFactory = &ClusterFactory{
+		managedClusters:   map[string]*managedCluster{},
+		availableClusters: map[string]struct{}{},
+		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	}
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 3, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 1, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
 	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
@@ -161,14 +165,14 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 // ClaimCluster returns an unused kubernetes namespace name that can be deployed. It is only responsible for
 // assigning clusters to test clients. Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
+	// setup.Do(func() {
+	// 	clusterFactory = &ClusterFactory{
+	// 		managedClusters:   map[string]*managedCluster{},
+	// 		availableClusters: map[string]struct{}{},
+	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	// 	}
+	// })
+	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1)) // DNJ TODO should semchanges be in helm mutex to prevent starting new cluster before semaphore decrements?
 	assigned, clusterIdx := clusterFactory.assignCluster()
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
@@ -197,13 +201,13 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		t.Cleanup(localLock.Unlock)
 		return c, ""
 	}
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
+	// setup.Do(func() {
+	// 	clusterFactory = &ClusterFactory{
+	// 		managedClusters:   map[string]*managedCluster{},
+	// 		availableClusters: map[string]struct{}{},
+	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	// 	}
+	// })
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
