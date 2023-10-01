@@ -4,7 +4,6 @@ import platform
 import json
 import asyncio
 import os
-import pycurl
 from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
@@ -13,6 +12,11 @@ from tornado import locks
 from .pachyderm import MountInterface
 from .log import get_logger
 from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER, HTTP_UNIX_SOCKET_SCHEMA, HTTP_SCHEMA, DEFAULT_SCHEMA
+
+try:
+    import pycurl
+except ImportError:
+    pycurl = None
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -24,11 +28,15 @@ class MountServerClient(MountInterface):
         self,
         mount_dir: str,
         sock_path: str,
-        ):
+    ):
         
         self.mount_dir = mount_dir
 
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
+            if pycurl is None:
+                raise RuntimeError(
+                    "Optional dependency pycurl not found and HTTP_UNIX_SOCKET_SCHEMA was selected."
+                )
             self.address = 'http://localhost'
             AsyncHTTPClient.configure('tornado.curl_httpclient.CurlAsyncHTTPClient')
             self.sock_path = sock_path
@@ -141,16 +149,32 @@ class MountServerClient(MountInterface):
 
     async def _get(self, resource):
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = await self.client.fetch(f"{self.address}/{resource}", prepare_curl_callback=lambda curl: curl.setopt(pycurl.UNIX_SOCKET_PATH, self.sock_path))
+            response = await self.client.fetch(
+                f"{self.address}/{resource}",
+                prepare_curl_callback=lambda curl: curl.setopt(
+                    pycurl.UNIX_SOCKET_PATH, self.sock_path
+                )
+            )
         else:
             response = await self.client.fetch(f"{self.address}/{resource}")
         return response
 
     async def _put(self, resource, body):
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body), prepare_curl_callback=lambda curl: curl.setopt(pycurl.UNIX_SOCKET_PATH, self.sock_path))
+            response = await self.client.fetch(
+                f"{self.address}/{resource}",
+                method="PUT",
+                body=json.dumps(body),
+                prepare_curl_callback=lambda curl: curl.setopt(
+                    pycurl.UNIX_SOCKET_PATH, self.sock_path
+                ),
+            )
         else:
-            response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body),)
+            response = await self.client.fetch(
+                f"{self.address}/{resource}",
+                method="PUT",
+                body=json.dumps(body),
+            )
         return response
 
     async def list_repos(self):
