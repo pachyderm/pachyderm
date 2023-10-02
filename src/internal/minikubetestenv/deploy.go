@@ -552,15 +552,20 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
+	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoError(t, backoff.Retry(func() error {
-		pvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
+		pachPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
 		if err != nil {
-			return errors.Wrap(err, "error on pod list")
+			return errors.Wrap(err, "error on pachyderm pvc list")
 		}
-		if len(pvcs.Items) == 0 {
+		lokiPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "app=loki"})
+		if err != nil {
+			return errors.Wrap(err, "error on loki pvc list")
+		}
+		if len(pachPvcs.Items) == 0 && len(lokiPvcs.Items) == 0 {
 			return nil
 		}
-		return errors.Errorf("pvcs have yet to be deleted")
+		return errors.Errorf("pvcs have yet to be deleted. pvcs left: %d", len(pachPvcs.Items)+len(lokiPvcs.Items))
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
