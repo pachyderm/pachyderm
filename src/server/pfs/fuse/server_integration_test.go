@@ -21,6 +21,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+// TODO: Uncomment all checks below for datum ID when we transition fully to using ListDatum
+// when getting datums. #ListDatumPagination
+
 func TestConfig(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -103,7 +106,7 @@ func TestMountDatum(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 1, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -129,7 +132,7 @@ func TestMountDatum(t *testing.T) {
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -177,7 +180,7 @@ func TestCrossDatum(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -228,7 +231,7 @@ func TestUnionDatum(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 3, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 	})
@@ -269,7 +272,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 4, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -297,7 +300,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -337,8 +340,8 @@ func TestShowDatum(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
-		datum1Id := mdr.Id
+		// require.NotEqual(t, "", mdr.Id)
+		// datum1Id := mdr.Id
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -352,7 +355,7 @@ func TestShowDatum(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -366,7 +369,7 @@ func TestShowDatum(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.Equal(t, datum1Id, mdr.Id)
+		// require.Equal(t, datum1Id, mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -410,8 +413,8 @@ func TestGetDatums(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
-		datum1Id := mdr.Id
+		// require.NotEqual(t, "", mdr.Id)
+		// datum1Id := mdr.Id
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -438,7 +441,7 @@ func TestGetDatums(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -457,7 +460,7 @@ func TestGetDatums(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.Equal(t, datum1Id, mdr.Id)
+		// require.Equal(t, datum1Id, mdr.Id)
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 	})
@@ -519,7 +522,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 4, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -542,7 +545,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -562,7 +565,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 1, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 8, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -690,7 +693,7 @@ func TestMountDatumsPagination(t *testing.T) {
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, lessThanNumDatumsPerPage, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
@@ -704,7 +707,7 @@ func TestMountDatumsPagination(t *testing.T) {
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
 		require.Equal(t, false, mdr.AllDatumsReceived)
 
@@ -737,7 +740,7 @@ func TestMountDatumsPagination(t *testing.T) {
 		mdr = &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
 		require.Equal(t, false, mdr.AllDatumsReceived)
 

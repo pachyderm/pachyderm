@@ -75,10 +75,12 @@ type CommitRequest struct {
 }
 
 type MountDatumResponse struct {
-	// Id                string `json:"id"`
-	Idx               int  `json:"idx"`
-	NumDatums         int  `json:"num_datums"`
-	AllDatumsReceived bool `json:"all_datums_received"`
+	// We'll return this as empty string until #ListDatumPagination since we don't know the
+	// ID for datums we artificially constructed in CreateDatums()
+	Id                string `json:"id"`
+	Idx               int    `json:"idx"`
+	NumDatums         int    `json:"num_datums"`
+	AllDatumsReceived bool   `json:"all_datums_received"`
 }
 
 type DatumsResponse struct {
@@ -647,7 +649,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", di.Datum.Id))
+		log.Info(pctx.TODO(), "Mounting first datum")
 		mis := datumToMounts(di, mm.DatumInputsToMounts)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -658,7 +660,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:                di.Datum.Id,
 			Idx:               mm.DatumIdx,
 			NumDatums:         len(mm.Datums),
 			AllDatumsReceived: mm.AllDatumsReceived,
@@ -705,7 +706,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:                di.Datum.Id,
 			Idx:               mm.DatumIdx,
 			NumDatums:         len(mm.Datums),
 			AllDatumsReceived: mm.AllDatumsReceived,
@@ -758,7 +758,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:                di.Datum.Id,
 			Idx:               mm.DatumIdx,
 			NumDatums:         len(mm.Datums),
 			AllDatumsReceived: mm.AllDatumsReceived,

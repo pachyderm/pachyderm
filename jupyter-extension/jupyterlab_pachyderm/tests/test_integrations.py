@@ -304,14 +304,15 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.status_code == 200
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
-    assert r.json()["id"] != datum0_id
+    #TODO: uncomment this and below line when we transition fully to using ListDatum when getting datums. #ListDatumPagination
+    # assert r.json()["id"] != datum0_id  
     assert r.json()["all_datums_received"] == True
 
     r = requests.put(f"{BASE_URL}/datums/_prev")
     assert r.status_code == 200
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
-    assert r.json()["id"] == datum0_id
+    # assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] == True
 
     r = requests.get(f"{BASE_URL}/datums")
