@@ -550,7 +550,7 @@ describe('sortable list components', () => {
           permissions: [0, 1, 2],
           roles: ['foo', 'bar'],
         },
-        created_at: 'some_time'
+        created_at: 'some_time',
       },
       {
         project: {
@@ -561,7 +561,7 @@ describe('sortable list components', () => {
           permissions: [3, 4, 5],
           roles: ['foo', 'bar', 'baz'],
         },
-        created_at: 'some_time'
+        created_at: 'some_time',
       },
     ];
 
