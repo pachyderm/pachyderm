@@ -40,7 +40,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
-const NumDatumsPerPage = 500 // The number of datums requested per ListDatum call
+// TODO: Get all datums for now (value of 0). Once ListDatum pagination is efficient,
+// specify page size. #ListDatumPagination
+const NumDatumsPerPage = 0 // The number of datums requested per ListDatum call
+
+var (
+	ErrUnsupportedInputType = errors.New("input type not supported")
+)
 
 type ServerOptions struct {
 	MountDir string
@@ -69,10 +75,10 @@ type CommitRequest struct {
 }
 
 type MountDatumResponse struct {
-	Id                string `json:"id"`
-	Idx               int    `json:"idx"`
-	NumDatums         int    `json:"num_datums"`
-	AllDatumsReceived bool   `json:"all_datums_received"`
+	// Id                string `json:"id"`
+	Idx               int  `json:"idx"`
+	NumDatums         int  `json:"num_datums"`
+	AllDatumsReceived bool `json:"all_datums_received"`
 }
 
 type DatumsResponse struct {
@@ -1231,11 +1237,14 @@ func (mm *MountManager) GetDatums() (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	// If mm.DatumInput is a single PFS input, use GlobFile instead because
-	// it's faster than ListDatum (pagination as of now doesn't speed up RPC)
-	if mm.DatumInput.Pfs != nil {
-		return mm.GetGlobFiles()
+	// TODO: Try creating datums using GlobFile for now because it's faster than ListDatum.
+	// Once ListDatum pagination is efficient, we can remove this. #ListDatumPagination
+	if err := mm.CreateDatums(); err == nil {
+		return nil
+	} else if errors.Is(err, ErrUnsupportedInputType) {
+		return err
 	}
+	// If input spec has Join or Group, fall back to ListDatum
 	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
 	if err != nil {
 		return err
@@ -1255,20 +1264,84 @@ func (mm *MountManager) GetDatums() (retErr error) {
 	return nil
 }
 
-func (mm *MountManager) GetGlobFiles() error {
-	commit := client.NewCommit(mm.DatumInput.Pfs.Project, mm.DatumInput.Pfs.Repo, mm.DatumInput.Pfs.Branch, "")
-	datums := []*pps.DatumInfo{}
-	if err := mm.Client.GlobFile(commit, mm.DatumInput.Pfs.Glob, func(fi *pfs.FileInfo) error {
-		datums = append(datums, &pps.DatumInfo{
-			Data: []*pfs.FileInfo{fi},
-			Datum: &pps.Datum{
-				Id: fi.File.Commit.Id,
-			},
-		})
+func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) error {
+	var source []*pps.Input
+	switch {
+	case input == nil:
+		return errors.Errorf("spouts not supported") // Spouts may have nil input
+	case input.Cross != nil:
+		source = input.Cross
+	case input.Join != nil:
+		source = input.Join
+	case input.Group != nil:
+		source = input.Group
+	case input.Union != nil:
+		source = input.Union
+	}
+	for _, input := range source {
+		if err := visitInput(input, level+1, f); err != nil {
+			return err
+		}
+	}
+	return f(input, level)
+}
+
+func cartesianProduct(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
+	if len(datums) == 0 {
+		return nil
+	}
+	ret := datums[0]
+	for _, slice := range datums[1:] {
+		var temp []*pps.DatumInfo
+		for _, d1 := range ret {
+			for _, d2 := range slice {
+				temp = append(temp, &pps.DatumInfo{
+					Data: append(d1.Data, d2.Data...),
+				})
+			}
+		}
+		ret = temp
+	}
+	return ret
+}
+
+func (mm *MountManager) CreateDatums() error {
+	datumsAtLevel := make(map[int][][]*pps.DatumInfo)
+	if err := visitInput(mm.DatumInput, 0, func(input *pps.Input, level int) error {
+		if input.Cron != nil || input.Join != nil || input.Group != nil {
+			return ErrUnsupportedInputType
+		}
+		if input.Pfs != nil {
+			// Glob file to get datums associated with this PFS input
+			commit := client.NewCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
+			datums := []*pps.DatumInfo{}
+			if err := mm.Client.GlobFile(commit, input.Pfs.Glob, func(fi *pfs.FileInfo) error {
+				datums = append(datums, &pps.DatumInfo{Data: []*pfs.FileInfo{fi}})
+				return nil
+			}); err != nil {
+				return err
+			}
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+		}
+		if input.Union != nil {
+			// Union all the children PFS inputs datums
+			datums := []*pps.DatumInfo{}
+			for _, pfsInputDatums := range datumsAtLevel[level+1] {
+				datums = append(datums, pfsInputDatums...)
+			}
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+		}
+		if input.Cross != nil {
+			// Cross all the children PFS inputs datums
+			datums := cartesianProduct(datumsAtLevel[level+1])
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
+
+	datums := datumsAtLevel[0][0]
 	if len(datums) == 0 {
 		return errors.New("no datums to mount")
 	}
