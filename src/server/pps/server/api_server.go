@@ -2220,9 +2220,6 @@ func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txn
 	}
 
 	defaultsJSON := clusterDefaults.Json
-	if defaultsJSON == "" {
-		defaultsJSON = "{}"
-	}
 	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
 	if err != nil {
 		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
@@ -2265,13 +2262,14 @@ func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txn
 			return "", errors.Wrap(err, "create det pipeline side effects")
 		}
 	}
-	d := txnenv.NewDirectTransaction(ctx, a.txnEnv, txnCtx)
-	if err := d.CreatePipeline(&pps.CreatePipelineTransaction{
-		CreatePipelineRequest: effectiveSpec,
-		EffectiveJson:         effectiveSpecJSON,
-		UserJson:              req.CreatePipelineRequestJson,
+	if err := a.txnEnv.WithTransaction(ctx, func(txn txnenv.Transaction) error {
+		return errors.EnsureStack(txn.CreatePipeline(&pps.CreatePipelineTransaction{
+			CreatePipelineRequest: effectiveSpec,
+			EffectiveJson:         effectiveSpecJSON,
+			UserJson:              req.CreatePipelineRequestJson,
+		}))
 	}); err != nil {
-		return "", errors.Wrap(err, "underlying create")
+		return "", err
 	}
 	return string(b), nil
 }
