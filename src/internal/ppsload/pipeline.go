@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -30,7 +31,7 @@ func Pipeline(pachClient *client.APIClient, req *pps.RunLoadTestRequest) (*pps.R
 		branch = state.Branch
 		stateID = state.PfsStateId
 	}
-	resp, err := pachClient.PfsAPIClient.RunLoadTest(pachClient.Ctx(), &pfs.RunLoadTestRequest{
+	resp, err := pachClient.DebugClient.RunPFSLoadTest(pachClient.Ctx(), &debug.RunPFSLoadTestRequest{
 		Spec:    req.LoadSpec,
 		Branch:  branch,
 		Seed:    req.Seed,

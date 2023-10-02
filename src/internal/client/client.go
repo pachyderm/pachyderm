@@ -897,6 +897,27 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	return metadata.NewOutgoingContext(ctx, finalMD)
 }
 
+func SetAuthToken(ctx context.Context, token string) context.Context {
+	if token == "" {
+		return ctx
+	}
+	// Rescue any metadata pairs already in 'ctx' (otherwise
+	// metadata.NewOutgoingContext() would drop them). Note that this is similar
+	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
+	// instead of merging them)
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	finalMD := make(metadata.MD) // Collect k/v pairs
+	for _, md := range []metadata.MD{incomingMD, outgoingMD} {
+		for k, v := range md {
+			finalMD[k] = v
+		}
+	}
+	finalMD[auth.ContextTokenKey] = []string{token}
+
+	return metadata.NewOutgoingContext(ctx, finalMD)
+}
+
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
 // to context.Background().
 func (c *APIClient) Ctx() context.Context {

@@ -395,7 +395,7 @@ func formatSince(t *metav1.Time) string {
 }
 
 func formatPodStatus(s v1.PodStatus) string {
-	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v epehmeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, formatSince(s.StartTime), formatPodConditions(s.Conditions), formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
+	return fmt.Sprintf("{phase:%v message:%v reason:%v nominatedNodeName:%v hostIP:%v podIP:%v startTime:%v conditions:%v containers:{init:%v ephemeral:%v normal:%v}}", s.Phase, s.Message, s.Reason, s.NominatedNodeName, s.HostIP, s.PodIP, formatSince(s.StartTime), formatPodConditions(s.Conditions), formatContainerStatuses(s.InitContainerStatuses), formatContainerStatuses(s.EphemeralContainerStatuses), formatContainerStatuses(s.ContainerStatuses))
 }
 
 func formatPodConditions(cs []v1.PodCondition) string {

@@ -451,6 +451,14 @@
                 "customCaCerts": {
                     "type": "boolean"
                 },
+                "image": {
+                    "type": "object",
+                    "properties": {
+                        "registry": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "imagePullSecrets": {
                     "type": "array"
                 },

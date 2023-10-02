@@ -1,6 +1,7 @@
 package pfsdb
 
 import (
+	"database/sql"
 	"encoding/hex"
 	"strings"
 	"time"
@@ -84,11 +85,23 @@ func parseBranches(branchInfos string) ([]*pfs.Branch, error) {
 	return branches, nil
 }
 
-// Commit is a row in the pfs.commits table.
 type Commit struct {
-	ID          CommitID `db:"id"`
-	Repo        Repo     `db:"repo"`
-	CommitSetID string   `db:"commit_set_id"`
+	ID             CommitID  `db:"int_id"`
+	CommitSetID    string    `db:"commit_set_id"`
+	CommitID       string    `db:"commit_id"`
+	Origin         string    `db:"origin"`
+	Description    string    `db:"description"`
+	StartTime      time.Time `db:"start_time"`
+	FinishingTime  time.Time `db:"finishing_time"`
+	FinishedTime   time.Time `db:"finished_time"`
+	CompactingTime int64     `db:"compacting_time_s"`
+	ValidatingTime int64     `db:"validating_time_s"`
+	Error          string    `db:"error"`
+	Size           int64     `db:"size"`
+	// BranchName is used to derive the BranchID in commit related queries.
+	BranchName sql.NullString `db:"branch_name"`
+	BranchID   sql.NullInt64  `db:"branch_id"`
+	Repo       Repo           `db:"repo"`
 	CreatedAtUpdatedAt
 }
 
@@ -112,5 +125,26 @@ func (branch *Branch) Pb() *pfs.Branch {
 	return &pfs.Branch{
 		Name: branch.Name,
 		Repo: branch.Repo.Pb(),
+	}
+}
+
+type BranchTrigger struct {
+	FromBranch    Branch `db:"from_branch"`
+	ToBranch      Branch `db:"to_branch"`
+	CronSpec      string `db:"cron_spec"`
+	RateLimitSpec string `db:"rate_limit_spec"`
+	Size          string `db:"size"`
+	NumCommits    int64  `db:"num_commits"`
+	AllConditions bool   `db:"all_conditions"`
+}
+
+func (trigger *BranchTrigger) Pb() *pfs.Trigger {
+	return &pfs.Trigger{
+		Branch:        trigger.ToBranch.Name,
+		CronSpec:      trigger.CronSpec,
+		RateLimitSpec: trigger.RateLimitSpec,
+		Size:          trigger.Size,
+		Commits:       trigger.NumCommits,
+		All:           trigger.AllConditions,
 	}
 }

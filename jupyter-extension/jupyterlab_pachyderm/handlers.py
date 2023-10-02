@@ -5,7 +5,7 @@ from pachyderm_sdk import Client
 import tornado
 import traceback
 
-from .env import PFS_MOUNT_DIR
+from .env import PFS_MOUNT_DIR, PFS_SOCK_PATH
 from .filemanager import PFSContentsManager
 from .log import get_logger
 from .pachyderm import MountInterface
@@ -335,12 +335,14 @@ class PPSCreateHandler(BaseHandler):
 
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
+    get_logger().info(f"Using PFS_SOCK_PATH={PFS_SOCK_PATH}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
+    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR, PFS_SOCK_PATH)
     web_app.settings["pachyderm_pps_client"] = PPSClient()
 
     client = Client(host="host.docker.internal", port=30650)
     web_app.settings["pachyderm_mount_client"] = MountServerClient(
-        mount_dir=PFS_MOUNT_DIR, pfs_client=client
+        mount_dir=PFS_MOUNT_DIR, sock_path=PFS_SOCK_PATH, pfs_client=client
     )
 
     # uncomment below to use the pachyderm sdk based file manager

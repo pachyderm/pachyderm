@@ -128,6 +128,8 @@ func TestLogin(t *testing.T) {
 		if err != nil {
 			return errors.Wrap(err, "StdoutPipe")
 		}
+		var buf bytes.Buffer
+		cmd.Stderr = &buf
 
 		c = tu.UnauthenticatedPachClient(t, c)
 		if err := cmd.Start(); err != nil {
@@ -147,6 +149,7 @@ func TestLogin(t *testing.T) {
 		if err := cmd.Wait(); err != nil {
 			return errors.Wrap(err, "cmd.Wait")
 		}
+		require.False(t, strings.Contains(buf.String(), "Could not inspect"), "does not inspect project when auth is enabled and no credentials are provided")
 		return nil
 	}, time.Second, "should pachctl auth login")
 	require.NoError(t, tu.PachctlBashCmd(t, c, `

@@ -3,24 +3,36 @@ package server
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	etcd "go.etcd.io/etcd/client/v3"
 )
 
 type PipelineInspector interface {
 	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
+}
+
+// PFSAuth contains the auth methods called by PFS.
+// It is a subset of what the Auth Service provides.
+type PFSAuth interface {
+	CheckRepoIsAuthorized(ctx context.Context, repo *pfs.Repo, p ...auth.Permission) error
+	WhoAmI(ctx context.Context, req *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+	GetPermissions(ctx context.Context, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
+
+	CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+	CreateRoleBindingInTransaction(txnCtx *txncontext.TransactionContext, principal string, roleSlice []string, resource *auth.Resource) error
+	DeleteRoleBindingInTransaction(transactionContext *txncontext.TransactionContext, resource *auth.Resource) error
+	GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error)
 }
 
 // Env is the dependencies needed to run the PFS API server
@@ -33,14 +45,11 @@ type Env struct {
 	TxnEnv       *txnenv.TransactionEnv
 	Listener     col.PostgresListener
 
-	AuthServer           authserver.APIServer
+	Auth                 PFSAuth
 	GetPipelineInspector func() PipelineInspector
-	// TODO: remove this, the load tests need a pachClient
-	GetPachClient func(ctx context.Context) *client.APIClient
 
 	BackgroundContext context.Context
 	StorageConfig     pachconfig.StorageConfiguration
-	PachwInSidecar    bool
 }
 
 // NewAPIServer creates an APIServer.
@@ -49,29 +58,5 @@ func NewAPIServer(env Env) (pfsserver.APIServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	go func() {
-		pfsload.Worker(env.GetPachClient(pctx.Child(env.BackgroundContext, "pfsload")), env.TaskService) //nolint:errcheck
-	}()
-	return newValidatedAPIServer(a, env.AuthServer), nil
-}
-
-// TODO: remove this after load tests have been moved to Debug Server
-func NewSidecarAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
-	if err != nil {
-		return nil, err
-	}
-	return newValidatedAPIServer(a, env.AuthServer), nil
-}
-
-// NewPachwAPIServer is used when running pachd in Pachw Mode.
-// In Pachw Mode, a pachd instance processes storage and URl related tasks via the task service.
-// TODO: remove this after load tests have been moved to Debug server.
-func NewPachwAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
-	if err != nil {
-		return nil, err
-	}
-	go func() { pfsload.Worker(env.GetPachClient(env.BackgroundContext), env.TaskService) }() //nolint:errcheck
-	return newValidatedAPIServer(a, env.AuthServer), nil
+	return newValidatedAPIServer(a, env.Auth), nil
 }
