@@ -61,6 +61,10 @@ type ErrBranchNotFound struct {
 }
 
 func (err ErrBranchNotFound) Error() string {
+	if strings.Contains(err.BranchKey, pfs.UserRepoType) {
+		branchKeyWithoutUser := strings.Replace(err.BranchKey, "."+pfs.UserRepoType, "", 1)
+		return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, branchKeyWithoutUser)
+	}
 	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
 }
 
