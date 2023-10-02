@@ -94,6 +94,8 @@
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
     - [ProfileRequest](#debug_v2-ProfileRequest)
+    - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
+    - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
     - [SetLogLevelRequest](#debug_v2-SetLogLevelRequest)
     - [SetLogLevelResponse](#debug_v2-SetLogLevelResponse)
     - [System](#debug_v2-System)
@@ -334,8 +336,6 @@
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
-    - [RunLoadTestRequest](#pfs_v2-RunLoadTestRequest)
-    - [RunLoadTestResponse](#pfs_v2-RunLoadTestResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -1959,6 +1959,44 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-RunPFSLoadTestRequest"></a>
+
+### RunPFSLoadTestRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| spec | [string](#string) |  |  |
+| branch | [pfs_v2.Branch](#pfs_v2-Branch) |  |  |
+| seed | [int64](#int64) |  |  |
+| state_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="debug_v2-RunPFSLoadTestResponse"></a>
+
+### RunPFSLoadTestResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| spec | [string](#string) |  |  |
+| branch | [pfs_v2.Branch](#pfs_v2-Branch) |  |  |
+| seed | [int64](#int64) |  |  |
+| error | [string](#string) |  |  |
+| duration | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+| state_id | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-SetLogLevelRequest"></a>
 
 ### SetLogLevelRequest
@@ -2065,6 +2103,8 @@ ResourceType represents the type of a Resource
 | SetLogLevel | [SetLogLevelRequest](#debug_v2-SetLogLevelRequest) | [SetLogLevelResponse](#debug_v2-SetLogLevelResponse) |  |
 | GetDumpV2Template | [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest) | [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse) |  |
 | DumpV2 | [DumpV2Request](#debug_v2-DumpV2Request) | [DumpChunk](#debug_v2-DumpChunk) stream |  |
+| RunPFSLoadTest | [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTest runs a load test. |
+| RunPFSLoadTestDefault | [.google.protobuf.Empty](#google-protobuf-Empty) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTestDefault runs the default load tests. |
 
  
 
@@ -5339,44 +5379,6 @@ Details are only provided when explicitly requested
 
 
 
-<a name="pfs_v2-RunLoadTestRequest"></a>
-
-### RunLoadTestRequest
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| spec | [string](#string) |  |  |
-| branch | [Branch](#pfs_v2-Branch) |  |  |
-| seed | [int64](#int64) |  |  |
-| state_id | [string](#string) |  |  |
-
-
-
-
-
-
-<a name="pfs_v2-RunLoadTestResponse"></a>
-
-### RunLoadTestResponse
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| spec | [string](#string) |  |  |
-| branch | [Branch](#pfs_v2-Branch) |  |  |
-| seed | [int64](#int64) |  |  |
-| error | [string](#string) |  |  |
-| duration | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
-| state_id | [string](#string) |  |  |
-
-
-
-
-
-
 <a name="pfs_v2-SQLDatabaseEgress"></a>
 
 ### SQLDatabaseEgress
@@ -5673,8 +5675,6 @@ These are the different places where a commit may be originated from
 | PutCache | [PutCacheRequest](#pfs_v2-PutCacheRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | GetCache | [GetCacheRequest](#pfs_v2-GetCacheRequest) | [GetCacheResponse](#pfs_v2-GetCacheResponse) |  |
 | ClearCache | [ClearCacheRequest](#pfs_v2-ClearCacheRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
-| RunLoadTest | [RunLoadTestRequest](#pfs_v2-RunLoadTestRequest) | [RunLoadTestResponse](#pfs_v2-RunLoadTestResponse) | RunLoadTest runs a load test. |
-| RunLoadTestDefault | [.google.protobuf.Empty](#google-protobuf-Empty) | [RunLoadTestResponse](#pfs_v2-RunLoadTestResponse) | RunLoadTestDefault runs the default load tests. |
 | ListTask | [.taskapi.ListTaskRequest](#taskapi-ListTaskRequest) | [.taskapi.TaskInfo](#taskapi-TaskInfo) stream | ListTask lists PFS tasks |
 | Egress | [EgressRequest](#pfs_v2-EgressRequest) | [EgressResponse](#pfs_v2-EgressResponse) | Egress writes data from a commit to an external system |
 | CreateProject | [CreateProjectRequest](#pfs_v2-CreateProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | Project API CreateProject creates a new project. |
@@ -8267,7 +8267,7 @@ WellKnownRegex contain some well-known patterns.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | URL | [string](#string) |  |  |
-| file | [pfs_v2.File](#pfs_v2-File) |  |  |
+| Fileset | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 
 

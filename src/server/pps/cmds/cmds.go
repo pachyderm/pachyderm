@@ -1619,7 +1619,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
 	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
@@ -1641,7 +1640,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
 	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
@@ -1660,7 +1658,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
 	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
@@ -1682,7 +1679,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
 	updateDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
@@ -1699,18 +1695,17 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	if reprocess {
 		regenerate = true
 	}
-	b, err := io.ReadAll(r)
+	js, err := ppsutil.ReadYAMLAsJSON(r)
 	if err != nil {
-		return errors.Wrap(err, "could not read cluster defaults")
+		return errors.Wrap(err, "could not read input as YAML")
 	}
-	b = bytes.TrimSpace(b) // remove leading & trailing whitespace
 	// validate that the provided defaults parse
 	var cd pps.ClusterDefaults
-	if err := protojson.Unmarshal(b, &cd); err != nil {
+	if err := protojson.Unmarshal([]byte(js), &cd); err != nil {
 		return errors.Wrapf(err, "invalid cluster defaults")
 	}
 	var req = &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: string(b),
+		ClusterDefaultsJson: js,
 		Regenerate:          regenerate,
 		Reprocess:           reprocess,
 		DryRun:              dryRun,

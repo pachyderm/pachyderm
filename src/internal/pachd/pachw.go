@@ -31,7 +31,7 @@ func (pachwb *pachwBuilder) registerPFSServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewPachwAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(*env)
 	if err != nil {
 		return err
 	}
@@ -105,6 +105,8 @@ func (pachwb *pachwBuilder) buildAndRun(ctx context.Context) error {
 		pachwb.internallyListen,
 		pachwb.resumeHealth,
 		pachwb.startPFSWorker,
+		pachwb.startPPSWorker,
+		pachwb.startDebugWorker,
 		pachwb.daemon.serve,
 	)
 }

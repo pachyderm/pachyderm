@@ -188,7 +188,7 @@ func PipelineMonitorSideEffect(toggle sideEffectToggle) sideEffect {
 		toggle: toggle,
 		apply: func(ctx context.Context, pc *pipelineController, pi *pps.PipelineInfo, rc *v1.ReplicationController) error {
 			if toggle == sideEffectToggle_UP {
-				pc.startPipelineMonitor(pi)
+				pc.startPipelineMonitor(ctx, pi)
 			} else {
 				pc.stopPipelineMonitor()
 			}
@@ -405,6 +405,9 @@ func evaluate(pi *pps.PipelineInfo, rc *v1.ReplicationController) (pps.PipelineS
 		if pi.Details.Autoscaling && pi.State == pps.PipelineState_PIPELINE_STARTING {
 			return pps.PipelineState_PIPELINE_STANDBY, sideEffects, "", nil
 		}
+		if pi.State == pps.PipelineState_PIPELINE_RESTARTING { // the conditional isn't necessary but provides clearer semantics
+			sideEffects = append(sideEffects, PipelineMonitorSideEffect(sideEffectToggle_DOWN))
+		}
 		return pps.PipelineState_PIPELINE_RUNNING, sideEffects, "", nil
 	}
 	if rc == nil {
@@ -520,9 +523,9 @@ func rcIsFresh(ctx context.Context, pi *pps.PipelineInfo, rc *v1.ReplicationCont
 // one doesn't exist already), which manages standby and cron inputs, and
 // updates the the pipeline state.
 // Note: this is called by every run through step(), so must be idempotent
-func (pc *pipelineController) startPipelineMonitor(pi *pps.PipelineInfo) {
+func (pc *pipelineController) startPipelineMonitor(ctx context.Context, pi *pps.PipelineInfo) {
 	if pc.monitorCancel == nil {
-		pc.monitorCancel = pc.startMonitor(pc.ctx, pi)
+		pc.monitorCancel = pc.startMonitor(ctx, pi)
 	}
 }
 
