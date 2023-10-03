@@ -1,6 +1,7 @@
 package log
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -19,7 +20,7 @@ func TestProto(t *testing.T) {
 	// This is just a test for not panicking.  Eventually Proto() will be replaced by a protobuf
 	// add-on that generates MarshalLogObject methods for each proto, which is much cleaner and
 	// faster than this.
-	ctx := TestParallel(t)
+	ctx := TestParallel(context.Background(), t)
 	Info(ctx, "some proto", Proto("version", &versionpb.Version{Major: 42}))
 	Info(ctx, "some proto", Proto("version", (*versionpb.Version)(nil)))
 	Info(ctx, "some proto without MarshalLogObject", Proto("int", wrapperspb.Int32(42)))

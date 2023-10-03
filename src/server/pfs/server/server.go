@@ -48,8 +48,7 @@ type Env struct {
 	Auth                 PFSAuth
 	GetPipelineInspector func() PipelineInspector
 
-	BackgroundContext context.Context
-	StorageConfig     pachconfig.StorageConfiguration
+	StorageConfig pachconfig.StorageConfiguration
 }
 
 // NewAPIServer creates an APIServer.

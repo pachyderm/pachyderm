@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -135,6 +136,17 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 	return paths
 }
 
+type TestEnv struct {
+	Context    context.Context
+	PachClient *client.APIClient
+}
+
+func newEnv(ctx context.Context, t testing.TB) TestEnv {
+	return TestEnv{
+		PachClient: pachd.NewTestPachd(t),
+	}
+}
+
 func TestWalkFileTest(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -203,7 +215,7 @@ func TestWalkFileTest(t *testing.T) {
 
 func TestListFileTest(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv()
 
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -254,7 +266,7 @@ func TestListFileTest(t *testing.T) {
 	require.NoError(t, err)
 	fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fis))
+	require.Equal(t, 1, len(fis)):w http.ResponseWriter, r *http.Request
 	require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
 
 	request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
@@ -3515,12 +3527,6 @@ func TestCreateBranchTwice(t *testing.T) {
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 
-	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
-	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit1.Id, nil))
-
-	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
 	require.NoError(t, err)
 	require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit2.Id, nil))
@@ -4112,6 +4118,50 @@ func TestGlobFile(t *testing.T) {
 
 		var output strings.Builder
 		rc, err := env.PachClient.GetFileTAR(commit, "*")
+			if strings.HasPrefix(filename, "/1") {
+				expectedFileNames = append(expectedFileNames, filename)
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
+		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
+		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+		globFile := func(pattern string) []string {
+			var fis []*pfs.FileInfo
+			require.NoError(t, env.PachClient.GlobFile(commit1, pattern, func(fi *pfs.FileInfo) error {
+				fis = append(fis, fi)
+				return nil
+			}))
+			return finfosToPaths(fis)
+		}
+		assert.ElementsMatch(t, []string{"/dir1/file1.2", "/dir2/file2.2"}, globFile("**.2"))
+		assert.ElementsMatch(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, globFile("/dir1/*"))
+		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
+		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
+	})
+
+	// GetFileGlobOrder checks that GetFile(glob) streams data back in the
+	// right order. GetFile(glob) is supposed to return a stream of data of the
+	// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
+	// file matching 'glob', file2 is the next lowest, etc.
+	suite.Run("GetFileTARGlobOrder", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := newEnv(ctx, t)
+
+		repo := "test"
+		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+
+		var expected bytes.Buffer
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		for i := 0; i < 25; i++ {
+			next := fmt.Sprintf("%d,%d,%d,%d\n", 4*i, (4*i)+1, (4*i)+2, (4*i)+3)
+			expected.WriteString(next)
+			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next)))
+		}
+		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+
+		var output bytes.Buffer
+		rc, err := env.PachClient.GetFileTAR(commit, "/data/*")
+>>>>>>> dd74d24957 (pachd: add NewTestPachd, wip)
 		require.NoError(t, err)
 		defer rc.Close()
 		require.NoError(t, tarutil.ConcatFileContent(&output, rc))

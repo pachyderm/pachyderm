@@ -13,7 +13,7 @@ import (
 )
 
 func TestImmediate(t *testing.T) {
-	ctx := log.TestParallel(t)
+	ctx := log.TestParallel(context.Background(), t)
 	Set(ctx, "gauge", 42)
 	Inc(ctx, "counter", 1)
 	Inc(ctx, "counter", 1)

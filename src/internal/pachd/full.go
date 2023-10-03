@@ -2,14 +2,33 @@ package pachd
 
 import (
 	"context"
+	"net"
 	"os"
 	"path"
 
+	clientv3 "go.etcd.io/etcd/client/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
+	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	version_server "github.com/pachyderm/pachyderm/v2/src/version"
+	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
 
 // A fullBuilder builds a full-mode pachd.
@@ -39,11 +58,11 @@ func (fb *fullBuilder) registerEnterpriseServer(ctx context.Context) error {
 		path.Join(fb.env.Config().EtcdPrefix, fb.env.Config().EnterpriseEtcdPrefix),
 		fb.txnEnv,
 	)
-	apiServer, err := eprsserver.NewEnterpriseServer(
+	apiServer, err := ent_server.NewEnterpriseServer(
 		fb.enterpriseEnv,
-		eprsserver.Config{
+		ent_server.Config{
 			Heartbeat:    true,
-			Mode:         eprsserver.FullMode,
+			Mode:         ent_server.FullMode,
 			UnpausedMode: os.Getenv("UNPAUSED_MODE"),
 		},
 	)
@@ -113,4 +132,121 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 // which manages pipelines, files and so forth.
 func FullMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) error {
 	return newFullBuilder(config).buildAndRun(ctx)
+}
+
+type Env struct {
+	DB         *pachsql.DB
+	DirectDB   *pachsql.DB
+	ObjClient  obj.Client
+	EtcdClient *clientv3.Client
+	Listener   net.Listener
+}
+
+type Full struct {
+	base
+	env    Env
+	config pachconfig.PachdFullConfiguration
+
+	selfGRPC        *grpc.ClientConn
+	authInterceptor *auth_interceptor.Interceptor
+	txnEnv          *transactionenv.TransactionEnv
+
+	healthSrv grpc_health_v1.HealthServer
+	version   version.APIServer
+	authSrv   auth.APIServer
+	pfsSrv    pfs.APIServer
+	// ppsSrv   pps.APIServer
+	// debugSrv debug.DebugServer
+
+	pfsWorker   *pfs_server.Worker
+	ppsWorker   *pps_server.Worker
+	debugWorker *debug_server.Worker
+}
+
+// NewFull sets up a new Full pachd and returns it.
+func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
+	pd := &Full{env: env, config: config}
+
+	pd.selfGRPC = newSelfGRPC(env.Listener, nil)
+	pd.healthSrv = health.NewServer()
+	pd.version = version_server.NewAPIServer(version_server.Version, version_server.APIServerOptions{})
+	pd.txnEnv = transactionenv.New()
+	pd.authInterceptor = auth_interceptor.NewInterceptor(func() auth_iface.APIServer {
+		return pd.authSrv.(auth_iface.APIServer)
+	})
+	pd.debugWorker = debug_server.NewWorker(debug_server.WorkerEnv{
+		PFS:         pfs.NewAPIClient(pd.selfGRPC),
+		TaskService: task.NewEtcdService(env.EtcdClient, "debug"),
+	})
+	pd.ppsWorker = pps_server.NewWorker(pps_server.WorkerEnv{
+		PFS:         pfs.NewAPIClient(pd.selfGRPC),
+		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
+	})
+
+	pd.addSetup(
+		printVersion(),
+		setupProfiling("pachd", pachconfig.NewConfiguration(config)),
+		tweakResources(config.GlobalConfiguration),
+		initJaeger(),
+
+		awaitDB(env.DB),
+		runMigrations(env.DB, env.EtcdClient),
+		awaitMigrations(env.DB),
+
+		// API Servers
+		initAuthServer(&pd.authSrv, func() auth_server.Env {
+			return auth_server.Env{
+				DB:         env.DB,
+				EtcdClient: env.EtcdClient,
+				Listener:   nil,
+				TxnEnv:     pd.txnEnv,
+
+				BackgroundContext: pctx.TODO(),
+			}
+		}),
+		initPFSAPIServer(&pd.pfsSrv, func() pfs_server.Env {
+			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
+			return pfs_server.Env{
+				DB:           env.DB,
+				ObjectClient: env.ObjClient,
+				EtcdClient:   env.EtcdClient,
+				EtcdPrefix:   etcdPrefix,
+				TaskService:  task.NewEtcdService(env.EtcdClient, etcdPrefix),
+
+				TxnEnv:        pd.txnEnv,
+				StorageConfig: config.StorageConfiguration,
+				Auth:          pd.authSrv.(pfs_server.PFSAuth),
+				GetPipelineInspector: func() pfs_server.PipelineInspector {
+					panic("GetPipelineInspector")
+				},
+			}
+		}),
+		initTransactionEnv(&pd.txnEnv),
+
+		// Workers
+		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
+			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
+			return pfs_server.WorkerEnv{
+				DB:          env.DB,
+				ObjClient:   env.ObjClient,
+				TaskService: task.NewEtcdService(env.EtcdClient, etcdPrefix),
+			}
+		}),
+	)
+	pd.addBackground("pfsWorker", func(ctx context.Context) error {
+		return pd.pfsWorker.Run(ctx)
+	})
+	pd.addBackground("ppsWorker", func(ctx context.Context) error {
+		return pd.ppsWorker.Run(ctx)
+	})
+	pd.addBackground("debugWorker", func(ctx context.Context) error {
+		return pd.debugWorker.Run(ctx)
+	})
+	pd.addBackground("grpc", newServeGRPC(pd.authInterceptor, env.Listener, func(gs grpc.ServiceRegistrar) {
+		grpc_health_v1.RegisterHealthServer(gs, pd.healthSrv)
+		version.RegisterAPIServer(gs, pd.version)
+		auth.RegisterAPIServer(gs, pd.authSrv)
+		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+	}))
+	return pd
 }
