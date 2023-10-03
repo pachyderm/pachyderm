@@ -95,9 +95,10 @@ jobs:
           command: |-
             echo "*** Tests found: "
             cat tests_unit.txt 
-            echo "*** k8s Tests found: "
-            cat tests_k8s.txt 
-            tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            echo "*** packages found: "
+            packages=$(go list ./services/... | circleci tests split --split-by=timings --timings-type=classname)
+            echo "${packages[@]}"
+            tests=( $(cat tests_unit.txt | circleci tests split --split-by=size --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
@@ -306,7 +307,7 @@ jobs:
 
             echo "Tests found: "
             cat tests_k8s.txt 
-            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=size --timings-type=testname) )
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
