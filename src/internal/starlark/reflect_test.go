@@ -48,7 +48,7 @@ func TestRoundTrip(t *testing.T) {
 	want := map[string]any{
 		"nil":        nil,
 		"struct":     SimpleStruct{Field: "simple"},
-		"struct_ptr": SimpleStruct{Field: "pointer"},
+		"struct_ptr": &SimpleStruct{Field: "pointer"},
 		"string":     "string",
 		"byte":       []byte("bytes"),
 		"int64":      int64(math.MinInt64),

@@ -32,7 +32,10 @@ func (r *Reflect) String() string {
 	return fmt.Sprintf("%#v", r.Any)
 }
 func (r *Reflect) Type() string {
-	return reflect.TypeOf(r.Any).String()
+	if t := reflect.TypeOf(r.Any); t != nil {
+		return t.String()
+	}
+	return "<nil>"
 }
 func (r *Reflect) Freeze() {}
 func (r *Reflect) Hash() (uint32, error) {
@@ -41,7 +44,7 @@ func (r *Reflect) Hash() (uint32, error) {
 	}
 	return uint32(xxh3.HashString(r.String())), nil
 }
-func (r *Reflect) Truth() starlark.Bool { return r.Any == nil }
+func (r *Reflect) Truth() starlark.Bool { return r.Any != nil }
 func (r *Reflect) Get(v starlark.Value) (starlark.Value, bool, error) {
 	name, ok := starlark.AsString(v)
 	if !ok {

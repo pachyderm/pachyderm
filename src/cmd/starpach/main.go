@@ -27,7 +27,7 @@ var (
 	profile                bool        // If true, collect profiles.
 	goProfile, starProfile io.Closer   // Closers for profilers, if profiling.
 	logFile                string      // Log to a custom file.
-	endLogging             func(error) //
+	endLogging             func(error) // Callback to clean up the logs after run.
 	timeout                time.Duration
 	root                   = &cobra.Command{
 		Use:           os.Args[0],
