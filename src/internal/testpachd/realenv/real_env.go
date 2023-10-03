@@ -266,8 +266,8 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	}
 
 	ppsWorker := ppsserver.NewWorker(ppsserver.WorkerEnv{
-		TaskService:   realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
-		GetPachClient: realEnv.ServiceEnv.GetPachClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
+		PFS:         realEnv.ServiceEnv.GetPachClient(ctx).PfsAPIClient,
 	})
 	go func() {
 		ctx := pctx.Child(ctx, "pps-worker")

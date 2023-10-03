@@ -218,7 +218,7 @@ func createDatums(pachClient *client.APIClient, taskDoer task.Doer, job *pps.Job
 		}
 		return resp.FileSetId, nil
 	}
-	return datum.Create(pachClient, taskDoer, jobInfo.Details.Input)
+	return datum.Create(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, jobInfo.Details.Input)
 }
 
 func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoer task.Doer, renewer *renew.StringSet, fileSetID, baseFileSetID string) (string, error) {
@@ -264,7 +264,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {
@@ -280,7 +280,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 	pachClient := pj.driver.PachClient().WithCtx(ctx)
 	// There are no serial datums if no base exists.
 	if pj.baseMetaCommit == nil {
-		return datum.CreateEmptyFileSet(pachClient)
+		return datum.CreateEmptyFileSet(pachClient.Ctx(), pachClient.PfsAPIClient)
 	}
 	var ci *pfs.CommitInfo
 	var err error
@@ -384,7 +384,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 			}); err != nil {
 				return err
 			}
-			outputFileSetID, err = datum.ComposeFileSets(pachClient, taskDoer, resultFileSetIDs)
+			outputFileSetID, err = datum.ComposeFileSets(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, resultFileSetIDs)
 			return err
 		})
 	}); err != nil {
