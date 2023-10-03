@@ -243,9 +243,15 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 
 	txnEnv.Initialize(
 		realEnv.ServiceEnv.GetDBClient(),
-		func() txnenv.AuthBackend { return realEnv.AuthServer },
-		func() txnenv.PFSBackend { return realEnv.PFSServer },
-		func() txnenv.PPSBackend { return realEnv.PPSServer },
+		func() txnenv.AuthBackend {
+			return realEnv.ServiceEnv.AuthServer()
+		},
+		func() txnenv.PFSBackend {
+			return realEnv.ServiceEnv.PfsServer()
+		},
+		func() txnenv.PPSBackend {
+			return realEnv.ServiceEnv.PpsServer()
+		},
 		realEnv.TransactionServer,
 	)
 
