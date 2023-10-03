@@ -113,7 +113,7 @@ jobs:
             go test ./... -json \
             -run "^${tests// /$|^}$" \
             -p=1 \
-            -parallel=12
+            -parallel=6
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
@@ -195,7 +195,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 8
+    parallelism: 12
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
