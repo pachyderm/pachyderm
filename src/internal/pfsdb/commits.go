@@ -947,9 +947,6 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 					`(repo.name = '%s' AND repo.type = '%s' AND repo.project_id = (SELECT id FROM core.projects project WHERE project.name = '%s'))`,
 					repo.Name, repo.Type, repo.Project.Name,
 				)
-				subcondition = fmt.Sprintf(
-					`(repo.name = '%s')`, repo.Name,
-				)
 				subconditions = append(subconditions, subcondition)
 			}
 			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.repos repo WHERE (%s)))",
