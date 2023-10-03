@@ -566,6 +566,11 @@ func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
 	}
+	directProv, err := CommitSetProvenance(tx, commitInfo.Commit.Id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get provenance for commit")
+	}
+	commitInfo.DirectProvenance = directProv
 	return commitInfo, err
 }
 
