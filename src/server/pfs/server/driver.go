@@ -848,11 +848,6 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 			return 0, err
 		}
 	}
-	if parent != nil {
-		if err := pfsdb.CreateCommitParent(ctx, txnCtx.SqlTx, parent, commitID); err != nil {
-			return 0, errors.Wrap(err, "add commit")
-		}
-	}
 	return commitID, nil
 }
 
@@ -955,7 +950,7 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	commitInfo.Finishing = txnCtx.Timestamp
 	commitInfo.Error = commitError
 
-	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo)
+	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true})
 }
 
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {

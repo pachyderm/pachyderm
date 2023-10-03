@@ -526,7 +526,7 @@ func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitW
 				commitInfo.Error = validationError
 			}
 			commitInfo.Details = details
-			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo); err != nil {
+			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
 				return errors.Wrap(err, "finalize commit")
 			}
 			if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
