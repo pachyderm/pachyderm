@@ -1191,7 +1191,7 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 0, len(fis))
 	})
-
+	// todo(fahad): fix
 	suite.Run("CreateInvalidBranchName", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -1523,6 +1523,7 @@ func TestPFS(suite *testing.T) {
 		require.True(t, finished.Before(tFinished))
 	})
 
+	//todo(fahad): fix
 	suite.Run("InspectCommitWait", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -2069,6 +2070,8 @@ func TestPFS(suite *testing.T) {
 	// different branch; i.e. when one commit set in the sequence originates from branch A, and the following from B.
 	// So conversely, we can conclude that whenever we have a sequence of commit sets that are originated from the
 	// same branch, all but the last commit set in the sequence can be considered safe to delete.
+
+	//todo(fahad): fix
 	suite.Run("SquashComplex", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -3175,6 +3178,7 @@ func TestPFS(suite *testing.T) {
 		// require.Equal(t, "", buffer.String())
 	})
 
+	// todo(fahad): fix
 	suite.Run("Branch2", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -3644,6 +3648,7 @@ func TestPFS(suite *testing.T) {
 
 	// WaitCommitSet2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
+	// todo(fahad): fix
 	suite.Run("WaitCommitSet2", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -3749,6 +3754,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit, commitInfos[0].Commit)
 	})
 
+	// todo(fahad): fix
 	suite.Run("WaitOpenCommit", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -4741,6 +4747,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, 4, len(commitInfos))
 	})
 
+	// todo(fahad): fix
 	suite.Run("BranchProvenance", func(t *testing.T) {
 		t.Parallel()
 
@@ -4988,6 +4995,7 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{cCommit2.Commit}, cCommit1.ChildCommits, CommitToID)
 	})
 
+	// todo(fahad): fix
 	suite.Run("StartCommitFork", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -5454,6 +5462,7 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, gInfo.Commit.Id, masterInfo.Head.Id)
 	})
 
+	// todo(fahad): nil
 	suite.Run("CommitState", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -6328,6 +6337,7 @@ func TestPFS(suite *testing.T) {
 		deleteOutputBranch        // delete an output branch
 	)
 
+	// todo(fahad): fix
 	suite.Run("FuzzProvenance", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -6560,6 +6570,7 @@ func TestPFS(suite *testing.T) {
 		//	}
 	})
 
+	// todo(fahad): fix
 	// TestTrigger tests branch triggers
 	// TODO: This test can be refactored to remove a lot of the boilerplate.
 	suite.Run("Trigger", func(t *testing.T) {
@@ -7073,6 +7084,7 @@ func TestPFS(suite *testing.T) {
 		})
 	})
 
+	// todo(fahad): fix
 	// TriggerValidation tests branch trigger validation
 	suite.Run("TriggerValidation", func(t *testing.T) {
 		t.Parallel()
