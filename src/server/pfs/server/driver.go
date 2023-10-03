@@ -1896,9 +1896,8 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		return err
 	}
 	// if the user passed a commit to point this branch at, resolve it
-	var ci *pfs.CommitInfo
 	if commit != nil {
-		ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, commit)
+		ci, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
 		if err != nil {
 			return errors.Wrapf(err, "unable to inspect %s", commit)
 		}
@@ -1949,7 +1948,7 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	// need to update head commit's branch_id after the branch is created.
 	if updateHead != nil {
-		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo); err != nil {
+		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
 			return errors.Wrap(err, "create branch")
 		}
 	}

@@ -136,7 +136,7 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 }
 
 func TestPFS(suite *testing.T) {
-	suite.Parallel()
+	//suite.Parallel()
 
 	suite.Run("WalkFileTest", func(t *testing.T) {
 		t.Parallel()
@@ -713,7 +713,9 @@ func TestPFS(suite *testing.T) {
 		cis, err = env.PachClient.ListCommit(outRepo, nil, nil, 0)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(cis))
-		require.Equal(t, commit1, cis[1].Commit)
+		require.Equal(t, commit1.Id, cis[1].Commit.Id)
+		require.Equal(t, commit1.Repo, cis[1].Commit.Repo)
+		// the branches cannot be equal as the commits that referenced 'out.master' when it was deleted have their branch id's nilled out.
 	})
 
 	// TODO(acohen4): should we dis-allow moving a branch with provenance? Probably since this would break Branch/Head invariant.
