@@ -885,6 +885,7 @@ func (d *driver) startCommit(
 		}
 		return nil, errors.EnsureStack(err)
 	}
+	updateCommitBranchField := false
 	// update 'branch' (which must always be set) and set parent.ID (if 'parent'
 	// was not set)
 	branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
@@ -893,6 +894,7 @@ func (d *driver) startCommit(
 			return nil, errors.Wrap(err, "start commit")
 		}
 		branchInfo = &pfs.BranchInfo{}
+		updateCommitBranchField = true // the branch field on the commit will have to be updated after the branch is created.
 	}
 	if branchInfo.Branch == nil {
 		// New branch
@@ -902,13 +904,20 @@ func (d *driver) startCommit(
 	if parent == nil {
 		parent = branchInfo.Head
 	}
-	if _, err := d.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true); err != nil {
+	commitID, err := d.addCommit(ctx, txnCtx, newCommitInfo, parent, branchInfo.DirectProvenance, true)
+	if err != nil {
 		return nil, err
 	}
 	// Point 'branch' at the new commit
 	branchInfo.Head = newCommitInfo.Commit
 	if _, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
 		return nil, errors.Wrap(err, "start commit")
+	}
+	// update branch field after a new branch is created.
+	if updateCommitBranchField {
+		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitID, newCommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
+			return nil, errors.Wrap(err, "start commit: update branch field after new branch is created")
+		}
 	}
 	// check if this is happening in a spout pipeline, and alias the spec commit
 	_, ok1 := os.LookupEnv(client.PPSPipelineNameEnv)
