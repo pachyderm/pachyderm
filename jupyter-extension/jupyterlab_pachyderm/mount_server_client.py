@@ -88,7 +88,12 @@ class MountServerClient(MountInterface):
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
                     subprocess.run(['mkdir','-p', f'/mnt{self.mount_dir}'])
-                    mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
+
+                    if self.sock_path:
+                        mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
+                        mount_server_cmd += f" --sock-path {self.sock_path}"
+                    else:
+                        mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
 
                 if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
                   mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
