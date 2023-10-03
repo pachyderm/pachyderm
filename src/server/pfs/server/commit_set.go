@@ -238,6 +238,21 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
 func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
+	for _, child := range ci.ChildCommits {
+		childInfo, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, child)
+		if err != nil {
+			return errors.Wrapf(err, "error checking child commit state")
+		}
+		if childInfo.Finished == nil {
+			var suffix string
+			if childInfo.Finishing != nil {
+				// user might already have called "finish",
+				suffix = ", consider using WaitCommit"
+			}
+			return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
+		}
+	}
+
 	// Delete the commit's filesets
 	if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 		return errors.EnsureStack(err)

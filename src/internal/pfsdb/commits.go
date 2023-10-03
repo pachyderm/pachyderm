@@ -339,15 +339,8 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 	// repoint commit.parent -> commit.children
 	if parent != nil && children != nil {
 		childrenIDs := make([]CommitID, 0)
-		commitsNotFinished := make([]string, 0)
 		for _, child := range children {
-			if child.FinishedTime.Valid == false {
-				commitsNotFinished = append(commitsNotFinished, child.CommitID)
-			}
 			childrenIDs = append(childrenIDs, child.ID)
-		}
-		if len(commitsNotFinished) > 0 {
-			return errors.New(fmt.Sprintf("commits not finished before deleting: %v", commitsNotFinished))
 		}
 		if err := CreateCommitAncestries(ctx, tx, parent.ID, childrenIDs); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.ID, childrenIDs))
