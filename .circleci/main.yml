@@ -96,7 +96,7 @@ jobs:
             echo "*** Tests found: "
             cat tests_unit.txt 
             echo "*** packages found: "
-            packages=$(go list ./services/... | circleci tests split --split-by=timings --timings-type=classname)
+            packages=( $(go list ./... | circleci tests split --split-by=timings --timings-type=classname) )
             echo "${packages[@]}"
             tests=( $(cat tests_unit.txt | circleci tests split --split-by=size --timings-type=testname) )
             tests="${tests[@]}"
