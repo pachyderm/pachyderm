@@ -136,7 +136,7 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 }
 
 func TestPFS(suite *testing.T) {
-	//suite.Parallel()
+	suite.Parallel()
 
 	suite.Run("WalkFileTest", func(t *testing.T) {
 		t.Parallel()
