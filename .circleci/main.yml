@@ -328,9 +328,6 @@ jobs:
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
-          command: etc/testing/circle/upload_stats.sh
-          when: always
-      - run:
           name: Format test results for upload
           command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
           when: always
