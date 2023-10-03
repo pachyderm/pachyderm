@@ -113,7 +113,7 @@ jobs:
             go test ./... -json \
             -run "^${tests// /$|^}$" \
             -p=1 \
-            -parallel=6
+            -parallel=16 \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
@@ -324,7 +324,7 @@ jobs:
             -run "^${tests// /$|^}$" \
             -p=1 \
             -tags=k8s \
-            -parallel=12 \
+            -parallel=6 \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
