@@ -33,7 +33,7 @@ var (
 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
 	}
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 1, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 6, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
 	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
