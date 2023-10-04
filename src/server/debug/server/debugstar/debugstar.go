@@ -39,6 +39,8 @@ var BuiltinScripts = map[string]string{}
 //go:embed starlark/*.star
 var builtin embed.FS
 
+var fakeModuleOptions ourstar.Options
+
 func init() {
 	if err := fs.WalkDir(builtin, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
@@ -70,6 +72,7 @@ func init() {
 		KubernetesNamespace: "default",
 	}
 	fakeOpts, _ := fakeEnv.Options() // Can't error.
+	fakeModuleOptions = fakeOpts
 	ourstar.RegisterPersonality("fakedebugdump", fakeOpts)
 }
 
@@ -322,6 +325,10 @@ func (e *Env) Options() (ourstar.Options, error) {
 		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 		rawConfig, err := kubeConfig.RawConfig()
 		if err != nil {
+			if strings.Contains(err.Error(), "no configuration has been provided") {
+				// Mostly for CI on machines that don't have k8s.
+				return fakeModuleOptions, nil
+			}
 			return opts, errors.Wrap(err, "load k8s config from default files")
 		}
 		if c, ok := rawConfig.Contexts[rawConfig.CurrentContext]; ok {
