@@ -106,7 +106,7 @@ message System {
 message StarlarkScript {
   // The name of the script; used for debug messages and to control where the output goes.
   string name = 1;
-  // The text of the "debugdump" peronality Starlark program.
+  // The text of the "debugdump" personality Starlark program.
   string program_text = 2;
 }
 

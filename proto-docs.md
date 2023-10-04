@@ -2060,7 +2060,7 @@ StarlarkScript is a Starlark script.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  | The name of the script; used for debug messages and to control where the output goes. |
-| program_text | [string](#string) |  | The text of the &#34;debugdump&#34; peronality Starlark program. |
+| program_text | [string](#string) |  | The text of the &#34;debugdump&#34; personality Starlark program. |
 
 
 

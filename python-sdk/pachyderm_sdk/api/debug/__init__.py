@@ -144,7 +144,7 @@ class StarlarkScript(betterproto.Message):
     """
 
     program_text: str = betterproto.string_field(2)
-    """The text of the "debugdump" peronality Starlark program."""
+    """The text of the "debugdump" personality Starlark program."""
 
 
 @dataclass(eq=False, repr=False)

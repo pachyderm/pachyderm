@@ -3625,7 +3625,7 @@
             },
             {
               "name": "program_text",
-              "description": "The text of the \"debugdump\" peronality Starlark program.",
+              "description": "The text of the \"debugdump\" personality Starlark program.",
               "label": "",
               "type": "string",
               "longType": "string",

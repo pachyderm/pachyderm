@@ -1003,7 +1003,7 @@ type StarlarkScript struct {
 
 	// The name of the script; used for debug messages and to control where the output goes.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// The text of the "debugdump" peronality Starlark program.
+	// The text of the "debugdump" personality Starlark program.
 	ProgramText string `protobuf:"bytes,2,opt,name=program_text,json=programText,proto3" json:"program_text,omitempty"`
 }
 
