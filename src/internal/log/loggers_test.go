@@ -14,6 +14,9 @@ import (
 
 func TestInit(t *testing.T) {
 	buf := new(bytes.Buffer)
+	t.Cleanup(func() {
+		zap.ReplaceGlobals(zap.NewNop())
+	})
 
 	// Create a development logger that logs to buf.
 	developmentLogger = true
