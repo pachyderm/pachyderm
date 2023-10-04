@@ -64,5 +64,5 @@ func UsePersonalityFlag(flagset *pflag.FlagSet) {
 	ps := maps.Keys(personalities)
 	sort.Strings(ps)
 	flagset.VarP(&Personality, "personality", "p",
-		fmt.Sprintf("Invoke the shell with the personality of a certain type of script; one of %v", ps))
+		fmt.Sprintf("Start the interpreter with the personality of a certain type of script; one of %v", ps))
 }

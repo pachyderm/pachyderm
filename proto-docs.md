@@ -98,6 +98,8 @@
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
     - [SetLogLevelRequest](#debug_v2-SetLogLevelRequest)
     - [SetLogLevelResponse](#debug_v2-SetLogLevelResponse)
+    - [Starlark](#debug_v2-Starlark)
+    - [StarlarkLiteral](#debug_v2-StarlarkLiteral)
     - [System](#debug_v2-System)
     - [Worker](#debug_v2-Worker)
   
@@ -1820,11 +1822,12 @@ ResourceType represents the type of a Resource
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| system | [System](#debug_v2-System) |  |  |
-| pipelines | [Pipeline](#debug_v2-Pipeline) | repeated |  |
-| input_repos | [bool](#bool) |  |  |
-| timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
-| defaults | [DumpV2Request.Defaults](#debug_v2-DumpV2Request-Defaults) |  |  |
+| system | [System](#debug_v2-System) |  | Which system-level information to include in the debug dump. |
+| pipelines | [Pipeline](#debug_v2-Pipeline) | repeated | Which pipelines to fetch information about and include in the debug dump. |
+| input_repos | [bool](#bool) |  | If true, fetch information about non-output repos. |
+| timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  | How long to run the dump for. |
+| defaults | [DumpV2Request.Defaults](#debug_v2-DumpV2Request-Defaults) |  | Which defaults to include in the debug dump. |
+| starlark_scripts | [Starlark](#debug_v2-Starlark) | repeated | A list of Starlark scripts to run. |
 
 
 
@@ -1839,7 +1842,7 @@ ResourceType represents the type of a Resource
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| cluster_defaults | [bool](#bool) |  |  |
+| cluster_defaults | [bool](#bool) |  | If true, include the cluster defaults. |
 
 
 
@@ -2025,6 +2028,39 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | affected_pods | [string](#string) | repeated |  |
 | errored_pods | [string](#string) | repeated |  |
+
+
+
+
+
+
+<a name="debug_v2-Starlark"></a>
+
+### Starlark
+Starlark controls the running of a Starlark script.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| builtin | [string](#string) |  | One built into the pachd binary. |
+| literal | [StarlarkLiteral](#debug_v2-StarlarkLiteral) |  | Or a script supplied in this request. |
+| timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  | How long to allow the script to run for. If unset, defaults to 1 minute. |
+
+
+
+
+
+
+<a name="debug_v2-StarlarkLiteral"></a>
+
+### StarlarkLiteral
+StarlarkLiteral is a custom Starlark script.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  | The name of the script; used for debug messages and to control where the output goes. |
+| program_text | [string](#string) |  | The text of the &#34;debugdump&#34; personality Starlark program. |
 
 
 
