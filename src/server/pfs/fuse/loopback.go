@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -668,20 +667,10 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	}
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
-	// If mounting just a subset of files in a repo, mount just those files
-	if len(ro.Subpaths) != 0 {
-		for _, path := range ro.Subpaths {
-			if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), path, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-				!pfsserver.IsOutputCommitNotFinishedErr(err) {
-				return err
-			}
-		}
-	} else {
-		filePath := pathpkg.Join(parts[1:]...)
-		if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-			!pfsserver.IsOutputCommitNotFinishedErr(err) {
-			return err
-		}
+	filePath := filepath.Join(parts[1:]...)
+	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+		!pfsserver.IsOutputCommitNotFinishedErr(err) {
+		return err
 	}
 	return nil
 }

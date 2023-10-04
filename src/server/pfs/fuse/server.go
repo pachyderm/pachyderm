@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -55,6 +56,8 @@ type ServerOptions struct {
 	Unmount chan struct{}
 	// True if allow-other option is to be specified
 	AllowOther bool
+	// Socket directory for Unix Domain Socket
+	SockPath string
 }
 
 type ConfigRequest struct {
@@ -91,13 +94,13 @@ type DatumsResponse struct {
 }
 
 type MountInfo struct {
-	Name    string   `json:"name"`
-	Project string   `json:"project"`
-	Repo    string   `json:"repo"`
-	Branch  string   `json:"branch"`
-	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
-	Files   []string `json:"files"`
-	Mode    string   `json:"mode"` // "ro", "rw"
+	Name    string `json:"name"`
+	Project string `json:"project"`
+	Repo    string `json:"repo"`
+	Branch  string `json:"branch"`
+	Commit  string `json:"commit"` // "" for no commit (commit as noun)
+	Path    string `json:"path"`
+	Mode    string `json:"mode"` // "ro", "rw"
 }
 
 type Request struct {
@@ -119,7 +122,7 @@ type DatumState struct {
 	Datums              []*pps.DatumInfo
 	PaginationMarker    string
 	DatumInput          *pps.Input
-	DatumInputsToMounts map[string]string
+	DatumInputsToMounts map[string][]string
 	DatumIdx            int
 	AllDatumsReceived   bool
 }
@@ -214,7 +217,6 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 				return mr, err
 			}
 			ms := msm.MountState
-			ms.Files = nil
 			mr.Mounted = append(mr.Mounted, ms)
 		}
 	}
@@ -650,7 +652,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}()
 		di := mm.Datums[mm.DatumIdx]
 		log.Info(pctx.TODO(), "Mounting first datum")
-		mis := datumToMounts(di, mm.DatumInputsToMounts)
+		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -696,7 +698,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx--
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		mis := datumToMounts(di, mm.DatumInputsToMounts)
+		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -748,7 +750,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx++
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		mis := datumToMounts(di, mm.DatumInputsToMounts)
+		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -958,10 +960,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// TODO: switch http server for gRPC server and bind to a unix socket not a
-	// TCP port (just for convenient manual testing with curl for now...)
-	// TODO: make port and bind ip parameterizable
-	srv := &http.Server{Addr: ":9002", Handler: router}
+	// Using unix domain socket
+	var sockPath string
+	var srv *http.Server
+	if len(sopts.SockPath) > 0 {
+		sockPath = sopts.SockPath
+		srv = &http.Server{Handler: router}
+	} else {
+		srv = &http.Server{Addr: ":9002", Handler: router}
+	}
+
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
@@ -969,6 +977,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
+			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
 		if mm.Client != nil {
@@ -978,7 +987,19 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	return errors.EnsureStack(srv.ListenAndServe())
+	var socket net.Listener
+	var err1 error
+	var err2 error
+	var err error
+	if len(sopts.SockPath) > 0 {
+		socket, err1 = net.Listen("unix", sockPath)
+		err2 = srv.Serve(socket)
+		err = errors.Join(err1, err2)
+	} else {
+		err = srv.ListenAndServe()
+	}
+
+	return errors.EnsureStack(err)
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
@@ -1164,7 +1185,7 @@ func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) erro
 		return errors.New("datum input is not specified")
 	}
 
-	datumInputsToMounts := map[string]string{} // Maps input to mount name
+	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
@@ -1192,7 +1213,13 @@ func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) erro
 			return err
 		}
 		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		datumInputsToMounts[pfsInput] = input.Pfs.Name
+		// In the case where a cross is done on the same repo, we will need to map FileInfo's from
+		// the same repo to different user-specified mount names.
+		if mountNames, ok := datumInputsToMounts[pfsInput]; ok {
+			datumInputsToMounts[pfsInput] = append(mountNames, input.Pfs.Name)
+		} else {
+			datumInputsToMounts[pfsInput] = []string{input.Pfs.Name}
+		}
 		return nil
 	}); err != nil {
 		return err
@@ -1353,40 +1380,35 @@ func (mm *MountManager) CreateDatums() error {
 	return nil
 }
 
-func datumToMounts(d *pps.DatumInfo, datumInputsToMounts map[string]string) []*MountInfo {
-	mounts := map[string]*MountInfo{}
-	files := map[string]map[string]bool{}
+func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
+	datumInputsToMountsCopy := map[string][]string{}
+	for k, v := range datumInputsToMounts {
+		datumInputsToMountsCopy[k] = v
+	}
+	return datumInputsToMountsCopy
+}
+
+func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
+	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
+	mis := []*MountInfo{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		name := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
+		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
+		name := mountsForRepo[0]
+		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
 
-		if _, ok := files[name]; !ok {
-			files[name] = map[string]bool{}
+		mi := &MountInfo{
+			Name:    name,
+			Project: project,
+			Repo:    repo,
+			Branch:  branch,
+			Commit:  commit,
+			Path:    fi.File.Path,
+			Mode:    "ro",
 		}
-		var mi *MountInfo
-		var ok bool
-		if mi, ok = mounts[name]; !ok {
-			mi = &MountInfo{
-				Name:    name,
-				Project: project,
-				Repo:    repo,
-				Branch:  branch,
-				Commit:  commit,
-				Files:   []string{fi.File.Path},
-				Mode:    "ro",
-			}
-		} else if _, ok = files[name][fi.File.Path]; !ok {
-			mi.Files = append(mi.Files, fi.File.Path)
-		}
-		mounts[name] = mi
-		files[name][fi.File.Path] = true
-	}
-
-	mis := []*MountInfo{}
-	for _, mi := range mounts {
 		mis = append(mis, mi)
 	}
 	return mis
@@ -1666,7 +1688,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			m.Repo = req.Repo
 			m.Branch = req.Branch
 			m.Commit = req.Commit
-			m.Files = req.Files
+			m.Path = req.Path
 			m.Mode = req.Mode
 			return mountingState
 		case "commit":
@@ -1701,10 +1723,9 @@ func mountingState(m *MountStateMachine) StateFn {
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
-			Name:     m.Name,
-			File:     client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, ""),
-			Subpaths: m.Files,
-			Write:    m.Mode == "rw",
+			Name:  m.Name,
+			File:  client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, m.Path),
+			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 		if m.Commit != "" {

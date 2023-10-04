@@ -229,6 +229,13 @@ func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Co
 	require.NoError(t, tx.Commit())
 }
 
+func withFailedTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	tx, err := db.BeginTxx(ctx, nil)
+	require.NoError(t, err)
+	f(ctx, tx)
+	require.YesError(t, tx.Commit())
+}
+
 func checkCommitsEqual(t *testing.T, expecteds, unsortedActuals []*pfs.Commit) {
 	require.Equal(t, len(expecteds), len(unsortedActuals))
 	sort.Slice(unsortedActuals, func(i, j int) bool {
