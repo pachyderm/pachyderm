@@ -134,8 +134,8 @@ class System(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class StarlarkScript(betterproto.Message):
-    """StarlarkScript is a Starlark script."""
+class StarlarkLiteral(betterproto.Message):
+    """StarlarkLiteral is a custom Starlark script."""
 
     name: str = betterproto.string_field(1)
     """
@@ -154,7 +154,7 @@ class Starlark(betterproto.Message):
     builtin: str = betterproto.string_field(1, group="source")
     """One built into the pachd binary."""
 
-    script: "StarlarkScript" = betterproto.message_field(2, group="source")
+    literal: "StarlarkLiteral" = betterproto.message_field(2, group="source")
     """Or a script supplied in this request."""
 
     timeout: timedelta = betterproto.message_field(3)

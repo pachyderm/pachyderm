@@ -99,7 +99,7 @@
     - [SetLogLevelRequest](#debug_v2-SetLogLevelRequest)
     - [SetLogLevelResponse](#debug_v2-SetLogLevelResponse)
     - [Starlark](#debug_v2-Starlark)
-    - [StarlarkScript](#debug_v2-StarlarkScript)
+    - [StarlarkLiteral](#debug_v2-StarlarkLiteral)
     - [System](#debug_v2-System)
     - [Worker](#debug_v2-Worker)
   
@@ -2043,7 +2043,7 @@ Starlark controls the running of a Starlark script.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | builtin | [string](#string) |  | One built into the pachd binary. |
-| script | [StarlarkScript](#debug_v2-StarlarkScript) |  | Or a script supplied in this request. |
+| literal | [StarlarkLiteral](#debug_v2-StarlarkLiteral) |  | Or a script supplied in this request. |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  | How long to allow the script to run for. If unset, defaults to 1 minute. |
 
 
@@ -2051,10 +2051,10 @@ Starlark controls the running of a Starlark script.
 
 
 
-<a name="debug_v2-StarlarkScript"></a>
+<a name="debug_v2-StarlarkLiteral"></a>
 
-### StarlarkScript
-StarlarkScript is a Starlark script.
+### StarlarkLiteral
+StarlarkLiteral is a custom Starlark script.
 
 
 | Field | Type | Label | Description |

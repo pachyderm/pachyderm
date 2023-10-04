@@ -102,8 +102,8 @@ message System {
   repeated App profiles = 8;
 }
 
-// StarlarkScript is a Starlark script.
-message StarlarkScript {
+// StarlarkLiteral is a custom Starlark script.
+message StarlarkLiteral {
   // The name of the script; used for debug messages and to control where the output goes.
   string name = 1;
   // The text of the "debugdump" personality Starlark program.
@@ -117,7 +117,7 @@ message Starlark {
     // One built into the pachd binary.
     string builtin = 1;
     // Or a script supplied in this request.
-    StarlarkScript script = 2;
+    StarlarkLiteral literal = 2;
   }
   // How long to allow the script to run for.  If unset, defaults to 1 minute.
   google.protobuf.Duration timeout = 3;

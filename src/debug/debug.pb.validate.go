@@ -2060,22 +2060,22 @@ var _ interface {
 	ErrorName() string
 } = SystemValidationError{}
 
-// Validate checks the field values on StarlarkScript with the rules defined in
-// the proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *StarlarkScript) Validate() error {
+// Validate checks the field values on StarlarkLiteral with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *StarlarkLiteral) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on StarlarkScript with the rules defined
-// in the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in StarlarkScriptMultiError,
-// or nil if none found.
-func (m *StarlarkScript) ValidateAll() error {
+// ValidateAll checks the field values on StarlarkLiteral with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StarlarkLiteralMultiError, or nil if none found.
+func (m *StarlarkLiteral) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *StarlarkScript) validate(all bool) error {
+func (m *StarlarkLiteral) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
@@ -2087,19 +2087,19 @@ func (m *StarlarkScript) validate(all bool) error {
 	// no validation rules for ProgramText
 
 	if len(errors) > 0 {
-		return StarlarkScriptMultiError(errors)
+		return StarlarkLiteralMultiError(errors)
 	}
 
 	return nil
 }
 
-// StarlarkScriptMultiError is an error wrapping multiple validation errors
-// returned by StarlarkScript.ValidateAll() if the designated constraints
+// StarlarkLiteralMultiError is an error wrapping multiple validation errors
+// returned by StarlarkLiteral.ValidateAll() if the designated constraints
 // aren't met.
-type StarlarkScriptMultiError []error
+type StarlarkLiteralMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m StarlarkScriptMultiError) Error() string {
+func (m StarlarkLiteralMultiError) Error() string {
 	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -2108,11 +2108,11 @@ func (m StarlarkScriptMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m StarlarkScriptMultiError) AllErrors() []error { return m }
+func (m StarlarkLiteralMultiError) AllErrors() []error { return m }
 
-// StarlarkScriptValidationError is the validation error returned by
-// StarlarkScript.Validate if the designated constraints aren't met.
-type StarlarkScriptValidationError struct {
+// StarlarkLiteralValidationError is the validation error returned by
+// StarlarkLiteral.Validate if the designated constraints aren't met.
+type StarlarkLiteralValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -2120,22 +2120,22 @@ type StarlarkScriptValidationError struct {
 }
 
 // Field function returns field value.
-func (e StarlarkScriptValidationError) Field() string { return e.field }
+func (e StarlarkLiteralValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e StarlarkScriptValidationError) Reason() string { return e.reason }
+func (e StarlarkLiteralValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e StarlarkScriptValidationError) Cause() error { return e.cause }
+func (e StarlarkLiteralValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e StarlarkScriptValidationError) Key() bool { return e.key }
+func (e StarlarkLiteralValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e StarlarkScriptValidationError) ErrorName() string { return "StarlarkScriptValidationError" }
+func (e StarlarkLiteralValidationError) ErrorName() string { return "StarlarkLiteralValidationError" }
 
 // Error satisfies the builtin error interface
-func (e StarlarkScriptValidationError) Error() string {
+func (e StarlarkLiteralValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -2147,14 +2147,14 @@ func (e StarlarkScriptValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sStarlarkScript.%s: %s%s",
+		"invalid %sStarlarkLiteral.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = StarlarkScriptValidationError{}
+var _ error = StarlarkLiteralValidationError{}
 
 var _ interface {
 	Field() string
@@ -2162,7 +2162,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = StarlarkScriptValidationError{}
+} = StarlarkLiteralValidationError{}
 
 // Validate checks the field values on Starlark with the rules defined in the
 // proto definition for this message. If any rules are violated, the first
@@ -2228,7 +2228,7 @@ func (m *Starlark) validate(all bool) error {
 			errors = append(errors, err)
 		}
 		// no validation rules for Builtin
-	case *Starlark_Script:
+	case *Starlark_Literal:
 		if v == nil {
 			err := StarlarkValidationError{
 				field:  "Source",
@@ -2241,11 +2241,11 @@ func (m *Starlark) validate(all bool) error {
 		}
 
 		if all {
-			switch v := interface{}(m.GetScript()).(type) {
+			switch v := interface{}(m.GetLiteral()).(type) {
 			case interface{ ValidateAll() error }:
 				if err := v.ValidateAll(); err != nil {
 					errors = append(errors, StarlarkValidationError{
-						field:  "Script",
+						field:  "Literal",
 						reason: "embedded message failed validation",
 						cause:  err,
 					})
@@ -2253,16 +2253,16 @@ func (m *Starlark) validate(all bool) error {
 			case interface{ Validate() error }:
 				if err := v.Validate(); err != nil {
 					errors = append(errors, StarlarkValidationError{
-						field:  "Script",
+						field:  "Literal",
 						reason: "embedded message failed validation",
 						cause:  err,
 					})
 				}
 			}
-		} else if v, ok := interface{}(m.GetScript()).(interface{ Validate() error }); ok {
+		} else if v, ok := interface{}(m.GetLiteral()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return StarlarkValidationError{
-					field:  "Script",
+					field:  "Literal",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}

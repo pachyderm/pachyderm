@@ -1537,9 +1537,9 @@ func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark, rp incProgressF
 				return errors.Errorf("no builtin script %q", name)
 			}
 		}
-	case *debug.Starlark_Script:
-		name = st.GetScript().GetName()
-		script = st.GetScript().GetProgramText()
+	case *debug.Starlark_Literal:
+		name = st.GetLiteral().GetName()
+		script = st.GetLiteral().GetProgramText()
 	}
 	return func(rctx context.Context, dfs DumpFS) error {
 		defer rp(rctx) // report progress even if timeout is exceeded

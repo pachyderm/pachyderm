@@ -3576,12 +3576,12 @@
               "defaultValue": ""
             },
             {
-              "name": "script",
+              "name": "literal",
               "description": "Or a script supplied in this request.",
               "label": "",
-              "type": "StarlarkScript",
-              "longType": "StarlarkScript",
-              "fullType": "debug_v2.StarlarkScript",
+              "type": "StarlarkLiteral",
+              "longType": "StarlarkLiteral",
+              "fullType": "debug_v2.StarlarkLiteral",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "source",
@@ -3602,10 +3602,10 @@
           ]
         },
         {
-          "name": "StarlarkScript",
-          "longName": "StarlarkScript",
-          "fullName": "debug_v2.StarlarkScript",
-          "description": "StarlarkScript is a Starlark script.",
+          "name": "StarlarkLiteral",
+          "longName": "StarlarkLiteral",
+          "fullName": "debug_v2.StarlarkLiteral",
+          "description": "StarlarkLiteral is a custom Starlark script.",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,

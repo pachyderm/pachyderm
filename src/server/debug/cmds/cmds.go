@@ -222,9 +222,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						errors.JoinInto(&errs, errors.Errorf("built-in script %q not available", name))
 						continue
 					}
-				case *debug.Starlark_Script:
-					name = s.GetScript().GetName()
-					program = s.GetScript().GetProgramText()
+				case *debug.Starlark_Literal:
+					name = s.GetLiteral().GetName()
+					program = s.GetLiteral().GetProgramText()
 				}
 				if err := env.RunStarlark(mainCtx, name, program); err != nil {
 					errors.JoinInto(&errs, errors.Wrapf(err, "run script %q", name))

@@ -205,7 +205,7 @@ func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *StarlarkScript) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *StarlarkLiteral) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
@@ -219,7 +219,7 @@ func (x *Starlark) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("builtin", x.GetBuiltin())
-	enc.AddObject("script", x.GetScript())
+	enc.AddObject("literal", x.GetLiteral())
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	return nil
 }

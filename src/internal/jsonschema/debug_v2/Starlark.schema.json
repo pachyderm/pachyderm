@@ -8,8 +8,8 @@
                     "type": "string",
                     "description": "One built into the pachd binary."
                 },
-                "script": {
-                    "$ref": "#/definitions/debug_v2.StarlarkScript",
+                "literal": {
+                    "$ref": "#/definitions/debug_v2.StarlarkLiteral",
                     "additionalProperties": false,
                     "description": "Or a script supplied in this request."
                 },
@@ -30,14 +30,14 @@
                 },
                 {
                     "required": [
-                        "script"
+                        "literal"
                     ]
                 }
             ],
             "title": "Starlark",
             "description": "Starlark controls the running of a Starlark script."
         },
-        "debug_v2.StarlarkScript": {
+        "debug_v2.StarlarkLiteral": {
             "properties": {
                 "name": {
                     "type": "string",
@@ -50,8 +50,8 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Starlark Script",
-            "description": "StarlarkScript is a Starlark script."
+            "title": "Starlark Literal",
+            "description": "StarlarkLiteral is a custom Starlark script."
         }
     }
 }
