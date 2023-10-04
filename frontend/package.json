@@ -100,7 +100,7 @@
     "@types/lodash": "4.14.185",
     "@types/node": "18.7.21",
     "@types/object-hash": "2.2.1",
-    "@types/postcss-flexbugs-fixes": "^4.2.1",
+    "@types/postcss-flexbugs-fixes": "^5.0.1",
     "@types/postcss-preset-env": "^7.7.0",
     "@types/react": "18.2.0",
     "@types/react-dom": "18.2.0",
