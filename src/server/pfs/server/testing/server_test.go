@@ -6582,6 +6582,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("Simple", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "test"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "test", "staging", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "test", "master", "", "", &pfs.Trigger{
 				Branch: "staging",
 				Size:   "1B",
@@ -6592,6 +6593,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("SizeWithProvenance", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "in"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "in", "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "trigger", "", "", &pfs.Trigger{
 				Branch: "master",
 				Size:   "1K",
@@ -6599,7 +6601,7 @@ func TestPFS(suite *testing.T) {
 			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "master", "")
 			bis, err := c.ListBranch(pfs.DefaultProjectName, "in")
 			require.NoError(t, err)
-			require.Equal(t, 1, len(bis))
+			require.Equal(t, 2, len(bis))
 			// Create a downstream branch
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "out"))
 			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "trigger")}))
@@ -6664,6 +6666,7 @@ func TestPFS(suite *testing.T) {
 			t.Parallel()
 			repo := tu.UniqueString("Cron")
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
@@ -6700,6 +6703,7 @@ func TestPFS(suite *testing.T) {
 			repo := tu.UniqueString("CronUpdate")
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 			// Create the initial trigger for every minute, then update it to every January.
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
 				Branch:   "master",
 				CronSpec: "* * * * *", // every minute
@@ -6732,6 +6736,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("Count", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "count"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "count", "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "count", "trigger", "", "", &pfs.Trigger{
 				Branch:  "master",
 				Commits: 2, // trigger every 2 commits
@@ -6790,6 +6795,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("Or", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "or"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "or", "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "or", "trigger", "", "", &pfs.Trigger{
 				Branch:        "master",
 				RateLimitSpec: "* * * * *",
@@ -6865,6 +6871,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("And", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "and"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "and", "master", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "and", "trigger", "", "", &pfs.Trigger{
 				Branch:        "master",
 				All:           true,
@@ -6941,6 +6948,7 @@ func TestPFS(suite *testing.T) {
 			t.Parallel()
 			// a triggers b which triggers c
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "chain"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "chain", "a", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "b", "", "", &pfs.Trigger{
 				Branch: "a",
 				Size:   "100",
@@ -6950,6 +6958,7 @@ func TestPFS(suite *testing.T) {
 				Size:   "200",
 			}))
 			// Create a trigger separate from the chain and ensure it doesn't fire.
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "chain", "z", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "chain", "d", "", "", &pfs.Trigger{
 				Branch: "z",
 				Size:   "100",
@@ -7047,6 +7056,7 @@ func TestPFS(suite *testing.T) {
 		t.Run("BranchMovement", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "branch-movement"))
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "", "", nil))
 			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "branch-movement", "c", "", "", &pfs.Trigger{
 				Branch: "b",
 				Size:   "100",
@@ -7115,6 +7125,7 @@ func TestPFS(suite *testing.T) {
 		}))
 
 		// a -> b (valid, sets up the next test)
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "repo", "a", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "repo", "b", "", "", &pfs.Trigger{
 			Branch: "a",
 			Size:   "1K",
