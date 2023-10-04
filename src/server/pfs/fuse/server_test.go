@@ -1,4 +1,4 @@
-//dsfgo:build unit_test
+//go:build unit_test
 
 package fuse
 
