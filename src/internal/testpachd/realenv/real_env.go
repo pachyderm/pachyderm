@@ -241,7 +241,19 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	// VERSION
 	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
+	txnEnv.Initialize(
+		realEnv.ServiceEnv.GetDBClient(),
+		func() txnenv.AuthBackend {
+			return realEnv.ServiceEnv.AuthServer()
+		},
+		func() txnenv.PFSBackend {
+			return realEnv.ServiceEnv.PfsServer()
+		},
+		func() txnenv.PPSBackend {
+			return realEnv.ServiceEnv.PpsServer()
+		},
+		realEnv.TransactionServer,
+	)
 
 	// PPS
 	if mockPPSTransactionServer {
