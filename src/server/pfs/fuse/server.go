@@ -1256,7 +1256,7 @@ func (mm *MountManager) GetDatums() (retErr error) {
 		defer mm.mu.Unlock()
 		mm.Datums = datums
 		mm.PaginationMarker = datums[len(datums)-1].Datum.Id
-		if len(datums) < NumDatumsPerPage {
+		if len(datums) < NumDatumsPerPage || NumDatumsPerPage == 0 {
 			mm.AllDatumsReceived = true
 		}
 	}()
@@ -1285,7 +1285,7 @@ func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) erro
 	return f(input, level)
 }
 
-func cartesianProduct(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
+func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
 	if len(datums) == 0 {
 		return nil
 	}
@@ -1332,7 +1332,7 @@ func (mm *MountManager) CreateDatums() error {
 		}
 		if input.Cross != nil {
 			// Cross all the children PFS inputs datums
-			datums := cartesianProduct(datumsAtLevel[level+1])
+			datums := crossDatums(datumsAtLevel[level+1])
 			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
 		}
 		return nil
@@ -1408,7 +1408,7 @@ func (mm *MountManager) getMoreDatums() error {
 		} else {
 			mm.Datums = append(mm.Datums, datums...)
 			mm.PaginationMarker = datums[len(datums)-1].Datum.Id
-			if len(datums) < NumDatumsPerPage {
+			if len(datums) < NumDatumsPerPage || NumDatumsPerPage == 0 {
 				mm.AllDatumsReceived = true
 			}
 		}
