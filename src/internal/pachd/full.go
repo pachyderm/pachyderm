@@ -21,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
@@ -158,7 +159,8 @@ type Full struct {
 	txnSrv    transaction.APIServer
 	authSrv   auth.APIServer
 	pfsSrv    pfs.APIServer
-	// ppsSrv   pps.APIServer
+	ppsSrv    pps.APIServer
+	// TODO
 	// debugSrv debug.DebugServer
 
 	pfsWorker   *pfs_server.Worker
@@ -212,7 +214,6 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				TxnEnv:     pd.txnEnv,
 
 				BackgroundContext: pctx.TODO(),
-				Config:            *pachconfig.NewConfiguration(config),
 			}
 		}),
 		initPFSAPIServer(&pd.pfsSrv, func() pfs_server.Env {
@@ -232,13 +233,25 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				},
 			}
 		}),
+		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {
+			return pps_server.Env{
+				BackgroundContext: pctx.TODO(),
+				AuthServer:        pd.authSrv.(auth_server.APIServer),
+				DB:                pd.env.DB,
+				Config: pachconfig.Configuration{
+					GlobalConfiguration:        &config.GlobalConfiguration,
+					PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+				},
+				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
+			}
+		}),
 		setupStep{
 			Name: "initTransactionEnv",
 			Fn: func(ctx context.Context) error {
 				pd.txnEnv.Initialize(env.DB,
 					func() transactionenv.AuthBackend { return pd.authSrv.(auth_iface.APIServer) },
 					func() transactionenv.PFSBackend { return pd.pfsSrv.(pfs_server.APIServer) },
-					func() transactionenv.PPSBackend { return nil },
+					func() transactionenv.PPSBackend { return pd.ppsSrv.(pps_server.APIServer) },
 					pd.txnSrv.(txn_server.APIServer),
 				)
 				return nil

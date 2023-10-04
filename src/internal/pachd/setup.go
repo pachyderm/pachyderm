@@ -18,11 +18,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -149,6 +150,20 @@ func initPFSAPIServer(out *pfs.APIServer, env func() pfs_server.Env) setupStep {
 	}
 }
 
+func initPPSAPIServer(out *pps.APIServer, env func() pps_server.Env) setupStep {
+	return setupStep{
+		Name: "initPPSServer",
+		Fn: func(ctx context.Context) error {
+			s, err := pps_server.NewAPIServerNoMaster(env())
+			if err != nil {
+				return err
+			}
+			*out = s
+			return nil
+		},
+	}
+}
+
 func initPFSWorker(out **pfs_server.Worker, config pachconfig.StorageConfiguration, env func() pfs_server.WorkerEnv) setupStep {
 	return setupStep{
 		Name: "initPFSWorker",
@@ -197,9 +212,6 @@ func initEnterpriseServer(out *enterprise.APIServer, env func() *ent_server.Env)
 			return nil
 		},
 	}
-}
-
-func initTransactionEnv(txnEnv *transactionenv.TransactionEnv) {
 }
 
 // newServeGRPC returns a background runner which servers gRPC on l.
