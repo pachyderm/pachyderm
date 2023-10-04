@@ -18,11 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
-	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
-	"github.com/pachyderm/pachyderm/v2/src/internal/starlark/lib/k8s"
 	"go.starlark.net/starlark"
 	"k8s.io/client-go/dynamic"
 	dfake "k8s.io/client-go/dynamic/fake"
@@ -30,6 +25,12 @@ import (
 	kfake "k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/kubectl/pkg/scheme"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
+	"github.com/pachyderm/pachyderm/v2/src/internal/starlark/lib/k8s"
 )
 
 // BuiltinScripts are the scripts loaded from starlark/.
