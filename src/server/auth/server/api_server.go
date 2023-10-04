@@ -54,6 +54,8 @@ const (
 // DefaultOIDCConfig is the default config for the auth API server
 var DefaultOIDCConfig = auth.OIDCConfig{}
 
+type APIServer = *apiServer
+
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {

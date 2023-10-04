@@ -23,6 +23,8 @@ import (
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	etcd "go.etcd.io/etcd/client/v3"
 	"go.uber.org/automaxprocs/maxprocs"
@@ -117,6 +119,20 @@ func newSelfGRPC(l net.Listener, opts []grpc.DialOption) *grpc.ClientConn {
 		panic(err)
 	}
 	return gc
+}
+
+func initTransactionServer(out *transaction.APIServer, env func() txn_server.Env) setupStep {
+	return setupStep{
+		Name: "initTransactionServer",
+		Fn: func(ctx context.Context) error {
+			s, err := txn_server.NewAPIServer(env())
+			if err != nil {
+				return err
+			}
+			*out = s
+			return nil
+		},
+	}
 }
 
 func initPFSAPIServer(out *pfs.APIServer, env func() pfs_server.Env) setupStep {

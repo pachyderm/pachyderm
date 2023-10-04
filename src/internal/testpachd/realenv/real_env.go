@@ -242,7 +242,11 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	go pfsMaster.Run(ctx) //nolint:errcheck
 
 	// TRANSACTION
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(txnserver.Env{
+		DB:         realEnv.ServiceEnv.GetDBClient(),
+		PGListener: realEnv.ServiceEnv.GetPostgresListener(),
+		TxnEnv:     txnEnv,
+	})
 	require.NoError(t, err)
 	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
 

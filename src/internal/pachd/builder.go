@@ -277,7 +277,11 @@ func (b *builder) registerPPSServer(ctx context.Context) error {
 
 func (b *builder) registerTransactionServer(ctx context.Context) error {
 	var err error
-	b.txn, err = transactionserver.NewAPIServer(b.env, b.txnEnv)
+	b.txn, err = transactionserver.NewAPIServer(transactionserver.Env{
+		DB:         b.env.GetDBClient(),
+		PGListener: b.env.GetPostgresListener(),
+		TxnEnv:     b.txnEnv,
+	})
 	if err != nil {
 		return err
 	}

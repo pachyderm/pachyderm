@@ -5,8 +5,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -17,11 +15,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(
-	env serviceenv.ServiceEnv,
-	txnEnv *txnenv.TransactionEnv,
-) (*apiServer, error) {
-	d, err := newDriver(env, txnEnv)
+func newAPIServer(env Env) (*apiServer, error) {
+	d, err := newDriver(env.DB, env.PGListener, env.TxnEnv)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,8 @@ import (
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
+	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
 	version "github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 )
@@ -153,6 +155,7 @@ type Full struct {
 
 	healthSrv grpc_health_v1.HealthServer
 	version   version.APIServer
+	txnSrv    transaction.APIServer
 	authSrv   auth.APIServer
 	pfsSrv    pfs.APIServer
 	// ppsSrv   pps.APIServer
@@ -194,6 +197,13 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		awaitMigrations(env.DB),
 
 		// API Servers
+		initTransactionServer(&pd.txnSrv, func() txn_server.Env {
+			return txn_server.Env{
+				DB:         env.DB,
+				PGListener: nil,
+				TxnEnv:     pd.txnEnv,
+			}
+		}),
 		initAuthServer(&pd.authSrv, func() auth_server.Env {
 			return auth_server.Env{
 				DB:         env.DB,
@@ -202,6 +212,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				TxnEnv:     pd.txnEnv,
 
 				BackgroundContext: pctx.TODO(),
+				Config:            *pachconfig.NewConfiguration(config),
 			}
 		}),
 		initPFSAPIServer(&pd.pfsSrv, func() pfs_server.Env {
@@ -221,7 +232,18 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				},
 			}
 		}),
-		initTransactionEnv(&pd.txnEnv),
+		setupStep{
+			Name: "initTransactionEnv",
+			Fn: func(ctx context.Context) error {
+				pd.txnEnv.Initialize(env.DB,
+					func() transactionenv.AuthBackend { return pd.authSrv.(auth_iface.APIServer) },
+					func() transactionenv.PFSBackend { return pd.pfsSrv.(pfs_server.APIServer) },
+					func() transactionenv.PPSBackend { return nil },
+					pd.txnSrv.(txn_server.APIServer),
+				)
+				return nil
+			},
+		},
 
 		// Workers
 		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
