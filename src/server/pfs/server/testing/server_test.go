@@ -6593,73 +6593,68 @@ func TestPFS(suite *testing.T) {
 		t.Run("SizeWithProvenance", func(t *testing.T) {
 			t.Parallel()
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "in"))
-			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "in", "master", "", "", nil))
-			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "trigger", "", "", &pfs.Trigger{
-				Branch: "master",
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "in", "staging", "", "", nil))
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "master", "", "", &pfs.Trigger{
+				Branch: "staging",
 				Size:   "1K",
 			}))
-			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "master", "")
 			bis, err := c.ListBranch(pfs.DefaultProjectName, "in")
 			require.NoError(t, err)
 			require.Equal(t, 2, len(bis))
 			// Create a downstream branch
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "out"))
-			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "trigger")}))
-			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
-			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "out", "trigger", "", "", &pfs.Trigger{
-				Branch: "master",
+			require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "out", "staging", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "staging", ""))
+			require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "out", "master", "", "", &pfs.Trigger{
+				Branch: "staging",
 				Size:   "1K",
 			}))
 			// Write a small file, too small to trigger
+			inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "staging", "")
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "master", "")
+			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
 			require.NoError(t, err)
-			bi, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
+			inStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
 			require.NoError(t, err)
-			head := bi.Head.Id
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
+			inMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.Id)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+			require.NotEqual(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
+			outStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.Id)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
+			require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
+			outMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.Id)
-
+			require.NotEqual(t, inStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
+			// Write a large file, should trigger
 			require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader(strings.Repeat("a", units.KB))))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "master", "")
+			_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
 			require.NoError(t, err)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
+			inStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
 			require.NoError(t, err)
-			head = bi.Head.Id
-
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "in", "trigger")
+			inMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.Id)
-
+			require.Equal(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
 			// Output branch should have a commit now
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+			outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 			require.NoError(t, err)
-			require.NotEqual(t, head, bi.Head.Id)
-
-			resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", bi.Head.Id)
+			require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
+			// Resolve alias commit
+			resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", outStagingBranchInfo.Head.Id)
 			require.NoError(t, err)
-			require.Equal(t, head, resolvedAlias.Commit.Id)
+			require.Equal(t, inStagingBranchInfo.Head.Id, resolvedAlias.Commit.Id)
 
 			// Put a file that will cause the trigger to go off
-			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "out", "master", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
-			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "master", ""))
-			_, err = c.WaitCommit(pfs.DefaultProjectName, "out", "master", "")
+			require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "out", "staging", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
+			require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "staging", ""))
+			_, err = c.WaitCommit(pfs.DefaultProjectName, "out", "staging", "")
 			require.NoError(t, err)
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+			outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 			require.NoError(t, err)
-			head = bi.Head.Id
 
 			// Output trigger should have triggered
-			bi, err = c.InspectBranch(pfs.DefaultProjectName, "out", "trigger")
+			outMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 			require.NoError(t, err)
-			require.Equal(t, head, bi.Head.Id)
+			require.Equal(t, outStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
 		})
 
 		t.Run("Cron", func(t *testing.T) {
