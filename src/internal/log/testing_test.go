@@ -1,11 +1,14 @@
 package log
 
 import (
+	"bytes"
 	"context"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 // These two tests test our public API, but those log to t.Log, not to somewhere we can check.  So
@@ -18,6 +21,17 @@ func TestTest(t *testing.T) {
 
 func TestTestParallel(t *testing.T) {
 	c := make(chan struct{})
+	buf := new(bytes.Buffer)
+	developmentLogger = false // ensure we are not in development mode for nil ctx check
+	initOnce = sync.Once{}
+	warnings = nil
+	warningsLogged.Store(false)
+	makeLoggerOnce(
+		zapcore.NewJSONEncoder(zapcore.EncoderConfig{MessageKey: "m"}),
+		zapcore.AddSync(buf),
+		true,
+		nil,
+	)
 	t.Run("a", func(t *testing.T) {
 		t.Parallel()
 		ctx := TestParallel(t)
