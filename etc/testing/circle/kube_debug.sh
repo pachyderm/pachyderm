@@ -21,6 +21,8 @@ cmds=(
   'pachctl list job --no-pager'
   'kubectl version'
   'kubectl get all --all-namespaces'
+  'kubectl get pvc --all-namespaces'
+  'kubectl get persistentvolume --all-namespaces'
   'kubectl get pods -o wide --all-namespaces'
   'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-1'
   'kubectl describe pod -l suite=pachyderm --namespace=test-cluster-2'

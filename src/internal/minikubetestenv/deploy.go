@@ -551,6 +551,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
+
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoError(t, backoff.Retry(func() error {
