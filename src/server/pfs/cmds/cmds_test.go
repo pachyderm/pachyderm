@@ -197,21 +197,21 @@ func TestMountParsing(t *testing.T) {
 	expected := map[string]*fuse.RepoOptions{
 		"repo1": {
 			Name:  "repo1", // name of mount, i.e. where to mount it
-			File:  client.NewFile(pfs.DefaultProjectName, "repo1", "branch", "", ""),
+			Files:  []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo1", "branch", "", "")},
 			Write: true,
 		},
 		"repo2": {
 			Name:  "repo2",
-			File:  client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", ""),
+			Files:  []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", "")},
 			Write: true,
 		},
 		"repo3": {
 			Name: "repo3",
-			File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", ""),
+			Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "")},
 		},
 		"repo4": {
 			Name: "repo4",
-			File: client.NewFile(pfs.DefaultProjectName, "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", ""),
+			Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo4", "master", "dee0c3904d6f44beb4fa10fc0db12d02", "")},
 		},
 	}
 	opts, err := parseRepoOpts(pfs.DefaultProjectName, []string{"repo1@branch+w", "repo2+w", "repo3", "repo4@master=dee0c3904d6f44beb4fa10fc0db12d02"})
