@@ -2132,11 +2132,12 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 		}
 		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
 		if err != nil {
-			return badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
-				{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
-				{Field: "cluster defaults", Description: "{}"},
-			})
+			return err
 		}
+
+		effectiveSpec.Reprocess = request.Reprocess
+		effectiveSpec.Update = true
+
 		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
 			CreatePipelineRequest: effectiveSpec,
 			EffectiveJson:         effectiveSpecJSON,

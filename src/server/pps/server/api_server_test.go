@@ -598,6 +598,13 @@ func TestRerunPipeline(t *testing.T) {
 	require.NoError(t, c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date2))
 	require.NotEqual(t, date2.String(), "")
 	require.Equal(t, date1.String(), date2.String())
+	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, int64(0), jobInfo.DataProcessed)
+	require.Equal(t, int64(1), jobInfo.DataSkipped)
+	require.Equal(t, int64(0), jobInfo.DataRecovered)
+	require.Equal(t, int64(0), jobInfo.DataFailed)
 
 	// rerun pipeline with reprocess
 	_, err = c.PpsAPIClient.RerunPipeline(ctx, &pps.RerunPipelineRequest{
@@ -622,6 +629,13 @@ func TestRerunPipeline(t *testing.T) {
 	require.NotEqual(t, date3.String(), "")
 	require.NotEqual(t, date1.String(), date3.String())
 	require.NotEqual(t, date2.String(), date3.String())
+	jobInfo, err = c.InspectJob(pfs.DefaultProjectName, pipeline, jobs[0].Job.GetId(), false)
+	require.NoError(t, err)
+	require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
+	require.Equal(t, int64(1), jobInfo.DataProcessed)
+	require.Equal(t, int64(0), jobInfo.DataSkipped)
+	require.Equal(t, int64(0), jobInfo.DataRecovered)
+	require.Equal(t, int64(0), jobInfo.DataFailed)
 }
 
 // TestCreatePipelineMultipleNames tests that camelCase and snake_case names map
