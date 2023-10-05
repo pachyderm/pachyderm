@@ -135,6 +135,7 @@ export const useDatum = (
   const callMountDatums = async () => {
     setLoading(true);
     setErrorMessage('This could take a few minutes...');
+    setShouldShowCycler(false);
 
     try {
       const spec = inputSpecTextToObj();
