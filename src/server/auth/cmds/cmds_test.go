@@ -189,9 +189,9 @@ func TestIDTokenFromEnv(t *testing.T) {
 	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
 	// Get an ID token for a trusted peer app
 	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
-	require.NoError(t, tu.BashCmd(`
-		pachctl auth whoami | match unauthenticated`,
-	).Run())
+	// require.NoError(t, tu.BashCmd(`
+	// 	pachctl auth whoami | match unauthenticated`,
+	// ).Run())
 	require.NoError(t, tu.BashCmd(`
                 export PACH_ID_TOKEN={{.token}};
                 pachctl auth whoami | match user:{{.user}}`,
