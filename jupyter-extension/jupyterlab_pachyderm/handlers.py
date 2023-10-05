@@ -1,6 +1,7 @@
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
+from pachyderm_sdk import Client
 import tornado
 import traceback
 
@@ -223,6 +224,8 @@ class ConfigHandler(BaseHandler):
             body = self.get_json_body()
             response = await self.mount_client.config(body)
             self.finish(response)
+            # reload pps client with new config
+            self.settings["pachyderm_pps_client"] = PPSClient()
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",

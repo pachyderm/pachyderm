@@ -22,8 +22,8 @@ export type usePipelineResponse = {
   setImageName: (input: string) => void;
   inputSpec: string;
   setInputSpec: (input: string) => void;
-  pipelinePort: string;
-  setPipelinePort: (input: string) => void;
+  pipelinePort: number;
+  setPipelinePort: (input: number) => void;
   gpuMode: GpuMode;
   setGpuMode: (input: GpuMode) => void;
   resourceSpec: string;
@@ -47,7 +47,7 @@ export const usePipeline = (
   const [pipelineProject, setPipelineProject] = useState('');
   const [imageName, setImageName] = useState('');
   const [inputSpec, setInputSpec] = useState('');
-  const [pipelinePort, setPipelinePort] = useState('');
+  const [pipelinePort, setPipelinePort] = useState(-1);
   const [gpuMode, setGpuMode] = useState(GpuMode.None);
   const [resourceSpec, setResourceSpec] = useState('');
   const [requirements, setRequirements] = useState('');
@@ -71,7 +71,7 @@ export const usePipeline = (
       setInputSpec('');
     }
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
-    setPipelinePort(ppsContext?.metadata?.config.port ?? '');
+    setPipelinePort(ppsContext?.metadata?.config.port ?? -1);
     setGpuMode(ppsContext?.metadata?.config.gpu_mode ?? GpuMode.None);
     setResourceSpec(ppsContext?.metadata?.config.resource_spec ?? '');
   }, [ppsContext]);
