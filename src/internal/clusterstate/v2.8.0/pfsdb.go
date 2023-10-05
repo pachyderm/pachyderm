@@ -2,7 +2,10 @@ package v2_8_0
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/protobuf/proto"
@@ -11,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -63,6 +67,31 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 		})
 	}
 	return repos, nil
+}
+
+func ListCommitsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]CommitInfo, map[string]string, error) {
+	var commitsColRows []v2_7_0.CollectionRecord
+	childParent := make(map[string]string)
+	if err := sqlx.SelectContext(ctx, q, &commitsColRows, `SELECT key, proto, createdat, updatedat FROM collections.commits ORDER BY createdat, key ASC`); err != nil {
+		return nil, nil, errors.Wrap(err, "listing commits from collections.commits")
+	}
+	var commits []CommitInfo
+	for _, row := range commitsColRows {
+		commitInfo := &pfs.CommitInfo{}
+		if err := proto.Unmarshal(row.Proto, commitInfo); err != nil {
+			return nil, nil, errors.Wrap(err, "unmarshaling repo")
+		}
+		commit := InfoToCommit(commitInfo, 0, time.Time{}, time.Time{})
+		commitAncestry := InfoToCommitAncestry(commitInfo)
+		commits = append(commits, commit.CommitInfo)
+		if commitAncestry.ParentCommit != "" {
+			childParent[commitInfo.Commit.Key()] = commitAncestry.ParentCommit
+		}
+		for _, child := range commitAncestry.ChildCommits {
+			childParent[child] = commitInfo.Commit.Key()
+		}
+	}
+	return commits, childParent, nil
 }
 
 func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.QueryerContext) ([]*Branch, []*Edge, []*BranchTrigger, error) {
@@ -308,17 +337,174 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 
 }
 
-// Migrate commits from collections.commits to pfs.commits
-func migrateCommitSchema(ctx context.Context, env migrations.Env) error {
+func migrateCommits(ctx context.Context, env migrations.Env) error {
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
 	}
-	// todo(fahad): migrate commits
-	// todo(fahad): call createNotifyCommitsTrigger() once migration is complete
+	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
+		return err
+	}
 	return nil
+}
+
+type commitCollection struct {
+	v2_7_0.CollectionRecord
+	IntID uint64 `db:"int_id"`
+}
+
+func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
+	count := struct {
+		Collections uint64 `db:"col_count"`
+		Commits     uint64 `db:"commits_count"`
+	}{}
+	if err := tx.GetContext(ctx, &count, `SELECT count(commit.int_id) AS commits_count, count(col.key) 
+    	AS col_count FROM pfs.commits commit LEFT JOIN collections.commits col on commit.commit_id = col.key;`); err != nil {
+		return errors.Wrap(err, "counting rows in collections.commits")
+	}
+	if count.Collections != count.Commits {
+		return errors.Errorf("collections.commits has %d rows while pfs.commits has %d rows", count.Collections, count.Commits)
+	}
+	if count.Collections == 0 {
+		return nil
+	}
+	pageSize := uint64(1000)
+	totalPages := count.Collections / pageSize
+	if pageSize%count.Collections > 0 {
+		totalPages++
+	}
+	for i := uint64(0); i < totalPages; i++ {
+		var page []commitCollection
+		if err := tx.SelectContext(ctx, &page, fmt.Sprintf(`
+		SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
+		FROM pfs.commits commit JOIN collections.commits AS col ON commit.commit_id = col.key
+		ORDER BY commit.int_id ASC LIMIT %d OFFSET %d`, pageSize, i*pageSize)); err != nil {
+			return errors.Wrap(err, "could not read table")
+		}
+		if err := migratePage(ctx, tx, page); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func migratePage(ctx context.Context, tx *pachsql.Tx, page []commitCollection) error {
+	migrateQuery := `WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo_name AND type=:repo_type 
+                                                AND project_id=(SELECT id from core.projects WHERE name= :proj_name))
+		UPDATE pfs.commits SET 
+			commit_id=:commit_id, 
+			commit_set_id=:commit_set_id,
+		    repo_id=(SELECT id from repo_row_id), 
+		    branch_id=(SELECT id from pfs.branches WHERE name=:branch_name AND repo_id=(SELECT id from repo_row_id)), 
+			description=:description, 
+			origin=:origin, 
+			start_time=:start_time, 
+			finishing_time=:finishing_time, 
+			finished_time=:finished_time, 
+		    compacting_time_s=:compacting_time_s, 
+			validating_time_s=:validating_time_s, 
+			size=:size, 
+			error=:error 
+		WHERE int_id=:int_id;`
+	for _, col := range page {
+		commit, ancestry, err := protoToCommit(col)
+		if err != nil {
+			return err
+		}
+		_, err = tx.NamedExecContext(ctx, migrateQuery, commit)
+		if err != nil {
+			return errors.Wrap(err, fmt.Sprintf("migrating commit %d", commit.IntID))
+		}
+		if ancestry.ParentCommit == "" && ancestry.ChildCommits == nil {
+			continue
+		}
+		if err := migrateRelatives(ctx, tx, commit.IntID, ancestry); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("migrating relatives of commit %d", commit.IntID))
+		}
+	}
+	return nil
+}
+
+func protoToCommit(col commitCollection) (*Commit, *CommitAncestry, error) {
+	commitInfo := &pfs.CommitInfo{}
+	if err := proto.Unmarshal(col.Proto, commitInfo); err != nil {
+		return nil, nil, errors.Wrapf(err, "could not unmarshal proto")
+	}
+	return InfoToCommit(commitInfo, col.IntID, col.CreatedAt, col.UpdatedAt),
+		InfoToCommitAncestry(commitInfo), nil
+}
+func InfoToCommitAncestry(commitInfo *pfs.CommitInfo) *CommitAncestry {
+	var children []string
+	for _, child := range commitInfo.ChildCommits {
+		children = append(children, child.Key())
+	}
+	parentKey := ""
+	if commitInfo.ParentCommit != nil {
+		parentKey = commitInfo.ParentCommit.Key()
+	}
+	return &CommitAncestry{
+		ChildCommits: children,
+		ParentCommit: parentKey,
+	}
+}
+
+func InfoToCommit(commitInfo *pfs.CommitInfo, id uint64, createdAt, updatedAt time.Time) *Commit {
+	if commitInfo.Details == nil {
+		commitInfo.Details = &pfs.CommitInfo_Details{}
+	}
+	branchName := sql.NullString{String: "", Valid: false}
+	if commitInfo.Commit.Branch != nil && commitInfo.Commit.Branch.Name != "" {
+		branchName = sql.NullString{String: commitInfo.Commit.Branch.Name, Valid: true}
+	}
+	return &Commit{
+		IntID: id,
+		CommitInfo: CommitInfo{
+			CommitID:       commitInfo.Commit.Key(),
+			CommitSetID:    commitInfo.Commit.Id,
+			RepoName:       commitInfo.Commit.Repo.Name,
+			RepoType:       commitInfo.Commit.Repo.Type,
+			ProjectName:    commitInfo.Commit.Repo.Project.Name,
+			BranchName:     branchName,
+			Origin:         commitInfo.Origin.Kind.String(),
+			StartTime:      pbutil.SanitizeTimestampPb(commitInfo.Started),
+			FinishingTime:  pbutil.SanitizeTimestampPb(commitInfo.Finishing),
+			FinishedTime:   pbutil.SanitizeTimestampPb(commitInfo.Finished),
+			Description:    commitInfo.Description,
+			CompactingTime: pbutil.DurationPbToBigInt(commitInfo.Details.CompactingTime),
+			ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
+			Size:           commitInfo.Details.SizeBytes,
+			Error:          commitInfo.Error,
+		},
+		CreatedAt: createdAt,
+		UpdatedAt: updatedAt,
+	}
+}
+
+func migrateRelatives(ctx context.Context, tx *pachsql.Tx, id uint64, commitAncestry *CommitAncestry) error {
+	ancestryQueryTemplate := `
+		INSERT INTO pfs.commit_ancestry
+		(parent, child)
+		VALUES %s
+		ON CONFLICT DO NOTHING;
+		`
+	valuesTemplate := `($1, (SELECT int_id FROM pfs.commits WHERE commit_id=$%d))`
+	params := []any{id}
+	queryVarNum := 2
+	values := make([]string, 0)
+	for _, child := range commitAncestry.ChildCommits {
+		values = append(values, fmt.Sprintf(valuesTemplate, queryVarNum))
+		params = append(params, child)
+		queryVarNum++
+	}
+	if commitAncestry.ParentCommit != "" {
+		values = append(values, fmt.Sprintf(`((SELECT int_id FROM pfs.commits WHERE commit_id=$%d), $1)`, queryVarNum))
+		params = append(params, commitAncestry.ParentCommit)
+	}
+	query := fmt.Sprintf(ancestryQueryTemplate, strings.Join(values, ","))
+	_, err := tx.ExecContext(ctx, query, params...)
+	return errors.Wrap(err, fmt.Sprintf("putting commit ancestry relationships: query: %s params: %v", query, params))
 }
 
 func migrateBranches(ctx context.Context, env migrations.Env) error {
@@ -347,15 +533,15 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	}
 	if _, err := tx.ExecContext(ctx, `
 		CREATE TABLE IF NOT EXISTS pfs.branch_triggers (
-			from_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
+			from_branch_id bigint REFERENCES pfs.branches(id) PRIMARY KEY,
 			to_branch_id bigint REFERENCES pfs.branches(id) NOT NULL,
 			cron_spec text,
 			rate_limit_spec text,
 			size text,
 			num_commits bigint,
-			all_conditions bool,
-			PRIMARY KEY (from_branch_id, to_branch_id)
+			all_conditions bool
 		);
+		CREATE INDEX ON pfs.branch_triggers (to_branch_id);
 	`); err != nil {
 		return errors.Wrap(err, "creating branch triggers table")
 	}

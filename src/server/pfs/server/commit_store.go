@@ -228,6 +228,9 @@ func setTotal(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.I
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if err := checkCommitDB(tx, commit); err != nil {
+		return errors.EnsureStack(err)
+	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_totals (commit_id, fileset_id)
 	VALUES ($1, $2)
 	ON CONFLICT (commit_id) DO UPDATE
@@ -243,9 +246,21 @@ func setDiff(tx *pachsql.Tx, tr track.Tracker, commit *pfs.Commit, id fileset.ID
 	if err := tr.CreateTx(tx, oid, pointsTo, track.NoTTL); err != nil {
 		return errors.EnsureStack(err)
 	}
+	if err := checkCommitDB(tx, commit); err != nil {
+		return errors.EnsureStack(err)
+	}
 	_, err := tx.Exec(`INSERT INTO pfs.commit_diffs (commit_id, fileset_id)
 	VALUES ($1, $2)
 	`, pfsdb.CommitKey(commit), id)
+	return errors.EnsureStack(err)
+}
+
+func checkCommitDB(tx *pachsql.Tx, commit *pfs.Commit) error {
+	var id *int = new(int)
+	err := tx.QueryRow(`SELECT int_id FROM pfs.commits AS c
+		WHERE c.commit_id = $1`,
+		pfsdb.CommitKey(commit),
+	).Scan(id)
 	return errors.EnsureStack(err)
 }
 
