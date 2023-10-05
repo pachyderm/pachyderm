@@ -1270,7 +1270,7 @@ func (mm *MountManager) GetDatums() (retErr error) {
 	// Once ListDatum pagination is efficient, we can remove this. #ListDatumPagination
 	if err := mm.CreateDatums(); err == nil {
 		return nil
-	} else if errors.Is(err, ErrUnsupportedInputType) {
+	} else if !errors.Is(err, ErrUnsupportedInputType) {
 		return err
 	}
 	// If input spec has Join or Group, fall back to ListDatum
@@ -1359,11 +1359,13 @@ func (mm *MountManager) CreateDatums() error {
 				datums = append(datums, pfsInputDatums...)
 			}
 			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+			delete(datumsAtLevel, level+1)
 		}
 		if input.Cross != nil {
 			// Cross all the children PFS inputs datums
 			datums := crossDatums(datumsAtLevel[level+1])
 			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+			delete(datumsAtLevel, level+1)
 		}
 		return nil
 	}); err != nil {

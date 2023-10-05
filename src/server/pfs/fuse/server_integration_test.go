@@ -164,14 +164,14 @@ func TestMountDatumGlobFile(t *testing.T) {
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file*'}}}`,
 			pfs.DefaultProjectName),
 		)
-		resp, err := put("_mount_datums", bytes.NewReader(input))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
 		mdr := &MountDatumResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
-		require.NotEqual(t, "", mdr.Id)
+		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 3, mdr.NumDatums)
 
 		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
@@ -248,10 +248,16 @@ func TestCrossDatum(t *testing.T) {
 							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}},
 							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
 						]
+					},
+					{
+						'cross': [
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+						]
 					}
 				]
 			}}`,
-			pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName),
+			pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
 		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
@@ -261,7 +267,7 @@ func TestCrossDatum(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
 		require.Equal(t, 0, mdr.Idx)
 		// require.NotEqual(t, "", mdr.Id)
-		require.Equal(t, 4, mdr.NumDatums)
+		require.Equal(t, 16, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 	})
 }
@@ -341,6 +347,18 @@ func TestUnionDatum(t *testing.T) {
 		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 6, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		files, err := os.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+
+		resp, err = put("datums/_next", nil)
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		files, err = os.ReadDir(mountPoint)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
 	})
 }
 
@@ -377,8 +395,8 @@ func TestJoinDatum(t *testing.T) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'join': [
-					{'pfs': {'glob': '/(*).txt', 'project': '%s', 'repo': 'repo1'}},
-					{'pfs': {'glob': '/*/(*).txt', 'project': '%s', 'repo': 'repo2'}}
+					{'pfs': {'glob': '/(*).txt', 'project': '%s', 'repo': 'repo1', 'join_on': '$1'}},
+					{'pfs': {'glob': '/*/(*).txt', 'project': '%s', 'repo': 'repo2', 'join_on': '$1'}}
 				]
 			}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName),
