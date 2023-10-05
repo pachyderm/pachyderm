@@ -8,9 +8,8 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Union
 
-import python_pachyderm
-from python_pachyderm.proto.v2.pps.pps_pb2 import Pipeline
-from python_pachyderm.proto.v2.pfs.pfs_pb2 import Project
+from pachyderm_sdk import Client
+from pachyderm_sdk.api import pfs, pps
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
@@ -22,8 +21,9 @@ METADATA_KEY = 'pachyderm_pps'
 class PPSClient:
     """Client interface for the PPS extension backend."""
 
-    def __init__(self):
+    def __init__(self, client: Client):
         self.nbconvert = PythonExporter()
+        self.client = client
 
     @staticmethod
     async def generate(path):
@@ -84,26 +84,22 @@ class PPSClient:
 
         script, _resources = self.nbconvert.from_filename(str(path))
 
-        client = python_pachyderm.Client()  # TODO: Auth?
-        try:  # Verify connection to cluster.
-            client.inspect_cluster()
-        except Exception as e:
-            raise HTTPError(
-                status_code=500,
-                reason=f"could not verify connection to Pachyderm cluster: {repr(e)}"
-            )
-
         companion_repo = f"{config.pipeline.name}__context"
-        for item in client.list_repo():
-            same_project = config.pipeline.project.name == item.repo.project.name
-            if (companion_repo == item.repo.name) and same_project:
+        for r in self.client.pfs.list_repo():
+            same_project = config.pipeline.project.name == r.repo.project.name
+            if (companion_repo == r.repo.name) and same_project:
                 break
         else:
-            client.create_repo(
-                repo_name=companion_repo,
-                project_name=config.pipeline.project.name,
+            repo = pfs.Repo(
+                name=companion_repo, 
+                project=pfs.Project(name=config.pipeline.project.name)
+            )
+            self.client.pfs.create_repo(
+                repo=repo, 
                 description=f"files for running the {config.pipeline.name} pipeline"
             )
+        
+        # we are here
 
         companion_branch = upload_environment(client, companion_repo, config, script.encode('utf-8'))
         pipeline_spec = create_pipeline_spec(config, companion_branch)
@@ -130,7 +126,7 @@ class PPSClient:
 class PpsConfig:
 
     notebook_path: Path
-    pipeline: Pipeline
+    pipeline: pps.Pipeline
     image: str
     requirements: Optional[str]
     port: str
@@ -253,7 +249,7 @@ def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> dict:
 
 
 def upload_environment(
-        client: python_pachyderm.Client, repo: str, config: PpsConfig, script: bytes
+        client: Client, repo: pfs.Repo, config: PpsConfig, script: bytes
 ) -> str:
     """Manages the pipeline's "environment" through a companion repo.
 
@@ -291,20 +287,21 @@ def upload_environment(
         '    entrypoint()\n'
     )
     project = config.pipeline.project.name
-    with client.commit(repo, "master", project_name=project) as commit:
-        # Remove the old files.
-        for item in client.list_file(commit, "/"):
-            client.delete_file(commit, item.file.path)
 
-        # Upload the new files.
-        client.put_file_bytes(commit, f"/user_code.py", script)
+    master = pfs.Branch(repo=repo, name="master")
+    with client.pfs.commit(parent=master) as commit:
+        # Remove the old files
+        client.pfs.delete_file(commit=commit, path="/")
+
+        # Upload the new files
+        client.pfs.put_file_from_bytes(commit=commit, path="/user_code.py", data=script)
         if config.requirements:
             with open(config.requirements, "rb") as reqs_file:
-                client.put_file_bytes(commit, "/requirements.txt", reqs_file)
-        client.put_file_bytes(commit, "/entrypoint.py", entrypoint_script.encode('utf-8'))
+                client.pfs.put_file_from_file(commit=commit, path="/requirements.txt", file=reqs_file)
+        client.pfs.put_file_from_bytes(commit=commit, path="/entrypoint.py", data=entrypoint_script.encode('utf-8'))
 
     # Use the commit ID in the branch name to avoid name collisions.
-    branch_name = f"commit_{commit.id}"
-    client.create_branch(repo, branch_name, commit, project_name=project)
+    branch = pfs.Branch(repo=repo, name=f"commit_{commit.id}")
+    client.pfs.create_branch(head=commit, branch=branch)
 
-    return branch_name
+    return branch.name
