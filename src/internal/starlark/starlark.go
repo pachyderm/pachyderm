@@ -112,7 +112,7 @@ func Run(rctx context.Context, in string, opts Options, f RunFunc) (starlark.Str
 		Set:               true,
 		While:             true,
 		TopLevelControl:   true,
-		GlobalReassign:    false,
+		GlobalReassign:    true,
 		LoadBindsGlobally: false,
 		Recursion:         false,
 	}

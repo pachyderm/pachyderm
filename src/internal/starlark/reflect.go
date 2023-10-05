@@ -140,6 +140,14 @@ func Value(in any) starlark.Value {
 		return starlark.Float(float64(x))
 	case float64:
 		return starlark.Float(x)
+	case map[string]any:
+		dict := starlark.NewDict(len(x))
+		for k, v := range x {
+			if err := dict.SetKey(starlark.String(k), Value(v)); err != nil {
+				break
+			}
+		}
+		return dict
 	}
 	return value(reflect.ValueOf(in))
 }
@@ -181,9 +189,16 @@ func ReflectList[T any](xs []T) *starlark.List {
 	return starlark.NewList(values)
 }
 
+// ToGo is an interface for starlark.Values that can turn themselves into Go.
+type ToGoer interface {
+	ToGo() any
+}
+
 // FromStarlark returns a Go value for a Starlark value.
 func FromStarlark(v starlark.Value) any {
 	switch x := v.(type) {
+	case ToGoer:
+		return x.ToGo()
 	case *Reflect:
 		return x.Any
 	case starlark.NoneType:
@@ -240,4 +255,14 @@ func FromStarlark(v starlark.Value) any {
 	default:
 		return v.String()
 	}
+}
+
+// Any is an `any` that can be unpacked into
+type Any struct{ Value any }
+
+var _ starlark.Unpacker = (*Any)(nil)
+
+func (x *Any) Unpack(v starlark.Value) error {
+	x.Value = FromStarlark(v)
+	return nil
 }

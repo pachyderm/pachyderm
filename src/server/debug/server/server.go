@@ -36,6 +36,7 @@ import (
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	describe "k8s.io/kubectl/pkg/describe"
 
@@ -66,13 +67,14 @@ const (
 )
 
 type Env struct {
-	DB            *pachsql.DB
-	SidecarClient *client.APIClient
-	Name          string
-	GetLokiClient func() (*loki.Client, error)
-	GetKubeClient func() kubernetes.Interface
-	Config        pachconfig.Configuration
-	TaskService   task.Service
+	DB                   *pachsql.DB
+	SidecarClient        *client.APIClient
+	Name                 string
+	GetLokiClient        func() (*loki.Client, error)
+	GetKubeClient        func() kubernetes.Interface
+	GetDynamicKubeClient func() dynamic.Interface
+	Config               pachconfig.Configuration
+	TaskService          task.Service
 
 	GetPachClient func(context.Context) *client.APIClient
 }
@@ -1551,7 +1553,12 @@ func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark, rp incProgressF
 		ctx, c := context.WithTimeout(rctx, timeout)
 		defer c()
 
-		env := debugstar.Env{FS: dfs.WithPrefix(name)}
+		env := debugstar.Env{
+			FS:                  dfs.WithPrefix(name),
+			Kubernetes:          s.env.GetKubeClient(),
+			KubernetesDynamic:   s.env.GetDynamicKubeClient(),
+			KubernetesNamespace: s.env.Config.Namespace,
+		}
 		if err := env.RunStarlark(ctx, name, script); err != nil {
 			return errors.Wrapf(err, "starlark script %q", name)
 		}

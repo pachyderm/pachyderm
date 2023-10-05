@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	ourstar "github.com/pachyderm/pachyderm/v2/src/internal/starlark"
@@ -133,6 +134,19 @@ func setupPrint(th *starlark.Thread, t T) {
 // this stipulation cannot be removed.
 func RunTest(t *testing.T, script string, opts ourstar.Options) {
 	ctx := pctx.TestContext(t)
+	if opts.Modules == nil {
+		opts.Modules = make(map[string]starlark.StringDict)
+	}
+	opts.Modules["cmp"] = starlark.StringDict{
+		"diff": starlark.NewBuiltin("diff", func(thread *starlark.Thread, fn *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+			var want, got ourstar.Any
+			if err := starlark.UnpackArgs(fn.Name(), args, kwargs, "want", &want, "got", &got); err != nil {
+				return nil, errors.Wrap(err, "unpack args")
+			}
+			diff := cmp.Diff(want.Value, got.Value)
+			return starlark.String(diff), nil
+		}),
+	}
 	runTest(ctx, &testingTWrapper{T: t}, script, opts)
 }
 
