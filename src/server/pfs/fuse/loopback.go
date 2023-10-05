@@ -626,7 +626,11 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	}
 	// Define the callback up front because we use it in two paths
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
-		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
+		// We only want to create children and ancestors of mounted file ro.File
+		// Example: ro.File.Path = /file, fi.File.Path = /files <--- DON'T CREATE
+		// Example: ro.File.Path = /file, fi.File.Path = /file/path <--- CREATE
+		// Example: ro.File.Path = /dir/file, fi.File.Path = /dir <--- CREATE
+		if !isChildOf(fi.File.Path, ro.File.Path) && !isChildOf(ro.File.Path, fi.File.Path) {
 			return nil
 		}
 		if fi.FileType == pfs.FileType_DIR {
@@ -673,6 +677,17 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		return err
 	}
 	return nil
+}
+
+// Returns true if path1 is a child path of path2
+func isChildOf(path1, path2 string) bool {
+	addTrailingSlash := func(p string) string {
+		if len(p) > 0 && p[len(p)-1] != '/' {
+			return p + "/"
+		}
+		return p
+	}
+	return strings.HasPrefix(addTrailingSlash(path1), addTrailingSlash(path2))
 }
 
 func (n *loopbackNode) trimPath(path string) string {
