@@ -619,7 +619,6 @@ func TestRerunPipeline(t *testing.T) {
 	require.NoError(t, err)
 	var date3 bytes.Buffer
 	require.NoError(t, c.GetFile(client.NewCommit(pfs.DefaultProjectName, pipeline, "master", ""), "/date.txt", &date3))
-	fmt.Println(date1.String(), date3.String())
 	require.NotEqual(t, date3.String(), "")
 	require.NotEqual(t, date1.String(), date3.String())
 	require.NotEqual(t, date2.String(), date3.String())

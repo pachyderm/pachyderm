@@ -1827,8 +1827,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	return nil
 }
 
-func (a *apiServer) validateEnterpriseChecksInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineRequest) error {
-	if _, err := a.InspectPipelineInTransaction(ctx, txnCtx, req.Pipeline); err == nil {
+func (a *apiServer) validateEnterpriseChecks(ctx context.Context, req *pps.CreatePipelineRequest) error {
+	if _, err := a.inspectPipeline(ctx, req.Pipeline, false); err == nil {
 		// Pipeline already exists so we allow people to update it even if
 		// they're over the limits.
 		return nil
@@ -1847,7 +1847,7 @@ func (a *apiServer) validateEnterpriseChecksInTransaction(ctx context.Context, t
 	}
 	var info pps.PipelineInfo
 	seen := make(map[string]struct{})
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(&info, col.DefaultOptions(), func(_ string) error {
+	if err := a.pipelines.ReadOnly(ctx).List(&info, col.DefaultOptions(), func(_ string) error {
 		seen[info.Pipeline.Name] = struct{}{}
 		return nil
 	}); err != nil {
@@ -2122,47 +2122,43 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
-func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
-	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
-	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
-	var js string
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		var err error
-		js, err = a.createPipelineInTransaction(ctx, txnCtx, request)
-		if err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return nil, err
-	}
-	return &pps.CreatePipelineV2Response{
-		EffectiveCreatePipelineRequestJson: js,
-	}, nil
-}
-
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
-
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
 		if err != nil {
 			return errors.Wrap(err, "inspect")
 		}
-		newReq := &pps.CreatePipelineV2Request{
-			CreatePipelineRequestJson: info.GetUserSpecJson(),
-			Update:                    true,
-			Reprocess:                 request.GetReprocess(),
+		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
+		if err != nil {
+			return badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
+				{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
+				{Field: "cluster defaults", Description: "{}"},
+			})
 		}
-		if _, err := a.createPipelineInTransaction(ctx, txnCtx, newReq); err != nil {
-			return errors.Wrap(err, "update pipeline")
-		}
-		return nil
+		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
+			CreatePipelineRequest: effectiveSpec,
+			EffectiveJson:         effectiveSpecJSON,
+			UserJson:              info.GetUserSpecJson(),
+		})
 	}); err != nil {
-		return nil, errors.Wrap(err, "do txn")
+		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+
+	js, err := a.createPipeline(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &pps.CreatePipelineV2Response{
+		EffectiveCreatePipelineRequestJson: js,
+	}, nil
 }
 
 // CreatePipeline implements the protobuf pps.CreatePipeline RPC
@@ -2201,25 +2197,22 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 		Reprocess:                 request.Reprocess,
 		DryRun:                    request.DryRun,
 	}
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		_, err := a.createPipelineInTransaction(ctx, txnCtx, v2Req)
-		return err
-	}); err != nil {
+	if _, err := a.createPipeline(ctx, v2Req); err != nil {
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
-	var clusterDefaults ppsdb.ClusterDefaultsWrapper
-	if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Get("", &clusterDefaults); err != nil {
-		if !errors.As(err, &col.ErrNotFound{}) {
-			return "", status.Error(codes.Internal, "could not get cluster defaults")
-		}
-		clusterDefaults.Json = "{}"
+func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
+	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return "", status.Error(codes.Internal, "could not get cluster defaults")
 	}
 
-	defaultsJSON := clusterDefaults.Json
+	defaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
+	if defaultsJSON == "" {
+		defaultsJSON = "{}"
+	}
 	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
 	if err != nil {
 		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
@@ -2250,7 +2243,7 @@ func (a *apiServer) createPipelineInTransaction(ctx context.Context, txnCtx *txn
 	}()
 	extended.PersistAny(ctx, a.env.EtcdClient, effectiveSpec.Pipeline)
 
-	if err := a.validateEnterpriseChecksInTransaction(ctx, txnCtx, effectiveSpec); err != nil {
+	if err := a.validateEnterpriseChecks(ctx, effectiveSpec); err != nil {
 		return "", err
 	}
 

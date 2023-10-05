@@ -1611,17 +1611,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer client.Close()
-
-			return txncmds.WithActiveTransaction(client, func(txClient *pachdclient.APIClient) error {
-				_, err := txClient.PpsAPIClient.RerunPipeline(
-					txClient.Ctx(),
-					&pps.RerunPipelineRequest{
-						Pipeline:  pachdclient.NewPipeline(project, args[0]),
-						Reprocess: reprocess,
-					},
-				)
-				return grpcutil.ScrubGRPC(err)
-			})
+			_, err = client.PpsAPIClient.RerunPipeline(
+				client.Ctx(),
+				&pps.RerunPipelineRequest{
+					Pipeline:  pachdclient.NewPipeline(project, args[0]),
+					Reprocess: reprocess,
+				},
+			)
+			return grpcutil.ScrubGRPC(err)
 		}),
 	}
 	rerunPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
