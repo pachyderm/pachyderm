@@ -343,7 +343,13 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 }
 
 func (b *builder) initTransaction(ctx context.Context) error {
-	b.txnEnv.Initialize(b.env, b.txn)
+	b.txnEnv.Initialize(
+		b.env.GetDBClient(),
+		func() transactionenv.AuthBackend { return b.env.AuthServer() },
+		func() transactionenv.PFSBackend { return b.env.PfsServer() },
+		func() transactionenv.PPSBackend { return b.env.PpsServer() },
+		b.txn,
+	)
 	return nil
 }
 
