@@ -39,7 +39,7 @@ var BuiltinScripts = map[string]string{}
 //go:embed starlark/*.star
 var builtin embed.FS
 
-var fakeModuleOptions ourstar.Options
+var fakeModule starlark.Value
 
 func init() {
 	if err := fs.WalkDir(builtin, ".", func(path string, d fs.DirEntry, err error) error {
@@ -72,7 +72,7 @@ func init() {
 		KubernetesNamespace: "default",
 	}
 	fakeOpts, _ := fakeEnv.Options() // Can't error.
-	fakeModuleOptions = fakeOpts
+	fakeModule = fakeOpts.Predefined["k8s"]
 	ourstar.RegisterPersonality("fakedebugdump", fakeOpts)
 }
 
@@ -324,18 +324,18 @@ func (e *Env) Options() (ourstar.Options, error) {
 		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 		kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
 		rawConfig, err := kubeConfig.RawConfig()
-		if err != nil {
-			if strings.Contains(err.Error(), "no configuration has been provided") {
-				// Mostly for CI on machines that don't have k8s.
-				return fakeModuleOptions, nil
+		if err == nil {
+			if c, ok := rawConfig.Contexts[rawConfig.CurrentContext]; ok {
+				namespace = c.Namespace
 			}
-			return opts, errors.Wrap(err, "load k8s config from default files")
-		}
-		if c, ok := rawConfig.Contexts[rawConfig.CurrentContext]; ok {
-			namespace = c.Namespace
 		}
 		config, err := kubeConfig.ClientConfig()
 		if err != nil {
+			if strings.Contains(err.Error(), "no configuration has been provided") {
+				// Mostly for CI on machines that don't have k8s.
+				opts.Predefined["k8s"] = fakeModule
+				return opts, nil
+			}
 			return opts, errors.Wrap(err, "load k8s client config from default files")
 		}
 		config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
