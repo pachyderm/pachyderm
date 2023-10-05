@@ -38,7 +38,7 @@ type RepoOptions struct {
 	// Files is the set of files from a single repo to mount. Most of the time,
 	// there will only be one file in this list. However, when mounting datums
 	// it's possible to have multiple files from the same repo that need to be
-	// mounted.
+	// mounted. It's best if these files don't overlap.
 	Files []*pfs.File
 	// Repo is the name of the repo to mount
 	// Repo string
