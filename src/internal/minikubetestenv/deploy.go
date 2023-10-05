@@ -658,7 +658,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
-	if opts.Enterprise || opts.EnterpriseServer {
+	if opts.Enterprise { // DNJ TODO - does this break other tests? || opts.EnterpriseServer
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {

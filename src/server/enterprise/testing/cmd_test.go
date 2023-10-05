@@ -16,11 +16,28 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 )
 
 const enterpriseRootToken = "iamenterprise"
+
+func startEnterpriseCluster(ctx context.Context, t *testing.T) {
+	valueOverrides := map[string]string{
+		// "pachd.enterpriseRootToken":  enterpriseRootToken,
+		"pachd.rootToken":            "",
+		"pachd.enterpriseLicenseKey": "",
+	}
+	k := testutil.GetKubeClient(t)
+	minikubetestenv.PutNamespace(t, "enterprise")
+	_ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+		EnterpriseServer: true,
+		CleanupAfter:     false,
+		Enterprise:       false,
+		ValueOverrides:   valueOverrides,
+	})
+}
 
 func resetClusterState(ctx context.Context, t *testing.T, c *client.APIClient) {
 	ec, err := client.NewEnterpriseClientForTest(ctx)
@@ -47,6 +64,7 @@ func resetClusterState(ctx context.Context, t *testing.T, c *client.APIClient) {
 // TestRegisterPachd tests registering a pachd with the enterprise server when auth is disabled
 func TestRegisterPachd(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -68,6 +86,7 @@ func TestRegisterPachd(t *testing.T) {
 // TestRegisterAuthenticated tests registering a pachd with the enterprise server when auth is enabled
 func TestRegisterAuthenticated(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -95,6 +114,7 @@ func TestRegisterAuthenticated(t *testing.T) {
 // TestEnterpriseRoleBindings tests configuring role bindings for the enterprise server
 func TestEnterpriseRoleBindings(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -119,6 +139,7 @@ func TestEnterpriseRoleBindings(t *testing.T) {
 // TestGetAndUseRobotToken tests getting a robot token for the enterprise server
 func TestGetAndUseRobotToken(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -146,6 +167,7 @@ func TestGetAndUseRobotToken(t *testing.T) {
 // TestConfig tests getting and setting OIDC configuration for the identity server
 func TestConfig(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -187,6 +209,7 @@ EOF
 // TestLoginEnterprise tests logging in to the enterprise server
 func TestLoginEnterprise(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -231,6 +254,7 @@ func TestLoginEnterprise(t *testing.T) {
 // TestLoginPachd tests logging in to pachd
 func TestLoginPachd(t *testing.T) {
 	ctx := pctx.TestContext(t)
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -276,6 +300,7 @@ func TestLoginPachd(t *testing.T) {
 // Tests synching contexts from the enterprise server
 func TestSyncContexts(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -353,6 +378,7 @@ func TestSyncContexts(t *testing.T) {
 // Tests RegisterCluster command's derived argument values if not provided
 func TestRegisterDefaultArgs(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
@@ -393,6 +419,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 // tests that Cluster Registration is undone when enterprise service fails to activate in the `enterprise register` subcommand
 func TestRegisterRollback(t *testing.T) {
 	ctx := context.Background()
+	startEnterpriseCluster(ctx, t)
 	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)

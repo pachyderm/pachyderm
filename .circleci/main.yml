@@ -68,8 +68,8 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
-    parallelism: 6
+    resource_class: large
+    parallelism: 10
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -107,14 +107,12 @@ jobs:
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --rerun-fails \
-            --rerun-fails-max-failures=100 \
             --debug \
             -- \
             go test ./... -json -v \
             -run "^${tests// /$|^}$" \
             -p=1 \
-            -parallel=6 \
+            -parallel=8 \
             -count=1 \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
@@ -316,8 +314,6 @@ jobs:
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --rerun-fails \
-            --rerun-fails-max-failures=25 \
             --format testname \
             --debug \
             -- \
