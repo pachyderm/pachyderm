@@ -2,8 +2,9 @@ package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	units "github.com/docker/go-units"
 	"google.golang.org/protobuf/proto"
@@ -48,7 +49,6 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		// Recurse through the trigger chain, checking / firing earlier triggers first.
 		triggerBranchKey := pfsdb.BranchKey(bi.Branch.Repo.NewBranch(bi.Trigger.Branch))
 		triggerBranchInfo, ok := branchInfos[triggerBranchKey]
-		// TODO: We probably shouldn't allow the creation of a trigger on a nonexistent branch.
 		if !ok {
 			return nil, nil
 		}
