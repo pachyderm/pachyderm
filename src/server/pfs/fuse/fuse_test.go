@@ -412,7 +412,7 @@ func TestMountCommit(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{&pfs.File{Commit: c1}},
 			},
 		},
@@ -435,7 +435,7 @@ func TestMountCommit(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{&pfs.File{Commit: c2}},
 			},
 		},
@@ -466,7 +466,7 @@ func TestMountFile(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo", "master", "master^", "/foo")},
 			},
 		},
@@ -489,7 +489,7 @@ func TestMountFile(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/bar")},
 			},
 		},
@@ -527,7 +527,7 @@ func TestMountDir(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/foo")},
 			},
 		},
@@ -555,7 +555,7 @@ func TestMountDir(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir/bar")},
 			},
 		},
@@ -583,7 +583,7 @@ func TestMountDir(t *testing.T) {
 	withMount(t, env.PachClient, &Options{
 		RepoOptions: map[string]*RepoOptions{
 			"repo": {
-				Name: "repo",
+				Name:  "repo",
 				Files: []*pfs.File{client.NewFile(pfs.DefaultProjectName, "repo", "master", "", "/dir")},
 			},
 		},
