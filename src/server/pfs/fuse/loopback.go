@@ -624,22 +624,53 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	// Define the callback up front because we use it in two paths
-	createFile := func(fi *pfs.FileInfo) (retErr error) {
-		// We only want to create children and ancestors of mounted file(s) ro.Files
-		// Example: ro.File.Path = /file, fi.File.Path = /files <--- DON'T CREATE
-		// Example: ro.File.Path = /file, fi.File.Path = /file/path <--- CREATE
-		// Example: ro.File.Path = /dir/file, fi.File.Path = /dir <--- CREATE
-		if create := func() bool {
-			for _, f := range ro.Files {
-				if isChildOf(fi.File.Path, f.Path) || isChildOf(f.Path, fi.File.Path) {
-					return true
-				}
+	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := ro.Files[0].Commit.Branch.Repo.Name
+	filePath := filepath.Join(parts[1:]...)
+	// We only want to create descendants and ancestors of mounted file(s) ro.Files
+	// filePath is OS requested path, ro.Files[i].Path is the path of the mounted file
+	// Example: ro.Files[i].Path = /file, filePath = /files <--- DON'T CREATE
+	// Example: ro.Files[i].Path = /file, filePath = /file/path <--- CREATE
+	// Example: ro.Files[i].Path = /dir/file, filePath = /dir <--- CREATE
+	isAncestor, ancestorOfWhom := func(path string) (bool, *pfs.FileInfo) {
+		for _, f := range ro.Files {
+			if isDescendantOf(f.Path, path) {
+				return true, &pfs.FileInfo{File: f}
 			}
-			return false
-		}(); !create {
-			return nil
 		}
+		return false, nil
+	}(filePath)
+	isDescendant := func(path string) bool {
+		for _, f := range ro.Files {
+			if isDescendantOf(path, f.Path) {
+				return true
+			}
+		}
+		return false
+	}(filePath)
+	log.Info(pctx.TODO(), "Details", zap.String("filePath", filePath), zap.Bool("isAncestor", isAncestor), zap.Bool("isDescendant", isDescendant))
+	// If filePath is an ancestor, manually create the directories
+	// Only call ListFile on the mounted file(s) ro.Files and their descendants
+	if isAncestor {
+		fi, err := n.c().InspectFile(client.NewCommit(projectName, repoName, branch, commit), ancestorOfWhom.File.Path)
+		if err != nil {
+			return err
+		}
+		p := n.filePath(name, fi)
+		if fi.FileType == pfs.FileType_FILE {
+			p = filepath.Dir(p)
+		}
+		if err = os.MkdirAll(p, 0777); err != nil {
+			return err
+		}
+	}
+	if !isDescendant {
+		return nil
+	}
+	log.Info(pctx.TODO(), "Calling ListFile")
+	// Calling ListFile on a repo with many files at the top level when we only care about a single
+	// file, for example, is very expensive. Hence the above optimizations.
+	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, func(fi *pfs.FileInfo) (retErr error) {
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -675,26 +706,11 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 			return err
 		}
 		return nil
-	}
-	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
-	repoName := ro.Files[0].Commit.Branch.Repo.Name
-	filePath := filepath.Join(parts[1:]...)
-	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
+	}); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err
 	}
 	return nil
-}
-
-// Returns true if path1 is a child path of path2
-func isChildOf(path1, path2 string) bool {
-	addTrailingSlash := func(p string) string {
-		if len(p) > 0 && p[len(p)-1] != '/' {
-			return p + "/"
-		}
-		return p
-	}
-	return strings.HasPrefix(addTrailingSlash(path1), addTrailingSlash(path2))
 }
 
 func (n *loopbackNode) trimPath(path string) string {
