@@ -14,7 +14,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/version"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/utils"
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/migrationutils"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -278,7 +278,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 
 	var (
 		columns   []string // An array containing the names of the columns being updated
-		w_columns []string // An array containing the names of the columns used in the WHERE clause
+		wColumns []string // An array containing the names of the columns used in the WHERE clause
 	)
 
 	// Get the columns associated with the table, and add them to the columns array
@@ -296,10 +296,10 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	}
 
 	// Define the columns that are used in the WHERE clause
-	w_columns = append(w_columns, "key")
+	wColumns = append(wColumns, "key")
 
 	// Create new batcher with a batch size of 1000
-	err, batcher := utils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, w_columns, 1000)
+	err, batcher := migrationutils.NewPostgresBatcher(tx, "UPDATE", fmt.Sprintf("collections.%s", col.table), columns, wColumns, 1000)
 	if err != nil {
 		return err
 	}
@@ -314,27 +314,26 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 				}
 
 				var (
-					col_values []any // Array with this row's values for update
-					w_values   []any // Array with the values for this row's WHERE clause
+					colValues []any // Array with this row's values for update
+					wValues   []any // Array with the values for this row's WHERE clause
 				)
 
-				// Loop through each of the columns, get the value for update, and append to col_values
+				// Loop through each of the columns, get the value for update, and append to colValues
 				for _, k := range columns {
 
 					// If this is a proto field, we need to hex encode it because it's actually binary
 					if k == "proto" {
-						col_values = append(col_values, hex.EncodeToString([]byte(params[k].([]uint8))))
+						colValues = append(colValues, hex.EncodeToString(params[k].([]byte)))
 					} else {
-						col_values = append(col_values, params[k])
+						colValues = append(colValues, params[k])
 					}
 				}
 
 				// There's only one value for the WHERE cluase, which is the old key
-				w_values = append(w_values, oldKey)
+				wValues = append(wValues, oldKey)
 
 				// Add this row's values to the batcher
-				err = batcher.Add(ctx, col_values, w_values)
-				if err != nil {
+				if err := batcher.Add(ctx, colValues, wValues); err != nil {
 					return errors.Wrapf(err, "could not update %q to %q", oldKey, pair.key)
 				}
 
