@@ -626,11 +626,18 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	}
 	// Define the callback up front because we use it in two paths
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
-		// We only want to create children and ancestors of mounted file ro.File
+		// We only want to create children and ancestors of mounted file(s) ro.Files
 		// Example: ro.File.Path = /file, fi.File.Path = /files <--- DON'T CREATE
 		// Example: ro.File.Path = /file, fi.File.Path = /file/path <--- CREATE
 		// Example: ro.File.Path = /dir/file, fi.File.Path = /dir <--- CREATE
-		if !isChildOf(fi.File.Path, ro.File.Path) && !isChildOf(ro.File.Path, fi.File.Path) {
+		if create := func() bool {
+			for _, f := range ro.Files {
+				if isChildOf(fi.File.Path, f.Path) || isChildOf(f.Path, fi.File.Path) {
+					return true
+				}
+			}
+			return false
+		}(); !create {
 			return nil
 		}
 		if fi.FileType == pfs.FileType_DIR {
@@ -669,8 +676,8 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		}
 		return nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := ro.Files[0].Commit.Branch.Repo.Name
 	filePath := filepath.Join(parts[1:]...)
 	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
@@ -724,8 +731,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := ro.Files[0].Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
