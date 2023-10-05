@@ -25,7 +25,6 @@ const enterpriseRootToken = "iamenterprise"
 
 func startEnterpriseCluster(ctx context.Context, t *testing.T) {
 	valueOverrides := map[string]string{
-		// "pachd.enterpriseRootToken":  enterpriseRootToken,
 		"pachd.rootToken":            "",
 		"pachd.enterpriseLicenseKey": "",
 	}
