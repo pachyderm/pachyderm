@@ -336,8 +336,8 @@ class PPSCreateHandler(BaseHandler):
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     get_logger().info(f"Using PFS_SOCK_PATH={PFS_SOCK_PATH}")
-    web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR, PFS_SOCK_PATH)
+    # web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
+    # web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR, PFS_SOCK_PATH)
     web_app.settings["pachyderm_pps_client"] = PPSClient()
 
     client = Client(host="host.docker.internal", port=30650)
@@ -347,7 +347,7 @@ def setup_handlers(web_app):
 
     # uncomment below to use the pachyderm sdk based file manager
     # web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
-    # web_app.settings["pfs_contents_manager"] = DatumManager(client=client)
+    web_app.settings["pfs_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
         ("/repos", ReposHandler),
