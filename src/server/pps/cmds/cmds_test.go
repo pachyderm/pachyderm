@@ -1372,7 +1372,7 @@ func TestRerunPipeline(t *testing.T) {
 		    "pipeline": {"name": "{{.pipeline}}"},
 		    "input": {
 		      "pfs": {
-		        "glob": "/*",
+		        "glob": "/",
 		        "repo": "data"
 		      }
 		    },
@@ -1383,14 +1383,14 @@ func TestRerunPipeline(t *testing.T) {
 		  }
 		EOF
 		pachctl create project {{.project}}
-		pachctl create pipeline --project {{.project}}<<EOF
+		pachctl create pipeline --project {{.project}} <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
 		    "input": {
 		      "pfs": {
-		        "glob": "/*",
+		        "glob": "/",
 		        "repo": "data",
-			"project": "default"
+				"project": "default"
 		      }
 		    },
 		    "transform": {
@@ -1412,31 +1412,61 @@ func TestRerunPipeline(t *testing.T) {
 		"pipeline", pipelineName,
 	).Run())
 
-	//Should rerun pipeine in the specified project.
+	//Wait for initial project job to complete
+	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
-		pachctl rerun pipeline {{.pipeline}} --project {{.project}}
-		pachctl inspect pipeline {{.pipeline}} --project {{.project}} --raw | grep '"version"' | match '"2"'
+		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_processed"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_skipped"
 	`,
 		"project", projectName,
 		"pipeline", pipelineName,
+		"job", jobs[0].Job.GetId(),
+	).Run())
+
+	//Should rerun pipeine in the specified project.
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl rerun pipeline {{.pipeline}} --project {{.project}}
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+	).Run())
+	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(jobs))
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"2"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_processed"
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_skipped"' | match '"1"'
+	`,
+		"project", projectName,
+		"pipeline", pipelineName,
+		"job", jobs[0].Job.GetId(),
 	).Run())
 
 	// Should reprocess all datums if flag is used.
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl rerun pipeline {{.pipeline}} --reprocess --project {{.project}}
-		pachctl inspect pipeline {{.pipeline}} --project {{.project}} --raw | grep '"version"' | match '"3"'
 	`,
 		"project", projectName,
 		"pipeline", pipelineName,
 	).Run())
 
-	jobs, err := c.ListJob(projectName, pipelineName, nil, 0, false)
+	jobs, err = c.ListJob(projectName, pipelineName, nil, 0, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jobs))
-
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
 		pachctl wait job {{.pipeline}}@{{.job}} --project {{.project}}
-		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} --raw | grep '"data_processed"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --project {{.project}} | match {{.job}}
+		pachctl inspect pipeline {{.pipeline}} --raw --project {{.project}} | grep '"version"' | match '"3"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | grep '"data_processed"' | match '"1"'
+		pachctl inspect job {{.pipeline}}@{{.job}} --raw --project {{.project}} | match -v "data_skipped"
 	`,
 		"project", projectName,
 		"pipeline", pipelineName,
