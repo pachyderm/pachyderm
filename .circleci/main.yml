@@ -295,7 +295,7 @@ jobs:
             echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
             pachctl config set active-enterprise-context enterprise
             go install -v ./src/testing/match
-            # pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650" # DNJ TODO - needed for deploy tests??
+            pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
 
             # minikube status check
             minikube status
