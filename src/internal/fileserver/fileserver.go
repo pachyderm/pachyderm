@@ -1,4 +1,4 @@
-// Package fileserver implements an HTTP server for uploading and downloading PFS files.
+// Package fileserver implements a server for downloading PFS files over plain HTTP (i.e. browser downloads).
 //
 // See: https://www.notion.so/2023-04-03-HTTP-file-and-archive-downloads-cfb56fac16e54957b015070416b09e94
 package fileserver
@@ -167,7 +167,7 @@ func (r *Request) get(ctx context.Context) {
 	etag := `"` + hex.EncodeToString(info.GetHash()) + `"`
 	lastModified := info.GetCommitted().AsTime()
 	if info.GetCommitted() != nil {
-		r.ResponseWriter.Header().Set("last-modified", lastModified.Format(http.TimeFormat))
+		r.ResponseWriter.Header().Set("last-modified", lastModified.In(time.UTC).Format(http.TimeFormat))
 	} else {
 		lastModified = time.Time{}
 	}
