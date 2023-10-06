@@ -10,7 +10,7 @@ SIDECAR_MODE = strtobool(os.environ.get("SIDECAR_MODE", "False").lower())
 MOUNT_SERVER_LOG_DIR = os.environ.get("MOUNT_SERVER_LOG_DIR") # defaults to stdout/stderr
 NONPRIV_CONTAINER = os.environ.get("NONPRIV_CONTAINER") # Unset assume --privileged container
 DET_RESOURCES_TYPE = os.environ.get("DET_RESOURCES_TYPE") # Assume MLDE if set
-SLURM_JOB="slurm-job" # For launcher HPC this is set in Determined RM
+SLURM_JOB="slurm-job" # For launcher HPC this is set in DispatcherRM
 
 PACHYDERM_EXT_DEBUG = strtobool(os.environ.get("PACHYDERM_EXT_DEBUG", "False").lower())
 if PACHYDERM_EXT_DEBUG:
