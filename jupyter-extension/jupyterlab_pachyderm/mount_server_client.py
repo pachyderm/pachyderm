@@ -12,7 +12,16 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER, HTTP_UNIX_SOCKET_SCHEMA, HTTP_SCHEMA, DEFAULT_SCHEMA
+from .env import (
+    SIDECAR_MODE,
+    MOUNT_SERVER_LOG_DIR,
+    NONPRIV_CONTAINER,
+    HTTP_UNIX_SOCKET_SCHEMA,
+    HTTP_SCHEMA,
+    DEFAULT_SCHEMA,
+    DET_RESOURCES_TYPE,
+    SLURM_JOB
+    )
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -37,8 +46,9 @@ class MountServerClient(MountInterface):
             self.sock_path = ""
         self.client = AsyncHTTPClient()
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
-        # TODO: Would be preferable to auto-detect this, but unclear how
+        # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
+        self.determined_resources_type = DET_RESOURCES_TYPE
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
@@ -82,7 +92,7 @@ class MountServerClient(MountInterface):
             if not await self._is_mount_server_running():
                 self._unmount()
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
-                if self.nopriv:
+                if self.nopriv or self.determined_resources_type == SLURM_JOB:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
                     subprocess.run(['mkdir','-p', f'/mnt{self.mount_dir}'])
@@ -114,7 +124,7 @@ class MountServerClient(MountInterface):
                         get_logger().debug("Unable to start mount server...")
                         return False
                 
-                if self.nopriv:
+                if self.nopriv or self.determined_resources_type == SLURM_JOB:
                     # Using un-shared mount, replace /pfs with a softlink to the mount point
                     mount_server_proc = subprocess.run(['pgrep', '-s', str(os.getsid(mount_process.pid)), 'mount-server'], capture_output=True)
                     mount_server_pid = mount_server_proc.stdout.decode("utf-8")
