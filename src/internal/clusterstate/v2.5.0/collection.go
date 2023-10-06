@@ -277,7 +277,7 @@ func migratePostgreSQLCollection(ctx context.Context, tx *pachsql.Tx, name strin
 	log.Info(ctx, fmt.Sprintf("Migrating %d records from collection.%s", len(vals), name))
 
 	var (
-		columns   []string // An array containing the names of the columns being updated
+		columns  []string // An array containing the names of the columns being updated
 		wColumns []string // An array containing the names of the columns used in the WHERE clause
 	)
 

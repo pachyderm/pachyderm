@@ -27,7 +27,6 @@ import (
 // and to allow for multiple columns in the WHERE clause. The functions have been written with this in mind
 // to make them easy to expand upon.
 
-
 // row contains the values to be used for an insert/update of one row in Postgres.
 type row struct {
 	columnValues []any // Contains the values to be inserted/updated for any given row
@@ -36,27 +35,27 @@ type row struct {
 
 // postgresBatcher is an object to be used for caching rows of insert/update statements and sending them to Postgres in batches.
 type postgresBatcher struct {
-	tx         *pachsql.Tx // The transaction object
-	action     string      // One of the following: INSERT, UPDATE, DELETE (currently only UPDATE is implemented)
-	table      string      // The name of the table
-	columns    []string    // The list of columns whose values will be set by the query
-	wColumns   []string    // The list of columns used in the WHERE clause
-	setString  string      // The SET clause for the query (ex: "col1 = x.col1, col2 = x.col2")
-	rows       []row       // An array of row objects with values for insert/update/delete
-	max        int         // The maximum number of rows per batch
+	tx        *pachsql.Tx // The transaction object
+	action    string      // One of the following: INSERT, UPDATE, DELETE (currently only UPDATE is implemented)
+	table     string      // The name of the table
+	columns   []string    // The list of columns whose values will be set by the query
+	wColumns  []string    // The list of columns used in the WHERE clause
+	setString string      // The SET clause for the query (ex: "col1 = x.col1, col2 = x.col2")
+	rows      []row       // An array of row objects with values for insert/update/delete
+	max       int         // The maximum number of rows per batch
 	batchNum  int         // A count of the number of batches executed (for info logging only)
 }
 
 // NewPostgresBatcher creates a new batcher.
 func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []string, wColumns []string, batchSize int) (error, *postgresBatcher) {
 
-	// Validate the action; currently only UPDATE is 
+	// Validate the action; currently only UPDATE is
 	switch strings.ToUpper(action) {
-		case "UPDATE":
-		case "INSERT", "DELETE":
-    		return errors.New("INSERT and DELETE are not currently implemented"), nil
-		default:
-    		return errors.Errorf("%q: invalid action", action), nil
+	case "UPDATE":
+	case "INSERT", "DELETE":
+		return errors.New("INSERT and DELETE are not currently implemented"), nil
+	default:
+		return errors.Errorf("%q: invalid action", action), nil
 	}
 
 	// Validate that at least 1 column and no more than 1 wColumn have been provided.
@@ -83,13 +82,13 @@ func NewPostgresBatcher(tx *pachsql.Tx, action string, table string, columns []s
 	}
 	// Create and return the batcher object
 	return nil, &postgresBatcher{
-		tx:         tx,
-		action:     action,
-		table:      table,
-		columns:    columns,
-		wColumns:   wColumns,
-		setString:  strings.Join(ss, ", "),
-		max:        batchSize,
+		tx:        tx,
+		action:    action,
+		table:     table,
+		columns:   columns,
+		wColumns:  wColumns,
+		setString: strings.Join(ss, ", "),
+		max:       batchSize,
 	}
 }
 
