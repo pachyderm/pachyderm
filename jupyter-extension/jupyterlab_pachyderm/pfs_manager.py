@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 from tornado import web
 import typing
+import shutil
 
 
 class ContentModel(typing.TypedDict):
@@ -25,7 +26,7 @@ class ContentModel(typing.TypedDict):
     """Creation date of the entity."""
     last_modified: datetime.datetime
     """Last modified date of the entity."""
-    content: typing.Union[bytes, typing.List["ContentModel"]]
+    content: typing.Optional[typing.Union[bytes, typing.List["ContentModel"]]]
     """
     For files:
       The content field is always of type unicode. For text-format file
@@ -36,9 +37,9 @@ class ContentModel(typing.TypedDict):
       The content field contains a list of content-free models representing
       the entities in the directory.
     """
-    mimetype: str
+    mimetype: typing.Optional[str]
     """The mimetype of the file. Should be None for directories."""
-    format: str
+    format: typing.Optional[str]
     """For files, either "text" or "base64". Always "json" for directories."""
     writable: bool
     """
@@ -92,7 +93,9 @@ def _get_file_model(
             model["mimetype"] = "application/octet-stream"
 
 
-def _create_dir_content(client: Client, path: str, file: pfs.File) -> typing.List:
+def _create_dir_content(
+    client: Client, path: str, file: pfs.File
+) -> typing.List[ContentModel]:
     list_response = client.pfs.list_file(file=file)
     dir_contents = []
     for i in list_response:
@@ -131,6 +134,7 @@ class PFSManager(FileContentsManager):
         # until we add a way to mount in the UI, you will need to add code to mount
         # self.mount_repo(repo="test", branch="master")
         # self.mount_repo(repo="test_testing", branch="master")
+        super().__init__(**kwargs)
 
     def mount_repo(
         self, repo: str, branch: str, project: str = "default", name: str = None
@@ -211,8 +215,9 @@ class PFSManager(FileContentsManager):
     def _get_repo_models(self) -> typing.List[ContentModel]:
         models = []
         for repo, branch in self._mounted.items():
-            head = self._client.pfs.inspect_branch(branch=branch).head
-            time = self._client.pfs.inspect_commit(commit=head).finished
+            time = self._client.pfs.inspect_commit(
+                commit=pfs.Commit(branch=branch, repo=repo)
+            ).finished
             models.append(
                 ContentModel(
                     name=repo,
@@ -325,6 +330,7 @@ class DatumManager(FileContentsManager):
         input = {"input": {"pfs": {"repo": "test", "glob": "/file*"}}}
         self.mount_datums(input_dict=input)
         # self.next_datum()
+        super().__init__(**kwargs)
 
     # TODO: don't ignore name in the input spec
     # right now, when a repo is mounted as part of mounting datum(s), the
@@ -360,7 +366,8 @@ class DatumManager(FileContentsManager):
         return Path(self._FILEINFO_DIR, toplevel, fileinfo.file.path.strip("/"))
 
     def _update_mount(self):
-        os.system(f"rm -rf {self._FILEINFO_DIR}/*")
+        shutil.rmtree(f"{self._FILEINFO_DIR}")
+        os.makedirs(self._FILEINFO_DIR)
         self._dirs.clear()
         for fileinfo in self._datum_list[self._datum_index].data:
             path = self._get_fileinfo_path(fileinfo=fileinfo)
@@ -368,7 +375,7 @@ class DatumManager(FileContentsManager):
             if path.exists():
                 if path.is_dir():
                     # the dir being mounted is the parent of a file that is already mounted
-                    os.system(f"rm -rf {path}")
+                    shutil.rmtree(str(path))
                 else:
                     return
 
