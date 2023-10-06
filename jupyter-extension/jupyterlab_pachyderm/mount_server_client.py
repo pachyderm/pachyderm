@@ -49,6 +49,8 @@ class MountServerClient(MountInterface):
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
         self.determined_resources_type = DET_RESOURCES_TYPE
+        if self.determined_resources_type == SLURM_JOB:
+            self.nopriv = 1
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
@@ -92,7 +94,7 @@ class MountServerClient(MountInterface):
             if not await self._is_mount_server_running():
                 self._unmount()
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
-                if self.nopriv or self.determined_resources_type == SLURM_JOB:
+                if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
                     get_logger().info("Non-privileged container...")
                     subprocess.run(['mkdir','-p', f'/mnt{self.mount_dir}'])
@@ -124,7 +126,7 @@ class MountServerClient(MountInterface):
                         get_logger().debug("Unable to start mount server...")
                         return False
                 
-                if self.nopriv or self.determined_resources_type == SLURM_JOB:
+                if self.nopriv:
                     # Using un-shared mount, replace /pfs with a softlink to the mount point
                     mount_server_proc = subprocess.run(['pgrep', '-s', str(os.getsid(mount_process.pid)), 'mount-server'], capture_output=True)
                     mount_server_pid = mount_server_proc.stdout.decode("utf-8")
