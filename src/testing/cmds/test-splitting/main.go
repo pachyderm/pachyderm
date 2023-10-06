@@ -60,6 +60,7 @@ func testNames(addtlCmdArgs ...string) ([]string, error) {
 	var testNames = []string{}
 	for _, test := range testList {
 		if !strings.HasPrefix(test, "Benchmark") &&
+			!strings.HasPrefix(test, "Example") &&
 			!strings.HasPrefix(test, "? ") &&
 			!strings.HasPrefix(test, "ok ") &&
 			!strings.HasPrefix(test, "go: downloading") {
