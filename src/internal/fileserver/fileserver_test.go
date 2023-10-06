@@ -87,7 +87,7 @@ func TestDownload(t *testing.T) {
 	// Create a "big" (26KB) file with predictable data; will be used to test HTTP range
 	// requests.
 	bigData := new(bytes.Buffer)
-	for i := 'A'; i < 'Z'; i++ {
+	for i := 'A'; i <= 'Z'; i++ {
 		for j := 0; j < 1000; j++ {
 			bigData.WriteRune(i)
 		}
@@ -196,12 +196,41 @@ func TestDownload(t *testing.T) {
 		wantHeader    http.Header
 	}{
 		{
+			name:        "non-pfs URL",
+			method:      http.MethodGet,
+			url:         "https://example.com/notpfs/default/test/master/test.txt",
+			wantCode:    http.StatusInternalServerError,
+			wantContent: "unexpectedly handling request not for /pfs; got notpfs want pfs",
+		},
+		{
+			name:        "directory redirect",
+			method:      http.MethodGet,
+			url:         "https://example.com/pfs/default/test/master/sub/directory",
+			wantCode:    http.StatusMovedPermanently,
+			wantContent: "<a href=\"/pfs/default/test/master/sub/directory/\">Moved Permanently</a>.\n\n",
+			wantHeader: http.Header{
+				"Cache-Control": {"no-cache"},
+				"Content-Type":  {"text/html; charset=utf-8"},
+				"Etag":          {`"f103067f40b04b3e6e5ad1dbf053d0c68454e623c200a63e400a60de84ad632c"`},
+				"Location":      {"/pfs/default/test/master/sub/directory/"},
+				"Vary":          {"authn-token"},
+			},
+		},
+		{
+			name:        "get nonexistent file",
+			method:      http.MethodGet,
+			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/nonexist.txt", finishedCommit.Id),
+			wantCode:    http.StatusNotFound,
+			wantContent: "problem inspecting file: rpc error: code = NotFound desc = file nonexist.txt not found in repo default/test at commit " + finishedCommit.Id,
+		},
+		{
 			name:        "get master test.txt",
 			method:      http.MethodGet,
 			url:         "https://example.com/pfs/default/test/master/sub/directory/test.txt",
 			wantCode:    http.StatusOK,
 			wantContent: "goodbye, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"}, // no-cache because "master"
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
@@ -214,6 +243,7 @@ func TestDownload(t *testing.T) {
 			url:      "https://example.com/pfs/default/test/master/sub/directory/test.txt",
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"},
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
@@ -227,6 +257,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "goodbye, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"}, // no-cache because open commit
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
@@ -239,6 +270,7 @@ func TestDownload(t *testing.T) {
 			url:      fmt.Sprintf("https://example.com/pfs/default/test/%v/sub/directory/test.txt", openCommit.Id),
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"},
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
@@ -252,6 +284,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"private"}, // cacheable because finished commit
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -265,6 +298,7 @@ func TestDownload(t *testing.T) {
 			url:      fmt.Sprintf("https://example.com/pfs/default/test/%v/sub/directory/test.txt", finishedCommit.Id),
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"private"}, // cacheable because finished commit
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -279,6 +313,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"}, // not cacheable because branch
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -292,6 +327,7 @@ func TestDownload(t *testing.T) {
 			url:      "https://example.com/pfs/default/test/done/sub/directory/test.txt",
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"}, // not cacheable because branch
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -309,6 +345,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusNotModified,
 			wantContent: "",
 			wantHeader: http.Header{
+				"Accept-Ranges": {"bytes"},
 				"Cache-Control": {"no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
@@ -325,6 +362,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusNotModified,
 			wantContent: "",
 			wantHeader: http.Header{
+				"Accept-Ranges": {"bytes"},
 				"Cache-Control": {"no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
@@ -340,6 +378,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -357,6 +396,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
@@ -374,6 +414,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusNotModified,
 			wantContent: "",
 			wantHeader: http.Header{
+				"Accept-Ranges": {"bytes"},
 				"Cache-Control": {"no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
@@ -390,9 +431,43 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusOK,
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
 				"Cache-Control":  {"no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
+				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
+				"Vary":           {"authn-token"},
+			},
+		},
+		{
+			name:        "big.txt, finished",
+			method:      http.MethodGet,
+			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/big.txt", finishedCommit.Id),
+			wantContent: bigData.String(),
+			wantCode:    http.StatusOK,
+			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
+				"Content-Length": {strconv.Itoa(26 * 1000)},
+				"Cache-Control":  {"private"},
+				"Etag":           {`"ee45bb2661662b371f3100176c518243dbbe282116a05bb8f025a9c23b97ea02"`},
+				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
+				"Vary":           {"authn-token"},
+			},
+		},
+		{
+			name:   "range download, finished",
+			method: http.MethodGet,
+			url:    fmt.Sprintf("https://example.com/pfs/default/test/%v/big.txt", finishedCommit.Id),
+			requestHeader: http.Header{
+				"Range": {"bytes=1-10"},
+			},
+			wantContent: "AAAAAAAAAA",
+			wantCode:    http.StatusPartialContent,
+			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
+				"Content-Length": {"10"},
+				"Cache-Control":  {"private"},
+				"Etag":           {`"ee45bb2661662b371f3100176c518243dbbe282116a05bb8f025a9c23b97ea02"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
 				"Vary":           {"authn-token"},
 			},

@@ -159,7 +159,7 @@ func (r *Request) get(ctx context.Context) {
 		File: file,
 	})
 	if err != nil {
-		r.displayGRPCError(ctx, "problem inspecting file: ", err)
+		r.displayGRPCError(ctx, "problem inspecting file", err)
 		return
 	}
 
@@ -173,6 +173,19 @@ func (r *Request) get(ctx context.Context) {
 	}
 	r.ResponseWriter.Header().Set("etag", etag)
 
+	// If a directory, show a directory listing.
+	if info.GetFileType() == pfs.FileType_DIR {
+		if !strings.HasSuffix(r.Request.URL.Path, "/") {
+			http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
+			return
+		}
+		r.displayDirectoryListing(ctx, info)
+		return
+	}
+
+	// Since this is a file, we can accept range requests.
+	r.ResponseWriter.Header().Set("accept-ranges", "bytes")
+
 	// Evaluate any HTTP conditional request options.
 	status := conditionalrequest.Evaluate(req, &conditionalrequest.ResourceInfo{
 		LastModified: lastModified,
@@ -181,16 +194,6 @@ func (r *Request) get(ctx context.Context) {
 	if status != 0 && status != http.StatusPartialContent {
 		// Bail out early; the HTTP precondition failed.
 		r.ResponseWriter.WriteHeader(status)
-		return
-	}
-
-	// If a directory, show a directory listing.
-	if info.GetFileType() == pfs.FileType_DIR {
-		if !strings.HasSuffix(r.Request.URL.Path, "/") {
-			http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
-			return
-		}
-		r.displayDirectoryListing(ctx, info)
 		return
 	}
 
@@ -212,7 +215,7 @@ func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInf
 		File: info.GetFile(),
 	})
 	if err != nil {
-		r.displayGRPCError(ctx, "problem listing directory: ", err)
+		r.displayGRPCError(ctx, "problem listing directory", err)
 	}
 	w := r.ResponseWriter
 	if r.HTML {
@@ -336,11 +339,13 @@ func (r *Request) displayGRPCError(ctx context.Context, msg string, err error) {
 		switch st.Code() {
 		case codes.NotFound:
 			code = http.StatusNotFound
-		case codes.Unauthenticated, codes.PermissionDenied:
+		case codes.Unauthenticated:
+			code = http.StatusUnauthorized
+		case codes.PermissionDenied:
 			code = http.StatusForbidden
 		}
 	}
-	r.displayErrorf(ctx, code, "%s%s", msg, err.Error())
+	r.displayErrorf(ctx, code, "%s: %s", msg, err.Error())
 }
 
 func (r *Request) displayErrorf(ctx context.Context, code int, format string, args ...any) {
