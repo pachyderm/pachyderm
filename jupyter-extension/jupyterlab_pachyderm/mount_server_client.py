@@ -48,8 +48,7 @@ class MountServerClient(MountInterface):
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
-        self.determined_resources_type = DET_RESOURCES_TYPE
-        if self.determined_resources_type == SLURM_JOB:
+        if DET_RESOURCES_TYPE == SLURM_JOB:
             self.nopriv = 1
 
     async def _is_mount_server_running(self):
