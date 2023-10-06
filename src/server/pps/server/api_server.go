@@ -1248,7 +1248,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
 	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
-	di, err := datum.NewIterator(pachClient, taskDoer, input)
+	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err
 	}
@@ -1297,7 +1297,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	metaCommit := ppsutil.MetaCommit(jobInfo.OutputCommit)
-	fsi := datum.NewCommitIterator(pachClient, metaCommit, nil)
+	fsi := datum.NewCommitIterator(pachClient.Ctx(), pachClient.PfsAPIClient, metaCommit, nil)
 	err = fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
@@ -2544,7 +2544,14 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
-
+	if request.Spout != nil {
+		c := &pfs.Commit{Repo: outputBranch.Repo, Id: txnCtx.CommitSetID}
+		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{Commit: c, Description: "close spout commit"}); err != nil {
+			if !errutil.IsNotFoundError(err) {
+				return errors.Wrapf(err, "could not finish the spout's commit %q", outputBranch.String())
+			}
+		}
+	}
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			var prevHead *pfs.Commit

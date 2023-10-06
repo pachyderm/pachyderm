@@ -2,6 +2,7 @@ package datum
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"strings"
 
@@ -69,53 +70,53 @@ func IsTask(input *anypb.Any) bool {
 		input.MessageIs(&ComposeTask{})
 }
 
-func ProcessTask(pachClient *client.APIClient, input *anypb.Any) (*anypb.Any, error) {
+func ProcessTask(ctx context.Context, c pfs.APIClient, input *anypb.Any) (*anypb.Any, error) {
 	switch {
 	case input.MessageIs(&PFSTask{}):
 		task, err := deserializePFSTask(input)
 		if err != nil {
 			return nil, err
 		}
-		pachClient.SetAuthToken(task.AuthToken)
-		return processPFSTask(pachClient, task)
+		ctx = client.SetAuthToken(ctx, task.AuthToken)
+		return processPFSTask(ctx, c, task)
 	case input.MessageIs(&CrossTask{}):
 		task, err := deserializeCrossTask(input)
 		if err != nil {
 			return nil, err
 		}
-		pachClient.SetAuthToken(task.AuthToken)
-		return processCrossTask(pachClient, task)
+		ctx = client.SetAuthToken(ctx, task.AuthToken)
+		return processCrossTask(ctx, c, task)
 	case input.MessageIs(&KeyTask{}):
 		task, err := deserializeKeyTask(input)
 		if err != nil {
 			return nil, err
 		}
-		pachClient.SetAuthToken(task.AuthToken)
-		return processKeyTask(pachClient, task)
+		ctx = client.SetAuthToken(ctx, task.AuthToken)
+		return processKeyTask(ctx, c, task)
 	case input.MessageIs(&MergeTask{}):
 		task, err := deserializeMergeTask(input)
 		if err != nil {
 			return nil, err
 		}
-		pachClient.SetAuthToken(task.AuthToken)
-		return processMergeTask(pachClient, task)
+		ctx = client.SetAuthToken(ctx, task.AuthToken)
+		return processMergeTask(ctx, c, task)
 	case input.MessageIs(&ComposeTask{}):
 		task, err := deserializeComposeTask(input)
 		if err != nil {
 			return nil, err
 		}
-		pachClient.SetAuthToken(task.AuthToken)
-		return processComposeTask(pachClient, task)
+		ctx = client.SetAuthToken(ctx, task.AuthToken)
+		return processComposeTask(ctx, c, task)
 	default:
 		return nil, errors.Errorf("unrecognized any type (%v) in datum worker", input.TypeUrl)
 	}
 }
 
-func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*anypb.Any, error) {
-	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-pfs", func(s *Set) error {
+func processPFSTask(ctx context.Context, c client.PfsAPIClient, task *PFSTask) (*anypb.Any, error) {
+	fileSetID, err := WithCreateFileSet(ctx, c, "pachyderm-datums-pfs", func(s *Set) error {
 		commit := client.NewCommit(task.Input.Project, task.Input.Repo, task.Input.Branch, task.Input.Commit)
-		client, err := pachClient.PfsAPIClient.GlobFile(
-			pachClient.Ctx(),
+		client, err := c.GlobFile(
+			ctx,
 			&pfs.GlobFileRequest{
 				Commit:    commit,
 				Pattern:   task.Input.Glob,
@@ -158,16 +159,16 @@ func processPFSTask(pachClient *client.APIClient, task *PFSTask) (*anypb.Any, er
 	return serializePFSTaskResult(&PFSTaskResult{FileSetId: fileSetID})
 }
 
-func processCrossTask(pachClient *client.APIClient, task *CrossTask) (*anypb.Any, error) {
+func processCrossTask(ctx context.Context, c pfs.APIClient, task *CrossTask) (*anypb.Any, error) {
 	index := task.BaseIndex
-	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-cross", func(s *Set) error {
+	fileSetID, err := WithCreateFileSet(ctx, c, "pachyderm-datums-cross", func(s *Set) error {
 		var iterators []Iterator
 		for i, fileSetID := range task.FileSetIds {
 			if i == int(task.BaseFileSetIndex) {
-				iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, task.BaseFileSetPathRange))
+				iterators = append(iterators, NewFileSetIterator(ctx, c, fileSetID, task.BaseFileSetPathRange))
 				continue
 			}
-			iterators = append(iterators, NewFileSetIterator(pachClient, fileSetID, nil))
+			iterators = append(iterators, NewFileSetIterator(ctx, c, fileSetID, nil))
 		}
 		return iterate(nil, iterators, func(meta *Meta) error {
 			meta.Index = index
@@ -192,9 +193,9 @@ func iterate(crossInputs []*common.Input, iterators []Iterator, cb func(*Meta) e
 	return errors.EnsureStack(err)
 }
 
-func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*anypb.Any, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
-		fsi := NewFileSetIterator(pachClient, task.FileSetId, task.PathRange)
+func processKeyTask(ctx context.Context, c pfs.APIClient, task *KeyTask) (*anypb.Any, error) {
+	resp, err := client.WithCreateFileSetClient(ctx, c, func(mf client.ModifyFile) error {
+		fsi := NewFileSetIterator(ctx, c, task.FileSetId, task.PathRange)
 		keyHasher := pfs.NewHash()
 		marshaller := protojson.MarshalOptions{}
 		err := fsi.Iterate(func(meta *Meta) error {
@@ -230,11 +231,11 @@ func processKeyTask(pachClient *client.APIClient, task *KeyTask) (*anypb.Any, er
 	return serializeKeyTaskResult(&KeyTaskResult{FileSetId: resp.FileSetId})
 }
 
-func processMergeTask(pachClient *client.APIClient, task *MergeTask) (*anypb.Any, error) {
-	fileSetID, err := WithCreateFileSet(pachClient, "pachyderm-datums-merge", func(s *Set) error {
+func processMergeTask(ctx context.Context, c pfs.APIClient, task *MergeTask) (*anypb.Any, error) {
+	fileSetID, err := WithCreateFileSet(ctx, c, "pachyderm-datums-merge", func(s *Set) error {
 		var fsmis []Iterator
 		for _, fileSetId := range task.FileSetIds {
-			fsmis = append(fsmis, newFileSetMultiIterator(pachClient, fileSetId, task.PathRange))
+			fsmis = append(fsmis, newFileSetMultiIterator(ctx, c, fileSetId, task.PathRange))
 		}
 		switch task.Type {
 		case MergeTask_JOIN:
@@ -283,9 +284,9 @@ func existingMetaHash(meta *Meta) string {
 	return meta.Hash
 }
 
-func processComposeTask(pachClient *client.APIClient, task *ComposeTask) (*anypb.Any, error) {
-	resp, err := pachClient.PfsAPIClient.ComposeFileSet(
-		pachClient.Ctx(),
+func processComposeTask(ctx context.Context, c pfs.APIClient, task *ComposeTask) (*anypb.Any, error) {
+	resp, err := c.ComposeFileSet(
+		ctx,
 		&pfs.ComposeFileSetRequest{
 			FileSetIds: task.FileSetIds,
 			TtlSeconds: int64(common.TTL),

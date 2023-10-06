@@ -87,7 +87,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.Wrap(err, "create role binding in transaction")
 		}
@@ -101,7 +101,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "list projects")
 	}
 	if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
-		err := a.env.AuthServer.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}

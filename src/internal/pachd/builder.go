@@ -3,6 +3,7 @@ package pachd
 import (
 	"context"
 	"math"
+	"path"
 	"runtime/debug"
 
 	"github.com/dustin/go-humanize"
@@ -342,7 +343,13 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 }
 
 func (b *builder) initTransaction(ctx context.Context) error {
-	b.txnEnv.Initialize(b.env, b.txn)
+	b.txnEnv.Initialize(
+		b.env.GetDBClient(),
+		func() transactionenv.AuthBackend { return b.env.AuthServer() },
+		func() transactionenv.PFSBackend { return b.env.PfsServer() },
+		func() transactionenv.PPSBackend { return b.env.PpsServer() },
+		b.txn,
+	)
 	return nil
 }
 
@@ -439,7 +446,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		ctx := pctx.Child(ctx, "pfs-master")
+		ctx := pctx.Child(ctx, "pfsMaster")
 		if err := m.Run(ctx); err != nil {
 			log.Error(ctx, "from pfs-master", zap.Error(err))
 		}
@@ -447,10 +454,35 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) startDebugWorker(ctx context.Context) error {
-	env := DebugEnv(b.env)
-	w := debugserver.NewWorker(env)
+func (b *builder) startPPSWorker(ctx context.Context) error {
+	pachClient := b.env.GetPachClient(ctx)
+	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
+	w := pps_server.NewWorker(pps_server.WorkerEnv{
+		TaskService: b.env.GetTaskService(etcdPrefix),
+		PFS:         pachClient.PfsAPIClient,
+	})
 	go func() {
+		// This is necessary to set the auth token on the context
+		ctx := pachClient.Ctx()
+		ctx = pctx.Child(ctx, "ppsWorker")
+		if err := w.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
+		}
+	}()
+	return nil
+}
+
+func (b *builder) startDebugWorker(ctx context.Context) error {
+	pachClient := b.env.GetPachClient(ctx)
+	env := DebugEnv(b.env)
+	w := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         pachClient.PfsAPIClient,
+		TaskService: env.TaskService,
+	})
+	go func() {
+		// This is necessary to set the auth token on the context
+		ctx = pachClient.Ctx()
+		ctx = pctx.Child(ctx, "debugWorker")
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from debug worker", zap.Error(err))
 		}
