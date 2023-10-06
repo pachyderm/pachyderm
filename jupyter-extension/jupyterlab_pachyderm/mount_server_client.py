@@ -12,7 +12,16 @@ from tornado import locks
 
 from .pachyderm import MountInterface
 from .log import get_logger
-from .env import SIDECAR_MODE, MOUNT_SERVER_LOG_DIR, NONPRIV_CONTAINER, HTTP_UNIX_SOCKET_SCHEMA, HTTP_SCHEMA, DEFAULT_SCHEMA
+from .env import (
+    SIDECAR_MODE,
+    MOUNT_SERVER_LOG_DIR,
+    NONPRIV_CONTAINER,
+    HTTP_UNIX_SOCKET_SCHEMA,
+    HTTP_SCHEMA,
+    DEFAULT_SCHEMA,
+    DET_RESOURCES_TYPE,
+    SLURM_JOB
+    )
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -37,8 +46,11 @@ class MountServerClient(MountInterface):
             self.sock_path = ""
         self.client = AsyncHTTPClient()
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
-        # TODO: Would be preferable to auto-detect this, but unclear how
+        # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
+        self.determined_resources_type = DET_RESOURCES_TYPE
+        if self.determined_resources_type == SLURM_JOB:
+            self.nopriv = 1
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
