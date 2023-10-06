@@ -18,14 +18,20 @@ pachd:
   activateEnterprise: false
   # enterpriseLicenseKey: ""
   storage:
-    backend: MINIO
-    minio:
-      bucket: "pachyderm-test"
-      endpoint: "minio.default.svc.cluster.local:9000"
-      id: "minioadmin"
-      secret: "minioadmin"
-      secure: "false"
-      signature: ""
+    backend: LOCAL
+    local:
+      hostPath: /tmp/mapr_nfs/pachyderm-dev/
+      requireRoot: true
+
+  #storage:
+  #  backend: MINIO
+  #  minio:
+  #    bucket: "pachyderm-test"
+  #    endpoint: "minio.default.svc.cluster.local:9000"
+  #    id: "minioadmin"
+  #    secret: "minioadmin"
+  #    secure: "false"
+  #    signature: ""
 
 etcd:
   service:
