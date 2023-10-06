@@ -3,9 +3,122 @@ import grpc
 from jupyter_server.services.contents.filemanager import FileContentsManager
 import mimetypes
 from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs
+from pachyderm_sdk.api import pfs, pps
+import os
 from pathlib import Path
 from tornado import web
+import typing
+import shutil
+
+
+class ContentModel(typing.TypedDict):
+    name: str
+    """Basename of the entity."""
+    path: str
+    """Full (API-style) path to the entity."""
+    type: str
+    """
+    The entity type. Either "file" or "directory".
+    Storing and retrieving notebooks from Pachyderm is currently not
+    supported by the Pachyderm extension.
+    """
+    created: datetime.datetime
+    """Creation date of the entity."""
+    last_modified: datetime.datetime
+    """Last modified date of the entity."""
+    content: typing.Optional[typing.Union[bytes, typing.List["ContentModel"]]]
+    """
+    For files:
+      The content field is always of type unicode. For text-format file
+      models, content simply contains the file’s bytes after decoding as
+      UTF-8. Non-text (base64) files are read as bytes, base64 encoded,
+      and then decoded as UTF-8.
+    For directories:
+      The content field contains a list of content-free models representing
+      the entities in the directory.
+    """
+    mimetype: typing.Optional[str]
+    """The mimetype of the file. Should be None for directories."""
+    format: typing.Optional[str]
+    """For files, either "text" or "base64". Always "json" for directories."""
+    writable: bool
+    """
+    Whether or not the entity can be written to. Currently, the Pachyderm
+    extension is read-only for non-pipeline operations.
+    """
+
+
+def _create_base_model(path: str, fileinfo: pfs.FileInfo, type: str) -> ContentModel:
+    if type == "file" and fileinfo.file_type != pfs.FileType.FILE:
+        raise web.HTTPError(400, f"{path} is not a file", reason="bad type")
+    if type == "directory" and fileinfo.file_type != pfs.FileType.DIR:
+        raise web.HTTPError(400, f"{path} is not a directory", reason="bad type")
+
+    return ContentModel(
+        name=Path(path).name,
+        path=path,
+        created=fileinfo.committed,
+        last_modified=fileinfo.committed,
+        type="directory" if fileinfo.file_type == pfs.FileType.DIR else "file",
+        content=None,
+        mimetype=None,
+        format=None,
+        writable=False,
+    )
+
+
+def _get_file_model(
+    client: Client, model: ContentModel, path: str, file: pfs.File, format: str
+):
+    model["mimetype"] = mimetypes.guess_type(path)[0]
+    with client.pfs.pfs_file(file=file) as pfs_file:
+        value = pfs_file.readall()
+
+    if format == None:
+        try:
+            decoded = value.decode(encoding="utf-8")
+            format = "text"
+        except UnicodeError:
+            format = "base64"
+
+    if format == "text":
+        model["format"] = "text"
+        model["content"] = decoded
+        if model["mimetype"] is None:
+            model["mimetype"] = "text/plain"
+    else:
+        model["format"] = "base64"
+        model["content"] = value
+        if model["mimetype"] is None:
+            model["mimetype"] = "application/octet-stream"
+
+
+def _create_dir_content(
+    client: Client, path: str, file: pfs.File
+) -> typing.List[ContentModel]:
+    list_response = client.pfs.list_file(file=file)
+    dir_contents = []
+    for i in list_response:
+        name = Path(i.file.path).name
+        model = ContentModel(
+            name=name,
+            path=str(Path(path, name)),
+            type="directory" if i.file_type == pfs.FileType.DIR else "file",
+            created=i.committed,
+            last_modified=i.committed,
+            content=None,
+            mimetype=None,
+            format=None,
+            writable=False,
+        )
+        dir_contents.append(model)
+    return dir_contents
+
+
+def _get_dir_model(client: Client, model: ContentModel, path: str, file: pfs.File):
+    model["content"] = _create_dir_content(client=client, path=path, file=file)
+    model["mimetype"] = None
+    model["format"] = "json"
 
 
 class PFSManager(FileContentsManager):
@@ -21,6 +134,7 @@ class PFSManager(FileContentsManager):
         # until we add a way to mount in the UI, you will need to add code to mount
         # self.mount_repo(repo="test", branch="master")
         # self.mount_repo(repo="test_testing", branch="master")
+        super().__init__(**kwargs)
 
     def mount_repo(
         self, repo: str, branch: str, project: str = "default", name: str = None
@@ -98,107 +212,47 @@ class PFSManager(FileContentsManager):
             return True
         return self._client.pfs.path_exists(file=file)
 
-    def _create_base_model(self, path: str, fileinfo: pfs.FileInfo, type: str) -> dict:
-        if type == "file" and fileinfo.file_type != pfs.FileType.FILE:
-            raise web.HTTPError(400, f"{path} is not a file", reason="bad type")
-        if type == "directory" and fileinfo.file_type != pfs.FileType.DIR:
-            raise web.HTTPError(400, f"{path} is not a directory", reason="bad type")
+    def _get_repo_models(self) -> typing.List[ContentModel]:
+        models = []
+        for repo, branch in self._mounted.items():
+            time = self._client.pfs.inspect_commit(
+                commit=pfs.Commit(branch=branch, repo=repo)
+            ).finished
+            models.append(
+                ContentModel(
+                    name=repo,
+                    path=repo,
+                    type="directory",
+                    created=time,
+                    last_modified=time,
+                    content=None,
+                    mimetype=None,
+                    format=None,
+                    writable=False,
+                )
+            )
+        return models
 
-        model = {}
-        model["name"] = Path(path).name
-        model["path"] = path
-        model["created"] = fileinfo.committed
-        model["last_modified"] = fileinfo.committed
-        model["type"] = (
-            "directory" if fileinfo.file_type == pfs.FileType.DIR else "file"
-        )
-        model["content"] = None
-        model["mimetype"] = None
-        model["format"] = None
-        model["writable"] = False
-
-        return model
-
-    def _get_file_model(self, model: dict, path: str, file: pfs.File, format: str):
-        get_response = self._client.pfs.get_file(file=file)
-        model["mimetype"] = mimetypes.guess_type(path)[0]
-        for content in get_response:
-            value = content.value
-
-        if format == None:
-            try:
-                decoded = value.decode(encoding="utf-8")
-                format = "text"
-            except UnicodeError:
-                format = "base64"
-
-        if format == "text":
-            model["format"] = "text"
-            model["content"] = decoded
-            if model["mimetype"] is None:
-                model["mimetype"] = "text/plain"
-        else:
-            model["format"] = "base64"
-            model["content"] = value
-            if model["mimetype"] is None:
-                model["mimetype"] = "application/octet-stream"
-
-    def _create_dir_content(self, path: str, file: pfs.File) -> list:
-        list_response = self._client.pfs.list_file(file=file)
-        dir_contents = []
-        for i in list_response:
-            name = Path(i.file.path).name
-            model = {}
-            model["name"] = name
-            model["path"] = str(Path(path, name))
-            model["type"] = "directory" if i.file_type == pfs.FileType.DIR else "file"
-            model["created"] = i.committed
-            model["last_modified"] = i.committed
-            model["content"] = None
-            model["mimetype"] = None
-            model["format"] = None
-            model["writable"] = False
-            dir_contents.append(model)
-        return dir_contents
-
-    def _get_dir_model(self, model: dict, path: str, file: pfs.File):
-        model["content"] = self._create_dir_content(path=path, file=file)
-        model["mimetype"] = None
-        model["format"] = "json"
-
-    def _get_repo_model(self, repo: str) -> dict:
-        branch = self._mounted[repo]
-        head = self._client.pfs.inspect_branch(branch=branch).head
-        time = self._client.pfs.inspect_commit(commit=head).finished
-        model = {}
-        model["name"] = repo
-        model["path"] = repo
-        model["type"] = "directory"
-        model["created"] = time
-        model["last_modified"] = time
-        model["content"] = None
-        model["mimetype"] = None
-        model["format"] = None
-        model["writable"] = False
-        return model
-
-    def _get_toplevel_model(self, content: bool) -> dict:
-        model = {}
-        model["name"] = ""
-        model["path"] = "/"
-        model["type"] = "directory"
-        model["created"] = datetime.datetime.min
-        model["last_modified"] = datetime.datetime.min
-        model["content"] = None
-        model["mimetype"] = None
-        model["format"] = None
-        model["writable"] = False
+    def _get_toplevel_model(self, content: bool) -> ContentModel:
         if content:
-            model["format"] = "json"
-            model["content"] = [self._get_repo_model(r) for r in self._mounted]
-        return model
+            format = "json"
+            content_model = self._get_repo_models()
+        else:
+            format = None
+            content_model = None
+        return ContentModel(
+            name="",
+            path="/",
+            type="directory",
+            created=datetime.datetime.min,
+            last_modified=datetime.datetime.min,
+            content=content_model,
+            mimetype=None,
+            format=format,
+            writable=False,
+        )
 
-    def get(self, path, content=True, type=None, format=None) -> dict:
+    def get(self, path, content=True, type=None, format=None) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
                 400,
@@ -214,15 +268,332 @@ class PFSManager(FileContentsManager):
 
         fileinfo = self._client.pfs.inspect_file(file=file)
 
-        model = self._create_base_model(path=path, fileinfo=fileinfo, type=type)
+        model = _create_base_model(path=path, fileinfo=fileinfo, type=type)
 
         if content:
             if model["type"] == "file":
-                self._get_file_model(model=model, path=path, file=file, format=format)
+                _get_file_model(
+                    client=self._client,
+                    model=model,
+                    path=path,
+                    file=file,
+                    format=format,
+                )
             else:
-                self._get_dir_model(model=model, path=path, file=file)
+                _get_dir_model(client=self._client, model=model, path=path, file=file)
 
         return model
+
+    def save(self, model, path=""):
+        raise NotImplementedError("Pachyderm file-browser is read-only")
+
+    def delete_file(self, path):
+        raise NotImplementedError("Pachyderm file-browser is read-only")
+
+    def rename_file(self, old_path, new_path):
+        raise NotImplementedError("Pachyderm file-browser is read-only")
+
+
+class DatumManager(FileContentsManager):
+    """
+    The DatumManager keeps FileInfo metadata on disk at _FILEINFO_DIR in order to
+    manage what should and should not be displayed in the file browser for any
+    given datum. How it works:
+    - When a new datum is mounted (this can either be when mount_datums is called
+        or when we are cycling through datums for an input spec), the file metadata
+        contained in the FileInfo objects within the datum are written to disk.
+    - The file structure on disk mimics what should be displayed in the browser.
+    - For example, if we have a file in repo "test" at "master" branch within the
+        "default" project located at the path "/foo/bar/file.txt", the FileInfo for
+        that file would exist serialized on disk at:
+        /pfs_datum/default_test_master/foo/bar/file.txt
+    - Both files and directories that are mounted are stored this way. What should
+        be displayed, however, varies depending on if a file or directory is mounted.
+    - For files, both the file itself as well as any parent directories of the file
+        should exist in /pfs_datum
+    - For directories, any files or directories within that directory should be
+        mounted as well.
+    """
+
+    _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
+    # currently unsupported stuff (unclear if needed or not):
+    #  - crossing repo with itself
+    #  - renaming repo level directories
+    def __init__(self, client: Client, **kwargs):
+        self._client = client
+        self._datum_list = list()
+        self._dirs = set()
+        self._datum_index = 0
+        self._mount_time = datetime.datetime.min
+        os.makedirs(self._FILEINFO_DIR, exist_ok=True)
+        # TODO: expose the apis for mounting/cycling datums
+        input = {"input": {"pfs": {"repo": "test", "glob": "/file*"}}}
+        self.mount_datums(input_dict=input)
+        # self.next_datum()
+        super().__init__(**kwargs)
+
+    # TODO: don't ignore name in the input spec
+    # right now, when a repo is mounted as part of mounting datum(s), the
+    # toplevel directory for the repo is project_repo_branch. we should
+    # update this to respect the name in the pfsinput objects being supplied
+    # to the mount_datums api. however, this is not that simple as the name
+    # can't simply be looked up in the datuminfo. we will need to have some
+    # mapping to track which files within a datum belong to which name.
+    def mount_datums(self, input_dict: dict):
+        input = pps.Input().from_dict(input_dict["input"])
+        self._datum_list = list(self._client.pps.list_datum(input=input))
+        self._datum_index = 0
+        self._mount_time = datetime.datetime.now()
+        if len(self._datum_list) == 0:
+            raise ValueError("input produced no datums to mount")
+        self._update_mount()
+
+    def next_datum(self):
+        self._datum_index = (self._datum_index + 1) % len(self._datum_list)
+        self._update_mount()
+
+    def prev_datum(self):
+        if self._datum_index == 0:
+            self._datum_index = len(self._datum_list)
+        self._datum_index = self._datum_index - 1
+        self._update_mount()
+
+    def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
+        project = fileinfo.file.commit.repo.project.name
+        branch = fileinfo.file.commit.branch.name
+        repo = fileinfo.file.commit.repo.name
+        toplevel = f"{project}_{repo}_{branch}"
+        return Path(self._FILEINFO_DIR, toplevel, fileinfo.file.path.strip("/"))
+
+    def _update_mount(self):
+        shutil.rmtree(f"{self._FILEINFO_DIR}")
+        os.makedirs(self._FILEINFO_DIR)
+        self._dirs.clear()
+        for fileinfo in self._datum_list[self._datum_index].data:
+            path = self._get_fileinfo_path(fileinfo=fileinfo)
+
+            if path.exists():
+                if path.is_dir():
+                    # the dir being mounted is the parent of a file that is already mounted
+                    shutil.rmtree(str(path))
+                else:
+                    return
+
+            os.makedirs(str(path.parent), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(fileinfo.to_json())
+            if fileinfo.file_type == pfs.FileType.DIR:
+                self._dirs.add(str(path))
+
+    def _get_file_from_path(self, path: str) -> pfs.File:
+        path = path.strip("/")
+        if not path:
+            return None
+
+        parts = Path(path).parts
+        project, repo, branch = parts[0].split("_")
+        if len(parts) == 1:
+            pach_path = "/"
+        else:
+            pach_path = str(Path(*parts[1:]))
+        file_uri = f"{project}/{repo}@{branch}:{pach_path}"
+        return pfs.File.from_uri(file_uri)
+
+    def is_hidden(self, path):
+        return False
+
+    def file_exists(self, path) -> bool:
+        # two ways a file exists:
+        #  - if the file itself is mounted
+        #  - if the file is part of a directory that's mounted
+        fileinfo_path = Path(self._FILEINFO_DIR, path)
+
+        if fileinfo_path.is_file():
+            with open(fileinfo_path, "r") as f:
+                fileinfo = pfs.FileInfo().from_json(value=f.read())
+            return fileinfo.file_type == pfs.FileType.FILE
+
+        for dir in fileinfo_path.parents:
+            if str(dir) in self._dirs:
+                file = self._get_file_from_path(path=path)
+                try:
+                    fileinfo = self._client.pfs.inspect_file(file=file)
+                except grpc.RpcError as err:
+                    if err.code() == grpc.StatusCode.NOT_FOUND:
+                        return False
+                    raise err
+                return fileinfo.file_type == pfs.FileType.FILE
+
+        return False
+
+    def dir_exists(self, path) -> bool:
+        # three ways a dir exists:
+        #  - if the dir itself is mounted
+        #  - if the dir is part of a directory that's mounted
+        #  - if the dir is a parent of a file or directory that's mounted (i.e. if the path exists)
+        fileinfo_path = Path(self._FILEINFO_DIR, path)
+
+        if fileinfo_path.exists():
+            if fileinfo_path.is_file():
+                with open(fileinfo_path, "r") as f:
+                    fileinfo = pfs.FileInfo().from_json(value=f.read())
+                return fileinfo.file_type == pfs.FileType.DIR
+            return True
+
+        for dir in fileinfo_path.parents:
+            if str(dir) in self._dirs:
+                file = self._get_file_from_path(path=path)
+                try:
+                    fileinfo = self._client.pfs.inspect_file(file=file)
+                except grpc.RpcError as err:
+                    if err.code() == grpc.StatusCode.NOT_FOUND:
+                        return False
+                    raise err
+                return fileinfo.file_type == pfs.FileType.DIR
+
+        return False
+
+    def exists(self, path):
+        fileinfo_path = Path(self._FILEINFO_DIR, path)
+
+        if fileinfo_path.exists():
+            return True
+
+        for dir in fileinfo_path.parents:
+            if str(dir) in self._dirs:
+                file = self._get_file_from_path(path=path)
+                try:
+                    fileinfo = self._client.pfs.inspect_file(file=file)
+                except grpc.RpcError as err:
+                    if err.code() == grpc.StatusCode.NOT_FOUND:
+                        return False
+                    raise err
+                return True
+
+        return False
+
+    # translate a Path in local storage to a path in the contents FS
+    # for example, {self._FILEINFO_DIR}/some_repo/foo/bar becomes
+    # /some_repo/foo/bar
+    def _translate_path(self, path: Path) -> str:
+        pathstr = str(path)
+        assert pathstr.startswith(self._FILEINFO_DIR)
+        return pathstr[len(self._FILEINFO_DIR) :]
+
+    def _get_model_from_fileinfo(
+        self, fileinfo: pfs.FileInfo, path: Path, content: bool, type: str, format: str
+    ) -> ContentModel:
+        model = _create_base_model(path=path, fileinfo=fileinfo, type=type)
+        if content:
+            if model["type"] == "file":
+                _get_file_model(
+                    client=self._client,
+                    model=model,
+                    path=path,
+                    file=fileinfo.file,
+                    format=format,
+                )
+            else:
+                _get_dir_model(
+                    client=self._client, model=model, path=path, file=fileinfo.file
+                )
+        return model
+
+    def _get_parent_dir_model(self, local_path: Path, content: bool) -> ContentModel:
+        if content:
+            format = "json"
+            content_model = [
+                self._get_model_from_disk(
+                    local_path=p, content=False, type=None, format=None
+                )
+                for p in local_path.iterdir()
+            ]
+        else:
+            format = None
+            content_model = None
+        return ContentModel(
+            name=local_path.name,
+            path=self._translate_path(path=local_path),
+            created=self._mount_time,
+            last_modified=self._mount_time,
+            content=content_model,
+            type="directory",
+            mimetype=None,
+            format=format,
+            writable=False,
+        )
+
+    def _get_model_from_disk(
+        self, local_path: Path, content: bool, type: str, format: str
+    ):
+        if local_path.is_dir():
+            if type and type != "directory":
+                raise web.HTTPError(
+                    400, f"{local_path} is a directory, not a {type}", reason="bad type"
+                )
+            return self._get_parent_dir_model(local_path=local_path, content=content)
+        else:
+            with open(local_path, "r") as f:
+                fileinfo = pfs.FileInfo().from_json(value=f.read())
+            return self._get_model_from_fileinfo(
+                fileinfo=fileinfo,
+                path=self._translate_path(local_path),
+                content=content,
+                type=type,
+                format=format,
+            )
+
+    def _get_root_model(self, content: bool) -> ContentModel:
+        if content:
+            format = "json"
+            content_model = [
+                self._get_parent_dir_model(local_path=p, content=False)
+                for p in Path(self._FILEINFO_DIR).iterdir()
+            ]
+        else:
+            format = None
+            content_model = None
+        return ContentModel(
+            name="",
+            path="/",
+            type="directory",
+            created=datetime.datetime.min,
+            last_modified=datetime.datetime.min,
+            content=content_model,
+            mimetype=None,
+            format=format,
+            writable=False,
+        )
+
+    def get(self, path, content=True, type=None, format=None) -> ContentModel:
+        if type == "notebook":
+            raise web.HTTPError(
+                400,
+                "notebook types are not supported in the pachyderm file extension",
+                reason="bad type",
+            )
+
+        path = path.strip("/")
+        if not path:
+            return self._get_root_model(content=content)
+
+        fileinfo_path = Path(self._FILEINFO_DIR, path)
+
+        if fileinfo_path.exists():
+            if fileinfo_path.is_dir():
+                return self._get_parent_dir_model(
+                    local_path=fileinfo_path, content=content
+                )
+            else:
+                return self._get_model_from_disk(
+                    local_path=fileinfo_path, content=content, type=type, format=format
+                )
+        else:
+            file = self._get_file_from_path(path=path)
+            fileinfo = self._client.pfs.inspect_file(file=file)
+            return self._get_model_from_fileinfo(
+                fileinfo=fileinfo, path=path, content=content, type=type, format=format
+            )
 
     def save(self, model, path=""):
         raise NotImplementedError("Pachyderm file-browser is read-only")

@@ -545,19 +545,23 @@ describe('sortable list components', () => {
         project: {
           name: 'p1',
         },
-        auth: {
+        description: 'p1',
+        auth_info: {
           permissions: [0, 1, 2],
           roles: ['foo', 'bar'],
         },
+        created_at: 'some_time',
       },
       {
         project: {
           name: 'default',
         },
-        auth: {
+        description: 'default',
+        auth_info: {
           permissions: [3, 4, 5],
           roles: ['foo', 'bar', 'baz'],
         },
+        created_at: 'some_time',
       },
     ];
 
