@@ -16,7 +16,9 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/grpc"
+	testdynamic "k8s.io/client-go/dynamic/fake"
 	testclient "k8s.io/client-go/kubernetes/fake"
+	"k8s.io/kubectl/pkg/scheme"
 
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/identity"
@@ -241,7 +243,19 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	// VERSION
 	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
-	txnEnv.Initialize(realEnv.ServiceEnv, realEnv.TransactionServer)
+	txnEnv.Initialize(
+		realEnv.ServiceEnv.GetDBClient(),
+		func() txnenv.AuthBackend {
+			return realEnv.ServiceEnv.AuthServer()
+		},
+		func() txnenv.PFSBackend {
+			return realEnv.ServiceEnv.PfsServer()
+		},
+		func() txnenv.PPSBackend {
+			return realEnv.ServiceEnv.PpsServer()
+		},
+		realEnv.TransactionServer,
+	)
 
 	// PPS
 	if mockPPSTransactionServer {
@@ -258,6 +272,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		reporter := metrics.NewReporter(realEnv.ServiceEnv)
 		clientset := testclient.NewSimpleClientset()
 		realEnv.ServiceEnv.SetKubeClient(clientset)
+		realEnv.ServiceEnv.SetDynamicKubeClient(testdynamic.NewSimpleDynamicClient(scheme.Scheme))
 		ppsEnv := pachd.PPSEnv(realEnv.ServiceEnv, txnEnv, reporter)
 		realEnv.PPSServer, err = ppsserver.NewAPIServer(ppsEnv)
 		realEnv.ServiceEnv.SetPpsServer(realEnv.PPSServer)
@@ -265,13 +280,27 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		linkServers(&realEnv.MockPachd.PPS, realEnv.PPSServer)
 	}
 
+	ppsWorker := ppsserver.NewWorker(ppsserver.WorkerEnv{
+		TaskService: realEnv.ServiceEnv.GetTaskService(path.Join(realEnv.ServiceEnv.Config().EtcdPrefix, realEnv.ServiceEnv.Config().PPSEtcdPrefix)),
+		PFS:         realEnv.ServiceEnv.GetPachClient(ctx).PfsAPIClient,
+	})
+	go func() {
+		ctx := pctx.Child(ctx, "pps-worker")
+		if err := ppsWorker.Run(ctx); err != nil {
+			log.Error(ctx, "from pps-worker", zap.Error(err))
+		}
+	}()
+
 	// Debug
 	debugEnv := pachd.DebugEnv(realEnv.ServiceEnv)
 	realEnv.DebugServer = debugserver.NewDebugServer(debugEnv)
 	realEnv.PachClient.DebugClient = debug.NewDebugClient(grpcutil.NewTestClient(t, func(gs *grpc.Server) {
 		debug.RegisterDebugServer(gs, realEnv.DebugServer)
 	}))
-	debugWorker := debugserver.NewWorker(debugEnv)
+	debugWorker := debugserver.NewWorker(debugserver.WorkerEnv{
+		PFS:         realEnv.PachClient.PfsAPIClient,
+		TaskService: realEnv.ServiceEnv.GetTaskService(realEnv.ServiceEnv.Config().EtcdPrefix),
+	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)

@@ -137,7 +137,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "branch",
             "project",
             "commit",
-            "files",
+            "path",
             "mode",
             "state",
             "status",

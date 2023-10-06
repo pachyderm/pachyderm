@@ -109,12 +109,11 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		EtcdClient:   env.GetEtcdClient(),
 		TaskService:  env.GetTaskService(etcdPrefix),
 
-		AuthServer:           env.AuthServer(),
+		Auth:                 env.AuthServer(),
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
 		BackgroundContext: pctx.Child(env.Context(), "PFS"),
 		StorageConfig:     env.Config().StorageConfiguration,
-		PachwInSidecar:    env.Config().PachwInSidecars,
 	}, nil
 }
 
@@ -157,13 +156,14 @@ func PPSEnv(senv serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv, reporter 
 
 func DebugEnv(env serviceenv.ServiceEnv) debug_server.Env {
 	return debug_server.Env{
-		Config:        *env.Config(),
-		Name:          env.Config().PachdPodName,
-		DB:            env.GetDBClient(),
-		SidecarClient: nil,
-		GetKubeClient: env.GetKubeClient,
-		GetLokiClient: env.GetLokiClient,
-		GetPachClient: env.GetPachClient,
-		TaskService:   env.GetTaskService(env.Config().EtcdPrefix),
+		Config:               *env.Config(),
+		Name:                 env.Config().PachdPodName,
+		DB:                   env.GetDBClient(),
+		SidecarClient:        nil,
+		GetKubeClient:        env.GetKubeClient,
+		GetDynamicKubeClient: env.GetDynamicKubeClient,
+		GetLokiClient:        env.GetLokiClient,
+		GetPachClient:        env.GetPachClient,
+		TaskService:          env.GetTaskService(env.Config().EtcdPrefix),
 	}
 }

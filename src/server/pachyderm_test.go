@@ -8401,6 +8401,59 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
 
+func TestPipelineEmptyInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	dataRepo := tu.UniqueString("TestPipelineEmptyInput_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Description: "test commit description in 'start commit'",
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	pipeline := tu.UniqueString("TestPipelineEmptyInput")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	// update pipeline to empty input
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Update:    true,
+		})
+	require.NoError(t, err)
+	// restore pipeline by setting its input back
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+			Update:    true,
+		})
+	require.NoError(t, err)
+	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	jis, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jis))
+	require.Equal(t, jis[0].State, pps.JobState_JOB_SUCCESS)
+}
+
 func TestCommitDescription(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")

@@ -10,10 +10,10 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-func Modification(env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
+func Modification(ctx context.Context, env *Env, commit *pfs.Commit, spec *ModificationSpec) error {
 	taskDoer := env.TaskDoer()
 	client := env.Client()
-	eg, ctx := errgroup.WithContext(client.Ctx())
+	eg, ctx := errgroup.WithContext(ctx)
 	inputChan := make(chan *anypb.Any)
 	eg.Go(func() error {
 		defer close(inputChan)

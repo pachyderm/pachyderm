@@ -737,6 +737,7 @@ jobs:
         default: false
     machine:
       image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
     resource_class: xlarge
     steps:
       - go/install:
@@ -967,7 +968,13 @@ jobs:
             export PFS_MOUNT_DIR=$(pwd)/pfs
 
             # Run integration tests
-            pytest -v jupyterlab_pachyderm/tests/test_integrations.py
+            mkdir -p test-results
+
+            pytest -v --junitxml=test-results/junit.xml jupyterlab_pachyderm/tests/test_integrations.py
+      - store_test_results:
+          path: test-results
+      - store_artifacts:
+          path: test-results
 
   jupyter-extension-e2e-test:
     resource_class: xlarge
@@ -2245,6 +2252,7 @@ commands:
     steps:
       - attach_workspace:
           at: ./
+      - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
       - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
       - run:
           name: Fuse options

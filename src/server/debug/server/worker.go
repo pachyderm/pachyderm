@@ -5,18 +5,25 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsload"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-type Worker struct {
-	env Env
+type WorkerEnv struct {
+	PFS         pfs.APIClient
+	TaskService task.Service
 }
 
-func NewWorker(env Env) *Worker {
+type Worker struct {
+	env WorkerEnv
+}
+
+func NewWorker(env WorkerEnv) *Worker {
 	return &Worker{
 		env: env,
 	}
 }
 
 func (w *Worker) Run(ctx context.Context) error {
-	return pfsload.Worker(w.env.GetPachClient(pctx.Child(ctx, "pfsload")), w.env.TaskService)
+	return pfsload.Worker(pctx.Child(ctx, "pfsload"), w.env.PFS, w.env.TaskService)
 }

@@ -151,7 +151,7 @@ func subsToTemplateData(subs ...string) (map[string]string, error) {
 
 func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
 	t.Helper()
-	ctx := pctx.Background("")
+	ctx := pctx.TestContext(t)
 	return PachctlBashCmdCtx(ctx, t, c, scriptTemplate, subs...)
 }
 
