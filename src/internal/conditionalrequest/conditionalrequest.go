@@ -36,7 +36,7 @@ func (info *ResourceInfo) ifModifiedSince(httpDate string) error {
 	}
 	// If the selected representation's last modification date is earlier or equal to the
 	// date provided in the field value, the condition is false.
-	if !info.LastModified.After(t) {
+	if info.LastModified.Before(t) || info.LastModified.Equal(t) {
 		return ErrNotModified
 	}
 	// Otherwise, the condition is true.
@@ -54,7 +54,7 @@ func (info *ResourceInfo) ifUnmodifiedSince(httpDate string) error {
 	}
 	// If the selected representation's last modification date is earlier or equal to the
 	// date provided in the field value, the condition is true.
-	if !info.LastModified.After(t) {
+	if info.LastModified.Before(t) || info.LastModified.Equal(t) {
 		return nil
 	}
 	// Otherwise, the condition is false.
