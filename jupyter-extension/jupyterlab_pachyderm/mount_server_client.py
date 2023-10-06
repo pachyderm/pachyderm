@@ -80,7 +80,7 @@ class MountServerClient(MountInterface):
         bound, it will exit straight away. If it's not, it might start up
         successfully with the updated config.
         """
-        # TODO: add --socket and --log-file stdout args
+        # TODO: add --log-file stdout args
         # TODO: add better error handling
         if await self._is_mount_server_running():
             return True
