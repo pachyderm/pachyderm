@@ -22,7 +22,7 @@ func TestConditionalRequest(t *testing.T) {
 		{
 			name: "if-modified; not modified",
 			headers: http.Header{
-				"If-Modified-Since": {"Fri, 07 Oct 2023 00:00:00 GMT"},
+				"If-Modified-Since": {"Sat, 07 Oct 2023 00:00:00 GMT"},
 			},
 			want: http.StatusNotModified,
 		},
@@ -30,7 +30,7 @@ func TestConditionalRequest(t *testing.T) {
 			name: "if-modified; no modification time known",
 			info: &ResourceInfo{},
 			headers: http.Header{
-				"If-Modified-Since": {"Fri, 07 Oct 2023 00:00:00 GMT"},
+				"If-Modified-Since": {"Sat, 07 Oct 2023 00:00:00 GMT"},
 			},
 			want: 0,
 		},
@@ -51,7 +51,7 @@ func TestConditionalRequest(t *testing.T) {
 		{
 			name: "if-unmodified; unmodified",
 			headers: http.Header{
-				"If-Unmodified-Since": {"Fri, 07 Oct 2023 00:00:00 GMT"},
+				"If-Unmodified-Since": {"Sat, 07 Oct 2023 00:00:00 GMT"},
 			},
 			want: 0,
 		},
@@ -59,7 +59,7 @@ func TestConditionalRequest(t *testing.T) {
 			name: "if-unmodified; no modification time known",
 			info: &ResourceInfo{},
 			headers: http.Header{
-				"If-Unmodified-Since": {"Fri, 07 Oct 2023 00:00:00 GMT"},
+				"If-Unmodified-Since": {"Sat, 07 Oct 2023 00:00:00 GMT"},
 			},
 			want: 0,
 		},
