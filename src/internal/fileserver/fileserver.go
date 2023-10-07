@@ -143,8 +143,11 @@ func (r *Request) get(ctx context.Context) {
 			// forever.
 			r.ResponseWriter.Header().Set("cache-control", "private")
 		} else {
-			// Open commits can change, so they aren't safe to cache.
-			r.ResponseWriter.Header().Set("cache-control", "no-cache")
+			// Open commits can change, so they aren't safe to cache.  Note that
+			// "no-cache" actually means that the response can be cached, but that the
+			// client has to revalidate (with If-None-Match etc.) before using the
+			// cached result.  That's exactly what we want.
+			r.ResponseWriter.Header().Set("cache-control", "private, no-cache")
 		}
 	} else {
 		file.Commit = &pfs.Commit{
@@ -154,7 +157,7 @@ func (r *Request) get(ctx context.Context) {
 			},
 		}
 		// Branch references are never cacheable; the branch can move at any time.
-		r.ResponseWriter.Header().Set("cache-control", "no-cache")
+		r.ResponseWriter.Header().Set("cache-control", "private, no-cache")
 	}
 	info, err := r.PachClient.PfsAPIClient.InspectFile(ctx, &pfs.InspectFileRequest{
 		File: file,

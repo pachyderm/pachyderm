@@ -232,7 +232,7 @@ func TestDownload(t *testing.T) {
 			wantCode:    http.StatusMovedPermanently,
 			wantContent: "<a href=\"/pfs/default/test/master/sub/directory/\">Moved Permanently</a>.\n\n",
 			wantHeader: http.Header{
-				"Cache-Control": {"no-cache"},
+				"Cache-Control": {"private, no-cache"},
 				"Content-Type":  {"text/html; charset=utf-8"},
 				"Etag":          {`"f103067f40b04b3e6e5ad1dbf053d0c68454e623c200a63e400a60de84ad632c"`},
 				"Location":      {"/pfs/default/test/master/sub/directory/"},
@@ -254,7 +254,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "goodbye, world\n",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"}, // no-cache because "master"
+				"Cache-Control":  {"private, no-cache"}, // no-cache because "master"
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
 				"Vary":           {"authn-token"},
@@ -267,7 +267,7 @@ func TestDownload(t *testing.T) {
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"},
+				"Cache-Control":  {"private, no-cache"},
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
 				"Vary":           {"authn-token"},
@@ -281,7 +281,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "goodbye, world\n",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"}, // no-cache because open commit
+				"Cache-Control":  {"private, no-cache"}, // no-cache because open commit
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
 				"Vary":           {"authn-token"},
@@ -294,7 +294,7 @@ func TestDownload(t *testing.T) {
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"},
+				"Cache-Control":  {"private, no-cache"},
 				"Content-Length": {"15"},
 				"Etag":           {`"7f25604c8f64d4e40377c006dcaa47626e4b1d93b09f1f8252e14e643c8e8f02"`},
 				"Vary":           {"authn-token"},
@@ -337,7 +337,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"}, // not cacheable because branch
+				"Cache-Control":  {"private, no-cache"}, // not cacheable because branch
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
@@ -351,7 +351,7 @@ func TestDownload(t *testing.T) {
 			wantCode: http.StatusOK,
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"}, // not cacheable because branch
+				"Cache-Control":  {"private, no-cache"}, // not cacheable because branch
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
@@ -369,7 +369,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "",
 			wantHeader: http.Header{
 				"Accept-Ranges": {"bytes"},
-				"Cache-Control": {"no-cache"},
+				"Cache-Control": {"private, no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
 				"Vary":          {"authn-token"},
@@ -386,7 +386,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "",
 			wantHeader: http.Header{
 				"Accept-Ranges": {"bytes"},
-				"Cache-Control": {"no-cache"},
+				"Cache-Control": {"private, no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
 				"Vary":          {"authn-token"},
@@ -402,7 +402,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"},
+				"Cache-Control":  {"private, no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
@@ -420,7 +420,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"},
+				"Cache-Control":  {"private, no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
@@ -438,7 +438,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "",
 			wantHeader: http.Header{
 				"Accept-Ranges": {"bytes"},
-				"Cache-Control": {"no-cache"},
+				"Cache-Control": {"private, no-cache"},
 				"Etag":          {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
 				"Vary":          {"authn-token"},
@@ -455,7 +455,7 @@ func TestDownload(t *testing.T) {
 			wantContent: "hello, world\n",
 			wantHeader: http.Header{
 				"Accept-Ranges":  {"bytes"},
-				"Cache-Control":  {"no-cache"},
+				"Cache-Control":  {"private, no-cache"},
 				"Content-Length": {"13"},
 				"Etag":           {`"918cd0e91afb64becb2d77e7cba9d1e8ea15ad5a26c16bbaf629ef916eaeb414"`},
 				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
