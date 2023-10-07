@@ -577,7 +577,7 @@ func TestDownload(t *testing.T) {
 			req.Header.Set(constants.ContextTokenKey, token.GetToken())
 			for k, vs := range test.requestHeader {
 				for _, v := range vs {
-					req.Header.Set(k, v)
+					req.Header.Add(k, v)
 				}
 			}
 			dump, err := httputil.DumpRequest(req, false)
