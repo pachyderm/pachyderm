@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/constants"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmputil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -30,7 +32,9 @@ func TestDownload(t *testing.T) {
 	// Fileserver for testing.
 	s := &fileserver.Server{
 		ClientFactory: func(ctx context.Context) *client.APIClient {
-			return e.PachClient.WithCtx(ctx)
+			c := e.PachClient.WithCtx(ctx)
+			c.SetAuthToken("")
+			return c
 		},
 	}
 
@@ -184,6 +188,25 @@ func TestDownload(t *testing.T) {
 		t.Fatalf("modify file ('open commit'): CloseAndRecv: %v", err)
 	}
 	testutil.ActivateAuthClient(t, e.PachClient, strconv.Itoa(int(e.ServiceEnv.Config().PeerPort)))
+
+	c := e.PachClient.WithCtx(rctx)
+	c.SetAuthToken(testutil.RootToken)
+	token, err := c.GetRobotToken(c.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: "alice",
+	})
+	if err != nil {
+		t.Fatalf("create auth token: %v", err)
+	}
+	if _, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+		Principal: "robot:alice",
+		Roles:     []string{auth.RepoReaderRole},
+		Resource: &auth.Resource{
+			Type: auth.ResourceType_REPO,
+			Name: "default/test",
+		},
+	}); err != nil {
+		t.Fatalf("give alice reader on default/test: %v", err)
+	}
 
 	// The actual test starts here.
 	testData := []struct {
@@ -551,8 +574,11 @@ func TestDownload(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(test.method, test.url, nil)
 			req = req.WithContext(pctx.TestContext(t))
-			if h := test.requestHeader; h != nil {
-				req.Header = h
+			req.Header.Set(constants.ContextTokenKey, token.GetToken())
+			for k, vs := range test.requestHeader {
+				for _, v := range vs {
+					req.Header.Set(k, v)
+				}
 			}
 			dump, err := httputil.DumpRequest(req, false)
 			if err != nil {
