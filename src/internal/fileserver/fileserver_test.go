@@ -540,6 +540,13 @@ func TestDownload(t *testing.T) {
 			wantContent: "invalid URL; expecting /pfs/<project>/<repo>/<commit|branch>/<path...>, got /pfs/default/test",
 		},
 		{
+			name:        "commit listing page with /, not implemented",
+			method:      http.MethodGet,
+			url:         "https://example.com/pfs/default/test/",
+			wantCode:    http.StatusNotFound,
+			wantContent: "invalid URL; expecting /pfs/<project>/<repo>/<commit|branch>/<path...>, got /pfs/default/test/",
+		},
+		{
 			name:        "branch redirect",
 			method:      http.MethodGet,
 			url:         "https://example.com/pfs/default/test/master",

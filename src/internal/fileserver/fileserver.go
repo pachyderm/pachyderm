@@ -99,7 +99,10 @@ func (r *Request) get(ctx context.Context) {
 	req := r.Request
 	parts := strings.Split(req.URL.Path, "/")
 	switch {
-	case len(parts) == 5:
+	case len(parts) == 5 && parts[4] != "":
+		// If parts[4] is "", then they are requesting what looks like a "list commits"
+		// page, that we don't implement.  Otherwise, they want the listing of the root
+		// directory, but forgot the trailing /.
 		http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
 		return
 	case len(parts) >= 6: // /pfs/project/repo/commit|branch/path/to/some/file
