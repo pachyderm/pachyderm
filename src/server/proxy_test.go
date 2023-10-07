@@ -163,7 +163,7 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 	// Test PFS download.
 	t.Run("TestHttpDownload", func(t *testing.T) {
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
-			return get(t, httpClient, strings.Join([]string{httpPrefix, addr, "/pfs/", pfs.DefaultProjectName, "/", testRepo, "/master/test.txt"}, ""))
+			return get(t, httpClient, strings.Join([]string{httpPrefix, addr, "/pfs/", pfs.DefaultProjectName, "/", testRepo, "/master/test.txt?authn-token", c.AuthToken()}, ""))
 		})
 	})
 }
