@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmputil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/fileserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -26,7 +27,6 @@ func TestDownload(t *testing.T) {
 	// Setup a PFS server.
 	rctx := pctx.TestContext(t)
 	e := realenv.NewRealEnvWithIdentity(rctx, t, dockertestenv.NewTestDBConfig(t))
-
 	// Fileserver for testing.
 	s := &fileserver.Server{
 		ClientFactory: func(ctx context.Context) *client.APIClient {
@@ -459,7 +459,7 @@ func TestDownload(t *testing.T) {
 			method: http.MethodGet,
 			url:    fmt.Sprintf("https://example.com/pfs/default/test/%v/big.txt", finishedCommit.Id),
 			requestHeader: http.Header{
-				"Range": {"bytes=1-10"},
+				"Range": {"bytes=0-9"},
 			},
 			wantContent: "AAAAAAAAAA",
 			wantCode:    http.StatusPartialContent,
@@ -472,11 +472,85 @@ func TestDownload(t *testing.T) {
 				"Vary":           {"authn-token"},
 			},
 		},
+		{
+			name:   "range download, finished, if match, matches",
+			method: http.MethodGet,
+			url:    fmt.Sprintf("https://example.com/pfs/default/test/%v/big.txt", finishedCommit.Id),
+			requestHeader: http.Header{
+				"Range":    {"bytes=25000-25010"},
+				"If-Match": {`"ee45bb2661662b371f3100176c518243dbbe282116a05bb8f025a9c23b97ea02"`},
+			},
+			wantContent: "ZZZZZZZZZZZ",
+			wantCode:    http.StatusPartialContent,
+			wantHeader: http.Header{
+				"Accept-Ranges":  {"bytes"},
+				"Content-Length": {"11"},
+				"Cache-Control":  {"private"},
+				"Etag":           {`"ee45bb2661662b371f3100176c518243dbbe282116a05bb8f025a9c23b97ea02"`},
+				"Last-Modified":  {finishedAt.Format(http.TimeFormat)},
+				"Vary":           {"authn-token"},
+			},
+		},
+		{
+			name:   "range download, finished, if match, doesn't match",
+			method: http.MethodGet,
+			url:    fmt.Sprintf("https://example.com/pfs/default/test/%v/big.txt", finishedCommit.Id),
+			requestHeader: http.Header{
+				"Range":    {"bytes=25000-25010"},
+				"If-Match": {`"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"`},
+			},
+			wantContent: "",
+			wantCode:    http.StatusPreconditionFailed,
+			wantHeader: http.Header{
+				"Accept-Ranges": {"bytes"},
+				"Cache-Control": {"private"},
+				"Etag":          {`"ee45bb2661662b371f3100176c518243dbbe282116a05bb8f025a9c23b97ea02"`},
+				"Last-Modified": {finishedAt.Format(http.TimeFormat)},
+				"Vary":          {"authn-token"},
+			},
+		},
+		{
+			name:        "commit listing page, not implemented",
+			method:      http.MethodGet,
+			url:         "https://example.com/pfs/default/test",
+			wantCode:    http.StatusNotFound,
+			wantContent: "invalid URL; expecting /pfs/<project>/<repo>/<commit|branch>/<path...>, got /pfs/default/test",
+		},
+		{
+			name:        "branch redirect",
+			method:      http.MethodGet,
+			url:         "https://example.com/pfs/default/test/master",
+			wantCode:    http.StatusMovedPermanently,
+			wantContent: "<a href=\"/pfs/default/test/master/\">Moved Permanently</a>.\n\n",
+			wantHeader: http.Header{
+				"Content-Type": {"text/html; charset=utf-8"},
+				"Location":     {"/pfs/default/test/master/"},
+				"Vary":         {"authn-token"},
+			},
+		},
+		{
+			name:        "directory listing of test@done",
+			method:      http.MethodGet,
+			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/", finishedCommit.Id),
+			wantCode:    http.StatusOK,
+			wantContent: "-\t26000\t/big.txt\nd\t13\t/sub/\n",
+		},
+		{
+			name:   "html directory listing of test@done",
+			method: http.MethodGet,
+			requestHeader: http.Header{
+				"Accept": {"text/html"},
+			},
+			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/", finishedCommit.Id),
+			wantCode:    http.StatusOK,
+			wantContent: `/(?s)href="big.txt">big.txt</a>.*href="sub">sub</a>/`,
+		},
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			rec := httptest.NewRecorder()
 			req := httptest.NewRequest(test.method, test.url, nil)
+			req = req.WithContext(pctx.TestContext(t))
 			if h := test.requestHeader; h != nil {
 				req.Header = h
 			}
@@ -503,7 +577,7 @@ func TestDownload(t *testing.T) {
 			if got, want := rec.Code, test.wantCode; got != want {
 				t.Errorf("response code:\n  got: %v\n want: %v", got, want)
 			}
-			if diff := cmp.Diff(test.wantContent, rec.Body.String()); diff != "" {
+			if diff := cmp.Diff(test.wantContent, rec.Body.String(), cmputil.RegexpStrings()); diff != "" {
 				t.Errorf("body (-want +got):\n%s", diff)
 			}
 

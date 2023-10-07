@@ -106,7 +106,8 @@ func (r *Request) get(ctx context.Context) {
 		parts[5] = path.Join(parts[5:]...)
 	default:
 		// Someday we can have a projects page, project repo page, repo commit page, etc.
-		r.displayErrorf(ctx, http.StatusBadRequest,
+		// For now, only files and directories.
+		r.displayErrorf(ctx, http.StatusNotFound,
 			//                     0 1   2         3      4               5
 			"invalid URL; expecting /pfs/<project>/<repo>/<commit|branch>/<path...>, got %v",
 			strings.Join(parts, "/"))
@@ -250,13 +251,28 @@ func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInf
 				return
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%s\t%v\n", msg.GetFile().GetPath(), msg.GetFile().GetDatum(), msg.GetSizeBytes())
+			// t is like the first byte of the output of ls. (i.e., -rwxrwxrwx is a normal
+			// file; PFS doesn't have per-file permissions, so we omit them here.)
+			var t string
+			//exhaustive:enforce
+			switch msg.GetFileType() {
+			case pfs.FileType_DIR:
+				t = "d"
+			case pfs.FileType_FILE:
+				t = "-"
+			case pfs.FileType_RESERVED:
+				t = "x"
+			}
+			fmt.Fprintf(w, "%s\t%v\t%s\n", t, msg.GetSizeBytes(), msg.GetFile().GetPath())
 		}
 	}
 }
 
-// very limited case of range handling, only 'bytes=0-52', no other formats.  the format is
-// inclusive; 0-499 returns 500 bytes.
+// This handles a very limited amount of HTTP Range headers, only 'bytes=0-52'; no other formats, no
+// repeating ranges.  the format is inclusive; 0-499 returns 500 bytes.  We don't handle multiple
+// ranges because we can't do it efficiently; PFS can do offset + limit once, but not more than once
+// per request (and not transactionally for open commits if we split it across multiple requests).
+// If PFS handled multiple ranges, we could do that here too.
 func parseRange(rangeStr string, length int64) (offset, limit int64) {
 	if rangeStr == "" || !strings.HasPrefix(rangeStr, "bytes=") {
 		return 0, length
@@ -303,9 +319,16 @@ func (r *Request) sendFile(ctx context.Context, info *pfs.FileInfo) {
 	for {
 		msg, err := res.Recv()
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return
-			}
+			// This rarely happens.  In a normal request, you'd look for io.EOF to exit,
+			// but since we already know the size, we will exit because of limit going
+			// to zero before we read the EOF.  If we see an EOF here, it's because the
+			// file changed (shrunk) between InspectFile and now, which is unfortunately
+			// possible.  Thus, we output some extra bytes so hopefully the client
+			// notices that the body is too long relative to content-length.  That's the
+			// best we can do with HTTP.
+			//
+			// As for closing the actual stream so it doesn't leak when the server has
+			// more data than the client requested, we do that with `defer c()` above.
 			log.Info(ctx, "download stream broke unexpectedly", zap.Error(err))
 			fmt.Fprintf(w, "\n\nstream broke: %v", err)
 			return
