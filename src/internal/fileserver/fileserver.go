@@ -220,6 +220,7 @@ func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInf
 	})
 	if err != nil {
 		r.displayGRPCError(ctx, "problem listing directory", err)
+		return
 	}
 	w := r.ResponseWriter
 	if r.HTML {
