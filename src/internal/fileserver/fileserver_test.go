@@ -559,14 +559,14 @@ func TestDownload(t *testing.T) {
 			},
 		},
 		{
-			name:        "directory listing of test@done",
+			name:        "directory listing of test@finished",
 			method:      http.MethodGet,
 			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/", finishedCommit.Id),
 			wantCode:    http.StatusOK,
 			wantContent: "-\t26000\t/big.txt\nd\t13\t/sub/\n",
 		},
 		{
-			name:   "html directory listing of test@done",
+			name:   "html directory listing of test@finished",
 			method: http.MethodGet,
 			requestHeader: http.Header{
 				"Accept": {"text/html"},
@@ -574,6 +574,26 @@ func TestDownload(t *testing.T) {
 			url:         fmt.Sprintf("https://example.com/pfs/default/test/%v/", finishedCommit.Id),
 			wantCode:    http.StatusOK,
 			wantContent: `/(?s)href="big.txt">big.txt</a>.*href="sub">sub</a>/`,
+		},
+		{
+			name:   "html directory listing of test@done:/sub/directory/",
+			method: http.MethodGet,
+			requestHeader: http.Header{
+				"Accept": {"text/html"},
+			},
+			url:         "https://example.com/pfs/default/test/done/sub/directory/",
+			wantCode:    http.StatusOK,
+			wantContent: `/(?s)<h1>default/test/done/sub/directory</h1>.*href="test.txt">test.txt</a>/`,
+		},
+		{
+			name:   "html invalid method error",
+			method: http.MethodPost,
+			requestHeader: http.Header{
+				"Accept": {"text/html"},
+			},
+			url:         "https://example.com/pfs/test/done/sub/directory/",
+			wantCode:    http.StatusMethodNotAllowed,
+			wantContent: `/(?s)<html>.*unknown HTTP method/`,
 		},
 	}
 	for _, test := range testData {

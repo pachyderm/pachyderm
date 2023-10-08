@@ -47,8 +47,8 @@ var (
 		// current URL path -> URL part after /pfs
 		"path": func(url string) string {
 			parts := strings.Split(url, "/")
-			if len(parts) > 1 {
-				return path.Join(parts[1:]...)
+			if len(parts) > 2 {
+				return path.Join(parts[2:]...)
 			}
 			return url
 		},
