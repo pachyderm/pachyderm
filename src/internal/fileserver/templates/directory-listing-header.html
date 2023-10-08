@@ -1,11 +1,13 @@
 <html>
     <head>
-        <title>{{ . | path }} - Pachyderm</title>
+        <title>{{ path .Path }} - Pachyderm</title>
     </head>
     <body>
-        <h1>{{ . | path }}</h1>
-        <a href="/pfs/{{ . | path | dirname }}">Up</a>
-        <p>Committed: {{ .Committed.AsTime | rfc3339 }}</p>
+        <h1>{{ path .Path }}</h1>
+        {{ if hasParent .Info  }}
+        <a href="{{ parent .Path }}">Up</a>
+        {{ end }}
+        <p>Committed: {{ .Info.Committed.AsTime | rfc3339 }}</p>
         <table>
             <thead>
                 <tr>

@@ -36,21 +36,32 @@ var (
 	//go:embed templates/*
 	templateFS embed.FS
 	templates  = template.Must(template.New("").Funcs(template.FuncMap{
+		// bytes -> human readable bytes
 		"humanizeBytes": func(x int64) string {
 			return humanize.Bytes(uint64(x))
 		},
+		// full path -> name of file
 		"basename": func(x string) string {
 			return path.Base(x)
 		},
-		"dirname": func(x string) string {
-			return path.Dir(x)
+		// current URL path -> URL part after /pfs
+		"path": func(url string) string {
+			parts := strings.Split(url, "/")
+			if len(parts) > 1 {
+				return path.Join(parts[1:]...)
+			}
+			return url
 		},
-		"path": func(info *pfs.FileInfo) string {
-			return path.Clean(path.Join(info.GetFile().GetCommit().GetRepo().GetProject().GetName(),
-				info.GetFile().GetCommit().GetRepo().GetName(),
-				info.GetFile().GetCommit().GetId(),
-				info.GetFile().GetPath()))
+		// file info -> whether or not <url>/.. is valid
+		"hasParent": func(info *pfs.FileInfo) bool {
+			p := info.GetFile().GetPath()
+			return p != "/" && p != ""
 		},
+		// url -> url one level up; only valid if hasPrent == true
+		"parent": func(p string) string {
+			return path.Clean(path.Join(p, ".."))
+		},
+		// time -> rfc3339 string
 		"rfc3339": func(x time.Time) string {
 			return x.Format(time.RFC3339)
 		},
@@ -186,7 +197,7 @@ func (r *Request) get(ctx context.Context) {
 			http.Redirect(r.ResponseWriter, r.Request, r.Request.URL.Path+"/", http.StatusMovedPermanently)
 			return
 		}
-		r.displayDirectoryListing(ctx, info)
+		r.displayDirectoryListing(ctx, r.Request.URL.Path, info)
 		return
 	}
 
@@ -214,7 +225,7 @@ func (r *Request) get(ctx context.Context) {
 	r.sendFile(ctx, info)
 }
 
-func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInfo) {
+func (r *Request) displayDirectoryListing(ctx context.Context, path string, info *pfs.FileInfo) {
 	ctx, c := pctx.WithCancel(ctx)
 	defer c()
 
@@ -227,7 +238,11 @@ func (r *Request) displayDirectoryListing(ctx context.Context, info *pfs.FileInf
 	}
 	w := r.ResponseWriter
 	if r.HTML {
-		if err := templates.ExecuteTemplate(w, "directory-listing-header.html", info); err != nil {
+		data := struct {
+			Path string
+			Info *pfs.FileInfo
+		}{Path: path, Info: info}
+		if err := templates.ExecuteTemplate(w, "directory-listing-header.html", data); err != nil {
 			log.Info(ctx, "problem executing directory-listing-header.html template", zap.Error(err))
 			fmt.Fprintf(w, "\n\nerror executing template: %v", err)
 			return
