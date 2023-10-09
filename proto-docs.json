@@ -6687,6 +6687,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "pipeline_with_alerts",
+              "description": "pipelines with alerts indicator",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         }
@@ -13675,6 +13687,90 @@
           ]
         },
         {
+          "name": "CheckStatusRequest",
+          "longName": "CheckStatusRequest",
+          "fullName": "pps_v2.CheckStatusRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "global",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            },
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CheckStatusResponse",
+          "longName": "CheckStatusResponse",
+          "fullName": "pps_v2.CheckStatusResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "alerts",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ClusterDefaults",
           "longName": "ClusterDefaults",
           "fullName": "pps_v2.ClusterDefaults",
@@ -14087,6 +14183,18 @@
               "type": "Determined",
               "longType": "Determined",
               "fullType": "pps_v2.Determined",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -17493,6 +17601,30 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "workers_started_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -19319,6 +19451,18 @@
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
               "responseStreaming": false
+            },
+            {
+              "name": "CheckStatus",
+              "description": "",
+              "requestType": "CheckStatusRequest",
+              "requestLongType": "CheckStatusRequest",
+              "requestFullType": "pps_v2.CheckStatusRequest",
+              "requestStreaming": false,
+              "responseType": "CheckStatusResponse",
+              "responseLongType": "CheckStatusResponse",
+              "responseFullType": "pps_v2.CheckStatusResponse",
+              "responseStreaming": true
             },
             {
               "name": "CreateSecret",

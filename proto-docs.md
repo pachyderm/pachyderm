@@ -360,6 +360,8 @@
     - [ActivateAuthResponse](#pps_v2-ActivateAuthResponse)
     - [Aggregate](#pps_v2-Aggregate)
     - [AggregateProcessStats](#pps_v2-AggregateProcessStats)
+    - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
+    - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
@@ -3165,6 +3167,7 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 | min_parallelism | [uint64](#uint64) |  | Min parallelism set |
 | num_parallelism | [uint64](#uint64) |  | Number of pipelines with parallelism set |
 | enterprise_failures | [int64](#int64) |  | Number of times a command has failed due to an enterprise check |
+| pipeline_with_alerts | [bool](#bool) |  | pipelines with alerts indicator |
 
 
 
@@ -5751,6 +5754,39 @@ These are the different places where a commit may be originated from
 
 
 
+<a name="pps_v2-CheckStatusRequest"></a>
+
+### CheckStatusRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| global | [bool](#bool) |  |  |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-CheckStatusResponse"></a>
+
+### CheckStatusResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+| pipeline | [string](#string) |  |  |
+| alerts | [string](#string) | repeated |  |
+
+
+
+
+
+
 <a name="pps_v2-ClusterDefaults"></a>
 
 ### ClusterDefaults
@@ -5806,6 +5842,7 @@ These are the different places where a commit may be originated from
 | sidecar_resource_requests | [ResourceSpec](#pps_v2-ResourceSpec) |  |  |
 | dry_run | [bool](#bool) |  |  |
 | determined | [Determined](#pps_v2-Determined) |  |  |
+| maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 
 
 
@@ -6730,6 +6767,8 @@ potentially expensive operations.
 | tolerations | [Toleration](#pps_v2-Toleration) | repeated |  |
 | sidecar_resource_requests | [ResourceSpec](#pps_v2-ResourceSpec) |  |  |
 | determined | [Determined](#pps_v2-Determined) |  |  |
+| maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+| workers_started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 
@@ -7426,6 +7465,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopPipeline | [StopPipelineRequest](#pps_v2-StopPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunPipeline | [RunPipelineRequest](#pps_v2-RunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunCron | [RunCronRequest](#pps_v2-RunCronRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
+| CheckStatus | [CheckStatusRequest](#pps_v2-CheckStatusRequest) | [CheckStatusResponse](#pps_v2-CheckStatusResponse) stream |  |
 | CreateSecret | [CreateSecretRequest](#pps_v2-CreateSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | DeleteSecret | [DeleteSecretRequest](#pps_v2-DeleteSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | ListSecret | [.google.protobuf.Empty](#google-protobuf-Empty) | [SecretInfos](#pps_v2-SecretInfos) |  |

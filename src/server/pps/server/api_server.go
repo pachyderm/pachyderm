@@ -15,6 +15,8 @@ import (
 
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -95,7 +97,11 @@ const (
 )
 
 var (
-	suite = "pachyderm"
+	suite                = "pachyderm"
+	pipelineLastOkMetric = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_last_ok_at",
+		Help: "The last time a pipeline was running within the expected time, as a Unix timestamp.",
+	}, []string{"pipeline", "project"})
 )
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -1343,6 +1349,53 @@ func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.A
 	})
 }
 
+func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusServer pps.API_CheckStatusServer) (retErr error) {
+	ctx := apiCheckStatusServer.Context()
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100)
+	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
+		if err := checkProjectAccess(pipeline.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+		}
+		return nil
+	}
+	project := []*pfs.Project{}
+	if request.GetProject().GetName() != "" {
+		project = append(project, request.GetProject())
+	}
+	filterPipeline, err := newMessageFilterFunc("", project)
+	if err != nil {
+		return errors.Wrap(err, "error creating message filter function")
+	}
+	var alerts []string
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pipelineInfo *pps.PipelineInfo) error {
+		if ok, err := filterPipeline(ctx, pipelineInfo); err != nil {
+			return errors.Wrap(err, "error filtering pipeline")
+		} else if !ok {
+			return nil
+		}
+		zero := &timestamppb.Timestamp{}
+		if checkAccess(ctx, pipelineInfo.Pipeline) == nil &&
+			pipelineInfo.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
+			time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
+			exceededTime := time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) - pipelineInfo.Details.MaximumExpectedUptime.AsDuration()
+			alerts = append(alerts, fmt.Sprintf("project/pipeline: Started running at %v, exceeded maximum uptime by %s", pipelineInfo.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
+			apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline.Name, Alerts: alerts})
+			lastOk := pipelineInfo.Details.WorkersStartedAt.AsTime().Add(pipelineInfo.Details.MaximumExpectedUptime.AsDuration())
+			pipelineLastOkMetric.WithLabelValues(pipelineInfo.Pipeline.Name, pipelineInfo.Pipeline.Project.GetName()).Set(float64(lastOk.Unix()))
+		}
+		pipelineLastOkMetric.WithLabelValues(pipelineInfo.Pipeline.Name, pipelineInfo.Pipeline.Project.GetName()).SetToCurrentTime()
+		return nil
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 
@@ -1814,6 +1867,9 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
+	}
+	if request.Autoscaling && request.MaximumExpectedUptime == nil {
+		return errors.Errorf("maximum expected up time required when using autoscaling pipelines")
 	}
 	var tolErrs error
 	for i, t := range request.GetTolerations() {
@@ -2328,6 +2384,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Autoscaling:             request.Autoscaling,
 			Tolerations:             request.Tolerations,
 			Determined:              request.Determined,
+			MaximumExpectedUptime:   request.MaximumExpectedUptime,
 		},
 		UserSpecJson:      txn.UserJson,
 		EffectiveSpecJson: txn.EffectiveJson,
@@ -3635,6 +3692,7 @@ func ensurePipelineProject(p *pps.Pipeline) {
 
 // newMessageFilterFunc returns a function that filters out messages that don't satisify either jq filter or projects filter.
 func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+	log.Info(context.Background(), "length of projects is: ", zap.Int("projects_length", len(projects)))
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true

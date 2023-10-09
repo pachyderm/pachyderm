@@ -1,0 +1,42 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CheckStatusRequest",
+    "definitions": {
+        "CheckStatusRequest": {
+            "properties": {
+                "global": {
+                    "type": "boolean"
+                },
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "global"
+                    ]
+                },
+                {
+                    "required": [
+                        "project"
+                    ]
+                }
+            ],
+            "title": "Check Status Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

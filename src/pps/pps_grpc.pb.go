@@ -41,6 +41,7 @@ const (
 	API_StopPipeline_FullMethodName       = "/pps_v2.API/StopPipeline"
 	API_RunPipeline_FullMethodName        = "/pps_v2.API/RunPipeline"
 	API_RunCron_FullMethodName            = "/pps_v2.API/RunCron"
+	API_CheckStatus_FullMethodName        = "/pps_v2.API/CheckStatus"
 	API_CreateSecret_FullMethodName       = "/pps_v2.API/CreateSecret"
 	API_DeleteSecret_FullMethodName       = "/pps_v2.API/DeleteSecret"
 	API_ListSecret_FullMethodName         = "/pps_v2.API/ListSecret"
@@ -85,6 +86,7 @@ type APIClient interface {
 	StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	CheckStatus(ctx context.Context, in *CheckStatusRequest, opts ...grpc.CallOption) (API_CheckStatusClient, error)
 	CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	ListSecret(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*SecretInfos, error)
@@ -441,6 +443,38 @@ func (c *aPIClient) RunCron(ctx context.Context, in *RunCronRequest, opts ...grp
 	return out, nil
 }
 
+func (c *aPIClient) CheckStatus(ctx context.Context, in *CheckStatusRequest, opts ...grpc.CallOption) (API_CheckStatusClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_CheckStatus_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPICheckStatusClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_CheckStatusClient interface {
+	Recv() (*CheckStatusResponse, error)
+	grpc.ClientStream
+}
+
+type aPICheckStatusClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPICheckStatusClient) Recv() (*CheckStatusResponse, error) {
+	m := new(CheckStatusResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_CreateSecret_FullMethodName, in, out, opts...)
@@ -487,7 +521,7 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *emptypb.Empty, opts ...gr
 }
 
 func (c *aPIClient) GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_GetLogs_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_GetLogs_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -564,7 +598,7 @@ func (c *aPIClient) RenderTemplate(ctx context.Context, in *RenderTemplateReques
 }
 
 func (c *aPIClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_ListTask_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_ListTask_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -596,7 +630,7 @@ func (x *aPIListTaskClient) Recv() (*task.TaskInfo, error) {
 }
 
 func (c *aPIClient) GetKubeEvents(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_GetKubeEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_GetKubeEvents_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_GetKubeEvents_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -628,7 +662,7 @@ func (x *aPIGetKubeEventsClient) Recv() (*LokiLogMessage, error) {
 }
 
 func (c *aPIClient) QueryLoki(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_QueryLokiClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_QueryLoki_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_QueryLoki_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -703,6 +737,7 @@ type APIServer interface {
 	StopPipeline(context.Context, *StopPipelineRequest) (*emptypb.Empty, error)
 	RunPipeline(context.Context, *RunPipelineRequest) (*emptypb.Empty, error)
 	RunCron(context.Context, *RunCronRequest) (*emptypb.Empty, error)
+	CheckStatus(*CheckStatusRequest, API_CheckStatusServer) error
 	CreateSecret(context.Context, *CreateSecretRequest) (*emptypb.Empty, error)
 	DeleteSecret(context.Context, *DeleteSecretRequest) (*emptypb.Empty, error)
 	ListSecret(context.Context, *emptypb.Empty) (*SecretInfos, error)
@@ -797,6 +832,9 @@ func (UnimplementedAPIServer) RunPipeline(context.Context, *RunPipelineRequest) 
 }
 func (UnimplementedAPIServer) RunCron(context.Context, *RunCronRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RunCron not implemented")
+}
+func (UnimplementedAPIServer) CheckStatus(*CheckStatusRequest, API_CheckStatusServer) error {
+	return status.Errorf(codes.Unimplemented, "method CheckStatus not implemented")
 }
 func (UnimplementedAPIServer) CreateSecret(context.Context, *CreateSecretRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateSecret not implemented")
@@ -1235,6 +1273,27 @@ func _API_RunCron_Handler(srv interface{}, ctx context.Context, dec func(interfa
 		return srv.(APIServer).RunCron(ctx, req.(*RunCronRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _API_CheckStatus_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(CheckStatusRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).CheckStatus(m, &aPICheckStatusServer{stream})
+}
+
+type API_CheckStatusServer interface {
+	Send(*CheckStatusResponse) error
+	grpc.ServerStream
+}
+
+type aPICheckStatusServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPICheckStatusServer) Send(m *CheckStatusResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _API_CreateSecret_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1678,6 +1737,11 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "ListPipeline",
 			Handler:       _API_ListPipeline_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "CheckStatus",
+			Handler:       _API_CheckStatus_Handler,
 			ServerStreams: true,
 		},
 		{

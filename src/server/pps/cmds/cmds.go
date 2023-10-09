@@ -918,6 +918,57 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	runCron.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the cron pipeline.")
 	commands = append(commands, cmdutil.CreateAlias(runCron, "run cron"))
 
+	checkStatus := &cobra.Command{
+		Use:   "{{alias}}",
+		Short: "Check the status of an existing Pachyderm pipelines within a project.",
+		Long:  "This command checks the status of an existing Pachyderm pipeline withing a project.",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} --project bar \n",
+		Run: cmdutil.RunMinimumArgs(0, func(args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			filter := &pfs.Project{Name: project}
+			if allProjects {
+				filter = nil
+			}
+			defer client.Close()
+			checkStatusClient, err := client.PpsAPIClient.CheckStatus(
+				client.Ctx(),
+				&pps.CheckStatusRequest{
+					Context: &pps.CheckStatusRequest_Project{
+						Project: filter,
+					},
+				},
+			)
+			if err != nil {
+				return errors.Wrapf(err, "error while attempting to check status of project %s", project)
+			}
+			writer := tabwriter.NewWriter(os.Stdout, pretty.CheckStatusHeader)
+			for {
+				res, err := checkStatusClient.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						return nil
+					}
+					return errors.Wrapf(err, "error receiving status for project %s", project)
+				}
+				if raw {
+					return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(res))
+				} else if output != "" {
+					return errors.New("cannot set --output (-o) without --raw")
+				}
+				pretty.PrintCheckStatus(writer, res)
+				writer.Flush()
+			}
+		}),
+	}
+	checkStatus.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the pipeline.")
+	checkStatus.Flags().BoolVar(&raw, "raw", false, "Specify results should only return log messages verbatim from server.")
+	checkStatus.Flags().BoolVarP(&allProjects, "global", "G", false, "Show pipeline status form all projects.")
+	commands = append(commands, cmdutil.CreateAlias(checkStatus, "check status"))
+
 	inspectPipeline := &cobra.Command{
 		Use:   "{{alias}} <pipeline>",
 		Short: "Return info about a pipeline.",

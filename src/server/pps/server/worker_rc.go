@@ -724,7 +724,9 @@ func (kd *kubeDriver) getWorkerOptions(ctx context.Context, pipelineInfo *pps.Pi
 			return nil, errors.Wrapf(err, "could not determine sidecar resource request")
 		}
 	}
-
+	if pipelineInfo.Details.MaximumExpectedUptime.AsDuration() != 0 && !pipelineInfo.Details.Autoscaling {
+		return nil, errors.Errorf("pipeline %s/%s: autoscaling must be true when max_expected_uptime is non-zero", projectName, pipelineName)
+	}
 	transform := pipelineInfo.Details.Transform
 	labels := pipelineLabels(projectName, pipelineName, pipelineVersion)
 	userImage := transform.Image
@@ -1052,6 +1054,7 @@ func (kd *kubeDriver) createWorkerSvcAndRc(ctx context.Context, pipelineInfo *pp
 			},
 		},
 	}
+
 	if _, err := kd.kubeClient.CoreV1().ReplicationControllers(kd.namespace).Create(ctx, rc, metav1.CreateOptions{}); err != nil {
 		if !errutil.IsAlreadyExistError(err) {
 			return errors.EnsureStack(err)

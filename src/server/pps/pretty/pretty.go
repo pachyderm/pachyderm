@@ -7,6 +7,7 @@ import (
 	"io"
 	"strings"
 	"text/template"
+	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
@@ -24,7 +25,7 @@ import (
 
 const (
 	// PipelineHeader is the header for pipelines.
-	PipelineHeader = "PROJECT\tNAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\t\n"
+	PipelineHeader = "PROJECT\tNAME\tVERSION\tINPUT\tCREATED\tSTATE / LAST JOB\tDESCRIPTION\tALERTS\t\n"
 	// JobHeader is the header for jobs
 	JobHeader = "PROJECT\tPIPELINE\tID\tSTARTED\tDURATION\tRESTART\tPROGRESS\tDL\tUL\tSTATE\t\n"
 	// JobSetHeader is the header for jobsets
@@ -37,6 +38,8 @@ const (
 	jobReasonLen = 25
 	// KubeEventsHeader is the header for kubernetes events
 	KubeEventsHeader = "LAST SEEN\tTYPE\tREASON\tOBJECT\tMESSAGE\t\n"
+	// CheckStatusHeader is the header for pipeline check statuse calls
+	CheckStatusHeader = "PROJECT\tPIPELINE\tALERT\t\n"
 )
 
 func safeTrim(s string, l int) string {
@@ -206,7 +209,21 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Details.Description)
 	}
+	zero := &timestamppb.Timestamp{}
+	if pipelineInfo.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
+		time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
+		fmt.Fprintf(w, "%s\t", "*")
+	}
 	fmt.Fprintln(w)
+}
+
+func PrintCheckStatus(w io.Writer, checkSatusResponse *ppsclient.CheckStatusResponse) {
+	for _, alert := range checkSatusResponse.Alerts {
+		fmt.Fprintf(w, "%s\t", checkSatusResponse.GetProject())
+		fmt.Fprintf(w, "%s\t", checkSatusResponse.GetPipeline())
+		fmt.Fprintf(w, "%s\t", alert)
+		fmt.Fprintln(w)
+	}
 }
 
 // PrintWorkerStatusHeader pretty prints a worker status header.

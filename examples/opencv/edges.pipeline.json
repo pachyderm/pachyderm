@@ -9,6 +9,7 @@
       "repo": "images"
     }
   },
+  "autoscaling": true,
   "transform": {
     "cmd": ["python3", "/edges.py"],
     "image": "pachyderm/opencv:1.0"

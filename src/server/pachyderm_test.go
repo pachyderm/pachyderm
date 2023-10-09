@@ -3155,6 +3155,107 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	flushJob(numCommits)
 }
 
+func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+	dataRepo := tu.UniqueString("TestPipelineCheckStatusExceededExpectedDuration_data")
+	c = tu.AuthenticatedPachClient(t, c, "pachtest")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	pipeline := tu.UniqueString("pipeline")
+	createPipeline := func() {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"sleep infinity"},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Autoscaling:           true,
+				Input:                 client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Update:                true,
+				MaximumExpectedUptime: durationpb.New(time.Millisecond * 1),
+			})
+		require.NoError(t, err)
+	}
+	createPipeline()
+	flushJob := func(commitNum int) {
+		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	}
+	// Create a new job that should succeed (both output and stats commits should be finished normally).
+	flushJob(1)
+	time.Sleep(10 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		require.NoError(t, err)
+		for {
+			res, err := checkStatusClient.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+			}
+			require.NoError(t, err)
+			require.NotNil(t, res)
+			require.Len(t, res.GetAlerts(), 1)
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*200)))
+
+	deletePipeline := func(project, pipeline string) {
+		require.NoError(t, c.DeletePipeline(project, pipeline, false))
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := c.InspectPipeline(project, pipeline, false)
+			if err == nil {
+				return errors.Errorf("expected pipeline to be missing, but it's still present")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+	}
+
+	deletePipeline(pfs.DefaultProjectName, pipeline)
+	time.Sleep(10 * time.Second)
+	require.NoError(t, backoff.Retry(func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		require.NoError(t, err)
+		for {
+			_, err := checkStatusClient.Recv()
+			//expect EOF as nothing should be returned
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+			}
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*200)))
+}
+
 func TestUpdateFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
