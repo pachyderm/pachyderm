@@ -87,9 +87,12 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
+            # These split by package, so it's not really even. 
+            # It also doesn't seem like circle picks up the test timings so that's not great.
             go list ./... | circleci tests run --command \
             "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            xargs gotestsum \
+            xargs -ITEST_PACKAGES gotestsum \
+            --packages='TEST_PACKAGES'
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --rerun-fails \
