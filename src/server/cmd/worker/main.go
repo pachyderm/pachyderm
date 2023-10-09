@@ -93,14 +93,15 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
 	debugSrv := debugserver.NewDebugServer(debugserver.Env{
-		DB:            env.GetDBClient(),
-		SidecarClient: pachClient,
-		GetLokiClient: env.GetLokiClient,
-		Name:          env.Config().PodName,
-		GetPachClient: pachClient.WithCtx,
-		GetKubeClient: env.GetKubeClient,
-		Config:        *env.Config(),
-		TaskService:   env.GetTaskService("debug"),
+		DB:                   env.GetDBClient(),
+		SidecarClient:        pachClient,
+		GetLokiClient:        env.GetLokiClient,
+		Name:                 env.Config().PodName,
+		GetPachClient:        pachClient.WithCtx,
+		GetKubeClient:        env.GetKubeClient,
+		GetDynamicKubeClient: env.GetDynamicKubeClient,
+		Config:               *env.Config(),
+		TaskService:          env.GetTaskService("debug"),
 	})
 	debugclient.RegisterDebugServer(server.Server, debugSrv)
 

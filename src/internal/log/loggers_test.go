@@ -27,6 +27,10 @@ func TestInit(t *testing.T) {
 		true,
 		nil,
 	)
+	t.Cleanup(func() {
+		zap.ReplaceGlobals(zap.NewNop())
+	})
+
 	if got, want := buf.String(), ""; got != want {
 		t.Errorf("unexpected log messages: %s", got)
 	}
@@ -133,6 +137,9 @@ func TestWarnings(t *testing.T) {
 		false,
 		nil,
 	)
+	t.Cleanup(func() {
+		zap.ReplaceGlobals(zap.NewNop())
+	})
 	if got, want := buf.String(), `"this is an init warning"`; !strings.Contains(got, want) {
 		t.Errorf("init:\n  got: %v\n want: /%v/", got, want)
 	}

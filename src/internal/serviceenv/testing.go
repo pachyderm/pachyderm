@@ -19,6 +19,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	etcd "go.etcd.io/etcd/client/v3"
 	"golang.org/x/sync/errgroup"
+	"k8s.io/client-go/dynamic"
 	kube "k8s.io/client-go/kubernetes"
 )
 
@@ -29,6 +30,7 @@ type TestServiceEnv struct {
 	PachClient               *client.APIClient
 	EtcdClient               *etcd.Client
 	KubeClient               kube.Interface
+	DynamicKubeClient        dynamic.Interface
 	LokiClient               *loki.Client
 	DBClient, DirectDBClient *pachsql.DB
 	PostgresListener         col.PostgresListener
@@ -72,6 +74,9 @@ func (s *TestServiceEnv) GetTaskService(prefix string) task.Service {
 }
 func (s *TestServiceEnv) GetKubeClient() kube.Interface {
 	return s.KubeClient
+}
+func (s *TestServiceEnv) GetDynamicKubeClient() dynamic.Interface {
+	return s.DynamicKubeClient
 }
 func (s *TestServiceEnv) GetLokiClient() (*loki.Client, error) {
 	return s.LokiClient, nil
@@ -171,6 +176,11 @@ func (env *TestServiceEnv) SetEnterpriseServer(s enterprise_server.APIServer) {
 // SetKubeClient can be used to override the kubeclient in testing.
 func (env *TestServiceEnv) SetKubeClient(s kube.Interface) {
 	env.KubeClient = s
+}
+
+// SetDynamicKubeClient can be used to override the dynamic kubeclient in testing.
+func (env *TestServiceEnv) SetDynamicKubeClient(s dynamic.Interface) {
+	env.DynamicKubeClient = s
 }
 
 // InitDexDB implements the ServiceEnv interface.

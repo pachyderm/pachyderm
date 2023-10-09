@@ -31,10 +31,12 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	describe "k8s.io/kubectl/pkg/describe"
 
@@ -51,6 +53,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	workerserver "github.com/pachyderm/pachyderm/v2/src/server/worker/server"
 )
 
@@ -64,13 +67,14 @@ const (
 )
 
 type Env struct {
-	DB            *pachsql.DB
-	SidecarClient *client.APIClient
-	Name          string
-	GetLokiClient func() (*loki.Client, error)
-	GetKubeClient func() kubernetes.Interface
-	Config        pachconfig.Configuration
-	TaskService   task.Service
+	DB                   *pachsql.DB
+	SidecarClient        *client.APIClient
+	Name                 string
+	GetLokiClient        func() (*loki.Client, error)
+	GetKubeClient        func() kubernetes.Interface
+	GetDynamicKubeClient func() dynamic.Interface
+	Config               pachconfig.Configuration
+	TaskService          task.Service
 
 	GetPachClient func(context.Context) *client.APIClient
 }
@@ -124,6 +128,15 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			pachApps = append(pachApps, app)
 		}
 	}
+	var scripts []*debug.Starlark
+	for _, name := range maps.Keys(debugstar.BuiltinScripts) {
+		scripts = append(scripts, &debug.Starlark{
+			Source: &debug.Starlark_Builtin{
+				Builtin: name,
+			},
+			Timeout: durationpb.New(time.Minute),
+		})
+	}
 	return &debug.GetDumpV2TemplateResponse{
 		Request: &debug.DumpV2Request{
 			System: &debug.System{
@@ -140,6 +153,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			Defaults: &debug.DumpV2Request_Defaults{
 				ClusterDefaults: true,
 			},
+			StarlarkScripts: scripts,
 		},
 	}, nil
 }
@@ -321,6 +335,12 @@ func (s *debugServer) makeTasks(ctx context.Context, request *debug.DumpV2Reques
 		ts = append(ts, func(ctx context.Context, dfs DumpFS) error {
 			return s.collectDefaults(ctx, dfs.WithPrefix(defaultsPrefix), server, rp)
 		})
+	}
+	if sls := request.GetStarlarkScripts(); len(sls) > 0 {
+		rp := recordProgress(server, "starlark", len(sls))
+		for _, sl := range sls {
+			ts = append(ts, s.makeStarlarkScriptTask(sl, rp))
+		}
 	}
 	return ts
 }
@@ -1505,4 +1525,43 @@ func (s *debugServer) collectDefaults(ctx context.Context, dfs DumpFS, server de
 		return errors.Wrap(err, "write cluster-defaults.json")
 	}
 	return nil
+}
+
+func (s *debugServer) makeStarlarkScriptTask(st *debug.Starlark, rp incProgressFunc) taskFunc {
+	var name, script string
+	switch st.GetSource().(type) {
+	case *debug.Starlark_Builtin:
+		name = st.GetBuiltin()
+		var ok bool
+		script, ok = debugstar.BuiltinScripts[name]
+		if !ok {
+			return func(ctx context.Context, dfs DumpFS) error {
+				return errors.Errorf("no builtin script %q", name)
+			}
+		}
+	case *debug.Starlark_Literal:
+		name = st.GetLiteral().GetName()
+		script = st.GetLiteral().GetProgramText()
+	}
+	return func(rctx context.Context, dfs DumpFS) error {
+		defer rp(rctx) // report progress even if timeout is exceeded
+
+		timeout := time.Minute
+		if t := st.GetTimeout().AsDuration(); t > 0 {
+			timeout = t
+		}
+		ctx, c := context.WithTimeout(rctx, timeout)
+		defer c()
+
+		env := debugstar.Env{
+			FS:                  dfs.WithPrefix(name),
+			Kubernetes:          s.env.GetKubeClient(),
+			KubernetesDynamic:   s.env.GetDynamicKubeClient(),
+			KubernetesNamespace: s.env.Config.Namespace,
+		}
+		if err := env.RunStarlark(ctx, name, script); err != nil {
+			return errors.Wrapf(err, "starlark script %q", name)
+		}
+		return nil
+	}
 }
