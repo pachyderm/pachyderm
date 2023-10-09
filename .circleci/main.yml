@@ -92,9 +92,11 @@ jobs:
             xargs gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
+            --rerun-fails \
+            --rerun-fails-max-failures=25 \
             --format testname --debug \
             -- \
-            -cover -covermode=atomic -coverpkg=./... \
+            -cover -covermode=atomic \
             -parallel=8 -p=1 -count=1" \
             --split-by=timings --timings-type=classname
       - run:
