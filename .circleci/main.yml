@@ -93,8 +93,8 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            echo "*** Tests found: "
-            cat tests_unit.txt 
+            echo "*** Tests raw: "
+            echo $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname)
             echo "*** packages found: "
             packages=( $(go list ./... | circleci tests split --split-by=timings --timings-type=classname) )
             echo "${packages[@]}"
