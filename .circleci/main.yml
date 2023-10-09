@@ -95,7 +95,7 @@ jobs:
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --format testname --debug \
             -- \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
             -parallel=8 -p=1 -count=1" \
             --split-by=timings --timings-type=name
       - run:
