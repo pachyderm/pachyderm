@@ -102,23 +102,17 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
+            go list ./... | circleci tests run --command "xargs \
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            go list ./... | circleci tests run --command "xargs gotestsum \
+            gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            --format testname --debug -- -parallel=8 -p=1 -count=1" --split-by=timings --timings-type=name
-            # gotestsum \
-            # --raw-command \
-            # --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            # --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            # --debug \
-            # -- \
-            # go test ./... -json -v \
-            # -run "^${tests// /$|^}$" \
-            # -p=1 \
-            # -parallel=8 \
-            # -count=1 \
-            # -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            --format testname --debug \
+            -- \
+            -parallel=8 -p=1 -count=1 \
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./..." \
+            --split-by=timings --timings-type=name
+
       - run:
           name: Format code coverage
           when: always
