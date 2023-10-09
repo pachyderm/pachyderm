@@ -92,7 +92,7 @@ jobs:
             go list ./... | circleci tests run --command \
             "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             xargs -ITEST_PACKAGES gotestsum \
-            --packages='TEST_PACKAGES'
+            --packages='TEST_PACKAGES' \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --rerun-fails \
