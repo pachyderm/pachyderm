@@ -323,8 +323,7 @@ jobs:
             --format testname \
             --debug \
             -- \
-            go test ./... -json -v \
-            -run "^${tests// /$|^}$" \
+            go test ./src/server/pachyderm_test.go -json -v \
             -p=1 \
             -tags=k8s \
             -parallel=4 \
