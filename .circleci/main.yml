@@ -106,7 +106,7 @@ jobs:
             go list ./... | circleci tests run --command "xargs gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            --format testname -- -parallel=8 -p=1 -count=1" --split-by=timings --timings-type=name
+            --format testname --debug -- -parallel=8 -p=1 -count=1" --split-by=timings --timings-type=name
             # gotestsum \
             # --raw-command \
             # --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
