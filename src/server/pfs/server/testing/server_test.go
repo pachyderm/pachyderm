@@ -1523,7 +1523,6 @@ func TestPFS(suite *testing.T) {
 		require.True(t, finished.Before(tFinished))
 	})
 
-	//todo(fahad): fix
 	suite.Run("InspectCommitWait", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -3648,7 +3647,6 @@ func TestPFS(suite *testing.T) {
 
 	// WaitCommitSet2 implements the following DAG:
 	// A ─▶ B ─▶ C ─▶ D
-	// todo(fahad): fix
 	suite.Run("WaitCommitSet2", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
@@ -3754,7 +3752,6 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, commit, commitInfos[0].Commit)
 	})
 
-	// todo(fahad): fix
 	suite.Run("WaitOpenCommit", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
