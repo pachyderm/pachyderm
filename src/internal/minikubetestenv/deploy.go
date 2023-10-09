@@ -66,7 +66,10 @@ var (
 )
 
 type DeployOpts struct {
-	Version            string
+	Version string
+	// Necessarry to enable auth and activate enterprise.
+	// EnterpriseServer and EnterpriseMember can be used
+	// without this flag to test manual enterprise/auth activation.
 	Enterprise         bool
 	Console            bool
 	AuthUser           string
