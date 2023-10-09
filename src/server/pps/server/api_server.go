@@ -3754,7 +3754,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	_, effectiveDefaults, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
 	if err != nil {
 		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
