@@ -315,6 +315,9 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
+            echo "*** packages found: "
+            packages=$(go list ./... | circleci tests split --split-by=timings --timings-type=classname)
+            echo "${packages}"
             
             gotestsum \
             --raw-command \
@@ -323,8 +326,7 @@ jobs:
             --format testname \
             --debug \
             -- \
-            go test ./... -json -v \
-            -run "^${tests// /$|^}$" \
+            go test ${packages} -json -v \
             -p=1 \
             -tags=k8s \
             -parallel=4 \
