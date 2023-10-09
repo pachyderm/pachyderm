@@ -103,18 +103,22 @@ jobs:
             echo "Running tests: "
             echo "${tests}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            gotestsum \
-            --raw-command \
+            go list ./... | circleci tests run --command "xargs gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --debug \
-            -- \
-            go test ./... -json -v \
-            -run "^${tests// /$|^}$" \
-            -p=1 \
-            -parallel=8 \
-            -count=1 \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
+            --format testname -- -parallel=8 -p=1 -count=1" --split-by=timings --timings-type=name
+            # gotestsum \
+            # --raw-command \
+            # --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            # --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
+            # --debug \
+            # -- \
+            # go test ./... -json -v \
+            # -run "^${tests// /$|^}$" \
+            # -p=1 \
+            # -parallel=8 \
+            # -count=1 \
+            # -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
           name: Format code coverage
           when: always
@@ -323,7 +327,8 @@ jobs:
             --format testname \
             --debug \
             -- \
-            go test ./src/server/pachyderm_test.go -json -v \
+            go test ./... -json -v \
+            -run "^${tests// /$|^}$" \
             -p=1 \
             -tags=k8s \
             -parallel=4 \
