@@ -134,17 +134,62 @@ class System(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class StarlarkLiteral(betterproto.Message):
+    """StarlarkLiteral is a custom Starlark script."""
+
+    name: str = betterproto.string_field(1)
+    """
+    The name of the script; used for debug messages and to control where the
+    output goes.
+    """
+
+    program_text: str = betterproto.string_field(2)
+    """The text of the "debugdump" personality Starlark program."""
+
+
+@dataclass(eq=False, repr=False)
+class Starlark(betterproto.Message):
+    """Starlark controls the running of a Starlark script."""
+
+    builtin: str = betterproto.string_field(1, group="source")
+    """One built into the pachd binary."""
+
+    literal: "StarlarkLiteral" = betterproto.message_field(2, group="source")
+    """Or a script supplied in this request."""
+
+    timeout: timedelta = betterproto.message_field(3)
+    """
+    How long to allow the script to run for.  If unset, defaults to 1 minute.
+    """
+
+
+@dataclass(eq=False, repr=False)
 class DumpV2Request(betterproto.Message):
     system: "System" = betterproto.message_field(1)
+    """Which system-level information to include in the debug dump."""
+
     pipelines: List["Pipeline"] = betterproto.message_field(2)
+    """
+    Which pipelines to fetch information about and include in the debug dump.
+    """
+
     input_repos: bool = betterproto.bool_field(3)
+    """If true, fetch information about non-output repos."""
+
     timeout: timedelta = betterproto.message_field(4)
+    """How long to run the dump for."""
+
     defaults: "DumpV2RequestDefaults" = betterproto.message_field(5)
+    """Which defaults to include in the debug dump."""
+
+    starlark_scripts: List["Starlark"] = betterproto.message_field(6)
+    """A list of Starlark scripts to run."""
 
 
 @dataclass(eq=False, repr=False)
 class DumpV2RequestDefaults(betterproto.Message):
     cluster_defaults: bool = betterproto.bool_field(1)
+    """If true, include the cluster defaults."""
 
 
 @dataclass(eq=False, repr=False)
@@ -293,9 +338,11 @@ class DebugStub:
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
         timeout: timedelta = None,
-        defaults: "DumpV2RequestDefaults" = None
+        defaults: "DumpV2RequestDefaults" = None,
+        starlark_scripts: Optional[List["Starlark"]] = None
     ) -> Iterator["DumpChunk"]:
         pipelines = pipelines or []
+        starlark_scripts = starlark_scripts or []
 
         request = DumpV2Request()
         if system is not None:
@@ -307,6 +354,8 @@ class DebugStub:
             request.timeout = timeout
         if defaults is not None:
             request.defaults = defaults
+        if starlark_scripts is not None:
+            request.starlark_scripts = starlark_scripts
 
         for response in self.__rpc_dump_v2(request):
             yield response
@@ -382,6 +431,7 @@ class DebugBase:
         input_repos: bool,
         timeout: timedelta,
         defaults: "DumpV2RequestDefaults",
+        starlark_scripts: Optional[List["Starlark"]],
         context: "grpc.ServicerContext",
     ) -> Iterator["DumpChunk"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

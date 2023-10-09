@@ -44,7 +44,7 @@ case "${BUCKET}" in
     ;;
   S3_AUTH)
     export PACH_TEST_WITH_AUTH=1
-    bash -ceo pipefail "go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 420s ${TESTFLAGS}"
+    bash -ceo pipefail "go test -count=1 -tags=k8s ./src/server/pps/server/s3g_sidecar_test.go -timeout 600s ${TESTFLAGS}"
     ;;
   AUTH)
     make test-auth

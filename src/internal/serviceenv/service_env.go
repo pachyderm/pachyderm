@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"k8s.io/client-go/dynamic"
 	kube "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -61,12 +62,14 @@ type ServiceEnv interface {
 	SetPpsServer(pps_server.APIServer)
 	SetEnterpriseServer(enterprise_server.APIServer)
 	SetKubeClient(kube.Interface)
+	SetDynamicKubeClient(dynamic.Interface)
 
 	Config() *pachconfig.Configuration
 	GetPachClient(ctx context.Context) *client.APIClient
 	GetEtcdClient() *etcd.Client
 	GetTaskService(string) task.Service
 	GetKubeClient() kube.Interface
+	GetDynamicKubeClient() dynamic.Interface
 	GetLokiClient() (*loki.Client, error)
 	GetDBClient() *pachsql.DB
 	GetDirectDBClient() *pachsql.DB
@@ -106,7 +109,8 @@ type NonblockingServiceEnv struct {
 
 	// kubeClient is a kubernetes client that, if initialized, is shared by all
 	// users of this environment
-	kubeClient kube.Interface
+	kubeClient        kube.Interface
+	dynamicKubeClient dynamic.Interface
 	// kubeEg coordinates the initialization of kubeClient (see pachdEg)
 	kubeEg errgroup.Group
 
@@ -330,6 +334,10 @@ func (env *NonblockingServiceEnv) initKubeClient(ctx context.Context) error {
 		if err != nil {
 			return errors.Wrapf(err, "could not initialize kube client")
 		}
+		env.dynamicKubeClient, err = dynamic.NewForConfig(cfg)
+		if err != nil {
+			return errors.Wrapf(err, "could not initialize dynamic kube client")
+		}
 		return nil
 	}, backoff.RetryEvery(time.Second).For(5*time.Minute))
 }
@@ -472,9 +480,21 @@ func (env *NonblockingServiceEnv) GetKubeClient() kube.Interface {
 		panic(err) // If env can't connect, there's no sensible way to recover
 	}
 	if env.kubeClient == nil {
-		panic("service env never connected to kubernetes")
+		panic("service env never connected to kubernetes (static)")
 	}
 	return env.kubeClient
+}
+
+// GetDynamicKubeClient returns the already connected Kubernetes API client without
+// modification.
+func (env *NonblockingServiceEnv) GetDynamicKubeClient() dynamic.Interface {
+	if err := env.kubeEg.Wait(); err != nil {
+		panic(err) // If env can't connect, there's no sensible way to recover
+	}
+	if env.dynamicKubeClient == nil {
+		panic("service env never connected to kubernetes (dynamic)")
+	}
+	return env.dynamicKubeClient
 }
 
 // GetLokiClient returns the loki client, it doesn't require blocking on a
@@ -609,4 +629,9 @@ func (env *NonblockingServiceEnv) SetEnterpriseServer(s enterprise_server.APISer
 // SetKubeClient can be used to override the kubeclient in testing.
 func (env *NonblockingServiceEnv) SetKubeClient(s kube.Interface) {
 	env.kubeClient = s
+}
+
+// SetDynamicKubeClient can be used to override the dynamic kubeclient in testing.
+func (env *NonblockingServiceEnv) SetDynamicKubeClient(s dynamic.Interface) {
+	env.dynamicKubeClient = s
 }

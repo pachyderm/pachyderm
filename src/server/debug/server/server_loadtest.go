@@ -68,7 +68,7 @@ func (a *debugServer) runLoadTest(pachClient *client.APIClient, taskService task
 	if err := protojson.Unmarshal(jsonBytes, spec); err != nil {
 		return "", errors.Wrap(err, "unmarshal CommitSpec")
 	}
-	return pfsload.Commit(pachClient, taskService, branch, spec, seed, stateID)
+	return pfsload.Commit(pachClient.Ctx(), pachClient.PfsAPIClient, taskService, branch, spec, seed, stateID)
 }
 
 func (a *debugServer) RunPFSLoadTestDefault(ctx context.Context, _ *emptypb.Empty) (resp *debug.RunPFSLoadTestResponse, retErr error) {
