@@ -23,7 +23,9 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Activate the license server with an activation code",
-		Long:  "Activate the license server with an activation code",
+		Long:  "This command activates Enterprise Server with an activation code.",
+		Example: "\t- {{alias}}\n" +
+			"\t- {{alias}} --no-register\n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			key, err := cmdutil.ReadPassword("Enterprise key: ")
 			if err != nil {
@@ -88,8 +90,9 @@ func ActivateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command
 func AddClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id, address, secret string
 	addCluster := &cobra.Command{
-		Short: "Register a new cluster with the license server.",
-		Long:  "Register a new cluster with the license server.",
+		Short:   "Register a new cluster with the license server.",
+		Long:    "This command registers a new cluster with Enterprise Server.",
+		Example: "\t- {{alias}} --id=my-cluster --address=grpc://my-cluster:1653 --secret=secret\n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -111,9 +114,9 @@ func AddClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comma
 			return nil
 		}),
 	}
-	addCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to register`)
-	addCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached`)
-	addCluster.PersistentFlags().StringVar(&secret, "secret", "", `The shared secret to use to authenticate this cluster`)
+	addCluster.PersistentFlags().StringVar(&id, "id", "", `Set the ID for the cluster to register.`)
+	addCluster.PersistentFlags().StringVar(&address, "address", "", `Set the host and port where the cluster can be reached.`)
+	addCluster.PersistentFlags().StringVar(&secret, "secret", "", `Set the shared secret to use to authenticate this cluster.`)
 	return cmdutil.CreateAlias(addCluster, "license add-cluster")
 }
 
@@ -122,7 +125,10 @@ func UpdateClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 	var id, address, userAddress, clusterDeploymentId string
 	updateCluster := &cobra.Command{
 		Short: "Update an existing cluster registered with the license server.",
-		Long:  "Update an existing cluster registered with the license server.",
+		Long:  "This command updates an existing cluster registered with Enterprise Server.",
+		Example: "\t- {{alias}} --id=my-cluster --address=grpc://my-cluster:1653 \n" +
+			"\t- {{alias}} --id=my-cluster --user-address=grpc://my-cluster:1653\n" +
+			"\t- {{alias}} --id=my-cluster --cluster-deployment-id=1234\n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -139,10 +145,10 @@ func UpdateClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	updateCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to update`)
-	updateCluster.PersistentFlags().StringVar(&address, "address", "", `The host and port where the cluster can be reached by the enterprise server`)
-	updateCluster.PersistentFlags().StringVar(&userAddress, "user-address", "", `The host and port where the cluster can be reached by a user`)
-	updateCluster.PersistentFlags().StringVar(&clusterDeploymentId, "cluster-deployment-id", "", `The deployment id of the updated cluster`)
+	updateCluster.PersistentFlags().StringVar(&id, "id", "", `Set the ID for the cluster to update.`)
+	updateCluster.PersistentFlags().StringVar(&address, "address", "", `Set the host and port where the cluster can be reached by the enterprise server.`)
+	updateCluster.PersistentFlags().StringVar(&userAddress, "user-address", "", `Set the host and port where the cluster can be reached by a user.`)
+	updateCluster.PersistentFlags().StringVar(&clusterDeploymentId, "cluster-deployment-id", "", `Set the deployment ID of the updated cluster.`)
 	return cmdutil.CreateAlias(updateCluster, "license update-cluster")
 }
 
@@ -150,8 +156,9 @@ func UpdateClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 func DeleteClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	var id string
 	deleteCluster := &cobra.Command{
-		Short: "Delete a cluster registered with the license server.",
-		Long:  "Delete a cluster registered with the license server.",
+		Short:   "Delete a cluster registered with the license server.",
+		Long:    "This command deletes a cluster registered with Enterprise Server.",
+		Example: "\t- {{alias}} --id=my-cluster\n",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -165,7 +172,7 @@ func DeleteClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
-	deleteCluster.PersistentFlags().StringVar(&id, "id", "", `The id for the cluster to delete`)
+	deleteCluster.PersistentFlags().StringVar(&id, "id", "", `Set the ID for the cluster to delete.`)
 	return cmdutil.CreateAlias(deleteCluster, "license delete-cluster")
 }
 
@@ -173,7 +180,7 @@ func DeleteClusterCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Co
 func ListClustersCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	listClusters := &cobra.Command{
 		Short: "List clusters registered with the license server.",
-		Long:  "List clusters registered with the license server.",
+		Long:  "This command lists clusters registered with Enterprise Server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -202,7 +209,7 @@ func DeleteAllCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 	activate := &cobra.Command{
 		Use:   "{{alias}}",
 		Short: "Delete all data from the license server",
-		Long:  "Delete all data from the license server",
+		Long:  "This command deletes all data from Enterprise Server.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -225,7 +232,7 @@ func DeleteAllCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Comman
 func GetStateCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Get the configuration of the license service.",
-		Long:  "Get the configuration of the license service.",
+		Long:  "This command returns the configuration of the Enterprise Server.",
 		Run: cmdutil.Run(func(args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
