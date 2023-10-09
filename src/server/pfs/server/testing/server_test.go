@@ -4992,7 +4992,6 @@ func TestPFS(suite *testing.T) {
 		require.ImagesEqual(t, []*pfs.Commit{cCommit2.Commit}, cCommit1.ChildCommits, CommitToID)
 	})
 
-	// todo(fahad): fix
 	suite.Run("StartCommitFork", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)

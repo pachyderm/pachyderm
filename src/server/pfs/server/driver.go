@@ -814,7 +814,7 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
 	}
-	child.ParentCommit = parent
+	child.ParentCommit = parentCommitInfo.Commit
 	return nil
 }
 
