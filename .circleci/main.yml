@@ -102,9 +102,8 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
-            go list ./... | circleci tests run --command "xargs \
-            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            gotestsum \
+            go list ./... | circleci tests run --command "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            xargs gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --format testname --debug \
