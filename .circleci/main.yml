@@ -87,15 +87,6 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            echo "*** Tests raw: "
-            echo $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname)
-            echo "*** packages found: "
-            packages=( $(go list ./... | circleci tests split --split-by=timings --timings-type=classname) )
-            echo "${packages[@]}"
-            tests=( $(cat tests_unit.txt | circleci tests split --split-by=timings --timings-type=testname) )
-            tests="${tests[@]}"
-            echo "Running tests: "
-            echo "${tests}"
             go list ./... | circleci tests run --command "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             xargs gotestsum \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
