@@ -341,7 +341,7 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 	if err := protojson.Unmarshal([]byte(wrappedSpecJSON), &effectiveWrapper); err != nil {
 		return "", nil, errors.Wrapf(err, "could not unmarshal effective spec %s", wrappedSpecJSON)
 	}
-	if err := validateSpec(effectiveWrapper.CreatePipelineRequest); err != nil {
+	if err := staticallyValidate(effectiveWrapper.CreatePipelineRequest); err != nil {
 		return "", nil, errors.Wrapf(err, "invalid effective spec %s", string(effectiveSpecJSON))
 	}
 	return string(effectiveSpecJSON), effectiveWrapper.CreatePipelineRequest, nil
@@ -353,7 +353,7 @@ func unmarshalJSON(s string, v any) error {
 	return errors.Wrapf(d.Decode(v), "could not unmarshal %q as JSON", s)
 }
 
-func validateSpec(req *pps.CreatePipelineRequest) error {
+func staticallyValidate(req *pps.CreatePipelineRequest) error {
 	// TODO(msteffen) eventually TFJob and Transform will be alternatives, but
 	// currently TFJob isn't supported
 	if req.TfJob != nil {
