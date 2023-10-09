@@ -84,12 +84,6 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
-      - run: 
-          name: collect test names
-          background: false # DNJ TODO - need to make sure we wait for this
-          command: |- 
-            go build -o=test-split src/testing/cmds/test-splitting/main.go
-            ./test-split
       - run:
           no_output_timeout: 20m
           command: |-
@@ -107,10 +101,9 @@ jobs:
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --format testname --debug \
-            -- \ \
+            -- \
             -parallel=8 -p=1 -count=1" \
             --split-by=timings --timings-type=name
-
       - run:
           name: Format code coverage
           when: always
