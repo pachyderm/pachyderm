@@ -49,6 +49,7 @@ class MountServerClient(MountInterface):
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
         if DET_RESOURCES_TYPE == SLURM_JOB:
+            get_logger().debug("Inferring non privileged container for launcher/MLDE...")
             self.nopriv = 1
 
     async def _is_mount_server_running(self):
