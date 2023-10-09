@@ -103,18 +103,18 @@ jobs:
             echo "Running tests: "
             echo "${tests}"
             CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            go list ./... | circleci tests run --command "gotestsum \
+            gotestsum \
             --raw-command \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
             --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
             --debug \
             -- \
-            go test -json -v \
+            go test ./... -json -v \
+            -run "^${tests// /$|^}$" \
             -p=1 \
             -parallel=8 \
             -count=1 \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./..." \
-            --split-by=timings --timings-type=testname
+            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
           name: Format code coverage
           when: always
