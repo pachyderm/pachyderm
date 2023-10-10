@@ -303,7 +303,7 @@ jobs:
             # echo "Running tests: "
             # echo "${tests}"
             go list ./... | circleci tests run --command \
-            "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS \
             xargs -ITEST_PACKAGES gotestsum \
             --packages='TEST_PACKAGES' \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
