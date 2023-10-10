@@ -76,6 +76,7 @@ require (
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.8.2
+	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	github.com/uber/jaeger-client-go v2.28.0+incompatible
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wader/readline v0.0.0-20230307172220-bcb7158e7448
