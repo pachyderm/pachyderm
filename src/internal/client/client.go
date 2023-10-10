@@ -580,9 +580,9 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	}
 	// if PACH_ID_TOKEN exists in env, try to produce a session token from it if one does not exist
 	if idToken := os.Getenv("PACH_ID_TOKEN"); idToken != "" && context.SessionToken == "" {
-		if r, err := client.Authenticate(pctx.TODO(), &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
+		if r, err := client.Authenticate(ctx, &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
 			if !auth.IsErrNotActivated(err) {
-				log.Error(pctx.TODO(), "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
+				log.Error(ctx, "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
 			}
 		} else {
 			context.SessionToken = r.PachToken
