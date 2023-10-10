@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
+	"google.golang.org/grpc"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"

@@ -56,7 +56,7 @@ func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Co
 	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
 	// GRPC gateway.
-  client := pachClientFactory(ctx)
+	client := pachClientFactory(ctx)
 	gwmux := restgateway.NewMux(ctx, client.ClientConn())
 	if gwmux == nil {
 		log.Error(ctx, "failed to register rest api handlers with grpc-gateway")

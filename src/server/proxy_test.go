@@ -192,6 +192,8 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 			url := httpPrefix + addr + "/api" + "/versionpb_v2.API/GetVersion"
 			return post(t, httpClient, url)
+		})
+	})
 
 	// Test PFS download.
 	t.Run("TestHttpDownload", func(t *testing.T) {
