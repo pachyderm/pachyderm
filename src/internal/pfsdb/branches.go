@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"strings"
@@ -234,6 +235,9 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	if branchInfo.Head.Id == "" {
 		return 0, errors.Errorf("head commit required")
+	}
+	if uuid.IsUUIDWithoutDashes(branchInfo.Branch.Name) {
+		return 0, errors.Errorf("branch name cannot be a UUID V4")
 	}
 	var branchID BranchID
 	// TODO stop matching on pfs.commits.commit_id, because that will eventually be deprecated.
