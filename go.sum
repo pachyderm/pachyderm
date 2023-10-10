@@ -1880,6 +1880,8 @@ github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6 h1:
 github.com/texttheater/golang-levenshtein v0.0.0-20191208221605-eb6844b05fc6/go.mod h1:XDKHRm5ThF8YJjx001LtgelzsoaEcvnA7lVWz9EeX3g=
 github.com/tidwall/pretty v1.0.0/go.mod h1:XNkn88O1ChpSDQmQeStsy+sBenx6DDtFZJxhVysOjyk=
 github.com/tilinna/clock v1.0.2/go.mod h1:ZsP7BcY7sEEz7ktc0IVy8Us6boDrK8VradlKRUGfOao=
+github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09 h1:QVxbx5l/0pzciWYOynixQMtUhPYC3YKD6EcUlOsgGqw=
+github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09/go.mod h1:Uy/Rnv5WKuOO+PuDhuYLEpUiiKIZtss3z519uk67aF0=
 github.com/tinylib/msgp v1.1.2/go.mod h1:+d+yLhGm8mzTaHzB+wgMYrodPfmZrzkirds8fDWklFE=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=

@@ -149,6 +149,16 @@
       },
       {
         match: {
+          prefix: '/pfs',
+        },
+        route: {
+          cluster: 'pachd-http',
+          idle_timeout: '600s',
+          timeout: '604800s',
+        },
+      },
+      {
+        match: {
           prefix: '/api/',
         },
         route: {

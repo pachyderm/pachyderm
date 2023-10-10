@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -191,6 +192,11 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
 			url := httpPrefix + addr + "/api" + "/versionpb_v2.API/GetVersion"
 			return post(t, httpClient, url)
+
+	// Test PFS download.
+	t.Run("TestHttpDownload", func(t *testing.T) {
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			return get(t, httpClient, strings.Join([]string{httpPrefix, addr, "/pfs/", pfs.DefaultProjectName, "/", testRepo, "/master/test.txt?authn-token=", c.AuthToken()}, ""))
 		})
 	})
 }
