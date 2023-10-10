@@ -578,7 +578,19 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
-
+	// if PACH_ID_TOKEN exists in env, try to produce a session token from it if one does not exist
+	if idToken := os.Getenv("PACH_ID_TOKEN"); idToken != "" && context.SessionToken == "" {
+		if r, err := client.Authenticate(pctx.TODO(), &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
+			if !auth.IsErrNotActivated(err) {
+				log.Error(pctx.TODO(), "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
+			}
+		} else {
+			context.SessionToken = r.PachToken
+			if err = cfg.Write(); err != nil {
+				return nil, errors.Wrap(err, "could not write config to save session token")
+			}
+		}
+	}
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
 	if cfg.UserId != "" && cfg.V2.Metrics {
@@ -636,17 +648,6 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			}
 		}
 	}
-	// if PACH_ID_TOKEN exists in env, try to produce a session token from it if one does not exist
-	if idToken := os.Getenv("PACH_ID_TOKEN"); idToken != "" && context.SessionToken == "" {
-		if r, err := client.Authenticate(pctx.TODO(), &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
-			if !auth.IsErrNotActivated(err) {
-				log.Error(pctx.TODO(), "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
-			}
-		} else {
-			context.SessionToken = r.PachToken
-		}
-	}
-
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
