@@ -4821,6 +4821,7 @@ func TestPFS(suite *testing.T) {
 				for _, repo := range []string{"A", "B", "C", "D", "E"} {
 					require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 				}
+				fmt.Println("created repos")
 				for iStep, step := range test {
 					var provenance []*pfs.Branch
 					for _, repo := range step.directProv {
@@ -4832,7 +4833,9 @@ func TestPFS(suite *testing.T) {
 					} else {
 						require.NoError(t, err, "%d> CreateBranch(\"%s\", %v)", iStep, step.name, step.directProv)
 					}
+					fmt.Println("created branch")
 					require.NoError(t, env.PachClient.FsckFastExit())
+					fmt.Println("fscked state")
 					for repo, expectedProv := range step.expectProv {
 						bi, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, "master")
 						require.NoError(t, err)
@@ -4844,7 +4847,9 @@ func TestPFS(suite *testing.T) {
 								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b.Repo.Name, expectedProv)
 							}
 						}
+						fmt.Println("checked provenance for repo", repo)
 					}
+					fmt.Println("checked provenance")
 					for repo, expectedSubv := range step.expectSubv {
 						bi, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, repo, "master")
 						require.NoError(t, err)
@@ -4856,7 +4861,9 @@ func TestPFS(suite *testing.T) {
 								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b.Repo.Name, expectedSubv)
 							}
 						}
+						fmt.Println("checked subvenance for repo", repo)
 					}
+					fmt.Println("checked subvenance")
 				}
 			})
 		}
