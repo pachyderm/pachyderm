@@ -23,6 +23,7 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
@@ -646,6 +647,7 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -757,6 +759,25 @@ func PutNamespace(t testing.TB, namespace string) {
 			metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
+	var identity *string = new(string)
+	*identity = t.Name()
+	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
+	*leaseDuration = 600
+	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("minikubetestenv-%s", namespace),
+			Namespace: namespace,
+		},
+		Spec: coordination.LeaseSpec{
+			HolderIdentity:       identity,
+			LeaseDurationSeconds: leaseDuration,
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+		require.NoError(t, err)
+	})
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
