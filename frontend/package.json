@@ -79,7 +79,7 @@
     "@graphql-eslint/eslint-plugin": "^3.11.0",
     "@graphql-tools/graphql-file-loader": "^7.3.5",
     "@graphql-tools/load": "^7.5.3",
-    "@sentry/cli": "2.5.2",
+    "@sentry/cli": "2.21.2",
     "@storybook/addon-actions": "^7.0.8",
     "@storybook/addon-controls": "^7.0.8",
     "@storybook/addon-essentials": "^7.0.8",
