@@ -2011,6 +2011,9 @@ func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.Br
 		branchInfo, err = d.inspectBranchInTransaction(ctx, txnCtx, branch)
 		return err
 	}); err != nil {
+		if errors.Is(pfsdb.ErrBranchNotFound{BranchKey: branch.Key()}, errors.Cause(err)) {
+			return nil, pfsserver.ErrBranchNotFound{Branch: branch}
+		}
 		return nil, err
 	}
 	return branchInfo, nil
