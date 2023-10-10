@@ -2128,7 +2128,7 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
 		if err != nil {
-			return errors.Wrap(err, "inspect")
+			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
 		}
 		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
 		if err != nil {
