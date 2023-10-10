@@ -66,6 +66,7 @@ const (
 		SELECT DISTINCT
     		commit.int_id, 
     		commit.commit_id, 
+			commit.commit_set_id,
     		commit.branch_id, 
     		commit.origin, 
     		commit.description, 
@@ -567,11 +568,10 @@ func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
 	}
-	directProv, err := CommitDirectProvenance(tx, row.ID)
+	commitInfo.DirectProvenance, err = CommitDirectProvenance(ctx, tx, row.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get provenance for commit")
 	}
-	commitInfo.DirectProvenance = directProv
 	return commitInfo, err
 }
 

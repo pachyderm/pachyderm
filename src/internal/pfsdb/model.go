@@ -103,10 +103,15 @@ func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 }
 
 func (commit *Commit) Pb() *pfs.Commit {
-	pb := ParseCommit(commit.CommitID)
-	pb.Branch = &pfs.Branch{
-		Repo: pb.Repo,
-		Name: commit.BranchName.String,
+	pb := &pfs.Commit{
+		Id:   commit.CommitSetID,
+		Repo: commit.Repo.Pb(),
+	}
+	if commit.BranchName.Valid {
+		pb.Branch = &pfs.Branch{
+			Repo: pb.Repo,
+			Name: commit.BranchName.String,
+		}
 	}
 	return pb
 }
