@@ -239,12 +239,12 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
-      - run: 
-          name: collect test names
-          background: false # DNJ TODO - need to make sure we wait for this
-          command: |- 
-            go build -o=test-split src/testing/cmds/test-splitting/main.go
-            ./test-split
+      # - run: 
+      #     name: collect test names
+      #     background: false # DNJ TODO - need to make sure we wait for this
+      #     command: |- 
+      #       go build -o=test-split src/testing/cmds/test-splitting/main.go
+      #       ./test-split
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:
@@ -295,13 +295,14 @@ jobs:
             eval "$(minikube docker-env)"
 
             # collect tests to run
-            go clean -testcache
-            echo "Tests found: "
-            cat tests_k8s.txt 
-            tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
-            tests="${tests[@]}"
-            echo "Running tests: "
-            echo "${tests}"
+            # go clean -testcache
+            # echo "Tests found: "
+            # cat tests_k8s.txt 
+            # tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
+            # tests="${tests[@]}"
+            # echo "Running tests: "
+            # echo "${tests}"
+            go list ./... | circleci tests run --command \
             "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             xargs -ITEST_PACKAGES gotestsum \
             --packages='TEST_PACKAGES' \
