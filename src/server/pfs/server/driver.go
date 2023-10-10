@@ -814,7 +814,7 @@ func (d *driver) linkParent(ctx context.Context, txnCtx *txncontext.TransactionC
 	if needsFinishedParent && parentCommitInfo.Finishing == nil {
 		return errors.Errorf("parent commit %s has not been finished", parentCommitInfo.Commit)
 	}
-	child.ParentCommit = parent
+	child.ParentCommit = parentCommitInfo.Commit
 	return nil
 }
 
@@ -1118,70 +1118,103 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 	return commitInfo, nil
 }
 
-func (d *driver) inspectFinishingOrFinishedCommits(ctx context.Context, commitInfo *pfs.CommitInfo, wait pfs.CommitState) (*pfs.CommitInfo, error) {
-	var commitWithID *pfsdb.CommitWithID
+func (d *driver) watchCommit(ctx context.Context, commitInfo *pfs.CommitInfo, cb func(commitInfo *pfs.CommitInfo) (bool, error)) error {
 	var err error
-	// if state == wait has already been established in the database, then return without starting a watch.
+	// watchCommit watches for events, but also occasionally polls in case an event is dropped.
+	ticker := time.NewTicker(time.Second * 3)
+	var commitWithID *pfsdb.CommitWithID
 	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		commitWithID, err = pfsdb.GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
-		if err != nil && errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
-			return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+		if err != nil {
+			if errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+				return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+			}
+			return errors.Wrap(err, "watch commit")
 		}
-		return errors.Wrap(err, "create list commits iterator")
+		return nil
 	}); err != nil {
-		return nil, err
+		return err
 	}
-	switch wait {
-	case pfs.CommitState_FINISHING:
-		if commitWithID.CommitInfo.Finishing != nil {
-			commitInfo = commitWithID.CommitInfo
-			return commitInfo, nil
-		}
-	case pfs.CommitState_FINISHED:
-		if commitWithID.CommitInfo.Finished != nil {
-			commitInfo = commitWithID.CommitInfo
-			return commitInfo, nil
-		}
-	}
-	// otherwise start a watch and wait for state == wait.
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener,
-		path.Join(d.prefix, pfsdb.CommitKey(commitInfo.Commit)),
-		fmt.Sprintf("%s%d", pfsdb.CommitChannelName, commitWithID.ID)) // this id may have to be different
+	// check if the code in cb() already would succeed, in which case the watcher doesn't need to be instantiated.
+	success, err := cb(commitWithID.CommitInfo)
 	if err != nil {
-		return nil, errors.Wrap(err, "new watcher")
+		return errors.Wrap(err, "watch commit")
+	}
+	if success {
+		return nil
+	}
+	watcherID := fmt.Sprintf("%s%d", pfsdb.CommitChannelName, commitWithID.ID)
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(d.prefix, pfsdb.CommitKey(commitInfo.Commit)), watcherID)
+	if err != nil {
+		return errors.Wrap(err, "new watcher")
 	}
 	defer watcher.Close()
+	var newCommitInfo *pfs.CommitInfo
 	for {
-		event, ok := <-watcher.Watch()
-		if !ok {
-			return nil, errors.Errorf("watcher for inspect commit %v closed channel")
-		}
-		if event.Type == postgres.EventDelete {
-			return nil, pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
-		}
-		if event.Err != nil {
-			return nil, event.Err
-		}
-		var newCommitInfo *pfs.CommitInfo
-		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-			newCommitInfo, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
-			return err
-		}); err != nil {
-			return nil, errors.Wrap(err, "getting commit from event")
-		}
-		switch wait {
-		case pfs.CommitState_FINISHING:
-			if newCommitInfo.Finishing != nil {
-				commitInfo = newCommitInfo
-				return commitInfo, nil
+		select {
+		case event, ok := <-watcher.Watch():
+			if !ok {
+				return errors.Errorf("watcher for inspect commit %v closed channel")
 			}
-		case pfs.CommitState_FINISHED:
-			if newCommitInfo.Finished != nil {
-				commitInfo = newCommitInfo
-				return commitInfo, nil
+			if event.Type == postgres.EventDelete {
+				return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
 			}
+			if event.Err != nil {
+				return event.Err
+			}
+			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+				newCommitInfo, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
+				if err != nil && errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+				}
+				return err
+			}); err != nil {
+				return errors.Wrap(err, "getting commit from event")
+			}
+		case <-ticker.C:
+			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+				commitWithID, err := pfsdb.GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+				if err != nil && errors.Is(pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+					return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
+				}
+				newCommitInfo = commitWithID.CommitInfo
+				return errors.Wrap(err, "create list commits iterator")
+			}); err != nil {
+				return err
+			}
+		}
+		success, err := cb(newCommitInfo)
+		if err != nil {
+			return errors.Wrap(err, "watch commit")
+		}
+		if success {
+			return nil
 		}
 	}
+}
+
+func (d *driver) inspectFinishingOrFinishedCommits(ctx context.Context, commitInfo *pfs.CommitInfo, wait pfs.CommitState) (*pfs.CommitInfo, error) {
+	var commit *pfs.CommitInfo
+	if err := d.watchCommit(ctx, commitInfo, func(commitInfo *pfs.CommitInfo) (bool, error) {
+		switch wait {
+		case pfs.CommitState_FINISHING:
+			if commitInfo.Finishing != nil {
+				commit = commitInfo
+				return true, nil
+			}
+		case pfs.CommitState_FINISHED:
+			if commitInfo.Finished != nil {
+				commit = commitInfo
+				return true, nil
+			}
+		default:
+			return false, nil
+		}
+		return false, nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "inspect finishing or finished commit")
+	}
+	return commit, nil
 }
 
 // resolveCommitWithAuth is like resolveCommit, but it does some pre-resolution checks like repo authorization.
