@@ -45,14 +45,23 @@ import (
 // specify page size. #ListDatumPagination
 const NumDatumsPerPage = 0 // The number of datums requested per ListDatum call
 
+const FuseServerPort = ":9002"
+
 type ServerOptions struct {
+	// MountDir is the directory where the mount will be created (the most
+	// conventional and typically most useful value for this field is '/pfs',
+	// causing mount-server to lay out files in the same way as Pachyderm's worker
+	// binary. Code that correctly reads and writes data in this configuration can
+	// then be run inside a Pachyderm pipeline without modification).
 	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
-	// unmounted. It can be nil in which case it's ignored.
+	// unmounted. It can be nil, in which case it's ignored.
 	Unmount chan struct{}
-	// True if allow-other option is to be specified
+	// AllowOther, if true, configures mount-server to give read and write
+	// permissions to "other" on the mount point ('chmod u+rw /pfs', effectively)
 	AllowOther bool
-	// Socket directory for Unix Domain Socket
+	// SockPath, if set, configures mount-server to serve over a Unix socket at
+	// the path it contains.
 	SockPath string
 }
 
@@ -964,7 +973,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		sockPath = sopts.SockPath
 		srv = &http.Server{Handler: router}
 	} else {
-		srv = &http.Server{Addr: ":9002", Handler: router}
+		srv = &http.Server{Addr: FuseServerPort, Handler: router}
 	}
 
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
@@ -1579,7 +1588,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("new state", state))
+	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("old state", m.State), zap.String("new state", state))
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status

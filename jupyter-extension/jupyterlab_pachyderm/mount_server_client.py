@@ -14,7 +14,7 @@ from .pachyderm import MountInterface
 from .log import get_logger
 from .env import (
     SIDECAR_MODE,
-    MOUNT_SERVER_LOG_DIR,
+    MOUNT_SERVER_LOG_FILE,
     NONPRIV_CONTAINER,
     HTTP_UNIX_SOCKET_SCHEMA,
     HTTP_SCHEMA,
@@ -53,14 +53,13 @@ class MountServerClient(MountInterface):
             self.nopriv = 1
 
     async def _is_mount_server_running(self):
-        get_logger().debug("Checking if mount server running...")
+        get_logger().debug("Checking if mount-server running...")
         try:
             await self.health()
         except Exception as e:
-            get_logger().debug(f"Unable to hit server at {self.address}")
-            get_logger().debug(e)
+            get_logger().error(f"Unable to reach mount-server (at {self.address}): {e}")
             return False
-        get_logger().debug(f"Able to hit server at {self.address}")
+        get_logger().debug(f"Successfully reached mount-server at {self.address}")
         return True
 
     def _unmount(self):
@@ -96,17 +95,17 @@ class MountServerClient(MountInterface):
                 mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so use unshare for a private mount
-                    get_logger().info("Non-privileged container...")
+                    get_logger().info("Running mount-server in new namespace, per the non-privileged-container setting.")
                     subprocess.run(["mkdir", "-p", f"/mnt{self.mount_dir}"])
                     mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
 
                 if self.sock_path:
                     mount_server_cmd += f" --sock-path {self.sock_path}"
 
-                if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
-                    mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
+                if MOUNT_SERVER_LOG_FILE is not None and MOUNT_SERVER_LOG_FILE:
+                    mount_server_cmd += f" --log-file {MOUNT_SERVER_LOG_FILE}"
 
-                get_logger().debug(f"Starting {mount_server_cmd} ")
+                get_logger().info(f"Starting {mount_server_cmd} ")
                 mount_process = subprocess.Popen(
                     ["bash", "-c", "set -o pipefail; " + mount_server_cmd]
                 )
@@ -118,7 +117,7 @@ class MountServerClient(MountInterface):
                     tries += 1
 
                     if tries == 10:
-                        get_logger().debug("Unable to start mount server...")
+                        get_logger().error("Unable to start mount server...")
                         return False
 
                 if self.nopriv:
