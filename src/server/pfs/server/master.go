@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"path"
 	"time"
 
@@ -116,7 +117,7 @@ func (m *Master) watchRepos(ctx context.Context) error {
 			cancel()
 		}
 	}()
-	ringPrefix := path.Join(m.driver.prefix, masterLockPath, "ring")
+	ringPrefix := path.Join(randutil.UniqueString(m.driver.prefix), masterLockPath, "ring")
 	return consistenthashing.WithRing(ctx, m.driver.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
 			// Watch for repo events.
@@ -241,7 +242,7 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoPair) er
 			ct.cancel()
 		}
 	}()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(d.prefix, "manageBranches", repoKey),
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "manageBranches", repoKey),
 		fmt.Sprintf("%s%d", pfsdb.BranchesRepoChannelName, repoPair.ID))
 	if err != nil {
 		return errors.Wrap(err, "manage branches")
@@ -373,7 +374,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoPair) error {
 	chanName := fmt.Sprintf("%s%d", pfsdb.CommitsRepoChannelName, repoPair.ID)
 	repoKey := repoPair.RepoInfo.Repo.Key()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(d.prefix, "finishRepoCommits"), chanName)
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "finishRepoCommits"), chanName)
 	if err != nil {
 		return errors.Wrap(err, "new watcher")
 	}
