@@ -4,8 +4,8 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
 
@@ -24,12 +24,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
-func NewMux(pachClientFactory func(context.Context) *client.APIClient) http.Handler {
-	ctx := context.Background()
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) http.Handler {
 
-	client := pachClientFactory(ctx)
+	ctx = pctx.Child(ctx, "restgateway")
 
 	mux := runtime.NewServeMux(runtime.WithIncomingHeaderMatcher(func(s string) (string, bool) {
 		if s != "Content-Length" {
@@ -38,75 +35,75 @@ func NewMux(pachClientFactory func(context.Context) *client.APIClient) http.Hand
 		return s, false
 	}))
 
-	err := pps.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err := pps.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register pps api with grpc-gateway")
+		log.Error(ctx, "failed to register pps api with grpc-gateway")
 		return nil
 	}
 
-	err = pfs.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = pfs.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register pfs api with grpc-gateway")
+		log.Error(ctx, "failed to register pfs api with grpc-gateway")
 		return nil
 	}
 
-	err = worker.RegisterWorkerHandler(ctx, mux, client.ClientConn())
+	err = worker.RegisterWorkerHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register wroker api with grpc-gateway")
+		log.Error(ctx, "failed to register worker api with grpc-gateway")
 		return nil
 	}
 
-	err = proxy.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = proxy.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register proxy api with grpc-gateway")
+		log.Error(ctx, "failed to register proxy api with grpc-gateway")
 		return nil
 	}
 
-	err = admin.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = admin.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register admin api with grpc-gateway")
+		log.Error(ctx, "failed to register admin api with grpc-gateway")
 		return nil
 	}
 
-	err = auth.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = auth.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register auth api with grpc-gateway")
+		log.Error(ctx, "failed to register auth api with grpc-gateway")
 		return nil
 	}
 
-	err = license.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = license.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register license api with grpc-gateway")
+		log.Error(ctx, "failed to register license api with grpc-gateway")
 		return nil
 	}
 
-	err = identity.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = identity.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register identity api with grpc-gateway")
+		log.Error(ctx, "failed to register identity api with grpc-gateway")
 		return nil
 	}
 
-	err = debug.RegisterDebugHandler(ctx, mux, client.ClientConn())
+	err = debug.RegisterDebugHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register debug api with grpc-gateway")
+		log.Error(ctx, "failed to register debug api with grpc-gateway")
 		return nil
 	}
 
-	err = enterprise.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = enterprise.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register enterprise api with grpc-gateway")
+		log.Error(ctx, "failed to register enterprise api with grpc-gateway")
 		return nil
 	}
 
-	err = transaction.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = transaction.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register transaction api with grpc-gateway")
+		log.Error(ctx, "failed to register transaction api with grpc-gateway")
 		return nil
 	}
 
-	err = versionpb.RegisterAPIHandler(ctx, mux, client.ClientConn())
+	err = versionpb.RegisterAPIHandler(ctx, mux, grpcConn)
 	if err != nil {
-		log.Error(ctx, "restgateway: failed to register version api with grpc-gateway")
+		log.Error(ctx, "failed to register version api with grpc-gateway")
 		return nil
 	}
 

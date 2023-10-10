@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/restgateway"
 	"go.uber.org/zap"
 )
@@ -28,7 +29,8 @@ type Server struct {
 }
 
 // New creates a new API server, with an http.Server to actually serve traffic.
-func New(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
+func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
+	ctx = pctx.Child(ctx, "httpserver")
 	mux := http.NewServeMux()
 
 	// Archive server.
@@ -47,13 +49,14 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
 	// GRPC gateway.
-	gwmux := restgateway.NewMux(pachClientFactory)
+  client := pachClientFactory(ctx)
+	gwmux := restgateway.NewMux(ctx, client.ClientConn())
 	if gwmux == nil {
-		log.Error(context.Background(), "httpserver: failed to register rest api handlers with grpc-gateway")
+		log.Error(ctx, "failed to register rest api handlers with grpc-gateway")
 		return nil
 	}
 	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
-	log.Info(context.Background(), "httpserver: completed grpc gateway rest api registrations")
+	log.Info(ctx, "completed grpc gateway rest api registrations")
 
 	return &Server{
 		mux: mux,

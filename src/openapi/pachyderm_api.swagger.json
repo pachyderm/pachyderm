@@ -5037,7 +5037,8 @@
       "type": "object",
       "properties": {
         "clusterDefaults": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "If true, include the cluster defaults."
         }
       }
     },
@@ -5902,23 +5903,36 @@
       "type": "object",
       "properties": {
         "system": {
-          "$ref": "#/definitions/debug_v2System"
+          "$ref": "#/definitions/debug_v2System",
+          "description": "Which system-level information to include in the debug dump."
         },
         "pipelines": {
           "type": "array",
           "items": {
             "type": "object",
             "$ref": "#/definitions/debug_v2Pipeline"
-          }
+          },
+          "description": "Which pipelines to fetch information about and include in the debug dump."
         },
         "inputRepos": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "If true, fetch information about non-output repos."
         },
         "timeout": {
-          "type": "string"
+          "type": "string",
+          "description": "How long to run the dump for."
         },
         "defaults": {
-          "$ref": "#/definitions/DumpV2RequestDefaults"
+          "$ref": "#/definitions/DumpV2RequestDefaults",
+          "description": "Which defaults to include in the debug dump."
+        },
+        "starlarkScripts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Starlark"
+          },
+          "description": "A list of Starlark scripts to run."
         }
       }
     },
@@ -6084,6 +6098,38 @@
           }
         }
       }
+    },
+    "debug_v2Starlark": {
+      "type": "object",
+      "properties": {
+        "builtin": {
+          "type": "string",
+          "description": "One built into the pachd binary."
+        },
+        "literal": {
+          "$ref": "#/definitions/debug_v2StarlarkLiteral",
+          "description": "Or a script supplied in this request."
+        },
+        "timeout": {
+          "type": "string",
+          "description": "How long to allow the script to run for.  If unset, defaults to 1 minute."
+        }
+      },
+      "description": "Starlark controls the running of a Starlark script."
+    },
+    "debug_v2StarlarkLiteral": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the script; used for debug messages and to control where the output goes."
+        },
+        "programText": {
+          "type": "string",
+          "description": "The text of the \"debugdump\" personality Starlark program."
+        }
+      },
+      "description": "StarlarkLiteral is a custom Starlark script."
     },
     "debug_v2System": {
       "type": "object",
