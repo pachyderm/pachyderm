@@ -21,6 +21,7 @@ cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 mkdir -p v2/src/internal/jsonschema
 mkdir -p v2/src/openapi
+mkdir -p v2/src/typescript
 
 mapfile -t PROTOS < <(find src -name "*.proto" | sort)
 
@@ -68,6 +69,7 @@ protoc \
 		--openapiv2_opt preserve_rpc_order=true \
 		--openapiv2_opt allow_merge=true \
 		--openapiv2_opt merge_file_name=pachyderm_api \
+    --grpc-gateway-ts_out v2/src/typescript \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr
@@ -76,4 +78,4 @@ gopatch ./... -p=/proto.patch
 popd > /dev/stderr
 
 gofmt -w . > /dev/stderr
-find . -regextype egrep -regex ".*[.](go|json|md)$" -print0 | xargs -0 tar -cf -
+find . -regextype egrep -regex ".*[.](go|json|md|ts)$" -print0 | xargs -0 tar cf -

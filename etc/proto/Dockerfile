@@ -19,8 +19,12 @@ RUN cp -r /include /bin
 RUN go install -v google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
 RUN go install -v google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
 
+# rest api proxy and openapi v2 swagger spec
 RUN go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.18.0
 RUN go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.18.0
+
+# typsecript bindings from proto files
+RUN go install -v github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts@v1.1.2
 
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
