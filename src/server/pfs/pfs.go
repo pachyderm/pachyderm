@@ -404,7 +404,11 @@ func IsBranchNotFoundErr(err error) bool {
 	if err == nil {
 		return false
 	}
-	return branchNotFoundRe.MatchString(err.Error())
+	status, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+	return status.Code() == codes.NotFound && strings.Contains(err.Error(), "branch")
 }
 
 // IsFileNotFoundErr returns true if 'err' is an error message about a PFS

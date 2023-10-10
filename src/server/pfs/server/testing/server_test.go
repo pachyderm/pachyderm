@@ -4747,57 +4747,61 @@ func TestPFS(suite *testing.T) {
 	// todo(fahad): fix
 	suite.Run("BranchProvenance", func(t *testing.T) {
 		t.Parallel()
-
+		// Each test case describes a list of operations on the overall branch provenance DAG,
+		// where each branch is named after its repo, and is implicitly the master branch.
 		tests := [][]struct {
 			name       string
 			directProv []string
 			err        bool
 			expectProv map[string][]string
 			expectSubv map[string][]string
-		}{{
-			{name: "A"},
-			{name: "B", directProv: []string{"A"}},
-			{name: "C", directProv: []string{"B"}},
-			{name: "D", directProv: []string{"C", "A"},
-				expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
-				expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-			// A ─▶ B ─▶ C ─▶ D
-			// ╰─────────────⬏
-			{name: "B",
-				expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
-				expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-			// A    B ─▶ C ─▶ D
-			// ╰─────────────⬏
-		}, {
-			{name: "A"},
-			{name: "B", directProv: []string{"A"}},
-			{name: "C", directProv: []string{"A", "B"}},
-			{name: "D", directProv: []string{"C"},
-				expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
-				expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-			// A ─▶ B ─▶ C ─▶ D
-			// ╰────────⬏
-			{name: "C", directProv: []string{"B"},
-				expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
-				expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
-			// A ─▶ B ─▶ C ─▶ D
-		}, {
-			{name: "A"},
-			{name: "B"},
-			{name: "C", directProv: []string{"A", "B"}},
-			{name: "D", directProv: []string{"C"}},
-			{name: "E", directProv: []string{"A", "D"},
-				expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
-				expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-			// A    B ─▶ C ─▶ D ─▶ E
-			// ├────────⬏          ▲
-			// ╰───────────────────╯
-			{name: "C", directProv: []string{"B"},
-				expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
-				expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
-			// A    B ─▶ C ─▶ D ─▶ E
-			// ╰──────────────────⬏
-		},
+		}{
+			{
+				{name: "A"},
+				{name: "B", directProv: []string{"A"}},
+				{name: "C", directProv: []string{"B"}},
+				{name: "D", directProv: []string{"C", "A"},
+					expectProv: map[string][]string{"A": nil, "B": {"A"}, "C": {"B", "A"}, "D": {"A", "B", "C"}},
+					expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+				// A ─▶ B ─▶ C ─▶ D
+				// ╰─────────────⬏
+				{name: "B",
+					expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"A", "B", "C"}},
+					expectSubv: map[string][]string{"A": {"D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+				// A    B ─▶ C ─▶ D
+				// ╰─────────────⬏
+			},
+			{
+				{name: "A"},
+				{name: "B", directProv: []string{"A"}},
+				{name: "C", directProv: []string{"A", "B"}},
+				{name: "D", directProv: []string{"C"},
+					expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+					expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+				// A ─▶ B ─▶ C ─▶ D
+				// ╰────────⬏
+				{name: "C", directProv: []string{"B"},
+					expectProv: map[string][]string{"A": {}, "B": {"A"}, "C": {"A", "B"}, "D": {"A", "B", "C"}},
+					expectSubv: map[string][]string{"A": {"B", "C", "D"}, "B": {"C", "D"}, "C": {"D"}, "D": {}}},
+				// A ─▶ B ─▶ C ─▶ D
+			},
+			{
+				{name: "A"},
+				{name: "B"},
+				{name: "C", directProv: []string{"A", "B"}},
+				{name: "D", directProv: []string{"C"}},
+				{name: "E", directProv: []string{"A", "D"},
+					expectProv: map[string][]string{"A": {}, "B": {}, "C": {"A", "B"}, "D": {"A", "B", "C"}, "E": {"A", "B", "C", "D"}},
+					expectSubv: map[string][]string{"A": {"C", "D", "E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+				// A    B ─▶ C ─▶ D ─▶ E
+				// ├────────⬏          ▲
+				// ╰───────────────────╯
+				{name: "C", directProv: []string{"B"},
+					expectProv: map[string][]string{"A": {}, "B": {}, "C": {"B"}, "D": {"B", "C"}, "E": {"A", "B", "C", "D"}},
+					expectSubv: map[string][]string{"A": {"E"}, "B": {"C", "D", "E"}, "C": {"D", "E"}, "D": {"E"}, "E": {}}},
+				// A    B ─▶ C ─▶ D ─▶ E
+				// ╰──────────────────⬏
+			},
 			{
 				{name: "A", directProv: []string{"A"}, err: true},
 				{name: "A"},

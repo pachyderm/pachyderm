@@ -58,6 +58,24 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 	return cs, nil
 }
 
+func CommitDirectProvenance(tx *pachsql.Tx, id CommitID) ([]*pfs.Commit, error) {
+	var commitKeys []string
+	query := `
+	SELECT DISTINCT commit.commit_id
+	FROM pfs.commit_provenance prov
+		JOIN pfs.commits commit ON prov.to_id = commit.int_id
+	WHERE prov.from_id = $1	
+	`
+	if err := tx.Select(&commitKeys, query, id); err != nil {
+		return nil, err
+	}
+	var commits []*pfs.Commit
+	for _, commitID := range commitKeys {
+		commits = append(commits, ParseCommit(commitID))
+	}
+	return commits, nil
+}
+
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
 // full (transitive) provenance
 func CommitSetSubvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr error) {

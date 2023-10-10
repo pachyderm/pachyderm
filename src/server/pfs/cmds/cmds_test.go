@@ -513,6 +513,7 @@ func TestCmdListRepo(t *testing.T) {
 }
 
 func TestBranchNotFound(t *testing.T) {
+	// TODO(albert) come back and fix the match expression
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
 	}

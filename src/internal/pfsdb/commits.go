@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,8 +16,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
-	"time"
 )
 
 const (
@@ -566,7 +567,7 @@ func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
 	}
-	directProv, err := CommitSetProvenance(tx, commitInfo.Commit.Id)
+	directProv, err := CommitDirectProvenance(tx, row.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get provenance for commit")
 	}
