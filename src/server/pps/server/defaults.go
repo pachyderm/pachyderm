@@ -359,7 +359,7 @@ func staticallyValidate(req *pps.CreatePipelineRequest) error {
 	if req.TfJob != nil {
 		return errors.New("embedding TFJobs in pipelines is not supported yet")
 	}
-	if !(req.ReprocessSpec == "" || req.ReprocessSpec == client.ReprocessSpecUntilSuccess && req.ReprocessSpec != client.ReprocessSpecEveryJob) {
+	if !(req.ReprocessSpec == "" || req.ReprocessSpec == client.ReprocessSpecUntilSuccess || req.ReprocessSpec == client.ReprocessSpecEveryJob) {
 		return errors.Errorf("invalid pipeline spec: ReprocessSpec must be one of %q or %q", client.ReprocessSpecUntilSuccess, client.ReprocessSpecEveryJob)
 	}
 	var tolErrs error
