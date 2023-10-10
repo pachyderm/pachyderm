@@ -65,59 +65,59 @@ executors:
       - image: cimg/python:3.10-node
 
 jobs:
-  test-go:
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    resource_class: large
-    parallelism: 10
-    environment:
-      TEST_RESULTS: /tmp/test-results
-    steps:
-      - checkout
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: mkdir ${TEST_RESULTS}
-      - restore_cache:
-          keys:
-            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
-      - run: etc/testing/circle/install.sh
-      - run:
-          no_output_timeout: 20m
-          command: |-
-            # These split by package, so it's not really even. 
-            # It also doesn't seem like circle picks up the test timings so that's not great.
-            go list ./... | circleci tests run --command \
-            "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            xargs -ITEST_PACKAGES gotestsum \
-            --packages='TEST_PACKAGES' \
-            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            --rerun-fails \
-            --rerun-fails-max-failures=25 \
-            --format testname --debug \
-            -- \
-            -cover -covermode=atomic \
-            -parallel=8 -p=1 -count=1" \
-            --split-by=timings --timings-type=classname
-      - run:
-          name: Format code coverage
-          when: always
-          command: etc/testing/circle/format-coverage.sh
-      - store_artifacts: # upload test summary for display in Artifacts
-          path: /tmp/test-results
-          destination: raw-test-output
-      - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
-      - collect-test-results
-      - save_cache:
-          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-          paths:
-            - /home/circleci/go/pkg/mod
+  # test-go:
+  #   machine:
+  #     image: << pipeline.parameters.machine_image >>
+  #   resource_class: large
+  #   parallelism: 10
+  #   environment:
+  #     TEST_RESULTS: /tmp/test-results
+  #   steps:
+  #     - checkout
+  #     - go/install:
+  #         version: << pipeline.parameters.go-version >>
+  #     - run: mkdir ${TEST_RESULTS}
+  #     - restore_cache:
+  #         keys:
+  #           - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+  #     - run: go install gotest.tools/gotestsum@latest
+  #     - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+  #     - run: go install ./src/testing/match
+  #     - run: etc/testing/circle/install.sh
+  #     - run:
+  #         no_output_timeout: 20m
+  #         command: |-
+  #           # These split by package, so it's not really even. 
+  #           # It also doesn't seem like circle picks up the test timings so that's not great.
+  #           go list ./... | circleci tests run --command \
+  #           "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+  #           xargs -ITEST_PACKAGES gotestsum \
+  #           --packages='TEST_PACKAGES' \
+  #           --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+  #           --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
+  #           --rerun-fails \
+  #           --rerun-fails-max-failures=25 \
+  #           --format testname --debug \
+  #           -- \
+  #           -cover -covermode=atomic \
+  #           -parallel=8 -p=1 -count=1" \
+  #           --split-by=timings --timings-type=classname
+  #     - run:
+  #         name: Format code coverage
+  #         when: always
+  #         command: etc/testing/circle/format-coverage.sh
+  #     - store_artifacts: # upload test summary for display in Artifacts
+  #         path: /tmp/test-results
+  #         destination: raw-test-output
+  #     - store_test_results: # upload test results for display in Test Summary
+  #         path: /tmp/test-results
+  #     - codecov/upload:
+  #         file: /tmp/test-results/coverage.txt
+  #     - collect-test-results
+  #     - save_cache:
+  #         key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+  #         paths:
+  #           - /home/circleci/go/pkg/mod
   static-checks:
     resource_class: xlarge
     machine:
@@ -181,7 +181,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 14
+    parallelism: 18
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -302,21 +302,32 @@ jobs:
             tests="${tests[@]}"
             echo "Running tests: "
             echo "${tests}"
-            
-            gotestsum \
-            --raw-command \
+            "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            xargs -ITEST_PACKAGES gotestsum \
+            --packages='TEST_PACKAGES' \
             --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --format testname \
-            --debug \
+            --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
+            --rerun-fails \
+            --rerun-fails-max-failures=25 \
+            --format testname --debug \
             -- \
-            go test ./... -json -v \
-            -run "^${tests// /$|^}$" \
-            -p=1 \
-            -tags=k8s \
-            -parallel=4 \
-            -count=1 \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            -cover -covermode=atomic \
+            -parallel=8 -p=1 -count=1 -tags=k8s" \
+            --split-by=timings --timings-type=classname
+            # gotestsum \
+            # --raw-command \
+            # --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            # --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
+            # --format testname \
+            # --debug \
+            # -- \
+            # go test ./... -json -v \
+            # -run "^${tests// /$|^}$" \
+            # -p=1 \
+            # -tags=k8s \
+            # -parallel=4 \
+            # -count=1 \
+            # -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
           name: Format test results for upload
           command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
