@@ -33,7 +33,8 @@ const (
 	ProjectHeader = "ACTIVE\tPROJECT\tCREATED\tDESCRIPTION\n"
 	// ProjectAuthHeader is the header for the projects with auth info attached.
 	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tCREATED\tDESCRIPTION\n"
-	// FileHeader is the header for files.  It pads SIZE to allow up to 1023KiB.
+	// FileHeader is the header for files.  It pads SIZE to allow up to four
+	// characters (e.g. “1023”) followed by a unit such as “KiB.”
 	FileHeader = "SIZE   \tNAME\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
 	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
