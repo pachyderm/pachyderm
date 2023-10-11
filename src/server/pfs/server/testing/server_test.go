@@ -50,6 +50,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -1074,17 +1075,21 @@ func TestListCommitLimit(t *testing.T) {
 
 // The DAG looks like this before the update:
 // prov1 prov2
-//   \    /
-//    repo
-//   /    \
+//
+//	\    /
+//	 repo
+//	/    \
+//
 // d1      d2
 //
 // Looks like this after the update:
 //
 // prov2 prov3
-//   \    /
-//    repo
-//   /    \
+//
+//	\    /
+//	 repo
+//	/    \
+//
 // d1      d2
 func TestUpdateProvenance(t *testing.T) {
 	t.Parallel()
@@ -2010,10 +2015,12 @@ func TestCommitBranchProvenanceMovement(t *testing.T) {
 }
 
 // For the "V" shaped DAG:
-//     A   B
-//     |   |
-//      \ /
-//       C
+//
+//	A   B
+//	|   |
+//	 \ /
+//	  C
+//
 // When commit x propagates from A to C, verify that queries to B@x resolve to the B commit
 // that was used in C@x.
 func TestResolveAlias(t *testing.T) {
@@ -2066,7 +2073,7 @@ func TestResolveAlias(t *testing.T) {
 // So conversely, we can conclude that whenever we have a sequence of commit sets that are originated from the
 // same branch, all but the last commit set in the sequence can be considered safe to delete.
 
-//todo(fahad): fix
+// todo(fahad): fix
 func TestSquashComplex(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -3689,11 +3696,13 @@ func TestWaitCommitSet2(t *testing.T) {
 }
 
 // A
-//  ╲
-//   ◀
-//    C
-//   ◀
-//  ╱
+//
+//	╲
+//	 ◀
+//	  C
+//	 ◀
+//	╱
+//
 // B
 func TestWaitCommitSet3(t *testing.T) {
 	t.Parallel()
@@ -4659,11 +4668,13 @@ func TestPropagateBranch(t *testing.T) {
 // BackfillBranch implements the following DAG:
 //
 // A ──▶ C
-//  ╲   ◀
-//   ╲ ╱
-//    ╳
-//   ╱ ╲
-// 	╱   ◀
+//
+//	 ╲   ◀
+//	  ╲ ╱
+//	   ╳
+//	  ╱ ╲
+//		╱   ◀
+//
 // B ──▶ D
 func TestBackfillBranch(t *testing.T) {
 	t.Parallel()
@@ -4697,14 +4708,15 @@ func TestBackfillBranch(t *testing.T) {
 
 // UpdateBranch tests the following DAG:
 //
-// A ─▶ B ─▶ C
+// # A ─▶ B ─▶ C
 //
 // Then updates it to:
 //
 // A ─▶ B ─▶ C
-//      ▲
-// D ───╯
 //
+//	▲
+//
+// D ───╯
 func TestUpdateBranch(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -5063,16 +5075,18 @@ func TestUpdateBranchNewOutputCommit(t *testing.T) {
 // SquashCommitSetMultipleChildrenSingleCommit tests that when you have the
 // following commit graph in a repo:
 // c   d
-//  ↘ ↙
-//   b
-//   ↓
-//   a
+//
+//	↘ ↙
+//	 b
+//	 ↓
+//	 a
 //
 // and you delete commit 'b', what you end up with is:
 //
 // c   d
-//  ↘ ↙
-//   a
+//
+//	↘ ↙
+//	 a
 func TestSquashCommitSetMultipleChildrenSingleCommit(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -5152,20 +5166,24 @@ func TestSquashCommitSetMultipleChildrenSingleCommit(t *testing.T) {
 
 // Tests that when you have the following commit graph in a *downstream* repo:
 //
-//    ↙f
-//   c
-//   ↓↙e
-//   b
-//   ↓↙d
-//   a
+//	 ↙f
+//	c
+//	↓↙e
+//	b
+//	↓↙d
+//	a
 //
 // and you delete commits 'b', what you end up with
 // is:
-//     f
-//     ↓
+//
+//	f
+//	↓
+//
 // d e c
-//  ↘↓↙
-//   a
+//
+//	↘↓↙
+//	 a
+//
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
 func TestSquashCommitSetMultiLevelChildrenSimple(t *testing.T) {
@@ -5292,20 +5310,22 @@ func TestSquashCommitSetMultiLevelChildrenSimple(t *testing.T) {
 
 // Tests that when you have the following commit graph in a *downstream* repo:
 //
-//   g
-//   ↓↙f
-//   c
-//   ↓↙e
-//   b
-//   ↓↙d
-//   a
+//	g
+//	↓↙f
+//	c
+//	↓↙e
+//	b
+//	↓↙d
+//	a
 //
 // and you delete commits 'b' and 'c' (in a single call), what you end up with
 // is:
 //
 // d e f g
-//  ↘↓↙ ↙
-//   a
+//
+//	↘↓↙ ↙
+//	 a
+//
 // This makes sure that multiple live children are re-pointed at a live parent
 // if appropriate
 func TestSquashCommitSetMultiLevelChildrenComplex(t *testing.T) {
@@ -6571,6 +6591,7 @@ func TestAtomicHistory(t *testing.T) {
 // TODO: This test can be refactored to remove a lot of the boilerplate.
 func TestTrigger(t *testing.T) {
 	t.Parallel()
+	testutil.SetCleanup(false)
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 	c := env.PachClient
@@ -6605,38 +6626,59 @@ func TestTrigger(t *testing.T) {
 			Branch: "staging",
 			Size:   "1K",
 		}))
+		fmt.Println("qqq setting up branches")
+		inStagingBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
+		fmt.Println("qqq", inStagingBranchInfo.Branch, inStagingBranchInfo.Head)
+		inMasterBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
+		fmt.Println("qqq", inMasterBranchInfo.Branch, inMasterBranchInfo.Head)
+		outStagingBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
+		fmt.Println("qqq", outStagingBranchInfo.Branch, outStagingBranchInfo.Head)
+		outMasterBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+		fmt.Println("qqq", outMasterBranchInfo.Branch, outMasterBranchInfo.Head)
+
 		// Write a small file, too small to trigger
-		inCommit := client.NewCommit(pfs.DefaultProjectName, "in", "staging", "")
-		require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader("small")))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
-		require.NoError(t, err)
-		inStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
-		require.NoError(t, err)
-		inMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
-		require.NoError(t, err)
-		require.NotEqual(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
-		outStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
-		require.NoError(t, err)
-		require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
-		outMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "master")
-		require.NoError(t, err)
-		require.NotEqual(t, inStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
-		// Write a large file, should trigger
-		require.NoError(t, c.PutFile(inCommit, "file", strings.NewReader(strings.Repeat("a", units.KB))))
+		fmt.Println("qqq wrighting small file")
+		inStagingRef := client.NewCommit(pfs.DefaultProjectName, "in", "staging", "")
+		fmt.Println("qqq", "inStagingCommit", inStagingRef)
+		require.NoError(t, c.PutFile(inStagingRef, "file", strings.NewReader("small")))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
 		require.NoError(t, err)
 		inStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
 		require.NoError(t, err)
+		fmt.Println("qqq", inStagingBranchInfo.Branch, inStagingBranchInfo.Head)
+		inMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
+		require.NoError(t, err)
+		fmt.Println("qqq", inMasterBranchInfo.Branch, inMasterBranchInfo.Head)
+		require.NotEqual(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
+		outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
+		require.NoError(t, err)
+		fmt.Println("qqq", outStagingBranchInfo.Branch, outStagingBranchInfo.Head)
+		require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
+		outMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+		require.NoError(t, err)
+		fmt.Println("qqq", outMasterBranchInfo.Branch, outMasterBranchInfo.Head)
+		require.NotEqual(t, inStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
+		// Write a large file, should trigger
+		fmt.Println("qqq writing large file")
+		require.NoError(t, c.PutFile(inStagingRef, "file", strings.NewReader(strings.Repeat("a", units.KB))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
+		require.NoError(t, err)
+		inStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
+		require.NoError(t, err)
+		fmt.Println("qqq", inStagingBranchInfo.Branch, inStagingBranchInfo.Head)
 		inMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 		require.NoError(t, err)
 		require.Equal(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
+		fmt.Println("qqq", inMasterBranchInfo.Branch, inMasterBranchInfo.Head)
 		// Output branch should have a commit now
 		outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 		require.NoError(t, err)
 		require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
+		fmt.Println("qqq", outStagingBranchInfo.Branch, outStagingBranchInfo.Head)
 		// Resolve alias commit
 		resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", outStagingBranchInfo.Head.Id)
 		require.NoError(t, err)
+		fmt.Println("qqq", "resolvedAlias", resolvedAlias.Commit)
 		require.Equal(t, inStagingBranchInfo.Head.Id, resolvedAlias.Commit.Id)
 
 		// Put a file that will cause the trigger to go off
