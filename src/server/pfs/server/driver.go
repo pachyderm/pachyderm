@@ -1010,13 +1010,11 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	if len(branches) == 0 {
 		return nil
 	}
-	var inputBranches []string
-	var outputBranches []string
+	var qqqSubvBranches []string
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
 	for _, b := range branches {
 		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
-		inputBranches = append(inputBranches, bi.Branch.Key())
 		if err != nil {
 			return errors.Wrapf(err, "propagate branches: get branch %q", pfsdb.BranchKey(b))
 		}
@@ -1028,12 +1026,11 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 				}
 				seen[pfsdb.BranchKey(subvenantB)] = subvenantBi
 				propagatedBranches = append(propagatedBranches, subvenantBi)
-				outputBranches = append(outputBranches, subvenantBi.Branch.Key())
+				qqqSubvBranches = append(qqqSubvBranches, subvenantBi.Branch.Key())
 			}
 		}
 	}
-	fmt.Println("qqq calling propagateBranches on", inputBranches)
-	fmt.Println("qqq calling propagateBranches subvenant branches", outputBranches)
+	fmt.Println("qqq calling propagateBranches on", branches, "subvenant branches", qqqSubvBranches)
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
 	})
