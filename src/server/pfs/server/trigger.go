@@ -27,7 +27,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrap(err, "trigger commit")
 	}
 	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
+		branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = proto.Clone(branchInfoWithID.BranchInfo).(*pfs.BranchInfo)
 		return nil
 	}); err != nil {
 		return err

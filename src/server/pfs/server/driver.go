@@ -3,13 +3,14 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"math"
 	"os"
 	"path"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 
@@ -1009,10 +1010,13 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	if len(branches) == 0 {
 		return nil
 	}
+	var inputBranches []string
+	var outputBranches []string
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
 	for _, b := range branches {
 		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		inputBranches = append(inputBranches, bi.Branch.Key())
 		if err != nil {
 			return errors.Wrapf(err, "propagate branches: get branch %q", pfsdb.BranchKey(b))
 		}
@@ -1024,9 +1028,12 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 				}
 				seen[pfsdb.BranchKey(subvenantB)] = subvenantBi
 				propagatedBranches = append(propagatedBranches, subvenantBi)
+				outputBranches = append(outputBranches, subvenantBi.Branch.Key())
 			}
 		}
 	}
+	fmt.Println("qqq calling propagateBranches on", inputBranches)
+	fmt.Println("qqq calling propagateBranches subvenant branches", outputBranches)
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
 	})
