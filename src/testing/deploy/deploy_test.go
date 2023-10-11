@@ -36,7 +36,6 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
-	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
@@ -92,7 +91,6 @@ func TestEnterpriseServerMember(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	minikubetestenv.PutNamespace(t, ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,

@@ -44,7 +44,6 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				t.Parallel()
 			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
-			minikubetestenv.PutNamespace(t, ns)
 			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
 			preUpgrade(t, ctx, minikubetestenv.InstallRelease(t,
 				context.Background(),

@@ -759,6 +759,9 @@ func PutNamespace(t testing.TB, namespace string) {
 			metav1.CreateOptions{})
 		require.NoError(t, err)
 	}
+}
+func putLease(t testing.TB, namespace string) error {
+	kube := testutil.GetKubeClient(t)
 	var identity *string = new(string)
 	*identity = t.Name()
 	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
@@ -773,11 +776,13 @@ func PutNamespace(t testing.TB, namespace string) {
 			LeaseDurationSeconds: leaseDuration,
 		},
 	}, metav1.CreateOptions{})
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
-		require.NoError(t, err)
-	})
+	if err == nil {
+		t.Cleanup(func() { // DNJ TODO create heartbeat to remove if test canceled?
+			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			require.NoError(t, err)
+		})
+	}
+	return err
 }
 
 // Deploy pachyderm using a `helm upgrade ...`

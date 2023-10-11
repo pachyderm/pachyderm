@@ -59,7 +59,6 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
-	minikubetestenv.PutNamespace(t, ns)
 	t.Logf("Determined installing in namespace %s", ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
