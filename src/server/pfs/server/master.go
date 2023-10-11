@@ -3,7 +3,6 @@ package server
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"path"
 	"time"
 
@@ -23,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -355,14 +355,11 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 			if err != nil {
 				return err
 			}
-			var bi pfs.BranchInfo
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(branchInfo.Branch, &bi, func() error {
-				bi.Head = trigBI.Head
-				return nil
-			}); err != nil {
-				return errors.EnsureStack(err)
+			branchInfo.Head = trigBI.Head
+			if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+				return err
 			}
-			return txnCtx.PropagateBranch(bi.Branch)
+			return txnCtx.PropagateBranch(branchInfo.Branch)
 		}); err != nil {
 			return err
 		}
