@@ -917,6 +917,7 @@ func (d *driver) startCommit(
 	}
 	// update branch field after a new branch is created.
 	if updateCommitBranchField {
+		newCommitInfo.Commit.Branch = branchInfo.Branch
 		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitID, newCommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
 			return nil, errors.Wrap(err, "start commit: update branch field after new branch is created")
 		}
@@ -1296,7 +1297,6 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 			return nil, errors.Wrap(err, "resolve commit")
 		}
 	}
-	commitWithID.CommitInfo.Commit = commit // we're doing this because the call sites to pfs.branches haven't been updated yet.
 	// Traverse commits' parents until you've reached the right ancestor
 	if ancestryLength >= 0 {
 		for i := 1; i <= ancestryLength; i++ {
