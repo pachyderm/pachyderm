@@ -178,6 +178,30 @@ func TestLoginIDToken(t *testing.T) {
 	).Run())
 }
 
+func TestIDTokenFromEnv(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	c, _ := minikubetestenv.AcquireCluster(t)
+	tu.ActivateAuthClient(t, c)
+	c = tu.AuthenticateClient(t, c, auth.RootUser)
+	// Configure OIDC login
+	require.NoError(t, tu.ConfigureOIDCProvider(t, c, false))
+	// Get an ID token for a trusted peer app
+	token := tu.GetOIDCTokenForTrustedApp(t, c, false)
+	require.YesError(t, tu.PachctlBashCmd(t, c, `
+                echo "" | pachctl auth use-auth-token;
+		pachctl auth whoami`,
+	).Run())
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+                echo "" | pachctl auth use-auth-token;
+                export PACH_ID_TOKEN={{.token}};
+                pachctl auth whoami | match user:{{.user}}`,
+		"user", tu.DexMockConnectorEmail,
+		"token", token,
+	).Run())
+}
+
 func TestWhoAmI(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
