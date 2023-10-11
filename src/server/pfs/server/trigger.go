@@ -34,7 +34,10 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 	}
 	// Recursively check / fire trigger chains.
 	newHeads := make(map[string]*pfs.CommitInfo)
-	newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	// the branch can be nil in the case where the commit's branch was deleted before the commit was finished in the backend.
+	if commitInfo.Commit.Branch != nil {
+		newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	}
 	var triggerBranch func(*pfs.BranchInfo) (*pfs.CommitInfo, error)
 	triggerBranch = func(bi *pfs.BranchInfo) (*pfs.CommitInfo, error) {
 		branchKey := pfsdb.BranchKey(bi.Branch)
