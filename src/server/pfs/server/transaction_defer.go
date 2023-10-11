@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -22,7 +21,6 @@ type Propagater struct {
 }
 
 func (a *apiServer) NewPropagater(txnCtx *txncontext.TransactionContext) txncontext.PfsPropagater {
-	fmt.Println("qqq calling NewPropagater")
 	return &Propagater{
 		d:        a.driver,
 		txnCtx:   txnCtx,
@@ -37,14 +35,12 @@ func (t *Propagater) PropagateBranch(branch *pfs.Branch) error {
 		return errors.New("cannot propagate nil branch")
 	}
 	t.branches[pfsdb.BranchKey(branch)] = branch
-	fmt.Println("qqq in Propagater.PropagateBranch", t.branches)
 	return nil
 }
 
 // DeleteBranch removes a branch from the list of those needing propagation
 // if present.
 func (t *Propagater) DeleteBranch(branch *pfs.Branch) {
-	fmt.Println("qqq in Propagater.DeleteBranch", t.branches)
 	delete(t.branches, pfsdb.BranchKey(branch))
 }
 

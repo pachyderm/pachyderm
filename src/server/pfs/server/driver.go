@@ -1010,7 +1010,6 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	if len(branches) == 0 {
 		return nil
 	}
-	var qqqSubvBranches []string
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
 	for _, b := range branches {
@@ -1026,11 +1025,9 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 				}
 				seen[pfsdb.BranchKey(subvenantB)] = subvenantBi
 				propagatedBranches = append(propagatedBranches, subvenantBi)
-				qqqSubvBranches = append(qqqSubvBranches, subvenantBi.Branch.Key())
 			}
 		}
 	}
-	fmt.Println("qqq calling propagateBranches on", branches, "subvenant branches", qqqSubvBranches)
 	sort.Slice(propagatedBranches, func(i, j int) bool {
 		return len(propagatedBranches[i].Provenance) < len(propagatedBranches[j].Provenance)
 	})

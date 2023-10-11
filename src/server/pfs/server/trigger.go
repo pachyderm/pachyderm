@@ -86,6 +86,9 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, err
 		}
 		newHeads[branchKey] = newHead
+		if err := txnCtx.PropagateBranch(trigBI.Branch); err != nil {
+			return nil, err
+		}
 		return newHead, nil
 	}
 	for _, bi := range branchInfos {
