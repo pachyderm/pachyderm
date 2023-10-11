@@ -188,10 +188,9 @@ func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, rep
 				},
 				Name: branch,
 			}
-			err := ErrBranchNotFound{
+			return nil, ErrBranchNotFound{
 				BranchKey: errBranch.Key(),
 			}
-			return nil, err
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
