@@ -1569,7 +1569,7 @@ func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handle
 func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 
 type ppsServerAPI struct {
-	pps.UnimplementedAPIServer
+	pps.UnsafeAPIServer
 	mock *mockPPSServer
 }
 
