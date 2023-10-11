@@ -331,7 +331,7 @@ message Worker {
 
 message Pipeline {
   pfs_v2.Project project = 2;
-  string name = 1;
+  string name = 1 [(validate.rules).string.min_bytes = 1];
 }
 
 enum PipelineState {
@@ -692,6 +692,12 @@ message SchedulingSpec {
   string priority_class_name = 2;
 }
 
+message RerunPipelineRequest {
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
+  // Reprocess forces the pipeline to reprocess all datums.
+  bool reprocess = 15;
+}
+
 message CreatePipelineRequest {
   option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   Pipeline pipeline = 1;
@@ -948,6 +954,7 @@ service API {
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
+  rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipelineV2(CreatePipelineV2Request) returns (CreatePipelineV2Response) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}

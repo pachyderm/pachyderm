@@ -587,6 +587,10 @@ func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps_v
 	return nil, unsupportedError("RenderTemplate")
 }
 
+func (c *unsupportedPpsBuilderClient) RerunPipeline(_ context.Context, _ *pps_v2.RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, unsupportedError("RerunPipeline")
+}
+
 func (c *unsupportedPpsBuilderClient) RestartDatum(_ context.Context, _ *pps_v2.RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RestartDatum")
 }

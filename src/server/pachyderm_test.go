@@ -9677,12 +9677,10 @@ func TestCreatePipelineError(t *testing.T) {
 	// Create pipeline w/ no transform--make sure we get a response (& make sure
 	// it explains the problem)
 	pipeline := tu.UniqueString("no-transform-")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipelineV2(
 		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: nil,
-			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
@@ -10138,8 +10136,8 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
 
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)},
+	_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null}`, pfs.DefaultProjectName, pipelineName)},
 	)
 	require.YesError(t, err)
 	require.Matches(t, "must specify a transform", err.Error())
@@ -10153,9 +10151,11 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:        client.NewPipeline(pfs.DefaultProjectName, pipelineName),
-		Transform:       &pps.Transform{},
-		Service:         &pps.Service{},
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Service: &pps.Service{
+			Type: string(v1.ServiceTypeNodePort),
+		},
 		ParallelismSpec: &pps.ParallelismSpec{},
 	})
 	require.YesError(t, err)
