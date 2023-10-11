@@ -4132,7 +4132,16 @@ func (m *Pipeline) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for Name
+	if len(m.GetName()) < 1 {
+		err := PipelineValidationError{
+			field:  "Name",
+			reason: "value length must be at least 1 bytes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return PipelineMultiError(errors)
@@ -7122,6 +7131,150 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = SchedulingSpecValidationError{}
+
+// Validate checks the field values on RerunPipelineRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *RerunPipelineRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on RerunPipelineRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// RerunPipelineRequestMultiError, or nil if none found.
+func (m *RerunPipelineRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *RerunPipelineRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetPipeline() == nil {
+		err := RerunPipelineRequestValidationError{
+			field:  "Pipeline",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetPipeline()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, RerunPipelineRequestValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, RerunPipelineRequestValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPipeline()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return RerunPipelineRequestValidationError{
+				field:  "Pipeline",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for Reprocess
+
+	if len(errors) > 0 {
+		return RerunPipelineRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// RerunPipelineRequestMultiError is an error wrapping multiple validation
+// errors returned by RerunPipelineRequest.ValidateAll() if the designated
+// constraints aren't met.
+type RerunPipelineRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m RerunPipelineRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m RerunPipelineRequestMultiError) AllErrors() []error { return m }
+
+// RerunPipelineRequestValidationError is the validation error returned by
+// RerunPipelineRequest.Validate if the designated constraints aren't met.
+type RerunPipelineRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e RerunPipelineRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e RerunPipelineRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e RerunPipelineRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e RerunPipelineRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e RerunPipelineRequestValidationError) ErrorName() string {
+	return "RerunPipelineRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e RerunPipelineRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sRerunPipelineRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = RerunPipelineRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = RerunPipelineRequestValidationError{}
 
 // Validate checks the field values on CreatePipelineRequest with the rules
 // defined in the proto definition for this message. If any rules are

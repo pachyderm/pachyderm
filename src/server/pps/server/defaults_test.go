@@ -230,7 +230,7 @@ func TestAPIServer_CreatePipelineV2_delete(t *testing.T) {
 	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
 	var req pps.CreatePipelineRequest
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
-	require.Equal(t, int64(0), req.DatumTries, "no default")
+	require.Equal(t, int64(3), req.DatumTries, "built-in default")
 
 	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 4, "autoscaling": true}}`,
@@ -293,4 +293,35 @@ func TestAPIServer_CreatePipelineV2_zero_value(t *testing.T) {
 	require.False(t, req.Autoscaling, "spec must override default")
 	require.NotNil(t, req.Transform)
 	require.Len(t, req.Transform.Cmd, 4)
+}
+
+func TestAPIServer_CreatePipelineV2_reprocessSpec(t *testing.T) {
+	var testCases = map[string]struct {
+		defaults string
+		wantErr  bool
+	}{
+		"missing reprocess spec":  {defaults: `{"create_pipeline_request": {}}`},
+		"reprocess until success": {defaults: `{"create_pipeline_request": {"reprocessSpec": "until_success"}}`},
+		"reprocess every job":     {defaults: `{"create_pipeline_request": {"reprocessSpec": "every_job"}}`},
+		"bad reprocess spec":      {defaults: `{"create_pipeline_request": {"reprocessSpec": "#<not a reprocess spec>"}}`, wantErr: true},
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+
+	for name, testCase := range testCases {
+		t.Run(name, func(t *testing.T) {
+			_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+				ClusterDefaultsJson: testCase.defaults,
+			})
+			if err != nil {
+				if testCase.wantErr {
+					return
+				}
+				t.Errorf("%s errored: %v", testCase.defaults, err)
+			}
+			if testCase.wantErr {
+				t.Errorf("%s should have errored, but didn’t", testCase.defaults)
+			}
+		})
+	}
 }
