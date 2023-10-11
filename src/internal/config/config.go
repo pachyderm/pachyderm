@@ -21,6 +21,7 @@ const (
 	configEnvVar            = "PACH_CONFIG"
 	contextEnvVar           = "PACH_CONTEXT"
 	enterpriseContextEnvVar = "PACH_ENTERPRISE_CONTEXT"
+	pachdAddressEnvVar      = "PACHD_ADDRESS"
 )
 
 var defaultConfigDir = filepath.Join(os.Getenv("HOME"), ".pachyderm")
@@ -215,7 +216,8 @@ func (c *Config) InitV2() error {
 		c.V1 = nil
 	} else {
 		c.V2.Contexts["default"] = &Context{
-			Source: ContextSource_NONE,
+			Source:       ContextSource_NONE,
+			PachdAddress: os.Getenv(pachdAddressEnvVar),
 		}
 	}
 	return nil
