@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -464,7 +465,8 @@ func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.
 			branch.name as "to_branch.name",
 			cron_spec,
 			rate_limit_spec,
-			size, num_commits,
+			size,
+			num_commits,
 			all_conditions
 		FROM pfs.branch_triggers trigger
 			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id

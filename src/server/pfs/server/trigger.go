@@ -141,17 +141,16 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 	if t.Commits != 0 {
 		ci := newHead
 		var commits int64
-		for commits < t.Commits {
-			commits++
-			if ci.ParentCommit != nil && oldHead.Commit.Id != ci.ParentCommit.Id {
-				var err error
-				ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
-				if err != nil {
-					return false, err
-				}
-			} else {
+		for ci.ParentCommit != nil && commits < t.Commits {
+			if ci.Commit.Id == oldHead.Commit.Id {
 				break
 			}
+			var err error
+			ci, err = d.resolveCommit(ctx, txnCtx.SqlTx, ci.ParentCommit)
+			if err != nil {
+				return false, err
+			}
+			commits++
 		}
 		merge(commits == t.Commits)
 	}
