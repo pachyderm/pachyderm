@@ -700,6 +700,8 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 				return err
 			}
 		default:
+			// If a user creates folders in the mount, they will enter a path that fails the
+			// previous cases. In this case, we ignore, since there's nothing to mount.
 		}
 	}
 	return nil

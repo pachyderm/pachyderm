@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var Separator = string(filepath.Separator)
+const Separator = string(filepath.Separator)
 
 // Adds a leading slash and a trailing slash to the path if they don't already exist
 func standardizeSlashes(path string) string {
