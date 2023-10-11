@@ -418,6 +418,7 @@
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
     - [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry)
     - [RenderTemplateResponse](#pps_v2-RenderTemplateResponse)
+    - [RerunPipelineRequest](#pps_v2-RerunPipelineRequest)
     - [ResourceSpec](#pps_v2-ResourceSpec)
     - [RestartDatumRequest](#pps_v2-RestartDatumRequest)
     - [RunCronRequest](#pps_v2-RunCronRequest)
@@ -6854,6 +6855,22 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-RerunPipelineRequest"></a>
+
+### RerunPipelineRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [Pipeline](#pps_v2-Pipeline) |  |  |
+| reprocess | [bool](#bool) |  | Reprocess forces the pipeline to reprocess all datums. |
+
+
+
+
+
+
 <a name="pps_v2-ResourceSpec"></a>
 
 ### ResourceSpec
@@ -7452,6 +7469,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
+| RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipelineV2 | [CreatePipelineV2Request](#pps_v2-CreatePipelineV2Request) | [CreatePipelineV2Response](#pps_v2-CreatePipelineV2Response) |  |
 | InspectPipeline | [InspectPipelineRequest](#pps_v2-InspectPipelineRequest) | [PipelineInfo](#pps_v2-PipelineInfo) |  |

@@ -2122,6 +2122,33 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
+func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
+		if err != nil {
+			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
+		}
+		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
+		if err != nil {
+			return err
+		}
+
+		effectiveSpec.Reprocess = request.Reprocess
+		effectiveSpec.Update = true
+
+		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
+			CreatePipelineRequest: effectiveSpec,
+			EffectiveJson:         effectiveSpecJSON,
+			UserJson:              info.GetUserSpecJson(),
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -3751,6 +3778,12 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
+	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	if err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
