@@ -610,12 +610,16 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			ELSE
 				row := NEW;
 			END IF;
-			payload := TG_OP || ' ' || row.int_id::text;
+			payload := TG_OP || ' ' || row.id::text;
 			PERFORM pg_notify('pfs_branches', payload);
 			PERFORM pg_notify('pfs_branches_repo_' || row.repo_id::text, payload);
 			return row;
 		END;
 		$$ LANGUAGE plpgsql;
+		
+		CREATE TRIGGER notify
+			AFTER INSERT OR UPDATE OR DELETE ON pfs.branches
+			FOR EACH ROW EXECUTE PROCEDURE pfs.notify_branches();
 	`); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.branches")
 	}

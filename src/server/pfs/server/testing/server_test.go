@@ -6530,7 +6530,6 @@ func TestTrigger(t *testing.T) {
 		require.Equal(t, outStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
 	})
 
-	// todo(albert) fix
 	t.Run("Cron", func(t *testing.T) {
 		repo := tu.UniqueString("Cron")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
@@ -6564,39 +6563,37 @@ func TestTrigger(t *testing.T) {
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
-	// todo(albert) fix
 	t.Run("CronUpdate", func(t *testing.T) {
 		repo := tu.UniqueString("CronUpdate")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		// Create the initial trigger for every minute, then update it to every January.
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * * *", // every minute
 		}))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * 1 *", // every January
 		}))
 		// Create initial commit and ensure that it doesn't fire in a minute.
-		commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
-		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
-		bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
-		require.NoError(t, err)
-		head := bi.Head.Id
+		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
+		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
 		time.Sleep(time.Minute)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// Update the trigger back to one minute and ensure that the trigger fires.
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * * *", // every minute
 		}))
-		time.Sleep(3 * time.Second)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+		time.Sleep(time.Second)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
+		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
 	t.Run("Count1", func(t *testing.T) {
