@@ -1218,7 +1218,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy-distroless"
-    tag: "v1.27.0"
+    tag: "v1.27.1"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.
