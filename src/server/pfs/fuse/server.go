@@ -42,14 +42,23 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
+const FuseServerPort = ":9002"
+
 type ServerOptions struct {
+	// MountDir is the directory where the mount will be created (the most
+	// conventional and typically most useful value for this field is '/pfs',
+	// causing mount-server to lay out files in the same way as Pachyderm's worker
+	// binary. Code that correctly reads and writes data in this configuration can
+	// then be run inside a Pachyderm pipeline without modification).
 	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
-	// unmounted. It can be nil in which case it's ignored.
+	// unmounted. It can be nil, in which case it's ignored.
 	Unmount chan struct{}
-	// True if allow-other option is to be specified
+	// AllowOther, if true, configures mount-server to give read and write
+	// permissions to "other" on the mount point ('chmod u+rw /pfs', effectively)
 	AllowOther bool
-	// Socket directory for Unix Domain Socket
+	// SockPath, if set, configures mount-server to serve over a Unix socket at
+	// the path it contains.
 	SockPath string
 }
 
@@ -945,14 +954,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// Using unix domain socket
-	var sockPath string
-	var srv *http.Server
-	if len(sopts.SockPath) > 0 {
-		sockPath = sopts.SockPath
-		srv = &http.Server{Handler: router}
-	} else {
-		srv = &http.Server{Addr: ":9002", Handler: router}
+	srv := &http.Server{Handler: router}
+	if sopts.SockPath == "" {
+		srv.Addr = FuseServerPort
 	}
 
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
@@ -962,7 +966,6 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
-			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
 		if mm.Client != nil {
@@ -972,19 +975,21 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	var socket net.Listener
-	var err1 error
-	var err2 error
-	var err error
-	if len(sopts.SockPath) > 0 {
-		socket, err1 = net.Listen("unix", sockPath)
-		err2 = srv.Serve(socket)
-		err = errors.Join(err1, err2)
-	} else {
-		err = srv.ListenAndServe()
+	if sopts.SockPath == "" {
+		return errors.EnsureStack(srv.ListenAndServe())
 	}
 
-	return errors.EnsureStack(err)
+	// Serving over unix socket
+	socket, err := net.Listen("unix", sopts.SockPath)
+	if err != nil {
+		return errors.Wrapf(err, "could not listen to unix socket at %q", sopts.SockPath)
+	}
+	// sopts.SockPath will exist until this process exits, per unix spec. See e.g.
+	// https://stackoverflow.com/questions/34873151/how-can-i-delete-a-unix-domain-socket-file-when-i-exit-my-application
+	if err := os.Remove(sopts.SockPath); err != nil {
+		log.Error(pctx.Background(), "Error removing unix socket", zap.Error(err))
+	}
+	return errors.EnsureStack(srv.Serve(socket))
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
@@ -1411,7 +1416,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("new state", state))
+	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("old state", m.State), zap.String("new state", state))
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status

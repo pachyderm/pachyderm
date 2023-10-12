@@ -144,6 +144,12 @@ By default, the `npm run build` command generates the source maps for this exten
 jupyter lab build --minimize=False
 ```
 
+Note that to enable debug logging for `jupyter` (which also enables it for our extension backend, a python plugin to the JupyterLab server), you can run:
+
+```bash
+jupyter lab --debug
+```
+
 ## Development uninstall
 
 ```bash
