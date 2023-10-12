@@ -71,7 +71,7 @@ class MountServerClient(MountInterface):
         self.mount_dir = mount_dir
 
         self.client = AsyncHTTPClient()
-        if PFS_SOCK_PATH:
+        if PFS_SOCK_PATH and not SIDECAR_MODE:
             self.address = f"http://unix"
             self.address_desc = (f"http://\"unix"+
             f"({PFS_SOCK_PATH})\"" if PFS_SOCK_PATH else "\"")
@@ -172,7 +172,7 @@ class MountServerClient(MountInterface):
                         "--allow-other=false",
                     ]
 
-                if PFS_SOCK_PATH:
+                if PFS_SOCK_PATH and not SIDECAR_MODE:
                     mount_server_cmd += ["--sock-path", PFS_SOCK_PATH]
 
                 if MOUNT_SERVER_LOG_FILE:
