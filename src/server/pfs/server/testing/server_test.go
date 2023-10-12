@@ -1165,7 +1165,6 @@ func TestPutFileDirectoryTraversal(t *testing.T) {
 	require.Equal(t, 0, len(fis))
 }
 
-// todo(fahad): fix
 func TestCreateInvalidBranchName(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -2124,7 +2123,7 @@ func TestSquashComplex(t *testing.T) {
 	checkpoint("good squash latest")
 	css := listCommitSets()
 	require.Equal(t, 18, len(css))
-	require.Equal(t, realLatest.Id, css[0].CommitSet.Id)
+	require.Equal(t, realLatest.Id, css[len(css)-1].CommitSet.Id)
 	fmt.Println(benches)
 }
 
@@ -3106,7 +3105,6 @@ func TestOffsetRead(t *testing.T) {
 	// require.Equal(t, "", buffer.String())
 }
 
-// todo(fahad): fix
 func TestBranch2(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -4637,7 +4635,6 @@ func TestUpdateBranch(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 }
 
-// todo(fahad): fix
 func TestBranchProvenance(t *testing.T) {
 	// Each test case describes a list of operations on the overall branch provenance DAG,
 	// where each branch is named after its repo, and is implicitly the master branch.
@@ -5355,7 +5352,6 @@ func TestSquashCommitSetMultiLevelChildrenComplex(t *testing.T) {
 	require.Equal(t, gInfo.Commit.Id, masterInfo.Head.Id)
 }
 
-// todo(fahad): nil
 func TestCommitState(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -6209,7 +6205,6 @@ const (
 	deleteOutputBranch        // delete an output branch
 )
 
-// todo(fahad): fix
 func TestFuzzProvenance(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
@@ -6440,7 +6435,6 @@ func TestAtomicHistory(t *testing.T) {
 	//	}
 }
 
-// todo(fahad): fix
 // TestTrigger tests branch triggers
 // TODO: This test can be refactored to remove a lot of the boilerplate.
 func TestTrigger(t *testing.T) {
@@ -7038,7 +7032,6 @@ func TestTrigger(t *testing.T) {
 	})
 }
 
-// todo(fahad): fix
 // TriggerValidation tests branch trigger validation
 func TestTriggerValidation(t *testing.T) {
 	ctx := pctx.TestContext(t)
