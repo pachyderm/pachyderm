@@ -13,6 +13,7 @@ import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_NAME} from './mount';
+import {Paging} from './paging';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -28,24 +29,32 @@ const createCustomFileBrowser = (
     refreshInterval: 10000,
   });
 
+  const filenameSearcher = browser.node
+    .getElementsByClassName('jp-FileBrowser-filterBox')
+    .item(0);
+  if (filenameSearcher) {
+    browser.node.removeChild(filenameSearcher);
+  }
+
+  const toolbar = browser.node
+    .getElementsByClassName('jp-FileBrowser-toolbar')
+    .item(0);
+  if (toolbar) {
+    browser.node.removeChild(toolbar);
+  }
+
   try {
-    const newLauncher = browser.toolbar.node.childNodes[0];
-    const newFolder = browser.toolbar.node.childNodes[1];
-    browser.toolbar.node.removeChild(newLauncher);
-    browser.toolbar.node.removeChild(newFolder);
-
     const widgets = browser.layout.widgets || [];
-
     const breadCrumbs = widgets.find(
       (element) => element instanceof BreadCrumbs,
     );
     if (breadCrumbs) {
       breadCrumbs.node
         .querySelector('svg[data-icon="ui-components:folder"]')
-        ?.replaceWith('/ pfs');
-      const homeElement = breadCrumbs.node.querySelector(
-        'span[title="~/extension-wd"]',
-      );
+        ?.replaceWith('/pfs');
+      const homeElement = breadCrumbs.node
+        .getElementsByClassName('jp-BreadCrumbs-home')
+        .item(0);
       if (homeElement) {
         homeElement.className = 'jp-BreadCrumbs-item';
       }
@@ -96,6 +105,17 @@ const createCustomFileBrowser = (
   } catch (e) {
     console.log('Failed to edit default browser.');
   }
+
+  const paging = new Paging({
+    browser_model: browser.model,
+    page_model: drive.model,
+  });
+  browser.model.pathChanged.connect(async (_, __) => {
+    // If the FileBrowser path has changed, then the MountDrive has reset the pagination model.
+    // Therefore, the pagination widget needs to be re-rendered.
+    paging.update();
+  });
+  browser.layout.addWidget(paging);
 
   return browser;
 };
