@@ -4,11 +4,12 @@ import platform
 import json
 import asyncio
 import os
-import pycurl
+import socket
 import shutil
 from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
+from tornado.netutil import Resolver
 from tornado import locks
 
 from .pachyderm import MountInterface
@@ -17,15 +18,46 @@ from .env import (
     SIDECAR_MODE,
     MOUNT_SERVER_LOG_FILE,
     NONPRIV_CONTAINER,
-    HTTP_UNIX_SOCKET_SCHEMA,
-    HTTP_SCHEMA,
-    DEFAULT_SCHEMA,
+    PFS_SOCK_PATH,
     DET_RESOURCES_TYPE,
     SLURM_JOB
 )
 
 lock = locks.Lock()
+
+# MOUNT_SERVER_PORT is the port over which MountServerClient and mount-server
+# will communicate if a unix socket is not being used.
+# TODO: dynamic port assignment, if needed
 MOUNT_SERVER_PORT = 9002
+
+# UNIX_SOCKET_ADDRESS is a fake address that UnixSocketResolver will resolve to
+# PFS_SOCK_PATH (below). This allows MountServerClient to connect to an instance
+# of mount-server that is serving over a unix socket transparently.
+UNIX_SOCKET_ADDRESS = "unix"
+
+# UnixSockerResolver is a custom Tornado resolver that allows a Tornado client
+# to send/recieve traffic over a local unix socket by resolving 'unix://<path>'
+# addresses to an AF_SOCK socket at the indicated path. This allows
+# communication with mount-server over a unix socket, which is required in HPC
+# environments.
+#
+# Implementation taken from
+# https://github.com/tornadoweb/tornado/issues/2671#issuecomment-499190469
+class UnixSocketResolver(Resolver):
+    def initialize(self, old_resolver, socket_path, *args, **kwargs):
+        self.old_resolver = old_resolver
+        self.socket_path = socket_path
+
+    def close(self):
+      self.old_resolver.close()
+
+    async def resolve(self,
+        host: str, port: int, family: socket.AddressFamily = socket.AF_UNSPEC,
+        *args, **kwargs
+    ):
+        if host == "unix":
+            return [(socket.AF_UNIX, self.socket_path)]
+        return await self.old_resolver.resolve(host, port, family, *args, **kwargs)
 
 
 class MountServerClient(MountInterface):
@@ -38,14 +70,14 @@ class MountServerClient(MountInterface):
     ):
         self.mount_dir = mount_dir
 
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            self.address = "http://localhost"
-            AsyncHTTPClient.configure("tornado.curl_httpclient.CurlAsyncHTTPClient")
-            self.sock_path = sock_path
+        self.client = AsyncHTTPClient()
+        if PFS_SOCK_PATH:
+            self.address = f"http://unix"
+            self.address_desc = (f"http://\"unix"+
+            f"({PFS_SOCK_PATH})\"" if PFS_SOCK_PATH else "\"")
         else:
             self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
-            self.sock_path = ""
-        self.client = AsyncHTTPClient()
+            self.address_desc = self.address
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
@@ -58,9 +90,9 @@ class MountServerClient(MountInterface):
         try:
             await self.health()
         except Exception as e:
-            get_logger().error(f"Unable to reach mount-server (at {self.address}): {e}")
+            get_logger().error(f"Unable to reach mount-server (at {self.address_desc}): {e}")
             return False
-        get_logger().debug(f"Successfully reached mount-server at {self.address}")
+        get_logger().debug(f"Successfully reached mount-server at {self.address_desc}")
         return True
 
     def _unmount(self):
@@ -140,10 +172,10 @@ class MountServerClient(MountInterface):
                         "--allow-other=false",
                     ]
 
-                if self.sock_path:
-                    mount_server_cmd += ["--sock-path", self.sock_path]
+                if PFS_SOCK_PATH:
+                    mount_server_cmd += ["--sock-path", PFS_SOCK_PATH]
 
-                if MOUNT_SERVER_LOG_FILE is not None and MOUNT_SERVER_LOG_FILE:
+                if MOUNT_SERVER_LOG_FILE:
                     mount_server_cmd += ["--log-file", MOUNT_SERVER_LOG_FILE]
 
                 get_logger().info("Starting mount-server: \"" +
@@ -207,36 +239,10 @@ class MountServerClient(MountInterface):
         return True
 
     async def _get(self, resource):
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = await self.client.fetch(
-                f"{self.address}/{resource}",
-                prepare_curl_callback=lambda curl: curl.setopt(
-                    pycurl.UNIX_SOCKET_PATH, self.sock_path
-                ),
-            )
-        else:
-            response = await self.client.fetch(f"{self.address}/{resource}")
-        return response
+        return await self.client.fetch(f"{self.address}/{resource}")
 
-    async def _put(self, resource, body, request_timeout=None):
-        if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
-            response = await self.client.fetch(
-                f"{self.address}/{resource}",
-                method="PUT",
-                body=json.dumps(body),
-                prepare_curl_callback=lambda curl: curl.setopt(
-                    pycurl.UNIX_SOCKET_PATH, self.sock_path
-                ),
-                request_timeout=request_timeout,
-            )
-        else:
-            response = await self.client.fetch(
-                f"{self.address}/{resource}",
-                method="PUT",
-                body=json.dumps(body),
-                request_timeout=request_timeout,
-            )
-        return response
+    async def _put(self, resource, body):
+        return await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body))
 
     async def list_repos(self):
         await self._ensure_mount_server()
