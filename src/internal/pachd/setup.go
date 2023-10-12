@@ -2,17 +2,19 @@ package pachd
 
 import (
 	"context"
-	"fmt"
 	"net"
 	godebug "runtime/debug"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	errorsmw "github.com/pachyderm/pachyderm/v2/src/internal/middleware/errors"
 	log_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
+	version_middleware "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -21,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
-	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
@@ -31,6 +32,7 @@ import (
 	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 func printVersion() setupStep {
@@ -113,7 +115,7 @@ func runMigrations(db *pachsql.DB, etcdClient *etcd.Client) setupStep {
 }
 
 func newSelfGRPC(l net.Listener, opts []grpc.DialOption) *grpc.ClientConn {
-	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	gc, err := grpc.Dial(l.Addr().String(), opts...)
 	if err != nil {
 		// This is always a configuration issue, Dial does not initiate a network connection before returning.
@@ -195,48 +197,28 @@ func initAuthServer(out *auth.APIServer, env func() authserver.Env) setupStep {
 	}
 }
 
-func initEnterpriseServer(out *enterprise.APIServer, env func() *ent_server.Env) setupStep {
-	return setupStep{
-		Name: "initEnterpriseServer",
-		Fn: func(ctx context.Context) error {
-			apiServer, err := ent_server.NewEnterpriseServer(
-				env(),
-				ent_server.Config{
-					Heartbeat: false,
-				},
-			)
-			if err != nil {
-				return err
-			}
-			*out = apiServer
-			return nil
-		},
-	}
-}
-
 // newServeGRPC returns a background runner which servers gRPC on l.
 // reg is called to register functions with the server.
 func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener, reg func(gs grpc.ServiceRegistrar)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
 		loggingInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
-		fmt.Println(loggingInterceptor)
 		gs := grpc.NewServer(
-		//grpc.ChainUnaryInterceptor(
-		// 	errorsmw.UnaryServerInterceptor,
-		// 	version_middleware.UnaryServerInterceptor,
-		// 	tracing.UnaryServerInterceptor(),
-		// 	authInterceptor.InterceptUnary,
-		// loggingInterceptor.UnaryServerInterceptor,
-		// 	validation.UnaryServerInterceptor,
-		// ),
-		// grpc.ChainStreamInterceptor(
-		// 	errorsmw.StreamServerInterceptor,
-		// 	version_middleware.StreamServerInterceptor,
-		// 	tracing.StreamServerInterceptor(),
-		// 	authInterceptor.InterceptStream,
-		// loggingInterceptor.StreamServerInterceptor,
-		// 	validation.StreamServerInterceptor,
-		// ),
+			grpc.ChainUnaryInterceptor(
+				errorsmw.UnaryServerInterceptor,
+				version_middleware.UnaryServerInterceptor,
+				tracing.UnaryServerInterceptor(),
+				authInterceptor.InterceptUnary,
+				loggingInterceptor.UnaryServerInterceptor,
+				validation.UnaryServerInterceptor,
+			),
+			grpc.ChainStreamInterceptor(
+				errorsmw.StreamServerInterceptor,
+				version_middleware.StreamServerInterceptor,
+				tracing.StreamServerInterceptor(),
+				authInterceptor.InterceptStream,
+				loggingInterceptor.StreamServerInterceptor,
+				validation.StreamServerInterceptor,
+			),
 		)
 		reg(gs)
 		go func() {
@@ -244,6 +226,6 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 			log.Info(ctx, "stopping grpc server")
 			gs.Stop()
 		}()
-		return gs.Serve(l)
+		return errors.EnsureStack(gs.Serve(l))
 	}
 }

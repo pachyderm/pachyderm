@@ -85,7 +85,7 @@ type RealEnv struct {
 // server instances for supported operations. PPS uses a fake clientset which allows
 // some PPS behavior to work.
 //
-// Deprecated: Use pachd.NewTestPachd instead.
+// *Deprecated: Use pachd.NewTestPachd instead.
 func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }

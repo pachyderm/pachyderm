@@ -26,7 +26,7 @@ const (
 func (w *Worker) URLWorker(ctx context.Context) error {
 	ctx = auth.AsInternalUser(ctx, "pfs-url-worker")
 	taskSource := w.env.TaskService.NewSource(URLTaskNamespace)
-	return backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
+	return backoff.RetryUntilCancel(ctx, func() error {
 		err := taskSource.Iterate(ctx, func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
 			case input.MessageIs(&PutFileURLTask{}):
