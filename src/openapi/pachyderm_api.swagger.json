@@ -3826,6 +3826,36 @@
         ]
       }
     },
+    "/pps_v2.API/RerunPipeline": {
+      "post": {
+        "operationId": "API_RerunPipeline",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2RerunPipelineRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/CreatePipeline": {
       "post": {
         "operationId": "API_CreatePipeline",
@@ -9226,6 +9256,18 @@
             "type": "object",
             "$ref": "#/definitions/pps_v2CreatePipelineRequest"
           }
+        }
+      }
+    },
+    "pps_v2RerunPipelineRequest": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2Pipeline"
+        },
+        "reprocess": {
+          "type": "boolean",
+          "description": "Reprocess forces the pipeline to reprocess all datums."
         }
       }
     },
