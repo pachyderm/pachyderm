@@ -33,8 +33,9 @@ const (
 	ProjectHeader = "ACTIVE\tPROJECT\tCREATED\tDESCRIPTION\n"
 	// ProjectAuthHeader is the header for the projects with auth info attached.
 	ProjectAuthHeader = "ACTIVE\tPROJECT\tACCESS_LEVEL\tCREATED\tDESCRIPTION\n"
-	// FileHeader is the header for files.
-	FileHeader = "NAME\tTYPE\tSIZE\t\n"
+	// FileHeader is the header for files.  It pads SIZE to allow up to four
+	// characters (e.g. “1023”) followed by a unit such as “KiB.”
+	FileHeader = "SIZE   \tNAME\n"
 	// FileHeaderWithCommit is the header for files that includes a commit field.
 	FileHeaderWithCommit = "COMMIT\tNAME\tTYPE\tCOMMITTED\tSIZE\t\n"
 	// DiffFileHeader is the header for files produced by diff file.
@@ -356,39 +357,19 @@ Size: {{prettySize .Details.SizeBytes}}{{end}}
 }
 
 // PrintFileInfo pretty-prints file info.
-// If recurse is false and directory size is 0, display "-" instead
-// If fast is true and file size is 0, display "-" instead
-func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo, fullTimestamps, withCommit bool) {
-	if withCommit {
-		fmt.Fprintf(w, "%s\t", fileInfo.File.Commit.Id)
-	}
-	fmt.Fprintf(w, "%s\t", fileInfo.File.Path)
-	if fileInfo.FileType == pfs.FileType_FILE {
-		fmt.Fprint(w, "file\t")
-	} else {
-		fmt.Fprint(w, "dir\t")
-	}
-	if withCommit {
-		if fileInfo.Committed == nil {
-			fmt.Fprintf(w, "-\t")
-		} else if fullTimestamps {
-			fmt.Fprintf(w, "%s\t", pretty.Timestamp(fileInfo.Committed))
-		} else {
-			fmt.Fprintf(w, "%s\t", pretty.Ago(fileInfo.Committed))
-		}
-	}
+func PrintFileInfo(w io.Writer, fileInfo *pfs.FileInfo) {
 	fmt.Fprintf(w, "%s\t", units.BytesSize(float64(fileInfo.SizeBytes)))
-	fmt.Fprintln(w)
+	fmt.Fprintf(w, "%s\n", fileInfo.File.Path)
 }
 
 // PrintDiffFileInfo pretty-prints a file info from diff file.
-func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo, fullTimestamps bool) {
+func PrintDiffFileInfo(w io.Writer, added bool, fileInfo *pfs.FileInfo) {
 	if added {
 		fmt.Fprint(w, color.GreenString("+\t"))
 	} else {
 		fmt.Fprint(w, color.RedString("-\t"))
 	}
-	PrintFileInfo(w, fileInfo, fullTimestamps, false)
+	PrintFileInfo(w, fileInfo)
 }
 
 // PrintDetailedFileInfo pretty-prints detailed file info.
