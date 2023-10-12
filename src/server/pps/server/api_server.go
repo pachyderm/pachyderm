@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"math"
 	"path"
 	"sort"
@@ -3313,7 +3312,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
 			// the branch key of the returned error will be for the spec commit to commitInfo.Commit.Repo.Branch
-			if errors.As(errors.Cause(err), &pfsdb.ErrBranchNotFound{}) {
+			if pfsServer.IsBranchNotFoundErr(err) {
 				continue
 			}
 			return err
