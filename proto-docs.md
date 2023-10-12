@@ -357,6 +357,33 @@
   
     - [API](#pfs_v2-API)
   
+- [pjs/pjs.proto](#pjs_pjs-proto)
+    - [CancelJobRequest](#pjs-CancelJobRequest)
+    - [CancelJobResponse](#pjs-CancelJobResponse)
+    - [CreateJobRequest](#pjs-CreateJobRequest)
+    - [CreateJobResponse](#pjs-CreateJobResponse)
+    - [DeleteJobRequest](#pjs-DeleteJobRequest)
+    - [DeleteJobResponse](#pjs-DeleteJobResponse)
+    - [InspectJobRequest](#pjs-InspectJobRequest)
+    - [InspectQueueRequest](#pjs-InspectQueueRequest)
+    - [Job](#pjs-Job)
+    - [JobInfo](#pjs-JobInfo)
+    - [JobInfoDetails](#pjs-JobInfoDetails)
+    - [ListJobRequest](#pjs-ListJobRequest)
+    - [ListQueueRequest](#pjs-ListQueueRequest)
+    - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
+    - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
+    - [Queue](#pjs-Queue)
+    - [QueueElement](#pjs-QueueElement)
+    - [QueueInfo](#pjs-QueueInfo)
+    - [QueueInfoDetails](#pjs-QueueInfoDetails)
+    - [WalkJobRequest](#pjs-WalkJobRequest)
+  
+    - [JobErrorCode](#pjs-JobErrorCode)
+    - [JobState](#pjs-JobState)
+  
+    - [API](#pjs-API)
+  
 - [pps/pps.proto](#pps_pps-proto)
     - [ActivateAuthRequest](#pps_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pps_v2-ActivateAuthResponse)
@@ -5718,6 +5745,378 @@ These are the different places where a commit may be originated from
 | InspectProject | [InspectProjectRequest](#pfs_v2-InspectProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) | InspectProject returns info about a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+
+ 
+
+
+
+<a name="pjs_pjs-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## pjs/pjs.proto
+
+
+
+<a name="pjs-CancelJobRequest"></a>
+
+### CancelJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-CancelJobResponse"></a>
+
+### CancelJobResponse
+
+
+
+
+
+
+
+<a name="pjs-CreateJobRequest"></a>
+
+### CreateJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+| input | [QueueElement](#pjs-QueueElement) |  |  |
+| cache_read | [bool](#bool) |  |  |
+| cache_write | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="pjs-CreateJobResponse"></a>
+
+### CreateJobResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-DeleteJobRequest"></a>
+
+### DeleteJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-DeleteJobResponse"></a>
+
+### DeleteJobResponse
+
+
+
+
+
+
+
+<a name="pjs-InspectJobRequest"></a>
+
+### InspectJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-InspectQueueRequest"></a>
+
+### InspectQueueRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  |  |
+
+
+
+
+
+
+<a name="pjs-Job"></a>
+
+### Job
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pjs-JobInfo"></a>
+
+### JobInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job | [Job](#pjs-Job) |  |  |
+| parent_job | [Job](#pjs-Job) |  |  |
+| state | [JobState](#pjs-JobState) |  |  |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+| input | [QueueElement](#pjs-QueueElement) |  |  |
+| output | [QueueElement](#pjs-QueueElement) |  |  |
+| error | [JobErrorCode](#pjs-JobErrorCode) |  |  |
+
+
+
+
+
+
+<a name="pjs-JobInfoDetails"></a>
+
+### JobInfoDetails
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job_info | [JobInfo](#pjs-JobInfo) |  |  |
+
+
+
+
+
+
+<a name="pjs-ListJobRequest"></a>
+
+### ListJobRequest
+TODO:
+- Filter
+- Paginate
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-ListQueueRequest"></a>
+
+### ListQueueRequest
+TODO:
+- Filter
+- Paginate
+
+
+
+
+
+
+<a name="pjs-ProcessQueueRequest"></a>
+
+### ProcessQueueRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  |  |
+| output | [QueueElement](#pjs-QueueElement) |  |  |
+| failed | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueResponse"></a>
+
+### ProcessQueueResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| input | [QueueElement](#pjs-QueueElement) |  |  |
+
+
+
+
+
+
+<a name="pjs-Queue"></a>
+
+### Queue
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="pjs-QueueElement"></a>
+
+### QueueElement
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| data | [bytes](#bytes) |  |  |
+| filesets | [string](#string) | repeated |  |
+
+
+
+
+
+
+<a name="pjs-QueueInfo"></a>
+
+### QueueInfo
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  |  |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+
+
+
+
+
+
+<a name="pjs-QueueInfoDetails"></a>
+
+### QueueInfoDetails
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue_info | [QueueInfo](#pjs-QueueInfo) |  |  |
+| size | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pjs-WalkJobRequest"></a>
+
+### WalkJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  |  |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+ 
+
+
+<a name="pjs-JobErrorCode"></a>
+
+### JobErrorCode
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| JOB_ERROR_CODE_UNSPECIFIED | 0 | UNSPECIFIED means the job error code is unspecified. |
+| FAILED | 1 | FAILED means that the worker processing the job indicated that it failed. |
+| DISCONNECTED | 2 | DISCONNECTED means the worker processing the job disconnected. |
+| CANCELED | 3 | CANCELED means the job was canceled. |
+
+
+
+<a name="pjs-JobState"></a>
+
+### JobState
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| JOB_STATE_UNSPECIFIED | 0 | UNSPECIFIED means the job state is unspecified. |
+| QUEUED | 1 | QUEUED means the job is currently in a queue. A QUEUED job will not have any descendants. |
+| PROCESSING | 2 | PROCESSING means the job is currently being processed by a worker. |
+| DONE | 3 | DONE means the job, and all of its descendants, are done. |
+
+
+ 
+
+ 
+
+
+<a name="pjs-API"></a>
+
+### API
+Job API
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateJob | [CreateJobRequest](#pjs-CreateJobRequest) | [CreateJobResponse](#pjs-CreateJobResponse) | CreateJob creates a new job. Child jobs can be created by setting the context field to the appropriate parent job context. |
+| CancelJob | [CancelJobRequest](#pjs-CancelJobRequest) | [CancelJobResponse](#pjs-CancelJobResponse) | CancelJob cancels a job. Canceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. This will terminate all ongoing processing associated with the job. Nothing will be deleted. A job can only be canceled with the parent job context. |
+| DeleteJob | [DeleteJobRequest](#pjs-DeleteJobRequest) | [DeleteJobResponse](#pjs-DeleteJobResponse) | DeleteJob deletes a job. DeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job. A job can only be deleted with the parent job context. |
+| ListJob | [ListJobRequest](#pjs-ListJobRequest) | [JobInfo](#pjs-JobInfo) stream | ListJob returns a list of jobs and information about each job. The jobs returned in the list are the child jobs of the provided job. If no job is provided, the list is the child jobs of the provided job context. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| WalkJob | [WalkJobRequest](#pjs-WalkJobRequest) | [JobInfo](#pjs-JobInfo) stream | WalkJob returns a list of jobs in a hierarchy and information about each job. Walking a job traverses the job hierarchy rooted at the provided job. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| InspectJob | [InspectJobRequest](#pjs-InspectJobRequest) | [JobInfoDetails](#pjs-JobInfoDetails) | InspectJob returns detailed information about a job. |
+| ProcessQueue | [ProcessQueueRequest](#pjs-ProcessQueueRequest) stream | [ProcessQueueResponse](#pjs-ProcessQueueResponse) stream | ProcessQueue should be called by workers to process jobs in a queue. The protocol is as follows: Worker sends an initial request with the queue id. For each job: Server sends a response with a job context and the associated queue element. Worker processes the job. Worker sends a request with the job output or indicates that the job failed. This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up. This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur. |
+| ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [QueueInfo](#pjs-QueueInfo) stream | ListQueue returns a list of queues and information about each queue. |
+| InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [QueueInfoDetails](#pjs-QueueInfoDetails) | InspectQueue returns detailed information about a queue. |
 
  
 

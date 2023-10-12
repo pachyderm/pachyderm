@@ -1,0 +1,184 @@
+syntax = "proto3";
+
+package pjs;
+option go_package = "github.com/pachyderm/pachyderm/src/pjs";
+
+import "google/protobuf/any.proto";
+
+message Job {
+  int64 id = 1;
+}
+
+enum JobState {
+  // UNSPECIFIED means the job state is unspecified.
+  JOB_STATE_UNSPECIFIED = 0;
+  // QUEUED means the job is currently in a queue.
+  // A QUEUED job will not have any descendants.
+  QUEUED = 1;
+  // PROCESSING means the job is currently being processed by a worker.
+  PROCESSING = 2;
+  // DONE means the job, and all of its descendants, are done.
+  DONE = 3;
+}
+
+enum JobErrorCode {
+  // UNSPECIFIED means the job error code is unspecified.
+  JOB_ERROR_CODE_UNSPECIFIED = 0;
+  // FAILED means that the worker processing the job indicated that it failed.
+  FAILED = 1;	
+  // DISCONNECTED means the worker processing the job disconnected.
+  DISCONNECTED = 2;
+  // CANCELED means the job was canceled.
+  CANCELED = 3;
+}
+
+message JobInfo {
+  Job job = 1; 
+  Job parent_job = 2;
+  JobState state = 3;
+  google.protobuf.Any spec = 4;
+  QueueElement input = 5;
+  oneof result {
+    QueueElement output = 6;
+    JobErrorCode error = 7;
+  }
+}
+
+message JobInfoDetails {
+  JobInfo job_info = 1;
+}
+
+message Queue {
+  bytes id = 1;
+}
+
+message QueueInfo {
+  Queue queue = 1;
+  google.protobuf.Any spec = 2;
+}
+
+message QueueInfoDetails {
+  QueueInfo queue_info = 1;
+  int64 size = 2;
+}
+
+message QueueElement {
+  bytes data = 1;
+  repeated string filesets = 2;
+}
+
+service API {
+  // Job API
+	
+  // CreateJob creates a new job.
+  // Child jobs can be created by setting the context field to the appropriate parent job context.
+  rpc CreateJob(CreateJobRequest) returns (CreateJobResponse) {}
+  // CancelJob cancels a job.
+  // Canceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. 
+  // This will terminate all ongoing processing associated with the job.
+  // Nothing will be deleted.
+  // A job can only be canceled with the parent job context.
+  rpc CancelJob(CancelJobRequest) returns (CancelJobResponse) {}
+  // DeleteJob deletes a job.
+  // DeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job.
+  // A job can only be deleted with the parent job context.
+  rpc DeleteJob(DeleteJobRequest) returns (DeleteJobResponse) {}
+  // ListJob returns a list of jobs and information about each job.
+  // The jobs returned in the list are the child jobs of the provided job.
+  // If no job is provided, the list is the child jobs of the provided job context.
+  // The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.
+  rpc ListJob(ListJobRequest) returns (stream JobInfo) {}
+  // WalkJob returns a list of jobs in a hierarchy and information about each job.
+  // Walking a job traverses the job hierarchy rooted at the provided job.
+  // The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.
+  rpc WalkJob(WalkJobRequest) returns (stream JobInfo) {}
+  // InspectJob returns detailed information about a job.
+  rpc InspectJob(InspectJobRequest) returns (JobInfoDetails) {}
+	
+  // Queue API
+	
+  // ProcessQueue should be called by workers to process jobs in a queue.
+  // The protocol is as follows:
+  //   Worker sends an initial request with the queue id.
+  //   For each job:
+  //     Server sends a response with a job context and the associated queue element.
+  //     Worker processes the job.
+  //     Worker sends a request with the job output or indicates that the job failed.
+  // This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up.
+  // This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur.
+  rpc ProcessQueue(stream ProcessQueueRequest) returns (stream ProcessQueueResponse) {}
+  // ListQueue returns a list of queues and information about each queue.
+  rpc ListQueue(ListQueueRequest) returns (stream QueueInfo) {}
+  // InspectQueue returns detailed information about a queue.
+  rpc InspectQueue(InspectQueueRequest) returns (QueueInfoDetails) {}
+}
+
+// Job Messages
+
+message CreateJobRequest {
+  string context = 1;
+  google.protobuf.Any spec = 2;
+  QueueElement input = 3;
+  bool cache_read = 4;
+  bool cache_write = 5;
+}
+
+message CreateJobResponse {
+  Job id = 1;
+}
+
+message CancelJobRequest {
+  string context = 1;
+  Job job = 2;
+}
+
+message CancelJobResponse {}
+
+message DeleteJobRequest {
+  string context = 1;
+  Job job = 2;
+}
+
+message DeleteJobResponse {}
+
+// TODO:
+// - Filter
+// - Paginate
+message ListJobRequest {
+  string context = 1;
+  Job job = 2;
+}
+
+message WalkJobRequest {
+  string context = 1;
+  Job job = 2;
+}
+
+message InspectJobRequest {
+  string context = 1;
+  Job job = 2;
+}
+
+// Queue Messages
+
+message ProcessQueueRequest {
+  Queue queue = 1;
+  oneof result {
+    QueueElement output = 2;
+    bool failed = 3;
+  }
+}
+
+message ProcessQueueResponse {
+  string context = 1;
+  QueueElement input = 2;
+}
+
+// TODO:
+// - Filter
+// - Paginate
+message ListQueueRequest {}
+
+message InspectQueueRequest {
+  Queue queue = 1;
+}

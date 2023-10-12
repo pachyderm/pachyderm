@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CancelJobRequest",
+    "definitions": {
+        "CancelJobRequest": {
+            "properties": {
+                "context": {
+                    "type": "string"
+                },
+                "job": {
+                    "$ref": "#/definitions/pjs.Job",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cancel Job Request"
+        },
+        "pjs.Job": {
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job"
+        }
+    }
+}

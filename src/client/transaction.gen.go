@@ -5,6 +5,7 @@ package client
 import (
 	"context"
 
+	pjs "github.com/pachyderm/pachyderm/src/pjs"
 	admin_v2 "github.com/pachyderm/pachyderm/v2/src/admin"
 	auth_v2 "github.com/pachyderm/pachyderm/v2/src/auth"
 	debug_v2 "github.com/pachyderm/pachyderm/v2/src/debug"
@@ -483,6 +484,44 @@ func (c *unsupportedPfsBuilderClient) SubscribeCommit(_ context.Context, _ *pfs_
 
 func (c *unsupportedPfsBuilderClient) WalkFile(_ context.Context, _ *pfs_v2.WalkFileRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkFileClient, error) {
 	return nil, unsupportedError("WalkFile")
+}
+
+type unsupportedPjsBuilderClient struct{}
+
+func (c *unsupportedPjsBuilderClient) CancelJob(_ context.Context, _ *pjs.CancelJobRequest, opts ...grpc.CallOption) (*pjs.CancelJobResponse, error) {
+	return nil, unsupportedError("CancelJob")
+}
+
+func (c *unsupportedPjsBuilderClient) CreateJob(_ context.Context, _ *pjs.CreateJobRequest, opts ...grpc.CallOption) (*pjs.CreateJobResponse, error) {
+	return nil, unsupportedError("CreateJob")
+}
+
+func (c *unsupportedPjsBuilderClient) DeleteJob(_ context.Context, _ *pjs.DeleteJobRequest, opts ...grpc.CallOption) (*pjs.DeleteJobResponse, error) {
+	return nil, unsupportedError("DeleteJob")
+}
+
+func (c *unsupportedPjsBuilderClient) InspectJob(_ context.Context, _ *pjs.InspectJobRequest, opts ...grpc.CallOption) (*pjs.JobInfoDetails, error) {
+	return nil, unsupportedError("InspectJob")
+}
+
+func (c *unsupportedPjsBuilderClient) InspectQueue(_ context.Context, _ *pjs.InspectQueueRequest, opts ...grpc.CallOption) (*pjs.QueueInfoDetails, error) {
+	return nil, unsupportedError("InspectQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) ListJob(_ context.Context, _ *pjs.ListJobRequest, opts ...grpc.CallOption) (pjs.API_ListJobClient, error) {
+	return nil, unsupportedError("ListJob")
+}
+
+func (c *unsupportedPjsBuilderClient) ListQueue(_ context.Context, _ *pjs.ListQueueRequest, opts ...grpc.CallOption) (pjs.API_ListQueueClient, error) {
+	return nil, unsupportedError("ListQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) ProcessQueue(_ context.Context, opts ...grpc.CallOption) (pjs.API_ProcessQueueClient, error) {
+	return nil, unsupportedError("ProcessQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) WalkJob(_ context.Context, _ *pjs.WalkJobRequest, opts ...grpc.CallOption) (pjs.API_WalkJobClient, error) {
+	return nil, unsupportedError("WalkJob")
 }
 
 type unsupportedPpsBuilderClient struct{}

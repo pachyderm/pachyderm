@@ -1,0 +1,38 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ProcessQueueResponse",
+    "definitions": {
+        "ProcessQueueResponse": {
+            "properties": {
+                "context": {
+                    "type": "string"
+                },
+                "input": {
+                    "$ref": "#/definitions/pjs.QueueElement",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Process Queue Response"
+        },
+        "pjs.QueueElement": {
+            "properties": {
+                "data": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "filesets": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Queue Element"
+        }
+    }
+}
