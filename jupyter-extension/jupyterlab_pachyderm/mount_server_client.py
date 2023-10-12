@@ -89,9 +89,15 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
+
+                mount_server_path = shutil.which("mount-server")
+                if not mount_server_path:
+                    get_logger().error("Cannot locate mount-server binary")
+                    return False
+
                 mount_server_cmd = [
-                   shutil.which("mount-server"),
-                   "--mount-dir", self.mount_dir,
+                    mount_server_path,
+                    "--mount-dir", self.mount_dir,
                 ]
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so create a new
@@ -129,7 +135,7 @@ class MountServerClient(MountInterface):
                         #     mount in the new namespace will accessible from
                         #     the current namespace via symlink.
                         "unshare", "-Ufirm",
-                        shutil.which("mount-server"),
+                        mount_server_path,
                         "--mount-dir", relative_mount_dir,
                         "--allow-other=false",
                     ]
