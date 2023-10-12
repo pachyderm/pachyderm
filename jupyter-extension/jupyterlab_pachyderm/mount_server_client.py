@@ -5,6 +5,7 @@ import json
 import asyncio
 import os
 import pycurl
+import shutil
 from pathlib import Path
 
 from tornado.httpclient import AsyncHTTPClient, HTTPClientError
@@ -63,14 +64,12 @@ class MountServerClient(MountInterface):
         return True
 
     def _unmount(self):
+        # Our extension may be run locally, on peoples' macbooks, so also try
+        # to handle unmounting on Darwin
         if platform.system() == "Linux":
-            subprocess.run(["bash", "-c", f"fusermount -uzq {self.mount_dir}"])
+            subprocess.run([shutil.which("fusermount"), "-uzq", self.mount_dir])
         else:
-            subprocess.run(
-                ["bash", "-c", f"umount {self.mount_dir}"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
+            subprocess.run([shutil.which("umount"), self.mount_dir])
 
     async def _ensure_mount_server(self):
         """
@@ -79,8 +78,6 @@ class MountServerClient(MountInterface):
         bound, it will exit straight away. If it's not, it might start up
         successfully with the updated config.
         """
-        # TODO: add --socket and --log-file stdout args
-        # TODO: add better error handling
         if await self._is_mount_server_running():
             return True
 
@@ -92,23 +89,59 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
-                mount_server_cmd = f"mount-server --mount-dir {self.mount_dir}"
+                mount_server_cmd = [
+                   shutil.which("mount-server"),
+                   "--mount-dir", self.mount_dir,
+                ]
                 if self.nopriv:
-                    # Cannot mount in non-privileged container, so use unshare for a private mount
-                    get_logger().info("Running mount-server in new namespace, per the non-privileged-container setting.")
-                    subprocess.run(["mkdir", "-p", f"/mnt{self.mount_dir}"])
-                    mount_server_cmd = f"unshare -Ufirm mount-server --mount-dir /mnt{self.mount_dir} --allow-other=false"
+                    # Cannot mount in non-privileged container, so create a new
+                    # Linux namespace (via 'unshare') in which we _are_ allowed
+                    # to mount. Caveats:
+                    # - This is forbidden in Kubernetes
+                    # - This will simply crash on Darwin.
+                    # - this._unmount does not unmount anything inside the
+                    #   container. If this fails, I believe the mount-server
+                    #   will not recover (todo: confirm with @jerryharrow)
+                    #
+                    # This is a solution for our HPC container runtimes (podman,
+                    # singularity, and enroot), where we must run
+                    # jupyterlab-pachyderm in an unprivileged container, but
+                    # where unshare is allowed, giving us a path to making FUSE
+                    # work.
+                    get_logger().info("Starting mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
+                    relative_mount_dir = Path("/mnt") / Path(self.mount_dir).relative_to("/")
+                    subprocess.run(["mkdir","-p", relative_mount_dir])
+                    mount_server_cmd = [
+                        # What we're unsharing:
+                        # -U: unshare the (U)ser table - new namespace will have
+                        #     its own user table (possibly removeable?)
+                        # -f: (f)ork the command; it will run as a child of
+                        #     unshare, rather than taking over the unshare proc
+                        #     (possibly removeable?)
+                        # -i: unshare the (i)pc namespace (possibly removeable?)
+                        # -r: map the current user and group to the (r)oot user
+                        #     and group in the new namespace; this allows the
+                        #     mount-server to create a FUSE mount without issue
+                        # -m: unshare the (m)ount namespace: this is nessary for
+                        #     mount-server command to succeed in the new
+                        #     namespace, as this process doesn't have the
+                        #     ability to mount in the current namespace. The
+                        #     mount in the new namespace will accessible from
+                        #     the current namespace via symlink.
+                        "unshare", "-Ufirm",
+                        shutil.which("mount-server"),
+                        "--mount-dir", relative_mount_dir,
+                        "--allow-other=false",
+                    ]
 
                 if self.sock_path:
-                    mount_server_cmd += f" --sock-path {self.sock_path}"
+                    mount_server_cmd += ["--sock-path", self.sock_path]
 
                 if MOUNT_SERVER_LOG_FILE is not None and MOUNT_SERVER_LOG_FILE:
-                    mount_server_cmd += f" --log-file {MOUNT_SERVER_LOG_FILE}"
+                    mount_server_cmd += ["--log-file", MOUNT_SERVER_LOG_FILE]
 
-                get_logger().info(f"Starting {mount_server_cmd} ")
-                mount_process = subprocess.Popen(
-                    ["bash", "-c", "set -o pipefail; " + mount_server_cmd]
-                )
+                get_logger().info(f"Starting mount-server: \"{' '.join(mount_server_cmd)}\"")
+                mount_process = subprocess.Popen(mount_server_cmd)
 
                 tries = 0
                 get_logger().debug("Waiting for mount server...")
