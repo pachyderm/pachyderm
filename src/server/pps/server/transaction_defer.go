@@ -1,9 +1,11 @@
 package server
 
 import (
+	"github.com/gogo/protobuf/proto"
 	"github.com/pachyderm/pachyderm/v2/src/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -49,33 +51,64 @@ type JobStopper struct {
 	a          *apiServer
 	txnCtx     *txncontext.TransactionContext
 	commitsets []*pfs.CommitSet
+	commits    []*pfs.Commit
 }
 
 func (a *apiServer) NewJobStopper(txnCtx *txncontext.TransactionContext) txncontext.PpsJobStopper {
 	return &JobStopper{
-		a:          a,
-		txnCtx:     txnCtx,
-		commitsets: []*pfs.CommitSet{},
+		a:      a,
+		txnCtx: txnCtx,
 	}
 }
 
-// PropagateJobs notifies PPS that a commitset has been modified in the
-// transaction, and any jobs will be created for it at the end of the
-// transaction.  This will be performed by the Run function.
-func (t *JobStopper) StopJobs(commitset *pfs.CommitSet) {
+// StopJobSet notifies PPS that a commitset has been deleted in the
+// transaction, and any jobs will be stopped for it at the end of the
+// transaction. This will be performed by the Run function.
+func (t *JobStopper) StopJobSet(commitset *pfs.CommitSet) {
 	t.commitsets = append(t.commitsets, commitset)
 }
 
-// Run stops any jobs for the removed CommitSets
+// StopJob notifies PPS that a commit has been deleted in the
+// transaction, and any jobs will be stopped for it at the end of the
+// transaction. This will be performed by the Run function.
+func (t *JobStopper) StopJob(commit *pfs.Commit) {
+	t.commits = append(t.commits, commit)
+}
+
+// Run stops any jobs for the removed commitsets or commits.
 func (t *JobStopper) Run() error {
-	if len(t.commitsets) > 0 {
-		for _, commitset := range t.commitsets {
+	for _, commitset := range t.commitsets {
+		jobInfo := &pps.JobInfo{}
+		if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
+			return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
+		}); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+	// Cache entries are preset for filtering out unecessary jobs when performing commitset lookups.
+	cache := make(map[string]*pps.Job)
+	for _, commit := range t.commits {
+		cache[pfsdb.CommitKey(commit)] = nil
+	}
+	for _, commit := range t.commits {
+		job := cache[pfsdb.CommitKey(commit)]
+		if job == nil {
 			jobInfo := &pps.JobInfo{}
-			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.ID, jobInfo, col.DefaultOptions(), func(string) error {
-				return t.a.stopJob(t.txnCtx, jobInfo.Job, "output commit removed")
+			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commit.ID, jobInfo, col.DefaultOptions(), func(string) error {
+				if _, ok := cache[pfsdb.CommitKey(jobInfo.OutputCommit)]; ok {
+					cache[pfsdb.CommitKey(jobInfo.OutputCommit)] = proto.Clone(jobInfo.Job).(*pps.Job)
+				}
+				return nil
 			}); err != nil {
 				return errors.EnsureStack(err)
 			}
+		}
+		job = cache[pfsdb.CommitKey(commit)]
+		if job == nil {
+			continue
+		}
+		if err := t.a.stopJob(t.txnCtx, job, "output commit removed"); err != nil {
+			return err
 		}
 	}
 	return nil

@@ -4986,6 +4986,40 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, c.ID, masterInfo.Head.ID)
 	})
 
+	suite.Run("SquashCommitSimple", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		// Create three repos where one is provenant on the other two.
+		upstream1 := tu.UniqueString("upstream-1")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream1))
+		upstream2 := tu.UniqueString("upstream-2")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream2))
+		downstream := tu.UniqueString("downstream")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, downstream))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, downstream, "master", "", "", []*pfs.Branch{
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream1, "master"),
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream2, "master"),
+		}))
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+		// Create two commits in upstream 1.
+		commit1, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, upstream1, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, upstream1, "master", ""))
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+		_, err = env.PachClient.StartProjectCommit(pfs.DefaultProjectName, upstream1, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, upstream1, "master", ""))
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+		// Squash the first commit in upstream 1.
+		_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: commit1})
+		require.NoError(t, err)
+		cis, err := env.PachClient.InspectCommitSet(commit1.ID)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(cis))
+		require.Equal(t, upstream2, cis[0].Commit.Branch.Repo.Name)
+	})
+
 	suite.Run("CommitState", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)

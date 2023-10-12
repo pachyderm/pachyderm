@@ -137,6 +137,8 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ListCommit":       authDisabledOr(authenticated),
 	"/pfs_v2.API/SubscribeCommit":  authDisabledOr(authenticated),
 	"/pfs_v2.API/ClearCommit":      authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommit":     authDisabledOr(authenticated),
+	"/pfs_v2.API/DropCommit":       authDisabledOr(authenticated),
 	"/pfs_v2.API/InspectCommitSet": authDisabledOr(authenticated),
 	"/pfs_v2.API/ListCommitSet":    authDisabledOr(authenticated),
 	"/pfs_v2.API/SquashCommitSet":  authDisabledOr(authenticated),
