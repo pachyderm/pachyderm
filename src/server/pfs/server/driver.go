@@ -1277,9 +1277,6 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 		branchInfo := &pfs.BranchInfo{}
 		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, sqlTx, commit.Branch.Repo.Project.Name, commit.Branch.Repo.Name, commit.Branch.Repo.Type, commit.Branch.Name)
 		if err != nil {
-			if errors.Is(pfsdb.ErrBranchNotFound{BranchKey: commit.Branch.Key()}, errors.Cause(err)) {
-				return nil, pfsserver.ErrBranchNotFound{Branch: commit.Branch}
-			}
 			return nil, errors.Wrap(err, "resolve commit")
 		}
 		commit.Id = branchInfo.Head.Id
@@ -1352,7 +1349,7 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 func (d *driver) resolveCommit(ctx context.Context, sqlTx *pachsql.Tx, userCommit *pfs.Commit) (*pfs.CommitInfo, error) {
 	commitWithId, err := d.resolveCommitWithID(ctx, sqlTx, userCommit)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "resolve commit")
 	}
 	return commitWithId.CommitInfo, nil
 }
