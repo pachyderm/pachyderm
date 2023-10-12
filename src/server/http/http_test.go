@@ -40,7 +40,7 @@ func TestRouting(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := pctx.TestContext(t)
-			s := New(0, func(ctx context.Context) *client.APIClient { return nil })
+			s := New(ctx, 0, func(ctx context.Context) *client.APIClient { return nil })
 			log.AddLoggerToHTTPServer(ctx, test.name, s.server)
 
 			req := httptest.NewRequest(test.method, test.url, nil)
