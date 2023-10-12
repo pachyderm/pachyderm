@@ -80,7 +80,7 @@ type Env struct {
 }
 
 type debugServer struct {
-	debug.UnimplementedDebugServer
+	debug.UnsafeDebugServer
 
 	env                 Env
 	name                string
