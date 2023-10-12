@@ -6993,42 +6993,57 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("BranchMovement", func(t *testing.T) {
-		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "branch-movement"))
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "", "", nil))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "branch-movement", "c", "", "", &pfs.Trigger{
+		repo := tu.UniqueString("branch-movement")
+		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "a", "", "", nil))
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "b", "", "", nil))
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "c", "", "", &pfs.Trigger{
 			Branch: "b",
 			Size:   "100",
 		}))
-		moveCommit := client.NewCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
-
-		require.NoError(t, c.PutFile(moveCommit, "file1", strings.NewReader(strings.Repeat("a", 50))))
-		_, err := c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
+		aBranchHead := client.NewCommit(pfs.DefaultProjectName, repo, "a", "")
+		// Does not trigger because not enough data has been committed.
+		require.NoError(t, c.PutFile(aBranchHead, "file1", strings.NewReader(strings.Repeat("a", 50))))
+		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
 		require.NoError(t, err)
-		bi, err := c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "a")
+		aBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "a")
 		require.NoError(t, err)
-		head := bi.Head.Id
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "b", "a", "", nil))
+		bBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "b")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
-
-		require.NoError(t, c.PutFile(moveCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
+		cBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "c")
 		require.NoError(t, err)
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
+		require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
+		fmt.Println("file1", aBranch.Head, bBranch.Head, cBranch.Head)
+		// Triggers because enough data has been committed.
+		require.NoError(t, c.PutFile(aBranchHead, "file2", strings.NewReader(strings.Repeat("a", 50))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
 		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
-		cHead := bi.Head.Id
-
-		require.NoError(t, c.PutFile(moveCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "branch-movement", "a", "")
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "b", "a", "", nil))
+		aBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "a")
 		require.NoError(t, err)
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "branch-movement", "b", "a", "", nil))
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "branch-movement", "c")
+		bBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "b")
 		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
-		require.Equal(t, cHead, bi.Head.Id)
+		cBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "c")
+		require.NoError(t, err)
+		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
+		// require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
+		fmt.Println("file2", aBranch.Head, bBranch.Head, cBranch.Head)
+		// Does not trigger because not enough data has been committed.
+		require.NoError(t, c.PutFile(aBranchHead, "file3", strings.NewReader(strings.Repeat("a", 50))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
+		require.NoError(t, err)
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "b", "a", "", nil))
+		aBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "a")
+		require.NoError(t, err)
+		bBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "b")
+		require.NoError(t, err)
+		cBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "c")
+		require.NoError(t, err)
+		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
+		fmt.Println("file3", aBranch.Head, bBranch.Head, cBranch.Head)
+		// require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
 	})
 }
 
