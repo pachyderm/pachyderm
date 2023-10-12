@@ -114,7 +114,7 @@ class MountServerClient(MountInterface):
                     # jupyterlab-pachyderm in an unprivileged container, but
                     # where unshare is allowed, giving us a path to making FUSE
                     # work.
-                    get_logger().info("Starting mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
+                    get_logger().info("Preparing to run mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
                     relative_mount_dir = Path("/mnt") / Path(self.mount_dir).relative_to("/")
                     subprocess.run(["mkdir","-p", relative_mount_dir])
                     mount_server_cmd = [
@@ -146,7 +146,8 @@ class MountServerClient(MountInterface):
                 if MOUNT_SERVER_LOG_FILE is not None and MOUNT_SERVER_LOG_FILE:
                     mount_server_cmd += ["--log-file", MOUNT_SERVER_LOG_FILE]
 
-                get_logger().info(f"Starting mount-server: \"{' '.join(mount_server_cmd)}\"")
+                get_logger().info("Starting mount-server: \"" +
+                    ' '.join(map(str,mount_server_cmd)) + "\"")
                 mount_process = subprocess.Popen(mount_server_cmd)
 
                 tries = 0
