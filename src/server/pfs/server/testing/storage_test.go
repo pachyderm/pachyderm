@@ -8,7 +8,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -27,6 +26,6 @@ func TestCheckStorage(t *testing.T) {
 }
 
 func newClient(ctx context.Context, t testing.TB) pfs.APIClient {
-	pc := pachd.NewTestPachd(t)
-	return pc.PfsAPIClient
+	env := newEnv(ctx, t)
+	return env.PachClient.PfsAPIClient
 }
