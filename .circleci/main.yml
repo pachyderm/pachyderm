@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2022.10.1
   go-version:
     type: string
-    default: "1.20.7"
+    default: "1.20.10"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -685,7 +685,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.25.5
+      - image: envoyproxy/envoy:v1.25.10
         entrypoint: /bin/sh
     steps:
       - run: apt update
