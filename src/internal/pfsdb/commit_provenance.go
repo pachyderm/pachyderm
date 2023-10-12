@@ -78,7 +78,7 @@ func CommitDirectProvenance(ctx context.Context, tx *pachsql.Tx, id CommitID) ([
 	WHERE prov.from_id = $1	
 	`
 	if err := tx.SelectContext(ctx, &commits, query, id); err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "getting direct commit provenance for commitID=%d", id)
 	}
 	var commitPbs []*pfs.Commit
 	for _, commit := range commits {
