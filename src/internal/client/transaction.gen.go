@@ -5,7 +5,6 @@ package client
 import (
 	"context"
 
-	pjs "github.com/pachyderm/pachyderm/src/pjs"
 	admin_v2 "github.com/pachyderm/pachyderm/v2/src/admin"
 	auth_v2 "github.com/pachyderm/pachyderm/v2/src/auth"
 	debug_v2 "github.com/pachyderm/pachyderm/v2/src/debug"
@@ -14,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
+	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
 	proxy "github.com/pachyderm/pachyderm/v2/src/proxy"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"

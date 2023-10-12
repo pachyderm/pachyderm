@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package pjs;
-option go_package = "github.com/pachyderm/pachyderm/src/pjs";
+option go_package = "github.com/pachyderm/pachyderm/v2/src/pjs";
 
 import "google/protobuf/any.proto";
 
