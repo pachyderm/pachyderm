@@ -42,7 +42,7 @@ type mockInspectCluster struct{ handler inspectClusterFunc }
 func (mock *mockInspectCluster) Use(cb inspectClusterFunc) { mock.handler = cb }
 
 type adminServerAPI struct {
-	admin.UnimplementedAPIServer
+	admin.UnsafeAPIServer
 	mock *mockAdminServer
 }
 
@@ -273,7 +273,7 @@ func (mock *mockGetPermissionsInTransaction) Use(cb getPermissionsInTransactionF
 }
 
 type authServerAPI struct {
-	auth.UnimplementedAPIServer
+	auth.UnsafeAPIServer
 	mock *mockAuthServer
 }
 
@@ -637,7 +637,7 @@ func (mock *mockHeartbeatLicense) Use(cb heartbeatLicenseFunc)                 {
 func (mock *mockListUserClusters) Use(cb listUserClustersFunc)                 { mock.handler = cb }
 
 type licenseServerAPI struct {
-	license.UnimplementedAPIServer
+	license.UnsafeAPIServer
 	mock *mockLicenseServer
 }
 
@@ -761,7 +761,7 @@ func (mock *mockDeleteOIDCClient) Use(cb deleteOIDCClientFunc)               { m
 func (mock *mockDeleteAll) Use(cb deleteAllFunc)                             { mock.handler = cb }
 
 type identityServerAPI struct {
-	identity.UnimplementedAPIServer
+	identity.UnsafeAPIServer
 	mock *mockIdentityServer
 }
 
@@ -892,7 +892,7 @@ func (mock *mockPauseStatus) Use(cb pauseStatusFunc)                   { mock.ha
 func (mock *mockUnpause) Use(cb unpauseFunc)                           { mock.handler = cb }
 
 type enterpriseServerAPI struct {
-	enterprise.UnimplementedAPIServer
+	enterprise.UnsafeAPIServer
 	mock *mockEnterpriseServer
 }
 
@@ -1104,7 +1104,7 @@ func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)           { mock.handler = 
 func (mock *mockEgress) Use(cb egressFunc)                     { mock.handler = cb }
 
 type pfsServerAPI struct {
-	pfs.UnimplementedAPIServer
+	pfs.UnsafeAPIServer
 	mock *mockPFSServer
 }
 
@@ -1873,7 +1873,7 @@ func (mock *mockFinishTransaction) Use(cb finishTransactionFunc)       { mock.ha
 func (mock *mockDeleteAllTransaction) Use(cb deleteAllTransactionFunc) { mock.handler = cb }
 
 type transactionServerAPI struct {
-	transaction.UnimplementedAPIServer
+	transaction.UnsafeAPIServer
 	mock *mockTransactionServer
 }
 
@@ -1940,7 +1940,7 @@ type mockGetVersion struct{ handler getVersionFunc }
 func (mock *mockGetVersion) Use(cb getVersionFunc) { mock.handler = cb }
 
 type versionServerAPI struct {
-	version.UnimplementedAPIServer
+	version.UnsafeAPIServer
 	mock *mockVersionServer
 }
 
@@ -1965,7 +1965,7 @@ type mockListen struct{ handler listenFunc }
 func (mock *mockListen) Use(cb listenFunc) { mock.handler = cb }
 
 type proxyServerAPI struct {
-	proxy.UnimplementedAPIServer
+	proxy.UnsafeAPIServer
 	mock *mockProxyServer
 }
 

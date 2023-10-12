@@ -62,7 +62,7 @@ func NewAPIServer(env Env) APIServer {
 }
 
 type apiServer struct {
-	admin.UnimplementedAPIServer
+	admin.UnsafeAPIServer
 	clusterInfo *admin.ClusterInfo
 	pfsServer   pfs.APIServer
 }
