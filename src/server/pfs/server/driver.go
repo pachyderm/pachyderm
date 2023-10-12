@@ -1274,7 +1274,6 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 	}
 	// If commit.ID is unspecified, get it from the branch head
 	if commit.Id == "" {
-		branchInfo := &pfs.BranchInfo{}
 		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, sqlTx, commit.Branch.Repo.Project.Name, commit.Branch.Repo.Name, commit.Branch.Repo.Type, commit.Branch.Name)
 		if err != nil {
 			if errors.Is(err, pfsdb.ErrBranchNotFound{BranchKey: commit.Branch.Key()}) {

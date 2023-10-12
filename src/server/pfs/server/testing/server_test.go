@@ -6471,25 +6471,20 @@ func TestTrigger(t *testing.T) {
 			Branch: "staging",
 			Size:   "1K",
 		}))
-		inStagingBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
-		inMasterBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
-		outStagingBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
-		outMasterBranchInfo, _ := c.InspectBranch(pfs.DefaultProjectName, "out", "master")
-
 		// Write a small file, too small to trigger
 		inStagingHead := client.NewCommit(pfs.DefaultProjectName, "in", "staging", "")
 		require.NoError(t, c.PutFile(inStagingHead, "file", strings.NewReader("small")))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, "in", "staging", "")
 		require.NoError(t, err)
-		inStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
+		inStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "staging")
 		require.NoError(t, err)
-		inMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "in", "master")
+		inMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "in", "master")
 		require.NoError(t, err)
 		require.NotEqual(t, inStagingBranchInfo.Head.Id, inMasterBranchInfo.Head.Id)
-		outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
+		outStagingBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 		require.NoError(t, err)
 		require.NotEqual(t, inStagingBranchInfo.Head.Id, outStagingBranchInfo.Head.Id)
-		outMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
+		outMasterBranchInfo, err := c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 		require.NoError(t, err)
 		require.NotEqual(t, inStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
 		// Write a large file, should trigger
@@ -6509,7 +6504,6 @@ func TestTrigger(t *testing.T) {
 		resolvedAlias, err := c.InspectCommit(pfs.DefaultProjectName, "in", "", outStagingBranchInfo.Head.Id)
 		require.NoError(t, err)
 		require.Equal(t, inStagingBranchInfo.Head.Id, resolvedAlias.Commit.Id)
-
 		// Put a file that will cause the trigger to go off
 		require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, "out", "staging", ""), "file", strings.NewReader(strings.Repeat("a", units.KB))))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, "out", "staging", ""))
@@ -6517,14 +6511,12 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, err)
 		outStagingBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "staging")
 		require.NoError(t, err)
-
 		// Output trigger should have triggered
 		outMasterBranchInfo, err = c.InspectBranch(pfs.DefaultProjectName, "out", "master")
 		require.NoError(t, err)
 		require.Equal(t, outStagingBranchInfo.Head.Id, outMasterBranchInfo.Head.Id)
 	})
 
-	// todo(albert) fix
 	t.Run("Cron", func(t *testing.T) {
 		repo := tu.UniqueString("Cron")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
@@ -6558,39 +6550,37 @@ func TestTrigger(t *testing.T) {
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
-	// todo(albert) fix
 	t.Run("CronUpdate", func(t *testing.T) {
 		repo := tu.UniqueString("CronUpdate")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		// Create the initial trigger for every minute, then update it to every January.
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * * *", // every minute
 		}))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * 1 *", // every January
 		}))
 		// Create initial commit and ensure that it doesn't fire in a minute.
-		commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
-		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
-		bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
-		require.NoError(t, err)
-		head := bi.Head.Id
+		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
+		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
 		time.Sleep(time.Minute)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// Update the trigger back to one minute and ensure that the trigger fires.
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "trigger", "", "", &pfs.Trigger{
-			Branch:   "master",
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:   "staging",
 			CronSpec: "* * * * *", // every minute
 		}))
-		time.Sleep(3 * time.Second)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, repo, "trigger")
+		time.Sleep(time.Second)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
+		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
 	t.Run("Count1", func(t *testing.T) {
@@ -6601,18 +6591,15 @@ func TestTrigger(t *testing.T) {
 			Branch:  "staging",
 			Commits: 1, // trigger every commit
 		}))
-		var (
-			err                         error
-			stagingBranch, masterBranch *pfs.BranchInfo
-		)
 		// First commit should trigger
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
+		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Second commit should also trigger
@@ -6622,6 +6609,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
@@ -6633,18 +6621,15 @@ func TestTrigger(t *testing.T) {
 			Branch:  "staging",
 			Commits: 2, // trigger every 2 commits
 		}))
-		var (
-			err                         error
-			stagingBranch, masterBranch *pfs.BranchInfo
-		)
 		// First commit shouldn't trigger
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
+		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Second commit should trigger, and the master branch should have the same ID as the staging branch
@@ -6654,6 +6639,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Third commit shouldn't trigger
@@ -6663,6 +6649,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Fourth commit should trigger
@@ -6672,6 +6659,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
@@ -6683,18 +6671,15 @@ func TestTrigger(t *testing.T) {
 			Branch:  "staging",
 			Commits: 3, // trigger every 2 commits
 		}))
-		var (
-			err                         error
-			stagingBranch, masterBranch *pfs.BranchInfo
-		)
 		// First commit shouldn't trigger
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
+		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Second commit shouldn't trigger
@@ -6704,6 +6689,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Third commit should trigger
@@ -6713,6 +6699,7 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Fourth commit shouldn't trigger
@@ -6722,83 +6709,94 @@ func TestTrigger(t *testing.T) {
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
-	// todo(albert) fix
 	t.Run("Or", func(t *testing.T) {
-		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "or"))
-		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "or", "master", "", "", nil))
-		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "or", "trigger", "", "", &pfs.Trigger{
-			Branch:        "master",
+		repo := tu.UniqueString("Or")
+		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
+		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
+			Branch:        "staging",
 			RateLimitSpec: "* * * * *",
 			Size:          "100",
 			Commits:       3,
 		}))
-		orCommit := client.NewCommit(pfs.DefaultProjectName, "or", "master", "")
-		// This triggers, because the cron is satisfied
-		require.NoError(t, c.PutFile(orCommit, "file1", strings.NewReader(strings.Repeat("a", 1))))
-		_, err := c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
+		// This doesn't trigger
+		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader(strings.Repeat("a", 1))))
+		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err := c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotNil(t, bi.Head)
-		head := bi.Head.Id
+		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one doesn't because none of them are satisfied
-		require.NoError(t, c.PutFile(orCommit, "file2", strings.NewReader(strings.Repeat("a", 50))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file2", strings.NewReader(strings.Repeat("a", 98))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one triggers because we hit 100 bytes
-		require.NoError(t, c.PutFile(orCommit, "file3", strings.NewReader(strings.Repeat("a", 50))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file3", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
-		head = bi.Head.Id
-
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one doesn't trigger
-		require.NoError(t, c.PutFile(orCommit, "file4", strings.NewReader(strings.Repeat("a", 1))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file4", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one neither
-		require.NoError(t, c.PutFile(orCommit, "file5", strings.NewReader(strings.Repeat("a", 1))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file5", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one does, because it's 3 commits
-		require.NoError(t, c.PutFile(orCommit, "file6", strings.NewReader(strings.Repeat("a", 1))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file6", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
-		head = bi.Head.Id
-
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one doesn't trigger
-		require.NoError(t, c.PutFile(orCommit, "file7", strings.NewReader(strings.Repeat("a", 1))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file7", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.Equal(t, head, bi.Head.Id)
-
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
+		// This one triggers, because of rate limit spec
 		time.Sleep(time.Minute)
-
-		require.NoError(t, c.PutFile(orCommit, "file8", strings.NewReader(strings.Repeat("a", 1))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, "or", "master", "")
+		require.NoError(t, c.PutFile(stagingHead, "file8", strings.NewReader(strings.Repeat("a", 1))))
+		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
-		bi, err = c.InspectBranch(pfs.DefaultProjectName, "or", "trigger")
+		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		require.NotEqual(t, head, bi.Head.Id)
+		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+		require.NoError(t, err)
+		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
 	t.Run("And", func(t *testing.T) {
