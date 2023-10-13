@@ -54,8 +54,8 @@ func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr er
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer c.closeFile(ctx, &retErr, f)
-	defer c.removeFile(ctx, &retErr, staging)
+	defer c.closeFile(&retErr, f)
+	defer c.removeFile(&retErr, staging)
 	if _, err := io.Copy(f, r); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -72,7 +72,7 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer c.closeFile(ctx, &retErr, f)
+	defer c.closeFile(&retErr, f)
 	_, err = io.Copy(w, f)
 	return errors.EnsureStack(err)
 }
@@ -157,7 +157,7 @@ func (c *fsClient) transformError(err error, name string) error {
 	return err
 }
 
-func (c *fsClient) closeFile(ctx context.Context, retErr *error, f *os.File) {
+func (c *fsClient) closeFile(retErr *error, f *os.File) {
 	if err := f.Close(); err != nil {
 		if !strings.Contains(err.Error(), "already closed") {
 			errors.JoinInto(retErr, errors.Wrap(err, "close"))
@@ -165,7 +165,7 @@ func (c *fsClient) closeFile(ctx context.Context, retErr *error, f *os.File) {
 	}
 }
 
-func (c *fsClient) removeFile(ctx context.Context, retErr *error, p string) {
+func (c *fsClient) removeFile(retErr *error, p string) {
 	err := os.Remove(p)
 	if os.IsNotExist(err) {
 		err = nil

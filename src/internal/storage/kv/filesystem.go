@@ -51,7 +51,7 @@ func (s *FSStore) Put(ctx context.Context, key, value []byte) (retErr error) {
 	}
 	staging := s.stagingPathFor(key)
 	final := s.finalPathFor(key)
-	defer s.cleanupFile(ctx, &retErr, staging)
+	defer s.cleanupFile(&retErr, staging)
 	if err := os.WriteFile(staging, value, 0o644); err != nil {
 		return s.transformError(err, key)
 	}
@@ -63,7 +63,7 @@ func (s *FSStore) Get(ctx context.Context, key, buf []byte) (_ int, retErr error
 	if err != nil {
 		return 0, s.transformError(err, key)
 	}
-	defer s.closeFile(ctx, &retErr, f)
+	defer s.closeFile(&retErr, f)
 	return miscutil.ReadInto(buf, f)
 }
 
@@ -176,7 +176,7 @@ func (s *FSStore) transformError(err error, key []byte) error {
 	return err
 }
 
-func (c *FSStore) closeFile(ctx context.Context, retErr *error, f *os.File) {
+func (c *FSStore) closeFile(retErr *error, f *os.File) {
 	if err := f.Close(); err != nil {
 		if !strings.Contains(err.Error(), "already closed") {
 			errors.JoinInto(retErr, errors.Wrap(err, "close"))
@@ -184,7 +184,7 @@ func (c *FSStore) closeFile(ctx context.Context, retErr *error, f *os.File) {
 	}
 }
 
-func (c *FSStore) cleanupFile(ctx context.Context, retErr *error, p string) {
+func (c *FSStore) cleanupFile(retErr *error, p string) {
 	err := os.Remove(p)
 	if os.IsNotExist(err) {
 		err = nil
