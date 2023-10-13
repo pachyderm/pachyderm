@@ -175,7 +175,7 @@ func ClusterDefaults(db *pachsql.DB, listener col.PostgresListener) col.Postgres
 
 // ProjectDefaults returns a PostgresCollection of project defaults.  Note that
 // this is a singleton table.
-func ClusterProjectDefaults(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+func ProjectDefaults(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
 	return col.NewPostgresCollection(
 		projectDefaultsCollectionName,
 		db,
