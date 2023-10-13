@@ -945,14 +945,14 @@ func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionCon
 }
 
 // propagateBranches starts commits downstream of 'branches'
-// in order to restore the invariant that branch provenance matches HEAD commit
+// in order to restore the invariant that branch provenance implies HEAD commit
 // provenance:
 //
-//	B.Head is provenant on A.Head <=>
-//	branch B is provenant on branch A
+//	branch B is provenant on branch A =>
+//	(B.Head is provenant on A.Head) OR (A.Head is nil)
 //
 // The implementation assumes that the invariant already holds for all branches
-// upstream of 'branches', but not necessarily for each 'branch' itself.
+// upstream of 'branches', but not necessarily for each member of 'branches' itself.
 //
 // In other words, propagateBranches scans all branches b_downstream that are
 // equal to or downstream of 'branches', and if the HEAD of b_downstream isn't
