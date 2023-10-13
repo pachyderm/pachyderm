@@ -11568,8 +11568,9 @@ func TestDatabaseStats(t *testing.T) {
 	}
 
 	type rowCountResults struct {
-		NLiveTup int    `json:"n_live_tup"`
-		RelName  string `json:"relname"`
+		NLiveTup   int    `json:"n_live_tup"`
+		RelName    string `json:"relname"`
+		SchemaName string `json:"schemaname"`
 	}
 
 	type commitResults struct {
@@ -11610,13 +11611,13 @@ func TestDatabaseStats(t *testing.T) {
 				"unmarshalling row-counts.json should succeed")
 
 			for _, row := range rows {
-				if row.RelName == "commits" {
+				if row.RelName == "commits" && row.SchemaName == "pfs" {
 					require.NotEqual(t, 0, row.NLiveTup,
 						"some commits from createTestCommits should be accounted for")
 					foundRowCounts = true
 				}
 			}
-		case "database/tables/collections/commits.json":
+		case "database/tables/pfs/commits.json":
 			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
 				"unmarshalling commits.json should succeed")
 			require.Equal(t, numCommits, len(rows), "number of commits should match number of rows")
