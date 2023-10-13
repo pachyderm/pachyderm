@@ -156,9 +156,6 @@ func (s *FSStore) ensureInit(ctx context.Context) (err error) {
 }
 
 func (s *FSStore) init(ctx context.Context) error {
-	if err := os.RemoveAll(filepath.Join(s.dir, "staging")); err != nil {
-		return errors.EnsureStack(err)
-	}
 	if err := os.MkdirAll(filepath.Join(s.dir, "staging"), 0755); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -182,7 +179,7 @@ func (s *FSStore) transformError(err error, key []byte) error {
 func (c *FSStore) closeFile(ctx context.Context, retErr *error, f *os.File) {
 	err := f.Close()
 	if err != nil && !strings.Contains(err.Error(), "file already closed") {
-		if retErr == nil {
+		if *retErr == nil {
 			*retErr = err
 		} else {
 			log.Error(ctx, "error closing file", zap.Error(err))
@@ -197,7 +194,7 @@ func (c *FSStore) cleanupFile(ctx context.Context, retErr *error, p string) {
 		err = nil
 	}
 	if err != nil {
-		if retErr == nil {
+		if *retErr == nil {
 			*retErr = err
 		} else {
 			log.Error(ctx, "error deleting file", zap.Error(err))

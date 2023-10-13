@@ -49,12 +49,12 @@ func newFSClient(rootDir string) (Client, error) {
 func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
 	staging := c.stagingPathFor(name)
 	final := c.finalPathFor(name)
-	f, err := os.Create(staging)
+	f, err := os.OpenFile(staging, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer c.closeFile(&retErr, f)
-	defer c.removeFile(&retErr, staging)
+	defer c.closeFile(ctx, &retErr, f)
+	defer c.removeFile(ctx, &retErr, staging)
 	if _, err := io.Copy(f, r); err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -70,7 +70,7 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	defer c.closeFile(&retErr, f)
+	defer c.closeFile(ctx, &retErr, f)
 	_, err = io.Copy(w, f)
 	return errors.EnsureStack(err)
 }
@@ -134,13 +134,10 @@ func (c *fsClient) finalPathFor(name string) string {
 }
 
 func (c *fsClient) init() error {
-	if err := os.RemoveAll(filepath.Join(c.rootDir, "staging")); err != nil {
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0o755); err != nil {
 		return errors.EnsureStack(err)
 	}
-	if err := os.MkdirAll(filepath.Join(c.rootDir, "staging"), 0755); err != nil {
-		return errors.EnsureStack(err)
-	}
-	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Join(c.rootDir, "objects"), 0o755); err != nil {
 		return errors.EnsureStack(err)
 	}
 	log.Info(pctx.TODO(), "successfully initialized fs-backed object store", zap.String("root", c.rootDir))
@@ -157,27 +154,27 @@ func (c *fsClient) transformError(err error, name string) error {
 	return err
 }
 
-func (c *fsClient) closeFile(retErr *error, f *os.File) {
+func (c *fsClient) closeFile(ctx context.Context, retErr *error, f *os.File) {
 	err := f.Close()
 	if err != nil && !strings.Contains(err.Error(), "file already closed") {
-		if retErr == nil {
+		if *retErr == nil {
 			*retErr = err
 		} else {
-			log.Error(pctx.TODO(), "error closing file", zap.Error(err))
+			log.Error(ctx, "error closing file", zap.Error(err))
 		}
 	}
 }
 
-func (c *fsClient) removeFile(retErr *error, p string) {
+func (c *fsClient) removeFile(ctx context.Context, retErr *error, p string) {
 	err := os.Remove(p)
 	if os.IsNotExist(err) {
 		err = nil
 	}
 	if err != nil {
-		if retErr == nil {
+		if *retErr == nil {
 			*retErr = err
 		} else {
-			log.Error(pctx.TODO(), "error deleting file", zap.Error(err))
+			log.Error(ctx, "error deleting file", zap.Error(err))
 		}
 	}
 }
