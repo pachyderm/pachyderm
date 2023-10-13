@@ -1726,101 +1726,6 @@ func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.Transac
 	return nil
 }
 
-// Given branchInfo.DirectProvenance and its oldProvenance, compute Provenance & Subvenance of branchInfo.
-// Also update the Subvenance of branchInfo's old and new provenant branches.
-//
-// This algorithm updates every branch in branchInfo's Subvenance, new Provenance, and old Provenance.
-// Complexity is O(m*n*log(n)) where m is the complete Provenance of branchInfo, and n is the Subvenance of branchInfo
-func (d *driver) computeBranchProvenance(ctx context.Context, txnCtx *txncontext.TransactionContext, branchInfo *pfs.BranchInfo, oldDirectProvenance []*pfs.Branch) error {
-	for _, p := range branchInfo.DirectProvenance {
-		if has(&branchInfo.Subvenance, p) {
-			return errors.Errorf("branch %q cannot be both in %q's provenance and subvenance", p.String(), branchInfo.Branch.String())
-		}
-	}
-	branchInfoCache := map[string]*pfs.BranchInfo{pfsdb.BranchKey(branchInfo.Branch): branchInfo}
-	getBranchInfo := func(b *pfs.Branch) (*pfs.BranchInfo, error) {
-		if bi, ok := branchInfoCache[pfsdb.BranchKey(b)]; ok {
-			return bi, nil
-		}
-		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
-		if err != nil {
-			return nil, errors.Wrapf(err, "compute branch provenance")
-		}
-		branchInfoCache[pfsdb.BranchKey(b)] = bi
-		return bi, nil
-	}
-	toUpdate := []*pfs.BranchInfo{branchInfo}
-	for _, sb := range branchInfo.Subvenance {
-		sbi, err := getBranchInfo(sb)
-		if err != nil {
-			return err
-		}
-		toUpdate = append(toUpdate, sbi)
-	}
-	// Sorting is important here because it sorts topologically. This means
-	// that when evaluating element i of `toUpdate` all elements < i will
-	// have already been evaluated and thus we can safely use their
-	// Provenance field.
-	sort.Slice(toUpdate, func(i, j int) bool { return len(toUpdate[i].Provenance) < len(toUpdate[j].Provenance) })
-	// re-compute the complete provenance of branchInfo and all its subvenant branches
-	for _, bi := range toUpdate {
-		bi.Provenance = make([]*pfs.Branch, 0)
-		for _, directProv := range bi.DirectProvenance {
-			add(&bi.Provenance, directProv)
-			directProvBI, err := getBranchInfo(directProv)
-			if err != nil {
-				return err
-			}
-			for _, p := range directProvBI.Provenance {
-				add(&bi.Provenance, p)
-			}
-		}
-	}
-	// add branchInfo and its subvenance to the subvenance of all of its provenance branches
-	for _, p := range branchInfo.Provenance {
-		pbi, err := getBranchInfo(p)
-		if err != nil {
-			return err
-		}
-		for _, ubi := range toUpdate {
-			add(&pbi.Subvenance, ubi.Branch)
-		}
-	}
-	// remove branchInfo and its subvenance from all branches that are no longer in branchInfo's Provenance
-	oldProvenance := make([]*pfs.Branch, 0)
-	for _, odp := range oldDirectProvenance {
-		if !has(&branchInfo.Provenance, odp) {
-			add(&oldProvenance, odp)
-			oldProvenance = append(oldProvenance, odp)
-			opbi, err := getBranchInfo(odp)
-			if err != nil {
-				return err
-			}
-			for _, b := range opbi.Provenance {
-				add(&oldProvenance, b)
-			}
-		}
-	}
-	for _, op := range oldProvenance {
-		opbi, err := getBranchInfo(op)
-		if err != nil {
-			return err
-		}
-		for _, bi := range toUpdate {
-			if !has(&bi.Provenance, op) {
-				del(&opbi.Subvenance, bi.Branch)
-			}
-		}
-	}
-	// now that all Provenance + Subvenance fields are up to date, save all the branches
-	for _, updateBi := range branchInfoCache {
-		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, updateBi); err != nil {
-			return errors.Wrap(err, "compute branch provenance")
-		}
-	}
-	return nil
-}
-
 // for a DAG to be valid, it may not have a multiple branches from the same repo
 // reachable by traveling edges bidirectionally. The reason is that this would complicate resolving
 func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.TransactionContext, bs []*pfs.Branch) error {
@@ -1992,11 +1897,6 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true}); err != nil {
 			return errors.Wrap(err, "create branch")
 		}
-	}
-	// update the total provenance of this branch and all of its subvenant branches.
-	// load all branches in the complete closure once and saves all of them.
-	if err := d.computeBranchProvenance(ctx, txnCtx, branchInfo, oldProvenance); err != nil {
-		return err
 	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
