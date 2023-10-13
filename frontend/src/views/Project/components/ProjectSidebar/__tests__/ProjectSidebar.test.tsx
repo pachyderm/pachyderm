@@ -132,6 +132,14 @@ describe('ProjectSidebar', () => {
       ).toHaveTextContent('N/A');
 
       expect(
+        within(overviewTab).getByRole('link', {name: /images/i}),
+      ).toHaveAttribute('href', '/lineage/default/repos/images');
+
+      expect(
+        within(overviewTab).getByRole('link', {name: /edges/i}),
+      ).toHaveAttribute('href', '/lineage/default/repos/edges');
+
+      expect(
         within(overviewTab).getByRole('link', {name: /montage/i}),
       ).toHaveAttribute('href', '/lineage/default/pipelines/montage');
 

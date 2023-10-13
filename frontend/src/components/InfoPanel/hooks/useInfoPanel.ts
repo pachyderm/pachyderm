@@ -133,19 +133,19 @@ const useInfoPanel = () => {
 
   const getInputRepos = useCallback((input: Input) => {
     const inputs: {projectId: string; name: string}[] = [];
-    if (input?.pfs?.repo) {
+    if (input.pfs?.repo) {
       inputs.push({projectId: input.pfs.project, name: input.pfs.repo});
     }
-    input.joinList?.forEach((i) => {
+    input.join.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.groupList?.forEach((i) => {
+    input.group.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.crossList?.forEach((i) => {
+    input.cross.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
-    input.unionList?.forEach((i) => {
+    input.union.forEach((i) => {
       inputs.push(...getInputRepos(i));
     });
 

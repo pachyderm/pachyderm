@@ -88,8 +88,8 @@ export type PfsInput = {
 };
 export type Input = {
   pfs?: PfsInput;
-  joinList: [Input];
-  groupList: [Input];
-  crossList: [Input];
-  unionList: [Input];
+  join: [Input];
+  group: [Input];
+  cross: [Input];
+  union: [Input];
 };
