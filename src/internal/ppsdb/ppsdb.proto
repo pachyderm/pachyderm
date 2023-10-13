@@ -11,8 +11,6 @@ message ClusterDefaultsWrapper {
   string json = 3;
 }
 
-
-
 message ProjectDefaultsWrapper {
   string json = 3;
 }
