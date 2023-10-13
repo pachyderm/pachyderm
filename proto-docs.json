@@ -15162,10 +15162,23 @@
           "fullName": "pps_v2.GetProjectDefaultsRequest",
           "description": "",
           "hasExtensions": false,
-          "hasFields": false,
+          "hasFields": true,
           "hasOneofs": false,
           "extensions": [],
-          "fields": []
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
         },
         {
           "name": "GetProjectDefaultsResponse",
@@ -18609,6 +18622,18 @@
           "hasOneofs": false,
           "extensions": [],
           "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
             {
               "name": "regenerate",
               "description": "",

@@ -12091,6 +12091,35 @@ func (m *GetProjectDefaultsRequest) validate(all bool) error {
 
 	var errors []error
 
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, GetProjectDefaultsRequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, GetProjectDefaultsRequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return GetProjectDefaultsRequestValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return GetProjectDefaultsRequestMultiError(errors)
 	}
@@ -12296,6 +12325,35 @@ func (m *SetProjectDefaultsRequest) validate(all bool) error {
 	}
 
 	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, SetProjectDefaultsRequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, SetProjectDefaultsRequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return SetProjectDefaultsRequestValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	// no validation rules for Regenerate
 

@@ -1190,6 +1190,7 @@ func (x *GetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
+	enc.AddObject("project", x.Project)
 	return nil
 }
 
@@ -1205,6 +1206,7 @@ func (x *SetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	if x == nil {
 		return nil
 	}
+	enc.AddObject("project", x.Project)
 	enc.AddBool("regenerate", x.Regenerate)
 	enc.AddBool("reprocess", x.Reprocess)
 	enc.AddBool("dry_run", x.DryRun)

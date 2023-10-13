@@ -944,7 +944,9 @@ message ProjectDefaults {
   CreatePipelineRequest create_pipeline_request = 1;
 }
 
-message GetProjectDefaultsRequest {}
+message GetProjectDefaultsRequest {
+  pfs_v2.Project project = 1;
+}
 
 message GetProjectDefaultsResponse {
   // A JSON-encoded ProjectDefaults message, this is the verbatim input passed
@@ -953,11 +955,12 @@ message GetProjectDefaultsResponse {
 }
 
 message SetProjectDefaultsRequest {
-  bool regenerate = 1;
-  bool reprocess = 2; // must be false if regenerate is false
-  bool dry_run = 3;
+  pfs_v2.Project project = 1;
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
   // A JSON-encoded ProjectDefaults message, this will be stored verbatim.
-  string project_defaults_json = 4;
+  string project_defaults_json = 5;
 }
 
 message SetProjectDefaultsResponse {

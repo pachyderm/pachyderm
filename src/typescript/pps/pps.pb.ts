@@ -701,6 +701,7 @@ export type ProjectDefaults = {
 }
 
 export type GetProjectDefaultsRequest = {
+  project?: Pfs_v2Pfs.Project
 }
 
 export type GetProjectDefaultsResponse = {
@@ -708,6 +709,7 @@ export type GetProjectDefaultsResponse = {
 }
 
 export type SetProjectDefaultsRequest = {
+  project?: Pfs_v2Pfs.Project
   regenerate?: boolean
   reprocess?: boolean
   dryRun?: boolean

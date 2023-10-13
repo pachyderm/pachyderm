@@ -1204,7 +1204,7 @@ class ProjectDefaults(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class GetProjectDefaultsRequest(betterproto.Message):
-    pass
+    project: "_pfs__.Project" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -1218,10 +1218,11 @@ class GetProjectDefaultsResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class SetProjectDefaultsRequest(betterproto.Message):
-    regenerate: bool = betterproto.bool_field(1)
-    reprocess: bool = betterproto.bool_field(2)
-    dry_run: bool = betterproto.bool_field(3)
-    project_defaults_json: str = betterproto.string_field(4)
+    project: "_pfs__.Project" = betterproto.message_field(1)
+    regenerate: bool = betterproto.bool_field(2)
+    reprocess: bool = betterproto.bool_field(3)
+    dry_run: bool = betterproto.bool_field(4)
+    project_defaults_json: str = betterproto.string_field(5)
     """
     A JSON-encoded ProjectDefaults message, this will be stored verbatim.
     """

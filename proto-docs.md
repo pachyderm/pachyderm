@@ -6210,6 +6210,11 @@ Delete more than one pipeline.
 
 
 
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+
+
 
 
 
@@ -7191,6 +7196,7 @@ request from kubernetes, for scheduling.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
 | regenerate | [bool](#bool) |  |  |
 | reprocess | [bool](#bool) |  | must be false if regenerate is false |
 | dry_run | [bool](#bool) |  |  |
