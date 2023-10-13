@@ -1993,11 +1993,6 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 			return errors.Wrap(err, "create branch")
 		}
 	}
-	// update the total provenance of this branch and all of its subvenant branches.
-	// load all branches in the complete closure once and saves all of them.
-	if err := d.computeBranchProvenance(ctx, txnCtx, branchInfo, oldProvenance); err != nil {
-		return err
-	}
 	// propagate the head commit to 'branch'. This may also modify 'branch', by
 	// creating a new HEAD commit if 'branch's provenance was changed and its
 	// current HEAD commit has old provenance

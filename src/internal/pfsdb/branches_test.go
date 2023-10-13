@@ -2,9 +2,10 @@ package pfsdb_test
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -179,14 +180,16 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch, branchBInfo.Branch}
 			branchCInfo.Provenance = []*pfs.Branch{branchBInfo.Branch, branchAInfo.Branch}
 			// Create all branches, and provenance relationships
-			allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
+			allBranches := make(map[string]pfsdb.BranchInfoWithID)
 			for _, branchInfo := range []*pfs.BranchInfo{branchAInfo, branchBInfo, branchCInfo} {
 				id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo) // implicitly creates prov relationships
 				require.NoError(t, err)
-				allBranches[id] = branchInfo
+				allBranches[branchInfo.Branch.Key()] = pfsdb.BranchInfoWithID{ID: id, BranchInfo: branchInfo}
 			}
 			// Verify direct provenance, full provenance, and full subvenance relationships
-			for id, branchInfo := range allBranches {
+			for _, branchInfoWithID := range allBranches {
+				id := branchInfoWithID.ID
+				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
 				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
@@ -207,12 +210,19 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = nil
 			branchCInfo.Provenance = nil
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
-			for id, branchInfo := range allBranches {
-				gotID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
-				require.NoError(t, err)
-				require.Equal(t, id, gotID, "UpsertBranch should keep id stable")
-			}
-			for id, branchInfo := range allBranches {
+			// Updating B first should result in cycle, so need to update C first
+			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
+			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{FromID: allBranches[branchBInfo.Branch.Key()].ID, ToID: allBranches[branchCInfo.Branch.Key()].ID})
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
+			require.NoError(t, err)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchAInfo)
+			require.NoError(t, err)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchBInfo)
+			require.NoError(t, err)
+
+			for _, branchInfoWithID := range allBranches {
+				id := branchInfoWithID.ID
+				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
 				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
