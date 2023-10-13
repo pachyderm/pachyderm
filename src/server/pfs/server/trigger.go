@@ -131,7 +131,14 @@ func (d *driver) isTriggered(txnCtx *txncontext.TransactionContext, t *pfs.Trigg
 		ci := newHead
 		var commits int64
 		for commits < t.Commits {
-			if oldHead.Commit.Id == ci.Commit.Id || ci.ParentCommit == nil {
+			if ci.ParentCommit == nil {
+				// TODO: We need a better mechanism for identifying the empty commits we create.
+				if ci.Origin.Kind != pfs.OriginKind_AUTO {
+					commits++
+				}
+				break
+			}
+			if oldHead.Commit.Id == ci.Commit.Id {
 				break
 			}
 			var err error
