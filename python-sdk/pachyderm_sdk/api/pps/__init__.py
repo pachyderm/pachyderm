@@ -1197,6 +1197,41 @@ class CreatePipelineTransaction(betterproto.Message):
     effective_json: str = betterproto.string_field(3)
 
 
+@dataclass(eq=False, repr=False)
+class ProjectDefaults(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GetProjectDefaultsRequest(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class GetProjectDefaultsResponse(betterproto.Message):
+    project_defaults_json: str = betterproto.string_field(1)
+    """
+    A JSON-encoded ProjectDefaults message, this is the verbatim input passed
+    to SetProjectDefaults.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetProjectDefaultsRequest(betterproto.Message):
+    regenerate: bool = betterproto.bool_field(1)
+    reprocess: bool = betterproto.bool_field(2)
+    dry_run: bool = betterproto.bool_field(3)
+    project_defaults_json: str = betterproto.string_field(4)
+    """
+    A JSON-encoded ProjectDefaults message, this will be stored verbatim.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetProjectDefaultsResponse(betterproto.Message):
+    affected_pipelines: List["Pipeline"] = betterproto.message_field(1)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(

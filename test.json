@@ -1,0 +1,14 @@
+{
+		    "pipeline": {
+		      "name": "first"
+		    },
+		    "transform": {
+			"image": "ubuntu:latest"
+		    },
+		    "input": {
+		      "pfs": {
+		        "repo": "in",
+		        "glob": "/*"
+		      }
+		    }
+		  }

@@ -696,6 +696,28 @@ export type CreatePipelineTransaction = {
   effectiveJson?: string
 }
 
+export type ProjectDefaults = {
+  createPipelineRequest?: CreatePipelineRequest
+}
+
+export type GetProjectDefaultsRequest = {
+}
+
+export type GetProjectDefaultsResponse = {
+  projectDefaultsJson?: string
+}
+
+export type SetProjectDefaultsRequest = {
+  regenerate?: boolean
+  reprocess?: boolean
+  dryRun?: boolean
+  projectDefaultsJson?: string
+}
+
+export type SetProjectDefaultsResponse = {
+  affectedPipelines?: Pipeline[]
+}
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
