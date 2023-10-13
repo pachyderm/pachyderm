@@ -415,46 +415,48 @@ const Node: React.FC<NodeProps> = ({
           </g>
 
           {/* pipeline status button */}
-          <g
-            role="button"
-            aria-label={`${groupName} status`}
-            id="pipelineStatusGroup"
-            data-testid={`Node__state-${node.nodeState}`}
-            transform={`translate (${
-              BUTTON_MARGIN * 2 + STATUS_BUTTON_WIDTH
-            }, ${BUTTON_MARGIN * 2.5 + BUTTON_HEIGHT * 2})`}
-            onClick={() => onClick('status')}
-            className={statusClasses}
-          >
-            <rect
-              width={STATUS_BUTTON_WIDTH}
-              height={STATUS_BUTTON_HEIGHT}
-              rx={3}
-              ry={3}
-              className={styles.statusRect}
-            />
-            <text style={labelTextStyle} x={BUTTON_MARGIN * 2 + 2} y={18}>
-              Pipeline
-            </text>
-
-            <text
-              x={BUTTON_MARGIN * 2 + 20}
-              y={40}
-              className={statusTextClasses(node.nodeState)}
+          {node.state && (
+            <g
+              role="button"
+              aria-label={`${groupName} status`}
+              id="pipelineStatusGroup"
+              data-testid={`Node__state-${node.nodeState}`}
+              transform={`translate (${
+                BUTTON_MARGIN * 2 + STATUS_BUTTON_WIDTH
+              }, ${BUTTON_MARGIN * 2.5 + BUTTON_HEIGHT * 2})`}
+              onClick={() => onClick('status')}
+              className={statusClasses}
             >
-              {node.state && readablePipelineState(node.state)}
-            </text>
-            <g transform="scale(0.6)">
-              <NodeStateIcon
-                state={node.nodeState}
-                x={(BUTTON_MARGIN * 2 + 2) / 0.6}
-                y={48}
+              <rect
+                width={STATUS_BUTTON_WIDTH}
+                height={STATUS_BUTTON_HEIGHT}
+                rx={3}
+                ry={3}
+                className={styles.statusRect}
               />
+              <text style={labelTextStyle} x={BUTTON_MARGIN * 2 + 2} y={18}>
+                Pipeline
+              </text>
+
+              <text
+                x={BUTTON_MARGIN * 2 + 20}
+                y={40}
+                className={statusTextClasses(node.nodeState)}
+              >
+                {node.state && readablePipelineState(node.state)}
+              </text>
+              <g transform="scale(0.6)">
+                <NodeStateIcon
+                  state={node.nodeState}
+                  x={(BUTTON_MARGIN * 2 + 2) / 0.6}
+                  y={48}
+                />
+              </g>
             </g>
-          </g>
+          )}
 
           {/* job status button */}
-          {node.jobNodeState !== NodeState.IDLE && (
+          {node.jobNodeState && node.jobNodeState !== NodeState.IDLE && (
             <g
               role="button"
               aria-label={`${groupName} logs`}
