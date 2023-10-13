@@ -177,27 +177,19 @@ func (s *FSStore) transformError(err error, key []byte) error {
 }
 
 func (c *FSStore) closeFile(ctx context.Context, retErr *error, f *os.File) {
-	err := f.Close()
-	if err != nil && !strings.Contains(err.Error(), "file already closed") {
-		if *retErr == nil {
-			*retErr = err
-		} else {
-			log.Error(ctx, "error closing file", zap.Error(err))
+	if err := f.Close(); err != nil {
+		if !strings.Contains(err.Error(), "already closed") {
+			errors.JoinInto(retErr, errors.Wrap(err, "close"))
 		}
 	}
 }
 
-// cleanupFile is called to cleanup files from the staging area
 func (c *FSStore) cleanupFile(ctx context.Context, retErr *error, p string) {
 	err := os.Remove(p)
 	if os.IsNotExist(err) {
 		err = nil
 	}
 	if err != nil {
-		if *retErr == nil {
-			*retErr = err
-		} else {
-			log.Error(ctx, "error deleting file", zap.Error(err))
-		}
+		errors.JoinInto(retErr, errors.Wrap(err, "deleting file"))
 	}
 }

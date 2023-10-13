@@ -47,6 +47,7 @@ func newFSClient(rootDir string) (Client, error) {
 }
 
 func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr error) {
+	log.Info(ctx, "put", zap.String("key", name))
 	staging := c.stagingPathFor(name)
 	final := c.finalPathFor(name)
 	f, err := os.OpenFile(staging, os.O_EXCL|os.O_CREATE|os.O_WRONLY, 0o644)
@@ -65,6 +66,7 @@ func (c *fsClient) Put(ctx context.Context, name string, r io.Reader) (retErr er
 }
 
 func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr error) {
+	log.Info(ctx, "get", zap.String("key", name))
 	defer func() { retErr = c.transformError(retErr, name) }()
 	f, err := os.Open(c.finalPathFor(name))
 	if err != nil {
@@ -76,6 +78,7 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 }
 
 func (c *fsClient) Delete(ctx context.Context, name string) error {
+	log.Info(ctx, "delete", zap.String("key", name))
 	err := os.Remove(c.finalPathFor(name))
 	if os.IsNotExist(err) {
 		err = nil
@@ -155,12 +158,9 @@ func (c *fsClient) transformError(err error, name string) error {
 }
 
 func (c *fsClient) closeFile(ctx context.Context, retErr *error, f *os.File) {
-	err := f.Close()
-	if err != nil && !strings.Contains(err.Error(), "file already closed") {
-		if *retErr == nil {
-			*retErr = err
-		} else {
-			log.Error(ctx, "error closing file", zap.Error(err))
+	if err := f.Close(); err != nil {
+		if !strings.Contains(err.Error(), "already closed") {
+			errors.JoinInto(retErr, errors.Wrap(err, "close"))
 		}
 	}
 }
@@ -171,10 +171,6 @@ func (c *fsClient) removeFile(ctx context.Context, retErr *error, p string) {
 		err = nil
 	}
 	if err != nil {
-		if *retErr == nil {
-			*retErr = err
-		} else {
-			log.Error(ctx, "error deleting file", zap.Error(err))
-		}
+		errors.JoinInto(retErr, errors.Wrap(err, "deleting file"))
 	}
 }
