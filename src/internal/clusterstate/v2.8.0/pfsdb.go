@@ -535,7 +535,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		CREATE TABLE IF NOT EXISTS pfs.branch_provenance (
 			from_id bigint REFERENCES pfs.branches(id) NOT NULL,
 			to_id bigint REFERENCES pfs.branches(id) NOT NULL,
-			PRIMARY KEY (from_id, to_id)
+			PRIMARY KEY (from_id, to_id),
+			CHECK (from_id <> to_id)
 		);
 	`); err != nil {
 		return errors.Wrap(err, "creating branch_provenance table")

@@ -62,7 +62,7 @@ type ErrBranchProvCycle struct {
 }
 
 func (err ErrBranchProvCycle) Error() string {
-	return fmt.Sprintf("branch provenance cycle detected for (%d, %d)", err.FromID, err.ToID)
+	return fmt.Sprintf("cycle detected for BranchID=%d, because BranchID=%d is already in its subvenance", err.FromID, err.ToID)
 }
 
 // ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
@@ -270,27 +270,45 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
-	// Compute new direct provenance
+	// Compute branch provenance, and avoid creating cycles.
+	// We know a cycle exists if the to_branch is in the subvenance of the from_branch.
+	fullSubv, err := GetBranchSubvenance(ctx, tx, branchID)
+	if err != nil {
+		return branchID, errors.Wrap(err, "could not compute branch subvenance")
+	}
+	fullSubvSet := make(map[string]bool)
+	for _, branch := range fullSubv {
+		fullSubvSet[branch.Key()] = true
+	}
+	for _, branch := range branchInfo.DirectProvenance {
+		if fullSubvSet[branch.Key()] {
+			toID, err := GetBranchID(ctx, tx, branch)
+			if err != nil {
+				return branchID, errors.Wrapf(err, "detected cycle, but could not get the branch id for branch %s that is causing the cycle", branch.Key())
+			}
+			return branchID, ErrBranchProvCycle{FromID: branchID, ToID: toID}
+		}
+	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
-		return 0, errors.Wrap(err, "could not delete direct branch provenance")
+		return branchID, errors.Wrap(err, "could not delete direct branch provenance")
 	}
 	for _, branch := range branchInfo.DirectProvenance {
 		toBranchID, err := GetBranchID(ctx, tx, branch)
 		if err != nil {
-			return 0, errors.Wrapf(err, "could not get to_branch_id for creating branch provenance")
+			return branchID, errors.Wrapf(err, "could not get to_branch_id for creating branch provenance")
 		}
 		if err := CreateDirectBranchProvenance(ctx, tx, branchID, toBranchID); err != nil {
-			return 0, errors.Wrap(err, "could not create branch provenance")
+			return branchID, errors.Wrap(err, "could not create branch provenance")
 		}
 	}
 	// Create or update this branch's trigger.
 	if branchInfo.Trigger != nil {
 		toBranchID, err := GetBranchID(ctx, tx, &pfs.Branch{Repo: branchInfo.Branch.Repo, Name: branchInfo.Trigger.Branch})
 		if err != nil {
-			return 0, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
+			return branchID, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
 		}
 		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
-			return 0, errors.Wrap(err, "could not create branch trigger")
+			return branchID, errors.Wrap(err, "could not create branch trigger")
 		}
 	}
 	return branchID, nil
@@ -427,9 +445,9 @@ func CheckBranchProvenanceForCycles(ctx context.Context, tx *pachsql.Tx, from, t
 
 // CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	if err := CheckBranchProvenanceForCycles(ctx, tx, from, to); err != nil {
-		return errors.Wrapf(err, "from_id = %d, to_id = %d", from, to)
-	}
+	// if err := CheckBranchProvenanceForCycles(ctx, tx, from, to); err != nil {
+	// 	return errors.Wrapf(err, "from_id = %d, to_id = %d", from, to)
+	// }
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)	
 		VALUES ($1, $2)
