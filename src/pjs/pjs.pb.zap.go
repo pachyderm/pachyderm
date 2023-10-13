@@ -189,6 +189,28 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *ListJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.Id).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("id", obj)
+	} else {
+		enc.AddReflected("id", x.Id)
+	}
+	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("info", obj)
+	} else {
+		enc.AddReflected("info", x.Info)
+	}
+	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("details", obj)
+	} else {
+		enc.AddReflected("details", x.Details)
+	}
+	return nil
+}
+
 func (x *WalkJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -211,6 +233,18 @@ func (x *InspectJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		enc.AddObject("job", obj)
 	} else {
 		enc.AddReflected("job", x.Job)
+	}
+	return nil
+}
+
+func (x *InspectJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("details", obj)
+	} else {
+		enc.AddReflected("details", x.Details)
 	}
 	return nil
 }
@@ -253,6 +287,28 @@ func (x *ListQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *ListQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.Id).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("id", obj)
+	} else {
+		enc.AddReflected("id", x.Id)
+	}
+	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("info", obj)
+	} else {
+		enc.AddReflected("info", x.Info)
+	}
+	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("details", obj)
+	} else {
+		enc.AddReflected("details", x.Details)
+	}
+	return nil
+}
+
 func (x *InspectQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -261,6 +317,18 @@ func (x *InspectQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		enc.AddObject("queue", obj)
 	} else {
 		enc.AddReflected("queue", x.Queue)
+	}
+	return nil
+}
+
+func (x *InspectQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("details", obj)
+	} else {
+		enc.AddReflected("details", x.Details)
 	}
 	return nil
 }

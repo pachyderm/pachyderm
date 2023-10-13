@@ -1,18 +1,26 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/JobInfoDetails",
+    "$ref": "#/definitions/ListJobResponse",
     "definitions": {
-        "JobInfoDetails": {
+        "ListJobResponse": {
             "properties": {
-                "jobInfo": {
+                "id": {
+                    "$ref": "#/definitions/pjs.Job",
+                    "additionalProperties": false
+                },
+                "info": {
                     "$ref": "#/definitions/pjs.JobInfo",
+                    "additionalProperties": false
+                },
+                "details": {
+                    "$ref": "#/definitions/pjs.JobInfoDetails",
                     "additionalProperties": false
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Job Info Details",
-            "description": "JobInfoDetails is more detailed information about a Job. It contains a superset of the information in JobInfo"
+            "title": "List Job Response",
+            "description": "ListJobResponse lists information about Jobs ID will always be set. Info and Details may not be set depending on how much information was requested."
         },
         "pjs.Job": {
             "properties": {
@@ -101,6 +109,18 @@
             ],
             "title": "Job Info",
             "description": "JobInfo describes a Job"
+        },
+        "pjs.JobInfoDetails": {
+            "properties": {
+                "jobInfo": {
+                    "$ref": "#/definitions/pjs.JobInfo",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Info Details",
+            "description": "JobInfoDetails is more detailed information about a Job. It contains a superset of the information in JobInfo"
         },
         "pjs.QueueElement": {
             "properties": {

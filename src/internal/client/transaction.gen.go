@@ -500,11 +500,11 @@ func (c *unsupportedPjsBuilderClient) DeleteJob(_ context.Context, _ *pjs.Delete
 	return nil, unsupportedError("DeleteJob")
 }
 
-func (c *unsupportedPjsBuilderClient) InspectJob(_ context.Context, _ *pjs.InspectJobRequest, opts ...grpc.CallOption) (*pjs.JobInfoDetails, error) {
+func (c *unsupportedPjsBuilderClient) InspectJob(_ context.Context, _ *pjs.InspectJobRequest, opts ...grpc.CallOption) (*pjs.InspectJobResponse, error) {
 	return nil, unsupportedError("InspectJob")
 }
 
-func (c *unsupportedPjsBuilderClient) InspectQueue(_ context.Context, _ *pjs.InspectQueueRequest, opts ...grpc.CallOption) (*pjs.QueueInfoDetails, error) {
+func (c *unsupportedPjsBuilderClient) InspectQueue(_ context.Context, _ *pjs.InspectQueueRequest, opts ...grpc.CallOption) (*pjs.InspectQueueResponse, error) {
 	return nil, unsupportedError("InspectQueue")
 }
 

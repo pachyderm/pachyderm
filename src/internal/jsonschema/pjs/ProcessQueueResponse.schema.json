@@ -5,21 +5,25 @@
         "ProcessQueueResponse": {
             "properties": {
                 "context": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs."
                 },
                 "input": {
                     "$ref": "#/definitions/pjs.QueueElement",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "input is the input data for a Job. The server sends this to ask the client to compute the output."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Process Queue Response"
+            "title": "Process Queue Response",
+            "description": "ProcessQueueResposne is the server -\u003e client message for the bi-di ProcessQueue RPC."
         },
         "pjs.QueueElement": {
             "properties": {
                 "data": {
                     "type": "string",
+                    "description": "data is opaque data used as the input and output of Jobs",
                     "format": "binary",
                     "binaryEncoding": "base64"
                 },
@@ -27,12 +31,14 @@
                     "items": {
                         "type": "string"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue Element"
+            "title": "Queue Element",
+            "description": "QueueElement is a single element in a Queue."
         }
     }
 }

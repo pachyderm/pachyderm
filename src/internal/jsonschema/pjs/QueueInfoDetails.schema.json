@@ -9,12 +9,14 @@
                     "additionalProperties": false
                 },
                 "size": {
-                    "type": "integer"
+                    "type": "integer",
+                    "description": "size is the number of elements queued."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue Info Details"
+            "title": "Queue Info Details",
+            "description": "QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get. It contains a superset of the information in QueueInfo."
         },
         "pjs.Queue": {
             "properties": {
@@ -26,13 +28,15 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue"
+            "title": "Queue",
+            "description": "Queue uniquely identifies a Queue Queue will be nil to identify no Queue, or to indicate unset."
         },
         "pjs.QueueInfo": {
             "properties": {
                 "queue": {
                     "$ref": "#/definitions/pjs.Queue",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "queue is the Queue's identity"
                 },
                 "spec": {
                     "properties": {
@@ -48,12 +52,14 @@
                         }
                     },
                     "additionalProperties": false,
-                    "type": "object"
+                    "type": "object",
+                    "description": "spec specifies the code to be run to process the Queue."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue Info"
+            "title": "Queue Info",
+            "description": "QueueInfo describes a Queue"
         }
     }
 }

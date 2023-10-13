@@ -1,18 +1,17 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/JobInfoDetails",
+    "$ref": "#/definitions/InspectJobResponse",
     "definitions": {
-        "JobInfoDetails": {
+        "InspectJobResponse": {
             "properties": {
-                "jobInfo": {
-                    "$ref": "#/definitions/pjs.JobInfo",
+                "details": {
+                    "$ref": "#/definitions/pjs.JobInfoDetails",
                     "additionalProperties": false
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Job Info Details",
-            "description": "JobInfoDetails is more detailed information about a Job. It contains a superset of the information in JobInfo"
+            "title": "Inspect Job Response"
         },
         "pjs.Job": {
             "properties": {
@@ -101,6 +100,18 @@
             ],
             "title": "Job Info",
             "description": "JobInfo describes a Job"
+        },
+        "pjs.JobInfoDetails": {
+            "properties": {
+                "jobInfo": {
+                    "$ref": "#/definitions/pjs.JobInfo",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job Info Details",
+            "description": "JobInfoDetails is more detailed information about a Job. It contains a superset of the information in JobInfo"
         },
         "pjs.QueueElement": {
             "properties": {

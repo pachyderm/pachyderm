@@ -21,7 +21,8 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Job"
+            "title": "Job",
+            "description": "Job uniquely identifies a Job Job will be nil to indicate no Job, or an unset Job."
         }
     }
 }

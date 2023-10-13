@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 
 
 class JobState(betterproto.Enum):
-    JOB_STATE_UNSPECIFIED = 0
+    JobState_UNSPECIFIED = 0
     """UNSPECIFIED means the job state is unspecified."""
 
     QUEUED = 1
@@ -42,7 +42,7 @@ class JobState(betterproto.Enum):
 
 
 class JobErrorCode(betterproto.Enum):
-    JOB_ERROR_CODE_UNSPECIFIED = 0
+    JobErrorCode_UNSPECIFIED = 0
     """UNSPECIFIED means the job error code is unspecified."""
 
     FAILED = 1
@@ -59,51 +59,110 @@ class JobErrorCode(betterproto.Enum):
 
 @dataclass(eq=False, repr=False)
 class Job(betterproto.Message):
+    """
+    Job uniquely identifies a Job Job will be nil to indicate no Job, or an
+    unset Job.
+    """
+
     id: int = betterproto.int64_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class JobInfo(betterproto.Message):
+    """JobInfo describes a Job"""
+
     job: "Job" = betterproto.message_field(1)
+    """Job is the Job's identity"""
+
     parent_job: "Job" = betterproto.message_field(2)
+    """parent_job is the Job's parent if it exists."""
+
     state: "JobState" = betterproto.enum_field(3)
+    """
+    state is the Job's state. See JobState for a description of the possible
+    states.
+    """
+
     spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(4)
+    """spec is the code specification for the Job."""
+
     input: "QueueElement" = betterproto.message_field(5)
+    """input is the input data for the Job."""
+
     output: "QueueElement" = betterproto.message_field(6, group="result")
+    """output is produced by a successfully completing Job"""
+
     error: "JobErrorCode" = betterproto.enum_field(7, group="result")
+    """error is set when the Job is unable to complete successfully"""
 
 
 @dataclass(eq=False, repr=False)
 class JobInfoDetails(betterproto.Message):
+    """
+    JobInfoDetails is more detailed information about a Job. It contains a
+    superset of the information in JobInfo
+    """
+
     job_info: "JobInfo" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class Queue(betterproto.Message):
+    """
+    Queue uniquely identifies a Queue Queue will be nil to identify no Queue,
+    or to indicate unset.
+    """
+
     id: bytes = betterproto.bytes_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class QueueInfo(betterproto.Message):
+    """QueueInfo describes a Queue"""
+
     queue: "Queue" = betterproto.message_field(1)
+    """queue is the Queue's identity"""
+
     spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
+    """spec specifies the code to be run to process the Queue."""
 
 
 @dataclass(eq=False, repr=False)
 class QueueInfoDetails(betterproto.Message):
+    """
+    QueueInfoDetails contains detailed information about a Queue, which may be
+    more expensive to get. It contains a superset of the information in
+    QueueInfo.
+    """
+
     queue_info: "QueueInfo" = betterproto.message_field(1)
     size: int = betterproto.int64_field(2)
+    """size is the number of elements queued."""
 
 
 @dataclass(eq=False, repr=False)
 class QueueElement(betterproto.Message):
+    """QueueElement is a single element in a Queue."""
+
     data: bytes = betterproto.bytes_field(1)
+    """data is opaque data used as the input and output of Jobs"""
+
     filesets: List[str] = betterproto.string_field(2)
+    """
+    filesets is a list of Fileset handles, used to associate Filesets with the
+    input and output of Jobs. Any of the filesets referenced here will be
+    persisted for as long as this element is in a Queue. New handles, pointing
+    to equivalent Filesets, are minted whenever they cross the API boundary.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class CreateJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     spec: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(2)
     input: "QueueElement" = betterproto.message_field(3)
     cache_read: bool = betterproto.bool_field(4)
@@ -118,6 +177,10 @@ class CreateJobResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class CancelJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     job: "Job" = betterproto.message_field(2)
 
 
@@ -129,6 +192,10 @@ class CancelJobResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class DeleteJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     job: "Job" = betterproto.message_field(2)
 
 
@@ -142,32 +209,100 @@ class ListJobRequest(betterproto.Message):
     """TODO: - Filter - Paginate"""
 
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     job: "Job" = betterproto.message_field(2)
+    """
+    job is the job to start listing at. If nil, then the listing starts at the
+    first job in the natural ordering.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class ListJobResponse(betterproto.Message):
+    """
+    ListJobResponse lists information about Jobs ID will always be set. Info
+    and Details may not be set depending on how much information was requested.
+    """
+
+    id: "Job" = betterproto.message_field(1)
+    info: "JobInfo" = betterproto.message_field(2)
+    details: "JobInfoDetails" = betterproto.message_field(3)
 
 
 @dataclass(eq=False, repr=False)
 class WalkJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     job: "Job" = betterproto.message_field(2)
+    """
+    job is the job to start walking from.  If unset, the context Job is
+    assumed.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class InspectJobRequest(betterproto.Message):
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used when calling from within a running Job.
+    """
+
     job: "Job" = betterproto.message_field(2)
+    """
+    job is the job to start walking from.  If unset the context Job is assumed.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class InspectJobResponse(betterproto.Message):
+    details: "JobInfoDetails" = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
 class ProcessQueueRequest(betterproto.Message):
+    """
+    Queue Messages ProcessQueueRequest is the client -> server message for the
+    bi-di ProcessQueue RPC.
+    """
+
     queue: "Queue" = betterproto.message_field(1)
+    """queue is set to start processing from a Queue."""
+
     output: "QueueElement" = betterproto.message_field(2, group="result")
+    """output is set by the client to complete the Job successfully."""
+
     failed: bool = betterproto.bool_field(3, group="result")
+    """
+    failed is set by the client to fail the Job. The Job will transition to
+    state DONE with code FAILED.
+    """
 
 
 @dataclass(eq=False, repr=False)
 class ProcessQueueResponse(betterproto.Message):
+    """
+    ProcessQueueResposne is the server -> client message for the bi-di
+    ProcessQueue RPC.
+    """
+
     context: str = betterproto.string_field(1)
+    """
+    context is a bearer token used to act on behalf of the Job in other RPCs.
+    The server issues this token to the client, and the client should use it
+    when performing Job RPCs.
+    """
+
     input: "QueueElement" = betterproto.message_field(2)
+    """
+    input is the input data for a Job. The server sends this to ask the client
+    to compute the output.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -178,8 +313,20 @@ class ListQueueRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class ListQueueResponse(betterproto.Message):
+    id: "Queue" = betterproto.message_field(1)
+    info: "QueueInfo" = betterproto.message_field(2)
+    details: "QueueInfoDetails" = betterproto.message_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class InspectQueueRequest(betterproto.Message):
     queue: "Queue" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class InspectQueueResponse(betterproto.Message):
+    details: "QueueInfoDetails" = betterproto.message_field(1)
 
 
 class ApiStub:
@@ -202,17 +349,17 @@ class ApiStub:
         self.__rpc_list_job = channel.unary_stream(
             "/pjs.API/ListJob",
             request_serializer=ListJobRequest.SerializeToString,
-            response_deserializer=JobInfo.FromString,
+            response_deserializer=ListJobResponse.FromString,
         )
         self.__rpc_walk_job = channel.unary_stream(
             "/pjs.API/WalkJob",
             request_serializer=WalkJobRequest.SerializeToString,
-            response_deserializer=JobInfo.FromString,
+            response_deserializer=ListJobResponse.FromString,
         )
         self.__rpc_inspect_job = channel.unary_unary(
             "/pjs.API/InspectJob",
             request_serializer=InspectJobRequest.SerializeToString,
-            response_deserializer=JobInfoDetails.FromString,
+            response_deserializer=InspectJobResponse.FromString,
         )
         self.__rpc_process_queue = channel.stream_stream(
             "/pjs.API/ProcessQueue",
@@ -222,12 +369,12 @@ class ApiStub:
         self.__rpc_list_queue = channel.unary_stream(
             "/pjs.API/ListQueue",
             request_serializer=ListQueueRequest.SerializeToString,
-            response_deserializer=QueueInfo.FromString,
+            response_deserializer=ListQueueResponse.FromString,
         )
         self.__rpc_inspect_queue = channel.unary_unary(
             "/pjs.API/InspectQueue",
             request_serializer=InspectQueueRequest.SerializeToString,
-            response_deserializer=QueueInfoDetails.FromString,
+            response_deserializer=InspectQueueResponse.FromString,
         )
 
     def create_job(
@@ -270,7 +417,9 @@ class ApiStub:
 
         return self.__rpc_delete_job(request)
 
-    def list_job(self, *, context: str = "", job: "Job" = None) -> Iterator["JobInfo"]:
+    def list_job(
+        self, *, context: str = "", job: "Job" = None
+    ) -> Iterator["ListJobResponse"]:
         request = ListJobRequest()
         request.context = context
         if job is not None:
@@ -279,7 +428,9 @@ class ApiStub:
         for response in self.__rpc_list_job(request):
             yield response
 
-    def walk_job(self, *, context: str = "", job: "Job" = None) -> Iterator["JobInfo"]:
+    def walk_job(
+        self, *, context: str = "", job: "Job" = None
+    ) -> Iterator["ListJobResponse"]:
         request = WalkJobRequest()
         request.context = context
         if job is not None:
@@ -288,7 +439,9 @@ class ApiStub:
         for response in self.__rpc_walk_job(request):
             yield response
 
-    def inspect_job(self, *, context: str = "", job: "Job" = None) -> "JobInfoDetails":
+    def inspect_job(
+        self, *, context: str = "", job: "Job" = None
+    ) -> "InspectJobResponse":
         request = InspectJobRequest()
         request.context = context
         if job is not None:
@@ -305,13 +458,13 @@ class ApiStub:
         for response in self.__rpc_process_queue(request_iterator):
             yield response
 
-    def list_queue(self) -> Iterator["QueueInfo"]:
+    def list_queue(self) -> Iterator["ListQueueResponse"]:
         request = ListQueueRequest()
 
         for response in self.__rpc_list_queue(request):
             yield response
 
-    def inspect_queue(self, *, queue: "Queue" = None) -> "QueueInfoDetails":
+    def inspect_queue(self, *, queue: "Queue" = None) -> "InspectQueueResponse":
         request = InspectQueueRequest()
         if queue is not None:
             request.queue = queue
@@ -349,21 +502,21 @@ class ApiBase:
 
     def list_job(
         self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> Iterator["JobInfo"]:
+    ) -> Iterator["ListJobResponse"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def walk_job(
         self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> Iterator["JobInfo"]:
+    ) -> Iterator["ListJobResponse"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def inspect_job(
         self, context: str, job: "Job", context: "grpc.ServicerContext"
-    ) -> "JobInfoDetails":
+    ) -> "InspectJobResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -377,14 +530,16 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def list_queue(self, context: "grpc.ServicerContext") -> Iterator["QueueInfo"]:
+    def list_queue(
+        self, context: "grpc.ServicerContext"
+    ) -> Iterator["ListQueueResponse"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
     def inspect_queue(
         self, queue: "Queue", context: "grpc.ServicerContext"
-    ) -> "QueueInfoDetails":
+    ) -> "InspectQueueResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")

@@ -25,7 +25,7 @@ type JobState int32
 
 const (
 	// UNSPECIFIED means the job state is unspecified.
-	JobState_JOB_STATE_UNSPECIFIED JobState = 0
+	JobState_JobState_UNSPECIFIED JobState = 0
 	// QUEUED means the job is currently in a queue.
 	// A QUEUED job will not have any descendants.
 	JobState_QUEUED JobState = 1
@@ -38,16 +38,16 @@ const (
 // Enum value maps for JobState.
 var (
 	JobState_name = map[int32]string{
-		0: "JOB_STATE_UNSPECIFIED",
+		0: "JobState_UNSPECIFIED",
 		1: "QUEUED",
 		2: "PROCESSING",
 		3: "DONE",
 	}
 	JobState_value = map[string]int32{
-		"JOB_STATE_UNSPECIFIED": 0,
-		"QUEUED":                1,
-		"PROCESSING":            2,
-		"DONE":                  3,
+		"JobState_UNSPECIFIED": 0,
+		"QUEUED":               1,
+		"PROCESSING":           2,
+		"DONE":                 3,
 	}
 )
 
@@ -82,7 +82,7 @@ type JobErrorCode int32
 
 const (
 	// UNSPECIFIED means the job error code is unspecified.
-	JobErrorCode_JOB_ERROR_CODE_UNSPECIFIED JobErrorCode = 0
+	JobErrorCode_JobErrorCode_UNSPECIFIED JobErrorCode = 0
 	// FAILED means that the worker processing the job indicated that it failed.
 	JobErrorCode_FAILED JobErrorCode = 1
 	// DISCONNECTED means the worker processing the job disconnected.
@@ -94,16 +94,16 @@ const (
 // Enum value maps for JobErrorCode.
 var (
 	JobErrorCode_name = map[int32]string{
-		0: "JOB_ERROR_CODE_UNSPECIFIED",
+		0: "JobErrorCode_UNSPECIFIED",
 		1: "FAILED",
 		2: "DISCONNECTED",
 		3: "CANCELED",
 	}
 	JobErrorCode_value = map[string]int32{
-		"JOB_ERROR_CODE_UNSPECIFIED": 0,
-		"FAILED":                     1,
-		"DISCONNECTED":               2,
-		"CANCELED":                   3,
+		"JobErrorCode_UNSPECIFIED": 0,
+		"FAILED":                   1,
+		"DISCONNECTED":             2,
+		"CANCELED":                 3,
 	}
 )
 
@@ -134,6 +134,8 @@ func (JobErrorCode) EnumDescriptor() ([]byte, []int) {
 	return file_pjs_pjs_proto_rawDescGZIP(), []int{1}
 }
 
+// Job uniquely identifies a Job
+// Job will be nil to indicate no Job, or an unset Job.
 type Job struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -181,16 +183,25 @@ func (x *Job) GetId() int64 {
 	return 0
 }
 
+// JobInfo describes a Job
 type JobInfo struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Job       *Job          `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
-	ParentJob *Job          `protobuf:"bytes,2,opt,name=parent_job,json=parentJob,proto3" json:"parent_job,omitempty"`
-	State     JobState      `protobuf:"varint,3,opt,name=state,proto3,enum=pjs.JobState" json:"state,omitempty"`
-	Spec      *anypb.Any    `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
-	Input     *QueueElement `protobuf:"bytes,5,opt,name=input,proto3" json:"input,omitempty"`
+	// Job is the Job's identity
+	Job *Job `protobuf:"bytes,1,opt,name=job,proto3" json:"job,omitempty"`
+	// parent_job is the Job's parent if it exists.
+	ParentJob *Job `protobuf:"bytes,2,opt,name=parent_job,json=parentJob,proto3" json:"parent_job,omitempty"`
+	// state is the Job's state.
+	// See JobState for a description of the possible states.
+	State JobState `protobuf:"varint,3,opt,name=state,proto3,enum=pjs.JobState" json:"state,omitempty"`
+	// spec is the code specification for the Job.
+	Spec *anypb.Any `protobuf:"bytes,4,opt,name=spec,proto3" json:"spec,omitempty"`
+	// input is the input data for the Job.
+	Input *QueueElement `protobuf:"bytes,5,opt,name=input,proto3" json:"input,omitempty"`
+	// result is set when the Job enters the DONE state.
+	//
 	// Types that are assignable to Result:
 	//
 	//	*JobInfo_Output
@@ -248,7 +259,7 @@ func (x *JobInfo) GetState() JobState {
 	if x != nil {
 		return x.State
 	}
-	return JobState_JOB_STATE_UNSPECIFIED
+	return JobState_JobState_UNSPECIFIED
 }
 
 func (x *JobInfo) GetSpec() *anypb.Any {
@@ -283,7 +294,7 @@ func (x *JobInfo) GetError() JobErrorCode {
 	if x, ok := x.GetResult().(*JobInfo_Error); ok {
 		return x.Error
 	}
-	return JobErrorCode_JOB_ERROR_CODE_UNSPECIFIED
+	return JobErrorCode_JobErrorCode_UNSPECIFIED
 }
 
 type isJobInfo_Result interface {
@@ -291,10 +302,12 @@ type isJobInfo_Result interface {
 }
 
 type JobInfo_Output struct {
+	// output is produced by a successfully completing Job
 	Output *QueueElement `protobuf:"bytes,6,opt,name=output,proto3,oneof"`
 }
 
 type JobInfo_Error struct {
+	// error is set when the Job is unable to complete successfully
 	Error JobErrorCode `protobuf:"varint,7,opt,name=error,proto3,enum=pjs.JobErrorCode,oneof"`
 }
 
@@ -302,6 +315,8 @@ func (*JobInfo_Output) isJobInfo_Result() {}
 
 func (*JobInfo_Error) isJobInfo_Result() {}
 
+// JobInfoDetails is more detailed information about a Job.
+// It contains a superset of the information in JobInfo
 type JobInfoDetails struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -349,6 +364,8 @@ func (x *JobInfoDetails) GetJobInfo() *JobInfo {
 	return nil
 }
 
+// Queue uniquely identifies a Queue
+// Queue will be nil to identify no Queue, or to indicate unset.
 type Queue struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -396,13 +413,16 @@ func (x *Queue) GetId() []byte {
 	return nil
 }
 
+// QueueInfo describes a Queue
 type QueueInfo struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Queue *Queue     `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
-	Spec  *anypb.Any `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
+	// queue is the Queue's identity
+	Queue *Queue `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	// spec specifies the code to be run to process the Queue.
+	Spec *anypb.Any `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
 }
 
 func (x *QueueInfo) Reset() {
@@ -451,13 +471,16 @@ func (x *QueueInfo) GetSpec() *anypb.Any {
 	return nil
 }
 
+// QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.
+// It contains a superset of the information in QueueInfo.
 type QueueInfoDetails struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
 	QueueInfo *QueueInfo `protobuf:"bytes,1,opt,name=queue_info,json=queueInfo,proto3" json:"queue_info,omitempty"`
-	Size      int64      `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
+	// size is the number of elements queued.
+	Size int64 `protobuf:"varint,2,opt,name=size,proto3" json:"size,omitempty"`
 }
 
 func (x *QueueInfoDetails) Reset() {
@@ -506,12 +529,17 @@ func (x *QueueInfoDetails) GetSize() int64 {
 	return 0
 }
 
+// QueueElement is a single element in a Queue.
 type QueueElement struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Data     []byte   `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	// data is opaque data used as the input and output of Jobs
+	Data []byte `protobuf:"bytes,1,opt,name=data,proto3" json:"data,omitempty"`
+	// filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.
+	// Any of the filesets referenced here will be persisted for as long as this element is in a Queue.
+	// New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary.
 	Filesets []string `protobuf:"bytes,2,rep,name=filesets,proto3" json:"filesets,omitempty"`
 }
 
@@ -566,6 +594,7 @@ type CreateJobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context    string        `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
 	Spec       *anypb.Any    `protobuf:"bytes,2,opt,name=spec,proto3" json:"spec,omitempty"`
 	Input      *QueueElement `protobuf:"bytes,3,opt,name=input,proto3" json:"input,omitempty"`
@@ -692,6 +721,7 @@ type CancelJobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
 	Job     *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
@@ -785,6 +815,7 @@ type DeleteJobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
 	Job     *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
@@ -881,8 +912,11 @@ type ListJobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
-	Job     *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
+	// job is the job to start listing at.
+	// If nil, then the listing starts at the first job in the natural ordering.
+	Job *Job `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
 
 func (x *ListJobRequest) Reset() {
@@ -931,19 +965,87 @@ func (x *ListJobRequest) GetJob() *Job {
 	return nil
 }
 
+// ListJobResponse lists information about Jobs
+// ID will always be set.
+// Info and Details may not be set depending on how much information was requested.
+type ListJobResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id      *Job            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Info    *JobInfo        `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	Details *JobInfoDetails `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+}
+
+func (x *ListJobResponse) Reset() {
+	*x = ListJobResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pjs_pjs_proto_msgTypes[14]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ListJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListJobResponse) ProtoMessage() {}
+
+func (x *ListJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pjs_pjs_proto_msgTypes[14]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListJobResponse.ProtoReflect.Descriptor instead.
+func (*ListJobResponse) Descriptor() ([]byte, []int) {
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *ListJobResponse) GetId() *Job {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (x *ListJobResponse) GetInfo() *JobInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *ListJobResponse) GetDetails() *JobInfoDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
 type WalkJobRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
-	Job     *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
+	// job is the job to start walking from.  If unset, the context Job is assumed.
+	Job *Job `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
 
 func (x *WalkJobRequest) Reset() {
 	*x = WalkJobRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[14]
+		mi := &file_pjs_pjs_proto_msgTypes[15]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -956,7 +1058,7 @@ func (x *WalkJobRequest) String() string {
 func (*WalkJobRequest) ProtoMessage() {}
 
 func (x *WalkJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[14]
+	mi := &file_pjs_pjs_proto_msgTypes[15]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -969,7 +1071,7 @@ func (x *WalkJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WalkJobRequest.ProtoReflect.Descriptor instead.
 func (*WalkJobRequest) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{14}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *WalkJobRequest) GetContext() string {
@@ -991,14 +1093,16 @@ type InspectJobRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// context is a bearer token used when calling from within a running Job.
 	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
-	Job     *Job   `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
+	// job is the job to start walking from.  If unset the context Job is assumed.
+	Job *Job `protobuf:"bytes,2,opt,name=job,proto3" json:"job,omitempty"`
 }
 
 func (x *InspectJobRequest) Reset() {
 	*x = InspectJobRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[15]
+		mi := &file_pjs_pjs_proto_msgTypes[16]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1011,7 +1115,7 @@ func (x *InspectJobRequest) String() string {
 func (*InspectJobRequest) ProtoMessage() {}
 
 func (x *InspectJobRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[15]
+	mi := &file_pjs_pjs_proto_msgTypes[16]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1024,7 +1128,7 @@ func (x *InspectJobRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectJobRequest.ProtoReflect.Descriptor instead.
 func (*InspectJobRequest) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{15}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *InspectJobRequest) GetContext() string {
@@ -1041,12 +1145,65 @@ func (x *InspectJobRequest) GetJob() *Job {
 	return nil
 }
 
+type InspectJobResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Details *JobInfoDetails `protobuf:"bytes,1,opt,name=details,proto3" json:"details,omitempty"`
+}
+
+func (x *InspectJobResponse) Reset() {
+	*x = InspectJobResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pjs_pjs_proto_msgTypes[17]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *InspectJobResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InspectJobResponse) ProtoMessage() {}
+
+func (x *InspectJobResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pjs_pjs_proto_msgTypes[17]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InspectJobResponse.ProtoReflect.Descriptor instead.
+func (*InspectJobResponse) Descriptor() ([]byte, []int) {
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *InspectJobResponse) GetDetails() *JobInfoDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
+}
+
+// Queue Messages
+// ProcessQueueRequest is the client -> server message for the bi-di ProcessQueue RPC.
 type ProcessQueueRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
+	// queue is set to start processing from a Queue.
 	Queue *Queue `protobuf:"bytes,1,opt,name=queue,proto3" json:"queue,omitempty"`
+	// result must be set for the Job's output to be defined.
+	// If the result is not set, the Job will error with DISCONNECTED.
+	//
 	// Types that are assignable to Result:
 	//
 	//	*ProcessQueueRequest_Output
@@ -1057,7 +1214,7 @@ type ProcessQueueRequest struct {
 func (x *ProcessQueueRequest) Reset() {
 	*x = ProcessQueueRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[16]
+		mi := &file_pjs_pjs_proto_msgTypes[18]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1070,7 +1227,7 @@ func (x *ProcessQueueRequest) String() string {
 func (*ProcessQueueRequest) ProtoMessage() {}
 
 func (x *ProcessQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[16]
+	mi := &file_pjs_pjs_proto_msgTypes[18]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1083,7 +1240,7 @@ func (x *ProcessQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessQueueRequest.ProtoReflect.Descriptor instead.
 func (*ProcessQueueRequest) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{16}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ProcessQueueRequest) GetQueue() *Queue {
@@ -1119,10 +1276,13 @@ type isProcessQueueRequest_Result interface {
 }
 
 type ProcessQueueRequest_Output struct {
+	// output is set by the client to complete the Job successfully.
 	Output *QueueElement `protobuf:"bytes,2,opt,name=output,proto3,oneof"`
 }
 
 type ProcessQueueRequest_Failed struct {
+	// failed is set by the client to fail the Job.
+	// The Job will transition to state DONE with code FAILED.
 	Failed bool `protobuf:"varint,3,opt,name=failed,proto3,oneof"`
 }
 
@@ -1130,19 +1290,24 @@ func (*ProcessQueueRequest_Output) isProcessQueueRequest_Result() {}
 
 func (*ProcessQueueRequest_Failed) isProcessQueueRequest_Result() {}
 
+// ProcessQueueResposne is the server -> client message for the bi-di ProcessQueue RPC.
 type ProcessQueueResponse struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Context string        `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
-	Input   *QueueElement `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
+	// context is a bearer token used to act on behalf of the Job in other RPCs.
+	// The server issues this token to the client, and the client should use it when performing Job RPCs.
+	Context string `protobuf:"bytes,1,opt,name=context,proto3" json:"context,omitempty"`
+	// input is the input data for a Job.
+	// The server sends this to ask the client to compute the output.
+	Input *QueueElement `protobuf:"bytes,2,opt,name=input,proto3" json:"input,omitempty"`
 }
 
 func (x *ProcessQueueResponse) Reset() {
 	*x = ProcessQueueResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[17]
+		mi := &file_pjs_pjs_proto_msgTypes[19]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1155,7 +1320,7 @@ func (x *ProcessQueueResponse) String() string {
 func (*ProcessQueueResponse) ProtoMessage() {}
 
 func (x *ProcessQueueResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[17]
+	mi := &file_pjs_pjs_proto_msgTypes[19]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1168,7 +1333,7 @@ func (x *ProcessQueueResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProcessQueueResponse.ProtoReflect.Descriptor instead.
 func (*ProcessQueueResponse) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{17}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ProcessQueueResponse) GetContext() string {
@@ -1197,7 +1362,7 @@ type ListQueueRequest struct {
 func (x *ListQueueRequest) Reset() {
 	*x = ListQueueRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[18]
+		mi := &file_pjs_pjs_proto_msgTypes[20]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1210,7 +1375,7 @@ func (x *ListQueueRequest) String() string {
 func (*ListQueueRequest) ProtoMessage() {}
 
 func (x *ListQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[18]
+	mi := &file_pjs_pjs_proto_msgTypes[20]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1223,7 +1388,70 @@ func (x *ListQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListQueueRequest.ProtoReflect.Descriptor instead.
 func (*ListQueueRequest) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{18}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{20}
+}
+
+type ListQueueResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Id      *Queue            `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Info    *QueueInfo        `protobuf:"bytes,2,opt,name=info,proto3" json:"info,omitempty"`
+	Details *QueueInfoDetails `protobuf:"bytes,3,opt,name=details,proto3" json:"details,omitempty"`
+}
+
+func (x *ListQueueResponse) Reset() {
+	*x = ListQueueResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pjs_pjs_proto_msgTypes[21]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ListQueueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListQueueResponse) ProtoMessage() {}
+
+func (x *ListQueueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pjs_pjs_proto_msgTypes[21]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListQueueResponse.ProtoReflect.Descriptor instead.
+func (*ListQueueResponse) Descriptor() ([]byte, []int) {
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ListQueueResponse) GetId() *Queue {
+	if x != nil {
+		return x.Id
+	}
+	return nil
+}
+
+func (x *ListQueueResponse) GetInfo() *QueueInfo {
+	if x != nil {
+		return x.Info
+	}
+	return nil
+}
+
+func (x *ListQueueResponse) GetDetails() *QueueInfoDetails {
+	if x != nil {
+		return x.Details
+	}
+	return nil
 }
 
 type InspectQueueRequest struct {
@@ -1237,7 +1465,7 @@ type InspectQueueRequest struct {
 func (x *InspectQueueRequest) Reset() {
 	*x = InspectQueueRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_pjs_pjs_proto_msgTypes[19]
+		mi := &file_pjs_pjs_proto_msgTypes[22]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -1250,7 +1478,7 @@ func (x *InspectQueueRequest) String() string {
 func (*InspectQueueRequest) ProtoMessage() {}
 
 func (x *InspectQueueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_pjs_pjs_proto_msgTypes[19]
+	mi := &file_pjs_pjs_proto_msgTypes[22]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1263,12 +1491,59 @@ func (x *InspectQueueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InspectQueueRequest.ProtoReflect.Descriptor instead.
 func (*InspectQueueRequest) Descriptor() ([]byte, []int) {
-	return file_pjs_pjs_proto_rawDescGZIP(), []int{19}
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *InspectQueueRequest) GetQueue() *Queue {
 	if x != nil {
 		return x.Queue
+	}
+	return nil
+}
+
+type InspectQueueResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Details *QueueInfoDetails `protobuf:"bytes,1,opt,name=details,proto3" json:"details,omitempty"`
+}
+
+func (x *InspectQueueResponse) Reset() {
+	*x = InspectQueueResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_pjs_pjs_proto_msgTypes[23]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *InspectQueueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*InspectQueueResponse) ProtoMessage() {}
+
+func (x *InspectQueueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_pjs_pjs_proto_msgTypes[23]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use InspectQueueResponse.ProtoReflect.Descriptor instead.
+func (*InspectQueueResponse) Descriptor() ([]byte, []int) {
+	return file_pjs_pjs_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *InspectQueueResponse) GetDetails() *QueueInfoDetails {
+	if x != nil {
+		return x.Details
 	}
 	return nil
 }
@@ -1350,46 +1625,71 @@ var file_pjs_pjs_proto_rawDesc = []byte{
 	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78,
 	0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74,
 	0x12, 0x1a, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e,
-	0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a, 0x6f, 0x62, 0x22, 0x46, 0x0a, 0x0e,
-	0x57, 0x61, 0x6c, 0x6b, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18,
-	0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52,
-	0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x12, 0x1a, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x18,
-	0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52,
-	0x03, 0x6a, 0x6f, 0x62, 0x22, 0x49, 0x0a, 0x11, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a,
-	0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e,
-	0x74, 0x65, 0x78, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74,
-	0x65, 0x78, 0x74, 0x12, 0x1a, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
-	0x32, 0x08, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a, 0x6f, 0x62, 0x22,
-	0x88, 0x01, 0x0a, 0x13, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x20, 0x0a, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65,
-	0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65,
-	0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x12, 0x2b, 0x0a, 0x06, 0x6f, 0x75, 0x74,
-	0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x70, 0x6a, 0x73, 0x2e,
-	0x51, 0x75, 0x65, 0x75, 0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x48, 0x00, 0x52, 0x06,
-	0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x12, 0x18, 0x0a, 0x06, 0x66, 0x61, 0x69, 0x6c, 0x65, 0x64,
-	0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x06, 0x66, 0x61, 0x69, 0x6c, 0x65, 0x64,
-	0x42, 0x08, 0x0a, 0x06, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x22, 0x59, 0x0a, 0x14, 0x50, 0x72,
-	0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
-	0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x18, 0x01, 0x20,
-	0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x12, 0x27, 0x0a, 0x05,
-	0x69, 0x6e, 0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x70, 0x6a,
-	0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x52, 0x05,
-	0x69, 0x6e, 0x70, 0x75, 0x74, 0x22, 0x12, 0x0a, 0x10, 0x4c, 0x69, 0x73, 0x74, 0x51, 0x75, 0x65,
-	0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x37, 0x0a, 0x13, 0x49, 0x6e, 0x73,
-	0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
-	0x12, 0x20, 0x0a, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32,
-	0x0a, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65,
-	0x75, 0x65, 0x2a, 0x4b, 0x0a, 0x08, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x12, 0x19,
-	0x0a, 0x15, 0x4a, 0x4f, 0x42, 0x5f, 0x53, 0x54, 0x41, 0x54, 0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50,
-	0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x51, 0x55, 0x45,
-	0x55, 0x45, 0x44, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x50, 0x52, 0x4f, 0x43, 0x45, 0x53, 0x53,
-	0x49, 0x4e, 0x47, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x4f, 0x4e, 0x45, 0x10, 0x03, 0x2a,
-	0x5a, 0x0a, 0x0c, 0x4a, 0x6f, 0x62, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x43, 0x6f, 0x64, 0x65, 0x12,
-	0x1e, 0x0a, 0x1a, 0x4a, 0x4f, 0x42, 0x5f, 0x45, 0x52, 0x52, 0x4f, 0x52, 0x5f, 0x43, 0x4f, 0x44,
-	0x45, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12,
+	0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a, 0x6f, 0x62, 0x22, 0x7c, 0x0a, 0x0f,
+	0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12,
+	0x18, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x70, 0x6a,
+	0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x02, 0x69, 0x64, 0x12, 0x20, 0x0a, 0x04, 0x69, 0x6e, 0x66,
+	0x6f, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0c, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f,
+	0x62, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x04, 0x69, 0x6e, 0x66, 0x6f, 0x12, 0x2d, 0x0a, 0x07, 0x64,
+	0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x70,
+	0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e, 0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c,
+	0x73, 0x52, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x22, 0x46, 0x0a, 0x0e, 0x57, 0x61,
+	0x6c, 0x6b, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07,
+	0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63,
+	0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x12, 0x1a, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x18, 0x02, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x08, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a,
+	0x6f, 0x62, 0x22, 0x49, 0x0a, 0x11, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65,
+	0x78, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78,
+	0x74, 0x12, 0x1a, 0x0a, 0x03, 0x6a, 0x6f, 0x62, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x08,
+	0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x52, 0x03, 0x6a, 0x6f, 0x62, 0x22, 0x43, 0x0a,
+	0x12, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x12, 0x2d, 0x0a, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x18, 0x01,
+	0x20, 0x01, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e,
+	0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x52, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69,
+	0x6c, 0x73, 0x22, 0x88, 0x01, 0x0a, 0x13, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75,
+	0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x20, 0x0a, 0x05, 0x71, 0x75,
+	0x65, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x70, 0x6a, 0x73, 0x2e,
+	0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x12, 0x2b, 0x0a, 0x06,
+	0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11, 0x2e, 0x70,
+	0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65, 0x6e, 0x74, 0x48,
+	0x00, 0x52, 0x06, 0x6f, 0x75, 0x74, 0x70, 0x75, 0x74, 0x12, 0x18, 0x0a, 0x06, 0x66, 0x61, 0x69,
+	0x6c, 0x65, 0x64, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x48, 0x00, 0x52, 0x06, 0x66, 0x61, 0x69,
+	0x6c, 0x65, 0x64, 0x42, 0x08, 0x0a, 0x06, 0x72, 0x65, 0x73, 0x75, 0x6c, 0x74, 0x22, 0x59, 0x0a,
+	0x14, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x18, 0x0a, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74,
+	0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x07, 0x63, 0x6f, 0x6e, 0x74, 0x65, 0x78, 0x74, 0x12,
+	0x27, 0x0a, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x11,
+	0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x45, 0x6c, 0x65, 0x6d, 0x65, 0x6e,
+	0x74, 0x52, 0x05, 0x69, 0x6e, 0x70, 0x75, 0x74, 0x22, 0x12, 0x0a, 0x10, 0x4c, 0x69, 0x73, 0x74,
+	0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x22, 0x84, 0x01, 0x0a,
+	0x11, 0x4c, 0x69, 0x73, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x12, 0x1a, 0x0a, 0x02, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a,
+	0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x02, 0x69, 0x64, 0x12, 0x22,
+	0x0a, 0x04, 0x69, 0x6e, 0x66, 0x6f, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0e, 0x2e, 0x70,
+	0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x52, 0x04, 0x69, 0x6e,
+	0x66, 0x6f, 0x12, 0x2f, 0x0a, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49,
+	0x6e, 0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x52, 0x07, 0x64, 0x65, 0x74, 0x61,
+	0x69, 0x6c, 0x73, 0x22, 0x37, 0x0a, 0x13, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75,
+	0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x20, 0x0a, 0x05, 0x71, 0x75,
+	0x65, 0x75, 0x65, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x0a, 0x2e, 0x70, 0x6a, 0x73, 0x2e,
+	0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x05, 0x71, 0x75, 0x65, 0x75, 0x65, 0x22, 0x47, 0x0a, 0x14,
+	0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73, 0x70,
+	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x2f, 0x0a, 0x07, 0x64, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75,
+	0x65, 0x49, 0x6e, 0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x52, 0x07, 0x64, 0x65,
+	0x74, 0x61, 0x69, 0x6c, 0x73, 0x2a, 0x4a, 0x0a, 0x08, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74,
+	0x65, 0x12, 0x18, 0x0a, 0x14, 0x4a, 0x6f, 0x62, 0x53, 0x74, 0x61, 0x74, 0x65, 0x5f, 0x55, 0x4e,
+	0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12, 0x0a, 0x0a, 0x06, 0x51,
+	0x55, 0x45, 0x55, 0x45, 0x44, 0x10, 0x01, 0x12, 0x0e, 0x0a, 0x0a, 0x50, 0x52, 0x4f, 0x43, 0x45,
+	0x53, 0x53, 0x49, 0x4e, 0x47, 0x10, 0x02, 0x12, 0x08, 0x0a, 0x04, 0x44, 0x4f, 0x4e, 0x45, 0x10,
+	0x03, 0x2a, 0x58, 0x0a, 0x0c, 0x4a, 0x6f, 0x62, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x43, 0x6f, 0x64,
+	0x65, 0x12, 0x1c, 0x0a, 0x18, 0x4a, 0x6f, 0x62, 0x45, 0x72, 0x72, 0x6f, 0x72, 0x43, 0x6f, 0x64,
+	0x65, 0x5f, 0x55, 0x4e, 0x53, 0x50, 0x45, 0x43, 0x49, 0x46, 0x49, 0x45, 0x44, 0x10, 0x00, 0x12,
 	0x0a, 0x0a, 0x06, 0x46, 0x41, 0x49, 0x4c, 0x45, 0x44, 0x10, 0x01, 0x12, 0x10, 0x0a, 0x0c, 0x44,
 	0x49, 0x53, 0x43, 0x4f, 0x4e, 0x4e, 0x45, 0x43, 0x54, 0x45, 0x44, 0x10, 0x02, 0x12, 0x0c, 0x0a,
-	0x08, 0x43, 0x41, 0x4e, 0x43, 0x45, 0x4c, 0x45, 0x44, 0x10, 0x03, 0x32, 0xa6, 0x04, 0x0a, 0x03,
+	0x08, 0x43, 0x41, 0x4e, 0x43, 0x45, 0x4c, 0x45, 0x44, 0x10, 0x03, 0x32, 0xc6, 0x04, 0x0a, 0x03,
 	0x41, 0x50, 0x49, 0x12, 0x3c, 0x0a, 0x09, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x4a, 0x6f, 0x62,
 	0x12, 0x15, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x4a, 0x6f, 0x62,
 	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x43, 0x72,
@@ -1401,30 +1701,32 @@ var file_pjs_pjs_proto_rawDesc = []byte{
 	0x3c, 0x0a, 0x09, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4a, 0x6f, 0x62, 0x12, 0x15, 0x2e, 0x70,
 	0x6a, 0x73, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75,
 	0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x44, 0x65, 0x6c, 0x65, 0x74, 0x65,
-	0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x30, 0x0a,
+	0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x38, 0x0a,
 	0x07, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x12, 0x13, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4c,
-	0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0c, 0x2e,
-	0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x00, 0x30, 0x01, 0x12,
-	0x30, 0x0a, 0x07, 0x57, 0x61, 0x6c, 0x6b, 0x4a, 0x6f, 0x62, 0x12, 0x13, 0x2e, 0x70, 0x6a, 0x73,
-	0x2e, 0x57, 0x61, 0x6c, 0x6b, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a,
-	0x0c, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x00, 0x30,
-	0x01, 0x12, 0x3b, 0x0a, 0x0a, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62, 0x12,
+	0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e,
+	0x70, 0x6a, 0x73, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f,
+	0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x38, 0x0a, 0x07, 0x57, 0x61, 0x6c, 0x6b, 0x4a,
+	0x6f, 0x62, 0x12, 0x13, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x57, 0x61, 0x6c, 0x6b, 0x4a, 0x6f, 0x62,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x14, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4c, 0x69,
+	0x73, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30,
+	0x01, 0x12, 0x3f, 0x0a, 0x0a, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62, 0x12,
 	0x16, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x13, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4a, 0x6f,
-	0x62, 0x49, 0x6e, 0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69, 0x6c, 0x73, 0x22, 0x00, 0x12, 0x49,
-	0x0a, 0x0c, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x18,
-	0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75,
-	0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x50,
-	0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f,
-	0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x12, 0x36, 0x0a, 0x09, 0x4c, 0x69, 0x73,
-	0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x15, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4c, 0x69, 0x73,
-	0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x0e, 0x2e,
-	0x70, 0x6a, 0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x22, 0x00, 0x30,
-	0x01, 0x12, 0x41, 0x0a, 0x0c, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75,
-	0x65, 0x12, 0x18, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51,
-	0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x15, 0x2e, 0x70, 0x6a,
-	0x73, 0x2e, 0x51, 0x75, 0x65, 0x75, 0x65, 0x49, 0x6e, 0x66, 0x6f, 0x44, 0x65, 0x74, 0x61, 0x69,
-	0x6c, 0x73, 0x22, 0x00, 0x42, 0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x17, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x49, 0x6e,
+	0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65,
+	0x22, 0x00, 0x12, 0x49, 0x0a, 0x0c, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65,
+	0x75, 0x65, 0x12, 0x18, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73,
+	0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x70,
+	0x6a, 0x73, 0x2e, 0x50, 0x72, 0x6f, 0x63, 0x65, 0x73, 0x73, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x30, 0x01, 0x12, 0x3e, 0x0a,
+	0x09, 0x4c, 0x69, 0x73, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x15, 0x2e, 0x70, 0x6a, 0x73,
+	0x2e, 0x4c, 0x69, 0x73, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73,
+	0x74, 0x1a, 0x16, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x4c, 0x69, 0x73, 0x74, 0x51, 0x75, 0x65, 0x75,
+	0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x45, 0x0a,
+	0x0c, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x12, 0x18, 0x2e,
+	0x70, 0x6a, 0x73, 0x2e, 0x49, 0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65,
+	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x19, 0x2e, 0x70, 0x6a, 0x73, 0x2e, 0x49, 0x6e,
+	0x73, 0x70, 0x65, 0x63, 0x74, 0x51, 0x75, 0x65, 0x75, 0x65, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e,
+	0x73, 0x65, 0x22, 0x00, 0x42, 0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63,
 	0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63,
 	0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x6a,
 	0x73, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
@@ -1443,7 +1745,7 @@ func file_pjs_pjs_proto_rawDescGZIP() []byte {
 }
 
 var file_pjs_pjs_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_pjs_pjs_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_pjs_pjs_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_pjs_pjs_proto_goTypes = []interface{}{
 	(JobState)(0),                // 0: pjs.JobState
 	(JobErrorCode)(0),            // 1: pjs.JobErrorCode
@@ -1461,61 +1763,73 @@ var file_pjs_pjs_proto_goTypes = []interface{}{
 	(*DeleteJobRequest)(nil),     // 13: pjs.DeleteJobRequest
 	(*DeleteJobResponse)(nil),    // 14: pjs.DeleteJobResponse
 	(*ListJobRequest)(nil),       // 15: pjs.ListJobRequest
-	(*WalkJobRequest)(nil),       // 16: pjs.WalkJobRequest
-	(*InspectJobRequest)(nil),    // 17: pjs.InspectJobRequest
-	(*ProcessQueueRequest)(nil),  // 18: pjs.ProcessQueueRequest
-	(*ProcessQueueResponse)(nil), // 19: pjs.ProcessQueueResponse
-	(*ListQueueRequest)(nil),     // 20: pjs.ListQueueRequest
-	(*InspectQueueRequest)(nil),  // 21: pjs.InspectQueueRequest
-	(*anypb.Any)(nil),            // 22: google.protobuf.Any
+	(*ListJobResponse)(nil),      // 16: pjs.ListJobResponse
+	(*WalkJobRequest)(nil),       // 17: pjs.WalkJobRequest
+	(*InspectJobRequest)(nil),    // 18: pjs.InspectJobRequest
+	(*InspectJobResponse)(nil),   // 19: pjs.InspectJobResponse
+	(*ProcessQueueRequest)(nil),  // 20: pjs.ProcessQueueRequest
+	(*ProcessQueueResponse)(nil), // 21: pjs.ProcessQueueResponse
+	(*ListQueueRequest)(nil),     // 22: pjs.ListQueueRequest
+	(*ListQueueResponse)(nil),    // 23: pjs.ListQueueResponse
+	(*InspectQueueRequest)(nil),  // 24: pjs.InspectQueueRequest
+	(*InspectQueueResponse)(nil), // 25: pjs.InspectQueueResponse
+	(*anypb.Any)(nil),            // 26: google.protobuf.Any
 }
 var file_pjs_pjs_proto_depIdxs = []int32{
 	2,  // 0: pjs.JobInfo.job:type_name -> pjs.Job
 	2,  // 1: pjs.JobInfo.parent_job:type_name -> pjs.Job
 	0,  // 2: pjs.JobInfo.state:type_name -> pjs.JobState
-	22, // 3: pjs.JobInfo.spec:type_name -> google.protobuf.Any
+	26, // 3: pjs.JobInfo.spec:type_name -> google.protobuf.Any
 	8,  // 4: pjs.JobInfo.input:type_name -> pjs.QueueElement
 	8,  // 5: pjs.JobInfo.output:type_name -> pjs.QueueElement
 	1,  // 6: pjs.JobInfo.error:type_name -> pjs.JobErrorCode
 	3,  // 7: pjs.JobInfoDetails.job_info:type_name -> pjs.JobInfo
 	5,  // 8: pjs.QueueInfo.queue:type_name -> pjs.Queue
-	22, // 9: pjs.QueueInfo.spec:type_name -> google.protobuf.Any
+	26, // 9: pjs.QueueInfo.spec:type_name -> google.protobuf.Any
 	6,  // 10: pjs.QueueInfoDetails.queue_info:type_name -> pjs.QueueInfo
-	22, // 11: pjs.CreateJobRequest.spec:type_name -> google.protobuf.Any
+	26, // 11: pjs.CreateJobRequest.spec:type_name -> google.protobuf.Any
 	8,  // 12: pjs.CreateJobRequest.input:type_name -> pjs.QueueElement
 	2,  // 13: pjs.CreateJobResponse.id:type_name -> pjs.Job
 	2,  // 14: pjs.CancelJobRequest.job:type_name -> pjs.Job
 	2,  // 15: pjs.DeleteJobRequest.job:type_name -> pjs.Job
 	2,  // 16: pjs.ListJobRequest.job:type_name -> pjs.Job
-	2,  // 17: pjs.WalkJobRequest.job:type_name -> pjs.Job
-	2,  // 18: pjs.InspectJobRequest.job:type_name -> pjs.Job
-	5,  // 19: pjs.ProcessQueueRequest.queue:type_name -> pjs.Queue
-	8,  // 20: pjs.ProcessQueueRequest.output:type_name -> pjs.QueueElement
-	8,  // 21: pjs.ProcessQueueResponse.input:type_name -> pjs.QueueElement
-	5,  // 22: pjs.InspectQueueRequest.queue:type_name -> pjs.Queue
-	9,  // 23: pjs.API.CreateJob:input_type -> pjs.CreateJobRequest
-	11, // 24: pjs.API.CancelJob:input_type -> pjs.CancelJobRequest
-	13, // 25: pjs.API.DeleteJob:input_type -> pjs.DeleteJobRequest
-	15, // 26: pjs.API.ListJob:input_type -> pjs.ListJobRequest
-	16, // 27: pjs.API.WalkJob:input_type -> pjs.WalkJobRequest
-	17, // 28: pjs.API.InspectJob:input_type -> pjs.InspectJobRequest
-	18, // 29: pjs.API.ProcessQueue:input_type -> pjs.ProcessQueueRequest
-	20, // 30: pjs.API.ListQueue:input_type -> pjs.ListQueueRequest
-	21, // 31: pjs.API.InspectQueue:input_type -> pjs.InspectQueueRequest
-	10, // 32: pjs.API.CreateJob:output_type -> pjs.CreateJobResponse
-	12, // 33: pjs.API.CancelJob:output_type -> pjs.CancelJobResponse
-	14, // 34: pjs.API.DeleteJob:output_type -> pjs.DeleteJobResponse
-	3,  // 35: pjs.API.ListJob:output_type -> pjs.JobInfo
-	3,  // 36: pjs.API.WalkJob:output_type -> pjs.JobInfo
-	4,  // 37: pjs.API.InspectJob:output_type -> pjs.JobInfoDetails
-	19, // 38: pjs.API.ProcessQueue:output_type -> pjs.ProcessQueueResponse
-	6,  // 39: pjs.API.ListQueue:output_type -> pjs.QueueInfo
-	7,  // 40: pjs.API.InspectQueue:output_type -> pjs.QueueInfoDetails
-	32, // [32:41] is the sub-list for method output_type
-	23, // [23:32] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	2,  // 17: pjs.ListJobResponse.id:type_name -> pjs.Job
+	3,  // 18: pjs.ListJobResponse.info:type_name -> pjs.JobInfo
+	4,  // 19: pjs.ListJobResponse.details:type_name -> pjs.JobInfoDetails
+	2,  // 20: pjs.WalkJobRequest.job:type_name -> pjs.Job
+	2,  // 21: pjs.InspectJobRequest.job:type_name -> pjs.Job
+	4,  // 22: pjs.InspectJobResponse.details:type_name -> pjs.JobInfoDetails
+	5,  // 23: pjs.ProcessQueueRequest.queue:type_name -> pjs.Queue
+	8,  // 24: pjs.ProcessQueueRequest.output:type_name -> pjs.QueueElement
+	8,  // 25: pjs.ProcessQueueResponse.input:type_name -> pjs.QueueElement
+	5,  // 26: pjs.ListQueueResponse.id:type_name -> pjs.Queue
+	6,  // 27: pjs.ListQueueResponse.info:type_name -> pjs.QueueInfo
+	7,  // 28: pjs.ListQueueResponse.details:type_name -> pjs.QueueInfoDetails
+	5,  // 29: pjs.InspectQueueRequest.queue:type_name -> pjs.Queue
+	7,  // 30: pjs.InspectQueueResponse.details:type_name -> pjs.QueueInfoDetails
+	9,  // 31: pjs.API.CreateJob:input_type -> pjs.CreateJobRequest
+	11, // 32: pjs.API.CancelJob:input_type -> pjs.CancelJobRequest
+	13, // 33: pjs.API.DeleteJob:input_type -> pjs.DeleteJobRequest
+	15, // 34: pjs.API.ListJob:input_type -> pjs.ListJobRequest
+	17, // 35: pjs.API.WalkJob:input_type -> pjs.WalkJobRequest
+	18, // 36: pjs.API.InspectJob:input_type -> pjs.InspectJobRequest
+	20, // 37: pjs.API.ProcessQueue:input_type -> pjs.ProcessQueueRequest
+	22, // 38: pjs.API.ListQueue:input_type -> pjs.ListQueueRequest
+	24, // 39: pjs.API.InspectQueue:input_type -> pjs.InspectQueueRequest
+	10, // 40: pjs.API.CreateJob:output_type -> pjs.CreateJobResponse
+	12, // 41: pjs.API.CancelJob:output_type -> pjs.CancelJobResponse
+	14, // 42: pjs.API.DeleteJob:output_type -> pjs.DeleteJobResponse
+	16, // 43: pjs.API.ListJob:output_type -> pjs.ListJobResponse
+	16, // 44: pjs.API.WalkJob:output_type -> pjs.ListJobResponse
+	19, // 45: pjs.API.InspectJob:output_type -> pjs.InspectJobResponse
+	21, // 46: pjs.API.ProcessQueue:output_type -> pjs.ProcessQueueResponse
+	23, // 47: pjs.API.ListQueue:output_type -> pjs.ListQueueResponse
+	25, // 48: pjs.API.InspectQueue:output_type -> pjs.InspectQueueResponse
+	40, // [40:49] is the sub-list for method output_type
+	31, // [31:40] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_pjs_pjs_proto_init() }
@@ -1693,7 +2007,7 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[14].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*WalkJobRequest); i {
+			switch v := v.(*ListJobResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1705,7 +2019,7 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[15].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*InspectJobRequest); i {
+			switch v := v.(*WalkJobRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1717,7 +2031,7 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[16].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ProcessQueueRequest); i {
+			switch v := v.(*InspectJobRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1729,7 +2043,7 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[17].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ProcessQueueResponse); i {
+			switch v := v.(*InspectJobResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1741,7 +2055,7 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[18].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ListQueueRequest); i {
+			switch v := v.(*ProcessQueueRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1753,7 +2067,55 @@ func file_pjs_pjs_proto_init() {
 			}
 		}
 		file_pjs_pjs_proto_msgTypes[19].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ProcessQueueResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pjs_pjs_proto_msgTypes[20].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ListQueueRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pjs_pjs_proto_msgTypes[21].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ListQueueResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pjs_pjs_proto_msgTypes[22].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*InspectQueueRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_pjs_pjs_proto_msgTypes[23].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*InspectQueueResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -1769,7 +2131,7 @@ func file_pjs_pjs_proto_init() {
 		(*JobInfo_Output)(nil),
 		(*JobInfo_Error)(nil),
 	}
-	file_pjs_pjs_proto_msgTypes[16].OneofWrappers = []interface{}{
+	file_pjs_pjs_proto_msgTypes[18].OneofWrappers = []interface{}{
 		(*ProcessQueueRequest_Output)(nil),
 		(*ProcessQueueRequest_Failed)(nil),
 	}
@@ -1779,7 +2141,7 @@ func file_pjs_pjs_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_pjs_pjs_proto_rawDesc,
 			NumEnums:      2,
-			NumMessages:   20,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

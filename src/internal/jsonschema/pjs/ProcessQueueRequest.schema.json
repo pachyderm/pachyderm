@@ -6,14 +6,17 @@
             "properties": {
                 "queue": {
                     "$ref": "#/definitions/pjs.Queue",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "queue is set to start processing from a Queue."
                 },
                 "output": {
                     "$ref": "#/definitions/pjs.QueueElement",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "output is set by the client to complete the Job successfully."
                 },
                 "failed": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED."
                 }
             },
             "additionalProperties": false,
@@ -30,8 +33,8 @@
                     ]
                 }
             ],
-            "title": "Queue Messages",
-            "description": "Queue Messages"
+            "title": "Process Queue Request",
+            "description": "Queue Messages ProcessQueueRequest is the client -\u003e server message for the bi-di ProcessQueue RPC."
         },
         "pjs.Queue": {
             "properties": {
@@ -43,12 +46,14 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue"
+            "title": "Queue",
+            "description": "Queue uniquely identifies a Queue Queue will be nil to identify no Queue, or to indicate unset."
         },
         "pjs.QueueElement": {
             "properties": {
                 "data": {
                     "type": "string",
+                    "description": "data is opaque data used as the input and output of Jobs",
                     "format": "binary",
                     "binaryEncoding": "base64"
                 },
@@ -56,12 +61,14 @@
                     "items": {
                         "type": "string"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue Element"
+            "title": "Queue Element",
+            "description": "QueueElement is a single element in a Queue."
         }
     }
 }

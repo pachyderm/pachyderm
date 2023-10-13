@@ -12,7 +12,8 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Queue"
+            "title": "Queue",
+            "description": "Queue uniquely identifies a Queue Queue will be nil to identify no Queue, or to indicate unset."
         }
     }
 }

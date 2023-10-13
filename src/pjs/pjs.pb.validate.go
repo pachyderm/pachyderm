@@ -1919,6 +1919,193 @@ var _ interface {
 	ErrorName() string
 } = ListJobRequestValidationError{}
 
+// Validate checks the field values on ListJobResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *ListJobResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListJobResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListJobResponseMultiError, or nil if none found.
+func (m *ListJobResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListJobResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetId()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Id",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Id",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetId()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListJobResponseValidationError{
+				field:  "Id",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetInfo()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInfo()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListJobResponseValidationError{
+				field:  "Info",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListJobResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDetails()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListJobResponseValidationError{
+				field:  "Details",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ListJobResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListJobResponseMultiError is an error wrapping multiple validation errors
+// returned by ListJobResponse.ValidateAll() if the designated constraints
+// aren't met.
+type ListJobResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListJobResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListJobResponseMultiError) AllErrors() []error { return m }
+
+// ListJobResponseValidationError is the validation error returned by
+// ListJobResponse.Validate if the designated constraints aren't met.
+type ListJobResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListJobResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListJobResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListJobResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListJobResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListJobResponseValidationError) ErrorName() string { return "ListJobResponseValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ListJobResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListJobResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListJobResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListJobResponseValidationError{}
+
 // Validate checks the field values on WalkJobRequest with the rules defined in
 // the proto definition for this message. If any rules are violated, the first
 // error encountered is returned, or nil if there are no violations.
@@ -2182,6 +2369,137 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = InspectJobRequestValidationError{}
+
+// Validate checks the field values on InspectJobResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *InspectJobResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InspectJobResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// InspectJobResponseMultiError, or nil if none found.
+func (m *InspectJobResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InspectJobResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, InspectJobResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, InspectJobResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDetails()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return InspectJobResponseValidationError{
+				field:  "Details",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return InspectJobResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// InspectJobResponseMultiError is an error wrapping multiple validation errors
+// returned by InspectJobResponse.ValidateAll() if the designated constraints
+// aren't met.
+type InspectJobResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InspectJobResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InspectJobResponseMultiError) AllErrors() []error { return m }
+
+// InspectJobResponseValidationError is the validation error returned by
+// InspectJobResponse.Validate if the designated constraints aren't met.
+type InspectJobResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InspectJobResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InspectJobResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InspectJobResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InspectJobResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InspectJobResponseValidationError) ErrorName() string {
+	return "InspectJobResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InspectJobResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInspectJobResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InspectJobResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InspectJobResponseValidationError{}
 
 // Validate checks the field values on ProcessQueueRequest with the rules
 // defined in the proto definition for this message. If any rules are
@@ -2605,6 +2923,195 @@ var _ interface {
 	ErrorName() string
 } = ListQueueRequestValidationError{}
 
+// Validate checks the field values on ListQueueResponse with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// first error encountered is returned, or nil if there are no violations.
+func (m *ListQueueResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ListQueueResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ListQueueResponseMultiError, or nil if none found.
+func (m *ListQueueResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ListQueueResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetId()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Id",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Id",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetId()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListQueueResponseValidationError{
+				field:  "Id",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetInfo()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInfo()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListQueueResponseValidationError{
+				field:  "Info",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListQueueResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDetails()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListQueueResponseValidationError{
+				field:  "Details",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ListQueueResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ListQueueResponseMultiError is an error wrapping multiple validation errors
+// returned by ListQueueResponse.ValidateAll() if the designated constraints
+// aren't met.
+type ListQueueResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ListQueueResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ListQueueResponseMultiError) AllErrors() []error { return m }
+
+// ListQueueResponseValidationError is the validation error returned by
+// ListQueueResponse.Validate if the designated constraints aren't met.
+type ListQueueResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ListQueueResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ListQueueResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ListQueueResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ListQueueResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ListQueueResponseValidationError) ErrorName() string {
+	return "ListQueueResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ListQueueResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sListQueueResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ListQueueResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ListQueueResponseValidationError{}
+
 // Validate checks the field values on InspectQueueRequest with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -2735,3 +3242,134 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = InspectQueueRequestValidationError{}
+
+// Validate checks the field values on InspectQueueResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *InspectQueueResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InspectQueueResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// InspectQueueResponseMultiError, or nil if none found.
+func (m *InspectQueueResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InspectQueueResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetDetails()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, InspectQueueResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, InspectQueueResponseValidationError{
+					field:  "Details",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetDetails()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return InspectQueueResponseValidationError{
+				field:  "Details",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return InspectQueueResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// InspectQueueResponseMultiError is an error wrapping multiple validation
+// errors returned by InspectQueueResponse.ValidateAll() if the designated
+// constraints aren't met.
+type InspectQueueResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InspectQueueResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InspectQueueResponseMultiError) AllErrors() []error { return m }
+
+// InspectQueueResponseValidationError is the validation error returned by
+// InspectQueueResponse.Validate if the designated constraints aren't met.
+type InspectQueueResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InspectQueueResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InspectQueueResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InspectQueueResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InspectQueueResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InspectQueueResponseValidationError) ErrorName() string {
+	return "InspectQueueResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InspectQueueResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInspectQueueResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InspectQueueResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InspectQueueResponseValidationError{}

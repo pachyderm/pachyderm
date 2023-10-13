@@ -365,12 +365,16 @@
     - [DeleteJobRequest](#pjs-DeleteJobRequest)
     - [DeleteJobResponse](#pjs-DeleteJobResponse)
     - [InspectJobRequest](#pjs-InspectJobRequest)
+    - [InspectJobResponse](#pjs-InspectJobResponse)
     - [InspectQueueRequest](#pjs-InspectQueueRequest)
+    - [InspectQueueResponse](#pjs-InspectQueueResponse)
     - [Job](#pjs-Job)
     - [JobInfo](#pjs-JobInfo)
     - [JobInfoDetails](#pjs-JobInfoDetails)
     - [ListJobRequest](#pjs-ListJobRequest)
+    - [ListJobResponse](#pjs-ListJobResponse)
     - [ListQueueRequest](#pjs-ListQueueRequest)
+    - [ListQueueResponse](#pjs-ListQueueResponse)
     - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
     - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
     - [Queue](#pjs-Queue)
@@ -5765,7 +5769,7 @@ These are the different places where a commit may be originated from
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | job | [Job](#pjs-Job) |  |  |
 
 
@@ -5791,7 +5795,7 @@ These are the different places where a commit may be originated from
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
 | input | [QueueElement](#pjs-QueueElement) |  |  |
 | cache_read | [bool](#bool) |  |  |
@@ -5825,7 +5829,7 @@ These are the different places where a commit may be originated from
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
 | job | [Job](#pjs-Job) |  |  |
 
 
@@ -5851,8 +5855,23 @@ These are the different places where a commit may be originated from
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
-| job | [Job](#pjs-Job) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset the context Job is assumed. |
+
+
+
+
+
+
+<a name="pjs-InspectJobResponse"></a>
+
+### InspectJobResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| details | [JobInfoDetails](#pjs-JobInfoDetails) |  |  |
 
 
 
@@ -5874,10 +5893,26 @@ These are the different places where a commit may be originated from
 
 
 
+<a name="pjs-InspectQueueResponse"></a>
+
+### InspectQueueResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| details | [QueueInfoDetails](#pjs-QueueInfoDetails) |  |  |
+
+
+
+
+
+
 <a name="pjs-Job"></a>
 
 ### Job
-
+Job uniquely identifies a Job
+Job will be nil to indicate no Job, or an unset Job.
 
 
 | Field | Type | Label | Description |
@@ -5892,18 +5927,18 @@ These are the different places where a commit may be originated from
 <a name="pjs-JobInfo"></a>
 
 ### JobInfo
-
+JobInfo describes a Job
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| job | [Job](#pjs-Job) |  |  |
-| parent_job | [Job](#pjs-Job) |  |  |
-| state | [JobState](#pjs-JobState) |  |  |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
-| input | [QueueElement](#pjs-QueueElement) |  |  |
-| output | [QueueElement](#pjs-QueueElement) |  |  |
-| error | [JobErrorCode](#pjs-JobErrorCode) |  |  |
+| job | [Job](#pjs-Job) |  | Job is the Job&#39;s identity |
+| parent_job | [Job](#pjs-Job) |  | parent_job is the Job&#39;s parent if it exists. |
+| state | [JobState](#pjs-JobState) |  | state is the Job&#39;s state. See JobState for a description of the possible states. |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec is the code specification for the Job. |
+| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for the Job. |
+| output | [QueueElement](#pjs-QueueElement) |  | output is produced by a successfully completing Job |
+| error | [JobErrorCode](#pjs-JobErrorCode) |  | error is set when the Job is unable to complete successfully |
 
 
 
@@ -5913,7 +5948,8 @@ These are the different places where a commit may be originated from
 <a name="pjs-JobInfoDetails"></a>
 
 ### JobInfoDetails
-
+JobInfoDetails is more detailed information about a Job.
+It contains a superset of the information in JobInfo
 
 
 | Field | Type | Label | Description |
@@ -5935,8 +5971,27 @@ TODO:
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
-| job | [Job](#pjs-Job) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start listing at. If nil, then the listing starts at the first job in the natural ordering. |
+
+
+
+
+
+
+<a name="pjs-ListJobResponse"></a>
+
+### ListJobResponse
+ListJobResponse lists information about Jobs
+ID will always be set.
+Info and Details may not be set depending on how much information was requested.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [Job](#pjs-Job) |  |  |
+| info | [JobInfo](#pjs-JobInfo) |  |  |
+| details | [JobInfoDetails](#pjs-JobInfoDetails) |  |  |
 
 
 
@@ -5955,17 +6010,35 @@ TODO:
 
 
 
-<a name="pjs-ProcessQueueRequest"></a>
+<a name="pjs-ListQueueResponse"></a>
 
-### ProcessQueueRequest
+### ListQueueResponse
 
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| queue | [Queue](#pjs-Queue) |  |  |
-| output | [QueueElement](#pjs-QueueElement) |  |  |
-| failed | [bool](#bool) |  |  |
+| id | [Queue](#pjs-Queue) |  |  |
+| info | [QueueInfo](#pjs-QueueInfo) |  |  |
+| details | [QueueInfoDetails](#pjs-QueueInfoDetails) |  |  |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueRequest"></a>
+
+### ProcessQueueRequest
+Queue Messages
+ProcessQueueRequest is the client -&gt; server message for the bi-di ProcessQueue RPC.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  | queue is set to start processing from a Queue. |
+| output | [QueueElement](#pjs-QueueElement) |  | output is set by the client to complete the Job successfully. |
+| failed | [bool](#bool) |  | failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED. |
 
 
 
@@ -5975,13 +6048,13 @@ TODO:
 <a name="pjs-ProcessQueueResponse"></a>
 
 ### ProcessQueueResponse
-
+ProcessQueueResposne is the server -&gt; client message for the bi-di ProcessQueue RPC.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
-| input | [QueueElement](#pjs-QueueElement) |  |  |
+| context | [string](#string) |  | context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs. |
+| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for a Job. The server sends this to ask the client to compute the output. |
 
 
 
@@ -5991,7 +6064,8 @@ TODO:
 <a name="pjs-Queue"></a>
 
 ### Queue
-
+Queue uniquely identifies a Queue
+Queue will be nil to identify no Queue, or to indicate unset.
 
 
 | Field | Type | Label | Description |
@@ -6006,13 +6080,13 @@ TODO:
 <a name="pjs-QueueElement"></a>
 
 ### QueueElement
-
+QueueElement is a single element in a Queue.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| data | [bytes](#bytes) |  |  |
-| filesets | [string](#string) | repeated |  |
+| data | [bytes](#bytes) |  | data is opaque data used as the input and output of Jobs |
+| filesets | [string](#string) | repeated | filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary. |
 
 
 
@@ -6022,13 +6096,13 @@ TODO:
 <a name="pjs-QueueInfo"></a>
 
 ### QueueInfo
-
+QueueInfo describes a Queue
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| queue | [Queue](#pjs-Queue) |  |  |
-| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+| queue | [Queue](#pjs-Queue) |  | queue is the Queue&#39;s identity |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec specifies the code to be run to process the Queue. |
 
 
 
@@ -6038,13 +6112,14 @@ TODO:
 <a name="pjs-QueueInfoDetails"></a>
 
 ### QueueInfoDetails
-
+QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.
+It contains a superset of the information in QueueInfo.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | queue_info | [QueueInfo](#pjs-QueueInfo) |  |  |
-| size | [int64](#int64) |  |  |
+| size | [int64](#int64) |  | size is the number of elements queued. |
 
 
 
@@ -6059,8 +6134,8 @@ TODO:
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| context | [string](#string) |  |  |
-| job | [Job](#pjs-Job) |  |  |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset, the context Job is assumed. |
 
 
 
@@ -6076,7 +6151,7 @@ TODO:
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| JOB_ERROR_CODE_UNSPECIFIED | 0 | UNSPECIFIED means the job error code is unspecified. |
+| JobErrorCode_UNSPECIFIED | 0 | UNSPECIFIED means the job error code is unspecified. |
 | FAILED | 1 | FAILED means that the worker processing the job indicated that it failed. |
 | DISCONNECTED | 2 | DISCONNECTED means the worker processing the job disconnected. |
 | CANCELED | 3 | CANCELED means the job was canceled. |
@@ -6090,7 +6165,7 @@ TODO:
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| JOB_STATE_UNSPECIFIED | 0 | UNSPECIFIED means the job state is unspecified. |
+| JobState_UNSPECIFIED | 0 | UNSPECIFIED means the job state is unspecified. |
 | QUEUED | 1 | QUEUED means the job is currently in a queue. A QUEUED job will not have any descendants. |
 | PROCESSING | 2 | PROCESSING means the job is currently being processed by a worker. |
 | DONE | 3 | DONE means the job, and all of its descendants, are done. |
@@ -6111,12 +6186,12 @@ Job API
 | CreateJob | [CreateJobRequest](#pjs-CreateJobRequest) | [CreateJobResponse](#pjs-CreateJobResponse) | CreateJob creates a new job. Child jobs can be created by setting the context field to the appropriate parent job context. |
 | CancelJob | [CancelJobRequest](#pjs-CancelJobRequest) | [CancelJobResponse](#pjs-CancelJobResponse) | CancelJob cancels a job. Canceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. This will terminate all ongoing processing associated with the job. Nothing will be deleted. A job can only be canceled with the parent job context. |
 | DeleteJob | [DeleteJobRequest](#pjs-DeleteJobRequest) | [DeleteJobResponse](#pjs-DeleteJobResponse) | DeleteJob deletes a job. DeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job. A job can only be deleted with the parent job context. |
-| ListJob | [ListJobRequest](#pjs-ListJobRequest) | [JobInfo](#pjs-JobInfo) stream | ListJob returns a list of jobs and information about each job. The jobs returned in the list are the child jobs of the provided job. If no job is provided, the list is the child jobs of the provided job context. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
-| WalkJob | [WalkJobRequest](#pjs-WalkJobRequest) | [JobInfo](#pjs-JobInfo) stream | WalkJob returns a list of jobs in a hierarchy and information about each job. Walking a job traverses the job hierarchy rooted at the provided job. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
-| InspectJob | [InspectJobRequest](#pjs-InspectJobRequest) | [JobInfoDetails](#pjs-JobInfoDetails) | InspectJob returns detailed information about a job. |
+| ListJob | [ListJobRequest](#pjs-ListJobRequest) | [ListJobResponse](#pjs-ListJobResponse) stream | ListJob returns a list of jobs and information about each job. The jobs returned in the list are the child jobs of the provided job. If no job is provided, the list is the child jobs of the provided job context. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| WalkJob | [WalkJobRequest](#pjs-WalkJobRequest) | [ListJobResponse](#pjs-ListJobResponse) stream | WalkJob returns a list of jobs in a hierarchy and information about each job. Walking a job traverses the job hierarchy rooted at the provided job. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| InspectJob | [InspectJobRequest](#pjs-InspectJobRequest) | [InspectJobResponse](#pjs-InspectJobResponse) | InspectJob returns detailed information about a job. |
 | ProcessQueue | [ProcessQueueRequest](#pjs-ProcessQueueRequest) stream | [ProcessQueueResponse](#pjs-ProcessQueueResponse) stream | ProcessQueue should be called by workers to process jobs in a queue. The protocol is as follows: Worker sends an initial request with the queue id. For each job: Server sends a response with a job context and the associated queue element. Worker processes the job. Worker sends a request with the job output or indicates that the job failed. This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up. This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur. |
-| ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [QueueInfo](#pjs-QueueInfo) stream | ListQueue returns a list of queues and information about each queue. |
-| InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [QueueInfoDetails](#pjs-QueueInfoDetails) | InspectQueue returns detailed information about a queue. |
+| ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [ListQueueResponse](#pjs-ListQueueResponse) stream | ListQueue returns a list of queues and information about each queue. |
+| InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [InspectQueueResponse](#pjs-InspectQueueResponse) | InspectQueue returns detailed information about a queue. |
 
  
 

@@ -57,7 +57,7 @@ type APIClient interface {
 	// The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.
 	WalkJob(ctx context.Context, in *WalkJobRequest, opts ...grpc.CallOption) (API_WalkJobClient, error)
 	// InspectJob returns detailed information about a job.
-	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfoDetails, error)
+	InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*InspectJobResponse, error)
 	// ProcessQueue should be called by workers to process jobs in a queue.
 	// The protocol is as follows:
 	//
@@ -73,7 +73,7 @@ type APIClient interface {
 	// ListQueue returns a list of queues and information about each queue.
 	ListQueue(ctx context.Context, in *ListQueueRequest, opts ...grpc.CallOption) (API_ListQueueClient, error)
 	// InspectQueue returns detailed information about a queue.
-	InspectQueue(ctx context.Context, in *InspectQueueRequest, opts ...grpc.CallOption) (*QueueInfoDetails, error)
+	InspectQueue(ctx context.Context, in *InspectQueueRequest, opts ...grpc.CallOption) (*InspectQueueResponse, error)
 }
 
 type aPIClient struct {
@@ -127,7 +127,7 @@ func (c *aPIClient) ListJob(ctx context.Context, in *ListJobRequest, opts ...grp
 }
 
 type API_ListJobClient interface {
-	Recv() (*JobInfo, error)
+	Recv() (*ListJobResponse, error)
 	grpc.ClientStream
 }
 
@@ -135,8 +135,8 @@ type aPIListJobClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIListJobClient) Recv() (*JobInfo, error) {
-	m := new(JobInfo)
+func (x *aPIListJobClient) Recv() (*ListJobResponse, error) {
+	m := new(ListJobResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -159,7 +159,7 @@ func (c *aPIClient) WalkJob(ctx context.Context, in *WalkJobRequest, opts ...grp
 }
 
 type API_WalkJobClient interface {
-	Recv() (*JobInfo, error)
+	Recv() (*ListJobResponse, error)
 	grpc.ClientStream
 }
 
@@ -167,16 +167,16 @@ type aPIWalkJobClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIWalkJobClient) Recv() (*JobInfo, error) {
-	m := new(JobInfo)
+func (x *aPIWalkJobClient) Recv() (*ListJobResponse, error) {
+	m := new(ListJobResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *aPIClient) InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*JobInfoDetails, error) {
-	out := new(JobInfoDetails)
+func (c *aPIClient) InspectJob(ctx context.Context, in *InspectJobRequest, opts ...grpc.CallOption) (*InspectJobResponse, error) {
+	out := new(InspectJobResponse)
 	err := c.cc.Invoke(ctx, API_InspectJob_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -231,7 +231,7 @@ func (c *aPIClient) ListQueue(ctx context.Context, in *ListQueueRequest, opts ..
 }
 
 type API_ListQueueClient interface {
-	Recv() (*QueueInfo, error)
+	Recv() (*ListQueueResponse, error)
 	grpc.ClientStream
 }
 
@@ -239,16 +239,16 @@ type aPIListQueueClient struct {
 	grpc.ClientStream
 }
 
-func (x *aPIListQueueClient) Recv() (*QueueInfo, error) {
-	m := new(QueueInfo)
+func (x *aPIListQueueClient) Recv() (*ListQueueResponse, error) {
+	m := new(ListQueueResponse)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
 
-func (c *aPIClient) InspectQueue(ctx context.Context, in *InspectQueueRequest, opts ...grpc.CallOption) (*QueueInfoDetails, error) {
-	out := new(QueueInfoDetails)
+func (c *aPIClient) InspectQueue(ctx context.Context, in *InspectQueueRequest, opts ...grpc.CallOption) (*InspectQueueResponse, error) {
+	out := new(InspectQueueResponse)
 	err := c.cc.Invoke(ctx, API_InspectQueue_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -283,7 +283,7 @@ type APIServer interface {
 	// The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.
 	WalkJob(*WalkJobRequest, API_WalkJobServer) error
 	// InspectJob returns detailed information about a job.
-	InspectJob(context.Context, *InspectJobRequest) (*JobInfoDetails, error)
+	InspectJob(context.Context, *InspectJobRequest) (*InspectJobResponse, error)
 	// ProcessQueue should be called by workers to process jobs in a queue.
 	// The protocol is as follows:
 	//
@@ -299,7 +299,7 @@ type APIServer interface {
 	// ListQueue returns a list of queues and information about each queue.
 	ListQueue(*ListQueueRequest, API_ListQueueServer) error
 	// InspectQueue returns detailed information about a queue.
-	InspectQueue(context.Context, *InspectQueueRequest) (*QueueInfoDetails, error)
+	InspectQueue(context.Context, *InspectQueueRequest) (*InspectQueueResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -322,7 +322,7 @@ func (UnimplementedAPIServer) ListJob(*ListJobRequest, API_ListJobServer) error 
 func (UnimplementedAPIServer) WalkJob(*WalkJobRequest, API_WalkJobServer) error {
 	return status.Errorf(codes.Unimplemented, "method WalkJob not implemented")
 }
-func (UnimplementedAPIServer) InspectJob(context.Context, *InspectJobRequest) (*JobInfoDetails, error) {
+func (UnimplementedAPIServer) InspectJob(context.Context, *InspectJobRequest) (*InspectJobResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectJob not implemented")
 }
 func (UnimplementedAPIServer) ProcessQueue(API_ProcessQueueServer) error {
@@ -331,7 +331,7 @@ func (UnimplementedAPIServer) ProcessQueue(API_ProcessQueueServer) error {
 func (UnimplementedAPIServer) ListQueue(*ListQueueRequest, API_ListQueueServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListQueue not implemented")
 }
-func (UnimplementedAPIServer) InspectQueue(context.Context, *InspectQueueRequest) (*QueueInfoDetails, error) {
+func (UnimplementedAPIServer) InspectQueue(context.Context, *InspectQueueRequest) (*InspectQueueResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectQueue not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
@@ -410,7 +410,7 @@ func _API_ListJob_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_ListJobServer interface {
-	Send(*JobInfo) error
+	Send(*ListJobResponse) error
 	grpc.ServerStream
 }
 
@@ -418,7 +418,7 @@ type aPIListJobServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIListJobServer) Send(m *JobInfo) error {
+func (x *aPIListJobServer) Send(m *ListJobResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -431,7 +431,7 @@ func _API_WalkJob_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_WalkJobServer interface {
-	Send(*JobInfo) error
+	Send(*ListJobResponse) error
 	grpc.ServerStream
 }
 
@@ -439,7 +439,7 @@ type aPIWalkJobServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIWalkJobServer) Send(m *JobInfo) error {
+func (x *aPIWalkJobServer) Send(m *ListJobResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -496,7 +496,7 @@ func _API_ListQueue_Handler(srv interface{}, stream grpc.ServerStream) error {
 }
 
 type API_ListQueueServer interface {
-	Send(*QueueInfo) error
+	Send(*ListQueueResponse) error
 	grpc.ServerStream
 }
 
@@ -504,7 +504,7 @@ type aPIListQueueServer struct {
 	grpc.ServerStream
 }
 
-func (x *aPIListQueueServer) Send(m *QueueInfo) error {
+func (x *aPIListQueueServer) Send(m *ListQueueResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
