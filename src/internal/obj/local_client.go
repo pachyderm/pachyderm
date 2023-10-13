@@ -75,7 +75,8 @@ func (c *fsClient) Get(ctx context.Context, name string, w io.Writer) (retErr er
 	return errors.EnsureStack(err)
 }
 
-func (c *fsClient) Delete(ctx context.Context, name string) error {
+func (c *fsClient) Delete(ctx context.Context, name string) (retErr error) {
+	defer log.Span(ctx, "delete", zap.String("name", name), zap.String("rootDir", c.rootDir))(log.Errorp(&retErr))
 	err := os.Remove(c.finalPathFor(name))
 	if os.IsNotExist(err) {
 		err = nil
