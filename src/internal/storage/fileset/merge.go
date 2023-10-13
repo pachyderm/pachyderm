@@ -29,11 +29,14 @@ func newMergeReader(chunks *chunk.Storage, fileSets []FileSet) *MergeReader {
 // Iterate iterates over the files in the merge reader.
 func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	var ss []stream.Stream
-	for _, fs := range mr.fileSets {
-		ss = append(ss, &fileStream{
-			iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
-			deletive: true,
-		})
+	for i, fs := range mr.fileSets {
+		// Ignore the base file set's deletive set since it does not affect the state.
+		if i > 0 {
+			ss = append(ss, &fileStream{
+				iterator: NewIterator(ctx, fs.IterateDeletes, opts...),
+				deletive: true,
+			})
+		}
 		ss = append(ss, &fileStream{
 			iterator: NewIterator(ctx, fs.Iterate, opts...),
 		})

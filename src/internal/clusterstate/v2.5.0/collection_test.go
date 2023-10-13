@@ -1,7 +1,6 @@
 package v2_5_0
 
 import (
-	"context"
 	"testing"
 
 	"github.com/gogo/protobuf/proto"
@@ -10,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -40,7 +40,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	db, dsn := newTestDB(t)
 	listener := col.NewPostgresListener(dsn)
 	testCol := col.NewPostgresCollection("test_items", db, listener, &col.TestItem{}, []*col.Index{TestSecondaryIndex})
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
 	if err := dbutil.WithTx(ctx, db, func(tx *pachsql.Tx) error {
 		if err := col.CreatePostgresSchema(ctx, tx); err != nil {
 			return err

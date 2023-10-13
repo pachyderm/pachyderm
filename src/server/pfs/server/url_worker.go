@@ -10,6 +10,7 @@ import (
 	"github.com/gogo/protobuf/types"
 	"github.com/hashicorp/go-multierror"
 	"go.uber.org/zap"
+	"gocloud.dev/blob"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -123,6 +124,9 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 	if err != nil {
 		return nil, err
 	}
+	if url.Object != "" {
+		bucket = blob.PrefixedBucket(bucket, strings.Trim(url.Object, "/")+"/")
+	}
 	defer func() {
 		if err := bucket.Close(); err != nil {
 			retErr = multierror.Append(retErr, errors.EnsureStack(err))
@@ -133,7 +137,7 @@ func (d *driver) processGetFileURLTask(ctx context.Context, task *GetFileURLTask
 			if fi.FileType != pfs.FileType_FILE {
 				return nil
 			}
-			w, err := bucket.NewWriter(ctx, fi.File.Path, nil)
+			w, err := bucket.NewWriter(ctx, strings.TrimLeft(fi.File.Path, "/"), nil)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}

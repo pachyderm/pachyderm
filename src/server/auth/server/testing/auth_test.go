@@ -2062,21 +2062,21 @@ func TestPutFileURL(t *testing.T) {
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
+	ctx := aliceClient.Ctx()
 	repo := "repo"
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	objC := dockertestenv.NewTestObjClient(env.Context, t)
+	bucket, url := dockertestenv.NewTestBucket(ctx, t)
 	paths := []string{"files/foo", "files/bar", "files/fizz"}
 	for _, path := range paths {
-		require.NoError(t, objC.Put(aliceClient.Ctx(), path, strings.NewReader(path)))
+		require.NoError(t, bucket.WriteAll(ctx, path, []byte(path), nil))
 	}
-	bucketURL := objC.BucketURL().String()
 	for _, p := range paths {
-		objURL := bucketURL + "/" + p
+		objURL := url + p
 		require.NoError(t, aliceClient.PutFileURL(commit, p, objURL, false))
 	}
-	srcURL := bucketURL + "/files"
+	srcURL := url + "files"
 	require.NoError(t, aliceClient.PutFileURL(commit, "recursive", srcURL, true))
 	check := func() {
 		cis, err := aliceClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
@@ -2117,6 +2117,7 @@ func TestGetFileURL(t *testing.T) {
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
+	ctx := aliceClient.Ctx()
 	repo := "repo"
 	require.NoError(t, aliceClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 	commit, err := aliceClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
@@ -2126,24 +2127,29 @@ func TestGetFileURL(t *testing.T) {
 		require.NoError(t, aliceClient.PutFile(commit, path, strings.NewReader(path)))
 	}
 	check := func() {
-		objC := dockertestenv.NewTestObjClient(aliceClient.Ctx(), t)
-		bucketURL := objC.BucketURL().String()
+		bucket, url := dockertestenv.NewTestBucket(ctx, t)
 		for _, path := range paths {
-			require.NoError(t, aliceClient.GetFileURL(commit, path, bucketURL))
+			require.NoError(t, env.PachClient.GetFileURL(commit, path, url))
 		}
 		for _, path := range paths {
-			buf := &bytes.Buffer{}
-			err := objC.Get(context.Background(), path, buf)
+			data, err := bucket.ReadAll(ctx, path)
 			require.NoError(t, err)
-			require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			require.True(t, bytes.Equal([]byte(path), data))
+			require.NoError(t, bucket.Delete(ctx, path))
 		}
-		require.NoError(t, objC.Delete(aliceClient.Ctx(), "files/*"))
-		require.NoError(t, aliceClient.GetFileURL(commit, "files/*", bucketURL))
+		require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url))
 		for _, path := range paths {
-			buf := &bytes.Buffer{}
-			err := objC.Get(context.Background(), path, buf)
+			data, err := bucket.ReadAll(ctx, path)
 			require.NoError(t, err)
-			require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+			require.True(t, bytes.Equal([]byte(path), data))
+			require.NoError(t, bucket.Delete(ctx, path))
+		}
+		prefix := "/prefix"
+		require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url+prefix))
+		for _, path := range paths {
+			data, err := bucket.ReadAll(ctx, prefix+"/"+path)
+			require.NoError(t, err)
+			require.True(t, bytes.Equal([]byte(path), data))
 		}
 	}
 	check()

@@ -12,8 +12,8 @@ RUN mkdir -p /pfs
 RUN chown jovyan /pfs
 RUN apt-get update && apt-get -y install curl fuse
 RUN echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
-COPY ./dist-pach/pachctl/pachctl_linux_amd64/pachctl /usr/local/bin/pachctl
-COPY ./dist-pach/mount-server/mount-server_linux_amd64/mount-server/ /usr/local/bin/mount-server
+COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+COPY ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server/ /usr/local/bin/mount-server
 #RUN curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_${PACHCTL_VERSION}_linux_amd64.tar.gz
 #RUN tar zxfv pachctl.tar.gz && mv pachctl_${PACHCTL_VERSION}_linux_amd64/pachctl /usr/local/bin/
 #RUN curl -f -o mount-server.tar.gz -L https://storage.googleapis.com/pachyderm-builds/mount-server_${PACHCTL_VERSION}_linux_amd64.tar.gz

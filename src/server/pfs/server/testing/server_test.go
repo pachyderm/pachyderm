@@ -4477,6 +4477,7 @@ func TestPFS(suite *testing.T) {
 		},
 		}
 		for i, test := range tests {
+			test := test
 			t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 				t.Parallel()
 				ctx := pctx.TestContext(t)
@@ -4503,8 +4504,8 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedProv)
 						require.Equal(t, len(expectedProv), len(bi.Provenance))
 						for _, b := range bi.Provenance {
-							i := sort.SearchStrings(expectedProv, b.Name)
-							if i >= len(expectedProv) || expectedProv[i] != b.Name {
+							i := sort.SearchStrings(expectedProv, b.Repo.Name)
+							if i >= len(expectedProv) || expectedProv[i] != b.Repo.Name {
 								t.Fatalf("provenance for %s contains: %s, but should only contain: %v", repo, b, expectedProv)
 							}
 						}
@@ -4515,8 +4516,8 @@ func TestPFS(suite *testing.T) {
 						sort.Strings(expectedSubv)
 						require.Equal(t, len(expectedSubv), len(bi.Subvenance))
 						for _, b := range bi.Subvenance {
-							i := sort.SearchStrings(expectedSubv, b.Name)
-							if i >= len(expectedSubv) || expectedSubv[i] != b.Name {
+							i := sort.SearchStrings(expectedSubv, b.Repo.Name)
+							if i >= len(expectedSubv) || expectedSubv[i] != b.Repo.Name {
 								t.Fatalf("subvenance for %s contains: %s, but should only contain: %v", repo, b, expectedSubv)
 							}
 						}
@@ -5385,17 +5386,16 @@ func TestPFS(suite *testing.T) {
 		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repo))
 		commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
-		objC := dockertestenv.NewTestObjClient(env.Context, t)
+		bucket, url := dockertestenv.NewTestBucket(env.Context, t)
 		paths := []string{"files/foo", "files/bar", "files/fizz"}
 		for _, path := range paths {
-			require.NoError(t, objC.Put(ctx, path, strings.NewReader(path)))
+			require.NoError(t, bucket.WriteAll(ctx, path, []byte(path), nil))
 		}
-		bucketURL := objC.BucketURL().String()
 		for _, p := range paths {
-			objURL := bucketURL + "/" + p
+			objURL := url + p
 			require.NoError(t, env.PachClient.PutFileURL(commit, p, objURL, false))
 		}
-		srcURL := bucketURL + "/files"
+		srcURL := url + "files"
 		require.NoError(t, env.PachClient.PutFileURL(commit, "recursive", srcURL, true))
 		check := func() {
 			cis, err := env.PachClient.ListCommit(client.NewProjectRepo(pfs.DefaultProjectName, repo), nil, nil, 0)
@@ -5430,24 +5430,29 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, env.PachClient.PutFile(commit, path, strings.NewReader(path)))
 		}
 		check := func() {
-			objC := dockertestenv.NewTestObjClient(ctx, t)
-			bucketURL := objC.BucketURL().String()
+			bucket, url := dockertestenv.NewTestBucket(ctx, t)
 			for _, path := range paths {
-				require.NoError(t, env.PachClient.GetFileURL(commit, path, bucketURL))
+				require.NoError(t, env.PachClient.GetFileURL(commit, path, url))
 			}
 			for _, path := range paths {
-				buf := &bytes.Buffer{}
-				err := objC.Get(context.Background(), path, buf)
+				data, err := bucket.ReadAll(ctx, path)
 				require.NoError(t, err)
-				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+				require.True(t, bytes.Equal([]byte(path), data))
+				require.NoError(t, bucket.Delete(ctx, path))
 			}
-			require.NoError(t, objC.Delete(ctx, "files/*"))
-			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", bucketURL))
+			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url))
 			for _, path := range paths {
-				buf := &bytes.Buffer{}
-				err := objC.Get(context.Background(), path, buf)
+				data, err := bucket.ReadAll(ctx, path)
 				require.NoError(t, err)
-				require.True(t, bytes.Equal([]byte(path), buf.Bytes()))
+				require.True(t, bytes.Equal([]byte(path), data))
+				require.NoError(t, bucket.Delete(ctx, path))
+			}
+			prefix := "/prefix"
+			require.NoError(t, env.PachClient.GetFileURL(commit, "files/*", url+prefix))
+			for _, path := range paths {
+				data, err := bucket.ReadAll(ctx, prefix+"/"+path)
+				require.NoError(t, err)
+				require.True(t, bytes.Equal([]byte(path), data))
 			}
 		}
 		check()

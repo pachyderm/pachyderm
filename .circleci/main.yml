@@ -36,7 +36,10 @@ parameters:
     default: ubuntu-2204:2022.10.1
   go-version:
     type: string
-    default: "1.19"
+    default: "1.20.10"
+  go-releaser-version:
+    type: string
+    default: "1.17.1"
   run_load_tests:
     type: boolean
     default: false
@@ -73,6 +76,7 @@ jobs:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - run:
           no_output_timeout: 20m
           command: |-
@@ -125,6 +129,7 @@ jobs:
           keys:
             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - go/install:
           version: << pipeline.parameters.go-version >>
       - run:
@@ -232,6 +237,7 @@ jobs:
           keys:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - save_cache:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
@@ -434,6 +440,7 @@ jobs:
       - run:
           command: etc/testing/circle/run_all_load_tests.sh
           no_output_timeout: 1h
+      - install-go-releaser
       - run:
           name: Destroy test env on fail
           command: |
@@ -459,6 +466,7 @@ jobs:
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
       - run: etc/testing/circle/install.sh
+      - install-go-releaser
       - run:
           name: Collect node stats
           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
@@ -549,12 +557,9 @@ jobs:
       - run:
           name: Download utilities
           command: |
-            mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.10.3/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
             sudo apt update
             sudo apt install qemu binfmt-support qemu-user-static
+      - install-go-releaser
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -585,9 +590,6 @@ jobs:
           name: Download utilities
           command: |
             mkdir -p /home/circleci/bin
-            wget https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz
-            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
-            rm -rf goreleaser_Linux_x86_64.tar.gz
             wget https://github.com/chainlink/gcsupload/releases/download/v0.2.0/gcsupload_0.2.0_Linux_x86_64.tar.gz
             tar zxvf gcsupload_0.2.0_Linux_x86_64.tar.gz -C /home/circleci/bin gcsupload
             rm -rf gcsupload_0.2.0_Linux_x86_64.tar.gz
@@ -599,6 +601,7 @@ jobs:
           keys:
             - pachctl-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
             - pachctl-build-cache-v1-master-{{ checksum "current_week" }}
+      - install-go-releaser
       - when:
           condition:
             and:
@@ -664,7 +667,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.24.0
+      - image: envoyproxy/envoy:v1.24.11
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -684,19 +687,8 @@ jobs:
           command: go install golang.org/x/vuln/cmd/govulncheck@latest
       - run:
           name: Check for known security vulnerabilities
-          command: govulncheck ./...
-  push_redhat:
-    executor: docker-go
-    steps:
-      - checkout
-      - setup_remote_docker:
-          docker_layer_caching: true
-          version: "20.10.12"
-      - run:
-          name: Install Goreleaser
           command: |
-            curl -Lo - https://github.com/goreleaser/goreleaser/releases/download/v1.4.1/goreleaser_Linux_x86_64.tar.gz | sudo tar -C /usr/local/bin -xvzf - goreleaser
-      - run: etc/redhat/push_images.sh
+            find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   jupyter-extension-test:
     parameters:
       python-version:
@@ -810,8 +802,8 @@ jobs:
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
-            pachctl put file images@master:liberty.png -f http://imgur.com/46Q8nDz.png
-            pachctl put file images@branch:branch.png -f http://imgur.com/46Q8nDz.png
+            pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
+            pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
             pachctl list repo
 
             mkdir pfs
@@ -1789,8 +1781,8 @@ commands:
       - run:
           name: Install pachctl and mount-server
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64/pachctl /usr/local/bin/pachctl
-            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64/mount-server /usr/local/bin/mount-server
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server /usr/local/bin/mount-server
       - run:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
@@ -1817,3 +1809,34 @@ commands:
       - pulumi/login
       - run: |
           pulumi plugin install resource eks v0.40.0
+  install-go-releaser:
+    steps:
+      - run:
+          name: install-go-releaser
+          command: |
+            mkdir -p /home/circleci/bin
+            wget https://github.com/goreleaser/goreleaser/releases/download/v<< pipeline.parameters.go-releaser-version >>/goreleaser_Linux_x86_64.tar.gz
+            tar zxvf goreleaser_Linux_x86_64.tar.gz -C /home/circleci/bin goreleaser
+            rm -rf goreleaser_Linux_x86_64.tar.gz
+            goreleaser -v
+  wait-for-docker:
+    steps:
+      - run:
+          name: Wait for docker
+          command: |
+            # wait for docker or timeout
+            timeout=120
+            while ! docker version >/dev/null 2>&1; do
+              timeout=$((timeout - 1))
+              if [ $timeout -eq 0 ]; then
+                echo "Timed out waiting for docker daemon"
+                exit 1
+              fi
+              sleep 1
+            done
+  start-minikube:
+    steps:
+      - run:
+          name: Start minikube
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.19.0 --cpus=7 --memory=12Gi --wait=all
+          background: true
