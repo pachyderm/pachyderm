@@ -20,7 +20,7 @@ from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
-CONFIG_PATH = "~/.pachyderm/config.json"
+CONFIG_PATH = os.environ.get("PACH_CONFIG", "~/.pachyderm/config.json")
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
