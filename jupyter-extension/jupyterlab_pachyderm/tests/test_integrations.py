@@ -51,9 +51,15 @@ def pachyderm_resources():
 @pytest.fixture()
 def dev_server():
     print("starting development server...")
+    log_file_path = os.environ.get("MOUNT_SERVER_LOG_FILE", "/tmp/mount-server.log")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        env={"PFS_MOUNT_DIR": PFS_MOUNT_DIR},
+        # preserve PATH and PACH_CONFIG, but override PFS_MOUNT_DIR and possibly
+        # MOUNT_SERVER_LOG_FILE
+        env=dict(os.environ,
+            PFS_MOUNT_DIR=PFS_MOUNT_DIR,
+            MOUNT_SERVER_LOG_FILE=log_file_path,
+        ),
         stdout=subprocess.PIPE,
     )
     # Give time for python test server to start
