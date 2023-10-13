@@ -10,3 +10,9 @@ message ClusterDefaultsWrapper {
   reserved "details_json", "effective_details_json";
   string json = 3;
 }
+
+
+
+message ProjectDefaultsWrapper {
+  string json = 3;
+}

@@ -7353,6 +7353,30 @@
               "defaultValue": ""
             }
           ]
+        },
+        {
+          "name": "ProjectDefaultsWrapper",
+          "longName": "ProjectDefaultsWrapper",
+          "fullName": "pps_v2.ProjectDefaultsWrapper",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "json",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
         }
       ],
       "services": []
