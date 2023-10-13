@@ -99,7 +99,7 @@ def test_list_repos(pachyderm_resources, dev_server):
 
     r = requests.get(f"{BASE_URL}/repos")
 
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     for repo_info in r.json():
         assert repo_info.keys() == {"authorization", "branches", "repo", "project"}
         assert repo_info["repo"] in repos
@@ -123,10 +123,10 @@ def test_list_mounts(pachyderm_resources, dev_server):
             }
         ),
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
 
     r = requests.get(f"{BASE_URL}/mounts")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
 
     resp = r.json()
     assert len(resp["mounted"]) == 1
@@ -183,7 +183,7 @@ def test_mount(pachyderm_resources, dev_server):
         ]
     }
     r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
 
     resp = r.json()
     assert len(resp["mounted"]) == 3
@@ -199,7 +199,7 @@ def test_mount(pachyderm_resources, dev_server):
     r = requests.put(
         f"{BASE_URL}/_unmount_all",
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["mounted"] == []
     assert len(r.json()["unmounted"]) == 3
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
@@ -227,7 +227,7 @@ def test_unmount(pachyderm_resources, dev_server):
         ]
     }
     r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]) == sorted(
         files
     )
@@ -241,7 +241,7 @@ def test_unmount(pachyderm_resources, dev_server):
         f"{BASE_URL}/_unmount",
         data=json.dumps({"mounts": [repos[0] + "_dev"]}),
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert len(r.json()["mounted"]) == 1
     assert len(r.json()["unmounted"]) == 3
     assert len(r.json()["unmounted"][0]["branches"]) == 2
@@ -250,7 +250,7 @@ def test_unmount(pachyderm_resources, dev_server):
         f"{BASE_URL}/_unmount",
         data=json.dumps({"mounts": [repos[0]]}),
     )
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert len(r.json()["mounted"]) == 0
     assert len(r.json()["unmounted"]) == 3
     assert len(r.json()["unmounted"][0]["branches"]) == 2
@@ -287,7 +287,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     }
 
     r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
     assert r.json()["all_datums_received"] == True
@@ -320,7 +320,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     )
 
     r = requests.put(f"{BASE_URL}/datums/_next")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
     #TODO: uncomment this and below line when we transition fully to using ListDatum when getting datums. #ListDatumPagination
@@ -328,14 +328,14 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.json()["all_datums_received"] == True
 
     r = requests.put(f"{BASE_URL}/datums/_prev")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
     # assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] == True
 
     r = requests.get(f"{BASE_URL}/datums")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["input"] == {
         "cross": [
             {
@@ -372,7 +372,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.json()["all_datums_received"] == True
 
     r = requests.put(f"{BASE_URL}/_unmount_all")
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
 
 
 def test_config(dev_server):
@@ -391,14 +391,14 @@ def test_config(dev_server):
             config["v2"]["contexts"][active_context]["port_forwarders"]["pachd"]
         )
 
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["cluster_status"] != "INVALID"
     assert "30650" in endpoint_in_config
 
     # GET request
     r = requests.get(f"{BASE_URL}/config")
 
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     assert r.json()["cluster_status"] != "INVALID"
 
 
@@ -471,7 +471,7 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
-    assert r.status_code == 200
+    assert r.status_code == 200, r.text
     job_info = next(client.pps.list_job(pipeline=pipeline))
     job_info = client.pps.inspect_job(job=job_info.job, wait=True)
     assert job_info.state == pps.JobState.JOB_SUCCESS
@@ -483,7 +483,7 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
 
 def test_pps_validation_errors(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
-    assert r.status_code == 400
+    assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
 
@@ -511,7 +511,7 @@ def test_pps_reuse_pipeline_name_different_project(
         r = requests.put(
             f"{BASE_URL}/pps/_create/{new_notebook}", data=json.dumps(data)
         )
-        assert r.status_code == 200
+        assert r.status_code == 200, r.text
         assert client.pps.inspect_pipeline(pipeline=default_pipeline)
     finally:
         client.pps.delete_pipeline(pipeline=default_pipeline, force=True)
