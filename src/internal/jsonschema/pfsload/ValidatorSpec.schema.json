@@ -1,0 +1,30 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ValidatorSpec",
+    "definitions": {
+        "ValidatorSpec": {
+            "properties": {
+                "frequency": {
+                    "$ref": "#/definitions/pfsload.FrequencySpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Validator Spec"
+        },
+        "pfsload.FrequencySpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "prob": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Frequency Spec"
+        }
+    }
+}

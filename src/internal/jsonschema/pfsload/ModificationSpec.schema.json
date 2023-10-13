@@ -1,0 +1,33 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ModificationSpec",
+    "definitions": {
+        "ModificationSpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "putFile": {
+                    "$ref": "#/definitions/pfsload.PutFileSpec",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Modification Spec"
+        },
+        "pfsload.PutFileSpec": {
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "source": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Put File Spec"
+        }
+    }
+}

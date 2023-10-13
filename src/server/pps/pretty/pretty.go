@@ -308,7 +308,7 @@ Egress: {{egress .Details.Egress}} {{end}}
 	return errors.EnsureStack(template.Execute(w, jobInfo))
 }
 
-// PrintablePipelineInfo is a wrapper around PipelinInfo containing any formatting options
+// PrintablePipelineInfo is a wrapper around PipelineInfo containing any formatting options
 // used within the template to conditionally print information.
 type PrintablePipelineInfo struct {
 	*ppsclient.PipelineInfo
@@ -347,16 +347,56 @@ ResourceLimits:
     Number: {{ .Details.ResourceLimits.Gpu.Number }} {{end}} {{end}}
 Datum Timeout: {{.Details.DatumTimeout}}
 Job Timeout: {{.Details.JobTimeout}}
-Input: {{pipelineInput .PipelineInfo}}
+Input: {{pipelineInput .PipelineInfo.GetDetails.Input}}
 Output Branch: {{.Details.OutputBranch}}
 Transform: {{prettyTransform .Details.Transform}}
-{{ if .Details.Egress }}Egress: {{egress .Details.Egress}} {{end}}
-{{if .Details.RecentError}} Recent Error: {{.Details.RecentError}} {{end}}
+{{ if .Details.Egress -}}
+Egress: {{ egress .Details.Egress }}
+{{ end -}}
+{{ if .Details.RecentError -}}
+Recent Error: {{ .Details.RecentError }}
+{{ end -}}
+{{ if .UserSpecJson -}}
+User Spec: {{ .UserSpecJson | json "  " "  " }}
+{{ end -}}
+{{ if .EffectiveSpecJson -}}
+Effective Spec: {{ .EffectiveSpecJson | json "  " "  " }}
+{{ end -}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	return errors.EnsureStack(template.Execute(w, pipelineInfo))
+}
+
+// PrintCreatePipelineRequest pretty-prints a create pipeline request.
+func PrintCreatePipelineRequest(w io.Writer, req *ppsclient.CreatePipelineRequest) error {
+	template, err := template.New("CreatePipelineRequest").Funcs(funcMap).Parse(
+		`Name: {{.Pipeline.Name}}{{if .Description}}
+Description: {{.Description}}{{end}}
+Parallelism Spec: {{.ParallelismSpec}}
+{{- if .ResourceRequests }}
+ResourceRequests:
+  CPU: {{ .ResourceRequests.Cpu }}
+  Memory: {{ .ResourceRequests.Memory }} {{end}}
+{{- if .ResourceLimits }}
+ResourceLimits:
+  CPU: {{ .ResourceLimits.Cpu }}
+  Memory: {{ .ResourceLimits.Memory }}
+  {{ if .ResourceLimits.Gpu }}GPU:
+    Type: {{ .ResourceLimits.Gpu.Type }}
+    Number: {{ .ResourceLimits.Gpu.Number }} {{end}} {{end}}
+Datum Timeout: {{.DatumTimeout}}
+Job Timeout: {{.JobTimeout}}
+Input: {{pipelineInput .Input}}
+Output Branch: {{.OutputBranch}}
+Transform: {{prettyTransform .Transform}}
+{{ if .Egress }}Egress: {{egress .Egress}} {{end}}
+`)
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	return errors.EnsureStack(template.Execute(w, req))
 }
 
 // PrintDatumInfo pretty-prints file info.
@@ -520,11 +560,11 @@ func workerStatus(pji PrintableJobInfo) string {
 	return buffer.String()
 }
 
-func pipelineInput(pipelineInfo *ppsclient.PipelineInfo) string {
-	if pipelineInfo.Details.Input == nil {
+func pipelineInput(i *ppsclient.Input) string {
+	if i == nil {
 		return ""
 	}
-	input, err := json.MarshalIndent(pipelineInfo.Details.Input, "", "  ")
+	input, err := json.MarshalIndent(i, "", "  ")
 	if err != nil {
 		panic(errors.Wrapf(err, "error marshalling input"))
 	}
@@ -588,6 +628,14 @@ func egress(e *ppsclient.Egress) string {
 	return string(s)
 }
 
+func js(prefix, indent, s string) (string, error) {
+	var buf bytes.Buffer
+	if err := json.Indent(&buf, []byte(s), prefix, indent); err != nil {
+		return "", errors.Wrapf(err, "could not indent JSON %q", s)
+	}
+	return buf.String(), nil
+}
+
 var funcMap = template.FuncMap{
 	"pipelineState":        pipelineState,
 	"jobState":             JobState,
@@ -602,4 +650,5 @@ var funcMap = template.FuncMap{
 	"prettyTimeDifference": pretty.TimeDifference,
 	"prettyTransform":      prettyTransform,
 	"egress":               egress,
+	"json":                 js,
 }

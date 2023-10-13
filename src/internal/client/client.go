@@ -141,6 +141,9 @@ type APIClient struct {
 
 	defaultTransformImage string
 	defaultTransformUser  string
+
+	// inspectClusterResult is the result from the InspectCluster call made at connection time.
+	inspectClusterResult *admin.ClusterInfo
 }
 
 // GetAddress returns the pachd host:port with which 'c' is communicating. If
@@ -575,7 +578,19 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if err != nil {
 		return nil, errors.Wrapf(err, "could not connect to pachd at %q", pachdAddress.Qualified())
 	}
-
+	// if PACH_ID_TOKEN exists in env, try to produce a session token from it if one does not exist
+	if idToken := os.Getenv("PACH_ID_TOKEN"); idToken != "" && context.SessionToken == "" {
+		if r, err := client.Authenticate(ctx, &auth.AuthenticateRequest{IdToken: idToken}); err != nil {
+			if !auth.IsErrNotActivated(err) {
+				log.Error(ctx, "failed to exchange PACH_ID_TOKEN from environment for a pachyderm session token", zap.Error(err))
+			}
+		} else {
+			context.SessionToken = r.PachToken
+			if err = cfg.Write(); err != nil {
+				return nil, errors.Wrap(err, "could not write config to save session token")
+			}
+		}
+	}
 	// Add metrics info & authentication token
 	client.metricsPrefix = prefix
 	if cfg.UserId != "" && cfg.V2.Metrics {
@@ -597,11 +612,11 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			// This is an older version check designed to detect 1.x vs. 2.x mismatch.
 			pachdVersion, versErr := client.Version()
 			if err != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(versErr, "could not determine pachd version"))
 			}
 			pachdMajVersion, convErr := strconv.Atoi(strings.Split(pachdVersion, ".")[0])
 			if convErr != nil {
-				return nil, errors.Wrap(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version").Error())
+				return nil, errors.Join(scrubbedErr, errors.Wrap(convErr, "could not parse pachd major version"))
 			}
 			if pachdMajVersion != int(version.Version.Major) {
 				return nil, errors.Errorf("this client is for pachyderm %d.x, but the server has a version %d.x - please install the correct client for your server", version.Version.Major, pachdMajVersion)
@@ -609,14 +624,20 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		}
 		return nil, errors.Wrap(scrubbedErr, "could not get cluster ID")
 	}
+	client.inspectClusterResult = clusterInfo
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
-		if !clusterInfo.GetVersionWarningsOk() {
+		if !clusterInfo.GetWarningsOk() {
 			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
-			for _, w := range clusterInfo.GetVersionWarnings() {
+			for _, w := range clusterInfo.GetWarnings() {
 				log.Error(pctx.TODO(), w)
 			}
+		}
+	}
+	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
+		if clusterInfo.GetPaused() {
+			log.Info(pctx.TODO(), "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
 		}
 	}
 	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
@@ -627,7 +648,6 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			}
 		}
 	}
-
 	// Add port forwarding. This will set it to nil if port forwarding is
 	// disabled, or an address is explicitly set.
 	client.portForwarder = fw
@@ -888,6 +908,27 @@ func (c *APIClient) AddMetadata(ctx context.Context) context.Context {
 	return metadata.NewOutgoingContext(ctx, finalMD)
 }
 
+func SetAuthToken(ctx context.Context, token string) context.Context {
+	if token == "" {
+		return ctx
+	}
+	// Rescue any metadata pairs already in 'ctx' (otherwise
+	// metadata.NewOutgoingContext() would drop them). Note that this is similar
+	// to metadata.Join(), but distinct because it discards conflicting k/v pairs
+	// instead of merging them)
+	incomingMD, _ := metadata.FromIncomingContext(ctx)
+	outgoingMD, _ := metadata.FromOutgoingContext(ctx)
+	finalMD := make(metadata.MD) // Collect k/v pairs
+	for _, md := range []metadata.MD{incomingMD, outgoingMD} {
+		for k, v := range md {
+			finalMD[k] = v
+		}
+	}
+	finalMD[auth.ContextTokenKey] = []string{token}
+
+	return metadata.NewOutgoingContext(ctx, finalMD)
+}
+
 // Ctx is a convenience function that returns adds Pachyderm authn metadata
 // to context.Background().
 func (c *APIClient) Ctx() context.Context {
@@ -923,4 +964,18 @@ func (c *APIClient) SetAuthToken(token string) {
 // produced from a configured client context.
 func (c *APIClient) ClientContextName() string {
 	return c.clientContextName
+}
+
+// ClusterInfo returns information about the cluster that is retrieved at connection time, saving a
+// redundant call to InspectCluster.
+func (c *APIClient) ClusterInfo() (info *admin.ClusterInfo, ok bool) {
+	if c == nil || c.inspectClusterResult == nil {
+		return nil, false
+	}
+	return c.inspectClusterResult, true
+}
+
+// ClientConn returns the current grpc client connection.
+func (c *APIClient) ClientConn() *grpc.ClientConn {
+	return c.clientConn
 }

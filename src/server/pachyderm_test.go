@@ -3092,22 +3092,27 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	t.Parallel()
+
 	c, _ := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestUpdatePipelineWithInProgressCommitsAndStats_data")
+	c = tu.AuthenticatedPachClient(t, c, "pachtest")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-
 	pipeline := tu.UniqueString("pipeline")
 	createPipeline := func() {
 		_, err := c.PpsAPIClient.CreatePipeline(
-			context.Background(),
+			c.Ctx(),
 			&pps.CreatePipelineRequest{
 				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 				Transform: &pps.Transform{
 					Cmd:   []string{"bash"},
 					Stdin: []string{"sleep 1"},
 				},
-				Input:  client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-				Update: true,
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Autoscaling: true, // Autoscale for CORE-1972
+				Input:       client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Update:      true,
 			})
 		require.NoError(t, err)
 	}
@@ -3126,14 +3131,24 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	flushJob(1)
 
 	// Create multiple new commits.
-	numCommits := 5
+	numCommits := 15
 	for i := 1; i < numCommits; i++ {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(i), strings.NewReader("foo"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 	}
-
+	// wait for jobs to start before updating
+	require.NoError(t, backoff.Retry(func() error {
+		pipelineInfo, err := c.InspectPipeline(pfs.DefaultProjectName, pipeline, false)
+		if err != nil {
+			return err
+		}
+		if pipelineInfo.State != pps.PipelineState_PIPELINE_RUNNING {
+			return errors.Errorf("pipeline waiting to run, state: %s", pipelineInfo.State.String())
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Millisecond*200)))
 	// Force the in progress commits to be finished.
 	createPipeline()
 	// Create a new job that should succeed (should not get blocked on an unfinished stats commit).
@@ -8386,6 +8401,59 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
 
+func TestPipelineEmptyInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	dataRepo := tu.UniqueString("TestPipelineEmptyInput_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Description: "test commit description in 'start commit'",
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	pipeline := tu.UniqueString("TestPipelineEmptyInput")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	// update pipeline to empty input
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Update:    true,
+		})
+	require.NoError(t, err)
+	// restore pipeline by setting its input back
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+			Update:    true,
+		})
+	require.NoError(t, err)
+	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	jis, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jis))
+	require.Equal(t, jis[0].State, pps.JobState_JOB_SUCCESS)
+}
+
 func TestCommitDescription(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9609,12 +9677,10 @@ func TestCreatePipelineError(t *testing.T) {
 	// Create pipeline w/ no transform--make sure we get a response (& make sure
 	// it explains the problem)
 	pipeline := tu.UniqueString("no-transform-")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipelineV2(
 		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: nil,
-			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
@@ -10070,8 +10136,8 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
 
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)},
+	_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null}`, pfs.DefaultProjectName, pipelineName)},
 	)
 	require.YesError(t, err)
 	require.Matches(t, "must specify a transform", err.Error())
@@ -10085,9 +10151,11 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:        client.NewPipeline(pfs.DefaultProjectName, pipelineName),
-		Transform:       &pps.Transform{},
-		Service:         &pps.Service{},
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Service: &pps.Service{
+			Type: string(v1.ServiceTypeNodePort),
+		},
 		ParallelismSpec: &pps.ParallelismSpec{},
 	})
 	require.YesError(t, err)

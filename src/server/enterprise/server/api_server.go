@@ -48,21 +48,19 @@ const (
 )
 
 type apiServer struct {
-	enterprise.UnimplementedAPIServer
-
-	env *Env
-
+	enterprise.UnsafeAPIServer
+	env                  *Env
+	config               Config
 	enterpriseTokenCache *keycache.Cache
-
 	// enterpriseTokenCol is a collection containing the enterprise license state
 	enterpriseTokenCol col.EtcdCollection
-
 	// configCol is a collection containing the license server configuration
 	configCol col.PostgresCollection
 }
 
 // NewEnterpriseServer returns an implementation of ec.APIServer.
-func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
+// TODO: Envs should not be passed by pointer
+func NewEnterpriseServer(env *Env, config Config) (*apiServer, error) {
 	defaultEnterpriseRecord := &ec.EnterpriseRecord{}
 	enterpriseTokenCol := col.NewEtcdCollection(
 		env.EtcdClient,
@@ -75,13 +73,14 @@ func NewEnterpriseServer(env *Env, heartbeat bool) (*apiServer, error) {
 
 	s := &apiServer{
 		env:                  env,
+		config:               config,
 		enterpriseTokenCache: keycache.NewCache(env.BackgroundContext, enterpriseTokenCol.ReadOnly(env.BackgroundContext), enterpriseTokenKey, defaultEnterpriseRecord),
 		enterpriseTokenCol:   enterpriseTokenCol,
 		configCol:            EnterpriseConfigCollection(env.DB, env.Listener),
 	}
 	go s.enterpriseTokenCache.Watch()
 
-	if heartbeat {
+	if config.Heartbeat {
 		go s.heartbeatRoutine(env.BackgroundContext)
 	}
 	return s, nil
@@ -244,7 +243,7 @@ func (a *apiServer) Heartbeat(ctx context.Context, req *ec.HeartbeatRequest) (re
 // Activate implements the Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp *ec.ActivateResponse, retErr error) {
 	// must not activate while paused
-	if a.env.mode == PausedMode {
+	if a.config.Mode == PausedMode {
 		return nil, errors.New("cannot activate paused cluster; unpause first")
 	}
 	// Try to heartbeat before persisting the configuration
@@ -364,7 +363,7 @@ func (a *apiServer) getEnterpriseRecord() (*ec.GetActivationCodeResponse, error)
 // cluster in the "NONE" enterprise state.
 func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (resp *ec.DeactivateResponse, retErr error) {
 	// must not deactivate while paused
-	if a.env.mode == PausedMode {
+	if a.config.Mode == PausedMode {
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
@@ -407,7 +406,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 // Pause sets the cluster to paused mode, restarting all pachds in a paused
 // status.  If they are already paused, it is a no-op.
 func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.PauseResponse, retErr error) {
-	if a.env.mode == UnpausableMode {
+	if a.config.Mode == UnpausableMode {
 		return nil, errors.Errorf("this pachd instance is not in a pausable mode")
 	}
 	if err := a.rollPachd(ctx, true); err != nil {
@@ -433,8 +432,8 @@ func (a *apiServer) Pause(ctx context.Context, req *ec.PauseRequest) (resp *ec.P
 // ConfigMap and the '$(MODE)' reference is verbatim.
 func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 	var (
-		kc        = a.env.getKubeClient()
-		namespace = a.env.namespace
+		kc        = a.env.GetKubeClient()
+		namespace = a.env.Namespace
 	)
 	cc := kc.CoreV1().ConfigMaps(namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
@@ -444,7 +443,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 			return nil
 		}
 		// Since pachd-config is not managed by Helm, it may not exist.
-		c = newPachdConfigMap(namespace, a.env.unpausedMode)
+		c = newPachdConfigMap(namespace, a.config.UnpausedMode)
 		c.Annotations[updatedAtFieldName] = time.Now().Format(time.RFC3339Nano)
 		c.Data["MODE"] = "paused"
 		if _, err := cc.Create(ctx, c, metav1.CreateOptions{}); err != nil {
@@ -456,7 +455,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		// Curiously, Get can return no error and an empty configmap!
 		// If this happens, need to set the name and namespace.
 		if c.ObjectMeta.Name == "" {
-			c = newPachdConfigMap(namespace, a.env.unpausedMode)
+			c = newPachdConfigMap(namespace, a.config.UnpausedMode)
 		}
 		if c.Data == nil {
 			c.Data = make(map[string]string)
@@ -477,7 +476,7 @@ func (a *apiServer) rollPachd(ctx context.Context, paused bool) error {
 		if paused {
 			c.Data["MODE"] = "paused"
 		} else {
-			c.Data["MODE"] = a.env.unpausedMode
+			c.Data["MODE"] = a.config.UnpausedMode
 		}
 		if c.Annotations == nil {
 			c.Annotations = make(map[string]string)
@@ -544,7 +543,7 @@ func scaleDownWorkers(ctx context.Context, kc kubernetes.Interface, namespace st
 }
 
 func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *ec.UnpauseResponse, retErr error) {
-	if a.env.mode == UnpausableMode {
+	if a.config.Mode == UnpausableMode {
 		return nil, errors.Errorf("this pachd instance is not in an unpausable mode")
 	}
 	if err := a.rollPachd(ctx, false); err != nil {
@@ -568,8 +567,8 @@ func (a *apiServer) Unpause(ctx context.Context, req *ec.UnpauseRequest) (resp *
 // after the ConfigMap was updated then it has taken effect and the cluster is
 // in the indicated state.
 func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest) (resp *ec.PauseStatusResponse, retErr error) {
-	kc := a.env.getKubeClient()
-	cc := kc.CoreV1().ConfigMaps(a.env.namespace)
+	kc := a.env.GetKubeClient()
+	cc := kc.CoreV1().ConfigMaps(a.env.Namespace)
 	c, err := cc.Get(ctx, "pachd-config", metav1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		// If there is no configmap, then the pachd pods must be
@@ -592,7 +591,7 @@ func (a *apiServer) PauseStatus(ctx context.Context, req *ec.PauseStatusRequest)
 		return nil, errors.Errorf("could not parse update time %v: %v", c.Annotations[updatedAtFieldName], err)
 	}
 
-	pods := kc.CoreV1().Pods(a.env.namespace)
+	pods := kc.CoreV1().Pods(a.env.Namespace)
 	pp, err := pods.List(ctx, metav1.ListOptions{
 		LabelSelector: "app=pachd",
 	})

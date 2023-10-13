@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetConfigurationRequest",
+    "definitions": {
+        "GetConfigurationRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Configuration Request"
+        }
+    }
+}

@@ -205,6 +205,25 @@ func (x *System) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *StarlarkLiteral) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("name", x.Name)
+	enc.AddString("program_text", x.ProgramText)
+	return nil
+}
+
+func (x *Starlark) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("builtin", x.GetBuiltin())
+	enc.AddObject("literal", x.GetLiteral())
+	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	return nil
+}
+
 func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -219,6 +238,22 @@ func (x *DumpV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("pipelines", zapcore.ArrayMarshalerFunc(pipelinesArrMarshaller))
 	enc.AddBool("input_repos", x.InputRepos)
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
+	enc.AddObject("defaults", x.Defaults)
+	starlark_scriptsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.StarlarkScripts {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("starlark_scripts", zapcore.ArrayMarshalerFunc(starlark_scriptsArrMarshaller))
+	return nil
+}
+
+func (x *DumpV2Request_Defaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("cluster_defaults", x.ClusterDefaults)
 	return nil
 }
 
@@ -246,5 +281,29 @@ func (x *DumpChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddObject("content", x.GetContent())
 	enc.AddObject("progress", x.GetProgress())
+	return nil
+}
+
+func (x *RunPFSLoadTestRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("state_id", x.StateId)
+	return nil
+}
+
+func (x *RunPFSLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("spec", x.Spec)
+	enc.AddObject("branch", x.Branch)
+	enc.AddInt64("seed", x.Seed)
+	enc.AddString("error", x.Error)
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	enc.AddString("state_id", x.StateId)
 	return nil
 }

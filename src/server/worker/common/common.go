@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/hex"
@@ -84,10 +85,10 @@ dataFilters:
 }
 
 // TODO: Trim non-meta file shards?
-func Shard(pachClient *client.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
+func Shard(ctx context.Context, c pfs.APIClient, fileSetIDs []string) ([]*pfs.PathRange, error) {
 	var result []*pfs.PathRange
 	for _, fileSetID := range fileSetIDs {
-		shards, err := pachClient.ShardFileSet(fileSetID)
+		shards, err := client.ShardFileSet(ctx, c, fileSetID)
 		if err != nil {
 			return nil, err
 		}

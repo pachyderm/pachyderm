@@ -11,7 +11,8 @@ import "google/protobuf/wrappers.proto";
 import "pfs/pfs.proto";
 
 import "task/task.proto";
-import "protoextensions/log.proto";
+import "protoextensions/json-schema-options.proto";
+import "protoextensions/validate.proto";
 
 message SecretMount {
   // Name must be the name of the secret in kubernetes.
@@ -23,6 +24,7 @@ message SecretMount {
 }
 
 message Transform {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string image = 1;
   repeated string cmd = 2;
   repeated string err_cmd = 3;
@@ -48,6 +50,7 @@ message TFJob {
 }
 
 message Egress {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string URL = 1;
   oneof target {
     pfs_v2.ObjectStorageEgress object_storage = 2;
@@ -78,6 +81,7 @@ enum JobState {
 }
 
 message Metadata {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> annotations = 1;
   map<string, string> labels = 2;
 }
@@ -94,6 +98,7 @@ message Spout {
 }
 
 message PFSInput {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   string project = 14;
   string name = 1;
   string repo = 2;
@@ -134,6 +139,7 @@ message CronInput {
 
 
 message Input {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   PFSInput pfs = 1;
   repeated Input join = 2;
   repeated Input group = 3;
@@ -150,6 +156,7 @@ message JobInput {
 }
 
 message ParallelismSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // Starts the pipeline/job with a 'constant' workers, unless 'constant' is
   // zero. If 'constant' is zero (which is the zero value of ParallelismSpec),
   // then Pachyderm will choose the number of workers that is started,
@@ -228,6 +235,7 @@ message DatumStatus {
 // ResourceSpec describes the amount of resources that pipeline pods should
 // request from kubernetes, for scheduling.
 message ResourceSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The number of CPUs each worker needs (partial values are allowed, and
   // encouraged)
   float cpu = 1;
@@ -245,6 +253,7 @@ message ResourceSpec {
 }
 
 message GPUSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   // The type of GPU (nvidia.com/gpu or amd.com/gpu for example).
   string type = 1;
   // The number of GPUs to request.
@@ -322,7 +331,7 @@ message Worker {
 
 message Pipeline {
   pfs_v2.Project project = 2;
-  string name = 1;
+  string name = 1 [(validate.rules).string.min_bytes = 1];
 }
 
 enum PipelineState {
@@ -464,7 +473,9 @@ message PipelineInfo {
     Determined determined = 36;
   }
   Details details = 12;
-  string details_json = 13;
+  reserved "details_json";
+  string user_spec_json = 13; // The user-submitted pipeline spec in JSON format.
+  string effective_spec_json = 14; // The effective spec used to create the pipeline.  Created by merging the user spec into the cluster defaults.
 }
 
 message PipelineInfos {
@@ -476,7 +487,7 @@ message JobSet {
 }
 
 message InspectJobSetRequest {
-  JobSet job_set = 1;
+  JobSet job_set = 1 [(validate.rules).message.required = true];
   bool wait = 2; // When true, wait until all jobs in the set are finished
   bool details = 3;
 }
@@ -553,7 +564,7 @@ message StopJobRequest {
 }
 
 message UpdateJobStateRequest {
-  Job job = 1;
+  Job job = 1 [(validate.rules).message.required = true];
   JobState state = 2;
   string reason = 3;
   uint64 restart = 5;
@@ -659,6 +670,8 @@ message ListDatumRequest {
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
 message DatumSetSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
+
   // number, if nonzero, specifies that each datum set should contain `number`
   // datums. Datum sets may contain fewer if the total number of datums don't
   // divide evenly.
@@ -674,11 +687,19 @@ message DatumSetSpec {
 }
 
 message SchedulingSpec {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   map<string, string> node_selector = 1;
   string priority_class_name = 2;
 }
 
+message RerunPipelineRequest {
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
+  // Reprocess forces the pipeline to reprocess all datums.
+  bool reprocess = 15;
+}
+
 message CreatePipelineRequest {
+  option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   Pipeline pipeline = 1;
   // tf_job encodes a Kubeflow TFJob spec. Pachyderm uses this to create TFJobs
   // when running in a kubernetes cluster on which kubeflow has been installed.
@@ -687,7 +708,7 @@ message CreatePipelineRequest {
   Transform transform = 3;
   ParallelismSpec parallelism_spec = 4;
   Egress egress = 5;
-  bool update = 6;
+  bool update = 6 [(protoc.gen.jsonschema.field_options).ignore = true];
   string output_branch = 7;
   // s3_out, if set, requires a pipeline's user to write to its output repo
   // via Pachyderm's s3 gateway (if set, workers will serve Pachyderm's s3
@@ -702,7 +723,7 @@ message CreatePipelineRequest {
   string description = 13;
   // Reprocess forces the pipeline to reprocess all datums.
   // It only has meaning if Update is true
-  bool reprocess = 15;
+  bool reprocess = 15 [(protoc.gen.jsonschema.field_options).ignore = true];
   Service service = 17;
   Spout spout = 18;
   DatumSetSpec datum_set_spec = 19;
@@ -713,7 +734,7 @@ message CreatePipelineRequest {
   SchedulingSpec scheduling_spec = 24;
   string pod_spec = 25; // deprecated, use pod_patch below
   string pod_patch = 26; // a json patch will be applied to the pipeline's pod_spec before it's created;
-  pfs_v2.Commit spec_commit = 27;
+  pfs_v2.Commit spec_commit = 27 [(protoc.gen.jsonschema.field_options).ignore = true];
   Metadata metadata = 28;
   string reprocess_spec = 29;
   bool autoscaling = 30;
@@ -721,7 +742,7 @@ message CreatePipelineRequest {
   ResourceSpec sidecar_resource_requests = 35;
   reserved 36;
   reserved "details_json";
-  bool dry_run = 37;
+  bool dry_run = 37 [(protoc.gen.jsonschema.field_options).ignore = true];
   Determined determined = 38;
 }
 
@@ -737,7 +758,7 @@ message CreatePipelineV2Response {
 }
 
 message InspectPipelineRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
   // When true, return PipelineInfos with the details field, which requires
   // loading the pipeline spec from PFS.
   bool details = 2;
@@ -772,10 +793,12 @@ message ListPipelineRequest {
 // Delete a pipeline.  If the deprecated all member is true, then delete all
 // pipelines in the default project.
 message DeletePipelineRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
   bool all = 2 [deprecated = true]; // Deprecated.
   bool force = 3;
   bool keep_repo = 4;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 5;
 }
 
 // Delete more than one pipeline.
@@ -800,6 +823,8 @@ message StartPipelineRequest {
 
 message StopPipelineRequest {
   Pipeline pipeline = 1;
+  // If true, an error will be returned if the pipeline doesn't exist.
+  bool must_exist = 2;
 }
 
 message RunPipelineRequest {
@@ -809,7 +834,7 @@ message RunPipelineRequest {
 }
 
 message RunCronRequest {
-  Pipeline pipeline = 1;
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
 }
 
 message CreateSecretRequest {
@@ -817,11 +842,11 @@ message CreateSecretRequest {
 }
 
 message DeleteSecretRequest {
-  Secret secret = 1;
+  Secret secret = 1 [(validate.rules).message.required = true];
 }
 
 message InspectSecretRequest {
-  Secret secret = 1;
+  Secret secret = 1 [(validate.rules).message.required = true];
 }
 
 message Secret {
@@ -909,6 +934,12 @@ message SetClusterDefaultsResponse {
   repeated Pipeline affected_pipelines = 2;
 }
 
+message CreatePipelineTransaction {
+  CreatePipelineRequest create_pipeline_request = 1;
+  string user_json = 2; // the JSON the user originally submitted
+  string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -923,6 +954,7 @@ service API {
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
+  rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipelineV2(CreatePipelineV2Request) returns (CreatePipelineV2Response) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}

@@ -19,6 +19,72 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
+var schemaUpdate = `
+       ALTER TABLE pfs.commits ADD CONSTRAINT fk_col_commit
+                  FOREIGN KEY(commit_id)
+                  REFERENCES collections.commits(key)
+                  ON DELETE CASCADE
+`
+
+func setupCommitProvenanceV01(ctx context.Context, tx *pachsql.Tx) error {
+	_, err := tx.ExecContext(ctx, schemaUpdate)
+	return errors.EnsureStack(err)
+}
+
+func SetupCommitProvenanceV0(ctx context.Context, tx *pachsql.Tx) error {
+	_, err := tx.ExecContext(ctx, schema)
+	return errors.EnsureStack(err)
+}
+
+// TODO(acohen4): verify how postgres behaves when does altering a table affect foreign key constraints?
+var schema = `
+	CREATE TABLE pfs.commits (
+		int_id BIGSERIAL PRIMARY KEY,
+		commit_id VARCHAR(4096) UNIQUE,
+                commit_set_id VARCHAR(4096) NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE pfs.commit_provenance (
+		from_id BIGSERIAL NOT NULL,
+		to_id BIGSERIAL NOT NULL,
+		PRIMARY KEY (from_id, to_id),
+                CONSTRAINT fk_from_commit
+                  FOREIGN KEY(from_id)
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE,
+                CONSTRAINT fk_to_commit
+                  FOREIGN KEY(to_id)
+	          REFERENCES pfs.commits(int_id)
+	          ON DELETE CASCADE
+	);
+
+	CREATE INDEX ON pfs.commit_provenance (
+		from_id
+	);
+
+	CREATE INDEX ON pfs.commit_provenance (
+		to_id
+	);
+`
+
+func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
+	ci.Commit.Repo = ci.Commit.Branch.Repo
+	return &pfs.CommitInfo{
+		Commit:              ci.Commit,
+		Origin:              ci.Origin,
+		Description:         ci.Description,
+		ParentCommit:        ci.ParentCommit,
+		ChildCommits:        ci.ChildCommits,
+		Started:             ci.Started,
+		Finishing:           ci.Finishing,
+		Finished:            ci.Finished,
+		Error:               ci.Error,
+		SizeBytesUpperBound: ci.SizeBytesUpperBound,
+		Details:             ci.Details,
+	}
+}
+
 func validateExistingDAGs(cis []*v2_5_0.CommitInfo) error {
 	// group duplicate commits by branchless key
 	duplicates := make(map[string]map[string]*v2_5_0.CommitInfo) // branchless commit key -> { old commit key ->  commit info }
@@ -267,22 +333,6 @@ func getRealDescendantCommits(getCommit func(*pfs.Commit) *commit, c *pfs.Commit
 	return childCommits
 }
 
-func convertCommitInfoToV2_6_0(ci *v2_5_0.CommitInfo) *pfs.CommitInfo {
-	return &pfs.CommitInfo{
-		Commit:              ci.Commit,
-		Origin:              ci.Origin,
-		Description:         ci.Description,
-		ParentCommit:        ci.ParentCommit,
-		ChildCommits:        ci.ChildCommits,
-		Started:             ci.Started,
-		Finishing:           ci.Finishing,
-		Finished:            ci.Finished,
-		Error:               ci.Error,
-		SizeBytesUpperBound: ci.SizeBytesUpperBound,
-		Details:             ci.Details,
-	}
-}
-
 func checkAliasCommit(getCommit func(*pfs.Commit) *commit, commit *pfs.Commit, parentCommit *pfs.Commit) error {
 	md1 := getCommit(commit).totalFilesetMd
 	md2 := getCommit(parentCommit).totalFilesetMd
@@ -355,16 +405,16 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 			Name: split[1],
 		}
 	}
-	listRepoKeys := func(tx *pachsql.Tx) (map[string]struct{}, error) {
+	listSourceCommits := func(tx *pachsql.Tx) (map[string]struct{}, error) {
 		var keys []string
-		if err := tx.Select(&keys, `SELECT key FROM collections.repos`); err != nil {
-			return nil, errors.Wrap(err, "select keys from collections.repos")
+		if err := tx.Select(&keys, `SELECT key FROM collections.commits`); err != nil {
+			return nil, errors.Wrap(err, "select keys from collections.commits")
 		}
-		rs := make(map[string]struct{})
+		cis := make(map[string]struct{})
 		for _, k := range keys {
-			rs[k] = struct{}{}
+			cis[k] = struct{}{}
 		}
-		return rs, nil
+		return cis, nil
 	}
 	parseCommit_2_5 := func(key string) (*pfs.Commit, error) {
 		split := strings.Split(key, "=")
@@ -407,13 +457,13 @@ func deleteDanglingCommitRefs(ctx context.Context, tx *pachsql.Tx) (retErr error
 	if err != nil {
 		return errors.Wrap(err, "list referenced commits")
 	}
-	rs, err := listRepoKeys(tx)
+	cis, err := listSourceCommits(tx)
 	if err != nil {
 		return errors.Wrap(err, "list repos")
 	}
 	var dangCommitKeys []string
 	for _, c := range cs {
-		if _, ok := rs[repoKey(c.Repo)]; !ok {
+		if _, ok := cis[oldCommitKey(c)]; !ok {
 			dangCommitKeys = append(dangCommitKeys, oldCommitKey(c))
 		}
 	}

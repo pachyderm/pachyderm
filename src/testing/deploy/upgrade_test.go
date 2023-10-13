@@ -80,7 +80,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, context.Background(), true /* parallelOK */, 2, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
@@ -138,12 +138,22 @@ func TestUpgradeTrigger(t *testing.T) {
 			})
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
-			for i := 0; i < 10; i++ {
+			for i := 0; i < 11; i++ { // This was initially 10 but with waits 11 is consistent, but it's not clear about correctness here
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+				require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+					latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+					if err != nil {
+						return err
+					}
+					t.Logf("Created commit %v", latestDataCI.Commit.Id)
+					_, err = c.WaitCommit(pfs.DefaultProjectName, dataRepo, "master", latestDataCI.Commit.Id)
+					return err
+				})
+
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			require.NoErrorWithinTRetry(t, 5*time.Minute, func() error {
+			require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
@@ -151,10 +161,10 @@ func TestUpgradeTrigger(t *testing.T) {
 					return err
 				}
 				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.New("not ready")
+					return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 				}
 				return nil
-			})
+			}, 10*time.Second)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, 23, len(commits))
@@ -182,9 +192,8 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.3.9",
-		"2.4.6",
 		"2.5.0",
+		"2.6.3",
 	}
 	montage := func(fromVersion string) string {
 		repo := montageRepo

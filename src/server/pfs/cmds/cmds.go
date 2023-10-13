@@ -23,6 +23,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
 
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -328,7 +329,15 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 
 			err = txncmds.WithActiveTransaction(c, func(c *client.APIClient) error {
-				_, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				res, err := c.PfsAPIClient.DeleteRepo(c.Ctx(), request)
+				if err != nil {
+					return errors.EnsureStack(err)
+				}
+				if !res.Deleted {
+					return errors.New("No repo deleted.")
+				} else {
+					fmt.Fprintln(os.Stderr, "Repo deleted.")
+				}
 				return errors.EnsureStack(err)
 			})
 			return grpcutil.ScrubGRPC(err)
@@ -1839,15 +1848,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			header := pretty.FileHeader
-			writer := tabwriter.NewWriter(os.Stdout, header)
+			fmt.Fprint(os.Stdout, pretty.FileHeader)
 			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps, false)
+				pretty.PrintFileInfo(os.Stdout, fi)
 				return nil
 			}); err != nil {
 				return err
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
@@ -1891,11 +1899,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			fmt.Fprint(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
+				pretty.PrintFileInfo(os.Stdout, fileInfo)
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
@@ -1966,10 +1974,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfs.FileInfo) error {
 					if nameOnly {
 						if nFI != nil {
-							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
+							pretty.PrintDiffFileInfo(writer, true, nFI)
 						}
 						if oFI != nil {
-							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
+							pretty.PrintDiffFileInfo(writer, false, oFI)
 						}
 						return nil
 					}
@@ -2135,7 +2143,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}()
 			if len(args) == 0 {
-				resp, err := c.PfsAPIClient.RunLoadTestDefault(c.Ctx(), &emptypb.Empty{})
+				resp, err := c.DebugClient.RunPFSLoadTestDefault(c.Ctx(), &emptypb.Empty{})
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -2164,7 +2172,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 						return err
 					}
 				}
-				resp, err := c.PfsAPIClient.RunLoadTest(c.Ctx(), &pfs.RunLoadTestRequest{
+				resp, err := c.DebugClient.RunPFSLoadTest(c.Ctx(), &debug.RunPFSLoadTestRequest{
 					Spec:    string(spec),
 					Branch:  branch,
 					Seed:    seed,

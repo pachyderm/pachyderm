@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.21.0
+ARG GOVERSION=golang:1.21.3
 FROM $GOVERSION
 WORKDIR /app
 ADD . /app/

@@ -3,18 +3,19 @@ package clusterstate
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/authdb"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/track"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/auth"
 	"github.com/pachyderm/pachyderm/v2/src/server/identity"
 	"github.com/pachyderm/pachyderm/v2/src/server/license"
@@ -79,7 +80,7 @@ var state_2_0_0 migrations.State = migrations.InitialState().
 	}, migrations.Squash).
 	Apply("create collections", func(ctx context.Context, env migrations.Env) error {
 		collections := []col.PostgresCollection{}
-		collections = append(collections, pfsdb.CollectionsV0()...)
+		collections = append(collections, collectionsV0()...)
 		collections = append(collections, ppsdb.CollectionsV0()...)
 		collections = append(collections, transactiondb.CollectionsV0()...)
 		collections = append(collections, authdb.CollectionsV0()...)
@@ -122,4 +123,77 @@ func SetupPostgresCommitStoreV0(ctx context.Context, tx *pachsql.Tx) error {
 		);
 	`)
 	return errors.EnsureStack(err)
+}
+
+var repoTypeIndex = &col.Index{
+	Name: "type",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.RepoInfo).Repo.Type
+	},
+}
+
+func ReposNameKey(repo *pfs.Repo) string {
+	return repo.Project.Name + "/" + repo.Name
+}
+
+var reposNameIndex = &col.Index{
+	Name: "name",
+	Extract: func(val proto.Message) string {
+		return ReposNameKey(val.(*pfs.RepoInfo).Repo)
+	},
+}
+
+var reposIndexes = []*col.Index{reposNameIndex, repoTypeIndex}
+
+func RepoKey(repo *pfs.Repo) string {
+	return repo.Project.Name + "/" + repo.Name + "." + repo.Type
+}
+
+var commitsRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return RepoKey(val.(*pfs.CommitInfo).Commit.Repo)
+	},
+}
+
+var commitsBranchlessIndex = &col.Index{
+	Name: "branchless",
+	Extract: func(val proto.Message) string {
+		return commitKey(val.(*pfs.CommitInfo).Commit)
+	},
+}
+
+var commitsCommitSetIndex = &col.Index{
+	Name: "commitset",
+	Extract: func(val proto.Message) string {
+		return val.(*pfs.CommitInfo).Commit.Id
+	},
+}
+
+var commitsIndexes = []*col.Index{commitsRepoIndex, commitsBranchlessIndex, commitsCommitSetIndex}
+
+func commitKey(commit *pfs.Commit) string {
+	return RepoKey(commit.Repo) + "@" + commit.Id
+}
+
+var branchesRepoIndex = &col.Index{
+	Name: "repo",
+	Extract: func(val proto.Message) string {
+		return RepoKey(val.(*pfs.BranchInfo).Branch.Repo)
+	},
+}
+
+var branchesIndexes = []*col.Index{branchesRepoIndex}
+
+// collectionsV0 returns a list of all the PFS collections for
+// postgres-initialization purposes. These collections are not usable for
+// querying.
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func collectionsV0() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection("repos", nil, nil, nil, reposIndexes),
+		col.NewPostgresCollection("commits", nil, nil, nil, commitsIndexes),
+		col.NewPostgresCollection("branches", nil, nil, nil, branchesIndexes),
+	}
 }

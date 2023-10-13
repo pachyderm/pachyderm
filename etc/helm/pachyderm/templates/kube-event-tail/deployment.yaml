@@ -31,7 +31,7 @@ spec:
           {{ else }}
               value: {{ .Release.Namespace }}
           {{- end }}
-          image: "{{ .Values.kubeEventTail.image.repository }}:{{ .Values.kubeEventTail.image.tag }}"
+          image: "{{ .Values.global.image.registry }}{{ .Values.kubeEventTail.image.repository }}:{{ .Values.kubeEventTail.image.tag }}"
           imagePullPolicy: {{ .Values.kubeEventTail.image.pullPolicy }}
           livenessProbe:
             failureThreshold: 3

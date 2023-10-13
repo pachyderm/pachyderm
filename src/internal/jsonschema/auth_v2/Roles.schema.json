@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Roles",
+    "definitions": {
+        "Roles": {
+            "properties": {
+                "roles": {
+                    "additionalProperties": {
+                        "type": "boolean"
+                    },
+                    "type": "object"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "// Authorization data structures",
+            "description": "// Authorization data structures  Roles represents the set of roles a principal has"
+        }
+    }
+}

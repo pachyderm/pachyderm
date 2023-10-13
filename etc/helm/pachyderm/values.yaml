@@ -58,6 +58,8 @@ global:
   # Set security context runAs users. If running on openshift, set enabled to false as openshift creates its own contexts.
   securityContexts:
     enabled: true
+  image:
+    registry: docker.io/
 
 determined:
   enabled: false
@@ -338,7 +340,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.7.0-alpha.5"
+    tag: "2.8.0-alpha.4"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
@@ -1047,9 +1049,9 @@ pgbouncer:
     #  cpu: "1"
     #  memory: "2G"
   # maxConnections specifies the maximum number of concurrent connections into pgbouncer.
-  maxConnections: 1000
+  maxConnections: 100000
   # defaultPoolSize specifies the maximum number of concurrent connections from pgbouncer to the postgresql database.
-  defaultPoolSize: 20
+  defaultPoolSize: 80
 
 # Note: Postgres values control the Bitnami Postgresql Subchart
 postgresql:
@@ -1216,7 +1218,7 @@ proxy:
   # The envoy image to pull.
   image:
     repository: "envoyproxy/envoy-distroless"
-    tag: "v1.25.5"
+    tag: "v1.27.1"
     pullPolicy: "IfNotPresent"
   # Set up resources.  The proxy is configured to shed traffic before using 500MB of RAM, so that's
   # a resonable memory limit.  It doesn't need much CPU.

@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	pathpkg "path"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -22,6 +21,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -605,7 +605,7 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	// direction) to stop the state machine changing state _during_ a download()
 	// NB: empty string case is to support pachctl mount as well as mount-server
 	if !(st == "" || st == "mounted") {
-		log.Info(ctx, "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
+		log.Info(pctx.TODO(), "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
 		// return an error to stop an empty directory listing being cached by
 		// the OS
 		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
@@ -615,11 +615,11 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if err != nil {
 		return err
 	}
-	// log the commit
-	log.Info(ctx, "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
 	if commit == "" {
 		return nil
 	}
+	// log the commit
+	log.Info(pctx.TODO(), "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
@@ -627,19 +627,6 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	// Define the callback up front because we use it in two paths
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
 		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
-			return nil
-		}
-		if skip := func() bool {
-			if len(ro.Subpaths) == 0 {
-				return false
-			}
-			for _, sp := range ro.Subpaths {
-				if strings.HasPrefix(fi.File.Path, sp) || strings.HasPrefix(sp, fi.File.Path) {
-					return false
-				}
-			}
-			return true
-		}(); skip {
 			return nil
 		}
 		if fi.FileType == pfs.FileType_DIR {
@@ -678,9 +665,9 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		}
 		return nil
 	}
-	filePath := pathpkg.Join(parts[1:]...)
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
+	filePath := filepath.Join(parts[1:]...)
 	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
 		!pfsserver.IsOutputCommitNotFinishedErr(err) {
 		return err

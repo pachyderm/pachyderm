@@ -1,0 +1,28 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ModifyMembersRequest",
+    "definitions": {
+        "ModifyMembersRequest": {
+            "properties": {
+                "group": {
+                    "type": "string"
+                },
+                "add": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                },
+                "remove": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Modify Members Request"
+        }
+    }
+}

@@ -16,6 +16,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
@@ -149,7 +151,13 @@ func subsToTemplateData(subs ...string) (map[string]string, error) {
 
 func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
 	t.Helper()
-	ctx := context.Background()
+	ctx := pctx.TestContext(t)
+	return PachctlBashCmdCtx(ctx, t, c, scriptTemplate, subs...)
+}
+
+func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, scriptTemplate string, subs ...string) *exec.Cmd {
+	t.Helper()
+	ctx = pctx.Child(ctx, "bash")
 	data, err := subsToTemplateData(subs...)
 	require.NoError(t, err, "could not convert subs to data")
 	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
@@ -164,6 +172,12 @@ func PachctlBashCmd(t *testing.T, c *client.APIClient, scriptTemplate string, su
 	cmd, err := p.CommandTemplate(ctx, scriptTemplate, data)
 	require.NoError(t, err, "could not create command")
 	cmd.Cmd.Stdout = nil // some existing tests expect Stdout not to be redirected
-	cmd.Cmd.Stderr = os.Stderr
+
+	// If you're wondering why you're not seeing stderr, it's probably because you got here via
+	// PachctlBashCmd (without a context), and thus there is no logger to log to.  Supply
+	// pctx.TestContext(t) as context, and you'll be good to go.
+	stderr := log.WriterAt(ctx, log.DebugLevel)
+	t.Cleanup(func() { stderr.Close() })
+	cmd.Cmd.Stderr = stderr
 	return cmd.Cmd
 }

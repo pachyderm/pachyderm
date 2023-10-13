@@ -1,0 +1,55 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AddFile",
+    "definitions": {
+        "AddFile": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "datum": {
+                    "type": "string"
+                },
+                "raw": {
+                    "additionalProperties": false,
+                    "type": "string"
+                },
+                "url": {
+                    "$ref": "#/definitions/pfs_v2.AddFile.URLSource",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "raw"
+                    ]
+                },
+                {
+                    "required": [
+                        "url"
+                    ]
+                }
+            ],
+            "title": "Add File"
+        },
+        "pfs_v2.AddFile.URLSource": {
+            "properties": {
+                "URL": {
+                    "type": "string"
+                },
+                "recursive": {
+                    "type": "boolean"
+                },
+                "concurrency": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "URL Source"
+        }
+    }
+}

@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/setupenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	_ "github.com/pachyderm/pachyderm/v2/src/internal/task/taskprotos"
 )
@@ -64,7 +65,14 @@ func main() {
 		cmdutil.Main(ctx, pachd.PausedMode, &pachconfig.PachdFullConfiguration{})
 	case mode == "preflight":
 		logMode("preflight")
-		cmdutil.Main(ctx, pachd.PreflightMode, &pachconfig.PachdPreflightConfiguration{})
+		cmdutil.Main(ctx, func(ctx context.Context, config *pachconfig.PachdPreflightConfiguration) error {
+			env, err := setupenv.NewPreflightEnv(*config)
+			if err != nil {
+				return err
+			}
+			pd := pachd.NewPreflight(*env, *config)
+			return pd.Run(ctx)
+		}, &pachconfig.PachdPreflightConfiguration{})
 	default:
 		log.Error(ctx, "pachd: unrecognized mode", zap.String("mode", mode))
 		fmt.Printf("unrecognized mode: %s\n", mode)

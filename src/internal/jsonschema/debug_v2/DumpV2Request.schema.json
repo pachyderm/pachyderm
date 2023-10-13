@@ -1,0 +1,220 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DumpV2Request",
+    "definitions": {
+        "DumpV2Request": {
+            "properties": {
+                "system": {
+                    "$ref": "#/definitions/debug_v2.System",
+                    "additionalProperties": false,
+                    "description": "Which system-level information to include in the debug dump."
+                },
+                "pipelines": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Pipeline"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "Which pipelines to fetch information about and include in the debug dump."
+                },
+                "inputRepos": {
+                    "type": "boolean",
+                    "description": "If true, fetch information about non-output repos."
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "How long to run the dump for.",
+                    "format": "regex"
+                },
+                "defaults": {
+                    "$ref": "#/definitions/debug_v2.DumpV2Request.Defaults",
+                    "additionalProperties": false,
+                    "description": "Which defaults to include in the debug dump."
+                },
+                "starlarkScripts": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Starlark"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "A list of Starlark scripts to run."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Dump V 2 Request"
+        },
+        "debug_v2.App": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "pods": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.Pod"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/debug_v2.Pipeline",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "App"
+        },
+        "debug_v2.DumpV2Request.Defaults": {
+            "properties": {
+                "clusterDefaults": {
+                    "type": "boolean",
+                    "description": "If true, include the cluster defaults."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Defaults"
+        },
+        "debug_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
+        },
+        "debug_v2.Pod": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "ip": {
+                    "type": "string"
+                },
+                "containers": {
+                    "items": {
+                        "type": "string"
+                    },
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pod"
+        },
+        "debug_v2.Starlark": {
+            "properties": {
+                "builtin": {
+                    "type": "string",
+                    "description": "One built into the pachd binary."
+                },
+                "literal": {
+                    "$ref": "#/definitions/debug_v2.StarlarkLiteral",
+                    "additionalProperties": false,
+                    "description": "Or a script supplied in this request."
+                },
+                "timeout": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "How long to allow the script to run for.  If unset, defaults to 1 minute.",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "builtin"
+                    ]
+                },
+                {
+                    "required": [
+                        "literal"
+                    ]
+                }
+            ],
+            "title": "Starlark",
+            "description": "Starlark controls the running of a Starlark script."
+        },
+        "debug_v2.StarlarkLiteral": {
+            "properties": {
+                "name": {
+                    "type": "string",
+                    "description": "The name of the script; used for debug messages and to control where the output goes."
+                },
+                "programText": {
+                    "type": "string",
+                    "description": "The text of the \"debugdump\" personality Starlark program."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Starlark Literal",
+            "description": "StarlarkLiteral is a custom Starlark script."
+        },
+        "debug_v2.System": {
+            "properties": {
+                "helm": {
+                    "type": "boolean"
+                },
+                "database": {
+                    "type": "boolean"
+                },
+                "version": {
+                    "type": "boolean"
+                },
+                "describes": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "logs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "lokiLogs": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "binaries": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
+                "profiles": {
+                    "items": {
+                        "$ref": "#/definitions/debug_v2.App"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "System"
+        }
+    }
+}

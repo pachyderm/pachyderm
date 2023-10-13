@@ -303,6 +303,14 @@ func (x *DeleteReposRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *DeleteRepoResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("deleted", x.Deleted)
+	return nil
+}
+
 func (x *DeleteReposResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -806,30 +814,6 @@ func (x *ActivateAuthResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-	return nil
-}
-
-func (x *RunLoadTestRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddString("spec", x.Spec)
-	enc.AddObject("branch", x.Branch)
-	enc.AddInt64("seed", x.Seed)
-	enc.AddString("state_id", x.StateId)
-	return nil
-}
-
-func (x *RunLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	enc.AddString("spec", x.Spec)
-	enc.AddObject("branch", x.Branch)
-	enc.AddInt64("seed", x.Seed)
-	enc.AddString("error", x.Error)
-	protoextensions.AddDuration(enc, "duration", x.Duration)
-	enc.AddString("state_id", x.StateId)
 	return nil
 }
 

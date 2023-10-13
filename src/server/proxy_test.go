@@ -16,6 +16,7 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -158,6 +159,13 @@ func proxyTest(t *testing.T, httpClient *http.Client, c *client.APIClient, secur
 			return get(t, httpClient, url)
 		})
 	})
+
+	// Test PFS download.
+	t.Run("TestHttpDownload", func(t *testing.T) {
+		require.NoErrorWithinTRetry(t, 60*time.Second, func() error {
+			return get(t, httpClient, strings.Join([]string{httpPrefix, addr, "/pfs/", pfs.DefaultProjectName, "/", testRepo, "/master/test.txt?authn-token=", c.AuthToken()}, ""))
+		})
+	})
 }
 
 func deployFakeConsole(t *testing.T, ns string) {
@@ -187,6 +195,10 @@ func deployFakeConsole(t *testing.T, ns string) {
 
 			access_log  /dev/stdout  main;
 
+			location /health {
+			    return 200 'ok';
+			    add_header Content-Type text/plain;
+			}
 			location / {
 			    root   /usr/share/nginx/html;
 			    index  index.html;

@@ -2,10 +2,12 @@ package datum
 
 import (
 	"archive/tar"
+	"context"
 	"io"
 	"path"
 	"strings"
 
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -29,12 +31,12 @@ type Iterator interface {
 
 // NewIterator creates a new datum iterator.
 // TODO: Maybe add a renewer parameter to keep file set alive?
-func NewIterator(pachClient *client.APIClient, taskDoer task.Doer, input *pps.Input) (Iterator, error) {
-	fileSetID, err := Create(pachClient, taskDoer, input)
+func NewIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) (Iterator, error) {
+	fileSetID, err := Create(ctx, c, taskDoer, input)
 	if err != nil {
 		return nil, err
 	}
-	return NewFileSetIterator(pachClient, fileSetID, nil), nil
+	return NewFileSetIterator(ctx, c, fileSetID, nil), nil
 }
 
 // Hasher is the standard interface for a datum hasher.
@@ -68,27 +70,34 @@ func (ji *jobIterator) Iterate(cb func(*Meta) error) error {
 }
 
 type commitIterator struct {
-	pachClient *client.APIClient
-	commit     *pfs.Commit
-	pathRange  *pfs.PathRange
+	ctx       context.Context
+	c         pfs.APIClient
+	commit    *pfs.Commit
+	pathRange *pfs.PathRange
 }
 
 // NewCommitIterator creates an iterator for the specified commit and repo.
-func NewCommitIterator(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange) Iterator {
+func NewCommitIterator(ctx context.Context, c pfs.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange) Iterator {
+	ctx = pctx.Child(ctx, "commitIterator")
 	return &commitIterator{
-		pachClient: pachClient,
-		commit:     commit,
-		pathRange:  pathRange,
+		ctx:       ctx,
+		c:         c,
+		commit:    commit,
+		pathRange: pathRange,
 	}
 }
 
 func (ci *commitIterator) Iterate(cb func(*Meta) error) error {
-	return iterateMeta(ci.pachClient, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
+	return iterateMeta(ci.ctx, ci.c, ci.commit, ci.pathRange, func(_ string, meta *Meta) error {
 		return cb(meta)
 	})
 }
 
-func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
+type fileTarGetter interface {
+	GetFileTAR(ctx context.Context, in *pfs.GetFileRequest, opts ...grpc.CallOption) (pfs.API_GetFileTARClient, error)
+}
+
+func iterateMeta(ctx context.Context, tarGetter fileTarGetter, commit *pfs.Commit, pathRange *pfs.PathRange, cb func(string, *Meta) error) error {
 	// TODO: This code ensures that we only read metadata for the meta files.
 	// There may be a better way to do this.
 	if pathRange == nil {
@@ -104,9 +113,9 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 		File:      commit.NewFile(path.Join("/", common.MetaFilePath("*"))),
 		PathRange: pathRange,
 	}
-	ctx, cancel := pctx.WithCancel(pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
-	client, err := pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := tarGetter.GetFileTAR(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -121,12 +130,13 @@ func iterateMeta(pachClient *client.APIClient, commit *pfs.Commit, pathRange *pf
 			return errors.Wrap(err, "next")
 		}
 		meta := &Meta{}
-		content, err := io.ReadAll(tr)
-		if err != nil {
-			return errors.Wrapf(err, "read file %v", hdr.Name)
-		}
-		if err := protojson.Unmarshal(content, meta); err != nil {
-			return errors.Wrap(err, "unmarshal protojson")
+		// This intentionally reads only the first Meta message stored in the meta file.
+		//
+		// TODO: should this return the first, or the last?  No-one on
+		// the team is currently certain.
+		decoder := protoutil.NewProtoJSONDecoder(tr, protojson.UnmarshalOptions{})
+		if err := decoder.UnmarshalNext(meta); err != nil {
+			return errors.Wrapf(err, "could not unmarshal protojson meta in %s %v", req.File, req.PathRange)
 		}
 		migrateMetaInputsV2_6_0(meta)
 		if err := cb(hdr.Name, meta); err != nil {
@@ -143,21 +153,23 @@ func migrateMetaInputsV2_6_0(meta *Meta) {
 }
 
 // NewFileSetIterator creates a new fileset iterator.
-func NewFileSetIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
-	return NewCommitIterator(pachClient, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
+func NewFileSetIterator(ctx context.Context, c pfs.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
+	return NewCommitIterator(ctx, c, client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID), pathRange)
 }
 
 type fileSetMultiIterator struct {
-	pachClient *client.APIClient
-	commit     *pfs.Commit
-	pathRange  *pfs.PathRange
+	ctx       context.Context
+	pfs       pfs.APIClient
+	commit    *pfs.Commit
+	pathRange *pfs.PathRange
 }
 
-func newFileSetMultiIterator(pachClient *client.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
+func newFileSetMultiIterator(ctx context.Context, c pfs.APIClient, fsID string, pathRange *pfs.PathRange) Iterator {
 	return &fileSetMultiIterator{
-		pachClient: pachClient,
-		commit:     client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
-		pathRange:  pathRange,
+		ctx:       ctx,
+		pfs:       c,
+		commit:    client.NewRepo(pfs.DefaultProjectName, client.FileSetsRepoName).NewCommit("", fsID),
+		pathRange: pathRange,
 	}
 }
 
@@ -166,9 +178,9 @@ func (mi *fileSetMultiIterator) Iterate(cb func(*Meta) error) error {
 		File:      mi.commit.NewFile("/*"),
 		PathRange: mi.pathRange,
 	}
-	ctx, cancel := pctx.WithCancel(mi.pachClient.Ctx())
+	ctx, cancel := pctx.WithCancel(mi.ctx)
 	defer cancel()
-	client, err := mi.pachClient.PfsAPIClient.GetFileTAR(ctx, req)
+	client, err := mi.pfs.GetFileTAR(ctx, req)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}

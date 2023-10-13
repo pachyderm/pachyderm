@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.21.0
+ARG GOVERSION=golang:1.21.3
 FROM $GOVERSION
 
 LABEL maintainer="msteffen@pachyderm.io"
@@ -18,13 +18,23 @@ RUN cp -r /include /bin
 # Instal protoc-gen-go
 RUN go install -v google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
 RUN go install -v google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+RUN go install -v github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts@v1.1.2
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 
 # Install gopatch.
 RUN go install github.com/uber-go/gopatch@${GOPATCH_VERSION}
 
-# Build the bespoke Pachyderm codegen plugin
+# Install protoc-gen-jsonschema.
+RUN go install github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-gen-jsonschema@1.4.1
+
+# Install protoc-gen-validate.
+RUN go install github.com/envoyproxy/protoc-gen-validate@v1.0.2
+
+# Install protoc-gen-doc.
+RUN go install github.com/pseudomuto/protoc-gen-doc/cmd/protoc-gen-doc@v1.5.1
+
+# Build the bespoke Pachyderm codegen plugin.
 COPY pachgen ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/pachgen
 RUN go mod init && go mod tidy && go build -o "${GOPATH}/bin/protoc-gen-pach"

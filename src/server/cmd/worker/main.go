@@ -92,7 +92,18 @@ func do(ctx context.Context, config *pachconfig.WorkerFullConfiguration) error {
 
 	workerapi.RegisterWorkerServer(server.Server, workerInstance.APIServer)
 	versionpb.RegisterAPIServer(server.Server, version.NewAPIServer(version.Version, version.APIServerOptions{}))
-	debugclient.RegisterDebugServer(server.Server, debugserver.NewDebugServer(env, env.Config().PodName, pachClient, env.GetDBClient()))
+	debugSrv := debugserver.NewDebugServer(debugserver.Env{
+		DB:                   env.GetDBClient(),
+		SidecarClient:        pachClient,
+		GetLokiClient:        env.GetLokiClient,
+		Name:                 env.Config().PodName,
+		GetPachClient:        pachClient.WithCtx,
+		GetKubeClient:        env.GetKubeClient,
+		GetDynamicKubeClient: env.GetDynamicKubeClient,
+		Config:               *env.Config(),
+		TaskService:          env.GetTaskService("debug"),
+	})
+	debugclient.RegisterDebugServer(server.Server, debugSrv)
 
 	// Put our IP address into etcd, so pachd can discover us
 	workerRcName := ppsutil.PipelineRcName(pipelineInfo)

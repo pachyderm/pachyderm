@@ -5,13 +5,13 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -24,7 +24,7 @@ import (
 // depending on if there is an active transaction in the client context.
 type PfsWrites interface {
 	CreateRepo(*pfs.CreateRepoRequest) error
-	DeleteRepo(*pfs.DeleteRepoRequest) error
+	DeleteRepo(*pfs.DeleteRepoRequest) (bool, error)
 
 	StartCommit(*pfs.StartCommitRequest) (*pfs.Commit, error)
 	FinishCommit(*pfs.FinishCommitRequest) error
@@ -41,7 +41,7 @@ type PfsWrites interface {
 type PpsWrites interface {
 	StopJob(*pps.StopJobRequest) error
 	UpdateJobState(*pps.UpdateJobStateRequest) error
-	CreatePipeline(*pps.CreatePipelineRequest) error
+	CreatePipeline(*pps.CreatePipelineTransaction) error
 }
 
 // AuthWrites is an interface providing a wrapper for each operation that
@@ -64,14 +64,48 @@ type TransactionServer interface {
 	) (*transaction.TransactionResponse, error)
 }
 
+type PFSBackend interface {
+	NewPropagater(*txncontext.TransactionContext) txncontext.PfsPropagater
+	CreateRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.CreateRepoRequest) error
+	DeleteRepoInTransaction(context.Context, *txncontext.TransactionContext, *pfs.DeleteRepoRequest) (bool, error)
+
+	StartCommitInTransaction(context.Context, *txncontext.TransactionContext, *pfs.StartCommitRequest) (*pfs.Commit, error)
+	FinishCommitInTransaction(context.Context, *txncontext.TransactionContext, *pfs.FinishCommitRequest) error
+	SquashCommitSetInTransaction(context.Context, *txncontext.TransactionContext, *pfs.SquashCommitSetRequest) error
+
+	CreateBranchInTransaction(context.Context, *txncontext.TransactionContext, *pfs.CreateBranchRequest) error
+	DeleteBranchInTransaction(context.Context, *txncontext.TransactionContext, *pfs.DeleteBranchRequest) error
+}
+
+type PPSBackend interface {
+	NewPropagater(*txncontext.TransactionContext) txncontext.PpsPropagater
+	NewJobStopper(*txncontext.TransactionContext) txncontext.PpsJobStopper
+	NewJobFinisher(*txncontext.TransactionContext) txncontext.PpsJobFinisher
+
+	StopJobInTransaction(context.Context, *txncontext.TransactionContext, *pps.StopJobRequest) error
+	UpdateJobStateInTransaction(context.Context, *txncontext.TransactionContext, *pps.UpdateJobStateRequest) error
+	CreatePipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.CreatePipelineTransaction) error
+	CreateDetPipelineSideEffects(context.Context, *pps.Pipeline, []string) error
+}
+
+type AuthBackend interface {
+	ModifyRoleBindingInTransaction(*txncontext.TransactionContext, *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error)
+	DeleteRoleBindingInTransaction(*txncontext.TransactionContext, *auth.Resource) error
+	WhoAmI(context.Context, *auth.WhoAmIRequest) (*auth.WhoAmIResponse, error)
+}
+
 // TransactionEnv contains the APIServer instances for each subsystem that may
 // be involved in running transactions so that they can make calls to each other
 // without leaving the context of a transaction.  This is a separate object
 // because there are cyclic dependencies between APIServer instances.
 type TransactionEnv struct {
-	serviceEnv serviceenv.ServiceEnv
-	txnServer  TransactionServer
-	initDone   chan struct{}
+	txnServer TransactionServer
+	db        *sqlx.DB
+	getPFS    func() PFSBackend
+	getPPS    func() PPSBackend
+	getAuth   func() AuthBackend
+
+	initDone chan struct{}
 }
 
 func New() *TransactionEnv {
@@ -82,11 +116,17 @@ func New() *TransactionEnv {
 
 // Initialize stores the references to APIServer instances in the TransactionEnv
 func (tnxEnv *TransactionEnv) Initialize(
-	serviceEnv serviceenv.ServiceEnv,
+	db *sqlx.DB,
+	getAuth func() AuthBackend,
+	getPFS func() PFSBackend,
+	getPPS func() PPSBackend,
 	txnServer TransactionServer,
 ) {
-	tnxEnv.serviceEnv = serviceEnv
+	tnxEnv.db = db
 	tnxEnv.txnServer = txnServer
+	tnxEnv.getPFS = getPFS
+	tnxEnv.getPPS = getPPS
+	tnxEnv.getAuth = getAuth
 	close(tnxEnv.initDone)
 }
 
@@ -127,64 +167,68 @@ func NewDirectTransaction(ctx context.Context, txnEnv *TransactionEnv, txnCtx *t
 
 func (t *directTransaction) CreateRepo(original *pfs.CreateRepoRequest) error {
 	req := proto.Clone(original).(*pfs.CreateRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateRepoInTransaction(t.ctx, t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPFS().CreateRepoInTransaction(t.ctx, t.txnCtx, req))
 }
 
-func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) error {
+func (t *directTransaction) DeleteRepo(original *pfs.DeleteRepoRequest) (bool, error) {
 	req := proto.Clone(original).(*pfs.DeleteRepoRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteRepoInTransaction(t.txnCtx, req))
+	isRepoDeleted, err := t.txnEnv.getPFS().DeleteRepoInTransaction(t.ctx, t.txnCtx, req)
+	if err != nil {
+		return false, errors.EnsureStack(err)
+	}
+	return isRepoDeleted, nil
 }
 
 func (t *directTransaction) StartCommit(original *pfs.StartCommitRequest) (*pfs.Commit, error) {
 	req := proto.Clone(original).(*pfs.StartCommitRequest)
-	res, err := t.txnEnv.serviceEnv.PfsServer().StartCommitInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.getPFS().StartCommitInTransaction(t.ctx, t.txnCtx, req)
 	return res, errors.EnsureStack(err)
 }
 
 func (t *directTransaction) FinishCommit(original *pfs.FinishCommitRequest) error {
 	req := proto.Clone(original).(*pfs.FinishCommitRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().FinishCommitInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPFS().FinishCommitInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) SquashCommitSet(original *pfs.SquashCommitSetRequest) error {
 	req := proto.Clone(original).(*pfs.SquashCommitSetRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().SquashCommitSetInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPFS().SquashCommitSetInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) CreateBranch(original *pfs.CreateBranchRequest) error {
 	req := proto.Clone(original).(*pfs.CreateBranchRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().CreateBranchInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPFS().CreateBranchInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteBranch(original *pfs.DeleteBranchRequest) error {
 	req := proto.Clone(original).(*pfs.DeleteBranchRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PfsServer().DeleteBranchInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPFS().DeleteBranchInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) StopJob(original *pps.StopJobRequest) error {
 	req := proto.Clone(original).(*pps.StopJobRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().StopJobInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPPS().StopJobInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) UpdateJobState(original *pps.UpdateJobStateRequest) error {
 	req := proto.Clone(original).(*pps.UpdateJobStateRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().UpdateJobStateInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getPPS().UpdateJobStateInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) ModifyRoleBinding(original *auth.ModifyRoleBindingRequest) (*auth.ModifyRoleBindingResponse, error) {
 	req := proto.Clone(original).(*auth.ModifyRoleBindingRequest)
-	res, err := t.txnEnv.serviceEnv.AuthServer().ModifyRoleBindingInTransaction(t.txnCtx, req)
+	res, err := t.txnEnv.getAuth().ModifyRoleBindingInTransaction(t.txnCtx, req)
 	return res, errors.EnsureStack(err)
 }
 
-func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineRequest) error {
-	req := proto.Clone(original).(*pps.CreatePipelineRequest)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.PpsServer().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
+func (t *directTransaction) CreatePipeline(original *pps.CreatePipelineTransaction) error {
+	req := proto.Clone(original).(*pps.CreatePipelineTransaction)
+	return errors.EnsureStack(t.txnEnv.getPPS().CreatePipelineInTransaction(t.ctx, t.txnCtx, req))
 }
 
 func (t *directTransaction) DeleteRoleBinding(original *auth.Resource) error {
 	req := proto.Clone(original).(*auth.Resource)
-	return errors.EnsureStack(t.txnEnv.serviceEnv.AuthServer().DeleteRoleBindingInTransaction(t.txnCtx, req))
+	return errors.EnsureStack(t.txnEnv.getAuth().DeleteRoleBindingInTransaction(t.txnCtx, req))
 }
 
 type appendTransaction struct {
@@ -206,9 +250,9 @@ func (t *appendTransaction) CreateRepo(req *pfs.CreateRepoRequest) error {
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) error {
+func (t *appendTransaction) DeleteRepo(req *pfs.DeleteRepoRequest) (bool, error) {
 	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{DeleteRepo: req})
-	return errors.EnsureStack(err)
+	return true, errors.EnsureStack(err)
 }
 
 func (t *appendTransaction) StartCommit(req *pfs.StartCommitRequest) (*pfs.Commit, error) {
@@ -249,8 +293,8 @@ func (t *appendTransaction) UpdateJobState(req *pps.UpdateJobStateRequest) error
 	return errors.EnsureStack(err)
 }
 
-func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineRequest) error {
-	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipeline: req})
+func (t *appendTransaction) CreatePipeline(req *pps.CreatePipelineTransaction) error {
+	_, err := t.txnEnv.txnServer.AppendRequest(t.ctx, t.activeTxn, &transaction.TransactionRequest{CreatePipelineV2: req})
 	return errors.EnsureStack(err)
 }
 
@@ -281,28 +325,27 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		directTxn := NewDirectTransaction(ctx, env, txnCtx)
 		return cb(directTxn)
 	})
-
 }
 
 func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb func(*txncontext.TransactionContext) error) error {
-	txnCtx, err := txncontext.New(ctx, sqlTx, env.serviceEnv.AuthServer())
+	txnCtx, err := txncontext.New(ctx, sqlTx, env.getAuth())
 	if err != nil {
 		return err
 	}
-	if env.serviceEnv.PfsServer() != nil {
-		txnCtx.PfsPropagater = env.serviceEnv.PfsServer().NewPropagater(txnCtx)
+	if env.getPFS() != nil {
+		txnCtx.PfsPropagater = env.getPFS().NewPropagater(txnCtx)
 	}
-	if env.serviceEnv.PpsServer() != nil {
-		txnCtx.PpsPropagater = env.serviceEnv.PpsServer().NewPropagater(txnCtx)
-		txnCtx.PpsJobStopper = env.serviceEnv.PpsServer().NewJobStopper(txnCtx)
-		txnCtx.PpsJobFinisher = env.serviceEnv.PpsServer().NewJobFinisher(txnCtx)
+	if env.getPPS() != nil {
+		txnCtx.PpsPropagater = env.getPPS().NewPropagater(txnCtx)
+		txnCtx.PpsJobStopper = env.getPPS().NewJobStopper(txnCtx)
+		txnCtx.PpsJobFinisher = env.getPPS().NewJobFinisher(txnCtx)
 	}
 
 	err = cb(txnCtx)
 	if err != nil {
 		return err
 	}
-	return txnCtx.Finish()
+	return txnCtx.Finish(ctx)
 }
 
 func (env *TransactionEnv) waitReady(ctx context.Context) error {
@@ -320,7 +363,7 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return dbutil.WithTx(ctx, env.serviceEnv.GetDBClient(), func(ctx context.Context, sqlTx *pachsql.Tx) error {
+	return dbutil.WithTx(ctx, env.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }
@@ -332,7 +375,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return col.NewDryrunSQLTx(ctx, env.serviceEnv.GetDBClient(), func(sqlTx *pachsql.Tx) error {
+	return col.NewDryrunSQLTx(ctx, env.db, func(sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }
@@ -345,9 +388,12 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncont
 // - in most cases some background job will also be necessary to cleanup resources created here
 func (env *TransactionEnv) PreTxOps(ctx context.Context, reqs []*transaction.TransactionRequest) error {
 	for _, r := range reqs {
-		if r.CreatePipeline != nil {
-			if r.CreatePipeline.Determined != nil {
-				if err := env.serviceEnv.PpsServer().CreateDetPipelineSideEffects(ctx, r.CreatePipeline.Pipeline, r.CreatePipeline.Determined.Workspaces); err != nil {
+		if r.CreatePipelineV2 != nil {
+			if r.CreatePipelineV2.CreatePipelineRequest == nil {
+				return errors.New("nil CreatePipelineRequest in CreatePipelineTransaction")
+			}
+			if r.CreatePipelineV2.CreatePipelineRequest.Determined != nil {
+				if err := env.getPPS().CreateDetPipelineSideEffects(ctx, r.CreatePipelineV2.CreatePipelineRequest.Pipeline, r.CreatePipelineV2.CreatePipelineRequest.Determined.Workspaces); err != nil {
 					return errors.Wrap(err, "apply determined pipeline side effects")
 				}
 			}

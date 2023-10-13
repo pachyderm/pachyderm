@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ModifyRoleBindingResponse",
+    "definitions": {
+        "ModifyRoleBindingResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Modify Role Binding Response"
+        }
+    }
+}

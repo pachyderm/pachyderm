@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/serde"
+	"github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar"
 	"github.com/pachyderm/pachyderm/v2/src/server/debug/shell"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -36,7 +37,14 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
 		Short: "Collect a set of pprof profiles.",
-		Long:  "Collect a set of pprof profiles.",
+		Long:  "This command collects a set of pprof profiles. Options include heap (memory), CPU, block, mutex, and goroutine profiles.",
+		Example: "\t- {{alias}} cpu cpu.tgz \n" +
+			"\t- {{alias}} heap heap.tgz \n" +
+			"\t- {{alias}} goroutine goroutine.tgz \n" +
+			"\t- {{alias}} goroutine --pachd goroutine.tgz \n" +
+			"\t- {{alias}} cpu --pachd -d 30s cpu.tgz \n" +
+			"\t- {{alias}} cpu --pipeline foo -d 30s foo-pipeline.tgz \n" +
+			"\t- {{alias}} cpu --worker foo-v1-r6pdq -d 30s worker.tgz \n",
 		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -60,16 +68,20 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			})
 		}),
 	}
-	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Duration to run a CPU profile for.")
-	profile.Flags().BoolVar(&pachd, "pachd", false, "Only collect the profile from pachd.")
-	profile.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the profile from the worker pods for the given pipeline.")
-	profile.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the profile from the given worker pod.")
+	profile.Flags().DurationVarP(&duration, "duration", "d", time.Minute, "Specify a duration for compiling a CPU profile.")
+	profile.Flags().BoolVar(&pachd, "pachd", false, "Collect only pachd's profile.")
+	profile.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Collect only a specific pipeline's profile from the worker pods.")
+	profile.Flags().StringVarP(&worker, "worker", "w", "", "Collect only the profile of a given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(profile, "debug profile"))
 
 	binary := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a set of binaries.",
-		Long:  "Collect a set of binaries.",
+		Long:  "This command collects a set of binaries.",
+		Example: "\t- {{alias}} binaries.tgz \n" +
+			"\t- {{alias}} --pachd pachd-binary.tgz \n" +
+			"\t- {{alias}} --worker foo-v1-r6pdq foo-pod-binary.tgz \n" +
+			"\t- {{alias}} --pipeline foo foo-binary.tgz \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -85,15 +97,18 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			})
 		}),
 	}
-	binary.Flags().BoolVar(&pachd, "pachd", false, "Only collect the binary from pachd.")
-	binary.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Only collect the binary from the worker pods for the given pipeline.")
-	binary.Flags().StringVarP(&worker, "worker", "w", "", "Only collect the binary from the given worker pod.")
+	binary.Flags().BoolVar(&pachd, "pachd", false, "Collect only pachd's binary.")
+	binary.Flags().StringVarP(&pipeline, "pipeline", "p", "", "Collect only the binary from a given pipeline.")
+	binary.Flags().StringVarP(&worker, "worker", "w", "", "Collect only the binary from a given worker pod.")
 	commands = append(commands, cmdutil.CreateAlias(binary, "debug binary"))
 
 	dumpV2Template := &cobra.Command{
 		Use:   "{{alias}} <file>",
-		Short: "Collect a standard set of debugging information.",
-		Long:  "Collect a standard set of debugging information.",
+		Short: "Print a yaml debugging template.",
+		Long: "This command outputs a customizable yaml template useful for debugging. This is often used by Customer Engineering to support your troubleshooting needs. \n" +
+			"Use the modified template with the `debug dump` command (e.g., `pachctl debug dump --template debug-template.yaml out.tgz`) \n",
+		Example: "\t- {{alias}} \n" +
+			"\t- {{alias}} > debug-template.yaml\n",
 		Run: cmdutil.Run(func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -104,11 +119,10 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if err != nil {
 				return err
 			}
-			bytes, err := serde.EncodeYAML(r.Request)
-			if err != nil {
+			e := serde.NewYAMLEncoder(os.Stdout)
+			if err := e.EncodeProto(r.Request); err != nil {
 				return err
 			}
-			fmt.Println(string(bytes))
 			return nil
 		}),
 	}
@@ -118,7 +132,10 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	dumpV2 := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Collect a standard set of debugging information.",
-		Long:  "Collect a standard set of debugging information.",
+		Long: "This command collects a standard set of debugging information related to the version, database, source repos, helm, profiles, binaries, loki-logs, pipelines, describes, and logs. \n \n" +
+			"You can customize this output by passing in a customized template (made from `pachctl debug template` via the `--template` flag.",
+		Example: "\t- {{alias}} dump.tgz \n" +
+			"\t- {{alias}} -t template.yaml out.tgz\n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -172,14 +189,69 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			})
 		}),
 	}
-	dumpV2.Flags().StringVarP(&template, "template", "t", "", "A template to customize the output of the debug dump operation.")
+	dumpV2.Flags().StringVarP(&template, "template", "t", "", "Download a template to customize the output of the debug dump operation.")
 	commands = append(commands, cmdutil.CreateAlias(dumpV2, "debug dump"))
+
+	localDump := &cobra.Command{
+		Use:     "{{alias}} <template>",
+		Short:   "Collect debugging information without connecting to a Pachyderm server.",
+		Long:    "This command collects debugging information based on a special template provided by Pachyderm Support.\n\nIt works in cases where Pachyderm isn't already installed.",
+		Example: "\t- {{alias}} template.yaml \n",
+		Args:    cobra.MatchAll(cobra.ExactArgs(1), cmdutil.FileMustExist(0)),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			bytes, err := os.ReadFile(args[0])
+			if err != nil {
+				return errors.Wrap(err, "read template file")
+			}
+			template := new(debug.DumpV2Request)
+			if err := serde.Decode(bytes, template); err != nil {
+				return errors.Wrap(err, "unmarshal template")
+			}
+			fs := new(debugstar.LocalDumpFS)
+			env := debugstar.Env{FS: fs}
+			defer errors.Close(&retErr, fs, "finalize archive")
+			var errs error
+			for _, s := range template.GetStarlarkScripts() {
+				var name, program string
+				switch s.GetSource().(type) {
+				case *debug.Starlark_Builtin:
+					name = s.GetBuiltin()
+					var ok bool
+					program, ok = debugstar.BuiltinScripts[name]
+					if !ok {
+						errors.JoinInto(&errs, errors.Errorf("built-in script %q not available", name))
+						continue
+					}
+				case *debug.Starlark_Literal:
+					name = s.GetLiteral().GetName()
+					program = s.GetLiteral().GetProgramText()
+				}
+				if err := env.RunStarlark(mainCtx, name, program); err != nil {
+					errors.JoinInto(&errs, errors.Wrapf(err, "run script %q", name))
+				}
+			}
+			if err := errs; err != nil {
+				if err := fs.Write("local-errors.txt", func(w io.Writer) error {
+					fmt.Fprintf(w, "%+v\n", err)
+					return nil
+				}); err != nil {
+					fmt.Fprintf(os.Stderr, "Some errors occurred and could not be included in the dump. The dump may still be usable.\n%v\n%+v\n", err, errs)
+				}
+			}
+			fmt.Fprintf(os.Stderr, "Debug file available at:\n")
+			fmt.Fprintf(os.Stdout, "%v\n", fs.Name())
+			return nil
+		},
+	}
+	commands = append(commands, cmdutil.CreateAlias(localDump, "debug local"))
 
 	var serverPort int
 	analyze := &cobra.Command{
 		Use:   "{{alias}} <file>",
 		Short: "Start a local pachd server to analyze a debug dump.",
-		Long:  "Start a local pachd server to analyze a debug dump.",
+		Long:  "This command starts a local pachd server to analyze a debug dump.",
+		Example: "\t- {{alias}} dump.tgz \n" +
+			"\t- {{alias}} dump.tgz --port 1650 \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			dump := shell.NewDumpServer(args[0], uint16(serverPort))
 			fmt.Println("listening on", dump.Address())
@@ -193,7 +265,11 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	log := &cobra.Command{
 		Use:   "{{alias}} <level>",
 		Short: "Change the log level across Pachyderm.",
-		Long:  "Change the log level across Pachyderm.",
+		Long:  "This command changes the log level across Pachyderm.",
+		Example: "\t- {{alias}} debug \n" +
+			"\t- {{alias}} info --duration 5m \n" +
+			"\t- {{alias}} info --grpc --duration 5m \n" +
+			"\t- {{alias}} info --recursive false --duration 5m \n",
 		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -232,9 +308,9 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			return nil
 		}),
 	}
-	log.Flags().DurationVarP(&levelChangeDuration, "duration", "d", 5*time.Minute, "how long to log at the non-default level")
-	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "adjust the grpc log level instead of the pachyderm log level")
-	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "set the log level on all pachyderm pods; if false, only the pachd that handles this RPC")
+	log.Flags().DurationVarP(&levelChangeDuration, "duration", "d", 5*time.Minute, "Specify a duration for how long to log at the non-default level.")
+	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "Set the grpc log level instead of the Pachyderm log level.")
+	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "Set the log level on all Pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
 
 	debug := &cobra.Command{

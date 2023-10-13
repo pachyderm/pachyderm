@@ -1,11 +1,13 @@
 package datum
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
@@ -31,8 +33,8 @@ func MergeProcessStats(x, y *pps.ProcessStats) {
 	x.UploadBytes += y.UploadBytes
 }
 
-func WithCreateFileSet(pachClient *client.APIClient, name string, cb func(*Set) error) (string, error) {
-	resp, err := pachClient.WithCreateFileSetClient(func(mf client.ModifyFile) error {
+func WithCreateFileSet(ctx context.Context, c pfs.APIClient, name string, cb func(*Set) error) (string, error) {
+	resp, err := client.WithCreateFileSetClient(ctx, c, func(mf client.ModifyFile) error {
 		storageRoot := filepath.Join(os.TempDir(), name, uuid.NewWithoutDashes())
 		return WithSet(nil, storageRoot, cb, WithMetaOutput(mf))
 	})
@@ -42,6 +44,6 @@ func WithCreateFileSet(pachClient *client.APIClient, name string, cb func(*Set) 
 	return resp.FileSetId, nil
 }
 
-func CreateEmptyFileSet(pachClient *client.APIClient) (string, error) {
-	return WithCreateFileSet(pachClient, "pachyderm-datums-empty", func(_ *Set) error { return nil })
+func CreateEmptyFileSet(ctx context.Context, c pfs.APIClient) (string, error) {
+	return WithCreateFileSet(ctx, c, "pachyderm-datums-empty", func(_ *Set) error { return nil })
 }

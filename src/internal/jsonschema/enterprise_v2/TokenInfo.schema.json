@@ -1,0 +1,19 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/TokenInfo",
+    "definitions": {
+        "TokenInfo": {
+            "properties": {
+                "expires": {
+                    "type": "string",
+                    "description": "expires indicates when the current token expires (unset if there is no current token)",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Token Info",
+            "description": "TokenInfo contains information about the currently active enterprise token"
+        }
+    }
+}

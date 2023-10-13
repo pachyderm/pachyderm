@@ -17,7 +17,10 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
-from .. import pps as _pps__
+from .. import (
+    pfs as _pfs__,
+    pps as _pps__,
+)
 
 
 if TYPE_CHECKING:
@@ -131,11 +134,62 @@ class System(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class StarlarkLiteral(betterproto.Message):
+    """StarlarkLiteral is a custom Starlark script."""
+
+    name: str = betterproto.string_field(1)
+    """
+    The name of the script; used for debug messages and to control where the
+    output goes.
+    """
+
+    program_text: str = betterproto.string_field(2)
+    """The text of the "debugdump" personality Starlark program."""
+
+
+@dataclass(eq=False, repr=False)
+class Starlark(betterproto.Message):
+    """Starlark controls the running of a Starlark script."""
+
+    builtin: str = betterproto.string_field(1, group="source")
+    """One built into the pachd binary."""
+
+    literal: "StarlarkLiteral" = betterproto.message_field(2, group="source")
+    """Or a script supplied in this request."""
+
+    timeout: timedelta = betterproto.message_field(3)
+    """
+    How long to allow the script to run for.  If unset, defaults to 1 minute.
+    """
+
+
+@dataclass(eq=False, repr=False)
 class DumpV2Request(betterproto.Message):
     system: "System" = betterproto.message_field(1)
+    """Which system-level information to include in the debug dump."""
+
     pipelines: List["Pipeline"] = betterproto.message_field(2)
+    """
+    Which pipelines to fetch information about and include in the debug dump.
+    """
+
     input_repos: bool = betterproto.bool_field(3)
+    """If true, fetch information about non-output repos."""
+
     timeout: timedelta = betterproto.message_field(4)
+    """How long to run the dump for."""
+
+    defaults: "DumpV2RequestDefaults" = betterproto.message_field(5)
+    """Which defaults to include in the debug dump."""
+
+    starlark_scripts: List["Starlark"] = betterproto.message_field(6)
+    """A list of Starlark scripts to run."""
+
+
+@dataclass(eq=False, repr=False)
+class DumpV2RequestDefaults(betterproto.Message):
+    cluster_defaults: bool = betterproto.bool_field(1)
+    """If true, include the cluster defaults."""
 
 
 @dataclass(eq=False, repr=False)
@@ -154,6 +208,24 @@ class DumpProgress(betterproto.Message):
 class DumpChunk(betterproto.Message):
     content: "DumpContent" = betterproto.message_field(1, group="chunk")
     progress: "DumpProgress" = betterproto.message_field(2, group="chunk")
+
+
+@dataclass(eq=False, repr=False)
+class RunPfsLoadTestRequest(betterproto.Message):
+    spec: str = betterproto.string_field(1)
+    branch: "_pfs__.Branch" = betterproto.message_field(2)
+    seed: int = betterproto.int64_field(3)
+    state_id: str = betterproto.string_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class RunPfsLoadTestResponse(betterproto.Message):
+    spec: str = betterproto.string_field(1)
+    branch: "_pfs__.Branch" = betterproto.message_field(2)
+    seed: int = betterproto.int64_field(3)
+    error: str = betterproto.string_field(4)
+    duration: timedelta = betterproto.message_field(5)
+    state_id: str = betterproto.string_field(6)
 
 
 class DebugStub:
@@ -187,6 +259,16 @@ class DebugStub:
             "/debug_v2.Debug/DumpV2",
             request_serializer=DumpV2Request.SerializeToString,
             response_deserializer=DumpChunk.FromString,
+        )
+        self.__rpc_run_pfs_load_test = channel.unary_unary(
+            "/debug_v2.Debug/RunPFSLoadTest",
+            request_serializer=RunPfsLoadTestRequest.SerializeToString,
+            response_deserializer=RunPfsLoadTestResponse.FromString,
+        )
+        self.__rpc_run_pfs_load_test_default = channel.unary_unary(
+            "/debug_v2.Debug/RunPFSLoadTestDefault",
+            request_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
+            response_deserializer=RunPfsLoadTestResponse.FromString,
         )
 
     def profile(
@@ -255,9 +337,12 @@ class DebugStub:
         system: "System" = None,
         pipelines: Optional[List["Pipeline"]] = None,
         input_repos: bool = False,
-        timeout: timedelta = None
+        timeout: timedelta = None,
+        defaults: "DumpV2RequestDefaults" = None,
+        starlark_scripts: Optional[List["Starlark"]] = None
     ) -> Iterator["DumpChunk"]:
         pipelines = pipelines or []
+        starlark_scripts = starlark_scripts or []
 
         request = DumpV2Request()
         if system is not None:
@@ -267,9 +352,35 @@ class DebugStub:
         request.input_repos = input_repos
         if timeout is not None:
             request.timeout = timeout
+        if defaults is not None:
+            request.defaults = defaults
+        if starlark_scripts is not None:
+            request.starlark_scripts = starlark_scripts
 
         for response in self.__rpc_dump_v2(request):
             yield response
+
+    def run_pfs_load_test(
+        self,
+        *,
+        spec: str = "",
+        branch: "_pfs__.Branch" = None,
+        seed: int = 0,
+        state_id: str = ""
+    ) -> "RunPfsLoadTestResponse":
+        request = RunPfsLoadTestRequest()
+        request.spec = spec
+        if branch is not None:
+            request.branch = branch
+        request.seed = seed
+        request.state_id = state_id
+
+        return self.__rpc_run_pfs_load_test(request)
+
+    def run_pfs_load_test_default(self) -> "RunPfsLoadTestResponse":
+        request = betterproto_lib_google_protobuf.Empty()
+
+        return self.__rpc_run_pfs_load_test_default(request)
 
 
 class DebugBase:
@@ -319,8 +430,29 @@ class DebugBase:
         pipelines: Optional[List["Pipeline"]],
         input_repos: bool,
         timeout: timedelta,
+        defaults: "DumpV2RequestDefaults",
+        starlark_scripts: Optional[List["Starlark"]],
         context: "grpc.ServicerContext",
     ) -> Iterator["DumpChunk"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def run_pfs_load_test(
+        self,
+        spec: str,
+        branch: "_pfs__.Branch",
+        seed: int,
+        state_id: str,
+        context: "grpc.ServicerContext",
+    ) -> "RunPfsLoadTestResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def run_pfs_load_test_default(
+        self, context: "grpc.ServicerContext"
+    ) -> "RunPfsLoadTestResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -359,5 +491,15 @@ class DebugBase:
                 self.dump_v2,
                 request_deserializer=DumpV2Request.FromString,
                 response_serializer=DumpV2Request.SerializeToString,
+            ),
+            "RunPFSLoadTest": grpc.unary_unary_rpc_method_handler(
+                self.run_pfs_load_test,
+                request_deserializer=RunPfsLoadTestRequest.FromString,
+                response_serializer=RunPfsLoadTestRequest.SerializeToString,
+            ),
+            "RunPFSLoadTestDefault": grpc.unary_unary_rpc_method_handler(
+                self.run_pfs_load_test_default,
+                request_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+                response_serializer=betterproto_lib_google_protobuf.Empty.SerializeToString,
             ),
         }

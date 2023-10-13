@@ -554,7 +554,8 @@ class PipelineInfo(betterproto.Message):
     type: "PipelineInfoPipelineType" = betterproto.enum_field(10)
     auth_token: str = betterproto.string_field(11)
     details: "PipelineInfoDetails" = betterproto.message_field(12)
-    details_json: str = betterproto.string_field(13)
+    user_spec_json: str = betterproto.string_field(13)
+    effective_spec_json: str = betterproto.string_field(14)
 
 
 @dataclass(eq=False, repr=False)
@@ -881,6 +882,13 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RerunPipelineRequest(betterproto.Message):
+    pipeline: "Pipeline" = betterproto.message_field(1)
+    reprocess: bool = betterproto.bool_field(15)
+    """Reprocess forces the pipeline to reprocess all datums."""
+
+
+@dataclass(eq=False, repr=False)
 class CreatePipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     tf_job: "TfJob" = betterproto.message_field(2)
@@ -1003,6 +1011,8 @@ class DeletePipelineRequest(betterproto.Message):
     all: bool = betterproto.bool_field(2)
     force: bool = betterproto.bool_field(3)
     keep_repo: bool = betterproto.bool_field(4)
+    must_exist: bool = betterproto.bool_field(5)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
     def __post_init__(self) -> None:
         super().__post_init__()
@@ -1041,6 +1051,8 @@ class StartPipelineRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class StopPipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
+    must_exist: bool = betterproto.bool_field(2)
+    """If true, an error will be returned if the pipeline doesn't exist."""
 
 
 @dataclass(eq=False, repr=False)
@@ -1178,6 +1190,13 @@ class SetClusterDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(2)
 
 
+@dataclass(eq=False, repr=False)
+class CreatePipelineTransaction(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+    user_json: str = betterproto.string_field(2)
+    effective_json: str = betterproto.string_field(3)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
@@ -1228,6 +1247,11 @@ class ApiStub:
         self.__rpc_restart_datum = channel.unary_unary(
             "/pps_v2.API/RestartDatum",
             request_serializer=RestartDatumRequest.SerializeToString,
+            response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_rerun_pipeline = channel.unary_unary(
+            "/pps_v2.API/RerunPipeline",
+            request_serializer=RerunPipelineRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
         )
         self.__rpc_create_pipeline = channel.unary_unary(
@@ -1516,6 +1540,16 @@ class ApiStub:
 
         return self.__rpc_restart_datum(request)
 
+    def rerun_pipeline(
+        self, *, pipeline: "Pipeline" = None, reprocess: bool = False
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        request = RerunPipelineRequest()
+        if pipeline is not None:
+            request.pipeline = pipeline
+        request.reprocess = reprocess
+
+        return self.__rpc_rerun_pipeline(request)
+
     def create_pipeline(
         self,
         *,
@@ -1668,7 +1702,8 @@ class ApiStub:
         pipeline: "Pipeline" = None,
         all: bool = False,
         force: bool = False,
-        keep_repo: bool = False
+        keep_repo: bool = False,
+        must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = DeletePipelineRequest()
         if pipeline is not None:
@@ -1676,6 +1711,7 @@ class ApiStub:
         request.all = all
         request.force = force
         request.keep_repo = keep_repo
+        request.must_exist = must_exist
 
         return self.__rpc_delete_pipeline(request)
 
@@ -1708,11 +1744,12 @@ class ApiStub:
         return self.__rpc_start_pipeline(request)
 
     def stop_pipeline(
-        self, *, pipeline: "Pipeline" = None
+        self, *, pipeline: "Pipeline" = None, must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = StopPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
+        request.must_exist = must_exist
 
         return self.__rpc_stop_pipeline(request)
 
@@ -2033,6 +2070,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def rerun_pipeline(
+        self, pipeline: "Pipeline", reprocess: bool, context: "grpc.ServicerContext"
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def create_pipeline(
         self,
         pipeline: "Pipeline",
@@ -2112,6 +2156,7 @@ class ApiBase:
         all: bool,
         force: bool,
         keep_repo: bool,
+        must_exist: bool,
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2138,7 +2183,7 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def stop_pipeline(
-        self, pipeline: "Pipeline", context: "grpc.ServicerContext"
+        self, pipeline: "Pipeline", must_exist: bool, context: "grpc.ServicerContext"
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2357,6 +2402,11 @@ class ApiBase:
                 self.restart_datum,
                 request_deserializer=RestartDatumRequest.FromString,
                 response_serializer=RestartDatumRequest.SerializeToString,
+            ),
+            "RerunPipeline": grpc.unary_unary_rpc_method_handler(
+                self.rerun_pipeline,
+                request_deserializer=RerunPipelineRequest.FromString,
+                response_serializer=RerunPipelineRequest.SerializeToString,
             ),
             "CreatePipeline": grpc.unary_unary_rpc_method_handler(
                 self.create_pipeline,

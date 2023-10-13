@@ -848,6 +848,12 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(validateDocs, "validate"))
 
+	rerunDocs := &cobra.Command{
+		Short: "Manually rerun a Pachyderm resource.",
+		Long:  "Manually rerun a Pachyderm resource.",
+	}
+	subcommands = append(subcommands, cmdutil.CreateAlias(rerunDocs, "rerun"))
+
 	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
@@ -860,7 +866,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, configcmds.Cmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, misccmds.Cmds(mainCtx)...)
+	subcommands = append(subcommands, misccmds.Cmds(mainCtx, pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
