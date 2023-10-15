@@ -14,9 +14,10 @@ import (
 // loggingResponseWriter logs the first 1kb of HTTP response data if the HTTP
 // header is an error status (4xx or 5xx)
 type loggingResponseWriter struct {
-	// w is the actual HTTP ResponseWriter that sends data to the client
+	// w is the inner HTTP ResponseWriter that sends data to the client
 	w http.ResponseWriter
-	// statusCode is the response code of the request
+	// statusCode is the response's HTTP error code--determines whether the body
+	// content is logged.
 	statusCode int
 	// buf will hold the first 1k of the response body (for logging) if the server
 	// returns an error response
