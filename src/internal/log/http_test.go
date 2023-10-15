@@ -73,17 +73,6 @@ func TestHTTPServerError(t *testing.T) {
 	if diff := cmp.Diff(h.Logs(), want, formatLogs(simple)); diff != "" {
 		t.Errorf("logs (-got +want):\n%s", diff)
 	}
-	/*
-		type msg struct {
-			Time     time.Time
-			Severity string
-			Logger   string
-			Caller   string
-			Message  string
-			Keys     map[string]any
-			Orig     json.RawMessage
-		}
-	*/
 	for _, l := range h.Logs() {
 		if errmsg, ok := l.Keys["err-msg"]; ok {
 			errmsg, ok := errmsg.(string)
