@@ -12,7 +12,7 @@ import (
 )
 
 type apiServer struct {
-	transaction.UnimplementedAPIServer
+	transaction.UnsafeAPIServer
 
 	driver *driver
 }

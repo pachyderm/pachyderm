@@ -48,7 +48,7 @@ const (
 )
 
 type apiServer struct {
-	enterprise.UnimplementedAPIServer
+	enterprise.UnsafeAPIServer
 	env                  *Env
 	config               Config
 	enterpriseTokenCache *keycache.Cache

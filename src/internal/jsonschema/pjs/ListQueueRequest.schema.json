@@ -1,0 +1,12 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ListQueueRequest",
+    "definitions": {
+        "ListQueueRequest": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "List Queue Request",
+            "description": "TODO: - Filter - Paginate"
+        }
+    }
+}
