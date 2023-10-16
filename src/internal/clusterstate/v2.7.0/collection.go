@@ -1,5 +1,12 @@
 package v2_7_0
 
+/*
+ * This file imports just enough of src/internal/collections to create the
+ * cluster defaults table.  It is literally a copy-paste of
+ * collections.SetupPostgresCollections, with the supporting infrastructure it
+ * requires.
+ */
+
 import (
 	"context"
 	"fmt"
@@ -31,6 +38,8 @@ func newPostgresCollection(name string, indexes []*index) *postgresCollection {
 	return col
 }
 
+// This is a copy-paste of collections.SetupPostgresCollections, using local
+// types.
 func setupPostgresCollections(ctx context.Context, sqlTx *pachsql.Tx, collections ...*postgresCollection) error {
 	for _, col := range collections {
 		columns := []string{
