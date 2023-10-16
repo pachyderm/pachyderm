@@ -13366,6 +13366,1031 @@
       ]
     },
     {
+      "name": "pjs/pjs.proto",
+      "description": "",
+      "package": "pjs",
+      "hasEnums": true,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [
+        {
+          "name": "JobErrorCode",
+          "longName": "JobErrorCode",
+          "fullName": "pjs.JobErrorCode",
+          "description": "",
+          "values": [
+            {
+              "name": "JobErrorCode_UNSPECIFIED",
+              "number": "0",
+              "description": "UNSPECIFIED means the job error code is unspecified."
+            },
+            {
+              "name": "FAILED",
+              "number": "1",
+              "description": "FAILED means that the worker processing the job indicated that it failed."
+            },
+            {
+              "name": "DISCONNECTED",
+              "number": "2",
+              "description": "DISCONNECTED means the worker processing the job disconnected."
+            },
+            {
+              "name": "CANCELED",
+              "number": "3",
+              "description": "CANCELED means the job was canceled."
+            }
+          ]
+        },
+        {
+          "name": "JobState",
+          "longName": "JobState",
+          "fullName": "pjs.JobState",
+          "description": "",
+          "values": [
+            {
+              "name": "JobState_UNSPECIFIED",
+              "number": "0",
+              "description": "UNSPECIFIED means the job state is unspecified."
+            },
+            {
+              "name": "QUEUED",
+              "number": "1",
+              "description": "QUEUED means the job is currently in a queue.\nA QUEUED job will not have any descendants."
+            },
+            {
+              "name": "PROCESSING",
+              "number": "2",
+              "description": "PROCESSING means the job is currently being processed by a worker."
+            },
+            {
+              "name": "DONE",
+              "number": "3",
+              "description": "DONE means the job, and all of its descendants, are done."
+            }
+          ]
+        }
+      ],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "CancelJobRequest",
+          "longName": "CancelJobRequest",
+          "fullName": "pjs.CancelJobRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CancelJobResponse",
+          "longName": "CancelJobResponse",
+          "fullName": "pjs.CancelJobResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "CreateJobRequest",
+          "longName": "CreateJobRequest",
+          "fullName": "pjs.CreateJobRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "spec",
+              "description": "",
+              "label": "",
+              "type": "Any",
+              "longType": "google.protobuf.Any",
+              "fullType": "google.protobuf.Any",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "input",
+              "description": "",
+              "label": "",
+              "type": "QueueElement",
+              "longType": "QueueElement",
+              "fullType": "pjs.QueueElement",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "cache_read",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "cache_write",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateJobResponse",
+          "longName": "CreateJobResponse",
+          "fullName": "pjs.CreateJobResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteJobRequest",
+          "longName": "DeleteJobRequest",
+          "fullName": "pjs.DeleteJobRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteJobResponse",
+          "longName": "DeleteJobResponse",
+          "fullName": "pjs.DeleteJobResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "InspectJobRequest",
+          "longName": "InspectJobRequest",
+          "fullName": "pjs.InspectJobRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "job is the job to start walking from.  If unset the context Job is assumed.",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "InspectJobResponse",
+          "longName": "InspectJobResponse",
+          "fullName": "pjs.InspectJobResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "details",
+              "description": "",
+              "label": "",
+              "type": "JobInfoDetails",
+              "longType": "JobInfoDetails",
+              "fullType": "pjs.JobInfoDetails",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "InspectQueueRequest",
+          "longName": "InspectQueueRequest",
+          "fullName": "pjs.InspectQueueRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "queue",
+              "description": "",
+              "label": "",
+              "type": "Queue",
+              "longType": "Queue",
+              "fullType": "pjs.Queue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "InspectQueueResponse",
+          "longName": "InspectQueueResponse",
+          "fullName": "pjs.InspectQueueResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "details",
+              "description": "",
+              "label": "",
+              "type": "QueueInfoDetails",
+              "longType": "QueueInfoDetails",
+              "fullType": "pjs.QueueInfoDetails",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Job",
+          "longName": "Job",
+          "fullName": "pjs.Job",
+          "description": "Job uniquely identifies a Job\nJob will be nil to indicate no Job, or an unset Job.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "JobInfo",
+          "longName": "JobInfo",
+          "fullName": "pjs.JobInfo",
+          "description": "JobInfo describes a Job",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "Job is the Job's identity",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "parent_job",
+              "description": "parent_job is the Job's parent if it exists.",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "state",
+              "description": "state is the Job's state.\nSee JobState for a description of the possible states.",
+              "label": "",
+              "type": "JobState",
+              "longType": "JobState",
+              "fullType": "pjs.JobState",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "spec",
+              "description": "spec is the code specification for the Job.",
+              "label": "",
+              "type": "Any",
+              "longType": "google.protobuf.Any",
+              "fullType": "google.protobuf.Any",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "input",
+              "description": "input is the input data for the Job.",
+              "label": "",
+              "type": "QueueElement",
+              "longType": "QueueElement",
+              "fullType": "pjs.QueueElement",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "output",
+              "description": "output is produced by a successfully completing Job",
+              "label": "",
+              "type": "QueueElement",
+              "longType": "QueueElement",
+              "fullType": "pjs.QueueElement",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "result",
+              "defaultValue": ""
+            },
+            {
+              "name": "error",
+              "description": "error is set when the Job is unable to complete successfully",
+              "label": "",
+              "type": "JobErrorCode",
+              "longType": "JobErrorCode",
+              "fullType": "pjs.JobErrorCode",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "result",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "JobInfoDetails",
+          "longName": "JobInfoDetails",
+          "fullName": "pjs.JobInfoDetails",
+          "description": "JobInfoDetails is more detailed information about a Job.\nIt contains a superset of the information in JobInfo",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job_info",
+              "description": "",
+              "label": "",
+              "type": "JobInfo",
+              "longType": "JobInfo",
+              "fullType": "pjs.JobInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListJobRequest",
+          "longName": "ListJobRequest",
+          "fullName": "pjs.ListJobRequest",
+          "description": "TODO:\n- Filter\n- Paginate",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "job is the job to start listing at.\nIf nil, then the listing starts at the first job in the natural ordering.",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListJobResponse",
+          "longName": "ListJobResponse",
+          "fullName": "pjs.ListJobResponse",
+          "description": "ListJobResponse lists information about Jobs\nID will always be set.\nInfo and Details may not be set depending on how much information was requested.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "info",
+              "description": "",
+              "label": "",
+              "type": "JobInfo",
+              "longType": "JobInfo",
+              "fullType": "pjs.JobInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "details",
+              "description": "",
+              "label": "",
+              "type": "JobInfoDetails",
+              "longType": "JobInfoDetails",
+              "fullType": "pjs.JobInfoDetails",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListQueueRequest",
+          "longName": "ListQueueRequest",
+          "fullName": "pjs.ListQueueRequest",
+          "description": "TODO:\n- Filter\n- Paginate",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "ListQueueResponse",
+          "longName": "ListQueueResponse",
+          "fullName": "pjs.ListQueueResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "Queue",
+              "longType": "Queue",
+              "fullType": "pjs.Queue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "info",
+              "description": "",
+              "label": "",
+              "type": "QueueInfo",
+              "longType": "QueueInfo",
+              "fullType": "pjs.QueueInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "details",
+              "description": "",
+              "label": "",
+              "type": "QueueInfoDetails",
+              "longType": "QueueInfoDetails",
+              "fullType": "pjs.QueueInfoDetails",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProcessQueueRequest",
+          "longName": "ProcessQueueRequest",
+          "fullName": "pjs.ProcessQueueRequest",
+          "description": "Queue Messages\nProcessQueueRequest is the client -\u003e server message for the bi-di ProcessQueue RPC.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "queue",
+              "description": "queue is set to start processing from a Queue.",
+              "label": "",
+              "type": "Queue",
+              "longType": "Queue",
+              "fullType": "pjs.Queue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "output",
+              "description": "output is set by the client to complete the Job successfully.",
+              "label": "",
+              "type": "QueueElement",
+              "longType": "QueueElement",
+              "fullType": "pjs.QueueElement",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "result",
+              "defaultValue": ""
+            },
+            {
+              "name": "failed",
+              "description": "failed is set by the client to fail the Job.\nThe Job will transition to state DONE with code FAILED.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "result",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProcessQueueResponse",
+          "longName": "ProcessQueueResponse",
+          "fullName": "pjs.ProcessQueueResponse",
+          "description": "ProcessQueueResposne is the server -\u003e client message for the bi-di ProcessQueue RPC.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used to act on behalf of the Job in other RPCs.\nThe server issues this token to the client, and the client should use it when performing Job RPCs.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "input",
+              "description": "input is the input data for a Job.\nThe server sends this to ask the client to compute the output.",
+              "label": "",
+              "type": "QueueElement",
+              "longType": "QueueElement",
+              "fullType": "pjs.QueueElement",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Queue",
+          "longName": "Queue",
+          "fullName": "pjs.Queue",
+          "description": "Queue uniquely identifies a Queue\nQueue will be nil to identify no Queue, or to indicate unset.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "QueueElement",
+          "longName": "QueueElement",
+          "fullName": "pjs.QueueElement",
+          "description": "QueueElement is a single element in a Queue.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "data",
+              "description": "data is opaque data used as the input and output of Jobs",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filesets",
+              "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.\nAny of the filesets referenced here will be persisted for as long as this element is in a Queue.\nNew handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary.",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "QueueInfo",
+          "longName": "QueueInfo",
+          "fullName": "pjs.QueueInfo",
+          "description": "QueueInfo describes a Queue",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "queue",
+              "description": "queue is the Queue's identity",
+              "label": "",
+              "type": "Queue",
+              "longType": "Queue",
+              "fullType": "pjs.Queue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "spec",
+              "description": "spec specifies the code to be run to process the Queue.",
+              "label": "",
+              "type": "Any",
+              "longType": "google.protobuf.Any",
+              "fullType": "google.protobuf.Any",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "QueueInfoDetails",
+          "longName": "QueueInfoDetails",
+          "fullName": "pjs.QueueInfoDetails",
+          "description": "QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.\nIt contains a superset of the information in QueueInfo.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "queue_info",
+              "description": "",
+              "label": "",
+              "type": "QueueInfo",
+              "longType": "QueueInfo",
+              "fullType": "pjs.QueueInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size",
+              "description": "size is the number of elements queued.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "WalkJobRequest",
+          "longName": "WalkJobRequest",
+          "fullName": "pjs.WalkJobRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "context",
+              "description": "context is a bearer token used when calling from within a running Job.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "job is the job to start walking from.  If unset, the context Job is assumed.",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pjs.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "pjs.API",
+          "description": "Job API",
+          "methods": [
+            {
+              "name": "CreateJob",
+              "description": "CreateJob creates a new job.\nChild jobs can be created by setting the context field to the appropriate parent job context.",
+              "requestType": "CreateJobRequest",
+              "requestLongType": "CreateJobRequest",
+              "requestFullType": "pjs.CreateJobRequest",
+              "requestStreaming": false,
+              "responseType": "CreateJobResponse",
+              "responseLongType": "CreateJobResponse",
+              "responseFullType": "pjs.CreateJobResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "CancelJob",
+              "description": "CancelJob cancels a job.\nCanceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. \nThis will terminate all ongoing processing associated with the job.\nNothing will be deleted.\nA job can only be canceled with the parent job context.",
+              "requestType": "CancelJobRequest",
+              "requestLongType": "CancelJobRequest",
+              "requestFullType": "pjs.CancelJobRequest",
+              "requestStreaming": false,
+              "responseType": "CancelJobResponse",
+              "responseLongType": "CancelJobResponse",
+              "responseFullType": "pjs.CancelJobResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "DeleteJob",
+              "description": "DeleteJob deletes a job.\nDeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job.\nA job can only be deleted with the parent job context.",
+              "requestType": "DeleteJobRequest",
+              "requestLongType": "DeleteJobRequest",
+              "requestFullType": "pjs.DeleteJobRequest",
+              "requestStreaming": false,
+              "responseType": "DeleteJobResponse",
+              "responseLongType": "DeleteJobResponse",
+              "responseFullType": "pjs.DeleteJobResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ListJob",
+              "description": "ListJob returns a list of jobs and information about each job.\nThe jobs returned in the list are the child jobs of the provided job.\nIf no job is provided, the list is the child jobs of the provided job context.\nThe provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.",
+              "requestType": "ListJobRequest",
+              "requestLongType": "ListJobRequest",
+              "requestFullType": "pjs.ListJobRequest",
+              "requestStreaming": false,
+              "responseType": "ListJobResponse",
+              "responseLongType": "ListJobResponse",
+              "responseFullType": "pjs.ListJobResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "WalkJob",
+              "description": "WalkJob returns a list of jobs in a hierarchy and information about each job.\nWalking a job traverses the job hierarchy rooted at the provided job.\nThe provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.",
+              "requestType": "WalkJobRequest",
+              "requestLongType": "WalkJobRequest",
+              "requestFullType": "pjs.WalkJobRequest",
+              "requestStreaming": false,
+              "responseType": "ListJobResponse",
+              "responseLongType": "ListJobResponse",
+              "responseFullType": "pjs.ListJobResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "InspectJob",
+              "description": "InspectJob returns detailed information about a job.",
+              "requestType": "InspectJobRequest",
+              "requestLongType": "InspectJobRequest",
+              "requestFullType": "pjs.InspectJobRequest",
+              "requestStreaming": false,
+              "responseType": "InspectJobResponse",
+              "responseLongType": "InspectJobResponse",
+              "responseFullType": "pjs.InspectJobResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ProcessQueue",
+              "description": "ProcessQueue should be called by workers to process jobs in a queue.\nThe protocol is as follows:\n  Worker sends an initial request with the queue id.\n  For each job:\n    Server sends a response with a job context and the associated queue element.\n    Worker processes the job.\n    Worker sends a request with the job output or indicates that the job failed.\nThis RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up.\nThis RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur.",
+              "requestType": "ProcessQueueRequest",
+              "requestLongType": "ProcessQueueRequest",
+              "requestFullType": "pjs.ProcessQueueRequest",
+              "requestStreaming": true,
+              "responseType": "ProcessQueueResponse",
+              "responseLongType": "ProcessQueueResponse",
+              "responseFullType": "pjs.ProcessQueueResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "ListQueue",
+              "description": "ListQueue returns a list of queues and information about each queue.",
+              "requestType": "ListQueueRequest",
+              "requestLongType": "ListQueueRequest",
+              "requestFullType": "pjs.ListQueueRequest",
+              "requestStreaming": false,
+              "responseType": "ListQueueResponse",
+              "responseLongType": "ListQueueResponse",
+              "responseFullType": "pjs.ListQueueResponse",
+              "responseStreaming": true
+            },
+            {
+              "name": "InspectQueue",
+              "description": "InspectQueue returns detailed information about a queue.",
+              "requestType": "InspectQueueRequest",
+              "requestLongType": "InspectQueueRequest",
+              "requestFullType": "pjs.InspectQueueRequest",
+              "requestStreaming": false,
+              "responseType": "InspectQueueResponse",
+              "responseLongType": "InspectQueueResponse",
+              "responseFullType": "pjs.InspectQueueResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "pps/pps.proto",
       "description": "",
       "package": "pps_v2",
