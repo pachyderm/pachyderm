@@ -3,9 +3,6 @@ package v2_7_0
 import (
 	"context"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/ppsdb"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 )
@@ -13,9 +10,7 @@ import (
 func Migrate(state migrations.State) migrations.State {
 	return state.
 		Apply("create cluster defaults", func(ctx context.Context, env migrations.Env) error {
-			var cc []col.PostgresCollection
-			cc = append(cc, ppsdb.CollectionsV2_7_0()...)
-			return col.SetupPostgresCollections(ctx, env.Tx, cc...)
+			return setupPostgresCollections(ctx, env.Tx, ppsCollections()...)
 		}).
 		Apply("Create core schema", func(ctx context.Context, env migrations.Env) error {
 			if err := createCoreSchema(ctx, env.Tx); err != nil {
