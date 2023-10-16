@@ -15,7 +15,7 @@ func Migrate(state migrations.State) migrations.State {
 		Apply("Synthesize cluster defaults from environment variables", synthesizeClusterDefaults, migrations.Squash).
 		Apply("Synthesize user and effective specs from their pipeline details", synthesizeSpecs, migrations.Squash).
 		Apply("create project defaults", func(ctx context.Context, env migrations.Env) error {
-			return setupPostgresCollections(ctx, env.Tx, pfsCollections()...)
+			return setupPostgresCollections(ctx, env.Tx, ppsCollections()...)
 		})
 }
 
