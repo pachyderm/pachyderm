@@ -920,6 +920,7 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 	var page []Commit
 	where := ""
 	conditions := make([]string, 0)
+	args := make([]any, 0)
 	query := getCommit
 	order := "ASC"
 	revisionTimestamp := ""
@@ -933,36 +934,48 @@ func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filt
 		if len(vals) == 0 {
 			continue
 		}
-		quotedVals := make([]string, 0)
-		for _, val := range vals {
-			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
-		}
+		var subconditions []string
+		var argSubstitutes []string
 		switch key {
-		case CommitBranches:
-			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s)))", string(key), strings.Join(quotedVals, ",")))
 		case CommitRepos:
-			var subconditions []string
 			for _, repoStr := range vals {
 				repo := ParseRepo(repoStr)
-				subcondition := fmt.Sprintf(
-					`(repo.name = '%s' AND repo.type = '%s' AND repo.project_id = (SELECT id FROM core.projects project WHERE project.name = '%s'))`,
-					repo.Name, repo.Type, repo.Project.Name,
+				args = append(args, repo.Name, repo.Type, repo.Project.Name)
+				repoSubstitutes := []string{
+					fmt.Sprintf("$%d", len(args)-2),
+					fmt.Sprintf("$%d", len(args)-1),
+					fmt.Sprintf("$%d", len(args)),
+				}
+				argSubstitutes = append(argSubstitutes,
+					repoSubstitutes...,
 				)
+				subcondition := fmt.Sprintf(`(repo.name=%s AND repo.type=%s AND repo.project_id=(SELECT id FROM core.projects project WHERE project.name=%s))`,
+					repoSubstitutes[0], repoSubstitutes[1], repoSubstitutes[2])
 				subconditions = append(subconditions, subcondition)
 			}
-			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.repos repo WHERE (%s)))",
-				string(key), strings.Join(subconditions, " OR ")))
-		case CommitProjects:
-			conditions = append(conditions, fmt.Sprintf("(repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s)))", string(key), strings.Join(quotedVals, ",")))
 		default:
-			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (%s))", string(key), strings.Join(quotedVals, ",")))
+			for _, val := range vals {
+				args = append(args, val)
+				argSubstitutes = append(argSubstitutes, fmt.Sprintf("$%d", len(args)))
+			}
+		}
+		switch key {
+		case CommitRepos:
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.repos repo WHERE (%s)))", string(key), strings.Join(subconditions, " OR ")))
+		case CommitBranches:
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s)))", string(key), strings.Join(argSubstitutes, ",")))
+		case CommitProjects:
+			conditions = append(conditions, fmt.Sprintf("(repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s)))", string(key), strings.Join(argSubstitutes, ",")))
+		default:
+			conditions = append(conditions, fmt.Sprintf("(commit.%s IN (%s))", string(key), strings.Join(argSubstitutes, ",")))
 		}
 	}
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	fullQuery := fmt.Sprintf("%s %s ORDER BY %s commit.int_id %s LIMIT $1 OFFSET $2;", query, where, revisionTimestamp, order)
-	if err := tx.SelectContext(ctx, &page, fullQuery, limit, offset); err != nil {
+	args = append(args, limit, offset)
+	fullQuery := fmt.Sprintf("%s %s ORDER BY %s commit.int_id %s LIMIT %s OFFSET %s;", query, where, revisionTimestamp, order, fmt.Sprintf("$%d", len(args)-1), fmt.Sprintf("$%d", len(args)))
+	if err := tx.SelectContext(ctx, &page, fullQuery, args...); err != nil {
 		return nil, errors.Wrap(err, "could not get commit page")
 	}
 	return page, nil
