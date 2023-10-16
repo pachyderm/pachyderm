@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteJobResponse",
+    "definitions": {
+        "DeleteJobResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Job Response"
+        }
+    }
+}
