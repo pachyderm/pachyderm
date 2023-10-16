@@ -93,7 +93,7 @@ jobs:
             "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
             xargs -ITEST_PACKAGES gotestsum \
             --packages='TEST_PACKAGES' \
-            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
+            --junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --rerun-fails \
             --rerun-fails-max-failures=25 \
@@ -108,12 +108,12 @@ jobs:
           when: always
           command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
-          path: /tmp/test-results
+          path: ${TEST_RESULTS}
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
+          path: ${TEST_RESULTS}/circle
       - codecov/upload:
-          file: /tmp/test-results/unit-coverage.txt
+          file: ${TEST_RESULTS}/unit-coverage.txt
       - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
