@@ -11035,7 +11035,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
 }
 
-func TestMoveBranchTrigger(t *testing.T) {
+func TestPipelineInputTriggerSimple(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -11043,19 +11043,14 @@ func TestMoveBranchTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-
-	// create the trigger source branch
 	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
 	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
-	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "toMove", ""), "foo", strings.NewReader("bar")))
-	_, err := c.WaitCommit(pfs.DefaultProjectName, dataRepo, "toMove", "")
-	require.NoError(t, err)
 
-	// create a pipeline taking both master and the trigger branch as input
+	// Create a pipeline taking in a trigger branch (to be created at pipeline creation), which is triggered by the toMove branch.
 	pipeline := tu.UniqueString("pipeline")
-	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
+	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
 			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
 			Transform: &pps.Transform{
@@ -11068,10 +11063,13 @@ func TestMoveBranchTrigger(t *testing.T) {
 			}),
 		})
 	require.NoError(t, err)
+
+	// Make sure the trigger triggered
+	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "toMove", ""), "foo", strings.NewReader("bar")))
+	_, err = c.WaitCommit(pfs.DefaultProjectName, dataRepo, "toMove", "")
+	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
-	// make sure the trigger triggered
 	files, err := c.ListFileAll(client.NewCommit(pfs.DefaultProjectName, dataRepo, "trigger", ""), "/")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))

@@ -6996,6 +6996,8 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("BranchMovement", func(t *testing.T) {
+		// Note that currently, moving the triggering branch doesn't activate trigger logic.
+		// This test is actually ensuring the current behavior, which is that the trigger doesn't get fired.
 		repo := tu.UniqueString("branch-movement")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "a", "", "", nil))
@@ -7005,7 +7007,7 @@ func TestTrigger(t *testing.T) {
 			Size:   "100",
 		}))
 		aBranchHead := client.NewCommit(pfs.DefaultProjectName, repo, "a", "")
-		// Does not trigger because not enough data has been committed.
+
 		require.NoError(t, c.PutFile(aBranchHead, "file1", strings.NewReader(strings.Repeat("a", 50))))
 		_, err := c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
 		require.NoError(t, err)
@@ -7018,8 +7020,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
 		require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
-		fmt.Println("file1", aBranch.Head, bBranch.Head, cBranch.Head)
-		// Triggers because enough data has been committed.
+
 		require.NoError(t, c.PutFile(aBranchHead, "file2", strings.NewReader(strings.Repeat("a", 50))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
 		require.NoError(t, err)
@@ -7031,9 +7032,8 @@ func TestTrigger(t *testing.T) {
 		cBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "c")
 		require.NoError(t, err)
 		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
-		// require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
-		fmt.Println("file2", aBranch.Head, bBranch.Head, cBranch.Head)
-		// Does not trigger because not enough data has been committed.
+		require.NotEqual(t, bBranch.Head.Id, cBranch.Head.Id)
+
 		require.NoError(t, c.PutFile(aBranchHead, "file3", strings.NewReader(strings.Repeat("a", 50))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "a", "")
 		require.NoError(t, err)
@@ -7045,8 +7045,7 @@ func TestTrigger(t *testing.T) {
 		cBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "c")
 		require.NoError(t, err)
 		require.Equal(t, aBranch.Head.Id, bBranch.Head.Id)
-		fmt.Println("file3", aBranch.Head, bBranch.Head, cBranch.Head)
-		// require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
+		require.NotEqual(t, aBranch.Head.Id, cBranch.Head.Id)
 	})
 }
 
