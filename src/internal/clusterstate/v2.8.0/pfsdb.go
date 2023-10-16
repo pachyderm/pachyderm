@@ -620,3 +620,9 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 	}
 	return nil
 }
+
+func pfsCollections() []*postgresCollection {
+	return []*postgresCollection{
+		newPostgresCollection("project_defaults", nil),
+	}
+}
