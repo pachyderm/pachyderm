@@ -59,7 +59,7 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		if err != nil {
 			return nil, err
 		}
-		if newHead == nil {
+		if newHead == nil || proto.Equal(bi.Head, newHead.Commit) {
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
@@ -141,8 +141,15 @@ func (d *driver) isTriggered(ctx context.Context, txnCtx *txncontext.Transaction
 	if t.Commits != 0 {
 		ci := newHead
 		var commits int64
-		for ci.ParentCommit != nil && commits < t.Commits {
-			if ci.Commit.Id == oldHead.Commit.Id {
+		for commits < t.Commits {
+			if ci.ParentCommit == nil {
+				// TODO: We need a better mechanism for identifying the empty commits we create.
+				if ci.Origin.Kind != pfs.OriginKind_AUTO {
+					commits++
+				}
+				break
+			}
+			if oldHead.Commit.Id == ci.Commit.Id {
 				break
 			}
 			var err error

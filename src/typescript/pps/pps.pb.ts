@@ -500,6 +500,11 @@ export type SchedulingSpec = {
   priorityClassName?: string
 }
 
+export type RerunPipelineRequest = {
+  pipeline?: Pipeline
+  reprocess?: boolean
+}
+
 export type CreatePipelineRequest = {
   pipeline?: Pipeline
   tfJob?: TFJob
@@ -721,6 +726,9 @@ export class API {
   }
   static RestartDatum(req: RestartDatumRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<RestartDatumRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/RestartDatum`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static RerunPipeline(req: RerunPipelineRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
+    return fm.fetchReq<RerunPipelineRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/RerunPipeline`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static CreatePipeline(req: CreatePipelineRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreatePipelineRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/CreatePipeline`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

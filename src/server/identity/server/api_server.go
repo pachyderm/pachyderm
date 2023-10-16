@@ -22,7 +22,7 @@ const (
 )
 
 type apiServer struct {
-	identity.UnimplementedAPIServer
+	identity.UnsafeAPIServer
 	env Env
 	api *dexAPI
 }

@@ -57,7 +57,7 @@ var DefaultOIDCConfig = auth.OIDCConfig{}
 // apiServer implements the public interface of the Pachyderm auth system,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	auth.UnimplementedAPIServer
+	auth.UnsafeAPIServer
 
 	env Env
 

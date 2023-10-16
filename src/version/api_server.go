@@ -12,7 +12,7 @@ import (
 )
 
 type apiServer struct {
-	pb.UnimplementedAPIServer
+	pb.UnsafeAPIServer
 
 	version *pb.Version
 	options APIServerOptions
