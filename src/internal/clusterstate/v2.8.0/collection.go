@@ -292,13 +292,9 @@ func setupPostgresCollections(ctx context.Context, sqlTx *pachsql.Tx, collection
 }
 
 // newPostgresCollection creates a new collection backed by postgres.
-func newPostgresCollection(name string, indexes []*index, opts ...colOption) *postgresCollection {
+func newPostgresCollection(name string) *postgresCollection {
 	col := &postgresCollection{
-		table:   name,
-		indexes: indexes,
-	}
-	for _, opt := range opts {
-		opt(col)
+		table: name,
 	}
 	return col
 }
