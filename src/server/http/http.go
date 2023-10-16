@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/archiveserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/fileserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
@@ -35,6 +36,12 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 		ClientFactory: pachClientFactory,
 	}
 	mux.Handle("/archive/", CSRFWrapper(handler))
+
+	// File server.
+	fileHandler := &fileserver.Server{
+		ClientFactory: pachClientFactory,
+	}
+	mux.Handle("/pfs/", CSRFWrapper(fileHandler))
 
 	// Health check.
 	mux.Handle("/healthz", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

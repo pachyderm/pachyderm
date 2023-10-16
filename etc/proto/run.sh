@@ -20,6 +20,7 @@ fi
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 mkdir -p v2/src/internal/jsonschema
+mkdir -p v2/src/typescript
 
 mapfile -t PROTOS < <(find src -name "*.proto" | sort)
 
@@ -55,6 +56,7 @@ protoc \
     --jsonschema_opt="json_fieldnames" \
     --doc_opt="json,proto-docs.json" \
     --doc2_opt="markdown,proto-docs.md" \
+    --grpc-gateway-ts_out v2/src/typescript \
     "${PROTOS[@]}" > /dev/stderr
 
 pushd v2 > /dev/stderr
@@ -63,4 +65,4 @@ gopatch ./... -p=/proto.patch
 popd > /dev/stderr
 
 gofmt -w . > /dev/stderr
-find . -regextype egrep -regex ".*[.](go|json|md)$" -print0 | xargs -0 tar cf -
+find . -regextype egrep -regex ".*[.](go|json|md|ts)$" -print0 | xargs -0 tar cf -

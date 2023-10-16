@@ -20,7 +20,7 @@ type WorkerInterface interface {
 
 // APIServer implements the worker API
 type APIServer struct {
-	workerapi.UnimplementedWorkerServer
+	workerapi.UnsafeWorkerServer
 
 	driver          driver.Driver
 	workerInterface WorkerInterface

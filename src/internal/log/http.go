@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
@@ -46,4 +47,15 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 			orig.ServeHTTP(w, r)
 		})
 	}
+}
+
+// RequestID returns the RequestID associated with this HTTP request.  This is added by the
+// middleware above.
+func RequestID(ctx context.Context) string {
+	if md, ok := metadata.FromOutgoingContext(ctx); ok {
+		if parts := md.Get("x-request-id"); len(parts) > 0 {
+			return strings.Join(parts, ";")
+		}
+	}
+	return ""
 }
