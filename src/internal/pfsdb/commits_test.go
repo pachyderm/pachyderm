@@ -169,7 +169,7 @@ func TestGetCommit(t *testing.T) {
 	})
 }
 
-func TestGetCommitPair(t *testing.T) {
+func TestGetCommitWithID(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
@@ -457,8 +457,8 @@ func TestUpsertCommit(t *testing.T) {
 
 func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitWithID], expectedInfos []*pfs.CommitInfo) {
 	i := 0
-	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
-		commitsMatch(t, expectedInfos[i], commitPair.CommitInfo)
+	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
+		commitsMatch(t, expectedInfos[i], CommitWithID.CommitInfo)
 		i++
 		return nil
 	}))

@@ -42,14 +42,14 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	iter, err := pfsdb.ListCommit(ctx, db, nil, false, false)
 	require.NoError(t, err, "should be able to list commits from pfs.commits")
 	var gotCommits []v2_8_0.CommitInfo
-	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
-		commit := v2_8_0.InfoToCommit(commitPair.CommitInfo, uint64(commitPair.ID), time.Time{}, time.Time{})
-		ancestry := v2_8_0.InfoToCommitAncestry(commitPair.CommitInfo)
+	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
+		commit := v2_8_0.InfoToCommit(CommitWithID.CommitInfo, uint64(CommitWithID.ID), time.Time{}, time.Time{})
+		ancestry := v2_8_0.InfoToCommitAncestry(CommitWithID.CommitInfo)
 		if ancestry.ParentCommit != "" {
-			gotAncestries[commitPair.CommitInfo.Commit.Key()] = ancestry.ParentCommit
+			gotAncestries[CommitWithID.CommitInfo.Commit.Key()] = ancestry.ParentCommit
 		}
 		for _, child := range ancestry.ChildCommits {
-			gotAncestries[child] = commitPair.CommitInfo.Commit.Key()
+			gotAncestries[child] = CommitWithID.CommitInfo.Commit.Key()
 		}
 		gotCommits = append(gotCommits, commit.CommitInfo)
 		return nil
