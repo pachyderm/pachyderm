@@ -50,7 +50,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -2124,7 +2123,7 @@ func TestSquashComplex(t *testing.T) {
 	checkpoint("good squash latest")
 	css := listCommitSets()
 	require.Equal(t, 18, len(css))
-	require.Equal(t, realLatest.Id, css[len(css)-1].CommitSet.Id)
+	require.Equal(t, realLatest.Id, css[0].CommitSet.Id)
 	fmt.Println(benches)
 }
 
