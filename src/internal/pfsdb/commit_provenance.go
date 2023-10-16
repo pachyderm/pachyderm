@@ -1,6 +1,7 @@
 package pfsdb
 
 import (
+	"context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -56,6 +57,33 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 		return nil, errors.EnsureStack(err)
 	}
 	return cs, nil
+}
+
+func CommitDirectProvenance(ctx context.Context, tx *pachsql.Tx, id CommitID) ([]*pfs.Commit, error) {
+	var commits []Commit
+	query := `
+	SELECT DISTINCT
+		commit.commit_id,
+		commit.commit_set_id,
+		repo.name as "repo.name",
+		repo.type as "repo.type",
+		project.name as "repo.project.name",
+		branch.name as branch_name
+	FROM pfs.commit_provenance prov
+		JOIN pfs.commits commit ON prov.to_id = commit.int_id
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
+	WHERE prov.from_id = $1	
+	`
+	if err := tx.SelectContext(ctx, &commits, query, id); err != nil {
+		return nil, errors.Wrapf(err, "getting direct commit provenance for commitID=%d", id)
+	}
+	var commitPbs []*pfs.Commit
+	for _, commit := range commits {
+		commitPbs = append(commitPbs, commit.Pb())
+	}
+	return commitPbs, nil
 }
 
 // CommitSetSubvenance returns all the commit IDs that contain commits in this commit set in their
