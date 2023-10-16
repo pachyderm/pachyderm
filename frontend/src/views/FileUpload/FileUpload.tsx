@@ -15,6 +15,7 @@ import {
   ErrorText,
   HelpText,
   ButtonGroup,
+  TextArea,
 } from '@pachyderm/components';
 
 import EmptyState from '../../components/EmptyState';
@@ -92,6 +93,17 @@ const FileUpload: React.FC = () => {
                       }}
                     />
                   </div>
+                </Group>
+                <Group vertical>
+                  <Label htmlFor="description" label="Commit Message" />
+                  <TextArea
+                    id="description"
+                    name="description"
+                    autoExpand
+                    clearable
+                    disabled={loading}
+                    placeholder="Enter an optional description for this commit"
+                  />
                 </Group>
                 <div>
                   <Label htmlFor="branch" label="Branch" />

@@ -11,6 +11,7 @@ describe('Repos', () => {
     cy.findByText('Create Repo', {timeout: 12000}).click();
     cy.findByLabelText('Name', {exact: false, timeout: 12000}).type('TestRepo');
     cy.findByText('Create').click();
+    cy.exec('pachctl create branch TestRepo@test');
   });
 
   afterEach(() => {
@@ -57,6 +58,52 @@ describe('Repos', () => {
     cy.findByLabelText('Upload Selected Files').click();
     cy.findByTestId('FileCard__cancel').click({force: true}); // file card can sometimes be above the fold
     cy.findByText('AT-AT.png').should('not.exist');
+  });
+
+  it('should upload a file for the specified path, branch, message, and files', () => {
+    cy.findByText('TestRepo', {timeout: 12000}).click();
+    cy.waitUntil(() =>
+      cy.findByLabelText('Upload Files').should('not.be.disabled'),
+    );
+    cy.findByLabelText('Upload Files').click();
+
+    cy.fixture('AT-AT.png', null).as('file1');
+
+    cy.waitUntil(() =>
+      cy.findByLabelText('Attach Files').should('not.be.disabled'),
+    );
+    cy.findByLabelText('Attach Files').selectFile(
+      [
+        {
+          contents: '@file1',
+          fileName: 'AT-AT.png',
+        },
+      ],
+      {force: true},
+    );
+
+    cy.waitUntil(() =>
+      cy.findByLabelText('Upload Selected Files').should('not.be.disabled'),
+    );
+
+    cy.findByRole('textbox', {name: 'File Path'}).type('/image_store');
+    cy.findByRole('textbox', {name: 'Commit Message'}).type('initial images');
+    cy.findByRole('combobox').click();
+    cy.findByRole('option', {name: 'test'}).click();
+
+    cy.findByLabelText('Upload Selected Files').click();
+    cy.findByLabelText('Commit Selected Files').click();
+
+    // Needs to wait for commit polling to update
+    cy.visit('/lineage/default/repos/TestRepo');
+    cy.findByText('80.59 kB', {timeout: 30000}).should('exist');
+    cy.findByText('New').should('exist');
+    cy.findByText('@test').should('exist');
+
+    cy.findByRole('link', {name: 'Inspect Commits'}).click();
+
+    cy.findAllByText('initial images').should('exist');
+    cy.findByText('image_store').should('exist');
   });
 
   it('should allow a user to upload images and not append files, and view differences between commits', () => {

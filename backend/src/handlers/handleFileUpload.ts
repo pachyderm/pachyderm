@@ -27,6 +27,7 @@ type FileUploadStartBody = {
   path: string;
   repo: string;
   branch: string;
+  description: string;
   projectId: string;
 };
 
@@ -48,7 +49,7 @@ const uploadStart = async (
   next: NextFunction,
 ) => {
   const authToken = req.cookies.dashAuthToken;
-  const {path, branch, repo, projectId} = req.body;
+  const {path, branch, repo, description, projectId} = req.body;
 
   if (!PACHD_ADDRESS) {
     res.status(401);
@@ -87,7 +88,7 @@ const uploadStart = async (
     next('Path must be specified');
   }
 
-  const id = FileUploads.addUpload(path, repo, branch, projectId);
+  const id = FileUploads.addUpload(path, repo, branch, description, projectId);
 
   return res.send({uploadId: id});
 };
@@ -136,6 +137,7 @@ const uploadFinish = async (
             name: upload.repo,
           },
         },
+        description: upload.description,
       });
       await pachClient.pfs.addFileSet({
         projectId: upload.projectId,

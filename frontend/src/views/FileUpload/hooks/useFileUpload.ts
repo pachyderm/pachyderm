@@ -19,6 +19,7 @@ import {GLOB_CHARACTERS, ERROR_MESSAGE} from '../lib/constants';
 type FileUploadFormValues = {
   branch: string;
   path: string;
+  description: string;
   files: FileList;
 };
 
@@ -95,6 +96,7 @@ const useFileUpload = () => {
           path: values.path,
           repo: repoId,
           branch: values.branch,
+          description: values.description,
           projectId,
         }),
       });

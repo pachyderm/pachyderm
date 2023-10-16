@@ -1,6 +1,6 @@
 .base {
   composes: base from '../Input/Input.module.css';
-  padding: 0.5rem;
+  padding: 0.6rem;
   padding-left: 1rem;
   padding-right: 1rem;
   display: block;
