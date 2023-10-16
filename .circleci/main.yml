@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: large
-    parallelism: 1
+    parallelism: 8
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -87,8 +87,12 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            gotestsum \
-            --packages='github.com/pachyderm/pachyderm/v2/src/server/pfs/s3' \
+            # These split by package, so it's not really even. 
+            # It also doesn't seem like circle picks up the test timings so that's not great.
+            go list ./... | circleci tests run --command \
+            "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
+            xargs -ITEST_PACKAGES gotestsum \
+            --packages='TEST_PACKAGES' \
             --junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml \
             --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
             --rerun-fails \
@@ -97,46 +101,19 @@ jobs:
             -- \
             --coverprofile=${TEST_RESULTS}/unit-coverage.txt \
             -covermode=atomic -coverpkg=./... \
-            -parallel=8 -p=1 -count=1
-
-            gotestsum \
-            --packages='github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing' \
-            --junitfile ${TEST_RESULTS}/circle/gotestsum-report-2.xml \
-            --jsonfile ${TEST_RESULTS}/go-test-results-2.jsonl \
-            --rerun-fails \
-            --rerun-fails-max-failures=25 \
-            --format testname --debug \
-            -- \
-            --coverprofile=${TEST_RESULTS}/unit-coverage-2.txt \
-            -covermode=atomic -coverpkg=./... \
-            -parallel=8 -p=1 -count=1
-            # These split by package, so it's not really even. 
-            # It also doesn't seem like circle picks up the test timings so that's not great.
-            # go list ./... | circleci tests run --command \
-            # "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            # xargs -ITEST_PACKAGES gotestsum \
-            # --packages='TEST_PACKAGES' \
-            # --junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml \
-            # --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            # --rerun-fails \
-            # --rerun-fails-max-failures=25 \
-            # --format testname --debug \
-            # -- \
-            # --coverprofile=${TEST_RESULTS}/unit-coverage.txt \
-            # -covermode=atomic -coverpkg=./... \
-            # -parallel=8 -p=1 -count=1" \
-            # --split-by=timings --timings-type=classname
+            -parallel=8 -p=1 -count=1" \
+            --split-by=timings --timings-type=classname
       - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
-          path: /tmp/test-results
+          path: ${TEST_RESULTS}
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results/circle
+          path: ${TEST_RESULTS}/circle
       - codecov/upload:
-          file: /tmp/test-results/unit-coverage.txt
+          file: ${TEST_RESULTS}/unit-coverage.txt
       - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
