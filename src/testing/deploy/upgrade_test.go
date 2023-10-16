@@ -138,18 +138,8 @@ func TestUpgradeTrigger(t *testing.T) {
 			})
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
-			for i := 0; i < 11; i++ { // This was initially 10 but with waits 11 is consistent, but it's not clear about correctness here
+			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
-				require.NoErrorWithinTRetry(t, time.Second*30, func() error {
-					latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-					if err != nil {
-						return err
-					}
-					t.Logf("Created commit %v", latestDataCI.Commit.Id)
-					_, err = c.WaitCommit(pfs.DefaultProjectName, dataRepo, "master", latestDataCI.Commit.Id)
-					return err
-				})
-
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
