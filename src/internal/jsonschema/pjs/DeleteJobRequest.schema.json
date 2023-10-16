@@ -1,0 +1,32 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DeleteJobRequest",
+    "definitions": {
+        "DeleteJobRequest": {
+            "properties": {
+                "context": {
+                    "type": "string",
+                    "description": "context is a bearer token used when calling from within a running Job."
+                },
+                "job": {
+                    "$ref": "#/definitions/pjs.Job",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Job Request"
+        },
+        "pjs.Job": {
+            "properties": {
+                "id": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Job",
+            "description": "Job uniquely identifies a Job Job will be nil to indicate no Job, or an unset Job."
+        }
+    }
+}
