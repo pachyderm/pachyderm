@@ -375,6 +375,17 @@ function deserialize_pps_v2_RenderTemplateResponse(buffer_arg) {
   return pps_pps_pb.RenderTemplateResponse.deserializeBinary(new Uint8Array(buffer_arg));
 }
 
+function serialize_pps_v2_RerunPipelineRequest(arg) {
+  if (!(arg instanceof pps_pps_pb.RerunPipelineRequest)) {
+    throw new Error('Expected argument of type pps_v2.RerunPipelineRequest');
+  }
+  return Buffer.from(arg.serializeBinary());
+}
+
+function deserialize_pps_v2_RerunPipelineRequest(buffer_arg) {
+  return pps_pps_pb.RerunPipelineRequest.deserializeBinary(new Uint8Array(buffer_arg));
+}
+
 function serialize_pps_v2_RestartDatumRequest(arg) {
   if (!(arg instanceof pps_pps_pb.RestartDatumRequest)) {
     throw new Error('Expected argument of type pps_v2.RestartDatumRequest');
@@ -662,6 +673,17 @@ listDatum: {
     responseType: google_protobuf_empty_pb.Empty,
     requestSerialize: serialize_pps_v2_RestartDatumRequest,
     requestDeserialize: deserialize_pps_v2_RestartDatumRequest,
+    responseSerialize: serialize_google_protobuf_Empty,
+    responseDeserialize: deserialize_google_protobuf_Empty,
+  },
+  rerunPipeline: {
+    path: '/pps_v2.API/RerunPipeline',
+    requestStream: false,
+    responseStream: false,
+    requestType: pps_pps_pb.RerunPipelineRequest,
+    responseType: google_protobuf_empty_pb.Empty,
+    requestSerialize: serialize_pps_v2_RerunPipelineRequest,
+    requestDeserialize: deserialize_pps_v2_RerunPipelineRequest,
     responseSerialize: serialize_google_protobuf_Empty,
     responseDeserialize: deserialize_google_protobuf_Empty,
   },

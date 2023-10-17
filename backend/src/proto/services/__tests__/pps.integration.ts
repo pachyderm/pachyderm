@@ -306,7 +306,7 @@ describe('services/pps', () => {
 
       expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
         JSON.parse(
-          `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+          `{"outputBranch": "master","pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]},"reprocessSpec": "until_success", "resourceRequests":{"cpu":1},"datumTries": "3", "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
         ),
       );
 
@@ -344,7 +344,7 @@ describe('services/pps', () => {
 
       expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
         JSON.parse(
-          `{"update": true, "pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+          `{"update": true, "outputBranch": "master","pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]},"reprocessSpec": "until_success", "resourceRequests":{"cpu":1}, "datumTries": "3", "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
         ),
       );
 
@@ -405,7 +405,7 @@ describe('services/pps', () => {
 
       expect(JSON.parse(resp.effectiveCreatePipelineRequestJson)).toEqual(
         JSON.parse(
-          `{"pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "resourceRequests":{"cpu":1}, "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
+          `{"outputBranch": "master","pipeline":{"project":{"name":"default"}, "name":"test"}, "transform":{"image":"alpine", "cmd":["sh"], "stdin":["cp /pfs/${inputRepoName}/*.dat /pfs/out/"]}, "reprocessSpec": "until_success", "resourceRequests":{"cpu":1},"datumTries": "3", "input":{"pfs":{"project":"default", "name":"${inputRepoName}", "repo":"${inputRepoName}", "repoType":"user", "branch":"master", "glob":"/*"}}}`,
         ),
       );
 

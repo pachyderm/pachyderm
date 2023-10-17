@@ -26,6 +26,7 @@ interface IAPIService extends grpc.ServiceDefinition<grpc.UntypedServiceImplemen
     inspectDatum: IAPIService_IInspectDatum;
     listDatum: IAPIService_IListDatum;
     restartDatum: IAPIService_IRestartDatum;
+    rerunPipeline: IAPIService_IRerunPipeline;
     createPipeline: IAPIService_ICreatePipeline;
     createPipelineV2: IAPIService_ICreatePipelineV2;
     inspectPipeline: IAPIService_IInspectPipeline;
@@ -141,6 +142,15 @@ interface IAPIService_IRestartDatum extends grpc.MethodDefinition<pps_pps_pb.Res
     responseStream: false;
     requestSerialize: grpc.serialize<pps_pps_pb.RestartDatumRequest>;
     requestDeserialize: grpc.deserialize<pps_pps_pb.RestartDatumRequest>;
+    responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
+    responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
+}
+interface IAPIService_IRerunPipeline extends grpc.MethodDefinition<pps_pps_pb.RerunPipelineRequest, google_protobuf_empty_pb.Empty> {
+    path: "/pps_v2.API/RerunPipeline";
+    requestStream: false;
+    responseStream: false;
+    requestSerialize: grpc.serialize<pps_pps_pb.RerunPipelineRequest>;
+    requestDeserialize: grpc.deserialize<pps_pps_pb.RerunPipelineRequest>;
     responseSerialize: grpc.serialize<google_protobuf_empty_pb.Empty>;
     responseDeserialize: grpc.deserialize<google_protobuf_empty_pb.Empty>;
 }
@@ -392,6 +402,7 @@ export interface IAPIServer extends grpc.UntypedServiceImplementation {
     inspectDatum: grpc.handleUnaryCall<pps_pps_pb.InspectDatumRequest, pps_pps_pb.DatumInfo>;
     listDatum: grpc.handleServerStreamingCall<pps_pps_pb.ListDatumRequest, pps_pps_pb.DatumInfo>;
     restartDatum: grpc.handleUnaryCall<pps_pps_pb.RestartDatumRequest, google_protobuf_empty_pb.Empty>;
+    rerunPipeline: grpc.handleUnaryCall<pps_pps_pb.RerunPipelineRequest, google_protobuf_empty_pb.Empty>;
     createPipeline: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineRequest, google_protobuf_empty_pb.Empty>;
     createPipelineV2: grpc.handleUnaryCall<pps_pps_pb.CreatePipelineV2Request, pps_pps_pb.CreatePipelineV2Response>;
     inspectPipeline: grpc.handleUnaryCall<pps_pps_pb.InspectPipelineRequest, pps_pps_pb.PipelineInfo>;
@@ -446,6 +457,9 @@ export interface IAPIClient {
     restartDatum(request: pps_pps_pb.RestartDatumRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
@@ -548,6 +562,9 @@ export class APIClient extends grpc.Client implements IAPIClient {
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public restartDatum(request: pps_pps_pb.RestartDatumRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
+    public rerunPipeline(request: pps_pps_pb.RerunPipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;
     public createPipeline(request: pps_pps_pb.CreatePipelineRequest, metadata: grpc.Metadata, options: Partial<grpc.CallOptions>, callback: (error: grpc.ServiceError | null, response: google_protobuf_empty_pb.Empty) => void): grpc.ClientUnaryCall;

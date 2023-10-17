@@ -2015,6 +2015,32 @@ export namespace SchedulingSpec {
     }
 }
 
+export class RerunPipelineRequest extends jspb.Message { 
+
+    hasPipeline(): boolean;
+    clearPipeline(): void;
+    getPipeline(): Pipeline | undefined;
+    setPipeline(value?: Pipeline): RerunPipelineRequest;
+    getReprocess(): boolean;
+    setReprocess(value: boolean): RerunPipelineRequest;
+
+    serializeBinary(): Uint8Array;
+    toObject(includeInstance?: boolean): RerunPipelineRequest.AsObject;
+    static toObject(includeInstance: boolean, msg: RerunPipelineRequest): RerunPipelineRequest.AsObject;
+    static extensions: {[key: number]: jspb.ExtensionFieldInfo<jspb.Message>};
+    static extensionsBinary: {[key: number]: jspb.ExtensionFieldBinaryInfo<jspb.Message>};
+    static serializeBinaryToWriter(message: RerunPipelineRequest, writer: jspb.BinaryWriter): void;
+    static deserializeBinary(bytes: Uint8Array): RerunPipelineRequest;
+    static deserializeBinaryFromReader(message: RerunPipelineRequest, reader: jspb.BinaryReader): RerunPipelineRequest;
+}
+
+export namespace RerunPipelineRequest {
+    export type AsObject = {
+        pipeline?: Pipeline.AsObject,
+        reprocess: boolean,
+    }
+}
+
 export class CreatePipelineRequest extends jspb.Message { 
 
     hasPipeline(): boolean;
