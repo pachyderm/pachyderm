@@ -255,6 +255,8 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	// Compute branch provenance, and avoid creating cycles.
 	// We know a cycle exists if the to_branch is in the subvenance of the from_branch.
+	// Note that we get the full subvenance set as an efficiency optimization,
+	// where we avoid having to query the database for each branch in the provenance chain.
 	fullSubv, err := GetBranchSubvenance(ctx, tx, branchID)
 	if err != nil {
 		return branchID, errors.Wrap(err, "could not compute branch subvenance")
@@ -405,9 +407,6 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 
 // CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	// if err := CheckBranchProvenanceForCycles(ctx, tx, from, to); err != nil {
-	// 	return errors.Wrapf(err, "from_id = %d, to_id = %d", from, to)
-	// }
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)	
 		VALUES ($1, $2)
