@@ -6527,20 +6527,21 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
+		sleepDur := 3 * time.Second
 		// Create initial commit.
 		commit := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
 		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		// Ensure that the trigger fired after a minute.
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// Ensure that the trigger branch remains unchanged after another minute (no new commmit).
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6548,7 +6549,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6562,16 +6563,17 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * 1 *", // every January
+			CronSpec: "@yearly",
 		}))
+		sleepDur := 3 * time.Second
 		// Create initial commit and ensure that it doesn't fire in a minute.
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
@@ -6580,9 +6582,9 @@ func TestTrigger(t *testing.T) {
 		// Update the trigger back to one minute and ensure that the trigger fires.
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
-		time.Sleep(time.Second)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6728,7 +6730,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
-			RateLimitSpec: "* * * * *",
+			RateLimitSpec: "@every 3s",
 			Size:          "100",
 			Commits:       3,
 		}))
@@ -6797,7 +6799,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one triggers, because of rate limit spec
-		time.Sleep(time.Minute)
+		time.Sleep(3 * time.Second)
 		require.NoError(t, c.PutFile(stagingHead, "file8", strings.NewReader(strings.Repeat("a", 1))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
@@ -6816,10 +6818,11 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
 			All:           true,
-			RateLimitSpec: "* * * * *",
+			RateLimitSpec: "@every 3s",
 			Size:          "100",
 			Commits:       3,
 		}))
+		sleepDur := 3 * time.Second
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		// Doesn't trigger because all 3 conditions must be met
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader(strings.Repeat("a", 100))))
@@ -6842,7 +6845,7 @@ func TestTrigger(t *testing.T) {
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Finally triggers because we have 3 commits, 100 bytes and RateLimitSpec (since epoch) is satisfied.
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		require.NoError(t, c.PutFile(stagingHead, "file3", strings.NewReader(strings.Repeat("a", 100))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
@@ -6883,7 +6886,7 @@ func TestTrigger(t *testing.T) {
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Finally triggers, all triggers have been met
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		require.NoError(t, c.PutFile(stagingHead, "file7", strings.NewReader(strings.Repeat("a", 100))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
