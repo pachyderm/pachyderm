@@ -26,7 +26,7 @@ const (
 )
 
 type apiServer struct {
-	lc.UnimplementedAPIServer
+	lc.UnsafeAPIServer
 
 	env *Env
 	// license is the database record where we store the active enterprise license
