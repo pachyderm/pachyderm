@@ -15,3 +15,11 @@ func (x *ClusterDefaultsWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddString("json", x.Json)
 	return nil
 }
+
+func (x *ProjectDefaultsWrapper) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("json", x.Json)
+	return nil
+}
