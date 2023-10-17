@@ -6,3 +6,7 @@
 export type ClusterDefaultsWrapper = {
   json?: string
 }
+
+export type ProjectDefaultsWrapper = {
+  json?: string
+}
