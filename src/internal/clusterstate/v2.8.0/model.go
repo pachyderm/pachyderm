@@ -23,11 +23,11 @@ type CommitInfo struct {
 	RepoID         uint64         `db:"repo_id"`
 	Origin         string         `db:"origin"`
 	Description    string         `db:"description"`
-	StartTime      time.Time      `db:"start_time"`
-	FinishingTime  time.Time      `db:"finishing_time"`
-	FinishedTime   time.Time      `db:"finished_time"`
-	CompactingTime int64          `db:"compacting_time_s"`
-	ValidatingTime int64          `db:"validating_time_s"`
+	StartTime      sql.NullTime   `db:"start_time"`
+	FinishingTime  sql.NullTime   `db:"finishing_time"`
+	FinishedTime   sql.NullTime   `db:"finished_time"`
+	CompactingTime sql.NullInt64  `db:"compacting_time_s"`
+	ValidatingTime sql.NullInt64  `db:"validating_time_s"`
 	Error          string         `db:"error"`
 	Size           int64          `db:"size"`
 	RepoName       string         `db:"repo_name"`
