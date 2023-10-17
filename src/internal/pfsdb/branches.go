@@ -305,10 +305,15 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	if branchInfo.Trigger != nil {
 		toBranchID, err := GetBranchID(ctx, tx, &pfs.Branch{Repo: branchInfo.Branch.Repo, Name: branchInfo.Trigger.Branch})
 		if err != nil {
-			return branchID, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
+			return branchID, errors.Wrap(err, "updating branch trigger")
 		}
 		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
-			return branchID, errors.Wrap(err, "could not create branch trigger")
+			return branchID, errors.Wrap(err, "updating branch trigger")
+		}
+	} else {
+		// Delete existing branch trigger.
+		if err := DeleteBranchTrigger(ctx, tx, branchID); err != nil {
+			return branchID, errors.Wrap(err, "updating branch trigger")
 		}
 	}
 	return branchID, nil
@@ -504,7 +509,7 @@ func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to 
 		trigger.Commits,
 		trigger.All,
 	); err != nil {
-		return errors.Wrap(err, "could not create branch trigger")
+		return errors.Wrapf(err, "could not create trigger for branch %d", from)
 	}
 	return nil
 }
