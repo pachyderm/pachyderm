@@ -8555,7 +8555,10 @@ func TestDropCommit(t *testing.T) {
 	))
 	bi, err := c.InspectProjectBranch(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	_, err = c.PfsAPIClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: bi.Head})
+	_, err = c.PfsAPIClient.DropCommit(ctx, &pfs.DropCommitRequest{
+		Commit:    bi.Head,
+		Recursive: true,
+	})
 	require.NoError(t, err)
 	// Check that the downstream job was stopped.
 	jobInfo, err := c.InspectProjectJob(pfs.DefaultProjectName, pipeline, bi.Head.ID, false)

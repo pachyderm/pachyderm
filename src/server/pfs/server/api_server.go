@@ -252,7 +252,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.squashCommit(txnCtx, request.Commit)
+		return a.driver.squashCommit(txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
 	}
@@ -261,7 +261,7 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 
 func (a *apiServer) DropCommit(ctx context.Context, request *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error) {
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		return a.driver.dropCommit(txnCtx, request.Commit)
+		return a.driver.dropCommit(txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
 	}

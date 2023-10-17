@@ -294,12 +294,14 @@ message ClearCommitRequest {
 
 message SquashCommitRequest {
   Commit commit = 1;
+  bool recursive = 2;
 }
 
 message SquashCommitResponse {}
 
 message DropCommitRequest {
   Commit commit = 1;
+  bool recursive = 2;
 }
 
 message DropCommitResponse {}

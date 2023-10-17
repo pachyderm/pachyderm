@@ -417,6 +417,7 @@ func (x *SquashCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("commit", x.Commit)
+	enc.AddBool("recursive", x.Recursive)
 	return nil
 }
 
@@ -432,6 +433,7 @@ func (x *DropCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("commit", x.Commit)
+	enc.AddBool("recursive", x.Recursive)
 	return nil
 }
 

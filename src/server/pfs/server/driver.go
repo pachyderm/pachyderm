@@ -1740,13 +1740,15 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 	return nil
 }
 
-func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit) error {
+func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
 	// Get the subvenant commits of the provided commit.
 	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
 	if err != nil {
 		return err
 	}
-	// NOTE: These checks should be unecessary, but they are included to ensure our assumptions are correct.
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot squash commit (%v) with subvenance without recursive", commit)
+	}
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
@@ -1812,13 +1814,15 @@ func (d *driver) getCommitSubvenance(txnCtx *txncontext.TransactionContext, comm
 	return result, nil
 }
 
-func (d *driver) dropCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit) error {
+func (d *driver) dropCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
 	// Get the subvenant commits of the provided commit.
 	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
 	if err != nil {
 		return err
 	}
-	// NOTE: These checks should be unecessary, but they are included to ensure our assumptions are correct.
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot drop commit (%v) with subvenance without recursive", commit)
+	}
 	for _, ci := range commitInfos {
 		if len(ci.ChildCommits) > 0 {
 			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}

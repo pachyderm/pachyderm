@@ -812,6 +812,32 @@ The squash will fail if it includes a commit with no children`,
 	shell.RegisterCompletionFunc(squashCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(squashCommit, "squash commit", commits))
 
+	var recursive bool
+	squashCommitV2 := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Squash a commit.",
+		Long:  `Squashes the provided commit into its children. The recursive flag must be used if the squashed commit has subvenance.`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			commit, err := cmdutil.ParseCommit(project, args[0])
+			if err != nil {
+				return err
+			}
+			_, err = c.PfsAPIClient.SquashCommit(c.Ctx(), &pfs.SquashCommitRequest{
+				Commit:    commit,
+				Recursive: recursive,
+			})
+			return err
+		}),
+	}
+	shell.RegisterCompletionFunc(squashCommitV2, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(squashCommitV2, "squash commitV2", commits))
+	squashCommitV2.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively squash all subvenant commits")
+
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
 		Short: "Delete the sub-commits of a commit.",
@@ -832,6 +858,31 @@ This operation is only supported if none of the sub-commits have children.`,
 	}
 	shell.RegisterCompletionFunc(deleteCommit, shell.BranchCompletion)
 	commands = append(commands, cmdutil.CreateAliases(deleteCommit, "delete commit", commits))
+
+	deleteCommitV2 := &cobra.Command{
+		Use:   "{{alias}} <repo>@<branch-or-commit>",
+		Short: "Delete a commit.",
+		Long:  `Deletes the provided commit. The recursive flag must be used if the deleted commit has subvenance.`,
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			c, err := client.NewOnUserMachine("user")
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+			commit, err := cmdutil.ParseCommit(project, args[0])
+			if err != nil {
+				return err
+			}
+			_, err = c.PfsAPIClient.DropCommit(c.Ctx(), &pfs.DropCommitRequest{
+				Commit:    commit,
+				Recursive: recursive,
+			})
+			return err
+		}),
+	}
+	shell.RegisterCompletionFunc(deleteCommitV2, shell.BranchCompletion)
+	commands = append(commands, cmdutil.CreateAliases(deleteCommitV2, "delete commitV2", commits))
+	deleteCommitV2.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete all subvenant commits")
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
@@ -1173,7 +1224,6 @@ from commits with 'get file'.`,
 
 	var filePaths []string
 	var inputFile string
-	var recursive bool
 	var parallelism int
 	var appendFile bool
 	var compress bool

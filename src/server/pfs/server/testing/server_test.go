@@ -5038,20 +5038,41 @@ func TestPFS(suite *testing.T) {
 			require.NoError(t, finishCommitSet(env.PachClient, commit.ID))
 			return commit
 		}
+		t.Run("Error", func(t *testing.T) {
+			c1 := createCommit()
+			c2 := createCommit()
+			// Check that the first commit cannot be dropped.
+			_, err := env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+				Commit:    c1,
+				Recursive: true,
+			})
+			require.YesError(t, err)
+			// Check that the second commit cannot be squashed.
+			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+				Commit:    c2,
+				Recursive: true,
+			})
+			require.YesError(t, err)
+			// Check that squash and drop error without recursive.
+			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: c1})
+			require.YesError(t, err)
+			_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: c2})
+			require.YesError(t, err)
+		})
 		// squashThenDrop squashes the first commit then drops the second commit.
 		// It also checks that the first commit cannot be dropped and that the second commit cannot be squashed.
 		squashThenDrop := func(c1, c2 *pfs.Commit) {
-			// Check that the first commit cannot be dropped.
-			_, err := env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: c1})
-			require.YesError(t, err)
-			// Check that the second commit cannot be squashed.
-			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: c2})
-			require.YesError(t, err)
 			// Squash the first commit.
-			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: c1})
+			_, err := env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+				Commit:    c1,
+				Recursive: true,
+			})
 			require.NoError(t, err)
 			// Drop the second commit.
-			_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: c2})
+			_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+				Commit:    c2,
+				Recursive: true,
+			})
 			require.NoError(t, err)
 			// Finish commits created after the drop.
 			require.NoError(t, finishCommitSetAll(env.PachClient))
