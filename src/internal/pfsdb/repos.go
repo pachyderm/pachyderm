@@ -21,19 +21,19 @@ const (
 	ReposChannelName = "pfs_repos"
 
 	getRepoAndBranches = `
-		SELECT
-			repo.id,
-			repo.name,
-			repo.type,
-			repo.description,
-			repo.project_id AS "project.id",
-			project.name AS "project.name",
-			array_agg(branch.name) AS "branches",
-			repo.created_at,
-			repo.updated_at
-		FROM pfs.repos repo 
-			JOIN core.projects project ON repo.project_id = project.id
-			LEFT JOIN pfs.branches branch ON branch.repo_id = repo.id
+	SELECT
+		repo.id,
+		repo.name,
+		repo.type,
+		repo.description,
+		repo.project_id AS "project.id",
+		project.name AS "project.name",
+		array_agg(branch.name) AS "branches",
+		repo.created_at,
+		repo.updated_at
+	FROM pfs.repos repo 
+		JOIN core.projects project ON repo.project_id = project.id
+		LEFT JOIN pfs.branches branch ON branch.repo_id = repo.id
 	`
 	noBranches = "{NULL}"
 )
