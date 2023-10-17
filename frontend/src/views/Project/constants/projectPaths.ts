@@ -20,8 +20,7 @@ export const PROJECT_JOB_LOGS_VIEWER_DATUM_PATH = `/project/:projectId/jobs/:job
 
 export const LINEAGE_PATH = '/lineage/:projectId';
 
-export const LINEAGE_REPO_PATH =
-  '/lineage/:projectId/repos/:repoId';
+export const LINEAGE_REPO_PATH = '/lineage/:projectId/repos/:repoId';
 export const LINEAGE_PIPELINE_PATH =
   '/lineage/:projectId/pipelines/:pipelineId/:tabId?';
 export const LINEAGE_FILE_UPLOAD_PATH =
@@ -37,6 +36,10 @@ export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/pipeli
 export const LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs/datum/:datumId?`;
 export const LINEAGE_JOB_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/jobs/:jobId/pipeline/:pipelineId/logs`;
 export const LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH = `/lineage/:projectId/jobs/:jobId/pipeline/:pipelineId/logs/datum/:datumId?`;
+
+export const CLUSTER_CONFIG = `/cluster/defaults`;
+export const CREATE_PIPELINE_PATH = `/lineage/:projectId/create/pipeline`;
+export const UPDATE_PIPELINE_PATH = `/lineage/:projectId/update/pipeline/:pipelineId`;
 
 export const PROJECT_PATHS = [
   LINEAGE_PATH,
@@ -63,4 +66,6 @@ export const PROJECT_PATHS = [
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
   LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
+  CREATE_PIPELINE_PATH,
+  UPDATE_PIPELINE_PATH,
 ];

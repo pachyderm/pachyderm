@@ -30,7 +30,7 @@ const ConnectModal: React.FC<ConnectModalProps> = ({
       hideActions
     >
       <ol className={styles.descriptionList}>
-        <Group vertical spacing={32} justify="space-between">
+        <Group vertical spacing={32}>
           <Connect name={workspaceName} pachdAddress={pachdAddress} />
           <Login hasOTP={false} />
           <Verify>

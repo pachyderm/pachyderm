@@ -123,6 +123,32 @@ export const LogFieldsFragmentDoc = gql`
     message
   }
 `;
+export const PipelineFragmentFragmentDoc = gql`
+  fragment PipelineFragment on Pipeline {
+    id
+    name
+    description
+    version
+    createdAt
+    state
+    nodeState
+    stopped
+    recentError
+    lastJobState
+    lastJobNodeState
+    type
+    datumTimeoutS
+    datumTries
+    jobTimeoutS
+    outputBranch
+    s3OutputRepo
+    egress
+    userSpecJson
+    effectiveSpecJson
+    parallelismSpec
+    reason
+  }
+`;
 export const RepoFragmentFragmentDoc = gql`
   fragment RepoFragment on Repo {
     branches {
@@ -219,21 +245,10 @@ export type CreateBranchMutationOptions = Apollo.BaseMutationOptions<
 export const CreatePipelineDocument = gql`
   mutation createPipeline($args: CreatePipelineArgs!) {
     createPipeline(args: $args) {
-      id
-      name
-      state
-      type
-      description
-      datumTimeoutS
-      datumTries
-      jobTimeoutS
-      outputBranch
-      s3OutputRepo
-      egress
-      jsonSpec
-      reason
+      ...PipelineFragment
     }
   }
+  ${PipelineFragmentFragmentDoc}
 `;
 export type CreatePipelineMutationFn = Apollo.MutationFunction<
   Types.CreatePipelineMutation,
@@ -826,8 +841,8 @@ export type PutFilesFromUrLsMutationOptions = Apollo.BaseMutationOptions<
   Types.PutFilesFromUrLsMutation,
   Types.PutFilesFromUrLsMutationVariables
 >;
-export const MutationDocument = gql`
-  mutation Mutation($args: SetClusterDefaultsArgs!) {
+export const SetClusterDefaultsDocument = gql`
+  mutation setClusterDefaults($args: SetClusterDefaultsArgs!) {
     setClusterDefaults(args: $args) {
       affectedPipelinesList {
         name
@@ -838,46 +853,48 @@ export const MutationDocument = gql`
     }
   }
 `;
-export type MutationMutationFn = Apollo.MutationFunction<
-  Types.MutationMutation,
-  Types.MutationMutationVariables
+export type SetClusterDefaultsMutationFn = Apollo.MutationFunction<
+  Types.SetClusterDefaultsMutation,
+  Types.SetClusterDefaultsMutationVariables
 >;
 
 /**
- * __useMutationMutation__
+ * __useSetClusterDefaultsMutation__
  *
- * To run a mutation, you first call `useMutationMutation` within a React component and pass it any options that fit your needs.
- * When your component renders, `useMutationMutation` returns a tuple that includes:
+ * To run a mutation, you first call `useSetClusterDefaultsMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useSetClusterDefaultsMutation` returns a tuple that includes:
  * - A mutate function that you can call at any time to execute the mutation
  * - An object with fields that represent the current status of the mutation's execution
  *
  * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
  *
  * @example
- * const [mutationMutation, { data, loading, error }] = useMutationMutation({
+ * const [setClusterDefaultsMutation, { data, loading, error }] = useSetClusterDefaultsMutation({
  *   variables: {
  *      args: // value for 'args'
  *   },
  * });
  */
-export function useMutationMutation(
+export function useSetClusterDefaultsMutation(
   baseOptions?: Apollo.MutationHookOptions<
-    Types.MutationMutation,
-    Types.MutationMutationVariables
+    Types.SetClusterDefaultsMutation,
+    Types.SetClusterDefaultsMutationVariables
   >,
 ) {
   const options = {...defaultOptions, ...baseOptions};
   return Apollo.useMutation<
-    Types.MutationMutation,
-    Types.MutationMutationVariables
-  >(MutationDocument, options);
+    Types.SetClusterDefaultsMutation,
+    Types.SetClusterDefaultsMutationVariables
+  >(SetClusterDefaultsDocument, options);
 }
-export type MutationMutationHookResult = ReturnType<typeof useMutationMutation>;
-export type MutationMutationResult =
-  Apollo.MutationResult<Types.MutationMutation>;
-export type MutationMutationOptions = Apollo.BaseMutationOptions<
-  Types.MutationMutation,
-  Types.MutationMutationVariables
+export type SetClusterDefaultsMutationHookResult = ReturnType<
+  typeof useSetClusterDefaultsMutation
+>;
+export type SetClusterDefaultsMutationResult =
+  Apollo.MutationResult<Types.SetClusterDefaultsMutation>;
+export type SetClusterDefaultsMutationOptions = Apollo.BaseMutationOptions<
+  Types.SetClusterDefaultsMutation,
+  Types.SetClusterDefaultsMutationVariables
 >;
 export const StartCommitDocument = gql`
   mutation startCommit($args: StartCommitArgs!) {
@@ -2582,28 +2599,10 @@ export type GetPermissionsQueryResult = Apollo.QueryResult<
 export const PipelineDocument = gql`
   query pipeline($args: PipelineQueryArgs!) {
     pipeline(args: $args) {
-      id
-      name
-      description
-      version
-      createdAt
-      state
-      nodeState
-      stopped
-      recentError
-      lastJobState
-      lastJobNodeState
-      type
-      datumTimeoutS
-      datumTries
-      jobTimeoutS
-      outputBranch
-      s3OutputRepo
-      egress
-      jsonSpec
-      reason
+      ...PipelineFragment
     }
   }
+  ${PipelineFragmentFragmentDoc}
 `;
 
 /**
@@ -2657,28 +2656,10 @@ export type PipelineQueryResult = Apollo.QueryResult<
 export const PipelinesDocument = gql`
   query pipelines($args: PipelinesQueryArgs!) {
     pipelines(args: $args) {
-      id
-      name
-      description
-      version
-      createdAt
-      state
-      nodeState
-      stopped
-      recentError
-      lastJobState
-      lastJobNodeState
-      type
-      datumTimeoutS
-      datumTries
-      jobTimeoutS
-      outputBranch
-      s3OutputRepo
-      egress
-      jsonSpec
-      reason
+      ...PipelineFragment
     }
   }
+  ${PipelineFragmentFragmentDoc}
 `;
 
 /**

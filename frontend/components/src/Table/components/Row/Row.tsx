@@ -79,7 +79,6 @@ const Row: React.FC<RowProps> = ({
           [styles.hasOverFlowMenu]: overflowMenuItems,
         })}
         role="button"
-        aria-disabled={!onClick}
         onClick={onClick}
         {...rest}
       >

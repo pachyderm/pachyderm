@@ -52,6 +52,10 @@ export default defineConfig({
     proxy: {
       '/graphql': 'http://localhost:3000',
       '/upload': 'http://localhost:3000',
+      '/jsonschema': {
+        target: 'http://localhost:80',
+        changeOrigin: true,
+      },
     },
     port: 4000,
   },

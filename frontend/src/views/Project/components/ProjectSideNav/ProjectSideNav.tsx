@@ -1,5 +1,6 @@
 import {Permission, ResourceType} from '@graphqlTypes';
 import React from 'react';
+import {useHistory} from 'react-router-dom';
 
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -9,6 +10,7 @@ import {
   projectPipelinesRoute,
   lineageRoute,
   projectJobsRoute,
+  createPipelineRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {
   SideNav,
@@ -19,6 +21,9 @@ import {
   AddCircleSVG,
   useModal,
   UserSettingsSVG,
+  Dropdown,
+  ChevronRightSVG,
+  Icon,
 } from '@pachyderm/components';
 import {MEDIUM} from 'constants/breakpoints';
 
@@ -27,6 +32,7 @@ import CreateRepoModal from '../CreateRepoModal';
 import styles from './ProjectSidenav.module.css';
 
 const ProjectSideNav: React.FC = () => {
+  const browserHistory = useHistory();
   const {
     openModal: openCreateRepoModal,
     closeModal: closeCreateRepoModal,
@@ -62,15 +68,36 @@ const ProjectSideNav: React.FC = () => {
             DAG
           </SideNav.SideNavItem>
           {createRepoIsAuthorizedAction && (
-            <SideNav.SideNavItem
-              IconSVG={AddCircleSVG}
-              onClick={openCreateRepoModal}
-              tooltipContent="Create New Repo"
-              className={styles.buttonLink}
-              showIconWhenExpanded
-            >
-              Create Repo
-            </SideNav.SideNavItem>
+            <Dropdown sideOpen>
+              <Dropdown.Button
+                IconSVG={AddCircleSVG}
+                iconPosition="start"
+                className={styles.createDropdown}
+              >
+                Create
+                <Icon small>
+                  <ChevronRightSVG />
+                </Icon>
+              </Dropdown.Button>
+              <Dropdown.Menu className={styles.menu} pin="right">
+                <Dropdown.MenuItem
+                  closeOnClick
+                  onClick={openCreateRepoModal}
+                  id="repo"
+                >
+                  Input Repository
+                </Dropdown.MenuItem>
+                <Dropdown.MenuItem
+                  closeOnClick
+                  onClick={() =>
+                    browserHistory.push(createPipelineRoute({projectId}))
+                  }
+                  id="pipeline"
+                >
+                  Pipeline
+                </Dropdown.MenuItem>
+              </Dropdown.Menu>
+            </Dropdown>
           )}
           {isAuthActive && (
             <SideNav.SideNavItem

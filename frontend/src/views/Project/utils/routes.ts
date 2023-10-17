@@ -28,6 +28,9 @@ import {
   LINEAGE_FILE_BROWSER_PATH_LATEST,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+  CLUSTER_CONFIG,
+  CREATE_PIPELINE_PATH,
+  UPDATE_PIPELINE_PATH,
 } from '../constants/projectPaths';
 
 const generateRouteFn = <S extends string>(path: S) => {
@@ -55,6 +58,8 @@ const generateLineageOrProjectRouteFn = <S extends string>(
   };
 };
 
+export const clusterConfigRoute = CLUSTER_CONFIG;
+
 export const lineageRoute = generateRouteFn(LINEAGE_PATH);
 export const projectRoute = generateRouteFn(PROJECT_PATH);
 export const projectJobsRoute = generateRouteFn(PROJECT_JOBS_PATH);
@@ -66,6 +71,9 @@ export const jobRoute = generateRouteFn(PROJECT_RUNS_JOB_PATH);
 export const jobsRoute = generateRouteFn(PROJECT_JOBS_PATH);
 export const repoRoute = generateRouteFn(LINEAGE_REPO_PATH);
 export const pipelineRoute = generateRouteFn(LINEAGE_PIPELINE_PATH);
+
+export const createPipelineRoute = generateRouteFn(CREATE_PIPELINE_PATH);
+export const updatePipelineRoute = generateRouteFn(UPDATE_PIPELINE_PATH);
 
 export const fileBrowserRoute = generateLineageOrProjectRouteFn(
   PROJECT_FILE_BROWSER_PATH,

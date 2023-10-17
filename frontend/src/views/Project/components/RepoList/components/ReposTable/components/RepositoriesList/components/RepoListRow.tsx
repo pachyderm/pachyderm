@@ -64,6 +64,7 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
       isSelected={searchParams.selectedRepos?.includes(repo?.id || '')}
       hasRadio={repo?.access}
       hasLock={!repo?.access}
+      aria-disabled={!repo?.access}
       lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
       overflowMenuItems={generateIconItems(repo?.lastCommit?.id)}
       dropdownOnSelect={onOverflowMenuSelect(repo)}

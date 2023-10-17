@@ -163,7 +163,9 @@ type Pipeline {
   outputBranch: String!
   s3OutputRepo: String
   egress: Boolean!
-  jsonSpec: String!
+  userSpecJson: String!
+  effectiveSpecJson: String!
+  parallelismSpec: Int
   reason: String
 }
 
@@ -958,7 +960,7 @@ type CreatePipelineV2Response {
 input SetClusterDefaultsArgs {
   clusterDefaultsJson: String # a JSON-encoded CreatePipelineRequest with a top-level key of create_pipeline_request or createPipelineRequest
   dryRun: Boolean
-  update: Boolean
+  regenerate: Boolean
   reprocess: Boolean
 }
 

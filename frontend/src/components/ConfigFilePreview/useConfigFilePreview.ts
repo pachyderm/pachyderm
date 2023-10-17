@@ -1,3 +1,5 @@
+import {useState} from 'react';
+
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
 import {useClipboardCopy} from '@pachyderm/components';
 
@@ -8,6 +10,7 @@ interface useConfigFilePreviewProps {
 }
 
 const useConfigFilePreview = ({config}: useConfigFilePreviewProps) => {
+  const [hidden, setHidden] = useState(false);
   const {copy} = useClipboardCopy(stringifyToFormat(config, Format.YAML));
   const {download: downloadJSON} = useDownloadText(
     stringifyToFormat(config, Format.JSON),
@@ -32,6 +35,8 @@ const useConfigFilePreview = ({config}: useConfigFilePreviewProps) => {
 
   return {
     onSelectGearAction,
+    hidden,
+    setHidden,
   };
 };
 

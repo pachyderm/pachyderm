@@ -33,6 +33,7 @@ const Tooltip: React.FC<TooltipProps> = ({
   children,
   noWrap = false,
   allowedPlacements,
+  className,
 }) => {
   const arrowRef = useRef(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -78,7 +79,11 @@ const Tooltip: React.FC<TooltipProps> = ({
           id="tooltip"
           ref={refs.setFloating}
           style={floatingStyles}
-          className={classNames(styles.base, {[styles.noWrap]: noWrap})}
+          className={classNames(
+            styles.base,
+            {[styles.noWrap]: noWrap},
+            className,
+          )}
           {...getFloatingProps()}
         >
           {tooltipText}

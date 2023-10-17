@@ -5,6 +5,7 @@ import {UseFormReturn, SubmitHandler, FieldValues} from 'react-hook-form';
 import {LoadingDots} from '@pachyderm/components';
 
 import Modal from '../components/Modal';
+import {ModalModes} from '../components/Modal/Modal';
 import ModalBody from '../components/ModalBody';
 import ModalFooter from '../components/ModalFooter';
 import ModalHeader from '../components/ModalHeader';
@@ -25,8 +26,9 @@ export interface FormModalProps<T extends FieldValues> {
   confirmText?: string;
   headerText?: string;
   success?: boolean;
-  small?: boolean;
+  mode?: ModalModes;
   disabled?: boolean;
+  footerContent?: JSX.Element;
 }
 
 const FormModal = <T extends FieldValues>({
@@ -41,8 +43,9 @@ const FormModal = <T extends FieldValues>({
   confirmText = 'Submit',
   headerText,
   success,
-  small,
+  mode = 'Default',
   disabled,
+  footerContent,
 }: FormModalProps<T>) => {
   const modalStatus =
     (updating && 'updating') ||
@@ -53,7 +56,7 @@ const FormModal = <T extends FieldValues>({
   const modalStatusMessage = error || (success && "You're all set!") || '';
 
   return (
-    <Modal show={isOpen} onHide={onHide} mode={small ? 'Small' : 'Default'}>
+    <Modal show={isOpen} onHide={onHide} mode={mode}>
       <Form
         className={styles.form}
         formContext={formContext}
@@ -74,6 +77,7 @@ const FormModal = <T extends FieldValues>({
           confirmText={confirmText}
           disabled={disabled}
           onHide={onHide}
+          footerContent={footerContent}
         />
       </Form>
     </Modal>

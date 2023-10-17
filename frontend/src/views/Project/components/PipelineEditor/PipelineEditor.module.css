@@ -1,0 +1,47 @@
+.view {
+  padding: 0;
+}
+
+.titleBar {
+  display: inline-flex;
+  align-items: center;
+  border-bottom: solid 1px var(--border-grey);
+  padding: 1rem;
+}
+
+.editorTabs {
+  width: 100%;
+  margin: auto;
+  max-width: 80rem;
+  padding-top: 1rem;
+}
+
+.editorTabsSplit {
+  padding-top: 1rem;
+  width: calc(50% - 1rem);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+}
+
+.editorTabHeader {
+  border: none;
+}
+
+.editorTabPanel {
+  padding-top: 1rem;
+}
+
+.editor {
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+}
+
+.codePreview,
+.codeEditor {
+  margin-top: 0;
+  max-width: 80rem;
+}

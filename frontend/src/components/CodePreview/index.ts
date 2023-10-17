@@ -1,6 +1,9 @@
 import CodePreview from './CodePreview';
+import EffectiveSpecPreview from './EffectiveSpecPreview';
 
 export {default as useFileDetails} from './hooks/useFileDetails';
-export * from './getFileDetails';
+export * from './utils/getFileDetails';
+
+export {EffectiveSpecPreview};
 
 export default CodePreview;

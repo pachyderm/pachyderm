@@ -46,6 +46,7 @@ const esModules = [
   'markdown-table',
   'trim-lines',
   '@codemirror*',
+  'json-schema-library',
 ].join('|');
 
 baseConfig.transform = baseConfig.transform ?? {};

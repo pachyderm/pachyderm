@@ -809,21 +809,23 @@ export type Pipeline = {
   datumTimeoutS?: Maybe<Scalars['Int']>;
   datumTries: Scalars['Int'];
   description?: Maybe<Scalars['String']>;
+  effectiveSpecJson: Scalars['String'];
   egress: Scalars['Boolean'];
   id: Scalars['ID'];
   jobTimeoutS?: Maybe<Scalars['Int']>;
-  jsonSpec: Scalars['String'];
   lastJobNodeState?: Maybe<NodeState>;
   lastJobState?: Maybe<JobState>;
   name: Scalars['String'];
   nodeState: NodeState;
   outputBranch: Scalars['String'];
+  parallelismSpec?: Maybe<Scalars['Int']>;
   reason?: Maybe<Scalars['String']>;
   recentError?: Maybe<Scalars['String']>;
   s3OutputRepo?: Maybe<Scalars['String']>;
   state: PipelineState;
   stopped: Scalars['Boolean'];
   type: PipelineType;
+  userSpecJson: Scalars['String'];
   version: Scalars['Int'];
 };
 
@@ -1145,8 +1147,8 @@ export type SearchResults = {
 export type SetClusterDefaultsArgs = {
   clusterDefaultsJson?: InputMaybe<Scalars['String']>;
   dryRun?: InputMaybe<Scalars['Boolean']>;
+  regenerate?: InputMaybe<Scalars['Boolean']>;
   reprocess?: InputMaybe<Scalars['Boolean']>;
-  update?: InputMaybe<Scalars['Boolean']>;
 };
 
 export type SetClusterDefaultsResp = {
@@ -2347,10 +2349,14 @@ export type PipelineResolvers<
     ParentType,
     ContextType
   >;
+  effectiveSpecJson?: Resolver<
+    ResolversTypes['String'],
+    ParentType,
+    ContextType
+  >;
   egress?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   id?: Resolver<ResolversTypes['ID'], ParentType, ContextType>;
   jobTimeoutS?: Resolver<Maybe<ResolversTypes['Int']>, ParentType, ContextType>;
-  jsonSpec?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   lastJobNodeState?: Resolver<
     Maybe<ResolversTypes['NodeState']>,
     ParentType,
@@ -2364,6 +2370,11 @@ export type PipelineResolvers<
   name?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   nodeState?: Resolver<ResolversTypes['NodeState'], ParentType, ContextType>;
   outputBranch?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
+  parallelismSpec?: Resolver<
+    Maybe<ResolversTypes['Int']>,
+    ParentType,
+    ContextType
+  >;
   reason?: Resolver<Maybe<ResolversTypes['String']>, ParentType, ContextType>;
   recentError?: Resolver<
     Maybe<ResolversTypes['String']>,
@@ -2378,6 +2389,7 @@ export type PipelineResolvers<
   state?: Resolver<ResolversTypes['PipelineState'], ParentType, ContextType>;
   stopped?: Resolver<ResolversTypes['Boolean'], ParentType, ContextType>;
   type?: Resolver<ResolversTypes['PipelineType'], ParentType, ContextType>;
+  userSpecJson?: Resolver<ResolversTypes['String'], ParentType, ContextType>;
   version?: Resolver<ResolversTypes['Int'], ParentType, ContextType>;
   __isTypeOf?: IsTypeOfResolverFn<ParentType, ContextType>;
 }>;
@@ -3101,6 +3113,32 @@ export type LogFieldsFragment = {
   timestamp?: {__typename?: 'Timestamp'; seconds: number; nanos: number} | null;
 };
 
+export type PipelineFragmentFragment = {
+  __typename?: 'Pipeline';
+  id: string;
+  name: string;
+  description?: string | null;
+  version: number;
+  createdAt: number;
+  state: PipelineState;
+  nodeState: NodeState;
+  stopped: boolean;
+  recentError?: string | null;
+  lastJobState?: JobState | null;
+  lastJobNodeState?: NodeState | null;
+  type: PipelineType;
+  datumTimeoutS?: number | null;
+  datumTries: number;
+  jobTimeoutS?: number | null;
+  outputBranch: string;
+  s3OutputRepo?: string | null;
+  egress: boolean;
+  userSpecJson: string;
+  effectiveSpecJson: string;
+  parallelismSpec?: number | null;
+  reason?: string | null;
+};
+
 export type RepoFragmentFragment = {
   __typename?: 'Repo';
   createdAt: number;
@@ -3159,16 +3197,25 @@ export type CreatePipelineMutation = {
     __typename?: 'Pipeline';
     id: string;
     name: string;
-    state: PipelineState;
-    type: PipelineType;
     description?: string | null;
+    version: number;
+    createdAt: number;
+    state: PipelineState;
+    nodeState: NodeState;
+    stopped: boolean;
+    recentError?: string | null;
+    lastJobState?: JobState | null;
+    lastJobNodeState?: NodeState | null;
+    type: PipelineType;
     datumTimeoutS?: number | null;
     datumTries: number;
     jobTimeoutS?: number | null;
     outputBranch: string;
     s3OutputRepo?: string | null;
     egress: boolean;
-    jsonSpec: string;
+    userSpecJson: string;
+    effectiveSpecJson: string;
+    parallelismSpec?: number | null;
     reason?: string | null;
   };
 };
@@ -3292,11 +3339,11 @@ export type PutFilesFromUrLsMutation = {
   putFilesFromURLs: Array<string>;
 };
 
-export type MutationMutationVariables = Exact<{
+export type SetClusterDefaultsMutationVariables = Exact<{
   args: SetClusterDefaultsArgs;
 }>;
 
-export type MutationMutation = {
+export type SetClusterDefaultsMutation = {
   __typename?: 'Mutation';
   setClusterDefaults: {
     __typename?: 'SetClusterDefaultsResp';
@@ -4028,7 +4075,9 @@ export type PipelineQuery = {
     outputBranch: string;
     s3OutputRepo?: string | null;
     egress: boolean;
-    jsonSpec: string;
+    userSpecJson: string;
+    effectiveSpecJson: string;
+    parallelismSpec?: number | null;
     reason?: string | null;
   };
 };
@@ -4059,7 +4108,9 @@ export type PipelinesQuery = {
     outputBranch: string;
     s3OutputRepo?: string | null;
     egress: boolean;
-    jsonSpec: string;
+    userSpecJson: string;
+    effectiveSpecJson: string;
+    parallelismSpec?: number | null;
     reason?: string | null;
   } | null>;
 };
@@ -4734,24 +4785,24 @@ export const mockPutFilesFromUrLsMutation = (
  * @param resolver a function that accepts a captured request and may return a mocked response.
  * @see https://mswjs.io/docs/basics/response-resolver
  * @example
- * mockMutationMutation((req, res, ctx) => {
+ * mockSetClusterDefaultsMutation((req, res, ctx) => {
  *   const { args } = req.variables;
  *   return res(
  *     ctx.data({ setClusterDefaults })
  *   )
  * })
  */
-export const mockMutationMutation = (
+export const mockSetClusterDefaultsMutation = (
   resolver: ResponseResolver<
-    GraphQLRequest<MutationMutationVariables>,
-    GraphQLContext<MutationMutation>,
+    GraphQLRequest<SetClusterDefaultsMutationVariables>,
+    GraphQLContext<SetClusterDefaultsMutation>,
     any
   >,
 ) =>
-  graphql.mutation<MutationMutation, MutationMutationVariables>(
-    'Mutation',
-    resolver,
-  );
+  graphql.mutation<
+    SetClusterDefaultsMutation,
+    SetClusterDefaultsMutationVariables
+  >('setClusterDefaults', resolver);
 
 /**
  * @param resolver a function that accepts a captured request and may return a mocked response.

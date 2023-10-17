@@ -18,7 +18,7 @@
   align-items: center;
 }
 
-.item > div *  {
+.item > div * {
   line-height: 1rem;
 }
 
@@ -31,18 +31,19 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
-.item:active,
-.base > button.item:not(:disabled):hover,
-.item:hover,
-.item:focus {
-  color: var(--pachyderm-black);
-}
 
 .item:active,
 .base > button.item:not(:disabled):hover,
 .item:hover {
   background-color: var(--hover-grey);
   text-decoration: none;
+}
+
+.item:active,
+.base > button.item:not(:disabled):hover,
+.item:not(:disabled):hover,
+.item:not(:disabled):focus {
+  color: var(--pachyderm-black);
 }
 
 .item[aria-current] {

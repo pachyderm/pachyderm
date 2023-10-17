@@ -14,6 +14,7 @@ import {
   mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockGetVersionInfo,
+  mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -22,7 +23,7 @@ import {
   clear,
 } from '@dash-frontend/testHelpers';
 
-import LandingComponent from '../Landing';
+import {Landing as LandingComponent} from '../Landing';
 
 describe('Landing', () => {
   const server = setupServer();
@@ -33,6 +34,10 @@ describe('Landing', () => {
 
   beforeAll(() => {
     server.listen();
+  });
+
+  beforeEach(() => {
+    server.resetHandlers();
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
     server.use(mockProjects());
@@ -56,6 +61,41 @@ describe('Landing', () => {
   });
 
   afterAll(() => server.close());
+
+  describe('Cluster Config button', () => {
+    it('appears in CE', async () => {
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('button', {name: /cluster defaults/i}),
+      ).toBeEnabled();
+    });
+
+    it('appears as a Cluster Admin', async () => {
+      server.use(mockTrueGetAuthorize());
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('button', {name: /cluster defaults/i}),
+      ).toBeEnabled();
+    });
+
+    it('hides when not Cluster Admin', async () => {
+      server.use(mockFalseGetAuthorize());
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByRole('button', {name: /cluster defaults/i}),
+      ).not.toBeInTheDocument();
+    });
+  });
 
   it('should display all project names and status', async () => {
     render(<Landing />);

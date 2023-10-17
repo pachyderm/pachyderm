@@ -41,7 +41,7 @@ describe('project view', () => {
     cy.visit('/');
     cy.findByRole('button', {name: /view project default/i}).click();
 
-    cy.findByRole('button', {name: /create repo/i}).should('exist');
+    cy.findByRole('button', {name: /create/i}).should('exist');
     cy.findByRole('button', {name: /user roles/i}).should('not.exist');
     cy.findByRole('button', {name: 'Create Your First Repo'}).should(
       'be.enabled',

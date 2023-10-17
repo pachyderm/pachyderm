@@ -1,7 +1,9 @@
 .base a {
   color: var(--pachyderm-black);
   text-decoration: none;
-  padding-bottom: 0.5rem;
+  padding-bottom: 0.25rem;
+  height: 2rem;
+  line-height: 2rem;
   display: block;
 }
 

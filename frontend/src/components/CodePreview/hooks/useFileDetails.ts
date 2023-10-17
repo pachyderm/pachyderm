@@ -1,7 +1,7 @@
 import {File} from '@graphqlTypes';
 import {useMemo} from 'react';
 
-import {parseFilePath, getFileDetails} from '../getFileDetails';
+import {parseFilePath, getFileDetails} from '../utils/getFileDetails';
 
 const useFileDetails = (path: File['path']) => {
   const {parsedFilePath, fileDetails} = useMemo(() => {

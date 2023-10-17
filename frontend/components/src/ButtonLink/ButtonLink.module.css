@@ -1,6 +1,6 @@
 .base {
   cursor: pointer;
-  color: var(--pachyderm-plum);
+  color: var(--default-purple);
   user-select: none;
   display: inline-block;
   white-space: nowrap;
@@ -9,7 +9,6 @@
   background-color: inherit;
   padding: 0;
   margin: 0;
-  transition: color 300ms ease-in-out;
   position: relative;
 }
 
@@ -30,5 +29,5 @@ a + .base,
 .base:not(:disabled):hover,
 .base:active,
 .base:focus {
-  color: var(--hover-plum);
+  color: var(--hover-purple);
 }

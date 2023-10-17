@@ -14,7 +14,22 @@ const PipelineSpec = () => {
       {loading ? (
         <SkeletonBodyText lines={10} />
       ) : (
-        <ConfigFilePreview config={JSON.parse(pipeline?.jsonSpec || '{}')} />
+        <>
+          <ConfigFilePreview
+            allowMinimize
+            allowUpdate
+            title="Effective Spec"
+            config={JSON.parse(pipeline?.effectiveSpecJson || '{}')}
+            aria-label="Effective Spec"
+            userSpecJSON={JSON.parse(pipeline?.userSpecJson || '{}')}
+          />
+          <ConfigFilePreview
+            allowMinimize
+            title="Submitted Spec"
+            config={JSON.parse(pipeline?.userSpecJson || '{}')}
+            aria-label="Submitted Spec"
+          />
+        </>
       )}
     </div>
   );

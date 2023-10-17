@@ -1,7 +1,7 @@
 import {gql} from '@apollo/client';
 
 export const SET_CLUSTER_DEFAULTS = gql`
-  mutation Mutation($args: SetClusterDefaultsArgs!) {
+  mutation setClusterDefaults($args: SetClusterDefaultsArgs!) {
     setClusterDefaults(args: $args) {
       affectedPipelinesList {
         name

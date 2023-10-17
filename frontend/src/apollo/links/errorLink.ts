@@ -32,7 +32,7 @@ export const useErrorLink = (
         graphQLErrors.some(
           (error) =>
             error.extensions?.code === 'NOT_FOUND' &&
-            !error.path?.includes('job'),
+            !['createPipelineV2', 'job'].some((p) => error?.path?.includes(p)),
         )
       ) {
         setApolloError(graphQLErrors[0]);

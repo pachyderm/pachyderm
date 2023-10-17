@@ -12,6 +12,7 @@ import React from 'react';
 import {
   buildJob,
   mockEmptyGetRoles,
+  mockFalseGetAuthorize,
   mockGetCommitA4,
   mockGetImageCommits,
   mockGetMontageJob_5C,
@@ -23,7 +24,7 @@ import {
   mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
 import {mockGetVertices, mockGet4Vertices} from '@dash-frontend/mocks/vertices';
-import {click, withContextProviders} from '@dash-frontend/testHelpers';
+import {hover, click, withContextProviders} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
 
@@ -69,10 +70,10 @@ describe('ProjectSidebar', () => {
       ).toBeInTheDocument();
 
       expect(
-        screen.getByText(
+        screen.getAllByText(
           /a pipeline that combines images from the `images` and `edges` repositories into a montage\./i,
         ),
-      ).toBeInTheDocument();
+      ).toHaveLength(3);
 
       expect(
         screen.getByRole('definition', {
@@ -152,10 +153,10 @@ describe('ProjectSidebar', () => {
         '/lineage/default/repos/montage/branch/master/commit/5c1aa9bc87dd411ba5a1be0c80a3ebc2/?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
       );
 
-      expect(screen.getByText(/reprocessSpec/)).toBeInTheDocument();
+      expect(within(overviewTab).getAllByText(/"joinOn"/)).toHaveLength(2);
     });
 
-    it('should display the pipeline spec tab', async () => {
+    it('should display effective specs in the pipeline spec tab', async () => {
       const spy = jest.spyOn(document, 'createElement');
       window.history.replaceState('', '', '/lineage/default/pipelines/montage');
 
@@ -164,15 +165,32 @@ describe('ProjectSidebar', () => {
       await click(await screen.findByRole('tab', {name: /spec/i}));
 
       const specTab = screen.getByRole('tabpanel', {name: /spec/i});
+      const effectiveSpec = within(specTab).getByLabelText('Effective Spec');
 
-      expect(within(specTab).getByText(/reprocessSpec/)).toBeInTheDocument();
+      expect(
+        within(effectiveSpec).getByText(/resourceRequests/),
+      ).toBeInTheDocument();
+
+      await click(within(effectiveSpec).getByLabelText('Minimize Spec'));
+
+      expect(
+        within(effectiveSpec).queryByText(/resourceRequests/),
+      ).not.toBeInTheDocument();
+
+      await click(within(effectiveSpec).getByLabelText('Maximize Spec'));
 
       // gear icon button
-      await click(within(specTab).getByRole('button'));
+      await click(
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
 
-      await click(within(specTab).getByRole('menuitem', {name: 'Copy'}));
+      await click(within(effectiveSpec).getByRole('menuitem', {name: 'Copy'}));
       expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(
-        `transform:
+        `pipeline:
+  project:
+    name: default
+  name: montage
+transform:
   image: dpokidov/imagemagick:7.1.0-23
   cmd:
     - sh
@@ -183,34 +201,121 @@ describe('ProjectSidebar', () => {
 input:
   cross:
     - pfs:
-        project: default
-        name: images
         repo: images
-        repoType: user
-        branch: master
         glob: /
     - pfs:
-        project: default
-        name: edges
         repo: edges
-        repoType: user
-        branch: master
         glob: /
-reprocessSpec: until_success
+description: >-
+  A pipeline that combines images from the \`images\` and \`edges\` repositories
+  into a montage.
+resourceRequests:
+  cpu: 1
+  disk: 1Gi
+  memory: 256Mi
+sidecarResourceRequests:
+  cpu: 1
+  disk: 1Gi
+  memory: 256Mi
 `,
       );
 
-      await click(within(specTab).getByRole('button'));
       await click(
-        within(specTab).getByRole('menuitem', {name: 'Download JSON'}),
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
+      await click(
+        within(effectiveSpec).getByRole('menuitem', {name: 'Download JSON'}),
+      );
+
+      // test that `useDownloadText` created an anchor tag
+      expect(spy).toHaveBeenCalledWith('a');
+
+      await click(
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
+      await click(
+        within(effectiveSpec).getByRole('menuitem', {name: 'Download YAML'}),
+      );
+
+      expect(spy).toHaveBeenCalledWith('a');
+
+      expect(
+        screen.getAllByTestId('dynamicEffectiveSpecDecorations__userAvatarSVG'),
+      ).toHaveLength(7);
+    });
+
+    it('should display user specs in the pipeline spec tab', async () => {
+      const spy = jest.spyOn(document, 'createElement');
+      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
+
+      render(<Project />);
+
+      await click(await screen.findByRole('tab', {name: /spec/i}));
+
+      const specTab = screen.getByRole('tabpanel', {name: /spec/i});
+      const effectiveSpec = within(specTab).getByLabelText('Submitted Spec');
+
+      expect(
+        within(effectiveSpec).queryByText(/resourceRequests/),
+      ).not.toBeInTheDocument();
+      expect(within(effectiveSpec).getByText(/transform/)).toBeInTheDocument();
+
+      await click(within(effectiveSpec).getByLabelText('Minimize Spec'));
+
+      expect(
+        within(effectiveSpec).queryByText(/transform/),
+      ).not.toBeInTheDocument();
+
+      await click(within(effectiveSpec).getByLabelText('Maximize Spec'));
+
+      // gear icon button
+      await click(
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
+
+      await click(within(effectiveSpec).getByRole('menuitem', {name: 'Copy'}));
+      expect(navigator.clipboard.writeText).toHaveBeenLastCalledWith(
+        `pipeline:
+  project:
+    name: default
+  name: montage
+transform:
+  image: dpokidov/imagemagick:7.1.0-23
+  cmd:
+    - sh
+  stdin:
+    - >-
+      montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L
+      /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png
+input:
+  cross:
+    - pfs:
+        repo: images
+        glob: /
+    - pfs:
+        repo: edges
+        glob: /
+description: >-
+  A pipeline that combines images from the \`images\` and \`edges\` repositories
+  into a montage.
+`,
+      );
+
+      await click(
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
+      await click(
+        within(effectiveSpec).getByRole('menuitem', {name: 'Download JSON'}),
       );
 
       // test that `useDownloadText` created an anchor tag
       expect(spy).toHaveBeenLastCalledWith('a');
 
-      await click(within(specTab).getByRole('button'));
       await click(
-        within(specTab).getByRole('menuitem', {name: 'Download YAML'}),
+        within(effectiveSpec).getByLabelText('Pipeline Spec Options'),
+      );
+      await click(
+        within(effectiveSpec).getByRole('menuitem', {name: 'Download YAML'}),
       );
 
       expect(spy).toHaveBeenLastCalledWith('a');
@@ -248,6 +353,62 @@ reprocessSpec: until_success
         'href',
         '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?datumFilters=SUCCESS',
       );
+    });
+
+    it('should display update pipeline button in CE', async () => {
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'montage',
+        }),
+      ).toBeInTheDocument();
+
+      const updatePipelineButton = screen.getByRole('button', {
+        name: /update pipeline/i,
+      });
+
+      expect(updatePipelineButton).toBeEnabled();
+    });
+    it('should display update pipeline button when a repoWriter', async () => {
+      server.use(mockTrueGetAuthorize());
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'montage',
+        }),
+      ).toBeInTheDocument();
+
+      const updatePipelineButton = screen.getByRole('button', {
+        name: /update pipeline/i,
+      });
+
+      expect(updatePipelineButton).toBeEnabled();
+    });
+    it('should disable update pipeline button when a repoReader', async () => {
+      server.use(mockFalseGetAuthorize());
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'montage',
+        }),
+      ).toBeInTheDocument();
+
+      const updatePipelineButton = screen.getByRole('button', {
+        name: /update pipeline/i,
+      });
+
+      expect(updatePipelineButton).toBeDisabled();
+
+      await hover(updatePipelineButton);
+      expect(
+        screen.getByRole('tooltip', {
+          name: /you need at least repowriter to update this\./i,
+          hidden: false,
+        }),
+      ).toBeInTheDocument();
     });
 
     it('should disable the delete button when there are downstream pipelines', async () => {

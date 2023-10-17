@@ -1,0 +1,16 @@
+.optional {
+  display: block;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.description {
+  margin-left: 1.5rem;
+  margin-right: 2rem;
+  margin-bottom: 1rem;
+  display: inline-block;
+}
+
+.modalContent {
+  margin-top: 2rem;
+}

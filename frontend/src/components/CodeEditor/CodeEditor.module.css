@@ -1,0 +1,93 @@
+.codePreview {
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 5px;
+  margin: 2rem auto;
+  max-width: 1000px;
+  text-align: left;
+}
+
+.loading {
+  padding: 5rem 0;
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 5px;
+  width: 100%;
+  margin: 2rem auto;
+  max-width: 1000px;
+}
+
+.codePreviewContent {
+  border-radius: 5px;
+  max-height: calc(100vh - 275px);
+  overflow: auto;
+  position: relative;
+}
+
+.codePreviewContent :global(.cm-activeLine) {
+  background-color: transparent;
+}
+
+.codePreviewContent :global(.cm-activeLineGutter) {
+  background-color: transparent;
+}
+
+.codePreviewContent :global(.cm-gutters) {
+  background-color: var(--hover-grey);
+}
+
+.codePreviewContent :global(.cm-gutterElement) {
+  vertical-align: top;
+  position: relative;
+}
+
+.codePreviewContent :global(.cm-gutterElement span) {
+  color: transparent;
+  font-size: 1rem;
+  padding-right: 0.625rem;
+}
+
+.codePreviewContent :global(.cm-gutterElement span::after) {
+  color: #6e7781;
+  display: block;
+  padding-right: 0.25rem;
+  position: absolute;
+  left: 0.1875rem;
+}
+
+.codePreviewContent :global(.cm-gutterElement span[title='Fold line']::after) {
+  content: '⌄';
+  top: -0.1875rem;
+}
+
+.codePreviewContent
+  :global(.cm-gutterElement span[title='Unfold line']::after) {
+  content: '›';
+  top: 0;
+}
+
+.fullHeight .codePreviewContent {
+  max-height: none;
+}
+
+.hideGutter .codePreviewContent :global(.cm-gutters) {
+  display: none;
+}
+
+.hideLineNumbers
+  .codePreviewContent
+  :global(.cm-lineNumbers .cm-gutterElement) {
+  display: none;
+}
+
+.hideLineNumbers .codePreviewContent :global(.cm-gutterElement span::after) {
+  left: 0.375rem;
+}
+
+.codePreviewContent * {
+  font-family: Menlo, monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.24px;
+  line-height: 1.25rem;
+}

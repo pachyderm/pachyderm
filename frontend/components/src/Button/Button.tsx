@@ -99,13 +99,13 @@ export const Button: FunctionComponent<ButtonProps> = ({
     return (
       <Group spacing={8} align="center" justify="center">
         {IconSVG && (iconPosition === 'start' || iconPosition === 'both') && (
-          <Icon small color={iconColor} disabled={disabled}>
+          <Icon small color={iconColor}>
             <IconSVG />
           </Icon>
         )}
         {children}
         {IconSVG && (iconPosition === 'end' || iconPosition === 'both') && (
-          <Icon small color={iconColor} disabled={disabled}>
+          <Icon small color={iconColor}>
             <IconSVG />
           </Icon>
         )}

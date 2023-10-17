@@ -1,16 +1,17 @@
-import {EditorState} from '@codemirror/state';
+import {EditorState, Extension} from '@codemirror/state';
+import {EditorView} from '@codemirror/view';
 import {githubLight} from '@uiw/codemirror-theme-github';
 import classNames from 'classnames';
-import {EditorView, basicSetup} from 'codemirror';
+import {basicSetup} from 'codemirror';
 import React, {useEffect, useRef} from 'react';
 
 import {LoadingDots} from '@pachyderm/components';
 
 import styles from './CodePreview.module.css';
-import {SupportedLanguage, getFileLanguagePlugin} from './getFileDetails';
 import useCodePreview from './hooks/useCodePreview';
+import {SupportedLanguage, getFileLanguagePlugin} from './utils/getFileDetails';
 
-type CodePreviewProps = {
+export type CodePreviewProps = {
   className?: string;
   downloadLink?: string;
   fullHeight?: boolean;
@@ -18,6 +19,9 @@ type CodePreviewProps = {
   hideLineNumbers?: boolean;
   language?: SupportedLanguage;
   source?: string;
+  sourceLoading?: boolean;
+  wrapText?: boolean;
+  additionalExtensions?: Extension[];
 };
 
 const CodePreview: React.FC<CodePreviewProps> = ({
@@ -28,6 +32,9 @@ const CodePreview: React.FC<CodePreviewProps> = ({
   hideLineNumbers = false,
   language = 'text',
   source,
+  sourceLoading,
+  wrapText,
+  additionalExtensions,
 }) => {
   const codePreviewRef = useRef<HTMLDivElement | null>(null);
   const editorViewRef = useRef<EditorView | null>(null);
@@ -43,10 +50,16 @@ const CodePreview: React.FC<CodePreviewProps> = ({
     }
 
     const extensions = [basicSetup, githubLight, EditorState.readOnly.of(true)];
+    additionalExtensions?.forEach((extension) => extensions.push(extension));
+
     const languagePlugin = getFileLanguagePlugin(language);
 
     if (languagePlugin) {
       extensions.push(languagePlugin());
+    }
+
+    if (wrapText) {
+      extensions.push(EditorView.lineWrapping);
     }
 
     editorViewRef.current = new EditorView({
@@ -58,18 +71,24 @@ const CodePreview: React.FC<CodePreviewProps> = ({
     return () => {
       editorView?.destroy();
     };
-  }, [data, language]);
+  }, [data, language, wrapText, additionalExtensions]);
 
-  if (loading) return <LoadingDots />;
+  if (loading || sourceLoading) {
+    return (
+      <div className={classNames(styles.loading, className)}>
+        <LoadingDots />
+      </div>
+    );
+  }
 
   return (
     <div
       className={classNames(
-        className,
         styles.codePreview,
         hideGutter && styles.hideGutter,
         hideLineNumbers && styles.hideLineNumbers,
         fullHeight && styles.fullHeight,
+        className,
       )}
       data-testid="CodePreview__wrapper"
     >

@@ -13,8 +13,9 @@ const useCommunityEditionBanner = (expiration?: number) => {
     pipelines &&
     pipelines.some((pipeline) => {
       try {
-        const spec = JSON.parse(pipeline?.jsonSpec || '{}');
-        return spec?.parallelismSpec?.constant >= WORKER_LIMIT;
+        return (
+          pipeline?.parallelismSpec && pipeline?.parallelismSpec >= WORKER_LIMIT
+        );
       } catch (e) {
         console.warn('failed to parse spec for pipeline ' + pipeline?.id);
       }

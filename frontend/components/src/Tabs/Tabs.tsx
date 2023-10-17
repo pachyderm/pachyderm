@@ -13,18 +13,21 @@ export interface StatefulTabsProps {
   children?: React.ReactNode;
   initialActiveTabId: string;
   onSwitch?: (activeTab: string) => void;
+  resetToInitialTabId?: boolean;
 }
 
 const StatefulTabs: React.FC<StatefulTabsProps> = ({
   children,
   initialActiveTabId,
   onSwitch = noop,
+  resetToInitialTabId = false,
 }) => {
   const [activeTabId, setActiveTabId] = useState<string>(initialActiveTabId);
 
   useEffect(() => {
     if (activeTabId) onSwitch(activeTabId);
-  }, [activeTabId, onSwitch]);
+    if (resetToInitialTabId) setActiveTabId(initialActiveTabId);
+  }, [activeTabId, initialActiveTabId, onSwitch, resetToInitialTabId]);
 
   const contextValue = useMemo(
     () => ({

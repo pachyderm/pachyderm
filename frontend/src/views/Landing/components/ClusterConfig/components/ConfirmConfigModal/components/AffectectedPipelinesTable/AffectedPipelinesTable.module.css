@@ -1,0 +1,9 @@
+.base {
+  max-height: 15.25rem;
+  overflow-y: scroll;
+}
+
+.tableCell {
+  background-color: var(--white) !important;
+  border-top: none;
+}

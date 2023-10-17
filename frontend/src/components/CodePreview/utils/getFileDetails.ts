@@ -23,7 +23,7 @@ import {
   ruby,
   shell,
   yaml,
-} from './extensions/legacy';
+} from '../extensions/legacy';
 
 export type SupportedRenderer =
   | 'code'

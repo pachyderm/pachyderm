@@ -64,32 +64,6 @@ const deriveJSONJobDetails = (jobInfo: JobInfo.AsObject) => {
   return JSON.stringify(simplifiedSpec, null, 2);
 };
 
-const deriveJSONPipelineSpec = (pipelineInfo: PipelineInfo.AsObject) => {
-  const spec = {
-    metadata: pipelineInfo.details?.metadata,
-    transform: pipelineInfo.details?.transform,
-    parallelismSpec: pipelineInfo.details?.parallelismSpec,
-    resourceRequests: pipelineInfo.details?.resourceRequests,
-    resourceLimits: pipelineInfo.details?.resourceLimits,
-    sidecarResourceLimits: pipelineInfo.details?.sidecarResourceLimits,
-    input: pipelineInfo.details?.input,
-    service: pipelineInfo.details?.service,
-    autoscaling: pipelineInfo.details?.autoscaling,
-    reprocessSpec: pipelineInfo.details?.reprocessSpec,
-    schedulingSpec: pipelineInfo.details?.schedulingSpec,
-    podSpec: pipelineInfo.details?.podSpec,
-    podPatch: pipelineInfo.details?.podPatch,
-    egress: pipelineInfo.details?.egress,
-  };
-
-  const simplifiedSpec = omitByDeep(
-    removeGeneratedSuffixes(spec),
-    (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
-  );
-
-  return JSON.stringify(simplifiedSpec, null, 2);
-};
-
 export const pipelineInfoToGQLPipeline = (
   pipelineInfo: PipelineInfo.AsObject,
 ): Pipeline => {
@@ -121,7 +95,9 @@ export const pipelineInfoToGQLPipeline = (
         ? `s3//${pipelineInfo.pipeline.name}`
         : undefined,
     egress: Boolean(pipelineInfo.details?.egress),
-    jsonSpec: deriveJSONPipelineSpec(pipelineInfo),
+    userSpecJson: pipelineInfo.userSpecJson,
+    effectiveSpecJson: pipelineInfo.effectiveSpecJson,
+    parallelismSpec: pipelineInfo.details?.parallelismSpec?.constant,
     reason: pipelineInfo.reason,
   };
 };

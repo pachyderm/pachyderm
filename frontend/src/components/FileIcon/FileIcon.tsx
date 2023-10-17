@@ -1,6 +1,6 @@
 import React, {HTMLAttributes} from 'react';
 
-import {SupportedFileIcons} from '@dash-frontend/components/CodePreview/getFileDetails';
+import {SupportedFileIcons} from '@dash-frontend/components/CodePreview/utils/getFileDetails';
 import {
   FileAudioSVG,
   FileFolderSVG,

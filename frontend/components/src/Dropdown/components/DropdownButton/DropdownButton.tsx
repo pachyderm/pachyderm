@@ -6,6 +6,7 @@ import {
   ChevronRightSVG,
   ChevronUpSVG,
 } from '@pachyderm/components';
+import useSideNav from '@pachyderm/components/SideNav/hooks/useSideNav';
 
 import {Button, ButtonProps} from '../../../Button';
 import useDropdownButton from '../../hooks/useDropdownButton';
@@ -31,6 +32,7 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
   ...rest
 }) => {
   const dropdownButtonRef = useRef<HTMLButtonElement>(null);
+  const {minimized} = useSideNav();
   const {toggleDropdown, isOpen, handleKeyDown, sideOpen, openUpwards} =
     useDropdownButton(dropdownButtonRef);
   const mergedClasses = classnames(styles.base, className);
@@ -76,7 +78,9 @@ export const DropdownButton: React.FC<DropdownButtonProps> = ({
       IconSVG={Icon}
       {...rest}
     >
-      {children && <span className={styles.children}>{children}</span>}
+      {children && !minimized && (
+        <span className={styles.children}>{children}</span>
+      )}
     </Button>
   );
 };

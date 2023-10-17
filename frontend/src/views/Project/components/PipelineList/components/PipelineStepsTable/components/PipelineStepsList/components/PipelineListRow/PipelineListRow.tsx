@@ -57,6 +57,7 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
         pipeline?.name || '',
       )}
       hasLock={!pipelineRepoMap[pipeline?.id || '']?.access}
+      aria-disabled={!pipelineRepoMap[pipeline?.id || '']?.access}
       hasCheckbox={Boolean(pipelineRepoMap[pipeline?.id || '']?.access)}
       overflowMenuItems={iconItems}
       dropdownOnSelect={onOverflowMenuSelect(pipeline?.name || '')}

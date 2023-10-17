@@ -22,7 +22,7 @@ describe('Onboarding', () => {
 
   beforeEach(() => {
     cy.visit('/');
-    cy.findByText('Projects');
+    cy.findByRole('heading', {name: 'onboarding'});
   });
 
   it('when a DAG is empty, I can create and view a repo.', () => {

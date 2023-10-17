@@ -10,6 +10,89 @@ import {
 import merge from 'lodash/merge';
 import range from 'lodash/range';
 
+const userSpecJsonEdges = {
+  pipeline: {
+    project: {
+      name: 'default',
+    },
+    name: 'edges',
+  },
+  transform: {
+    image: 'pachyderm/opencv:1.0',
+    cmd: ['python3', '/edges.py'],
+  },
+  input: {
+    pfs: {
+      repo: 'images',
+      glob: '/*',
+    },
+  },
+  description:
+    'A pipeline that performs image edge detection by using the OpenCV library.',
+};
+
+const effectiveSpecJsonEdges = {
+  ...userSpecJsonEdges,
+  resourceRequests: {
+    cpu: 1,
+    disk: '1Gi',
+    memory: '256Mi',
+  },
+  sidecarResourceRequests: {
+    cpu: 1,
+    disk: '1Gi',
+    memory: '256Mi',
+  },
+};
+
+const userSpecJsonMontage = {
+  pipeline: {
+    project: {
+      name: 'default',
+    },
+    name: 'montage',
+  },
+  transform: {
+    image: 'dpokidov/imagemagick:7.1.0-23',
+    cmd: ['sh'],
+    stdin: [
+      'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png',
+    ],
+  },
+  input: {
+    cross: [
+      {
+        pfs: {
+          repo: 'images',
+          glob: '/',
+        },
+      },
+      {
+        pfs: {
+          repo: 'edges',
+          glob: '/',
+        },
+      },
+    ],
+  },
+  description:
+    'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
+};
+
+const effectiveSpecJsonMontage = {
+  ...userSpecJsonMontage,
+  resourceRequests: {
+    cpu: 1,
+    disk: '1Gi',
+    memory: '256Mi',
+  },
+  sidecarResourceRequests: {
+    cpu: 1,
+    disk: '1Gi',
+    memory: '256Mi',
+  },
+};
+
 export const buildPipeline = (pipeline: Partial<Pipeline>): Pipeline => {
   const defaultPipeline = {
     id: 'default',
@@ -24,13 +107,15 @@ export const buildPipeline = (pipeline: Partial<Pipeline>): Pipeline => {
     datumTries: 0,
     outputBranch: 'master',
     egress: false,
-    jsonSpec: '{}',
+    effectiveSpecJson: '{}',
+    userSpecJson: '{}',
     recentError: '',
     lastJobState: 'JOB_CREATED',
     lastJobNodeState: 'RUNNING',
     datumTimeoutS: null,
     jobTimeoutS: null,
     s3OutputRepo: null,
+    parallelismSpec: 0,
     reason: null,
     __typename: 'Pipeline',
   };
@@ -57,8 +142,8 @@ const MONTAGE_PIPELINE: Pipeline = buildPipeline({
   outputBranch: 'master',
   s3OutputRepo: null,
   egress: false,
-  jsonSpec:
-    '{\n  "transform": {\n    "image": "dpokidov/imagemagick:7.1.0-23",\n    "cmd": [\n      "sh"\n    ],\n    "stdin": [\n      "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find -L /pfs/images /pfs/edges -type f | sort) /pfs/out/montage.png"\n    ]\n  },\n  "input": {\n    "cross": [\n      {\n        "pfs": {\n          "project": "default",\n          "name": "images",\n          "repo": "images",\n          "repoType": "user",\n          "branch": "master",\n          "glob": "/"\n        }\n      },\n      {\n        "pfs": {\n          "project": "default",\n          "name": "edges",\n          "repo": "edges",\n          "repoType": "user",\n          "branch": "master",\n          "glob": "/"\n        }\n      }\n    ]\n  },\n  "reprocessSpec": "until_success"\n}',
+  effectiveSpecJson: JSON.stringify(effectiveSpecJsonMontage, null, 2),
+  userSpecJson: JSON.stringify(userSpecJsonMontage, null, 2),
   reason: 'Pipeline failed because we have no memory!',
   __typename: 'Pipeline',
 });
@@ -79,8 +164,8 @@ const EDGES_PIPELINE: Pipeline = buildPipeline({
   jobTimeoutS: null,
   outputBranch: 'master',
   s3OutputRepo: null,
-  jsonSpec:
-    '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
+  effectiveSpecJson: JSON.stringify(effectiveSpecJsonEdges, null, 2),
+  userSpecJson: JSON.stringify(userSpecJsonEdges, null, 2),
   __typename: 'Pipeline',
 });
 
@@ -119,27 +204,6 @@ const SERVICE_PIPELINE: Pipeline = buildPipeline({
   jobTimeoutS: null,
   outputBranch: 'master',
   s3OutputRepo: null,
-  jsonSpec: JSON.stringify(
-    {
-      transform: {
-        image: 'pachyderm/opencv:1.0',
-        cmd: ['python3', '/edges.py'],
-      },
-      input: {
-        pfs: {
-          project: 'default',
-          name: 'images',
-          repo: 'images',
-          repoType: 'user',
-          branch: 'master',
-          glob: '/*',
-        },
-      },
-      reprocessSpec: 'until_success',
-    },
-    null,
-    2,
-  ),
   __typename: 'Pipeline',
 });
 
@@ -168,8 +232,6 @@ const SPOUT_PIPELINE: Pipeline = buildPipeline({
   outputBranch: 'master',
   s3OutputRepo: null,
   egress: false,
-  jsonSpec:
-    '{\n  "transform": {\n    "image": "pachyderm/opencv:1.0",\n    "cmd": [\n      "python3",\n      "/edges.py"\n    ]\n  },\n  "input": {\n    "pfs": {\n      "project": "default",\n      "name": "images",\n      "repo": "images",\n      "repoType": "user",\n      "branch": "master",\n      "glob": "/*"\n    }\n  },\n  "reprocessSpec": "until_success"\n}',
   reason: '',
   __typename: 'Pipeline',
 });
@@ -194,29 +256,7 @@ export const mockGetManyPipelinesWithManyWorkers = (
     const pipelines = range(0, numPipelines).map((i) => {
       return buildPipeline({
         name: `pipeline-${i}`,
-        jsonSpec: JSON.stringify(
-          {
-            parallelismSpec: {
-              constant: numWorkers,
-            },
-            transform: {
-              image: 'pachyderm/opencv:1.0',
-              cmd: ['python3', '/edges.py'],
-            },
-            input: {
-              pfs: {
-                project: 'default',
-                name: 'images',
-                repo: 'images',
-                repoType: 'user',
-                branch: 'master',
-                glob: '/*',
-              },
-            },
-          },
-          null,
-          2,
-        ),
+        parallelismSpec: numWorkers,
       });
     });
 

@@ -3,6 +3,9 @@ describe('Landing', () => {
     cy.deleteReposAndPipelines();
     cy.setupProject();
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
+    cy.exec(
+      `echo '{"createPipelineRequest":{"resourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"},"sidecarResourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"}}}' | pachctl update defaults --cluster`,
+    );
   });
   beforeEach(() => {
     cy.visit('/');
@@ -11,6 +14,9 @@ describe('Landing', () => {
   after(() => {
     cy.deleteReposAndPipelines();
     cy.exec('pachctl delete project new-project', {failOnNonZeroExit: false});
+    cy.exec(
+      `echo '{"createPipelineRequest":{"resourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"},"sidecarResourceRequests":{"cpu":1,"memory":"256Mi","disk":"1Gi"}}}' | pachctl update defaults --cluster`,
+    );
   });
 
   it('should create a new project, edit its description, then delete it', () => {
@@ -101,5 +107,44 @@ describe('Landing', () => {
     cy.findByRole('dialog').should('not.exist');
 
     cy.contains('[role="row"]', /new-project/i).should('not.exist');
+  });
+
+  it('should update and apply the cluster config and renegerate a pipeline', () => {
+    cy.findByRole('button', {
+      name: /cluster defaults/i,
+      timeout: 12000,
+    }).click();
+
+    cy.findByRole('textbox').should('contain.text', 'createPipelineRequest');
+    cy.findByRole('textbox').clear();
+    cy.findByRole('textbox').type(`{
+      "createPipelineRequest": {
+          "resourceRequests": {
+              "cpu": 1,
+              "memory": "128Mi",
+              "disk": "1Gi"`);
+
+    cy.findByRole('button', {
+      name: /continue/i,
+    }).click();
+
+    cy.findByRole('radio', {
+      name: /save cluster defaults and regenerate pipelines/i,
+    }).click();
+
+    cy.findByText('1 pipeline will be affected');
+
+    cy.findByRole('button', {
+      name: /save/i,
+    }).click();
+
+    cy.findByRole('alert').should('have.text', 'Cluster defaults saved successfuly');
+
+    cy.visit('/lineage/default/pipelines/edges/spec');
+
+    // new setting has been applied
+    cy.findByText(`"128Mi"`, {
+      timeout: 12000,
+    });
   });
 });

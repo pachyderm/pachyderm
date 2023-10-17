@@ -29,11 +29,13 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
   sortLabel = 'field',
   sortReversed = false,
   sortSelected = false,
+  className,
   ...rest
 }) => {
-  const className = classnames(styles.base, {
+  const classNames = classnames(className, styles.base, {
     [styles.rightAligned]: rightAligned,
     [styles.sortHeader]: sortable,
+    className,
   });
 
   const sortDir = useMemo(() => {
@@ -52,7 +54,7 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
 
   return (
     <th
-      className={className}
+      className={classNames}
       {...rest}
       role="columnheader"
       aria-sort={sortDir}
@@ -63,6 +65,7 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
           aria-label={ariaLabel}
           className={styles.wrapperButton}
           onClick={onClick}
+          type="button"
         >
           <CaptionText className={styles.text}>{children}</CaptionText>
           <Icon color={sortSelected ? 'blue' : 'grey'} small>

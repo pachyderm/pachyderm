@@ -31,7 +31,6 @@
   position: relative;
 }
 
-
 .codePreviewContent :global(.cm-gutterElement span) {
   color: transparent;
   font-size: 1rem;
@@ -46,13 +45,14 @@
   left: 0.1875rem;
 }
 
-.codePreviewContent :global(.cm-gutterElement span[title="Fold line"]::after) {
-  content: "⌄";
+.codePreviewContent :global(.cm-gutterElement span[title='Fold line']::after) {
+  content: '⌄';
   top: -0.1875rem;
 }
 
-.codePreviewContent :global(.cm-gutterElement span[title="Unfold line"]::after) {
-  content: "›";
+.codePreviewContent
+  :global(.cm-gutterElement span[title='Unfold line']::after) {
+  content: '›';
   top: 0;
 }
 
@@ -64,7 +64,9 @@
   display: none;
 }
 
-.hideLineNumbers .codePreviewContent :global(.cm-lineNumbers .cm-gutterElement) {
+.hideLineNumbers
+  .codePreviewContent
+  :global(.cm-lineNumbers .cm-gutterElement) {
   display: none;
 }
 
@@ -78,4 +80,13 @@
   font-weight: 400;
   letter-spacing: 0.24px;
   line-height: 1.25rem;
+}
+
+.loading {
+  padding: 5rem 0;
+  background-color: var(--white);
+  border: solid 1px var(--border-grey);
+  border-radius: 5px;
+  margin: 2rem auto;
+  max-width: 1000px;
 }

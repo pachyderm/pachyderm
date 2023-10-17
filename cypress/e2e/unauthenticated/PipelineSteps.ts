@@ -1,16 +1,15 @@
 describe('Pipelines', () => {
   before(() => {
+    cy.deleteReposAndPipelines();
     cy.setupProject('error-opencv').visit('/');
+    cy.exec('pachctl create repo images2');
   });
 
   beforeEach(() => {
+    cy.visit('/');
     cy.findAllByText(/^View(\sProject)*$/)
       .eq(0)
       .click();
-  });
-
-  afterEach(() => {
-    cy.visit('/');
   });
 
   after(() => {
@@ -38,6 +37,111 @@ describe('Pipelines', () => {
 
     cy.get('#GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65').should('exist');
     cy.get('#GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838').should('exist');
-    cy.get('#GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6').should('not.exist');
+    cy.get('#GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6').should(
+      'not.exist',
+    );
+  });
+
+  it('should allow a user to create a pipeline', () => {
+    cy.findByRole('button', {name: 'Create', timeout: 12000}).click();
+    cy.findByRole('menuitem', {
+      name: 'Pipeline',
+      timeout: 12000,
+    }).click();
+
+    cy.findByRole('status').should('not.exist');
+
+    cy.findByRole('textbox').should('contain.text', 'pipeline');
+    cy.findByRole('textbox').type(
+      `{selectAll}{backspace}{
+  "pipeline": {
+    "name": "edges2"
+  },
+  "description": "A pipeline that performs images edge detection by using the OpenCV library.",
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images2"
+    }
+  },
+  "transform": {
+    "cmd": ["python3", "/edges.py"],
+    "image": "pachyderm/opencv:1.0"
+  }
+}${'{del}'.repeat(40)}`,
+      {delay: 0},
+    );
+    cy.findByRole('alert').should('not.exist');
+    cy.findByRole('button', {
+      name: /prettify/i,
+    }).click();
+    cy.findByRole('button', {
+      name: /create pipeline/i,
+    }).should('be.enabled');
+
+    // assert that the effective spec combines the editor text and the cluster defaults
+    cy.findByRole('tab', {name: /effective spec/i}).click();
+    cy.findByRole('textbox').should('contain.text', 'edges2');
+
+    cy.findByRole('button', {
+      name: /create pipeline/i,
+    }).click();
+
+    // new pipeline has been created
+    cy.get('#GROUP_fcd0346ddb31ee5a39ed7eb2271c659bf855737d').should('exist');
+  });
+
+  it('should allow a user to update a pipeline', () => {
+    cy.findByRole('button', {
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
+      timeout: 10000,
+    }).click();
+    cy.findByRole('button', {name: 'Update Pipeline', timeout: 12000}).click();
+
+    cy.findByRole('status').should('not.exist');
+
+    cy.findByRole('textbox').should('contain.text', 'edges');
+    // update input from images to images2
+    cy.findByRole('textbox').type(
+      `{selectAll}{backspace}{
+  "pipeline": {
+    "name": "edges"
+  },
+  "input": {
+    "pfs": {
+      "glob": "/*",
+      "repo": "images2"
+    }
+  },
+  "transform": {
+    "cmd": ["python3", "/edges.py"],
+    "image": "pachyderm/opencv:1.0"
+  }
+}${'{del}'.repeat(40)}`,
+      {delay: 0},
+    );
+    cy.findByRole('alert').should('not.exist');
+    cy.findByRole('button', {
+      name: /prettify/i,
+    }).click();
+    cy.findByRole('button', {
+      name: /update pipeline/i,
+    }).click();
+
+    cy.findByRole('dialog').within(() => {
+      cy.findByRole('checkbox', {
+        name: /reprocess datums/i,
+      }).click();
+      cy.findByRole('button', {
+        name: /update pipeline/i,
+      }).click();
+    });
+
+    // images2 now has pipeline edges as output
+    cy.findByRole('button', {
+      name: 'GROUP_fa25b098cdc91b225479ff6f51bedbe124e29d5a repo',
+      timeout: 10000,
+    }).click();
+    cy.findAllByTestId('ResourceLink__pipeline').eq(0).should('have.attr', 'href', '/lineage/default/pipelines/edges');
   });
 });

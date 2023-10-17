@@ -1,0 +1,18 @@
+.infoBar {
+  max-width: 80rem;
+  width: 100%;
+  background-color: var(--white);
+  border-radius: 3px;
+  border: solid 1px var(--border-grey);
+  padding: 0.5rem;
+  align-items: center;
+  display: flex;
+  margin: 0.5rem auto;
+  margin-top: 0rem;
+}
+
+.error {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+}

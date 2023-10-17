@@ -17,7 +17,7 @@ const LandingSkeleton: React.FC = () => {
       <div className={styles.base}>
         <View>
           <TabView errorMessage="Error loading projects">
-            <TabView.Header heading="Projects" headerButtonHidden />
+            <TabView.Header heading="Projects" />
             <TabView.Body initialActiveTabId={'All'} showSkeleton={false}>
               <TabView.Body.Header>
                 <TabView.Body.Tabs placeholder="">

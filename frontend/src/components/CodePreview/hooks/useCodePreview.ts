@@ -2,20 +2,20 @@ import {useCallback} from 'react';
 
 import {useFetch} from 'hooks/useFetch';
 
-const useCodePreview = (url = '', source = '') => {
+const useCodePreview = (url?: string, source?: string) => {
   const formatResponse = useCallback(async (res: Response) => {
     return await res.text();
   }, []);
   const {data, loading, error, reset} = useFetch({
-    url,
+    url: url || '',
     formatResponse,
-    skip: !!source,
+    skip: !url,
   });
 
   return {
     data: source || data,
-    loading: source ? false : loading,
-    error: source ? undefined : error,
+    loading: !url ? false : loading,
+    error: !url ? undefined : error,
     reset,
   };
 };

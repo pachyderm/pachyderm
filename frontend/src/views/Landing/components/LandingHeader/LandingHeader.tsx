@@ -14,7 +14,7 @@ type LandingHeaderProps = {
 const LandingHeader: React.FC<LandingHeaderProps> = ({
   disableBranding = false,
 }) => {
-  const {enterpriseActive} = useEnterpriseActive(disableBranding);
+  const {enterpriseActive, loading} = useEnterpriseActive(disableBranding);
 
   const logo = enterpriseActive ? (
     <LogoHpe aria-describedby="logo-title" />
@@ -26,25 +26,29 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({
     <Header>
       <Group justify="stretch" align="center">
         <Group align="center" justify="center" spacing={24}>
-          <a className={styles.logoLink} href="/">
-            {!disableBranding && logo}
-            <h5
-              className={
-                enterpriseActive
-                  ? styles.hpeLogoHeader
-                  : styles.pachydermLogoHeader
-              }
-            >
-              {enterpriseActive ? (
-                <>
-                  HPE{' '}
-                  <span className={styles.hpeLogoSpan}>ML Data Management</span>
-                </>
-              ) : (
-                'Console'
-              )}
-            </h5>
-          </a>
+          {!loading && (
+            <a className={styles.logoLink} href="/">
+              {!disableBranding && logo}
+              <h5
+                className={
+                  enterpriseActive
+                    ? styles.hpeLogoHeader
+                    : styles.pachydermLogoHeader
+                }
+              >
+                {enterpriseActive ? (
+                  <>
+                    HPE{' '}
+                    <span className={styles.hpeLogoSpan}>
+                      ML Data Management
+                    </span>
+                  </>
+                ) : (
+                  'Console'
+                )}
+              </h5>
+            </a>
+          )}
         </Group>
         <HeaderDropdown errorPage={disableBranding} />
       </Group>

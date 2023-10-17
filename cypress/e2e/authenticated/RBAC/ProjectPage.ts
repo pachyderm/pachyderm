@@ -47,7 +47,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     });
   });
 
-  it('displays create repo buttons when you have projectWriter', () => {
+  it('displays create buttons when you have projectWriter', () => {
     cy.multiLineExec(`
       echo "pizza" | pachctl auth use-auth-token
       pachctl create project testProjectWriter
@@ -57,8 +57,8 @@ describe('Repo / Pipeline table and DAG view', () => {
 
     cy.login('/lineage/testProjectWriter');
 
-    // create repo on sidebar
-    cy.findByRole('button', {name: /create repo/i}).should('exist');
+    // create buttons on sidebar
+    cy.findByRole('button', {name: /create/i}).should('exist');
 
     // create repo button on empty dag
     cy.findByRole('button', {name: 'Create Your First Repo'}).should(

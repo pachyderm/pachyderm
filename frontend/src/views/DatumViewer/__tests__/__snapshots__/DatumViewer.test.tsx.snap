@@ -6,7 +6,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
   data-testid="ConfigFilePreview__codeElement"
 >
   <div
-    class="fileCodePreview codePreview hideLineNumbers fullHeight"
+    class="codePreview hideLineNumbers fullHeight fileCodePreview"
     data-testid="CodePreview__wrapper"
   >
     <div

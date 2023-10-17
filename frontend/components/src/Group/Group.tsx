@@ -7,8 +7,8 @@ export type GroupProps = React.HTMLAttributes<HTMLDivElement> & {
   inline?: boolean;
   vertical?: boolean;
   spacing?: 8 | 16 | 24 | 32 | 40 | 64 | 128;
-  justify?: string;
-  align?: string;
+  justify?: 'end' | 'center' | 'stretch' | 'between';
+  align?: 'center' | 'start' | 'end' | 'baseline';
   reverse?: boolean;
 };
 

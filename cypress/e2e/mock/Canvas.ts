@@ -1,7 +1,7 @@
 describe('Download Canvas', () => {
   beforeEach(() => {
     cy.visit('/');
-    cy.findByText('Projects');
+    cy.findByRole('heading', {name: 'Data-Cleaning-Process'});
     cy.task('deleteDownloadedFile', 'Solar-Power-Data-Logger-Team-Collab.svg');
   });
 
@@ -15,7 +15,7 @@ describe('Download Canvas', () => {
     waiting for some page text to render. I think this is happening because the
     app needs to load an auth token and put it in local storage.
     */
-    cy.findByText('Projects');
+    cy.findByRole('heading', {name: 'Data-Cleaning-Process'});
     cy.visit('/lineage/Solar-Power-Data-Logger-Team-Collab');
 
     cy.findByRole('button', {

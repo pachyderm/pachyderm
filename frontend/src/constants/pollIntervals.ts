@@ -37,3 +37,4 @@ export const REPO_POLL_INTERVAL_MS: number = pollingInterval;
 export const PIPELINES_POLL_INTERVAL_MS: number = pollingInterval;
 export const COMMITS_POLL_INTERVAL_MS: number = pollingInterval;
 export const LOGS_POLL_INTERVAL_MS: number = pollingInterval;
+export const CLUSTER_DEFAULTS_POLL_INTERVAL_MS: number = pollingInterval;

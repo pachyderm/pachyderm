@@ -8,9 +8,13 @@ describe('Repos', () => {
     cy.findAllByText(/^View(\sProject)*$/)
       .eq(0)
       .click();
-    cy.findByText('Create Repo', {timeout: 12000}).click();
+    cy.findByRole('button', {name: 'Create', timeout: 12000}).click();
+    cy.findByRole('menuitem', {
+      name: 'Input Repository',
+      timeout: 12000,
+    }).click();
     cy.findByLabelText('Name', {exact: false, timeout: 12000}).type('TestRepo');
-    cy.findByText('Create').click();
+    cy.findByRole('dialog').within(() => cy.findByText('Create').click());
     cy.exec('pachctl create branch TestRepo@test');
   });
 
@@ -19,14 +23,18 @@ describe('Repos', () => {
   });
 
   it('should allow a user to create a repo', () => {
-    cy.findByText('Create Repo', {timeout: 12000}).click();
+    cy.findByRole('button', {name: 'Create', timeout: 12000}).click();
+    cy.findByRole('menuitem', {
+      name: 'Input Repository',
+      timeout: 12000,
+    }).click();
 
     cy.findByLabelText('Name', {exact: false, timeout: 12000}).clear();
     cy.findByLabelText('Name', {exact: false, timeout: 12000}).type('NewRepo');
     cy.findByLabelText('Description', {exact: false}).type(
       'New repo description',
     );
-    cy.findByText('Create').click();
+    cy.findByRole('dialog').within(() => cy.findByText('Create').click());
 
     cy.findByText('NewRepo').click();
     cy.findByText('New repo description', {timeout: 15000});

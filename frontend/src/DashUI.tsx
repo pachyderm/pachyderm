@@ -7,8 +7,11 @@ import AnalyticsProvider from '@dash-frontend/providers/AnalyticsProvier';
 import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
 import ErrorView from '@dash-frontend/views/ErrorView';
 import {
+  CLUSTER_CONFIG,
   LINEAGE_PATH,
   PROJECT_PATH,
+  CREATE_PIPELINE_PATH,
+  UPDATE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   NotificationBannerProvider,
@@ -20,6 +23,12 @@ import LoggedInProvider from './providers/LoggedInProvider';
 
 const Landing = lazy(() => import('@dash-frontend/views/Landing/Landing'));
 const Project = lazy(() => import('@dash-frontend/views/Project/Project'));
+const PipelineEditor = lazy(
+  () =>
+    import(
+      '@dash-frontend/views/Project/components/PipelineEditor/PipelineEditor'
+    ),
+);
 
 const DashUI: React.FC = () => {
   return (
@@ -34,9 +43,14 @@ const DashUI: React.FC = () => {
                     <Suspense fallback={<LoadingSkeleton />}>
                       <Switch>
                         <Route
-                          path="/"
+                          path={['/', CLUSTER_CONFIG]}
                           exact
                           component={AuthenticatedRoute(Landing)}
+                        />
+
+                        <Route
+                          path={[CREATE_PIPELINE_PATH, UPDATE_PIPELINE_PATH]}
+                          component={AuthenticatedRoute(PipelineEditor)}
                         />
 
                         <Route

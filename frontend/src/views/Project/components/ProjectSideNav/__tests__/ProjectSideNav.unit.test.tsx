@@ -39,8 +39,16 @@ describe('project sidenav', () => {
 
         render(<ProjectSideNav />);
 
-        const createButton = screen.getByText('Create Repo');
-        await click(createButton);
+        await click(
+          screen.getByRole('button', {
+            name: /create/i,
+          }),
+        );
+        await click(
+          screen.getByRole('menuitem', {
+            name: /input repository/i,
+          }),
+        );
 
         const modal = screen.getByRole('dialog');
         const nameInput = await within(modal).findByLabelText('Name', {
@@ -59,8 +67,16 @@ describe('project sidenav', () => {
 
         render(<ProjectSideNav />);
 
-        const createButton = screen.getByText('Create Repo');
-        await click(createButton);
+        await click(
+          screen.getByRole('button', {
+            name: /create/i,
+          }),
+        );
+        await click(
+          screen.getByRole('menuitem', {
+            name: /input repository/i,
+          }),
+        );
 
         const modal = screen.getByRole('dialog');
         const nameInput = await within(modal).findByLabelText('Name', {

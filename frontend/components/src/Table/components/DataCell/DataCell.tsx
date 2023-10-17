@@ -24,12 +24,16 @@ const DataCell: React.FC<DataCellProps> = ({
 }) => {
   const {stickyRef, elementIsStuck} = useStickyState();
 
-  const classes = classnames(styles.base, className, {
-    [styles.rightAligned]: rightAligned,
-    [styles.sticky]: sticky,
-    [styles.stuck]: elementIsStuck,
-    [styles.isSelected]: isSelected && elementIsStuck,
-  });
+  const classes = classnames(
+    styles.base,
+    {
+      [styles.rightAligned]: rightAligned,
+      [styles.sticky]: sticky,
+      [styles.stuck]: elementIsStuck,
+      [styles.isSelected]: isSelected && elementIsStuck,
+    },
+    className,
+  );
 
   return (
     <td className={classes} ref={sticky ? stickyRef : undefined} {...rest}>

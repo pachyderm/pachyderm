@@ -7,6 +7,7 @@ import DeletePipelineButton from '@dash-frontend/views/Project/components/Projec
 import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
 import InspectCommitsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/InspectCommitsButton';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
+import UpdatePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UpdatePipelineButton';
 import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UploadFilesButton';
 import {
   PROJECT_PATH,
@@ -97,6 +98,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <DeleteRepoButton />
               </Route>
               <Route path={LINEAGE_PIPELINE_PATH}>
+                <UpdatePipelineButton />
                 <DeletePipelineButton />
               </Route>
               {onClose && (
