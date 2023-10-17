@@ -57,12 +57,11 @@ const (
 )
 
 type ErrBranchProvCycle struct {
-	FromID BranchID
-	ToID   BranchID
+	From, To *pfs.Branch
 }
 
 func (err ErrBranchProvCycle) Error() string {
-	return fmt.Sprintf("cycle detected for BranchID=%d, because BranchID=%d is already in its subvenance", err.FromID, err.ToID)
+	return fmt.Sprintf("cycle detected because %s is already provenant on %s", err.To, err.From)
 }
 
 // ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
@@ -264,13 +263,9 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	for _, branch := range fullSubv {
 		fullSubvSet[branch.Key()] = true
 	}
-	for _, branch := range branchInfo.DirectProvenance {
-		if fullSubvSet[branch.Key()] {
-			toID, err := GetBranchID(ctx, tx, branch)
-			if err != nil {
-				return branchID, errors.Wrapf(err, "detected cycle, but could not get the branch id for branch %s that is causing the cycle", branch.Key())
-			}
-			return branchID, ErrBranchProvCycle{FromID: branchID, ToID: toID}
+	for _, toBranch := range branchInfo.DirectProvenance {
+		if fullSubvSet[toBranch.Key()] {
+			return branchID, ErrBranchProvCycle{From: branchInfo.Branch, To: toBranch}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
@@ -406,30 +401,6 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 		branchPbs = append(branchPbs, branch.Pb())
 	}
 	return branchPbs, nil
-}
-
-func CheckBranchProvenanceForCycles(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	var count int
-	if err := tx.QueryRowContext(ctx, `
-		WITH RECURSIVE subv(from_id) AS (
-			SELECT from_id
-			FROM pfs.branch_provenance
-			WHERE to_id = $1
-		  UNION ALL
-			SELECT bp.from_id
-			FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
-		)
-		SELECT count(*)
-		FROM subv
-		WHERE subv.from_id = $2
-		LIMIT 1
-	`, from, to).Scan(&count); err != nil {
-		return errors.Wrapf(err, "branch provenance cycle check failed for from_id = %d, to_id = %d", from, to)
-	}
-	if count == 1 {
-		return ErrBranchProvCycle{FromID: from, ToID: to}
-	}
-	return nil
 }
 
 // CreateBranchProvenance creates a provenance relationship between two branches.

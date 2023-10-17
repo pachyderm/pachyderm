@@ -210,9 +210,10 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = nil
 			branchCInfo.Provenance = nil
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
-			// Updating B first should result in cycle, so need to update C first
+			// The B -> C relationship causes a cycle, so need to update C first and remove the B <- C relationship.
 			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
-			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{FromID: allBranches[branchBInfo.Branch.Key()].ID, ToID: allBranches[branchCInfo.Branch.Key()].ID})
+			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{From: branchBInfo.Branch, To: branchCInfo.Branch})
+			require.ErrorContains(t, err, "cycle detected")
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
 			require.NoError(t, err)
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchAInfo)
