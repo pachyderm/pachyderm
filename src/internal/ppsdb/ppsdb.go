@@ -19,6 +19,7 @@ const (
 	pipelinesCollectionName       = "pipelines"
 	jobsCollectionName            = "jobs"
 	clusterDefaultsCollectionName = "cluster_defaults"
+	projectDefaultsCollectionName = "project_defaults"
 )
 
 // PipelinesVersionIndex records the version numbers of pipelines
@@ -172,6 +173,18 @@ func ClusterDefaults(db *pachsql.DB, listener col.PostgresListener) col.Postgres
 	)
 }
 
+// ProjectDefaults returns a PostgresCollection of project defaults.  Note that
+// this is a singleton table.
+func ProjectDefaults(db *pachsql.DB, listener col.PostgresListener) col.PostgresCollection {
+	return col.NewPostgresCollection(
+		projectDefaultsCollectionName,
+		db,
+		listener,
+		&ProjectDefaultsWrapper{},
+		nil,
+	)
+}
+
 // CollectionsV0 returns a list of all the PPS API collections for
 // postgres-initialization purposes. These collections are not usable for
 // querying.
@@ -192,5 +205,16 @@ func CollectionsV0() []col.PostgresCollection {
 func CollectionsV2_7_0() []col.PostgresCollection {
 	return []col.PostgresCollection{
 		col.NewPostgresCollection(clusterDefaultsCollectionName, nil, nil, nil, nil),
+	}
+}
+
+// CollectionsV2_8_0 returns a list of collections for postgres-initialization
+// purposes.  These collections are not usable for querying.
+//
+// DO NOT MODIFY THIS FUNCTION
+// IT HAS BEEN USED IN A RELEASED MIGRATION
+func CollectionsV2_8_0() []col.PostgresCollection {
+	return []col.PostgresCollection{
+		col.NewPostgresCollection(projectDefaultsCollectionName, nil, nil, nil, nil),
 	}
 }

@@ -204,6 +204,7 @@
   
 - [internal/ppsdb/ppsdb.proto](#internal_ppsdb_ppsdb-proto)
     - [ClusterDefaultsWrapper](#pps_v2-ClusterDefaultsWrapper)
+    - [ProjectDefaultsWrapper](#pps_v2-ProjectDefaultsWrapper)
   
 - [internal/ppsload/ppsload.proto](#internal_ppsload_ppsload-proto)
     - [State](#ppsload-State)
@@ -415,6 +416,8 @@
     - [GetClusterDefaultsRequest](#pps_v2-GetClusterDefaultsRequest)
     - [GetClusterDefaultsResponse](#pps_v2-GetClusterDefaultsResponse)
     - [GetLogsRequest](#pps_v2-GetLogsRequest)
+    - [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest)
+    - [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse)
     - [Input](#pps_v2-Input)
     - [InputFile](#pps_v2-InputFile)
     - [InspectDatumRequest](#pps_v2-InspectDatumRequest)
@@ -446,6 +449,7 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [ProcessStats](#pps_v2-ProcessStats)
+    - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
     - [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry)
     - [RenderTemplateResponse](#pps_v2-RenderTemplateResponse)
@@ -465,6 +469,8 @@
     - [Service](#pps_v2-Service)
     - [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest)
     - [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse)
+    - [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest)
+    - [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse)
     - [Spout](#pps_v2-Spout)
     - [StartPipelineRequest](#pps_v2-StartPipelineRequest)
     - [StopJobRequest](#pps_v2-StopJobRequest)
@@ -3486,6 +3492,21 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 <a name="pps_v2-ClusterDefaultsWrapper"></a>
 
 ### ClusterDefaultsWrapper
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| json | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-ProjectDefaultsWrapper"></a>
+
+### ProjectDefaultsWrapper
 
 
 
@@ -6657,6 +6678,36 @@ Delete more than one pipeline.
 
 
 
+<a name="pps_v2-GetProjectDefaultsRequest"></a>
+
+### GetProjectDefaultsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-GetProjectDefaultsResponse"></a>
+
+### GetProjectDefaultsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
+
+
+
+
+
+
 <a name="pps_v2-Input"></a>
 
 ### Input
@@ -7281,6 +7332,21 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-ProjectDefaults"></a>
+
+### ProjectDefaults
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-RenderTemplateRequest"></a>
 
 ### RenderTemplateRequest
@@ -7584,6 +7650,40 @@ request from kubernetes, for scheduling.
 <a name="pps_v2-SetClusterDefaultsResponse"></a>
 
 ### SetClusterDefaultsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| affected_pipelines | [Pipeline](#pps_v2-Pipeline) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-SetProjectDefaultsRequest"></a>
+
+### SetProjectDefaultsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+| regenerate | [bool](#bool) |  |  |
+| reprocess | [bool](#bool) |  | must be false if regenerate is false |
+| dry_run | [bool](#bool) |  |  |
+| project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this will be stored verbatim. |
+
+
+
+
+
+
+<a name="pps_v2-SetProjectDefaultsResponse"></a>
+
+### SetProjectDefaultsResponse
 
 
 

@@ -7353,6 +7353,30 @@
               "defaultValue": ""
             }
           ]
+        },
+        {
+          "name": "ProjectDefaultsWrapper",
+          "longName": "ProjectDefaultsWrapper",
+          "fullName": "pps_v2.ProjectDefaultsWrapper",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "json",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
         }
       ],
       "services": []
@@ -16158,6 +16182,54 @@
           ]
         },
         {
+          "name": "GetProjectDefaultsRequest",
+          "longName": "GetProjectDefaultsRequest",
+          "fullName": "pps_v2.GetProjectDefaultsRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GetProjectDefaultsResponse",
+          "longName": "GetProjectDefaultsResponse",
+          "fullName": "pps_v2.GetProjectDefaultsResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project_defaults_json",
+              "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed\nto SetProjectDefaults.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Input",
           "longName": "Input",
           "fullName": "pps_v2.Input",
@@ -18722,6 +18794,30 @@
           ]
         },
         {
+          "name": "ProjectDefaults",
+          "longName": "ProjectDefaults",
+          "fullName": "pps_v2.ProjectDefaults",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "create_pipeline_request",
+              "description": "",
+              "label": "",
+              "type": "CreatePipelineRequest",
+              "longType": "CreatePipelineRequest",
+              "fullType": "pps_v2.CreatePipelineRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "RenderTemplateRequest",
           "longName": "RenderTemplateRequest",
           "fullName": "pps_v2.RenderTemplateRequest",
@@ -19521,6 +19617,102 @@
           "name": "SetClusterDefaultsResponse",
           "longName": "SetClusterDefaultsResponse",
           "fullName": "pps_v2.SetClusterDefaultsResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "affected_pipelines",
+              "description": "",
+              "label": "repeated",
+              "type": "Pipeline",
+              "longType": "Pipeline",
+              "fullType": "pps_v2.Pipeline",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SetProjectDefaultsRequest",
+          "longName": "SetProjectDefaultsRequest",
+          "fullName": "pps_v2.SetProjectDefaultsRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "regenerate",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "reprocess",
+              "description": "must be false if regenerate is false",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "dry_run",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "project_defaults_json",
+              "description": "A JSON-encoded ProjectDefaults message, this will be stored verbatim.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SetProjectDefaultsResponse",
+          "longName": "SetProjectDefaultsResponse",
+          "fullName": "pps_v2.SetProjectDefaultsResponse",
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
