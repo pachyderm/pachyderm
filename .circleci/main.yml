@@ -240,12 +240,6 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
-      # - run: 
-      #     name: collect test names
-      #     background: false # DNJ TODO - need to make sure we wait for this
-      #     command: |- 
-      #       go build -o=test-split src/testing/cmds/test-splitting/main.go
-      #       ./test-split
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:
@@ -330,10 +324,6 @@ jobs:
             # -parallel=4 \
             # -count=1 \
             # -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
-      - run:
-          name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
-          when: always
       - run:
           name: Format code coverage
           when: always
