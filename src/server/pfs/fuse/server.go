@@ -1120,7 +1120,9 @@ func (mi *MountInfo) verifyProjectRepoBranchCommitExist(client *client.APIClient
 	if err != nil {
 		return false, err
 	}
-	mi.Branch = commitInfo.Commit.Branch.Name
+	if commitInfo.Commit.Branch != nil {
+		mi.Branch = commitInfo.Commit.Branch.Name
+	}
 	mi.Commit = commitInfo.Commit.Id
 	return true, nil
 }
