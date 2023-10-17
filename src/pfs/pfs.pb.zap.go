@@ -412,6 +412,38 @@ func (x *ClearCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *SquashCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("commit", x.Commit)
+	enc.AddBool("recursive", x.Recursive)
+	return nil
+}
+
+func (x *SquashCommitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
+func (x *DropCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("commit", x.Commit)
+	enc.AddBool("recursive", x.Recursive)
+	return nil
+}
+
+func (x *DropCommitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
 func (x *CreateBranchRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

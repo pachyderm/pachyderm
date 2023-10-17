@@ -292,6 +292,20 @@ message ClearCommitRequest {
   Commit commit = 1;
 }
 
+message SquashCommitRequest {
+  Commit commit = 1;
+  bool recursive = 2;
+}
+
+message SquashCommitResponse {}
+
+message DropCommitRequest {
+  Commit commit = 1;
+  bool recursive = 2;
+}
+
+message DropCommitResponse {}
+
 message CreateBranchRequest {
   Commit head = 1;
   Branch branch = 2;
@@ -623,6 +637,10 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
+  // SquashCommit squashes the provided commit into its children. 
+  rpc SquashCommit(SquashCommitRequest) returns (SquashCommitResponse) {}
+  // DropCommit drops the provided commit.
+  rpc DropCommit(DropCommitRequest) returns (DropCommitResponse) {}
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}

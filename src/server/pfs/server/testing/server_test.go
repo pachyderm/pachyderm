@@ -86,6 +86,35 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 	return err
 }
 
+func finishCommitSet(pachClient *client.APIClient, id string) error {
+	cis, err := pachClient.InspectCommitSet(id)
+	if err != nil {
+		return err
+	}
+	for _, ci := range cis {
+		branch := ci.Commit.Branch
+		if err := pachClient.FinishProjectCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+			if !pfsserver.IsCommitFinishedErr(err) {
+				return err
+			}
+		}
+		if _, err := pachClient.WaitProjectCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func finishCommitSetAll(pachClient *client.APIClient) error {
+	listCommitSetClient, err := pachClient.PfsAPIClient.ListCommitSet(pachClient.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: pfs.DefaultProjectName}})
+	if err != nil {
+		return err
+	}
+	return clientsdk.ForEachCommitSet(listCommitSetClient, func(csi *pfs.CommitSetInfo) error {
+		return finishCommitSet(pachClient, csi.CommitSet.ID)
+	})
+}
+
 type fileSetSpec map[string]tarutil.File
 
 func (fs fileSetSpec) makeTarStream() io.Reader {
@@ -4985,6 +5014,120 @@ func TestPFS(suite *testing.T) {
 		masterInfo, err := env.PachClient.InspectProjectBranch(project, "repo", "master")
 		require.NoError(t, err)
 		require.Equal(t, c.ID, masterInfo.Head.ID)
+	})
+
+	suite.Run("SquashAndDropCommit", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		// Create three repos where one is provenant on the other two.
+		upstream1 := tu.UniqueString("upstream-1")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream1))
+		upstream2 := tu.UniqueString("upstream-2")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream2))
+		downstream := tu.UniqueString("downstream")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, downstream))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, downstream, "master", "", "", []*pfs.Branch{
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream1, "master"),
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream2, "master"),
+		}))
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+		createCommit := func() *pfs.Commit {
+			commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, upstream1, "master")
+			require.NoError(t, err)
+			require.NoError(t, finishCommitSet(env.PachClient, commit.ID))
+			return commit
+		}
+		t.Run("Error", func(t *testing.T) {
+			c1 := createCommit()
+			c2 := createCommit()
+			// Check that the first commit cannot be dropped.
+			_, err := env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+				Commit:    c1,
+				Recursive: true,
+			})
+			require.YesError(t, err)
+			// Check that the second commit cannot be squashed.
+			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+				Commit:    c2,
+				Recursive: true,
+			})
+			require.YesError(t, err)
+			// Check that squash and drop error without recursive.
+			_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: c1})
+			require.YesError(t, err)
+			_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: c2})
+			require.YesError(t, err)
+		})
+		// squashThenDrop squashes the first commit then drops the second commit.
+		// It also checks that the first commit cannot be dropped and that the second commit cannot be squashed.
+		squashThenDrop := func(c1, c2 *pfs.Commit) {
+			// Squash the first commit.
+			_, err := env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+				Commit:    c1,
+				Recursive: true,
+			})
+			require.NoError(t, err)
+			// Drop the second commit.
+			_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+				Commit:    c2,
+				Recursive: true,
+			})
+			require.NoError(t, err)
+			// Finish commits created after the drop.
+			require.NoError(t, finishCommitSetAll(env.PachClient))
+		}
+		t.Run("Simple", func(t *testing.T) {
+			c1 := createCommit()
+			c2 := createCommit()
+			squashThenDrop(c1, c2)
+			// Check that only the upstream2 commits are left.
+			for _, c := range []*pfs.Commit{c1, c2} {
+				cis, err := env.PachClient.InspectCommitSet(c.ID)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(cis))
+				require.Equal(t, upstream2, cis[0].Commit.Branch.Repo.Name)
+			}
+		})
+		t.Run("Downstream", func(t *testing.T) {
+			c1 := createCommit()
+			c2 := createCommit()
+			dc1 := client.NewProjectCommit(pfs.DefaultProjectName, downstream, "master", c1.ID)
+			dc2 := client.NewProjectCommit(pfs.DefaultProjectName, downstream, "master", c2.ID)
+			squashThenDrop(dc1, dc2)
+			// Check that only the downstream commits were affected.
+			for _, c := range []*pfs.Commit{dc1, dc2} {
+				cis, err := env.PachClient.InspectCommitSet(c.ID)
+				require.NoError(t, err)
+				require.Equal(t, 2, len(cis))
+				for _, ci := range cis {
+					require.NotEqual(t, downstream, ci.Commit.Branch.Repo.Name)
+				}
+			}
+		})
+		t.Run("Complex", func(t *testing.T) {
+			// Create two more downstream repos, each provenant on the original downstream repo.
+			for _, repoName := range []string{
+				tu.UniqueString("downstream-1"),
+				tu.UniqueString("downstream-2"),
+			} {
+				require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, repoName))
+				require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, repoName, "master", "", "", []*pfs.Branch{
+					client.NewProjectBranch(pfs.DefaultProjectName, downstream, "master"),
+				}))
+				require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, repoName, "master", ""))
+			}
+			c1 := createCommit()
+			c2 := createCommit()
+			squashThenDrop(c1, c2)
+			// Check that only the upstream-2 commits are left.
+			for _, c := range []*pfs.Commit{c1, c2} {
+				cis, err := env.PachClient.InspectCommitSet(c.ID)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(cis))
+				require.Equal(t, upstream2, cis[0].Commit.Branch.Repo.Name)
+			}
+		})
 	})
 
 	suite.Run("CommitState", func(t *testing.T) {

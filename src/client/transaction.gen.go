@@ -341,6 +341,10 @@ func (c *unsupportedPfsBuilderClient) DiffFile(_ context.Context, _ *pfs_v2.Diff
 	return nil, unsupportedError("DiffFile")
 }
 
+func (c *unsupportedPfsBuilderClient) DropCommit(_ context.Context, _ *pfs_v2.DropCommitRequest, opts ...grpc.CallOption) (*pfs_v2.DropCommitResponse, error) {
+	return nil, unsupportedError("DropCommit")
+}
+
 func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2.DropCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {
 	return nil, unsupportedError("DropCommitSet")
 }
@@ -451,6 +455,10 @@ func (c *unsupportedPfsBuilderClient) RunLoadTestDefault(_ context.Context, _ *t
 
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
 	return nil, unsupportedError("ShardFileSet")
+}
+
+func (c *unsupportedPfsBuilderClient) SquashCommit(_ context.Context, _ *pfs_v2.SquashCommitRequest, opts ...grpc.CallOption) (*pfs_v2.SquashCommitResponse, error) {
+	return nil, unsupportedError("SquashCommit")
 }
 
 func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_v2.SquashCommitSetRequest, opts ...grpc.CallOption) (*types.Empty, error) {

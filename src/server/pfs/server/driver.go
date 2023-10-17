@@ -1537,6 +1537,32 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	return errors.EnsureStack(err)
 }
 
+func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
+	// Look up the commits in the CommitSet
+	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
+	if err != nil {
+		return err
+	}
+
+	for _, ci := range commitInfos {
+		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+		}
+		if len(ci.ChildCommits) == 0 {
+			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
+		}
+	}
+
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
+		return err
+	}
+
+	// notify PPS that this commitset has been squashed so it can clean up any
+	// jobs associated with it at the end of the transaction
+	txnCtx.StopJobSet(commitset)
+	return nil
+}
+
 func (d *driver) squashCommitSetInternal(txnCtx *txncontext.TransactionContext, commitInfos []*pfs.CommitInfo) error {
 	deleted := make(map[string]*pfs.CommitInfo) // deleted commits
 
@@ -1710,17 +1736,24 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 
 	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+	txnCtx.StopJobSet(commitset)
 	return nil
 }
 
-func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitset *pfs.CommitSet) error {
-	// Look up the commits in the CommitSet
-	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, commitset)
+func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
 	if err != nil {
 		return err
 	}
-
+	commit = commitInfo.Commit
+	// Get the subvenant commits of the provided commit.
+	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
+	if err != nil {
+		return err
+	}
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot squash commit (%v) with subvenance without recursive", commit)
+	}
 	for _, ci := range commitInfos {
 		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
 			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
@@ -1729,14 +1762,93 @@ func (d *driver) squashCommitSet(txnCtx *txncontext.TransactionContext, commitse
 			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
 		}
 	}
-
 	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
 		return err
 	}
+	for _, ci := range commitInfos {
+		txnCtx.StopJob(ci.Commit)
+	}
+	return nil
+}
 
-	// notify PPS that this commitset has been squashed so it can clean up any
-	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+// getCommitSubvenance gets the subvenance of the provided commit.
+// The provided commit is included in the returned list.
+// There are no guarantees about the ordering of the returned list.
+func (d *driver) getCommitSubvenance(txnCtx *txncontext.TransactionContext, commit *pfs.Commit) ([]*pfs.CommitInfo, error) {
+	commitInfos, err := d.inspectCommitSetImmediate(txnCtx, &pfs.CommitSet{ID: commit.ID})
+	if err != nil {
+		return nil, err
+	}
+	// Create an index from branch -> commit for direct provenance lookups.
+	branchIndex := make(map[string]*pfs.CommitInfo)
+	for _, ci := range commitInfos {
+		branchIndex[pfsdb.BranchKey(ci.Commit.Branch)] = ci
+	}
+	visited := make(map[string]*pfs.CommitInfo)
+	// Traverse will fill the visited map with commits that are traversed.
+	// Non-nil commits are in the subvenance.
+	var traverse func(*pfs.CommitInfo)
+	traverse = func(commitInfo *pfs.CommitInfo) {
+		if _, ok := visited[pfsdb.CommitKey(commitInfo.Commit)]; ok {
+			return
+		}
+		if proto.Equal(commitInfo.Commit, commit) {
+			visited[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
+			return
+		}
+		visited[pfsdb.CommitKey(commitInfo.Commit)] = nil
+		for _, provBranch := range commitInfo.DirectProvenance {
+			ci := branchIndex[pfsdb.BranchKey(provBranch)]
+			traverse(ci)
+			ci = visited[pfsdb.CommitKey(ci.Commit)]
+			if ci != nil {
+				visited[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
+				return
+			}
+		}
+	}
+	for _, ci := range commitInfos {
+		traverse(ci)
+	}
+	var result []*pfs.CommitInfo
+	for _, ci := range visited {
+		if ci != nil {
+			result = append(result, ci)
+		}
+	}
+	return result, nil
+}
+
+func (d *driver) dropCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commit = commitInfo.Commit
+	// Get the subvenant commits of the provided commit.
+	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
+	if err != nil {
+		return err
+	}
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot drop commit (%v) with subvenance without recursive", commit)
+	}
+	for _, ci := range commitInfos {
+		if len(ci.ChildCommits) > 0 {
+			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+		}
+	}
+	// While this is a 'drop' operation and not a 'squash', proper drop semantics
+	// aren't implemented at the moment.  Squashing the head of a branch is
+	// effectively a drop, though, because there is no child commit that contains
+	// the data from the given commits, which is why it is an error to drop any
+	// non-head commits (until generalized drop semantics are implemented).
+	if err := d.squashCommitSetInternal(txnCtx, commitInfos); err != nil {
+		return err
+	}
+	for _, ci := range commitInfos {
+		txnCtx.StopJob(ci.Commit)
+	}
 	return nil
 }
 

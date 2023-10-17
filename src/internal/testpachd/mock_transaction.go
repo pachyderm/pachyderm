@@ -120,8 +120,9 @@ func (api *ppsTransactionAPI) NewPropagater(txnCtx *txncontext.TransactionContex
 
 type MockPPSJobStopper struct{}
 
-func (mpp *MockPPSJobStopper) StopJobs(*pfs.CommitSet) {}
-func (mpp *MockPPSJobStopper) Run() error              { return nil }
+func (mpp *MockPPSJobStopper) StopJobSet(*pfs.CommitSet) {}
+func (mpp *MockPPSJobStopper) StopJob(*pfs.Commit)       {}
+func (mpp *MockPPSJobStopper) Run() error                { return nil }
 
 func (api *ppsTransactionAPI) NewJobStopper(txnCtx *txncontext.TransactionContext) txncontext.PpsJobStopper {
 	if api.mock.NewJobStopper.handler != nil {
