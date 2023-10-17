@@ -6447,6 +6447,7 @@ func TestTrigger(t *testing.T) {
 	c := env.PachClient
 
 	t.Run("Simple", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "test"))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "test", "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "test", "master", "", "", &pfs.Trigger{
@@ -6457,6 +6458,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("SizeWithProvenance", func(t *testing.T) {
+		t.Parallel()
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "in"))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "in", "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, "in", "master", "", "", &pfs.Trigger{
@@ -6521,6 +6523,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Cron", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("Cron")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6554,6 +6557,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("CronUpdate", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("CronUpdate")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		// Create the initial trigger for every minute, then update it to every January.
@@ -6587,6 +6591,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Count1", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6617,6 +6622,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Count2", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6667,6 +6673,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Count3", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("count")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6717,6 +6724,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Or", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("Or")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6803,6 +6811,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("And", func(t *testing.T) {
+		t.Parallel()
 		repo := tu.UniqueString("And")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
@@ -6888,6 +6897,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Chain", func(t *testing.T) {
+		t.Parallel()
 		// a triggers b which triggers c
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "chain"))
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "chain", "a", "", "", nil))
@@ -6996,6 +7006,7 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("BranchMovement", func(t *testing.T) {
+		t.Parallel()
 		// Note that currently, moving the triggering branch doesn't activate trigger logic.
 		// This test is actually ensuring the current behavior, which is that the trigger doesn't get fired.
 		repo := tu.UniqueString("branch-movement")
