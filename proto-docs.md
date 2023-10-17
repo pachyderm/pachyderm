@@ -204,6 +204,7 @@
   
 - [internal/ppsdb/ppsdb.proto](#internal_ppsdb_ppsdb-proto)
     - [ClusterDefaultsWrapper](#pps_v2-ClusterDefaultsWrapper)
+    - [ProjectDefaultsWrapper](#pps_v2-ProjectDefaultsWrapper)
   
 - [internal/ppsload/ppsload.proto](#internal_ppsload_ppsload-proto)
     - [State](#ppsload-State)
@@ -3486,6 +3487,21 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 <a name="pps_v2-ClusterDefaultsWrapper"></a>
 
 ### ClusterDefaultsWrapper
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| json | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-ProjectDefaultsWrapper"></a>
+
+### ProjectDefaultsWrapper
 
 
 
