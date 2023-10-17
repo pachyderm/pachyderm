@@ -6,9 +6,18 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+)
+
+const (
+	BranchesChannelName     = "pfs_branches"
+	BranchesRepoChannelName = "pfs_branches_repo_"
 )
 
 const (
@@ -23,7 +32,9 @@ const (
 			repo.type as "repo.type",
 			project.id as "repo.project.id",
 			project.name as "repo.project.name",
+			commit.commit_id as "head.commit_id",
 			commit.commit_set_id as "head.commit_set_id",
+			headBranch.name as "head.branch_name",
 			repo.name as "head.repo.name",
 			repo.type as "head.repo.type",
 			project.name as "head.repo.project.name"
@@ -31,6 +42,7 @@ const (
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 			JOIN core.projects project ON repo.project_id = project.id
 			JOIN pfs.commits commit ON branch.head = commit.int_id
+			LEFT JOIN pfs.branches headBranch on commit.branch_id = headBranch.id
 	`
 	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
@@ -43,6 +55,33 @@ const (
 	BranchColumnCreatedAt = branchColumn("branch.created_at")
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
+
+type ErrBranchProvCycle struct {
+	FromID BranchID
+	ToID   BranchID
+}
+
+func (err ErrBranchProvCycle) Error() string {
+	return fmt.Sprintf("cycle detected for BranchID=%d, because BranchID=%d is already in its subvenance", err.FromID, err.ToID)
+}
+
+// ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
+type ErrBranchNotFound struct {
+	ID        BranchID
+	BranchKey string
+}
+
+func (err ErrBranchNotFound) Error() string {
+	if strings.Contains(err.BranchKey, pfs.UserRepoType) {
+		branchKeyWithoutUser := strings.Replace(err.BranchKey, "."+pfs.UserRepoType, "", 1)
+		return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, branchKeyWithoutUser)
+	}
+	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
+}
+
+func (err ErrBranchNotFound) GRPCStatus() *status.Status {
+	return status.New(codes.NotFound, err.Error())
+}
 
 // SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
 // TODO this can be moved to a more generic package.
@@ -65,7 +104,8 @@ type BranchIterator struct {
 	tx        *pachsql.Tx
 }
 type BranchInfoWithID struct {
-	ID BranchID
+	ID       BranchID
+	Revision int64
 	*pfs.BranchInfo
 }
 
@@ -117,7 +157,7 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}
-	branch, err := i.paginator.next(ctx, i.tx)
+	branch, rev, err := i.paginator.next(ctx, i.tx)
 	if err != nil {
 		return err
 	}
@@ -127,6 +167,7 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 	}
 	dst.ID = branch.ID
 	dst.BranchInfo = branchInfo
+	dst.Revision = rev
 	return nil
 }
 
@@ -134,6 +175,11 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.BranchInfo, error) {
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrBranchNotFound{
+				ID: id,
+			}
+		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, branch)
@@ -143,6 +189,19 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
 	row := &Branch{}
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
+		if err == sql.ErrNoRows {
+			errBranch := pfs.Branch{
+				Repo: &pfs.Repo{
+					Project: &pfs.Project{Name: project},
+					Name:    repo,
+					Type:    repoType,
+				},
+				Name: branch,
+			}
+			return nil, ErrBranchNotFound{
+				BranchKey: errBranch.Key(),
+			}
+		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, row)
@@ -163,6 +222,9 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 		branch.Repo.Type,
 		branch.Name,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return 0, ErrBranchNotFound{BranchKey: branch.Key()}
+		}
 		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
 	return id, nil
@@ -182,6 +244,9 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	if branchInfo.Head.Id == "" {
 		return 0, errors.Errorf("head commit required")
+	}
+	if uuid.IsUUIDWithoutDashes(branchInfo.Branch.Name) {
+		return 0, errors.Errorf("branch name cannot be a UUID V4")
 	}
 	var branchID BranchID
 	// TODO stop matching on pfs.commits.commit_id, because that will eventually be deprecated.
@@ -205,44 +270,50 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
-	// Compare current direct provenance to new direct provenance.
-	newDirectProv := branchInfo.DirectProvenance
-	oldDirectProv, err := GetDirectBranchProvenance(ctx, tx, branchID)
+	// Compute branch provenance, and avoid creating cycles.
+	// We know a cycle exists if the to_branch is in the subvenance of the from_branch.
+	fullSubv, err := GetBranchSubvenance(ctx, tx, branchID)
 	if err != nil {
-		return 0, errors.Wrap(err, "could not get direct branch provenance")
+		return branchID, errors.Wrap(err, "could not compute branch subvenance")
 	}
-	// Add net new direct provenance relationships.
-	toAdd := SliceDiff[string, *pfs.Branch](newDirectProv, oldDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
-	toAddIDs := make([]BranchID, len(toAdd))
-	for i, branch := range toAdd {
-		toAddIDs[i], err = GetBranchID(ctx, tx, branch)
-		if err != nil {
-			return 0, errors.Wrap(err, "could not get to_id")
+	fullSubvSet := make(map[string]bool)
+	for _, branch := range fullSubv {
+		fullSubvSet[branch.Key()] = true
+	}
+	for _, branch := range branchInfo.DirectProvenance {
+		if fullSubvSet[branch.Key()] {
+			toID, err := GetBranchID(ctx, tx, branch)
+			if err != nil {
+				return branchID, errors.Wrapf(err, "detected cycle, but could not get the branch id for branch %s that is causing the cycle", branch.Key())
+			}
+			return branchID, ErrBranchProvCycle{FromID: branchID, ToID: toID}
 		}
 	}
-	if err := CreateDirectBranchProvenanceBatch(ctx, tx, branchID, toAddIDs); err != nil {
-		return 0, errors.Wrap(err, "could not create branch provenance")
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
+		return branchID, errors.Wrap(err, "could not delete direct branch provenance")
 	}
-	// Remove old direct provenance relationships that are no longer needed.
-	toRemove := SliceDiff[string, *pfs.Branch](oldDirectProv, newDirectProv, func(branch *pfs.Branch) string { return branch.Key() })
-	toRemoveIDs := make([]BranchID, len(toRemove))
-	for i, branch := range toRemove {
-		toRemoveIDs[i], err = GetBranchID(ctx, tx, branch)
+	for _, branch := range branchInfo.DirectProvenance {
+		toBranchID, err := GetBranchID(ctx, tx, branch)
 		if err != nil {
-			return 0, errors.Wrap(err, "could not get to_id")
+			return branchID, errors.Wrapf(err, "could not get to_branch_id for creating branch provenance")
 		}
-	}
-	if err := DeleteDirectBranchProvenanceBatch(ctx, tx, branchID, toRemoveIDs); err != nil {
-		return 0, errors.Wrap(err, "could not delete branch provenance")
+		if err := CreateDirectBranchProvenance(ctx, tx, branchID, toBranchID); err != nil {
+			return branchID, errors.Wrap(err, "could not create branch provenance")
+		}
 	}
 	// Create or update this branch's trigger.
 	if branchInfo.Trigger != nil {
 		toBranchID, err := GetBranchID(ctx, tx, &pfs.Branch{Repo: branchInfo.Branch.Repo, Name: branchInfo.Trigger.Branch})
 		if err != nil {
-			return 0, errors.Wrap(err, "could not get to_branch_id for creating branch trigger")
+			return branchID, errors.Wrap(err, "updating branch trigger")
 		}
 		if err := UpsertBranchTrigger(ctx, tx, branchID, toBranchID, branchInfo.Trigger); err != nil {
-			return 0, errors.Wrap(err, "could not create branch trigger")
+			return branchID, errors.Wrap(err, "updating branch trigger")
+		}
+	} else {
+		// Delete existing branch trigger.
+		if err := DeleteBranchTrigger(ctx, tx, branchID); err != nil {
+			return branchID, errors.Wrap(err, "updating branch trigger")
 		}
 	}
 	return branchID, nil
@@ -353,53 +424,43 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
-// CreateBranchProvenance creates a provenance relationship between two branches.
-func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	return CreateDirectBranchProvenanceBatch(ctx, tx, from, []BranchID{to})
-}
-
-// CreateBranchProvenanceBatch creates provenance relationships between a branch and a set of other branches.
-func CreateDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from BranchID, tos []BranchID) error {
-	if len(tos) == 0 {
-		return nil
+func CheckBranchProvenanceForCycles(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
+	var count int
+	if err := tx.QueryRowContext(ctx, `
+		WITH RECURSIVE subv(from_id) AS (
+			SELECT from_id
+			FROM pfs.branch_provenance
+			WHERE to_id = $1
+		  UNION ALL
+			SELECT bp.from_id
+			FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
+		)
+		SELECT count(*)
+		FROM subv
+		WHERE subv.from_id = $2
+		LIMIT 1
+	`, from, to).Scan(&count); err != nil {
+		return errors.Wrapf(err, "branch provenance cycle check failed for from_id = %d, to_id = %d", from, to)
 	}
-	query := `
-		INSERT INTO pfs.branch_provenance(from_id, to_id)
-		VALUES %s
-		ON CONFLICT DO NOTHING
-	`
-	values := make([]string, len(tos))
-	for i, to := range tos {
-		values[i] = fmt.Sprintf("(%d, %d)", from, to)
-	}
-	query = fmt.Sprintf(query, strings.Join(values, ","))
-	if _, err := tx.ExecContext(ctx, query); err != nil {
-		return errors.Wrap(err, "could not add branch provenance")
+	if count == 1 {
+		return ErrBranchProvCycle{FromID: from, ToID: to}
 	}
 	return nil
 }
 
-// DeleteBranchProvenance deletes a provenance relationship between two branches.
-func DeleteDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	return DeleteDirectBranchProvenanceBatch(ctx, tx, from, []BranchID{to})
-}
-
-// DeleteBranchProvenanceBatch deletes provenance relationships between a branch and a set of other branches.
-func DeleteDirectBranchProvenanceBatch(ctx context.Context, tx *pachsql.Tx, from BranchID, tos []BranchID) error {
-	if len(tos) == 0 {
-		return nil
+// CreateBranchProvenance creates a provenance relationship between two branches.
+func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
+	// if err := CheckBranchProvenanceForCycles(ctx, tx, from, to); err != nil {
+	// 	return errors.Wrapf(err, "from_id = %d, to_id = %d", from, to)
+	// }
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO pfs.branch_provenance(from_id, to_id)	
+		VALUES ($1, $2)
+		ON CONFLICT DO NOTHING
+	`, from, to); err != nil {
+		return errors.Wrap(err, "could not add branch provenance")
 	}
-	query := `
-	DELETE FROM pfs.branch_provenance
-	WHERE from_id = $1 AND to_id IN (%s);
-	`
-	values := make([]string, len(tos))
-	for i, to := range tos {
-		values[i] = fmt.Sprintf("%d", to)
-	}
-	query = fmt.Sprintf(query, strings.Join(values, ","))
-	_, err := tx.ExecContext(ctx, query, from)
-	return errors.Wrap(err, "could not delete branch provenance")
+	return nil
 }
 
 func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.Trigger, error) {
@@ -409,7 +470,8 @@ func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.
 			branch.name as "to_branch.name",
 			cron_spec,
 			rate_limit_spec,
-			size, num_commits,
+			size,
+			num_commits,
 			all_conditions
 		FROM pfs.branch_triggers trigger
 			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
@@ -447,7 +509,7 @@ func UpsertBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID, to 
 		trigger.Commits,
 		trigger.All,
 	); err != nil {
-		return errors.Wrap(err, "could not create branch trigger")
+		return errors.Wrapf(err, "could not create trigger for branch %d", from)
 	}
 	return nil
 }
