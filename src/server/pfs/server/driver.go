@@ -1741,6 +1741,11 @@ func (d *driver) dropCommitSet(txnCtx *txncontext.TransactionContext, commitset 
 }
 
 func (d *driver) squashCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commit = commitInfo.Commit
 	// Get the subvenant commits of the provided commit.
 	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
 	if err != nil {
@@ -1815,6 +1820,11 @@ func (d *driver) getCommitSubvenance(txnCtx *txncontext.TransactionContext, comm
 }
 
 func (d *driver) dropCommit(txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commit = commitInfo.Commit
 	// Get the subvenant commits of the provided commit.
 	commitInfos, err := d.getCommitSubvenance(txnCtx, commit)
 	if err != nil {

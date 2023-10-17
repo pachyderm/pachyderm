@@ -835,8 +835,8 @@ The squash will fail if it includes a commit with no children`,
 		}),
 	}
 	shell.RegisterCompletionFunc(squashCommitV2, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAliases(squashCommitV2, "squash commitV2", commits))
 	squashCommitV2.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively squash all subvenant commits")
+	commands = append(commands, cmdutil.CreateAliases(squashCommitV2, "squash commitV2"))
 
 	deleteCommit := &cobra.Command{
 		Use:   "{{alias}} <commit-id>",
@@ -881,8 +881,8 @@ This operation is only supported if none of the sub-commits have children.`,
 		}),
 	}
 	shell.RegisterCompletionFunc(deleteCommitV2, shell.BranchCompletion)
-	commands = append(commands, cmdutil.CreateAliases(deleteCommitV2, "delete commitV2", commits))
 	deleteCommitV2.Flags().BoolVarP(&recursive, "recursive", "r", false, "Recursively delete all subvenant commits")
+	commands = append(commands, cmdutil.CreateAliases(deleteCommitV2, "delete commitV2"))
 
 	branchDocs := &cobra.Command{
 		Short: "Docs for branches.",
