@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -531,7 +532,7 @@ func deleteFile(ctx context.Context, uw *fileset.UnorderedWriter, request *pfs.D
 
 // GetFileTAR implements the protobuf pfs.GetFileTAR RPC
 func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFileTARServer) (retErr error) {
-	return metrics.ReportRequestWithThroughput(func() (int64, error) {
+	err := metrics.ReportRequestWithThroughput(func() (int64, error) {
 		ctx := server.Context()
 		if request.URL != "" {
 			return a.driver.getFileURL(ctx, a.env.TaskService, request.URL, request.File, request.PathRange)
@@ -546,10 +547,17 @@ func (a *apiServer) GetFileTAR(request *pfs.GetFileRequest, server pfs.API_GetFi
 			bytesWritten, err = withGetFileWriter(w, func(w io.Writer) error {
 				return getFileTar(ctx, w, src)
 			})
+			if err != nil {
+				fmt.Println("core-2002: error calling getFileTar()", err.Error())
+			}
 			return err
 		})
 		return bytesWritten, err
 	})
+	if err != nil {
+		fmt.Println("core-2002: error calling GetFileTAR()", err.Error())
+	}
+	return err
 }
 
 // GetFile implements the protobuf pfs.GetFile RPC
@@ -606,6 +614,7 @@ func getFileTar(ctx context.Context, w io.Writer, src Source) error {
 	// 	},
 	// }
 	if err := src.Iterate(ctx, func(fi *pfs.FileInfo, file fileset.File) error {
+		fmt.Println("core-2002: writing entry for file", file.Index().Path)
 		return fileset.WriteTarEntry(ctx, w, file)
 	}); err != nil {
 		return errors.EnsureStack(err)

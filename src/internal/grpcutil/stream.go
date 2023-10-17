@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 
 	units "github.com/docker/go-units"
@@ -162,6 +163,9 @@ func WithStreamingBytesWriter(streamingBytesServer StreamingBytesServer, cb func
 	defer func() {
 		if err := bufW.Flush(); retErr == nil {
 			retErr = err
+		}
+		if retErr != nil {
+			fmt.Println("core-2002: WithStreamingBytesWriter got error:", retErr.Error())
 		}
 	}()
 	return cb(bufW)

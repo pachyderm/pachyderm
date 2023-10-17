@@ -1,6 +1,7 @@
 package transform
 
 import (
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -18,6 +19,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("core-2002: created registry")
 	logger.Logf("transform spawner started")
 	// wrap SubscribeJob() in a retry to mitigate database connection flakiness.
 	return backoff.RetryUntilCancel(driver.PachClient().Ctx(),
@@ -29,9 +31,12 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 				func(jobInfo *pps.JobInfo) error {
 					if jobInfo.PipelineVersion != driver.PipelineInfo().Version {
 						// Skip this job - we should be shut down soon, but don't error out in the meantime
+						fmt.Println("core-2002: skipping job -- pipeline version does not match driver version",
+							jobInfo.PipelineVersion, driver.PipelineInfo().Version, "returning...")
 						return nil
 					}
 					if jobInfo.State == pps.JobState_JOB_FINISHING {
+						fmt.Println("core-2002: job state is finishing. returning...")
 						return nil
 					}
 					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))

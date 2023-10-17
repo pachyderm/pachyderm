@@ -3,6 +3,7 @@ package chunk
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -64,9 +65,11 @@ func (r *Reader) Get(w io.Writer) (retErr error) {
 		if retErr != nil {
 			cancel()
 		}
+		fmt.Println("core-2002: waiting for task chain")
 		if err := taskChain.Wait(); retErr == nil {
 			retErr = err
 		}
+		fmt.Println("core-2002: task chain.wait() returned")
 	}()
 	for i, dataRef := range r.dataRefs {
 		var offset int64

@@ -129,7 +129,15 @@ func (r *Reader) getChunk(ctx context.Context, idx *Index, w io.Writer) error {
 		return r.cache.Get(ctx, chunkRef, r.filter, w)
 	}
 	cr := r.chunks.NewReader(ctx, []*chunk.DataRef{idx.Range.ChunkRef})
-	return cr.Get(w)
+	err := cr.Get(w)
+	if idx.GetPath() != "" {
+		fmt.Println("core-2002: got chunk: path", idx.GetPath())
+	} else if idx.File != nil {
+		fmt.Println("core-2002: got chunk: file", idx.File.Datum)
+	} else if idx.Range != nil {
+		fmt.Println("core-2002: got chunk: range", idx.Range.LastPath)
+	}
+	return err
 }
 
 type pathFilter struct {

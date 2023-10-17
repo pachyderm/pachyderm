@@ -5,6 +5,7 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"fmt"
 	io "io"
 	"os"
 	"path"
@@ -150,6 +151,11 @@ func (s *Set) WithDatum(meta *Meta, cb func(*Datum) error, opts ...Option) error
 			return nil
 		}
 	}
+	if err == nil {
+		fmt.Println("core-2002: finished withDatum", meta.Hash)
+	} else {
+		fmt.Println("core-2002: got error calling WithDatum():", err.Error())
+	}
 	return err
 }
 
@@ -228,13 +234,19 @@ func (d *Datum) withData(cb func() error) (retErr error) {
 	if err := d.createEnvFile(); err != nil {
 		return err
 	}
-	return pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
+	err := pfssync.WithDownloader(d.set.cacheClient, func(downloader pfssync.Downloader) error {
 		// TODO: Move to copy file for inputs to datum file set.
 		if err := d.downloadData(downloader); err != nil {
+			fmt.Println("core-2002: got error calling withDownloader()", err.Error())
 			return err
 		}
+		fmt.Println("core-2002: downloaded data for datum:", d.ID)
 		return cb()
 	})
+	if err != nil {
+		fmt.Println("core-2002: got error calling withData()", err.Error())
+	}
+	return err
 }
 
 func (d *Datum) createEnvFile() error {
@@ -284,8 +296,10 @@ func (d *Datum) downloadData(downloader pfssync.Downloader) error {
 			opts = append(opts, pfssync.WithEmpty())
 		}
 		if err := downloader.Download(inputPath, input.FileInfo.File, opts...); err != nil {
+			fmt.Println("core-2002 got error calling downloadData():", err.Error())
 			return errors.EnsureStack(err)
 		}
+		fmt.Println("core-2002: downloaded", input.FileInfo.File.Path)
 	}
 	return nil
 }

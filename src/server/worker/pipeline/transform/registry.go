@@ -101,6 +101,7 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 
 func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	reg.limiter.Acquire()
+	fmt.Println("core-2002: acquired registry limiter")
 	defer func() {
 		// TODO(2.0 optional): The error handling during job setup needs more work.
 		// For a commit that is squashed, we would want to exit.
@@ -117,11 +118,13 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		noSkip: pi.Details.ReprocessSpec == client.ReprocessSpecEveryJob || pi.Details.S3Out,
 		cache:  newCache(reg.driver.PachClient(), ppsdb.JobKey(jobInfo.Job)),
 	}
+	fmt.Println("core-2002: created a pending job")
 	if pj.ji.State == pps.JobState_JOB_CREATED {
 		pj.ji.State = pps.JobState_JOB_STARTING
 		if err := pj.writeJobInfo(); err != nil {
 			return err
 		}
+		fmt.Println("core-2002: wrote job info for pending job")
 	}
 	// Inputs must be ready before we can construct a datum iterator.
 	if err := pj.logger.LogStep("waiting for job inputs", func() error {
@@ -129,9 +132,11 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
+	fmt.Println("core-2002: processed job starting", pj.ji.Job.Id)
 	if err := pj.load(); err != nil {
 		return err
 	}
+	fmt.Println("core-2002: loaded job", pj.ji.Job.Id)
 	// TODO: This could probably be scoped to a callback.
 	var afterTime time.Duration
 	if pj.ji.Details.JobTimeout != nil {
@@ -157,14 +162,17 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 			pj.driver = reg.driver.WithContext(jobCtx)
 			pj.cancel = cancel
 			eg.Go(func() error {
+				fmt.Println("core-2002: supervising job", pj.ji.Job.Id)
 				return reg.superviseJob(pj)
 			})
 			eg.Go(func() error {
 				var err error
 				for err == nil {
 					err = reg.processJob(pj)
+					fmt.Println("core-2002: processed job, but there may be an error", pj.ji.Job.Id)
 				}
 				if errors.Is(err, errutil.ErrBreak) || errors.Is(context.Cause(ctx), context.Canceled) {
+					fmt.Println("core-2002: cancelling process job", pj.ji.Job.Id)
 					return nil
 				}
 				return err
@@ -184,10 +192,12 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 				if err := pj.load(); err != nil {
 					return err
 				}
+				fmt.Println("core-2002: reloaded job", pj.ji.Job.Id)
 				pj.ji.Restart++
 				return pj.writeJobInfo()
 			}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 				if pfsserver.IsCommitNotFoundErr(err) || pfsserver.IsCommitDeletedErr(err) {
+					fmt.Println("core-2002: commit not found or commit was deleted for job", pj.ji.Job.Id)
 					return err
 				}
 				pj.logger.Logf("error restarting job: %v, retrying in %v", err, d)
@@ -196,6 +206,7 @@ func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
 		}); err != nil {
 			pj.logger.Logf("fatal job error: %v", err)
 		}
+		fmt.Println("core-2002: wrote job info", pj.ji.Job.Id)
 	}()
 	return nil
 }
@@ -270,10 +281,12 @@ func (reg *registry) processJobStarting(pj *pendingJob) error {
 		return err
 	}
 	if len(failed) > 0 {
+		fmt.Println("core-2002: some inputs failed")
 		reason := fmt.Sprintf("unrunnable because the following upstream pipelines failed: %s", strings.Join(failed, ", "))
 		return reg.markJobUnrunnable(pj, reason)
 	}
 	pj.ji.State = pps.JobState_JOB_RUNNING
+	fmt.Println("core-2002: job", pj.ji.Job.Id, "is running")
 	return pj.writeJobInfo()
 }
 
@@ -314,6 +327,7 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 		}
 		return err
 	}
+	fmt.Println("core-2002: processed datums", pj.ji.Job.Id)
 	if pj.ji.Details.Egress != nil {
 		pj.ji.State = pps.JobState_JOB_EGRESSING
 		return pj.writeJobInfo()

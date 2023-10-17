@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -72,6 +73,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	if sc.filter != nil {
 		s.fileSet = sc.filter(s.fileSet)
 	}
+	fmt.Println("core-2002: created source for datum:", sc.datum)
 	return s
 }
 
@@ -83,6 +85,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
+		fmt.Println("core-2002: iterating fileset: ", f.Index().GetPath())
 		idx := f.Index()
 		if s.upper != "" && idx.Path >= s.upper {
 			return errutil.ErrBreak

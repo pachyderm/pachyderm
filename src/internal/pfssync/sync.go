@@ -2,6 +2,7 @@ package pfssync
 
 import (
 	"archive/tar"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -52,6 +53,7 @@ func (d *downloader) closePipes() (retErr error) {
 			if err := os.Remove(path); retErr == nil {
 				retErr = errors.EnsureStack(err)
 			}
+			fmt.Println("core-2002: closed pipe and removed", path)
 		}
 	}()
 	// Open all the pipes to unblock the goroutines.
@@ -62,6 +64,7 @@ func (d *downloader) closePipes() (retErr error) {
 		}
 		pipes[path] = f
 	}
+	fmt.Println("core-2002: opened all pipes")
 	return errors.EnsureStack(d.eg.Wait())
 }
 
@@ -84,12 +87,25 @@ func (d *downloader) Download(storageRoot string, file *pfs.File, opts ...Downlo
 	}
 	r, err := d.pachClient.GetFileTAR(file.Commit, file.Path)
 	if err != nil {
+		fmt.Println("core-2002: got error calling Download() for file:", file.Path, ":", err.Error())
 		return err
 	}
+	fmt.Println("core-2002: downloaded file TAR", file.Path)
 	if dc.headerCallback != nil {
-		return tarutil.Import(storageRoot, r, dc.headerCallback)
+		err := tarutil.Import(storageRoot, r, dc.headerCallback)
+		if err == nil {
+			fmt.Println("core-2002: imported to", storageRoot, "via header callback")
+		}
+		if err != nil {
+			fmt.Println("core-2002: error importing via the headerCallback", err.Error())
+		}
+		return err
 	}
-	return tarutil.Import(storageRoot, r)
+	err = tarutil.Import(storageRoot, r)
+	if err == nil {
+		fmt.Println("core-2002: imported to", storageRoot)
+	}
+	return err
 }
 
 func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *downloadConfig) error {
@@ -102,12 +118,13 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 			return errors.EnsureStack(err)
 		}
 		if config.lazy {
+			fmt.Println("core-2002: making pipe:", fullPath)
 			return d.makePipe(fullPath, func(w io.Writer) error {
 				r, err := d.pachClient.GetFileTAR(file.Commit, fi.File.Path)
 				if err != nil {
 					return err
 				}
-				return tarutil.Iterate(r, func(f tarutil.File) error {
+				err = tarutil.Iterate(r, func(f tarutil.File) error {
 					if config.headerCallback != nil {
 						hdr, err := f.Header()
 						if err != nil {
@@ -119,12 +136,15 @@ func (d *downloader) downloadInfo(storageRoot string, file *pfs.File, config *do
 					}
 					return errors.EnsureStack(f.Content(w))
 				}, true)
+				fmt.Println("core-2002: finished making pipe")
+				return err
 			})
 		}
 		f, err := os.Create(fullPath)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
+		fmt.Println("core-2002: downloaded info:", file.Datum, file.Path)
 		return errors.EnsureStack(f.Close())
 	})
 }

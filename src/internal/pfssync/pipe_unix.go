@@ -4,6 +4,7 @@
 package pfssync
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"syscall"
@@ -27,6 +28,7 @@ func (d *downloader) makePipe(path string, cb func(io.Writer) error) error {
 			}
 		}()
 		if d.done {
+			fmt.Println("core-2002: pipe is done:", path)
 			return nil
 		}
 		return cb(f)

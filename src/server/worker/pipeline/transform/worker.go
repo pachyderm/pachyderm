@@ -37,7 +37,7 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 }
 
 func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger, status *Status) error {
-	return errors.EnsureStack(driver.NewTaskSource().Iterate(
+	err := errors.EnsureStack(driver.NewTaskSource().Iterate(
 		ctx,
 		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {
 			switch {
@@ -71,12 +71,20 @@ func Worker(ctx context.Context, driver driver.Driver, logger logs.TaggedLogger,
 					return nil, err
 				}
 				driver := driver.WithContext(ctx)
-				return processDatumSetTask(driver, logger, datumSetTask, status)
+				any, err := processDatumSetTask(driver, logger, datumSetTask, status)
+				if err != nil {
+					fmt.Println("core-2002: got error calling NewTaskSource().Iterate():", err.Error())
+				}
+				return any, err
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in transform worker", input.TypeUrl)
 			}
 		},
 	))
+	if err != nil {
+		fmt.Println("core-2002: got error calling Worker():", err.Error())
+	}
+	return err
 }
 
 func processCreateParallelDatumsTask(pachClient *client.APIClient, task *CreateParallelDatumsTask) (*anypb.Any, error) {
@@ -234,6 +242,7 @@ func processDatumSetTask(driver driver.Driver, logger logs.TaggedLogger, task *D
 			return err
 		}))
 	}); err != nil {
+		fmt.Println("core-2002: got error calling processDatumSetTask():", err.Error())
 		return nil, err
 	}
 	return output, nil
@@ -262,6 +271,7 @@ func checkS3Gateway(driver driver.Driver, logger logs.TaggedLogger) error {
 }
 
 func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumSetTask, status *Status) (*anypb.Any, error) {
+	fmt.Println("core-2002: handling datum set", task.Job.Id)
 	pachClient := driver.PachClient()
 	var outputFileSetID, metaFileSetID string
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
@@ -281,22 +291,29 @@ func handleDatumSet(driver driver.Driver, logger logs.TaggedLogger, task *DatumS
 				if driver.PipelineInfo().Details.Transform.DatumBatching {
 					return handleDatumSetBatching(ctx, driver, logger, task, status, cacheClient, di, opts)
 				}
-				return forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+				err := forEachDatum(ctx, driver, logger, task, status, cacheClient, di, opts, func(ctx context.Context, logger logs.TaggedLogger, env []string) error {
+					fmt.Println("core-2002: running user code for datum")
 					return errors.EnsureStack(driver.RunUserCode(ctx, logger, env))
 				})
+				return err
 			})
 			if err != nil {
+				if err != nil {
+					fmt.Println("core-2002: got error calling WithCreateFileSetClient():", err.Error())
+				}
 				return err
 			}
 			outputFileSetID = resp.FileSetId
 			return renewer.Add(ctx, outputFileSetID)
 		})
 		if err != nil {
+			fmt.Println("core-2002: got error calling WithCreateFileSetClient():", err.Error())
 			return err
 		}
 		metaFileSetID = resp.FileSetId
 		return renewer.Add(ctx, metaFileSetID)
 	}); err != nil {
+		fmt.Println("core-2002: got error calling handleDatumSet():", err.Error())
 		return nil, err
 	}
 	return serializeDatumSetTaskResult(&DatumSetTaskResult{
@@ -323,6 +340,7 @@ func handleDatumSetBatching(ctx context.Context, driver driver.Driver, logger lo
 			cancelCtx, cancel = pctx.WithCancel(ctx)
 			errChan = make(chan error, 1)
 			go func() {
+				fmt.Println("core-2002: run user code bathed")
 				err := driver.RunUserCode(cancelCtx, logger, nil)
 				if err == nil {
 					err = errors.New("user code exited prematurely")
@@ -386,9 +404,10 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 		return errors.Wrap(err, "could not get user image ID")
 	}
 	// Setup datum set for processing.
-	return datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
+	err = datum.WithSet(cacheClient, storageRoot, func(s *datum.Set) error {
 		// Process each datum in the datum set.
 		err := di.Iterate(func(meta *datum.Meta) error {
+			fmt.Println("core-2002: iterating datum meta:", meta.Hash, "task job id:", task.Job.Id)
 			meta = proto.Clone(meta).(*datum.Meta)
 			meta.ImageId = userImageID
 			inputs := meta.Inputs
@@ -408,11 +427,13 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 					return errors.EnsureStack(driver.RunUserErrorHandlingCode(runCtx, logger, env))
 				}))
 			}
-			return s.WithDatum(meta, func(d *datum.Datum) error {
+			err := s.WithDatum(meta, func(d *datum.Datum) error {
+				fmt.Println("core-2002: datum:", d.ID)
 				cancelCtx, cancel := pctx.WithCancel(ctx)
 				defer cancel()
 				err := status.withDatum(inputs, cancel, func() error {
 					err := driver.WithActiveData(inputs, d.PFSStorageRoot(), func() error {
+						fmt.Println("core-2002: running datum with active data:", d.ID)
 						err := d.Run(cancelCtx, func(runCtx context.Context) error {
 							return cb(runCtx, logger, env)
 						})
@@ -422,9 +443,17 @@ func forEachDatum(ctx context.Context, driver driver.Driver, baseLogger logs.Tag
 				})
 				return errors.EnsureStack(err)
 			}, opts...)
+			if err != nil {
+				fmt.Println("core-2002: got error calling datum.WithSet():", err.Error())
+			}
+			return err
 		})
 		return errors.EnsureStack(err)
 	}, setOpts...)
+	if err != nil {
+		fmt.Println("core-2002: got error calling forEachDatum():", err.Error())
+	}
+	return err
 }
 
 func deserializeCreateParallelDatumsTask(taskAny *anypb.Any) (*CreateParallelDatumsTask, error) {

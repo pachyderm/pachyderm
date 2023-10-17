@@ -3,6 +3,7 @@ package fileset
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -47,9 +48,12 @@ func WriteTarEntry(ctx context.Context, w io.Writer, f File) error {
 	if err := tw.WriteHeader(tarutil.NewHeader(idx.Path, index.SizeBytes(idx))); err != nil {
 		return errors.EnsureStack(err)
 	}
+	fmt.Println("core-2002: wrote header for", f.Index().Path)
 	if err := f.Content(ctx, tw); err != nil {
+		fmt.Println("core-2002: got error loading content for", f.Index().Path, err.Error(), errors.WithStack(err))
 		return err
 	}
+	fmt.Println("core-2002: wrote entry for", f.Index().Path)
 	return errors.EnsureStack(tw.Flush())
 }
 

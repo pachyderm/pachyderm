@@ -2,6 +2,7 @@ package fileset
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -83,6 +84,7 @@ func (d dirFile) Index() *index.Index {
 }
 
 func (d dirFile) Content(_ context.Context, _ io.Writer, _ ...chunk.ReaderOption) error {
+	fmt.Println("core-2002: returning nil for content of file")
 	return nil
 }
 

@@ -3,6 +3,7 @@ package fileset
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"strings"
 
@@ -64,6 +65,7 @@ func (mr *MergeReader) Iterate(ctx context.Context, cb func(File) error, opts ..
 		}
 		mergeIdx := fss[0].file.Index()
 		mergeIdx.File.DataRefs = dataRefs
+		fmt.Println("core-2002: iterate merge reader", mergeIdx.File.Datum)
 		return cb(newMergeFileReader(mr.chunks, mergeIdx))
 
 	})
@@ -113,7 +115,12 @@ func (mfr *MergeFileReader) Index() *index.Index {
 // Content returns the content of the merged file.
 func (mfr *MergeFileReader) Content(ctx context.Context, w io.Writer, opts ...chunk.ReaderOption) error {
 	r := mfr.chunks.NewReader(ctx, mfr.idx.File.DataRefs, opts...)
-	return r.Get(w)
+	err := r.Get(w)
+	fmt.Println("core-2002: got content for file", mfr.idx.Path)
+	if err != nil {
+		fmt.Println("core-2002: got err when trying to get content for file", mfr.idx.Path, err.Error())
+	}
+	return err
 }
 
 // Hash returns the hash of the file.

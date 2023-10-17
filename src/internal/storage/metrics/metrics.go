@@ -1,6 +1,7 @@
 package metrics
 
 import (
+	"fmt"
 	"path"
 	"runtime"
 	"strings"
@@ -56,7 +57,11 @@ func ReportRequest(f func() error, skip ...int) (retErr error) {
 		ms.requestCounter.WithLabelValues(operation, result).Inc()
 		ms.requestSummary.WithLabelValues(operation).Observe(time.Since(start).Seconds())
 	}()
-	return f()
+	err := f()
+	if err != nil {
+		fmt.Println("core-2002: error calling ReportRequest():", err.Error())
+	}
+	return err
 }
 
 // ReportRequestWithThroughput functions the same as ReportRequest, but also
@@ -78,6 +83,9 @@ func ReportRequestWithThroughput(f func() (int64, error)) error {
 			throughput := float64(bytesProcessed) / units.MB / time.Since(start).Seconds()
 			ms.requestSummaryThroughput.WithLabelValues(operation).Observe(throughput)
 		}()
+		if err != nil {
+			fmt.Println("core-2002: error calling ReportRequestWithThroughput()", err.Error())
+		}
 		return err
 	}, 1)
 }

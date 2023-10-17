@@ -3,6 +3,7 @@ package tarutil
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"path"
@@ -164,6 +165,7 @@ func Import(storageRoot string, r io.Reader, cb ...func(*tar.Header) error) erro
 		hdr, err := tr.Next()
 		if err != nil {
 			if errors.Is(err, io.EOF) {
+				fmt.Println("core-2002: finished import", storageRoot)
 				return nil
 			}
 			return errors.EnsureStack(err)
@@ -199,6 +201,7 @@ func writeFile(filePath string, r io.Reader) (retErr error) {
 		if err := f.Close(); retErr == nil {
 			retErr = err
 		}
+		fmt.Println("core-2002: wrote file", filePath)
 	}()
 	_, err = io.Copy(f, r)
 	return errors.EnsureStack(err)
