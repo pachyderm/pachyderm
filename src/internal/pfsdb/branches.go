@@ -83,22 +83,6 @@ func (err ErrBranchNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
-// SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
-// TODO this can be moved to a more generic package.
-func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
-	m := make(map[K]bool)
-	for _, item := range b {
-		m[key(item)] = true
-	}
-	var result []V
-	for _, item := range a {
-		if !m[key(item)] {
-			result = append(result, item)
-		}
-	}
-	return result
-}
-
 type BranchIterator struct {
 	paginator pageIterator[Branch]
 	tx        *pachsql.Tx
