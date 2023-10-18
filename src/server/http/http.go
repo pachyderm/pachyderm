@@ -26,7 +26,7 @@ import (
 // Server is an http.Server that serves public requests.
 type Server struct {
 	mux    http.Handler // For testing.
-	server *http.Server // For ListenAndServe.
+	Server *http.Server // For ListenAndServe.
 }
 
 // New creates a new API server, with an http.Server to actually serve traffic.
@@ -67,7 +67,7 @@ func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Co
 
 	return &Server{
 		mux: mux,
-		server: &http.Server{
+		Server: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
 			Handler: mux,
 		},
@@ -119,15 +119,15 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 // ListenAndServe begins serving the server, and returns when the context is canceled or the server
 // dies on its own.
 func (h *Server) ListenAndServe(ctx context.Context) error {
-	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.server)
+	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.Server)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- h.server.ListenAndServe()
+		errCh <- h.Server.ListenAndServe()
 	}()
 	select {
 	case <-ctx.Done():
 		log.Info(ctx, "terminating pachhttp server", zap.Error(context.Cause(ctx)))
-		return errors.EnsureStack(h.server.Shutdown(ctx))
+		return errors.EnsureStack(h.Server.Shutdown(ctx))
 	case err := <-errCh:
 		return err
 	}

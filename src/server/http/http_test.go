@@ -11,50 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
-func TestRouting(t *testing.T) {
-	testData := []struct {
-		name     string
-		method   string
-		url      string
-		wantCode int
-	}{
-		{
-			name:     "not found",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/",
-			wantCode: http.StatusNotFound,
-		},
-		{
-			name:     "health",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/healthz",
-			wantCode: http.StatusOK,
-		},
-		{
-			name:     "CreatePipelineRequest JSON schema",
-			method:   "GET",
-			url:      "http://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json",
-			wantCode: http.StatusOK,
-		},
-	}
-	for _, test := range testData {
-		t.Run(test.name, func(t *testing.T) {
-			ctx := pctx.TestContext(t)
-			s := New(ctx, 0, func(ctx context.Context) *client.APIClient { return nil })
-			log.AddLoggerToHTTPServer(ctx, test.name, s.server)
-
-			req := httptest.NewRequest(test.method, test.url, nil)
-			req = req.WithContext(ctx)
-			rec := httptest.NewRecorder()
-
-			s.server.Handler.ServeHTTP(rec, req)
-			if got, want := rec.Code, test.wantCode; got != want {
-				t.Errorf("response code:\n  got: %v\n want: %v", got, want)
-			}
-		})
-	}
-}
-
 func TestCSRFWrapper(t *testing.T) {
 	testData := []struct {
 		name     string
