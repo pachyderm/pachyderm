@@ -64,7 +64,7 @@ func (err ErrBranchProvCycle) Error() string {
 	return fmt.Sprintf("cycle detected because %s is already provenant on %s", err.To, err.From)
 }
 
-// ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
+// ErrBranchNotFound is returned when a branch is not found in postgres.
 type ErrBranchNotFound struct {
 	ID        BranchID
 	BranchKey string
