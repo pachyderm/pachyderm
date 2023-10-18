@@ -1,7 +1,7 @@
 import classnames from 'classnames';
 import React, {ReactNode} from 'react';
 
-import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
+import {Link, ExternalLinkSVG, Icon, LockIconSVG} from '@pachyderm/components';
 
 import BrandedDocLink from '../BrandedDocLink';
 import {BrandedEmptyIcon, BrandedErrorIcon} from '../BrandedIcon';
@@ -15,9 +15,19 @@ type EmptyStateProps = {
   connect?: boolean;
   className?: string;
   error?: boolean;
+  noAccess?: boolean;
   renderButton?: ReactNode;
   linkToDocs?: {text: string; pathWithoutDomain: string};
   linkExternal?: {text: string; link: string};
+};
+
+const EmptyStateIcon: React.FC<Pick<EmptyStateProps, 'noAccess' | 'error'>> = ({
+  noAccess,
+  error,
+}) => {
+  if (noAccess) return <LockIconSVG />;
+  if (error) return <BrandedErrorIcon />;
+  return <BrandedEmptyIcon />;
 };
 
 const EmptyState: React.FC<EmptyStateProps> = ({
@@ -28,11 +38,12 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   linkExternal,
   className,
   error,
+  noAccess,
   renderButton,
 }) => {
   return (
     <div className={classnames(styles.base, className)}>
-      {error ? <BrandedErrorIcon /> : <BrandedEmptyIcon />}
+      <EmptyStateIcon error={error} noAccess={noAccess} />
       {title && (
         <span className={styles.title}>
           <h6>{title}</h6>

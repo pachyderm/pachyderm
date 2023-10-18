@@ -137,3 +137,12 @@ export const mockEmptyCommitDiff = () =>
       }),
     );
   });
+
+export const mockEmptyCommit = () =>
+  mockCommitQuery((_req, res, ctx) => {
+    return res(
+      ctx.data({
+        commit: null,
+      }),
+    );
+  });

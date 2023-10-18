@@ -44,6 +44,11 @@ const useRepoDetails = () => {
     resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
   });
 
+  const {isAuthorizedAction: repoReadPermission} = useVerifiedAuthorization({
+    permissionsList: [Permission.REPO_READ],
+    resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
+  });
+
   const currentRepoLoading =
     repoLoading || commitLoading || repoId !== repo?.id;
 
@@ -60,6 +65,7 @@ const useRepoDetails = () => {
     repoError,
     editRolesPermission,
     getPathToFileBrowser,
+    repoReadPermission,
   };
 };
 

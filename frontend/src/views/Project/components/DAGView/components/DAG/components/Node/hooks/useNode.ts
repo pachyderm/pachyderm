@@ -74,6 +74,11 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
         | 'connected_repo'
         | 'connected_project',
     ) => {
+      if (
+        ('pipeline' === destination || 'repo' === destination) &&
+        isInteractive
+      )
+        navigateToNode(node, destination);
       if (noAccess) return;
       if (destination === 'logs') {
         return browserHistory.push(
@@ -108,7 +113,6 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
           }),
         );
       }
-      if (isInteractive) navigateToNode(node, destination);
     },
     [
       noAccess,

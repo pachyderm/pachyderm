@@ -111,13 +111,11 @@ const Node: React.FC<NodeProps> = ({
   const pipelineClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: pipelineSelected,
-    [styles.access]: node.access,
   });
 
   const repoClasses = classNames(styles.buttonGroup, {
     [styles.interactive]: isInteractive,
     [styles.selected]: repoSelected,
-    [styles.access]: node.access,
   });
 
   const statusClasses = classNames(styles.statusGroup, {

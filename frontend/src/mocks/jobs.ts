@@ -236,6 +236,18 @@ export const mockGetMontageJob_5C = () =>
     );
   });
 
+export const mockEmptyJob = () =>
+  mockJobQuery((_req, res, ctx) => {
+    return res(
+      ctx.errors([
+        {
+          message: 'resource not found',
+          path: ['job'],
+        },
+      ]),
+    );
+  });
+
 export const mockGetMontageJobs = () =>
   mockJobsQuery((_req, res, ctx) => {
     return res(

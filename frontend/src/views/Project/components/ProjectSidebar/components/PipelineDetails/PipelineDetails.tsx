@@ -2,6 +2,7 @@ import React from 'react';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Description from '@dash-frontend/components/Description';
+import EmptyState from '@dash-frontend/components/EmptyState';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import useCurrentOuptutRepoOfPipeline from '@dash-frontend/hooks/useCurrentOuptutRepoOfPipeline';
@@ -32,6 +33,7 @@ const PipelineDetails: React.FC = () => {
     projectId,
     pipelineId,
     editRolesPermission,
+    pipelineReadPermission,
   } = usePipelineDetails();
   const {
     openModal: openRolesModal,
@@ -68,7 +70,7 @@ const PipelineDetails: React.FC = () => {
               </Group>
             </Description>
           )}
-          {!isSpout && (
+          {!isSpout && pipelineReadPermission && (
             <>
               <Description
                 term="Most Recent Job ID"
@@ -108,7 +110,27 @@ const PipelineDetails: React.FC = () => {
             </Tabs.TabsHeader>
             {!isServiceOrSpout && (
               <Tabs.TabPanel id={TAB_ID.JOB}>
-                <InfoPanel className={styles.paddingUnset} />
+                {pipelineReadPermission ? (
+                  <InfoPanel className={styles.paddingUnset} />
+                ) : (
+                  <EmptyState
+                    title={
+                      <>{`You don't have permission to view this pipeline`}</>
+                    }
+                    noAccess
+                    message={
+                      <>
+                        {`You'll need a role of repoReader or higher on the connected repo to view job data
+              about this pipeline.`}
+                      </>
+                    }
+                    linkToDocs={{
+                      text: 'Read more about authorization',
+                      pathWithoutDomain: '/set-up/authorization/',
+                    }}
+                    className={styles.emptyState}
+                  />
+                )}
               </Tabs.TabPanel>
             )}
             <Tabs.TabPanel id={TAB_ID.INFO}>

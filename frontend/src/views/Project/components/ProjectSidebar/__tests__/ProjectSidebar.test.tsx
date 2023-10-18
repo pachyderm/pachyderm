@@ -22,6 +22,8 @@ import {
   mockRepoImages,
   mockRepoMontage,
   mockTrueGetAuthorize,
+  mockEmptyCommit,
+  mockEmptyJob,
 } from '@dash-frontend/mocks';
 import {mockGetVertices, mockGet4Vertices} from '@dash-frontend/mocks/vertices';
 import {hover, click, withContextProviders} from '@dash-frontend/testHelpers';
@@ -566,6 +568,54 @@ description: >-
       ).toBeInTheDocument();
       expect(screen.queryByText('Most Recent Job ID')).not.toBeInTheDocument();
     });
+
+    it('should hide job info if no access and display empty state', async () => {
+      server.use(mockFalseGetAuthorize());
+      server.use(mockEmptyJob());
+
+      window.history.replaceState({}, '', '/lineage/default/pipelines/montage');
+      render(<Project />);
+
+      const overviewTab = await screen.findByRole('tabpanel', {
+        name: /job overview/i,
+      });
+
+      expect(
+        screen.getByRole('button', {
+          name: /inspect jobs/i,
+        }),
+      ).toBeDisabled();
+
+      expect(
+        screen.getByRole('button', {
+          name: /delete/i,
+        }),
+      ).toBeDisabled();
+
+      expect(
+        within(overviewTab).getByRole('heading', {
+          name: "You don't have permission to view this pipeline",
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).getByText(
+          "You'll need a role of repoReader or higher on the connected repo to view job data about this pipeline.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).getByRole('link', {
+          name: 'Read more about authorization',
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByRole('definition', {
+          name: /most recent job id/i,
+        }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   describe('repos', () => {
@@ -839,6 +889,65 @@ description: >-
         'href',
         '/lineage/default/repos/montage/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fmontage',
       );
+    });
+
+    it('should hide commit info if no access and display empty state', async () => {
+      server.use(mockFalseGetAuthorize());
+      server.use(mockEmptyCommit());
+
+      window.history.replaceState('', '', '/lineage/default/repos/images');
+      render(<Project />);
+
+      await screen.findByRole('heading', {name: 'images'});
+
+      expect(
+        screen.getByRole('button', {
+          name: /delete/i,
+        }),
+      ).toBeDisabled();
+
+      expect(
+        screen.getByRole('button', {
+          name: /upload files/i,
+        }),
+      ).toBeDisabled();
+
+      expect(
+        screen.getByRole('button', {
+          name: 'Inspect Commits',
+        }),
+      ).toBeDisabled();
+
+      expect(
+        screen.getByRole('button', {
+          name: 'See All Roles',
+        }),
+      ).toBeEnabled();
+
+      expect(
+        screen.getByRole('heading', {
+          name: "You don't have permission to view this repo",
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByText(
+          "You'll need a role of repoReader or higher to view commit data about this repo.",
+        ),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.getByRole('link', {
+          name: 'Read more about authorization',
+        }),
+      ).toBeInTheDocument();
+
+      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(0);
+      expect(
+        screen.queryByRole('link', {
+          name: 'Inspect Commits',
+        }),
+      ).not.toBeInTheDocument();
     });
   });
 });

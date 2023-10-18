@@ -52,23 +52,19 @@ rect.node.detailedError {
   stroke-width: 4px;
 }
 
-.buttonGroup.interactive.access:hover .roundedButton {
+.buttonGroup.interactive:hover .roundedButton {
   fill: var(--cyan-10);
 }
 
-.buttonGroup.interactive.access:hover {
+.buttonGroup.interactive:hover {
   cursor: pointer;
 }
 
-.buttonGroup.interactive.access text {
+.buttonGroup.interactive text {
   fill: var(--pachyderm-plum);
 }
-.buttonGroup.interactive.access text tspan {
+.buttonGroup.interactive text tspan {
   fill: var(--pachyderm-black);
-}
-
-.buttonGroup.interactive:not(.access):hover {
-  cursor: not-allowed;
 }
 
 /* STATUS BUTTONS */

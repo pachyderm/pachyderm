@@ -30,3 +30,7 @@
 .paddingUnset {
   padding-top: unset;
 }
+
+.emptyState {
+  margin-top: 2rem;
+}

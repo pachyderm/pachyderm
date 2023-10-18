@@ -45,6 +45,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     repoId,
     editRolesPermission,
     getPathToFileBrowser,
+    repoReadPermission,
   } = useRepoDetails();
   const {
     openModal: openRolesModal,
@@ -159,23 +160,41 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         </Switch>
       </div>
 
-      {!currentRepoLoading && (!commit || repo?.branches.length === 0) && (
-        <>
-          <EmptyState
-            title={<>This repo doesn&apos;t have any data</>}
-            message={
-              <>
-                This is normal for new repositories. If you are interested in
-                learning more:
-              </>
-            }
-            linkToDocs={{
-              text: 'View our documentation about managing data',
-              pathWithoutDomain: '/prepare-data/ingest-data/',
-            }}
-          />
-          <UploadFilesButton link />
-        </>
+      {!currentRepoLoading &&
+        repoReadPermission &&
+        (!commit || repo?.branches.length === 0) && (
+          <>
+            <EmptyState
+              title={<>This repo doesn&apos;t have any data</>}
+              message={
+                <>
+                  This is normal for new repositories. If you are interested in
+                  learning more:
+                </>
+              }
+              linkToDocs={{
+                text: 'View our documentation about managing data',
+                pathWithoutDomain: '/prepare-data/ingest-data/',
+              }}
+            />
+            <UploadFilesButton link />
+          </>
+        )}
+      {!currentRepoLoading && !repoReadPermission && (
+        <EmptyState
+          title={<>{`You don't have permission to view this repo`}</>}
+          noAccess
+          message={
+            <>
+              {`You'll need a role of repoReader or higher to view commit data
+              about this repo.`}
+            </>
+          }
+          linkToDocs={{
+            text: 'Read more about authorization',
+            pathWithoutDomain: '/set-up/authorization/',
+          }}
+        />
       )}
 
       {commit?.id && (

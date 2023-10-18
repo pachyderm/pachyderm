@@ -32,9 +32,14 @@ describe('Access', () => {
       .should('have.length', 1)
       .first()
       .click();
-    cy.url().should('not.include', 'edges');
+    cy.url().should('include', 'edges');
+    cy.findByText("You don't have permission to view this pipeline").should(
+      'exist',
+    );
+
     cy.findByText('images').should('exist').click();
     cy.url().should('include', 'images');
+    cy.findByText('Most Recent Commit ID').should('exist');
   });
 
   it('should not allow users to view repos they do not have access for', () => {

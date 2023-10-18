@@ -32,6 +32,9 @@ export const HPE = () => {
         <SVGWrapper title="ErrorIcon">
           <HPESvg.ErrorIconSVG />
         </SVGWrapper>
+        <SVGWrapper title="LockIcon">
+          <HPESvg.LockIconSVG />
+        </SVGWrapper>
         <SVGWrapper title="EmptyIcon">
           <HPESvg.EmptyIconSVG />
         </SVGWrapper>

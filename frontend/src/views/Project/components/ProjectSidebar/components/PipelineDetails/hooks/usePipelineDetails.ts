@@ -29,6 +29,13 @@ const usePipelineDetails = () => {
     resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineId}`},
   });
 
+  const {isAuthorizedAction: pipelineReadPermission} = useVerifiedAuthorization(
+    {
+      permissionsList: [Permission.REPO_READ],
+      resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineId}`},
+    },
+  );
+
   const tabsBasePath = LINEAGE_PIPELINE_PATH;
 
   return {
@@ -41,6 +48,7 @@ const usePipelineDetails = () => {
     isSpout,
     tabsBasePath,
     editRolesPermission,
+    pipelineReadPermission,
   };
 };
 
