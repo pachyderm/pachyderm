@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -105,7 +106,7 @@ func TestSetLogLevel(t *testing.T) {
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
-			ctx := log.Test(t)
+			ctx := pctx.TestContext(t)
 			logLevel := new(level) // The zero value of zapcore.Level is InfoLevel.
 			grpcLevel := new(level)
 

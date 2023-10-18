@@ -18,17 +18,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/fileserver"
 	"github.com/pachyderm/pachyderm/v2/src/internal/jsonschema"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/restgateway"
 	"go.uber.org/zap"
 )
 
 // Server is an http.Server that serves public requests.
 type Server struct {
 	mux    http.Handler // For testing.
-	server *http.Server // For ListenAndServe.
+	Server *http.Server // For ListenAndServe.
 }
 
 // New creates a new API server, with an http.Server to actually serve traffic.
-func New(port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
+func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
+	ctx = pctx.Child(ctx, "httpserver")
 	mux := http.NewServeMux()
 
 	// Archive server.
@@ -52,9 +55,19 @@ func New(port uint16, pachClientFactory func(ctx context.Context) *client.APICli
 	// JSON schemas.
 	mux.Handle("/jsonschema/", http.StripPrefix("/jsonschema/", http.FileServer(http.FS(jsonschema.FS))))
 
+	// GRPC gateway.
+	client := pachClientFactory(ctx)
+	gwmux := restgateway.NewMux(ctx, client.ClientConn())
+	if gwmux == nil {
+		log.Error(ctx, "failed to register rest api handlers with grpc-gateway")
+		return nil
+	}
+	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
+	log.Info(ctx, "completed grpc gateway rest api registrations")
+
 	return &Server{
 		mux: mux,
-		server: &http.Server{
+		Server: &http.Server{
 			Addr:    fmt.Sprintf(":%d", port),
 			Handler: mux,
 		},
@@ -106,15 +119,15 @@ func CSRFWrapper(h http.Handler) http.HandlerFunc {
 // ListenAndServe begins serving the server, and returns when the context is canceled or the server
 // dies on its own.
 func (h *Server) ListenAndServe(ctx context.Context) error {
-	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.server)
+	log.AddLoggerToHTTPServer(ctx, "pachhttp", h.Server)
 	errCh := make(chan error, 1)
 	go func() {
-		errCh <- h.server.ListenAndServe()
+		errCh <- h.Server.ListenAndServe()
 	}()
 	select {
 	case <-ctx.Done():
 		log.Info(ctx, "terminating pachhttp server", zap.Error(context.Cause(ctx)))
-		return errors.EnsureStack(h.server.Shutdown(ctx))
+		return errors.EnsureStack(h.Server.Shutdown(ctx))
 	case err := <-errCh:
 		return err
 	}
