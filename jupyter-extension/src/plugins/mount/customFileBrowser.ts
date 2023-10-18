@@ -51,7 +51,7 @@ const createCustomFileBrowser = (
     if (breadCrumbs) {
       breadCrumbs.node
         .querySelector('svg[data-icon="ui-components:folder"]')
-        ?.replaceWith('/pfs');
+        ?.replaceWith('/ pfs');
       const homeElement = breadCrumbs.node
         .getElementsByClassName('jp-BreadCrumbs-home')
         .item(0);
