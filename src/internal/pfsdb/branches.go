@@ -57,11 +57,11 @@ const (
 )
 
 type ErrBranchProvCycle struct {
-	From, To *pfs.Branch
+	From, To string
 }
 
 func (err ErrBranchProvCycle) Error() string {
-	return fmt.Sprintf("cycle detected because %s is already provenant on %s", err.To, err.From)
+	return fmt.Sprintf("cycle detected because %v is already in the subvenance of %v", err.To, err.From)
 }
 
 // ErrBranchNotFound is returned when a branch is not found in postgres.
@@ -267,7 +267,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	for _, toBranch := range branchInfo.DirectProvenance {
 		if fullSubvSet[toBranch.Key()] {
-			return branchID, ErrBranchProvCycle{From: branchInfo.Branch, To: toBranch}
+			return branchID, ErrBranchProvCycle{From: branchInfo.Branch.Key(), To: toBranch.Key()}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
