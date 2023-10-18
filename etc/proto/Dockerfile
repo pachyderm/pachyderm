@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.21.1
+ARG GOVERSION=golang:1.21.3
 FROM $GOVERSION
 
 LABEL maintainer="msteffen@pachyderm.io"
@@ -18,6 +18,7 @@ RUN cp -r /include /bin
 # Instal protoc-gen-go
 RUN go install -v google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
 RUN go install -v google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+RUN go install -v github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts@v1.1.2
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 

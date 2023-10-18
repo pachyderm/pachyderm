@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
@@ -25,27 +24,22 @@ type PreFlight struct {
 
 func NewPreflight(env PreFlightEnv, config pachconfig.PachdPreflightConfiguration) *PreFlight {
 	pf := &PreFlight{env: env, config: config}
-	pf.addSetup("print version", pf.printVersion)
-	pf.addSetup("await DB", pf.awaitDB)
-	pf.addSetup("test migrations", pf.testMigrations)
-	pf.addSetup("OK", pf.everythingOK)
-	// TODO: remove
-	pf.addBackground("", func(context.Context) error { return nil })
+	pf.addSetup(
+		printVersion(),
+		awaitDB(env.DB),
+		setupStep{
+			Name: "testMigrations",
+			Fn: func(ctx context.Context) error {
+				return preflight.TestMigrations(ctx, pf.env.DB)
+			},
+		},
+		setupStep{
+			Name: "OK",
+			Fn: func(ctx context.Context) error {
+				log.Info(ctx, "all preflight checks OK; it is safe to upgrade this environment to Pachyderm "+version.Version.Canonical())
+				return nil
+			},
+		},
+	)
 	return pf
-}
-
-func (pf *PreFlight) awaitDB(ctx context.Context) error {
-	if err := dbutil.WaitUntilReady(ctx, pf.env.DB); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (pf *PreFlight) testMigrations(ctx context.Context) error {
-	return preflight.TestMigrations(ctx, pf.env.DB)
-}
-
-func (pf *PreFlight) everythingOK(ctx context.Context) error {
-	log.Info(ctx, "all preflight checks OK; it is safe to upgrade this environment to Pachyderm "+version.Version.Canonical())
-	return nil
 }

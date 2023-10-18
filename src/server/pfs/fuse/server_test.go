@@ -1139,3 +1139,66 @@ func TestCrossDatumsHelper(t *testing.T) {
 		require.Equal(t, 3, len(datum.Data))
 	}
 }
+
+func TestMountingMultipleFiles(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/sdir/showfile1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "dir/sdir/hidefile2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "show/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "show/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "hide/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "hide/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Commit: commitInfo.Commit.Id,
+					Mode:   "ro",
+					Paths:  []string{"show", "dir/sdir/showfile1"},
+				},
+			},
+		}
+
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+		require.Equal(t, "show", filepath.Base(files[1].Name()))
+
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "sdir", filepath.Base(files[0].Name()))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir", "sdir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "showfile1", filepath.Base(files[0].Name()))
+
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "show"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+		require.Equal(t, "file2", filepath.Base(files[1].Name()))
+	})
+}

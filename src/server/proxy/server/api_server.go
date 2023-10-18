@@ -16,7 +16,7 @@ type Env struct {
 }
 
 type APIServer struct {
-	proxy.UnimplementedAPIServer
+	proxy.UnsafeAPIServer
 	env Env
 }
 

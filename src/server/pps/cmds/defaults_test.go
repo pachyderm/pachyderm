@@ -243,7 +243,7 @@ func TestCreatePipeline_delete(t *testing.T) {
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match 17
 		# delete defaults with --regenerate does change the pipeline
 		pachctl delete defaults --cluster --regenerate
-		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match null
+		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match 3
 		`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
@@ -298,7 +298,7 @@ func TestCreatePipeline_yaml(t *testing.T) {
 		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match 17
 		# delete defaults with --regenerate does change the pipeline
 		pachctl delete defaults --cluster --regenerate
-		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match null
+		pachctl inspect pipeline {{.PipelineName}} --raw | jq -r .effective_spec_json | jq -r .datumTries | match 3
 		`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",

@@ -331,7 +331,7 @@ message Worker {
 
 message Pipeline {
   pfs_v2.Project project = 2;
-  string name = 1;
+  string name = 1 [(validate.rules).string.min_bytes = 1];
 }
 
 enum PipelineState {
@@ -692,6 +692,12 @@ message SchedulingSpec {
   string priority_class_name = 2;
 }
 
+message RerunPipelineRequest {
+  Pipeline pipeline = 1 [(validate.rules).message.required = true];
+  // Reprocess forces the pipeline to reprocess all datums.
+  bool reprocess = 15;
+}
+
 message CreatePipelineRequest {
   option (protoc.gen.jsonschema.message_options).allow_null_values = true;
   Pipeline pipeline = 1;
@@ -934,6 +940,33 @@ message CreatePipelineTransaction {
   string effective_json = 3; // the effective spec: the result of merging the user JSON into the cluster defaults
 }
 
+message ProjectDefaults {
+  CreatePipelineRequest create_pipeline_request = 1;
+}
+
+message GetProjectDefaultsRequest {
+  pfs_v2.Project project = 1;
+}
+
+message GetProjectDefaultsResponse {
+  // A JSON-encoded ProjectDefaults message, this is the verbatim input passed
+  // to SetProjectDefaults.
+  string project_defaults_json = 1;
+}
+
+message SetProjectDefaultsRequest {
+  pfs_v2.Project project = 1;
+  bool regenerate = 2;
+  bool reprocess = 3; // must be false if regenerate is false
+  bool dry_run = 4;
+  // A JSON-encoded ProjectDefaults message, this will be stored verbatim.
+  string project_defaults_json = 5;
+}
+
+message SetProjectDefaultsResponse {
+  repeated Pipeline affected_pipelines = 1;
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -948,6 +981,7 @@ service API {
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
+  rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipeline(CreatePipelineRequest) returns (google.protobuf.Empty) {}
   rpc CreatePipelineV2(CreatePipelineV2Request) returns (CreatePipelineV2Response) {}
   rpc InspectPipeline(InspectPipelineRequest) returns (PipelineInfo) {}

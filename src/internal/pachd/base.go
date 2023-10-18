@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/version"
-	"golang.org/x/sync/errgroup"
 )
 
 // setupSteps are run serially before the any of the background tasks
@@ -26,11 +26,8 @@ type base struct {
 }
 
 // addSetup adds a setupStep
-func (b *base) addSetup(name string, fn func(context.Context) error) {
-	b.setup = append(b.setup, setupStep{
-		Name: name,
-		Fn:   fn,
-	})
+func (b *base) addSetup(xs ...setupStep) {
+	b.setup = append(b.setup, xs...)
 }
 
 // addBackground adds a background task
@@ -70,13 +67,9 @@ func (b *base) Run(ctx context.Context) error {
 		fn := fn
 		ctx := pctx.Child(ctx, name)
 		eg.Go(func() error {
+			log.Info(ctx, "starting background service")
 			return fn(ctx)
 		})
 	}
 	return errors.EnsureStack(eg.Wait())
-}
-
-func (b *base) printVersion(ctx context.Context) error {
-	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
-	return nil
 }

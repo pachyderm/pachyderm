@@ -19,6 +19,8 @@ from .env import (
     HTTP_UNIX_SOCKET_SCHEMA,
     HTTP_SCHEMA,
     DEFAULT_SCHEMA,
+    DET_RESOURCES_TYPE,
+    SLURM_JOB
 )
 
 lock = locks.Lock()
@@ -44,8 +46,11 @@ class MountServerClient(MountInterface):
             self.sock_path = ""
         self.client = AsyncHTTPClient()
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
-        # TODO: Would be preferable to auto-detect this, but unclear how
+        # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
+        if DET_RESOURCES_TYPE == SLURM_JOB:
+            get_logger().debug("Inferring non privileged container for launcher/MLDE...")
+            self.nopriv = 1
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")

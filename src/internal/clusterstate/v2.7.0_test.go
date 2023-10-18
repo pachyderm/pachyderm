@@ -2,6 +2,8 @@ package clusterstate
 
 import (
 	"context"
+	"database/sql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"strings"
 	"testing"
 	"time"
@@ -141,6 +143,12 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 		commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit,
 	}
 	for _, commitInfo := range commits {
+		// shave off extra precision for comparison during tests.
+		timeStmp := pbutil.SanitizeTimestampPb(timestamppb.Now())
+		timeStr := timeStmp.Time.Format("2006-01-02 15:04:05 +9999 MST")
+		newTimeStmp, err := time.Parse("2006-01-02 15:04:05 +9999 MST", timeStr)
+		require.NoError(t, err)
+		commitInfo.Started = pbutil.TimeToTimestamppb(sql.NullTime{Time: newTimeStmp, Valid: true})
 		b, err := proto.Marshal(commitInfo)
 		require.NoError(t, err)
 		_, err = tx.ExecContext(ctx, `INSERT INTO collections.commits(key, proto) VALUES($1, $2)`, commitInfo.Commit.Key(), b)

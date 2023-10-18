@@ -1,0 +1,13 @@
+<html>
+    <head>
+        <title>Pachyderm - Error</title>
+    </head>
+    <body>
+        <h1>Error</h1>
+        <p>{{ .Message }}</p>
+        {{ if .RequestID }}
+        <hr />
+        <p>Error ID: {{ .RequestID }}</p>
+        {{ end }}
+    </body>
+</html>
