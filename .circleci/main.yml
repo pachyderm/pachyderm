@@ -1017,8 +1017,14 @@ jobs:
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
-      - store_artifacts:
-          path: cypress/
+      - when:
+          condition: on_fail
+          steps:
+            - store_artifacts:
+                path: cypress/videos/
+            - store_artifacts:
+                path: cypress/screenshots/
+
   jupyter-extension-frontend-test:
     resource_class: xlarge
     docker:
