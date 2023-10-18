@@ -76,7 +76,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				}
 				branch := ""
 				for _, ci := range cis {
-					if ci.Commit.Branch.Repo.Name == repo {
+					if ci.Commit.Branch != nil && ci.Commit.Branch.Repo.Name == repo {
 						if branch != "" {
 							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.Id)
 						}
