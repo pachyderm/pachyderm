@@ -2,12 +2,15 @@ package pfsdb
 
 import (
 	"database/sql"
+	"encoding/hex"
 	"strings"
 	"time"
 
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -34,7 +37,10 @@ type Repo struct {
 	Type        string         `db:"type"`
 	Description string         `db:"description"`
 	CreatedAtUpdatedAt
-	BranchesNames string `db:"branches"`
+
+	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
+	// Each entry is prefixed with '//x' and entries are delimited by a ','
+	Branches string `db:"branches"`
 }
 
 func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
@@ -50,7 +56,7 @@ func (repo *Repo) Pb() *pfs.Repo {
 }
 
 func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
-	branches, err := parseBranches(repo)
+	branches, err := parseBranches(repo.Branches)
 	if err != nil {
 		return nil, err
 	}
@@ -62,18 +68,23 @@ func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
 	}, nil
 }
 
-func parseBranches(repo *Repo) ([]*pfs.Branch, error) {
+func parseBranches(branchInfos string) ([]*pfs.Branch, error) {
 	var branches []*pfs.Branch
-	if repo.BranchesNames == noBranches {
+	if branchInfos == noBranches {
 		return branches, nil
 	}
 	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded branch strings.
-	for _, branchName := range strings.Split(strings.Trim(repo.BranchesNames, "{}"), ",") {
-		branch := &pfs.Branch{
-			Name: branchName,
-			Repo: repo.Pb(),
+	for _, branchStr := range strings.Split(strings.Trim(branchInfos, "{}"), ",") {
+		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\x")
+		decodedString, err := hex.DecodeString(branchHex)
+		if err != nil {
+			return nil, errors.Wrap(err, "branch not hex encoded")
 		}
-		branches = append(branches, branch)
+		branchInfo := &pfs.BranchInfo{}
+		if err := proto.Unmarshal(decodedString, branchInfo); err != nil {
+			return nil, errors.Wrap(err, "could not unmarshal BranchInfo")
+		}
+		branches = append(branches, branchInfo.Branch)
 	}
 	return branches, nil
 }
