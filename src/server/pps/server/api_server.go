@@ -2125,9 +2125,6 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
-	if err != nil {
-		return nil, errors.Wrap(err, "could not get cluster defaults")
-	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
 		if err != nil {
