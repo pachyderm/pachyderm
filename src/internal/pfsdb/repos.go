@@ -26,14 +26,15 @@ const (
 		repo.name,
 		repo.type,
 		repo.description,
-		repo.project_id AS "project.id",
+		repo.project_id as "project.id",
 		project.name AS "project.name",
-		array_agg(branch.name) AS "branches",
+		array_agg(branch.proto) AS branches,
 		repo.created_at,
 		repo.updated_at
-	FROM pfs.repos repo 
-		JOIN core.projects project ON repo.project_id = project.id
-		LEFT JOIN pfs.branches branch ON branch.repo_id = repo.id
+	FROM
+		pfs.repos repo
+			JOIN core.projects project ON repo.project_id = project.id
+			LEFT JOIN collections.branches branch ON project.name || '/' || repo.name || '.' || repo.type = branch.idx_repo
 	`
 	noBranches = "{NULL}"
 )
@@ -168,7 +169,7 @@ func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter
 	if len(conditions) > 0 {
 		where = "WHERE " + strings.Join(conditions, " AND ")
 	}
-	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, repo.project_id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
+	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
 		getRepoAndBranches, where), limit, offset); err != nil {
 		return nil, errors.Wrap(err, "could not get repo page")
 	}
@@ -207,7 +208,7 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, err
 		return nil, errors.New("invalid id: 0")
 	}
 	repo := &Repo{}
-	err := tx.GetContext(ctx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches), id)
+	err := tx.GetContext(ctx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name;", getRepoAndBranches), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrRepoNotFound{ID: id}
@@ -233,7 +234,7 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 	repo := &Repo{}
 	if err := tx.GetContext(ctx, repo,
 		fmt.Sprintf("%s WHERE repo.project_id=(SELECT id from core.projects where name=$1) "+
-			"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches),
+			"AND repo.name=$2 AND repo.type=$3 GROUP BY repo.id, project.name;", getRepoAndBranches),
 		repoProject, repoName, repoType,
 	); err != nil {
 		if err == sql.ErrNoRows {

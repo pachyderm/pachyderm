@@ -347,9 +347,6 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
 		return err
 	}
-	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
-		return err
-	}
 	if err := createNotifyCommitsTrigger(ctx, env.Tx); err != nil {
 		return err
 	}
