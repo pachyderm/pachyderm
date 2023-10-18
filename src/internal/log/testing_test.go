@@ -12,7 +12,7 @@ import (
 // you have to run these in verbose mode and see if the logs make sense.  Kind of useless, but if
 // you think Test is broken, at least you can manually debug it.
 func TestTest(t *testing.T) {
-	ctx := Test(t)
+	ctx := Test(context.Background(), t)
 	Debug(ctx, "hello")
 }
 
@@ -20,14 +20,14 @@ func TestTestParallel(t *testing.T) {
 	c := make(chan struct{})
 	t.Run("a", func(t *testing.T) {
 		t.Parallel()
-		ctx := TestParallel(t)
+		ctx := TestParallel(context.Background(), t)
 		Debug(ctx, "a")
 		Debug(nil, "not seen (a)") //nolint:staticcheck
 		close(c)
 	})
 	t.Run("b", func(t *testing.T) {
 		t.Parallel()
-		ctx := TestParallel(t)
+		ctx := TestParallel(context.Background(), t)
 		<-c
 		Debug(ctx, "b")
 		Debug(nil, "not seen (b)") //nolint:staticcheck

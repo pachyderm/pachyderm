@@ -112,8 +112,7 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		Auth:                 env.AuthServer(),
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
-		BackgroundContext: pctx.Child(env.Context(), "PFS"),
-		StorageConfig:     env.Config().StorageConfiguration,
+		StorageConfig: env.Config().StorageConfiguration,
 	}, nil
 }
 

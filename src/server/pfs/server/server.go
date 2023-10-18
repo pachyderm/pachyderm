@@ -17,6 +17,8 @@ import (
 	etcd "go.etcd.io/etcd/client/v3"
 )
 
+type APIServer = *validatedAPIServer
+
 type PipelineInspector interface {
 	InspectPipelineInTransaction(context.Context, *txncontext.TransactionContext, *pps.Pipeline) (*pps.PipelineInfo, error)
 }
@@ -48,8 +50,7 @@ type Env struct {
 	Auth                 PFSAuth
 	GetPipelineInspector func() PipelineInspector
 
-	BackgroundContext context.Context
-	StorageConfig     pachconfig.StorageConfiguration
+	StorageConfig pachconfig.StorageConfiguration
 }
 
 // NewAPIServer creates an APIServer.
