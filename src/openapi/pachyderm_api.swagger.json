@@ -3486,6 +3486,313 @@
         ]
       }
     },
+    "/pjs.API/CreateJob": {
+      "post": {
+        "summary": "CreateJob creates a new job.\nChild jobs can be created by setting the context field to the appropriate parent job context.",
+        "operationId": "API_CreateJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsCreateJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsCreateJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/CancelJob": {
+      "post": {
+        "summary": "CancelJob cancels a job.\nCanceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. \nThis will terminate all ongoing processing associated with the job.\nNothing will be deleted.\nA job can only be canceled with the parent job context.",
+        "operationId": "API_CancelJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsCancelJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsCancelJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/DeleteJob": {
+      "post": {
+        "summary": "DeleteJob deletes a job.\nDeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job.\nA job can only be deleted with the parent job context.",
+        "operationId": "API_DeleteJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsDeleteJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsDeleteJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/ListJob": {
+      "post": {
+        "summary": "ListJob returns a list of jobs and information about each job.\nThe jobs returned in the list are the child jobs of the provided job.\nIf no job is provided, the list is the child jobs of the provided job context.\nThe provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.",
+        "operationId": "API_ListJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pjsListJobResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pjsListJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsListJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/WalkJob": {
+      "post": {
+        "summary": "WalkJob returns a list of jobs in a hierarchy and information about each job.\nWalking a job traverses the job hierarchy rooted at the provided job.\nThe provided job must be associated with the provided job context or a descendant of the job associated with the provided job context.",
+        "operationId": "API_WalkJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pjsListJobResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pjsListJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsWalkJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/InspectJob": {
+      "post": {
+        "summary": "InspectJob returns detailed information about a job.",
+        "operationId": "API_InspectJob",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsInspectJobResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsInspectJobRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/ProcessQueue": {
+      "post": {
+        "summary": "ProcessQueue should be called by workers to process jobs in a queue.\nThe protocol is as follows:\n  Worker sends an initial request with the queue id.\n  For each job:\n    Server sends a response with a job context and the associated queue element.\n    Worker processes the job.\n    Worker sends a request with the job output or indicates that the job failed.\nThis RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up.\nThis RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur.",
+        "operationId": "API_ProcessQueue",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pjsProcessQueueResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pjsProcessQueueResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Queue Messages\nProcessQueueRequest is the client -\u003e server message for the bi-di ProcessQueue RPC. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsProcessQueueRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/ListQueue": {
+      "post": {
+        "summary": "ListQueue returns a list of queues and information about each queue.",
+        "operationId": "API_ListQueue",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pjsListQueueResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pjsListQueueResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsListQueueRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pjs.API/InspectQueue": {
+      "post": {
+        "summary": "InspectQueue returns detailed information about a queue.",
+        "operationId": "API_InspectQueue",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pjsInspectQueueResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pjsInspectQueueRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/InspectJob": {
       "post": {
         "operationId": "API_InspectJob",
@@ -7949,6 +8256,325 @@
         "reverse": {
           "type": "boolean",
           "title": "If true, return files in reverse order"
+        }
+      }
+    },
+    "pjsCancelJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "job": {
+          "$ref": "#/definitions/pjsJob"
+        }
+      }
+    },
+    "pjsCancelJobResponse": {
+      "type": "object"
+    },
+    "pjsCreateJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "spec": {
+          "$ref": "#/definitions/protobufAny"
+        },
+        "input": {
+          "$ref": "#/definitions/pjsQueueElement"
+        },
+        "cacheRead": {
+          "type": "boolean"
+        },
+        "cacheWrite": {
+          "type": "boolean"
+        }
+      }
+    },
+    "pjsCreateJobResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/pjsJob"
+        }
+      }
+    },
+    "pjsDeleteJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "job": {
+          "$ref": "#/definitions/pjsJob"
+        }
+      }
+    },
+    "pjsDeleteJobResponse": {
+      "type": "object"
+    },
+    "pjsInspectJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "job": {
+          "$ref": "#/definitions/pjsJob",
+          "description": "job is the job to start walking from.  If unset the context Job is assumed."
+        }
+      }
+    },
+    "pjsInspectJobResponse": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "$ref": "#/definitions/pjsJobInfoDetails"
+        }
+      }
+    },
+    "pjsInspectQueueRequest": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "$ref": "#/definitions/pjsQueue"
+        }
+      }
+    },
+    "pjsInspectQueueResponse": {
+      "type": "object",
+      "properties": {
+        "details": {
+          "$ref": "#/definitions/pjsQueueInfoDetails"
+        }
+      }
+    },
+    "pjsJob": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "int64"
+        }
+      },
+      "description": "Job uniquely identifies a Job\nJob will be nil to indicate no Job, or an unset Job."
+    },
+    "pjsJobErrorCode": {
+      "type": "string",
+      "enum": [
+        "JobErrorCode_UNSPECIFIED",
+        "FAILED",
+        "DISCONNECTED",
+        "CANCELED"
+      ],
+      "default": "JobErrorCode_UNSPECIFIED",
+      "description": " - JobErrorCode_UNSPECIFIED: UNSPECIFIED means the job error code is unspecified.\n - FAILED: FAILED means that the worker processing the job indicated that it failed.\n - DISCONNECTED: DISCONNECTED means the worker processing the job disconnected.\n - CANCELED: CANCELED means the job was canceled."
+    },
+    "pjsJobInfo": {
+      "type": "object",
+      "properties": {
+        "job": {
+          "$ref": "#/definitions/pjsJob",
+          "title": "Job is the Job's identity"
+        },
+        "parentJob": {
+          "$ref": "#/definitions/pjsJob",
+          "description": "parent_job is the Job's parent if it exists."
+        },
+        "state": {
+          "$ref": "#/definitions/pjsJobState",
+          "description": "state is the Job's state.\nSee JobState for a description of the possible states."
+        },
+        "spec": {
+          "$ref": "#/definitions/protobufAny",
+          "description": "spec is the code specification for the Job."
+        },
+        "input": {
+          "$ref": "#/definitions/pjsQueueElement",
+          "description": "input is the input data for the Job."
+        },
+        "output": {
+          "$ref": "#/definitions/pjsQueueElement",
+          "title": "output is produced by a successfully completing Job"
+        },
+        "error": {
+          "$ref": "#/definitions/pjsJobErrorCode",
+          "title": "error is set when the Job is unable to complete successfully"
+        }
+      },
+      "title": "JobInfo describes a Job"
+    },
+    "pjsJobInfoDetails": {
+      "type": "object",
+      "properties": {
+        "jobInfo": {
+          "$ref": "#/definitions/pjsJobInfo"
+        }
+      },
+      "title": "JobInfoDetails is more detailed information about a Job.\nIt contains a superset of the information in JobInfo"
+    },
+    "pjsJobState": {
+      "type": "string",
+      "enum": [
+        "JobState_UNSPECIFIED",
+        "QUEUED",
+        "PROCESSING",
+        "DONE"
+      ],
+      "default": "JobState_UNSPECIFIED",
+      "description": " - JobState_UNSPECIFIED: UNSPECIFIED means the job state is unspecified.\n - QUEUED: QUEUED means the job is currently in a queue.\nA QUEUED job will not have any descendants.\n - PROCESSING: PROCESSING means the job is currently being processed by a worker.\n - DONE: DONE means the job, and all of its descendants, are done."
+    },
+    "pjsListJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "job": {
+          "$ref": "#/definitions/pjsJob",
+          "description": "job is the job to start listing at.\nIf nil, then the listing starts at the first job in the natural ordering."
+        }
+      },
+      "title": "TODO:\n- Filter\n- Paginate"
+    },
+    "pjsListJobResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/pjsJob"
+        },
+        "info": {
+          "$ref": "#/definitions/pjsJobInfo"
+        },
+        "details": {
+          "$ref": "#/definitions/pjsJobInfoDetails"
+        }
+      },
+      "description": "ListJobResponse lists information about Jobs\nID will always be set.\nInfo and Details may not be set depending on how much information was requested."
+    },
+    "pjsListQueueRequest": {
+      "type": "object",
+      "title": "TODO:\n- Filter\n- Paginate"
+    },
+    "pjsListQueueResponse": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "$ref": "#/definitions/pjsQueue"
+        },
+        "info": {
+          "$ref": "#/definitions/pjsQueueInfo"
+        },
+        "details": {
+          "$ref": "#/definitions/pjsQueueInfoDetails"
+        }
+      }
+    },
+    "pjsProcessQueueRequest": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "$ref": "#/definitions/pjsQueue",
+          "description": "queue is set to start processing from a Queue."
+        },
+        "output": {
+          "$ref": "#/definitions/pjsQueueElement",
+          "description": "output is set by the client to complete the Job successfully."
+        },
+        "failed": {
+          "type": "boolean",
+          "description": "failed is set by the client to fail the Job.\nThe Job will transition to state DONE with code FAILED."
+        }
+      },
+      "description": "Queue Messages\nProcessQueueRequest is the client -\u003e server message for the bi-di ProcessQueue RPC."
+    },
+    "pjsProcessQueueResponse": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used to act on behalf of the Job in other RPCs.\nThe server issues this token to the client, and the client should use it when performing Job RPCs."
+        },
+        "input": {
+          "$ref": "#/definitions/pjsQueueElement",
+          "description": "input is the input data for a Job.\nThe server sends this to ask the client to compute the output."
+        }
+      },
+      "description": "ProcessQueueResposne is the server -\u003e client message for the bi-di ProcessQueue RPC."
+    },
+    "pjsQueue": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "Queue uniquely identifies a Queue\nQueue will be nil to identify no Queue, or to indicate unset."
+    },
+    "pjsQueueElement": {
+      "type": "object",
+      "properties": {
+        "data": {
+          "type": "string",
+          "format": "byte",
+          "title": "data is opaque data used as the input and output of Jobs"
+        },
+        "filesets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs.\nAny of the filesets referenced here will be persisted for as long as this element is in a Queue.\nNew handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary."
+        }
+      },
+      "description": "QueueElement is a single element in a Queue."
+    },
+    "pjsQueueInfo": {
+      "type": "object",
+      "properties": {
+        "queue": {
+          "$ref": "#/definitions/pjsQueue",
+          "title": "queue is the Queue's identity"
+        },
+        "spec": {
+          "$ref": "#/definitions/protobufAny",
+          "description": "spec specifies the code to be run to process the Queue."
+        }
+      },
+      "title": "QueueInfo describes a Queue"
+    },
+    "pjsQueueInfoDetails": {
+      "type": "object",
+      "properties": {
+        "queueInfo": {
+          "$ref": "#/definitions/pjsQueueInfo"
+        },
+        "size": {
+          "type": "string",
+          "format": "int64",
+          "description": "size is the number of elements queued."
+        }
+      },
+      "description": "QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.\nIt contains a superset of the information in QueueInfo."
+    },
+    "pjsWalkJobRequest": {
+      "type": "object",
+      "properties": {
+        "context": {
+          "type": "string",
+          "description": "context is a bearer token used when calling from within a running Job."
+        },
+        "job": {
+          "$ref": "#/definitions/pjsJob",
+          "description": "job is the job to start walking from.  If unset, the context Job is assumed."
         }
       }
     },

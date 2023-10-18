@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	pachdhttp "github.com/pachyderm/pachyderm/v2/src/server/http"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	pachdhttp "github.com/pachyderm/pachyderm/v2/src/server/http"
 )
 
 func TestRouting(t *testing.T) {
@@ -47,9 +47,9 @@ func TestRouting(t *testing.T) {
 			ctx := pctx.TestContext(t)
 
 			s := pachdhttp.New(ctx, 0, func(ctx context.Context) *client.APIClient {
-			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-			client := env.PachClient
-							return client
+				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+				client := env.PachClient
+				return client
 			})
 			log.AddLoggerToHTTPServer(ctx, test.name, s.Server)
 
@@ -64,5 +64,3 @@ func TestRouting(t *testing.T) {
 		})
 	}
 }
-
-
