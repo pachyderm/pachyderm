@@ -91,12 +91,12 @@ func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, rep
 	return &pfsdb.RepoPair{ID: id, RepoInfo: repoInfo}
 }
 
-func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitPair {
+func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
 	t.Helper()
 	createRepoInfoWithID(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 	require.NoError(t, err)
-	return &pfsdb.CommitPair{ID: commitID, CommitInfo: commitInfo}
+	return &pfsdb.CommitWithID{ID: commitID, CommitInfo: commitInfo}
 }
 
 func TestBranchUpsert(t *testing.T) {
