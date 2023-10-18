@@ -8185,7 +8185,7 @@ var file_pps_pps_proto_rawDesc = []byte{
 	0x45, 0x44, 0x55, 0x4c, 0x45, 0x10, 0x01, 0x12, 0x16, 0x0a, 0x12, 0x50, 0x52, 0x45, 0x46, 0x45,
 	0x52, 0x5f, 0x4e, 0x4f, 0x5f, 0x53, 0x43, 0x48, 0x45, 0x44, 0x55, 0x4c, 0x45, 0x10, 0x02, 0x12,
 	0x0e, 0x0a, 0x0a, 0x4e, 0x4f, 0x5f, 0x45, 0x58, 0x45, 0x43, 0x55, 0x54, 0x45, 0x10, 0x03, 0x32,
-	0xbe, 0x14, 0x0a, 0x03, 0x41, 0x50, 0x49, 0x12, 0x3a, 0x0a, 0x0a, 0x49, 0x6e, 0x73, 0x70, 0x65,
+	0x9d, 0x15, 0x0a, 0x03, 0x41, 0x50, 0x49, 0x12, 0x3a, 0x0a, 0x0a, 0x49, 0x6e, 0x73, 0x70, 0x65,
 	0x63, 0x74, 0x4a, 0x6f, 0x62, 0x12, 0x19, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x49,
 	0x6e, 0x73, 0x70, 0x65, 0x63, 0x74, 0x4a, 0x6f, 0x62, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74,
 	0x1a, 0x0f, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x4a, 0x6f, 0x62, 0x49, 0x6e, 0x66,
@@ -8349,10 +8349,16 @@ var file_pps_pps_proto_rawDesc = []byte{
 	0x6c, 0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x70, 0x70, 0x73,
 	0x5f, 0x76, 0x32, 0x2e, 0x53, 0x65, 0x74, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x44, 0x65,
 	0x66, 0x61, 0x75, 0x6c, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00,
-	0x42, 0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70,
-	0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65,
-	0x72, 0x6d, 0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x70, 0x73, 0x62, 0x06, 0x70,
-	0x72, 0x6f, 0x74, 0x6f, 0x33,
+	0x12, 0x5d, 0x0a, 0x12, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65,
+	0x66, 0x61, 0x75, 0x6c, 0x74, 0x73, 0x12, 0x21, 0x2e, 0x70, 0x70, 0x73, 0x5f, 0x76, 0x32, 0x2e,
+	0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x66, 0x61, 0x75, 0x6c,
+	0x74, 0x73, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x22, 0x2e, 0x70, 0x70, 0x73, 0x5f,
+	0x76, 0x32, 0x2e, 0x47, 0x65, 0x74, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x44, 0x65, 0x66,
+	0x61, 0x75, 0x6c, 0x74, 0x73, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42,
+	0x2b, 0x5a, 0x29, 0x67, 0x69, 0x74, 0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61,
+	0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72,
+	0x6d, 0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63, 0x2f, 0x70, 0x70, 0x73, 0x62, 0x06, 0x70, 0x72,
+	0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -8689,45 +8695,47 @@ var file_pps_pps_proto_depIdxs = []int32{
 	79,  // 200: pps_v2.API.QueryLoki:input_type -> pps_v2.LokiRequest
 	82,  // 201: pps_v2.API.GetClusterDefaults:input_type -> pps_v2.GetClusterDefaultsRequest
 	84,  // 202: pps_v2.API.SetClusterDefaults:input_type -> pps_v2.SetClusterDefaultsRequest
-	32,  // 203: pps_v2.API.InspectJob:output_type -> pps_v2.JobInfo
-	32,  // 204: pps_v2.API.InspectJobSet:output_type -> pps_v2.JobInfo
-	32,  // 205: pps_v2.API.ListJob:output_type -> pps_v2.JobInfo
-	31,  // 206: pps_v2.API.ListJobSet:output_type -> pps_v2.JobSetInfo
-	32,  // 207: pps_v2.API.SubscribeJob:output_type -> pps_v2.JobInfo
-	111, // 208: pps_v2.API.DeleteJob:output_type -> google.protobuf.Empty
-	111, // 209: pps_v2.API.StopJob:output_type -> google.protobuf.Empty
-	23,  // 210: pps_v2.API.InspectDatum:output_type -> pps_v2.DatumInfo
-	23,  // 211: pps_v2.API.ListDatum:output_type -> pps_v2.DatumInfo
-	111, // 212: pps_v2.API.RestartDatum:output_type -> google.protobuf.Empty
-	111, // 213: pps_v2.API.RerunPipeline:output_type -> google.protobuf.Empty
-	111, // 214: pps_v2.API.CreatePipeline:output_type -> google.protobuf.Empty
-	57,  // 215: pps_v2.API.CreatePipelineV2:output_type -> pps_v2.CreatePipelineV2Response
-	36,  // 216: pps_v2.API.InspectPipeline:output_type -> pps_v2.PipelineInfo
-	36,  // 217: pps_v2.API.ListPipeline:output_type -> pps_v2.PipelineInfo
-	111, // 218: pps_v2.API.DeletePipeline:output_type -> google.protobuf.Empty
-	62,  // 219: pps_v2.API.DeletePipelines:output_type -> pps_v2.DeletePipelinesResponse
-	111, // 220: pps_v2.API.StartPipeline:output_type -> google.protobuf.Empty
-	111, // 221: pps_v2.API.StopPipeline:output_type -> google.protobuf.Empty
-	111, // 222: pps_v2.API.RunPipeline:output_type -> google.protobuf.Empty
-	111, // 223: pps_v2.API.RunCron:output_type -> google.protobuf.Empty
-	111, // 224: pps_v2.API.CreateSecret:output_type -> google.protobuf.Empty
-	111, // 225: pps_v2.API.DeleteSecret:output_type -> google.protobuf.Empty
-	72,  // 226: pps_v2.API.ListSecret:output_type -> pps_v2.SecretInfos
-	71,  // 227: pps_v2.API.InspectSecret:output_type -> pps_v2.SecretInfo
-	111, // 228: pps_v2.API.DeleteAll:output_type -> google.protobuf.Empty
-	48,  // 229: pps_v2.API.GetLogs:output_type -> pps_v2.LogMessage
-	74,  // 230: pps_v2.API.ActivateAuth:output_type -> pps_v2.ActivateAuthResponse
-	111, // 231: pps_v2.API.UpdateJobState:output_type -> google.protobuf.Empty
-	76,  // 232: pps_v2.API.RunLoadTest:output_type -> pps_v2.RunLoadTestResponse
-	76,  // 233: pps_v2.API.RunLoadTestDefault:output_type -> pps_v2.RunLoadTestResponse
-	78,  // 234: pps_v2.API.RenderTemplate:output_type -> pps_v2.RenderTemplateResponse
-	113, // 235: pps_v2.API.ListTask:output_type -> taskapi.TaskInfo
-	80,  // 236: pps_v2.API.GetKubeEvents:output_type -> pps_v2.LokiLogMessage
-	80,  // 237: pps_v2.API.QueryLoki:output_type -> pps_v2.LokiLogMessage
-	83,  // 238: pps_v2.API.GetClusterDefaults:output_type -> pps_v2.GetClusterDefaultsResponse
-	85,  // 239: pps_v2.API.SetClusterDefaults:output_type -> pps_v2.SetClusterDefaultsResponse
-	203, // [203:240] is the sub-list for method output_type
-	166, // [166:203] is the sub-list for method input_type
+	88,  // 203: pps_v2.API.GetProjectDefaults:input_type -> pps_v2.GetProjectDefaultsRequest
+	32,  // 204: pps_v2.API.InspectJob:output_type -> pps_v2.JobInfo
+	32,  // 205: pps_v2.API.InspectJobSet:output_type -> pps_v2.JobInfo
+	32,  // 206: pps_v2.API.ListJob:output_type -> pps_v2.JobInfo
+	31,  // 207: pps_v2.API.ListJobSet:output_type -> pps_v2.JobSetInfo
+	32,  // 208: pps_v2.API.SubscribeJob:output_type -> pps_v2.JobInfo
+	111, // 209: pps_v2.API.DeleteJob:output_type -> google.protobuf.Empty
+	111, // 210: pps_v2.API.StopJob:output_type -> google.protobuf.Empty
+	23,  // 211: pps_v2.API.InspectDatum:output_type -> pps_v2.DatumInfo
+	23,  // 212: pps_v2.API.ListDatum:output_type -> pps_v2.DatumInfo
+	111, // 213: pps_v2.API.RestartDatum:output_type -> google.protobuf.Empty
+	111, // 214: pps_v2.API.RerunPipeline:output_type -> google.protobuf.Empty
+	111, // 215: pps_v2.API.CreatePipeline:output_type -> google.protobuf.Empty
+	57,  // 216: pps_v2.API.CreatePipelineV2:output_type -> pps_v2.CreatePipelineV2Response
+	36,  // 217: pps_v2.API.InspectPipeline:output_type -> pps_v2.PipelineInfo
+	36,  // 218: pps_v2.API.ListPipeline:output_type -> pps_v2.PipelineInfo
+	111, // 219: pps_v2.API.DeletePipeline:output_type -> google.protobuf.Empty
+	62,  // 220: pps_v2.API.DeletePipelines:output_type -> pps_v2.DeletePipelinesResponse
+	111, // 221: pps_v2.API.StartPipeline:output_type -> google.protobuf.Empty
+	111, // 222: pps_v2.API.StopPipeline:output_type -> google.protobuf.Empty
+	111, // 223: pps_v2.API.RunPipeline:output_type -> google.protobuf.Empty
+	111, // 224: pps_v2.API.RunCron:output_type -> google.protobuf.Empty
+	111, // 225: pps_v2.API.CreateSecret:output_type -> google.protobuf.Empty
+	111, // 226: pps_v2.API.DeleteSecret:output_type -> google.protobuf.Empty
+	72,  // 227: pps_v2.API.ListSecret:output_type -> pps_v2.SecretInfos
+	71,  // 228: pps_v2.API.InspectSecret:output_type -> pps_v2.SecretInfo
+	111, // 229: pps_v2.API.DeleteAll:output_type -> google.protobuf.Empty
+	48,  // 230: pps_v2.API.GetLogs:output_type -> pps_v2.LogMessage
+	74,  // 231: pps_v2.API.ActivateAuth:output_type -> pps_v2.ActivateAuthResponse
+	111, // 232: pps_v2.API.UpdateJobState:output_type -> google.protobuf.Empty
+	76,  // 233: pps_v2.API.RunLoadTest:output_type -> pps_v2.RunLoadTestResponse
+	76,  // 234: pps_v2.API.RunLoadTestDefault:output_type -> pps_v2.RunLoadTestResponse
+	78,  // 235: pps_v2.API.RenderTemplate:output_type -> pps_v2.RenderTemplateResponse
+	113, // 236: pps_v2.API.ListTask:output_type -> taskapi.TaskInfo
+	80,  // 237: pps_v2.API.GetKubeEvents:output_type -> pps_v2.LokiLogMessage
+	80,  // 238: pps_v2.API.QueryLoki:output_type -> pps_v2.LokiLogMessage
+	83,  // 239: pps_v2.API.GetClusterDefaults:output_type -> pps_v2.GetClusterDefaultsResponse
+	85,  // 240: pps_v2.API.SetClusterDefaults:output_type -> pps_v2.SetClusterDefaultsResponse
+	89,  // 241: pps_v2.API.GetProjectDefaults:output_type -> pps_v2.GetProjectDefaultsResponse
+	204, // [204:242] is the sub-list for method output_type
+	166, // [166:204] is the sub-list for method input_type
 	166, // [166:166] is the sub-list for extension type_name
 	166, // [166:166] is the sub-list for extension extendee
 	0,   // [0:166] is the sub-list for field type_name

@@ -832,4 +832,7 @@ export class API {
   static SetClusterDefaults(req: SetClusterDefaultsRequest, initReq?: fm.InitReq): Promise<SetClusterDefaultsResponse> {
     return fm.fetchReq<SetClusterDefaultsRequest, SetClusterDefaultsResponse>(`/pps_v2.API/SetClusterDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
+  static GetProjectDefaults(req: GetProjectDefaultsRequest, initReq?: fm.InitReq): Promise<GetProjectDefaultsResponse> {
+    return fm.fetchReq<GetProjectDefaultsRequest, GetProjectDefaultsResponse>(`/pps_v2.API/GetProjectDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
 }

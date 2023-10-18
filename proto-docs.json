@@ -20888,6 +20888,18 @@
               "responseLongType": "SetClusterDefaultsResponse",
               "responseFullType": "pps_v2.SetClusterDefaultsResponse",
               "responseStreaming": false
+            },
+            {
+              "name": "GetProjectDefaults",
+              "description": "GetProjectDefaults returns the defaults for a particular project.",
+              "requestType": "GetProjectDefaultsRequest",
+              "requestLongType": "GetProjectDefaultsRequest",
+              "requestFullType": "pps_v2.GetProjectDefaultsRequest",
+              "requestStreaming": false,
+              "responseType": "GetProjectDefaultsResponse",
+              "responseLongType": "GetProjectDefaultsResponse",
+              "responseFullType": "pps_v2.GetProjectDefaultsResponse",
+              "responseStreaming": false
             }
           ]
         }
