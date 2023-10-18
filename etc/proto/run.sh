@@ -20,6 +20,7 @@ fi
 cd "${GOPATH}/src/github.com/pachyderm/pachyderm"
 mkdir -p v2/src
 mkdir -p v2/src/internal/jsonschema
+mkdir -p v2/src/openapi
 mkdir -p v2/src/typescript
 
 mapfile -t PROTOS < <(find src -name "*.proto" | sort)
@@ -56,6 +57,18 @@ protoc \
     --jsonschema_opt="json_fieldnames" \
     --doc_opt="json,proto-docs.json" \
     --doc2_opt="markdown,proto-docs.md" \
+    --grpc-gateway_out v2/src \
+    --grpc-gateway_opt logtostderr=true \
+    --grpc-gateway_opt paths=source_relative \
+    --grpc-gateway_opt generate_unbound_methods=true \
+    --openapiv2_out v2/src/openapi \
+		--openapiv2_opt logtostderr=true \
+		--openapiv2_opt generate_unbound_methods=true \
+		--openapiv2_opt merge_file_name=pachyderm_api \
+		--openapiv2_opt disable_service_tags=true \
+		--openapiv2_opt preserve_rpc_order=true \
+		--openapiv2_opt allow_merge=true \
+		--openapiv2_opt merge_file_name=pachyderm_api \
     --grpc-gateway-ts_out v2/src/typescript \
     "${PROTOS[@]}" > /dev/stderr
 
