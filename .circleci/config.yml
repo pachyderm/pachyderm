@@ -205,7 +205,7 @@ workflows:
           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
           # Note: The regex is prepended with ^ and appended with $ by the orb
           mapping: |
-            ([^/]+|(.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
+            ([^/]+|(.github|.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
             ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
             ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
             ((.circleci|label-studio)/.*) run-label-studio-jobs true
