@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/progress"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // Mount pfs to target, opts may be left nil.
@@ -57,7 +58,7 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				// mount name is same as repo name, i.e. mount it at a directory
 				// named the same as the repo itself
 				Name:  ri.Repo.Name,
-				File:  client.NewFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", ""),
+				Files: []*pfs.File{client.NewFile(ri.Repo.Project.GetName(), ri.Repo.Name, branch, "", "")},
 				Write: write,
 			}
 		}
@@ -68,9 +69,9 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 	commits := make(map[string]string)
 	if opts != nil {
 		for repo, ropts := range opts.RepoOptions {
-			if ropts.File.Commit.Id != "" && ropts.File.Commit.GetBranch().GetName() == "" {
-				commits[repo] = ropts.File.Commit.Id
-				cis, err := c.InspectCommitSet(ropts.File.Commit.Id)
+			if ropts.Files[0].Commit.Id != "" && ropts.Files[0].Commit.GetBranch().GetName() == "" {
+				commits[repo] = ropts.Files[0].Commit.Id
+				cis, err := c.InspectCommitSet(ropts.Files[0].Commit.Id)
 				if err != nil {
 					return err
 				}
@@ -78,12 +79,12 @@ func Mount(c *client.APIClient, project, target string, opts *Options) (retErr e
 				for _, ci := range cis {
 					if ci.Commit.Branch != nil && ci.Commit.Branch.Repo.Name == repo {
 						if branch != "" {
-							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.File.Commit.Id)
+							return errors.Errorf("multiple branches (%s and %s) have commit %s, specify a branch", branch, ci.Commit.Branch.Name, ropts.Files[0].Commit.Id)
 						}
 						branch = ci.Commit.Branch.Name
 					}
 				}
-				ropts.File.Commit.Branch.Name = branch
+				ropts.Files[0].Commit.Branch.Name = branch
 			}
 		}
 	}
