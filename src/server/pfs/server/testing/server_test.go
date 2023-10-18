@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -133,6 +134,18 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 		paths = append(paths, finfo.File.Path)
 	}
 	return paths
+}
+
+type TestEnv struct {
+	Context    context.Context
+	PachClient *client.APIClient
+}
+
+func newEnv(ctx context.Context, t testing.TB) TestEnv {
+	return TestEnv{
+		Context:    ctx,
+		PachClient: pachd.NewTestPachd(t),
+	}
 }
 
 func TestWalkFileTest(t *testing.T) {
@@ -381,7 +394,7 @@ func TestInvalidProject(t *testing.T) {
 
 func TestDefaultProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// the default project should already exist
 	pp, err := env.PachClient.ListProject()
@@ -426,7 +439,7 @@ func TestDefaultProject(t *testing.T) {
 
 func TestInvalidRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "/repo"))
 
@@ -443,7 +456,7 @@ func TestInvalidRepo(t *testing.T) {
 
 func TestCreateSameRepoInParallel(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -495,7 +508,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// 51-character project names are allowed
 	require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
@@ -505,7 +518,7 @@ func TestCreateProject(t *testing.T) {
 
 func TestCreateRepoNonExistentProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo("foo", "bar"))
 	require.NoError(t, env.PachClient.CreateProject("foo"))
@@ -911,7 +924,7 @@ func TestRewindProvenanceChange(t *testing.T) {
 
 func TestCreateAndInspectRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -934,7 +947,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 func TestCreateRepoWithoutProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -951,7 +964,7 @@ func TestCreateRepoWithoutProject(t *testing.T) {
 
 func TestCreateRepoWithEmptyProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -968,7 +981,7 @@ func TestCreateRepoWithEmptyProject(t *testing.T) {
 
 func TestListRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numRepos := 10
 	var repoNames []string

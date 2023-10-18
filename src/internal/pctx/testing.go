@@ -26,9 +26,11 @@ func WithZapTestOptions(opts ...zaptest.LoggerOption) TestOption {
 
 // TestContext returns a context suitable for use as the root context of tests.
 func TestContext(t testing.TB, options ...TestOption) context.Context {
+	ctx, cf := context.WithCancel(context.Background())
+	t.Cleanup(cf)
 	var opts testOptions
 	for _, o := range options {
 		o(&opts)
 	}
-	return log.TestParallel(t, opts.loggingOptions...)
+	return log.TestParallel(ctx, t, opts.loggingOptions...)
 }
