@@ -14,6 +14,7 @@ import styles from './SidePanel.module.css';
 
 export interface SidePanelProps {
   children?: React.ReactNode;
+  headerContent?: React.ReactNode;
   type: 'left' | 'right';
   open?: boolean;
   isExpanded?: boolean;
@@ -25,6 +26,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
   isExpanded = false,
   setIsExpanded,
   children,
+  headerContent,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isOpen, setIsOpen] = useState(open);
@@ -76,6 +78,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
             [styles.open]: isOpen,
           })}
         >
+          {headerContent}
           <Button
             data-testid="SidePanel__closeModal"
             aria-label="Close"
@@ -130,10 +133,11 @@ export const LeftPanel: React.FC<{
 
 export const RightPanel: React.FC<{
   children?: React.ReactNode;
+  headerContent?: React.ReactNode;
   open?: boolean;
-}> = ({open, children}) => {
+}> = ({open, children, headerContent}) => {
   return (
-    <SidePanel type="right" open={open}>
+    <SidePanel type="right" open={open} headerContent={headerContent}>
       {children}
     </SidePanel>
   );

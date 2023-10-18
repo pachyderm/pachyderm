@@ -24,7 +24,7 @@
 
 .base.left {
   position: absolute;
-  height: 100%;
+  height: calc(100% - 1rem);
   z-index: var(--z-index-modal-left-panel);
   border-left: none;
   border-radius: 3px 0 0 0;

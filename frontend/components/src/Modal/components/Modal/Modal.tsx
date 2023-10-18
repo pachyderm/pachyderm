@@ -56,19 +56,30 @@ const Modal = ({
       document.getElementById('root')?.removeAttribute('aria-hidden');
   }, [showing]);
 
+  const isFullPage = mode === 'FullPagePanel';
+
   return (
     <>
       {showing &&
         createPortal(
           <>
             <div
-              className={styles.modalBackdrop}
+              className={classNames(styles.modalBackdrop, {
+                [styles.isFullPage]: isFullPage,
+              })}
               onClick={onHide}
               data-testid="Modal__backdrop"
               aria-hidden
             />
             <div
-              className={classNames(animation, styles.modalWrapper, className)}
+              className={classNames(
+                animation,
+                styles.modalWrapper,
+                {
+                  [styles.isFullPage]: isFullPage,
+                },
+                className,
+              )}
               ref={modalRef}
               role="dialog"
               aria-modal="true"

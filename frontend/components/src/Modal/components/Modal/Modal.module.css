@@ -9,6 +9,10 @@
   z-index: var(--z-index-modal-overlay);
 }
 
+.modalBackdrop.isFullPage {
+  z-index: var(--z-index-full-page-modal-overlay);
+}
+
 .modalWrapper {
   z-index: var(--z-index-modal);
   position: fixed;
@@ -19,6 +23,10 @@
   overflow: hidden;
   pointer-events: none;
   outline: none;
+}
+
+.modalWrapper.isFullPage {
+  z-index: var(--z-index-full-page-modal);
 }
 
 .modalDialogDefault,

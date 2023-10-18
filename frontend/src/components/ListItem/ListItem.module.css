@@ -5,10 +5,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-
   min-height: 2rem;
-  min-width: calc(18.75rem - 1px);
-
+  width: 100%;
   padding-left: 1rem;
   padding-right: 1.5rem;
 }

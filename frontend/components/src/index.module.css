@@ -1,4 +1,4 @@
-@import "bootstrap-reboot.min.css";
+@import 'bootstrap-reboot.min.css';
 
 @font-face {
   font-family: 'Montserrat';
@@ -129,6 +129,8 @@
   --z-index-modal-left-panel: 1051;
   --z-index-notification-banner: 1052;
   --z-index-dropdown-menu: 1053;
+  --z-index-full-page-modal-overlay: 1058;
+  --z-index-full-page-modal: 1059;
   --z-index-modal-overlay: 1060;
   --z-index-modal: 1070;
   --z-index-tooltip: 1080;
