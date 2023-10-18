@@ -54,4 +54,12 @@ describe('mount', () => {
       .next()
       .should('have.text', 'Copy Path');
   });
+
+  it('file browser should have loading attribute', () => {
+    cy.findByText('Mount').first().click();
+    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('default_images').first().click();
+    cy.findAllByText('liberty.png').first().rightclick();
+    cy.get('ul.jp-DirListing-content').should('have.attr', 'loading');
+  });
 });

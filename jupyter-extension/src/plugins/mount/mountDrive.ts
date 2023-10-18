@@ -25,6 +25,7 @@ export class MountDrive implements Contents.IDrive {
   public _registry: DocumentRegistry;
   readonly _model: Paging.IModel;
   private _fileChanged = new Signal<this, Contents.IChangedArgs>(this);
+  private _loading = new Signal<this, boolean>(this);
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
   private _cache: {key: string | null; contents: any};
@@ -46,6 +47,11 @@ export class MountDrive implements Contents.IDrive {
 
   get fileChanged(): ISignal<this, Contents.IChangedArgs> {
     return this._fileChanged;
+  }
+
+  // Signal emits `true` on expensive request to backend and `false` on response.
+  get loading(): ISignal<this, boolean> {
+    return this._loading;
   }
 
   get serverSettings(): ServerConnection.ISettings {
@@ -93,7 +99,9 @@ export class MountDrive implements Contents.IDrive {
 
     // If we don't have contents cached, then we fetch them and cache the results.
     if (localPath !== this._cache.key || !localPath) {
+      this._loading.emit(true);
       const response = await this._get(url, {...options, content});
+      this._loading.emit(false);
       this._model.page = 1;
       this._model.max_page = Math.ceil(
         response.content.length / MAX_NUM_CONTENTS_PAGE,

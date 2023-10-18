@@ -94,6 +94,15 @@ const createCustomFileBrowser = (
         'jp-DirListing-content',
       )[0];
 
+      // Connect the MountDrive loading signal to mark the browser content as loading.
+      drive.loading.connect(async (_, loading) => {
+        if (loading) {
+          browserContent.setAttribute('loading', 'true');
+        } else {
+          browserContent.setAttribute('loading', 'false');
+        }
+      });
+
       browserContent.addEventListener('contextmenu', (event: any) => {
         event.stopPropagation();
         event.preventDefault();

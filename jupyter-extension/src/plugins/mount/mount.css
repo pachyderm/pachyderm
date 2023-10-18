@@ -436,6 +436,11 @@ textarea {
   text-align: center;
 }
 
+.jp-DirListing-content[loading="true"] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
 .jp-DirPagination {
   flex: 0 0 auto;
   display: flex;
