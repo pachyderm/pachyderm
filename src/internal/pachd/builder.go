@@ -371,7 +371,7 @@ func (b *builder) initS3Server(ctx context.Context) error {
 }
 
 func (b *builder) initPachHTTPServer(ctx context.Context) error {
-	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
+	b.daemon.pachhttp = http.New(ctx, b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
 }
 

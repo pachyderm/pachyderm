@@ -18,7 +18,14 @@ RUN cp -r /include /bin
 # Instal protoc-gen-go
 RUN go install -v google.golang.org/protobuf/cmd/protoc-gen-go@v1.30.0
 RUN go install -v google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.3.0
+
+# rest api proxy and openapi v2 swagger spec
+RUN go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-grpc-gateway@v2.18.0
+RUN go install -v github.com/grpc-ecosystem/grpc-gateway/v2/protoc-gen-openapiv2@v2.18.0
+
+# typsecript bindings from proto files
 RUN go install -v github.com/grpc-ecosystem/protoc-gen-grpc-gateway-ts@v1.1.2
+
 RUN mkdir -p ${GOPATH}/src/github.com/pachyderm/pachyderm
 RUN date +%s >/last_run_time
 
@@ -44,7 +51,7 @@ COPY protoc-gen-zap ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/proto
 WORKDIR ${GOPATH}/src/github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap
 RUN go build -mod=readonly -o "${GOPATH}/bin/protoc-gen-zap"
 
-ADD run.sh /
+COPY run.sh /run.sh
 
 # Copy over the proto modification patch.
 COPY proto.patch /proto.patch
