@@ -61,8 +61,6 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-=======
->>>>>>> df3f7c48334288bb2d973dd784ba2fa9fc8688d0
 func TestCSRFWrapper(t *testing.T) {
 	testData := []struct {
 		name     string
