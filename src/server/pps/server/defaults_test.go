@@ -329,14 +329,13 @@ func TestAPIServer_CreatePipelineV2_reprocessSpec(t *testing.T) {
 func TestAPIServer_GetProjectDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-	resp, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{})
+	_, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{})
 	require.YesError(t, err, "empty request must be an error")
-	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{}})
+	_, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{}})
 	require.YesError(t, err, "empty project must be an error")
-	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "#<invalid project>"}})
-	t.Log(resp)
+	_, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "#<invalid project>"}})
 	require.YesError(t, err, "invalid project must be an error")
-	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "default"}})
+	resp, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "default"}})
 	require.NoError(t, err, "default project must have defaults")
 	require.Equal(t, resp.ProjectDefaultsJson, "{}", "default project defaults must be empty")
 }
