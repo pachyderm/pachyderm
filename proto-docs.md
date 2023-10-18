@@ -204,6 +204,7 @@
   
 - [internal/ppsdb/ppsdb.proto](#internal_ppsdb_ppsdb-proto)
     - [ClusterDefaultsWrapper](#pps_v2-ClusterDefaultsWrapper)
+    - [ProjectDefaultsWrapper](#pps_v2-ProjectDefaultsWrapper)
   
 - [internal/ppsload/ppsload.proto](#internal_ppsload_ppsload-proto)
     - [State](#ppsload-State)
@@ -357,6 +358,37 @@
   
     - [API](#pfs_v2-API)
   
+- [pjs/pjs.proto](#pjs_pjs-proto)
+    - [CancelJobRequest](#pjs-CancelJobRequest)
+    - [CancelJobResponse](#pjs-CancelJobResponse)
+    - [CreateJobRequest](#pjs-CreateJobRequest)
+    - [CreateJobResponse](#pjs-CreateJobResponse)
+    - [DeleteJobRequest](#pjs-DeleteJobRequest)
+    - [DeleteJobResponse](#pjs-DeleteJobResponse)
+    - [InspectJobRequest](#pjs-InspectJobRequest)
+    - [InspectJobResponse](#pjs-InspectJobResponse)
+    - [InspectQueueRequest](#pjs-InspectQueueRequest)
+    - [InspectQueueResponse](#pjs-InspectQueueResponse)
+    - [Job](#pjs-Job)
+    - [JobInfo](#pjs-JobInfo)
+    - [JobInfoDetails](#pjs-JobInfoDetails)
+    - [ListJobRequest](#pjs-ListJobRequest)
+    - [ListJobResponse](#pjs-ListJobResponse)
+    - [ListQueueRequest](#pjs-ListQueueRequest)
+    - [ListQueueResponse](#pjs-ListQueueResponse)
+    - [ProcessQueueRequest](#pjs-ProcessQueueRequest)
+    - [ProcessQueueResponse](#pjs-ProcessQueueResponse)
+    - [Queue](#pjs-Queue)
+    - [QueueElement](#pjs-QueueElement)
+    - [QueueInfo](#pjs-QueueInfo)
+    - [QueueInfoDetails](#pjs-QueueInfoDetails)
+    - [WalkJobRequest](#pjs-WalkJobRequest)
+  
+    - [JobErrorCode](#pjs-JobErrorCode)
+    - [JobState](#pjs-JobState)
+  
+    - [API](#pjs-API)
+  
 - [pps/pps.proto](#pps_pps-proto)
     - [ActivateAuthRequest](#pps_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pps_v2-ActivateAuthResponse)
@@ -384,6 +416,8 @@
     - [GetClusterDefaultsRequest](#pps_v2-GetClusterDefaultsRequest)
     - [GetClusterDefaultsResponse](#pps_v2-GetClusterDefaultsResponse)
     - [GetLogsRequest](#pps_v2-GetLogsRequest)
+    - [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest)
+    - [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse)
     - [Input](#pps_v2-Input)
     - [InputFile](#pps_v2-InputFile)
     - [InspectDatumRequest](#pps_v2-InspectDatumRequest)
@@ -415,9 +449,11 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [ProcessStats](#pps_v2-ProcessStats)
+    - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
     - [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry)
     - [RenderTemplateResponse](#pps_v2-RenderTemplateResponse)
+    - [RerunPipelineRequest](#pps_v2-RerunPipelineRequest)
     - [ResourceSpec](#pps_v2-ResourceSpec)
     - [RestartDatumRequest](#pps_v2-RestartDatumRequest)
     - [RunCronRequest](#pps_v2-RunCronRequest)
@@ -433,6 +469,8 @@
     - [Service](#pps_v2-Service)
     - [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest)
     - [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse)
+    - [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest)
+    - [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse)
     - [Spout](#pps_v2-Spout)
     - [StartPipelineRequest](#pps_v2-StartPipelineRequest)
     - [StopJobRequest](#pps_v2-StopJobRequest)
@@ -3465,6 +3503,21 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 
 
 
+
+<a name="pps_v2-ProjectDefaultsWrapper"></a>
+
+### ProjectDefaultsWrapper
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| json | [string](#string) |  |  |
+
+
+
+
+
  
 
  
@@ -5722,6 +5775,449 @@ These are the different places where a commit may be originated from
 
 
 
+<a name="pjs_pjs-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## pjs/pjs.proto
+
+
+
+<a name="pjs-CancelJobRequest"></a>
+
+### CancelJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-CancelJobResponse"></a>
+
+### CancelJobResponse
+
+
+
+
+
+
+
+<a name="pjs-CreateJobRequest"></a>
+
+### CreateJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+| input | [QueueElement](#pjs-QueueElement) |  |  |
+| cache_read | [bool](#bool) |  |  |
+| cache_write | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="pjs-CreateJobResponse"></a>
+
+### CreateJobResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-DeleteJobRequest"></a>
+
+### DeleteJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  |  |
+
+
+
+
+
+
+<a name="pjs-DeleteJobResponse"></a>
+
+### DeleteJobResponse
+
+
+
+
+
+
+
+<a name="pjs-InspectJobRequest"></a>
+
+### InspectJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset the context Job is assumed. |
+
+
+
+
+
+
+<a name="pjs-InspectJobResponse"></a>
+
+### InspectJobResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| details | [JobInfoDetails](#pjs-JobInfoDetails) |  |  |
+
+
+
+
+
+
+<a name="pjs-InspectQueueRequest"></a>
+
+### InspectQueueRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  |  |
+
+
+
+
+
+
+<a name="pjs-InspectQueueResponse"></a>
+
+### InspectQueueResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| details | [QueueInfoDetails](#pjs-QueueInfoDetails) |  |  |
+
+
+
+
+
+
+<a name="pjs-Job"></a>
+
+### Job
+Job uniquely identifies a Job
+Job will be nil to indicate no Job, or an unset Job.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pjs-JobInfo"></a>
+
+### JobInfo
+JobInfo describes a Job
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job | [Job](#pjs-Job) |  | Job is the Job&#39;s identity |
+| parent_job | [Job](#pjs-Job) |  | parent_job is the Job&#39;s parent if it exists. |
+| state | [JobState](#pjs-JobState) |  | state is the Job&#39;s state. See JobState for a description of the possible states. |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec is the code specification for the Job. |
+| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for the Job. |
+| output | [QueueElement](#pjs-QueueElement) |  | output is produced by a successfully completing Job |
+| error | [JobErrorCode](#pjs-JobErrorCode) |  | error is set when the Job is unable to complete successfully |
+
+
+
+
+
+
+<a name="pjs-JobInfoDetails"></a>
+
+### JobInfoDetails
+JobInfoDetails is more detailed information about a Job.
+It contains a superset of the information in JobInfo
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| job_info | [JobInfo](#pjs-JobInfo) |  |  |
+
+
+
+
+
+
+<a name="pjs-ListJobRequest"></a>
+
+### ListJobRequest
+TODO:
+- Filter
+- Paginate
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start listing at. If nil, then the listing starts at the first job in the natural ordering. |
+
+
+
+
+
+
+<a name="pjs-ListJobResponse"></a>
+
+### ListJobResponse
+ListJobResponse lists information about Jobs
+ID will always be set.
+Info and Details may not be set depending on how much information was requested.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [Job](#pjs-Job) |  |  |
+| info | [JobInfo](#pjs-JobInfo) |  |  |
+| details | [JobInfoDetails](#pjs-JobInfoDetails) |  |  |
+
+
+
+
+
+
+<a name="pjs-ListQueueRequest"></a>
+
+### ListQueueRequest
+TODO:
+- Filter
+- Paginate
+
+
+
+
+
+
+<a name="pjs-ListQueueResponse"></a>
+
+### ListQueueResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [Queue](#pjs-Queue) |  |  |
+| info | [QueueInfo](#pjs-QueueInfo) |  |  |
+| details | [QueueInfoDetails](#pjs-QueueInfoDetails) |  |  |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueRequest"></a>
+
+### ProcessQueueRequest
+Queue Messages
+ProcessQueueRequest is the client -&gt; server message for the bi-di ProcessQueue RPC.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  | queue is set to start processing from a Queue. |
+| output | [QueueElement](#pjs-QueueElement) |  | output is set by the client to complete the Job successfully. |
+| failed | [bool](#bool) |  | failed is set by the client to fail the Job. The Job will transition to state DONE with code FAILED. |
+
+
+
+
+
+
+<a name="pjs-ProcessQueueResponse"></a>
+
+### ProcessQueueResponse
+ProcessQueueResposne is the server -&gt; client message for the bi-di ProcessQueue RPC.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used to act on behalf of the Job in other RPCs. The server issues this token to the client, and the client should use it when performing Job RPCs. |
+| input | [QueueElement](#pjs-QueueElement) |  | input is the input data for a Job. The server sends this to ask the client to compute the output. |
+
+
+
+
+
+
+<a name="pjs-Queue"></a>
+
+### Queue
+Queue uniquely identifies a Queue
+Queue will be nil to identify no Queue, or to indicate unset.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| id | [bytes](#bytes) |  |  |
+
+
+
+
+
+
+<a name="pjs-QueueElement"></a>
+
+### QueueElement
+QueueElement is a single element in a Queue.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| data | [bytes](#bytes) |  | data is opaque data used as the input and output of Jobs |
+| filesets | [string](#string) | repeated | filesets is a list of Fileset handles, used to associate Filesets with the input and output of Jobs. Any of the filesets referenced here will be persisted for as long as this element is in a Queue. New handles, pointing to equivalent Filesets, are minted whenever they cross the API boundary. |
+
+
+
+
+
+
+<a name="pjs-QueueInfo"></a>
+
+### QueueInfo
+QueueInfo describes a Queue
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue | [Queue](#pjs-Queue) |  | queue is the Queue&#39;s identity |
+| spec | [google.protobuf.Any](#google-protobuf-Any) |  | spec specifies the code to be run to process the Queue. |
+
+
+
+
+
+
+<a name="pjs-QueueInfoDetails"></a>
+
+### QueueInfoDetails
+QueueInfoDetails contains detailed information about a Queue, which may be more expensive to get.
+It contains a superset of the information in QueueInfo.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| queue_info | [QueueInfo](#pjs-QueueInfo) |  |  |
+| size | [int64](#int64) |  | size is the number of elements queued. |
+
+
+
+
+
+
+<a name="pjs-WalkJobRequest"></a>
+
+### WalkJobRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| context | [string](#string) |  | context is a bearer token used when calling from within a running Job. |
+| job | [Job](#pjs-Job) |  | job is the job to start walking from. If unset, the context Job is assumed. |
+
+
+
+
+
+ 
+
+
+<a name="pjs-JobErrorCode"></a>
+
+### JobErrorCode
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| JobErrorCode_UNSPECIFIED | 0 | UNSPECIFIED means the job error code is unspecified. |
+| FAILED | 1 | FAILED means that the worker processing the job indicated that it failed. |
+| DISCONNECTED | 2 | DISCONNECTED means the worker processing the job disconnected. |
+| CANCELED | 3 | CANCELED means the job was canceled. |
+
+
+
+<a name="pjs-JobState"></a>
+
+### JobState
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| JobState_UNSPECIFIED | 0 | UNSPECIFIED means the job state is unspecified. |
+| QUEUED | 1 | QUEUED means the job is currently in a queue. A QUEUED job will not have any descendants. |
+| PROCESSING | 2 | PROCESSING means the job is currently being processed by a worker. |
+| DONE | 3 | DONE means the job, and all of its descendants, are done. |
+
+
+ 
+
+ 
+
+
+<a name="pjs-API"></a>
+
+### API
+Job API
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateJob | [CreateJobRequest](#pjs-CreateJobRequest) | [CreateJobResponse](#pjs-CreateJobResponse) | CreateJob creates a new job. Child jobs can be created by setting the context field to the appropriate parent job context. |
+| CancelJob | [CancelJobRequest](#pjs-CancelJobRequest) | [CancelJobResponse](#pjs-CancelJobResponse) | CancelJob cancels a job. Canceling a job transitions all of the associated QUEUED and PROCESSING jobs to the DONE state and sets their error codes to CANCELED. This will terminate all ongoing processing associated with the job. Nothing will be deleted. A job can only be canceled with the parent job context. |
+| DeleteJob | [DeleteJobRequest](#pjs-DeleteJobRequest) | [DeleteJobResponse](#pjs-DeleteJobResponse) | DeleteJob deletes a job. DeleteJob first cancels the job, then deletes all of the metadata and filesets associated with the job. A job can only be deleted with the parent job context. |
+| ListJob | [ListJobRequest](#pjs-ListJobRequest) | [ListJobResponse](#pjs-ListJobResponse) stream | ListJob returns a list of jobs and information about each job. The jobs returned in the list are the child jobs of the provided job. If no job is provided, the list is the child jobs of the provided job context. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| WalkJob | [WalkJobRequest](#pjs-WalkJobRequest) | [ListJobResponse](#pjs-ListJobResponse) stream | WalkJob returns a list of jobs in a hierarchy and information about each job. Walking a job traverses the job hierarchy rooted at the provided job. The provided job must be associated with the provided job context or a descendant of the job associated with the provided job context. |
+| InspectJob | [InspectJobRequest](#pjs-InspectJobRequest) | [InspectJobResponse](#pjs-InspectJobResponse) | InspectJob returns detailed information about a job. |
+| ProcessQueue | [ProcessQueueRequest](#pjs-ProcessQueueRequest) stream | [ProcessQueueResponse](#pjs-ProcessQueueResponse) stream | ProcessQueue should be called by workers to process jobs in a queue. The protocol is as follows: Worker sends an initial request with the queue id. For each job: Server sends a response with a job context and the associated queue element. Worker processes the job. Worker sends a request with the job output or indicates that the job failed. This RPC should generally be run indefinitely. Workers will be scaled based on demand, so the expectation is that they should be processing queues while they are up. This RPC will be canceled by the server if the current job is canceled. Workers should generally retry the RPC when disconnects occur. |
+| ListQueue | [ListQueueRequest](#pjs-ListQueueRequest) | [ListQueueResponse](#pjs-ListQueueResponse) stream | ListQueue returns a list of queues and information about each queue. |
+| InspectQueue | [InspectQueueRequest](#pjs-InspectQueueRequest) | [InspectQueueResponse](#pjs-InspectQueueResponse) | InspectQueue returns detailed information about a queue. |
+
+ 
+
+
+
 <a name="pps_pps-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
@@ -6176,6 +6672,36 @@ Delete more than one pipeline.
 | tail | [int64](#int64) |  | If nonzero, the number of lines from the end of the logs to return. Note: tail applies per container, so you will get tail * &lt;number of pods&gt; total lines back. |
 | use_loki_backend | [bool](#bool) |  | UseLokiBackend causes the logs request to go through the loki backend rather than through kubernetes. This behavior can also be achieved by setting the LOKI_LOGGING feature flag. |
 | since | [google.protobuf.Duration](#google-protobuf-Duration) |  | Since specifies how far in the past to return logs from. It defaults to 24 hours. |
+
+
+
+
+
+
+<a name="pps_v2-GetProjectDefaultsRequest"></a>
+
+### GetProjectDefaultsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-GetProjectDefaultsResponse"></a>
+
+### GetProjectDefaultsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults. |
 
 
 
@@ -6806,6 +7332,21 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-ProjectDefaults"></a>
+
+### ProjectDefaults
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-RenderTemplateRequest"></a>
 
 ### RenderTemplateRequest
@@ -6848,6 +7389,22 @@ potentially expensive operations.
 | ----- | ---- | ----- | ----------- |
 | json | [string](#string) |  |  |
 | specs | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-RerunPipelineRequest"></a>
+
+### RerunPipelineRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [Pipeline](#pps_v2-Pipeline) |  |  |
+| reprocess | [bool](#bool) |  | Reprocess forces the pipeline to reprocess all datums. |
 
 
 
@@ -7093,6 +7650,40 @@ request from kubernetes, for scheduling.
 <a name="pps_v2-SetClusterDefaultsResponse"></a>
 
 ### SetClusterDefaultsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| affected_pipelines | [Pipeline](#pps_v2-Pipeline) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-SetProjectDefaultsRequest"></a>
+
+### SetProjectDefaultsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+| regenerate | [bool](#bool) |  |  |
+| reprocess | [bool](#bool) |  | must be false if regenerate is false |
+| dry_run | [bool](#bool) |  |  |
+| project_defaults_json | [string](#string) |  | A JSON-encoded ProjectDefaults message, this will be stored verbatim. |
+
+
+
+
+
+
+<a name="pps_v2-SetProjectDefaultsResponse"></a>
+
+### SetProjectDefaultsResponse
 
 
 
@@ -7452,6 +8043,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
+| RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipelineV2 | [CreatePipelineV2Request](#pps_v2-CreatePipelineV2Request) | [CreatePipelineV2Response](#pps_v2-CreatePipelineV2Response) |  |
 | InspectPipeline | [InspectPipelineRequest](#pps_v2-InspectPipelineRequest) | [PipelineInfo](#pps_v2-PipelineInfo) |  |

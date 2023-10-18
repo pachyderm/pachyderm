@@ -500,6 +500,11 @@ export type SchedulingSpec = {
   priorityClassName?: string
 }
 
+export type RerunPipelineRequest = {
+  pipeline?: Pipeline
+  reprocess?: boolean
+}
+
 export type CreatePipelineRequest = {
   pipeline?: Pipeline
   tfJob?: TFJob
@@ -691,6 +696,30 @@ export type CreatePipelineTransaction = {
   effectiveJson?: string
 }
 
+export type ProjectDefaults = {
+  createPipelineRequest?: CreatePipelineRequest
+}
+
+export type GetProjectDefaultsRequest = {
+  project?: Pfs_v2Pfs.Project
+}
+
+export type GetProjectDefaultsResponse = {
+  projectDefaultsJson?: string
+}
+
+export type SetProjectDefaultsRequest = {
+  project?: Pfs_v2Pfs.Project
+  regenerate?: boolean
+  reprocess?: boolean
+  dryRun?: boolean
+  projectDefaultsJson?: string
+}
+
+export type SetProjectDefaultsResponse = {
+  affectedPipelines?: Pipeline[]
+}
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -721,6 +750,9 @@ export class API {
   }
   static RestartDatum(req: RestartDatumRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<RestartDatumRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/RestartDatum`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static RerunPipeline(req: RerunPipelineRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
+    return fm.fetchReq<RerunPipelineRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/RerunPipeline`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static CreatePipeline(req: CreatePipelineRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreatePipelineRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/CreatePipeline`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

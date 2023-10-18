@@ -1848,15 +1848,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			header := pretty.FileHeader
-			writer := tabwriter.NewWriter(os.Stdout, header)
+			fmt.Fprint(os.Stdout, pretty.FileHeader)
 			if err := c.ListFile(file.Commit, file.Path, func(fi *pfs.FileInfo) error {
-				pretty.PrintFileInfo(writer, fi, fullTimestamps, false)
+				pretty.PrintFileInfo(os.Stdout, fi)
 				return nil
 			}); err != nil {
 				return err
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	listFile.Flags().AddFlagSet(outputFlags)
@@ -1900,11 +1899,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			writer := tabwriter.NewWriter(os.Stdout, pretty.FileHeader)
+			fmt.Fprint(os.Stdout, pretty.FileHeader)
 			for _, fileInfo := range fileInfos {
-				pretty.PrintFileInfo(writer, fileInfo, fullTimestamps, false)
+				pretty.PrintFileInfo(os.Stdout, fileInfo)
 			}
-			return writer.Flush()
+			return nil
 		}),
 	}
 	globFile.Flags().AddFlagSet(outputFlags)
@@ -1975,10 +1974,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return forEachDiffFile(newFiles, oldFiles, func(nFI, oFI *pfs.FileInfo) error {
 					if nameOnly {
 						if nFI != nil {
-							pretty.PrintDiffFileInfo(writer, true, nFI, fullTimestamps)
+							pretty.PrintDiffFileInfo(writer, true, nFI)
 						}
 						if oFI != nil {
-							pretty.PrintDiffFileInfo(writer, false, oFI, fullTimestamps)
+							pretty.PrintDiffFileInfo(writer, false, oFI)
 						}
 						return nil
 					}

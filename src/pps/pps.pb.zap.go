@@ -797,6 +797,15 @@ func (x *SchedulingSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *RerunPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddBool("reprocess", x.Reprocess)
+	return nil
+}
+
 func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -1166,5 +1175,55 @@ func (x *CreatePipelineTransaction) MarshalLogObject(enc zapcore.ObjectEncoder) 
 	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
 	enc.AddString("user_json", x.UserJson)
 	enc.AddString("effective_json", x.EffectiveJson)
+	return nil
+}
+
+func (x *ProjectDefaults) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("create_pipeline_request", x.CreatePipelineRequest)
+	return nil
+}
+
+func (x *GetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	return nil
+}
+
+func (x *GetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	return nil
+}
+
+func (x *SetProjectDefaultsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddBool("regenerate", x.Regenerate)
+	enc.AddBool("reprocess", x.Reprocess)
+	enc.AddBool("dry_run", x.DryRun)
+	enc.AddString("project_defaults_json", x.ProjectDefaultsJson)
+	return nil
+}
+
+func (x *SetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	affected_pipelinesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.AffectedPipelines {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
 	return nil
 }
