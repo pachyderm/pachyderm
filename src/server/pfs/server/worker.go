@@ -57,8 +57,7 @@ func (w *Worker) Run(ctx context.Context) error {
 	})
 	eg.Go(func() error {
 		ctx := pctx.Child(ctx, "urlWorker")
-		w.URLWorker(ctx)
-		return nil
+		return w.URLWorker(ctx)
 	})
 	return errors.EnsureStack(eg.Wait())
 }

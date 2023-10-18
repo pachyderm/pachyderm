@@ -21,18 +21,18 @@ import (
 
 // Test returns a new Context appropriate for use in tests.  Unless you are for some reason reliant
 // upon the global logger, use pctx.TestContext(t).
-func Test(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
+func Test(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	l := zaptest.NewLogger(t, opts...)
 	t.Cleanup(zap.ReplaceGlobals(l))
 	t.Cleanup(zap.RedirectStdLog(l))
 	t.Cleanup(zap.RedirectStdLog(l))
-	return withLogger(context.Background(), l)
+	return ctx
 }
 
 // Test returns a new Context appropriate for use in parallel tests, at the cost of not logging
 // messages sent to the global logger.  This function is only public so that pctx.TestContext(t) can
 // call it, and you should use that.
-func TestParallel(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
+func TestParallel(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	lvl := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	opts = append(opts,
 		zaptest.WrapOptions(zap.AddCaller(), zap.AddCallerSkip(1)),
@@ -48,7 +48,7 @@ func TestParallel(t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 		// level here.
 		lvl.SetLevel(zapcore.FatalLevel)
 	})
-	return withLogger(context.Background(), l)
+	return withLogger(ctx, l)
 }
 
 // msg is a log message parsed from pachd-formatted JSON.
