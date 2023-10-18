@@ -83,13 +83,13 @@ type DatumsResponse struct {
 }
 
 type MountInfo struct {
-	Name    string `json:"name"`
-	Project string `json:"project"`
-	Repo    string `json:"repo"`
-	Branch  string `json:"branch"`
-	Commit  string `json:"commit"` // "" for no commit (commit as noun)
-	Path    string `json:"path"`
-	Mode    string `json:"mode"` // "ro", "rw"
+	Name    string   `json:"name"`
+	Project string   `json:"project"`
+	Repo    string   `json:"repo"`
+	Branch  string   `json:"branch"`
+	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
+	Paths   []string `json:"paths"`
+	Mode    string   `json:"mode"` // "ro", "rw"
 }
 
 type Request struct {
@@ -1138,6 +1138,9 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Repo == "" {
 			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
 		}
+		if len(mi.Paths) == 0 {
+			mi.Paths = []string{"/"}
+		}
 		// In read-only mode, a commit or branch must exist to mount. In read-write mode, it
 		// is not necessary for the branch to exist, as it will be created.
 		if mi.Mode == "" || mi.Mode == "ro" {
@@ -1226,7 +1229,7 @@ func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]stri
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
-	mis := []*MountInfo{}
+	mountToMi := map[string]*MountInfo{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
@@ -1235,17 +1238,27 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 
 		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 		name := mountsForRepo[0]
-		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
 
-		mi := &MountInfo{
-			Name:    name,
-			Project: project,
-			Repo:    repo,
-			Branch:  branch,
-			Commit:  commit,
-			Path:    fi.File.Path,
-			Mode:    "ro",
+		// Could have multiple files to mount from same repo
+		if mi, ok := mountToMi[name]; ok {
+			mi.Paths = append(mi.Paths, fi.File.Path)
+		} else {
+			mountToMi[name] = &MountInfo{
+				Name:    name,
+				Project: project,
+				Repo:    repo,
+				Branch:  branch,
+				Commit:  commit,
+				Paths:   []string{fi.File.Path},
+				Mode:    "ro",
+			}
 		}
+
+		// Cycle to next mount name for that repo
+		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
+	}
+	mis := []*MountInfo{}
+	for _, mi := range mountToMi {
 		mis = append(mis, mi)
 	}
 	return mis
@@ -1268,7 +1281,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		File:  client.NewFile("", "out", "", "", ""),
+		Files: []*pfs.File{client.NewFile("", "out", "", "", "")},
 		Write: true,
 	}
 }
@@ -1490,7 +1503,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			m.Repo = req.Repo
 			m.Branch = req.Branch
 			m.Commit = req.Commit
-			m.Path = req.Path
+			m.Paths = req.Paths
 			m.Mode = req.Mode
 			return mountingState
 		case "commit":
@@ -1522,11 +1535,15 @@ func mountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
 	func() {
+		files := []*pfs.File{}
+		for _, path := range m.Paths {
+			files = append(files, client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, path))
+		}
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:  m.Name,
-			File:  client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, m.Path),
+			Files: files,
 			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
@@ -1744,8 +1761,8 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if !ok {
 		return nil, errors.Errorf("could not get fuse repo options for mount %s", name)
 	}
-	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
-	repoName := opts.File.Commit.Branch.Repo.Name
+	projectName := opts.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := opts.Files[0].Commit.Branch.Repo.Name
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err

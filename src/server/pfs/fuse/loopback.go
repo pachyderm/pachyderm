@@ -611,24 +611,25 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		return errors.WithStack(fmt.Errorf("repo at %s is not mounted", name))
 	}
 	branch := n.root().branch(name)
-	commit, err := n.commit(name)
+	commitID, err := n.commit(name)
 	if err != nil {
 		return err
 	}
-	if commit == "" {
+	if commitID == "" {
 		return nil
 	}
 	// log the commit
-	log.Info(pctx.TODO(), "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commit)))
+	log.Info(pctx.TODO(), "Downloading", zap.String("path", origPath), zap.String("from", fmt.Sprintf("%s@%s", name, commitID)))
 	ro, ok := n.root().repoOpts[name]
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	// Define the callback up front because we use it in two paths
+	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := ro.Files[0].Commit.Branch.Repo.Name
+	commit := client.NewCommit(projectName, repoName, branch, commitID)
+	filePath := filepath.Join(parts[1:]...)
+	// ListFile callback function
 	createFile := func(fi *pfs.FileInfo) (retErr error) {
-		if !strings.HasPrefix(fi.File.Path, ro.File.Path) && !strings.HasPrefix(ro.File.Path, fi.File.Path) {
-			return nil
-		}
 		if fi.FileType == pfs.FileType_DIR {
 			return errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777))
 		}
@@ -665,12 +666,43 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 		}
 		return nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
-	filePath := filepath.Join(parts[1:]...)
-	if err := n.c().ListFile(client.NewCommit(projectName, repoName, branch, commit), filePath, createFile); err != nil && !errutil.IsNotFoundError(err) &&
-		!pfsserver.IsOutputCommitNotFinishedErr(err) {
-		return err
+	// Calling ListFile on a repo with many files at the top level when we only care about a single
+	// file, for example, is very expensive. Hence the below optimizations.
+	// We only want to create descendants and ancestors of mounted file(s) ro.Files
+	// ro.Files[i].Path is the path of a mounted file, filePath is OS requested path
+	// Example: ro.Files[i].Path = /file, filePath = /files <--- DON'T CREATE
+	// Example: ro.Files[i].Path = /file, filePath = /file/path <--- CREATE
+	// Example: ro.Files[i].Path = /dir/file, filePath = /dir <--- CREATE
+	for _, f := range ro.Files {
+		ancestor, intermediates := isGrandparentOf(filePath, f.Path)
+		switch {
+		case ancestor:
+			path := filepath.Join(n.namePath(name), filePath, intermediates)
+			if err := errors.EnsureStack(os.MkdirAll(path, 0777)); err != nil {
+				return err
+			}
+		case isParentOf(filePath, f.Path):
+			fi, err := n.c().InspectFile(commit, f.Path)
+			if err != nil {
+				return err
+			}
+			if fi.FileType == pfs.FileType_DIR {
+				if err := errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777)); err != nil {
+					return err
+				}
+			} else {
+				if err := n.createFiles(commit, f.Path, createFile); err != nil {
+					return err
+				}
+			}
+		case isDescendantOf(filePath, f.Path):
+			if err := n.createFiles(commit, filePath, createFile); err != nil {
+				return err
+			}
+		default:
+			// If a user creates folders in the mount, they will enter a path that fails the
+			// previous cases. In this case, we ignore, since there's nothing to mount.
+		}
 	}
 	return nil
 }
@@ -709,8 +741,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := ro.Files[0].Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
@@ -763,6 +795,14 @@ func (n *loopbackNode) checkWrite(path string) syscall.Errno {
 		return syscall.EROFS
 	}
 	return 0
+}
+
+func (n *loopbackNode) createFiles(commit *pfs.Commit, path string, cb func(fi *pfs.FileInfo) error) error {
+	if err := n.c().ListFile(commit, path, cb); err != nil && !errutil.IsNotFoundError(err) &&
+		!pfsserver.IsOutputCommitNotFinishedErr(err) {
+		return err
+	}
+	return nil
 }
 
 func isWrite(flags uint32) bool {
