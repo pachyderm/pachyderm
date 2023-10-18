@@ -46,6 +46,8 @@ type Env struct {
 	PachwInSidecar    bool
 }
 
+type APIServer = *apiServer
+
 // NewAPIServer creates an APIServer and runs the master loop in the background
 func NewAPIServer(env Env) (ppsiface.APIServer, error) {
 	srv, err := NewAPIServerNoMaster(env)
