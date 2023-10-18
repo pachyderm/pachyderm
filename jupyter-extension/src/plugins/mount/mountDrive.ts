@@ -94,6 +94,9 @@ export class MountDrive implements Contents.IDrive {
     // If we don't have contents cached, then we fetch them and cache the results.
     if (localPath !== this._cache.key || !localPath) {
       const response = await this._get(url, {...options, content});
+      if (!response.content) {
+        return response;
+      }
       this._model.page = 1;
       this._model.max_page = Math.ceil(
         response.content.length / MAX_NUM_CONTENTS_PAGE,

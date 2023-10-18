@@ -18,7 +18,7 @@ describe('mount', () => {
     cy.findByText('/ pfs').should('have.length', 1);
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('default_images').last().click();
+    cy.findAllByText('default_images').first().click();
 
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
@@ -30,21 +30,21 @@ describe('mount', () => {
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('default_images_branch').last().click();
+    cy.findAllByText('default_images_branch').first().click();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
   it('should open mounted directory in the file browser on click', () => {
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('default_images').last().click();
+    cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
   });
 
   it('file browser should show correct right click actions', () => {
     cy.findByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('default_images').last().click();
+    cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').first().rightclick();
     cy.get('ul.lm-Menu-content.p-Menu-content')
       .children()
