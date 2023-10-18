@@ -216,7 +216,7 @@ func TestWalkFileTest(t *testing.T) {
 
 func TestListFileTest(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := newEnv()
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -267,7 +267,7 @@ func TestListFileTest(t *testing.T) {
 	require.NoError(t, err)
 	fis, err = grpcutil.Collect[*pfs.FileInfo](listFileClient, 1000)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(fis)):w http.ResponseWriter, r *http.Request
+	require.Equal(t, 1, len(fis))
 	require.ElementsEqual(t, []string{"/dir1/file1.5"}, finfosToPaths(fis))
 
 	request = &pfs.ListFileRequest{File: commit1.NewFile("/dir1"), Reverse: true}
@@ -394,7 +394,7 @@ func TestInvalidProject(t *testing.T) {
 
 func TestDefaultProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// the default project should already exist
 	pp, err := env.PachClient.ListProject()
@@ -439,7 +439,7 @@ func TestDefaultProject(t *testing.T) {
 
 func TestInvalidRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "/repo"))
 
@@ -456,7 +456,7 @@ func TestInvalidRepo(t *testing.T) {
 
 func TestCreateSameRepoInParallel(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -508,7 +508,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// 51-character project names are allowed
 	require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
@@ -518,7 +518,7 @@ func TestCreateProject(t *testing.T) {
 
 func TestCreateRepoNonExistentProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo("foo", "bar"))
 	require.NoError(t, env.PachClient.CreateProject("foo"))
@@ -924,7 +924,7 @@ func TestRewindProvenanceChange(t *testing.T) {
 
 func TestCreateAndInspectRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -947,7 +947,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 func TestCreateRepoWithoutProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -964,7 +964,7 @@ func TestCreateRepoWithoutProject(t *testing.T) {
 
 func TestCreateRepoWithEmptyProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -981,7 +981,7 @@ func TestCreateRepoWithEmptyProject(t *testing.T) {
 
 func TestListRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numRepos := 10
 	var repoNames []string
@@ -3528,6 +3528,18 @@ func TestCreateBranchTwice(t *testing.T) {
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit1.Id, nil))
+
+	commit2, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
+	require.NoError(t, err)
+	require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "master", "", commit2.Id, nil))
+
+	branchInfos, err := env.PachClient.ListBranch(pfs.DefaultProjectName, repo)
+	require.NoError(t, err)
 
 	// branches should be returned newest-first
 	require.Equal(t, 2, len(branchInfos))
@@ -4113,49 +4125,6 @@ func TestGlobFile(t *testing.T) {
 
 		var output strings.Builder
 		rc, err := env.PachClient.GetFileTAR(commit, "*")
-			if strings.HasPrefix(filename, "/1") {
-				expectedFileNames = append(expectedFileNames, filename)
-		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
-		require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
-		require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
-		globFile := func(pattern string) []string {
-			var fis []*pfs.FileInfo
-			require.NoError(t, env.PachClient.GlobFile(commit1, pattern, func(fi *pfs.FileInfo) error {
-				fis = append(fis, fi)
-				return nil
-			}))
-			return finfosToPaths(fis)
-		}
-		assert.ElementsMatch(t, []string{"/dir1/file1.2", "/dir2/file2.2"}, globFile("**.2"))
-		assert.ElementsMatch(t, []string{"/dir1/file1.1", "/dir1/file1.2"}, globFile("/dir1/*"))
-		assert.ElementsMatch(t, []string{"/dir1/", "/dir2/"}, globFile("/*"))
-		assert.ElementsMatch(t, []string{"/"}, globFile("/"))
-	})
-
-	// GetFileGlobOrder checks that GetFile(glob) streams data back in the
-	// right order. GetFile(glob) is supposed to return a stream of data of the
-	// form file1 + file2 + .. + fileN, where file1 is the lexicographically lowest
-	// file matching 'glob', file2 is the next lowest, etc.
-	suite.Run("GetFileTARGlobOrder", func(t *testing.T) {
-		t.Parallel()
-		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-
-		repo := "test"
-		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-
-		var expected bytes.Buffer
-		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
-		require.NoError(t, err)
-		for i := 0; i < 25; i++ {
-			next := fmt.Sprintf("%d,%d,%d,%d\n", 4*i, (4*i)+1, (4*i)+2, (4*i)+3)
-			expected.WriteString(next)
-			require.NoError(t, env.PachClient.PutFile(commit, fmt.Sprintf("/data/%010d", i), strings.NewReader(next)))
-		}
-		require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
-
-		var output bytes.Buffer
-		rc, err := env.PachClient.GetFileTAR(commit, "/data/*")
 		require.NoError(t, err)
 		defer rc.Close()
 		require.NoError(t, tarutil.ConcatFileContent(&output, rc))
