@@ -2125,22 +2125,25 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	if err != nil {
+		return nil, errors.Wrap(err, "could not get cluster defaults")
+	}
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
 		}
-		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
-		if err != nil {
-			return err
+		var effectiveSpec pps.CreatePipelineRequest
+		if err := protojson.Unmarshal([]byte(info.GetEffectiveSpecJson()), &effectiveSpec); err != nil {
+			return errors.Wrapf(err, "could not unmarshal effective spec %s", info.GetEffectiveSpecJson())
 		}
 
 		effectiveSpec.Reprocess = request.Reprocess
 		effectiveSpec.Update = true
 
 		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
-			CreatePipelineRequest: effectiveSpec,
-			EffectiveJson:         effectiveSpecJSON,
+			CreatePipelineRequest: &effectiveSpec,
+			EffectiveJson:         info.GetEffectiveSpecJson(),
 			UserJson:              info.GetUserSpecJson(),
 		})
 	}); err != nil {

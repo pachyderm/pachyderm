@@ -567,6 +567,17 @@ func TestRerunPipeline(t *testing.T) {
 		CreatePipelineRequestJson: string(js),
 	})
 	require.NoError(t, err, "CreatePipelineV2 must succeed")
+
+	resp, err := c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{
+				Name: pfs.DefaultProjectName,
+			},
+			Name: pipeline,
+		}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	createdEffectiveSpecJSON := resp.EffectiveSpecJson
+
 	// wait for job to finish and get output commit data
 	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
 	require.NoError(t, err)
@@ -587,6 +598,7 @@ func TestRerunPipeline(t *testing.T) {
 	require.NoError(t, err, "RerunPipeline must succeed")
 	r, err := c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
 	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, createdEffectiveSpecJSON, r.EffectiveSpecJson)
 	require.Equal(t, r.Version, uint64(2), "pipeline version should = 2")
 	// wait for job to finish and get output commit data
 	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
