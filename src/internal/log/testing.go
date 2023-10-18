@@ -256,7 +256,7 @@ func testWithCaptureParallelRateLimited(t testing.TB, opts ...zap.Option) (conte
 }
 
 // newTestLogger returns the raw logger used for testWithCapture*
-// Remeber that raw *zap.Loggers don't have caller skip; testWith... above add those.
+// Remember that raw *zap.Loggers don't have caller skip; testWith... above add those.
 func newTestLogger(t testing.TB, sample bool, opts ...zap.Option) (*zap.Logger, *history) {
 	h := new(history)
 	opts = append(opts,
