@@ -25,13 +25,13 @@ func main() {
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName, 0, 1)
+	err := run(ctx, *tags, *fileName)
 	if err != nil {
 		log.Error(ctx, "Error during tests splitting", zap.Error(err))
 	}
 }
 
-func run(ctx context.Context, tags string, fileName string, shard int, totalShards int) error {
+func run(ctx context.Context, tags string, fileName string) error {
 	tagsArg := ""
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
@@ -84,8 +84,6 @@ func run(ctx context.Context, tags string, fileName string, shard int, totalShar
 	if err := eg.Wait(); err != nil {
 		return errors.EnsureStack(err)
 	}
-	fmt.Printf("DNJ TODO: %#v", testIds)
-	// DNJ TODO - shard
 	outputToFile(fileName, testIds)
 	return nil
 }
