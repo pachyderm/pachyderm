@@ -243,7 +243,7 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoPair) er
 		}
 	}()
 	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "manageBranches", repoKey),
-		fmt.Sprintf("%s%d", pfsdb.BranchesRepoChannelName, repoPair.ID))
+		pfsdb.BranchesInRepoChannel(repoPair.ID))
 	if err != nil {
 		return errors.Wrap(err, "manage branches")
 	}
@@ -369,9 +369,9 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 }
 
 func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoPair) error {
-	chanName := fmt.Sprintf("%s%d", pfsdb.CommitsRepoChannelName, repoPair.ID)
 	repoKey := repoPair.RepoInfo.Repo.Key()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "finishRepoCommits"), chanName)
+	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "finishRepoCommits"),
+		pfsdb.CommitsInRepoChannel(repoPair.ID))
 	if err != nil {
 		return errors.Wrap(err, "new watcher")
 	}
