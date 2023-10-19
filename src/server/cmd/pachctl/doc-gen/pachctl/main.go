@@ -49,7 +49,9 @@ description: "Learn about the %s command"
 		now := time.Now().Format(time.RFC3339)
 		name := filepath.Base(filename)
 		base := strings.TrimSuffix(name, filepath.Ext(name))
-		return fmt.Sprintf(fmTemplate, now, strings.Replace(base, "_", " ", -1), base)
+		title := strings.Replace(base, "_", " ", -1)
+		description := strings.Replace(base, "_", " ", -1)
+		return fmt.Sprintf(fmTemplate, now, title, description)
 	}
 
 	linkHandler := func(name string) string {
