@@ -140,7 +140,13 @@ function createStrikethroughWidget(text: string) {
       const span = document.createElement('span');
       span.textContent = ' ';
       const strikeThrough = document.createElement('s');
-      strikeThrough.textContent = text;
+
+      // https://stackoverflow.com/questions/68787871/how-to-treat-text-with-special-characters-as-raw-literal-text-in-textcontent-or
+      // \n \t \b will be rendered as non-literal characters otherwise
+      const str = JSON.stringify(text);
+      const cutStr = str.slice(1, str.length - 1);
+
+      strikeThrough.textContent = cutStr;
       span.appendChild(strikeThrough);
       span.style.color = 'grey';
 
