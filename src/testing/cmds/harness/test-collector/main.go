@@ -122,7 +122,7 @@ func testNames(pkg string, addtlCmdArgs ...string) ([]string, error) {
 	var testNames = []string{}
 	for _, test := range testList {
 		if test != "" && !strings.HasPrefix(test, "Benchmark") &&
-			// !strings.HasPrefix(test, "Example") && // DNJ TODO should we be ignoring files or what here? ExampleChild() does currently run and would be missed
+			!strings.HasPrefix(test, "ExampleAPIClient_") && // DNJ TODO should we be ignoring files or what here? ExampleChild() does currently run and would be missed
 			!strings.HasPrefix(test, "? ") &&
 			!strings.HasPrefix(test, "ok ") &&
 			!strings.HasPrefix(test, "go: downloading") {
