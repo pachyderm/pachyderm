@@ -105,6 +105,8 @@ func runTest(pkg string, testName string, gotestsumArgs string, gotestArgs strin
 	}
 
 	cmd := exec.Command("gotestsum", findTestArgs...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "CGOENABLED=0") // DNJ TODO - parameter?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
 	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))

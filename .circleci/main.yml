@@ -90,7 +90,7 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=4 go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=8 go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL
@@ -253,7 +253,7 @@ jobs:
           command: kubectl apply --filename etc/kubernetes-prometheus -R
       - run: 
           name: Collect tests to run
-          command: GOMAXPROCS=8 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_k8s.csv
+          command: GOMAXPROCS=8 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -285,6 +285,7 @@ jobs:
 
             GOMAXPROCS=8 go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
+              -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -gotestsumargs=\"--junitfile=${TEST_RESULTS}/circle/gotestsum-report.xml \

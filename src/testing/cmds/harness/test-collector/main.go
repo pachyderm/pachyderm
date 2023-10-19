@@ -19,7 +19,7 @@ import (
 )
 
 const tagsExcludeAllFilesErr = "build constraints exclude all Go files"
-const collectPoolSize = 8
+const collectPoolSize = 2
 
 func main() {
 	log.InitPachctlLogger()
