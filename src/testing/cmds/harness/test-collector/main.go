@@ -15,9 +15,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
 
 const tagsExcludeAllFilesErr = "build constraints exclude all Go files"
+const collectPoolSize = 4
 
 func main() {
 	log.InitPachctlLogger()
@@ -36,50 +38,60 @@ func run(ctx context.Context, tags string, fileName string) error {
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
 	}
+	log.Info(ctx, "Collecting packages")
 	pkgs, err := packageNames(tagsArg)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	testIds := map[string][]string{}
 	testIdsMu := sync.Mutex{}
-	eg, _ := errgroup.WithContext(ctx)
+	sem := semaphore.NewWeighted(collectPoolSize)
+	eg, ctx := errgroup.WithContext(ctx)
 	for _, pkg := range pkgs {
 		loopPkg := pkg
-		eg.Go(func() error {
-			var testsToRun []string
-			testsTagged, err := testNames(loopPkg, tagsArg)
+		if loopPkg != "" {
+			err = sem.Acquire(ctx, 1)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
-			// DNJ TOD - cleanup/refactor
-			if tagsArg == "" { // no tag means both test sets are the same, don't do subtraction
-				testsToRun = testsTagged
-			} else {
-				testsToRun = []string{}
-				testsUntagged, err := testNames(loopPkg)
+			eg.Go(func() error { // DNJ TODO cleanup
+				defer sem.Release(1)
+				log.Info(ctx, "Collecting tests from package", zap.String("package", loopPkg))
+				var testsToRun []string
+				testsTagged, err := testNames(loopPkg, tagsArg)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
-				for _, testTagged := range testsTagged { // set subtraction to find exclusivly tagged tests
-					found := false
-					for _, testUntagged := range testsUntagged {
-						if testTagged == testUntagged {
-							found = true
-							break
+				// DNJ TOD - cleanup/refactor
+				if tagsArg == "" { // no tag means both test sets are the same, don't do subtraction
+					testsToRun = testsTagged
+				} else {
+					testsToRun = []string{}
+					testsUntagged, err := testNames(loopPkg)
+					if err != nil {
+						return errors.EnsureStack(err)
+					}
+					for _, testTagged := range testsTagged { // set subtraction to find exclusivly tagged tests
+						found := false
+						for _, testUntagged := range testsUntagged {
+							if testTagged == testUntagged {
+								found = true
+								break
+							}
+						}
+						if !found {
+							testsToRun = append(testsToRun, testTagged)
 						}
 					}
-					if !found {
-						testsToRun = append(testsToRun, testTagged)
-					}
 				}
-			}
-			if len(testsToRun) > 0 {
-				testIdsMu.Lock()
-				testIds[loopPkg] = testsToRun
-				testIdsMu.Unlock()
-			}
-			return nil
-		})
+				if len(testsToRun) > 0 {
+					testIdsMu.Lock()
+					testIds[loopPkg] = testsToRun
+					testIdsMu.Unlock()
+				}
+				return nil
+			})
+		}
 	}
 	if err := eg.Wait(); err != nil {
 		return errors.EnsureStack(err)

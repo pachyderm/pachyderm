@@ -16,7 +16,10 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
+	"golang.org/x/sync/semaphore"
 )
+
+const testPoolSize = 4
 
 func main() {
 	log.InitPachctlLogger()
@@ -42,14 +45,20 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 	slices.Sort(tests) // sort so we shard them from a pre-determined order
 	// loop through by the number of shards so that each gets a roughly equal number
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-	eg, _ := errgroup.WithContext(ctx)
+	sem := semaphore.NewWeighted(testPoolSize)
+	eg, ctx := errgroup.WithContext(ctx)
 	count := 0
 	for idx := shard; idx < len(tests); idx += totalShards {
 		val := strings.Split(tests[idx], ",")
 		pkg := val[0]
 		testName := val[1]
 		count++
+		err = sem.Acquire(ctx, 1)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 		eg.Go(func() error {
+			defer sem.Release(1)
 			return runTest(pkg, testName, gotestsumArgs, gotestArgs)
 		})
 	}
