@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/felixge/httpsnoop"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 )
@@ -30,21 +31,86 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 				requestID = append(requestID, uuid(interactiveTrace).String())
 			}
 			id := zap.Strings("x-request-id", requestID)
-
-			if ua := r.Header.Get("user-agent"); ua != "Envoy/HC" {
-				// Print info about the request if this is not an Envoy health check.
-				url := r.URL.Path
-				if len(url) > 16384 {
-					url = url[:16384]
-					url += fmt.Sprintf("... (%d bytes)", len(url))
+			// don't log Envoy health checks
+			isHealthCheck := r.Header.Get("user-agent") == "Envoy/HC"
+			url := r.URL.Path
+			if len(url) > 16384 {
+				url = url[:16384]
+				url += fmt.Sprintf("... (%d bytes)", len(url))
+			}
+			var fields []zap.Field
+			if !isHealthCheck {
+				fields = []zap.Field{
+					zap.String("path", url),
+					zap.String("method", r.Method),
+					zap.String("host", r.Host),
+					zap.String("peer", r.RemoteAddr),
+					id,
 				}
-				Info(ctx, "incoming http request", zap.String("path", url), zap.String("method", r.Method), zap.String("host", r.Host), zap.String("peer", r.RemoteAddr), id)
+				Info(ctx, "incoming http request", fields...)
 			}
 
 			ctx = ChildLogger(ctx, "", WithFields(id))
 			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 			r = r.WithContext(ctx)
-			orig.ServeHTTP(w, r)
+
+			var bodySize, respStatusCode int
+			bodyBuf := make([]byte, 0, 1000)
+			sw := httpsnoop.Wrap(w, httpsnoop.Hooks{
+				WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
+					return func(code int) {
+						respStatusCode = code
+						next(code)
+					}
+				},
+				Write: func(next httpsnoop.WriteFunc) httpsnoop.WriteFunc {
+					return func(b []byte) (int, error) {
+						if respStatusCode == 0 {
+							respStatusCode = http.StatusOK
+						}
+						n, err := next(b)
+						if len(bodyBuf) < cap(bodyBuf) {
+							l := len(bodyBuf)
+							m := min(n, cap(bodyBuf)-l)
+							bodyBuf = bodyBuf[:l+m] // extend bodyBuf
+							copy(bodyBuf[l:], b[:m])
+						}
+						bodySize += n
+						return n, err
+					}
+				},
+			})
+
+			orig.ServeHTTP(sw, r)
+			if !isHealthCheck {
+				fields = append(fields, zap.Int("code", respStatusCode), zap.String("headers", fmt.Sprintf("%v", w.Header())), zap.Binary("body", bodyBuf), zap.Int("bodySizeBytes", bodySize))
+				if respStatusCode >= 400 {
+					// For error responses, log body again, in cleartext, to make it easy
+					// to read/search
+					//
+					// TODO(msteffen): This was a slightly awkward compromise between
+					// logging bodyBuf in base64, so that binary responses don't mess up
+					// the logs, and logging bodyBuf in cleartext, to make finding errors
+					// easy. See https://github.com/pachyderm/pachyderm/pull/9430#issuecomment-1767570600
+					// for the relevant discussion. It may make sense to revise this
+					// approach if it's found to be impractical.
+					//
+					// Alternatives proposed:
+					// - Always log the body and always in base64, using zap.Binary
+					//   - always works
+					// - Always log the body and always in cleartext, using zap.ByteString
+					//   - zap.ByteString does appear to escape non-printing chars with
+					//     strconv.Quote, but this is not guaranteed in the docs.
+					// - Log bodyBuf as cleartext (with key e.g. 'bodyText') if all chars
+					//   are printable (per strconv.IsPrint), and as base64 (with key e.g.
+					//   'body') otherwise.
+					// - Log bodyBuf as cleartext (with key e.g. 'bodyText') if
+					//   respStatusCode is an error, and as base64 (with key e.g. 'body')
+					//   otherwise.
+					fields = append(fields, zap.ByteString("errorBodyText", bodyBuf))
+				}
+				Info(ctx, "http response", fields...)
+			}
 		})
 	}
 }

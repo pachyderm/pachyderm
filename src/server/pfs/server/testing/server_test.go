@@ -44,6 +44,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -134,6 +135,18 @@ func finfosToPaths(finfos []*pfs.FileInfo) (paths []string) {
 		paths = append(paths, finfo.File.Path)
 	}
 	return paths
+}
+
+type TestEnv struct {
+	Context    context.Context
+	PachClient *client.APIClient
+}
+
+func newEnv(ctx context.Context, t testing.TB) TestEnv {
+	return TestEnv{
+		Context:    ctx,
+		PachClient: pachd.NewTestPachd(t),
+	}
 }
 
 func TestWalkFileTest(t *testing.T) {
@@ -382,7 +395,7 @@ func TestInvalidProject(t *testing.T) {
 
 func TestDefaultProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// the default project should already exist
 	pp, err := env.PachClient.ListProject()
@@ -427,7 +440,7 @@ func TestDefaultProject(t *testing.T) {
 
 func TestInvalidRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "/repo"))
 
@@ -444,7 +457,7 @@ func TestInvalidRepo(t *testing.T) {
 
 func TestCreateSameRepoInParallel(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numGoros := 1000
 	errCh := make(chan error)
@@ -496,7 +509,7 @@ func TestCreateDifferentRepoInParallel(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	// 51-character project names are allowed
 	require.NoError(t, env.PachClient.CreateProject("123456789A123456789B123456789C123456789D123456789E1"))
@@ -506,7 +519,7 @@ func TestCreateProject(t *testing.T) {
 
 func TestCreateRepoNonExistentProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	require.YesError(t, env.PachClient.CreateRepo("foo", "bar"))
 	require.NoError(t, env.PachClient.CreateProject("foo"))
@@ -912,7 +925,7 @@ func TestRewindProvenanceChange(t *testing.T) {
 
 func TestCreateAndInspectRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -935,7 +948,7 @@ func TestCreateAndInspectRepo(t *testing.T) {
 
 func TestCreateRepoWithoutProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -952,7 +965,7 @@ func TestCreateRepoWithoutProject(t *testing.T) {
 
 func TestCreateRepoWithEmptyProject(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	repo := "repo123"
 	_, err := env.PachClient.PfsAPIClient.CreateRepo(context.Background(), &pfs.CreateRepoRequest{
@@ -969,7 +982,7 @@ func TestCreateRepoWithEmptyProject(t *testing.T) {
 
 func TestListRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := newEnv(ctx, t)
 
 	numRepos := 10
 	var repoNames []string
@@ -6530,20 +6543,21 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
+		sleepDur := 3 * time.Second
 		// Create initial commit.
 		commit := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
 		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		// Ensure that the trigger fired after a minute.
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// Ensure that the trigger branch remains unchanged after another minute (no new commmit).
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6551,7 +6565,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file1", strings.NewReader("foo")))
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6565,16 +6579,17 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * 1 *", // every January
+			CronSpec: "@yearly",
 		}))
+		sleepDur := 3 * time.Second
 		// Create initial commit and ensure that it doesn't fire in a minute.
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader("foo")))
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		stagingBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
 		require.NoError(t, err)
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
@@ -6583,9 +6598,9 @@ func TestTrigger(t *testing.T) {
 		// Update the trigger back to one minute and ensure that the trigger fires.
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:   "staging",
-			CronSpec: "* * * * *", // every minute
+			CronSpec: "@every 3s",
 		}))
-		time.Sleep(time.Second)
+		time.Sleep(sleepDur)
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.Equal(t, stagingBranch.Head.Id, masterBranch.Head.Id)
@@ -6731,7 +6746,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
-			RateLimitSpec: "* * * * *",
+			RateLimitSpec: "@every 3s",
 			Size:          "100",
 			Commits:       3,
 		}))
@@ -6800,7 +6815,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one triggers, because of rate limit spec
-		time.Sleep(time.Minute)
+		time.Sleep(3 * time.Second)
 		require.NoError(t, c.PutFile(stagingHead, "file8", strings.NewReader(strings.Repeat("a", 1))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
@@ -6819,10 +6834,11 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
 			All:           true,
-			RateLimitSpec: "* * * * *",
+			RateLimitSpec: "@every 3s",
 			Size:          "100",
 			Commits:       3,
 		}))
+		sleepDur := 3 * time.Second
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		// Doesn't trigger because all 3 conditions must be met
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader(strings.Repeat("a", 100))))
@@ -6845,7 +6861,7 @@ func TestTrigger(t *testing.T) {
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Finally triggers because we have 3 commits, 100 bytes and RateLimitSpec (since epoch) is satisfied.
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		require.NoError(t, c.PutFile(stagingHead, "file3", strings.NewReader(strings.Repeat("a", 100))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
@@ -6886,7 +6902,7 @@ func TestTrigger(t *testing.T) {
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 
 		// Finally triggers, all triggers have been met
-		time.Sleep(time.Minute)
+		time.Sleep(sleepDur)
 		require.NoError(t, c.PutFile(stagingHead, "file7", strings.NewReader(strings.Repeat("a", 100))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
