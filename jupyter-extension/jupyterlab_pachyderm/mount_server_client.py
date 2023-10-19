@@ -20,13 +20,9 @@ from .env import (
     HTTP_UNIX_SOCKET_SCHEMA,
     HTTP_SCHEMA,
     DEFAULT_SCHEMA,
-<<<<<<< HEAD
-)
-=======
     DET_RESOURCES_TYPE,
     SLURM_JOB
     )
->>>>>>> master
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -54,13 +50,10 @@ class MountServerClient(MountInterface):
         # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
         # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
         self.nopriv = NONPRIV_CONTAINER
-<<<<<<< HEAD
         self.pfs_client = pfs_client
-=======
         if DET_RESOURCES_TYPE == SLURM_JOB:
             get_logger().debug("Inferring non privileged container for launcher/MLDE...")
             self.nopriv = 1
->>>>>>> master
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount server running...")
@@ -116,9 +109,6 @@ class MountServerClient(MountInterface):
                 if MOUNT_SERVER_LOG_DIR is not None and MOUNT_SERVER_LOG_DIR:
                     mount_server_cmd += f" >> {MOUNT_SERVER_LOG_DIR} 2>&1"
 
-<<<<<<< HEAD
-                subprocess.Popen(["bash", "-c", "set -o pipefail; " + mount_server_cmd])
-=======
                 get_logger().debug(f"Starting {mount_server_cmd} ")
                 mount_process = subprocess.Popen(
                     [
@@ -128,7 +118,6 @@ class MountServerClient(MountInterface):
                         + mount_server_cmd
                     ]
                 )
->>>>>>> master
 
                 tries = 0
                 get_logger().debug("Waiting for mount server...")
@@ -142,13 +131,7 @@ class MountServerClient(MountInterface):
 
                 if self.nopriv:
                     # Using un-shared mount, replace /pfs with a softlink to the mount point
-<<<<<<< HEAD
-                    mount_server_proc = subprocess.run(
-                        ["pgrep", "mount-server"], capture_output=True
-                    )
-=======
                     mount_server_proc = subprocess.run(['pgrep', '-s', str(os.getsid(mount_process.pid)), 'mount-server'], capture_output=True)
->>>>>>> master
                     mount_server_pid = mount_server_proc.stdout.decode("utf-8")
                     if not mount_server_pid or not int(mount_server_pid) > 0:
                         get_logger().debug(
