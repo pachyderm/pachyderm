@@ -23,14 +23,16 @@ const collectPoolSize = 4
 
 func main() {
 	log.InitPachctlLogger()
-	ctx := pctx.Background("")
+	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	flag.Parse()
 	err := run(ctx, *tags, *fileName)
 	if err != nil {
 		log.Error(ctx, "Error during tests splitting", zap.Error(err))
+		os.Exit(1)
 	}
+	os.Exit(0)
 }
 
 func run(ctx context.Context, tags string, fileName string) error {
@@ -46,7 +48,7 @@ func run(ctx context.Context, tags string, fileName string) error {
 	testIds := map[string][]string{}
 	testIdsMu := sync.Mutex{}
 	sem := semaphore.NewWeighted(collectPoolSize)
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, _ := errgroup.WithContext(ctx)
 	for _, pkg := range pkgs {
 		loopPkg := pkg
 		if loopPkg != "" {

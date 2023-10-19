@@ -23,7 +23,7 @@ const testPoolSize = 4
 
 func main() {
 	log.InitPachctlLogger()
-	ctx := pctx.Background("")
+	ctx := pctx.Background("test-runner")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	gotestsumArgs := flag.String("gotestsum-args", "", "Additional arguments to pass to the gotestsum portion of the test command.")
@@ -34,7 +34,9 @@ func main() {
 	err := run(ctx, *tags, *fileName, *gotestsumArgs, *gotestArgs, *shard, *totalShards)
 	if err != nil {
 		log.Error(ctx, "Error running tests", zap.Error(err))
+		os.Exit(1)
 	}
+	os.Exit(0)
 }
 
 func run(ctx context.Context, tags string, fileName string, gotestsumArgs string, gotestArgs string, shard int, totalShards int) error {
@@ -46,7 +48,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 	// loop through by the number of shards so that each gets a roughly equal number
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
 	sem := semaphore.NewWeighted(testPoolSize)
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, _ := errgroup.WithContext(ctx)
 	count := 0
 	for idx := shard; idx < len(tests); idx += totalShards {
 		val := strings.Split(tests[idx], ",")
