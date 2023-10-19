@@ -5,13 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pkg/errors"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -210,9 +209,10 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = nil
 			branchCInfo.Provenance = nil
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
-			// Updating B first should result in cycle, so need to update C first
+			// The B -> C relationship causes a cycle, so need to update C first and remove the B <- C relationship.
 			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
-			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{FromID: allBranches[branchBInfo.Branch.Key()].ID, ToID: allBranches[branchCInfo.Branch.Key()].ID})
+			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{From: branchBInfo.Branch.Key(), To: branchCInfo.Branch.Key()})
+			require.ErrorContains(t, err, "cycle detected")
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
 			require.NoError(t, err)
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchAInfo)

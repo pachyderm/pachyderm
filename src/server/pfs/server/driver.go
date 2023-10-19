@@ -458,8 +458,6 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	}); err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	// this is nil for some reason, its not because the filter is broken. Something else must be deleting the commits.
-	// make a list of all the commits
 	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false, false)
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")

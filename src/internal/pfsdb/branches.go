@@ -56,16 +56,20 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
+// ErrBranchProvCycle is returned when a cycle is detected at branch creation time.
 type ErrBranchProvCycle struct {
-	FromID BranchID
-	ToID   BranchID
+	From, To string
 }
 
 func (err ErrBranchProvCycle) Error() string {
-	return fmt.Sprintf("cycle detected for BranchID=%d, because BranchID=%d is already in its subvenance", err.FromID, err.ToID)
+	return fmt.Sprintf("cycle detected because %v is already in the subvenance of %v", err.To, err.From)
 }
 
-// ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
+func (err ErrBranchProvCycle) GRPCStatus() *status.Status {
+	return status.New(codes.Internal, err.Error())
+}
+
+// ErrBranchNotFound is returned when a branch is not found in postgres.
 type ErrBranchNotFound struct {
 	ID        BranchID
 	BranchKey string
@@ -81,22 +85,6 @@ func (err ErrBranchNotFound) Error() string {
 
 func (err ErrBranchNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
-}
-
-// SliceDiff takes two slices and returns the elements in the first slice that are not in the second slice.
-// TODO this can be moved to a more generic package.
-func SliceDiff[K comparable, V any](a, b []V, key func(V) K) []V {
-	m := make(map[K]bool)
-	for _, item := range b {
-		m[key(item)] = true
-	}
-	var result []V
-	for _, item := range a {
-		if !m[key(item)] {
-			result = append(result, item)
-		}
-	}
-	return result
 }
 
 // BranchesInRepoChannel returns the name of the channel that is notified when branches in repo 'repoID' are created, updated, or deleted
@@ -277,6 +265,8 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	// Compute branch provenance, and avoid creating cycles.
 	// We know a cycle exists if the to_branch is in the subvenance of the from_branch.
+	// Note that we get the full subvenance set as an efficiency optimization,
+	// where we avoid having to query the database for each branch in the provenance chain.
 	fullSubv, err := GetBranchSubvenance(ctx, tx, branchID)
 	if err != nil {
 		return branchID, errors.Wrap(err, "could not compute branch subvenance")
@@ -285,13 +275,9 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	for _, branch := range fullSubv {
 		fullSubvSet[branch.Key()] = true
 	}
-	for _, branch := range branchInfo.DirectProvenance {
-		if fullSubvSet[branch.Key()] {
-			toID, err := GetBranchID(ctx, tx, branch)
-			if err != nil {
-				return branchID, errors.Wrapf(err, "detected cycle, but could not get the branch id for branch %s that is causing the cycle", branch.Key())
-			}
-			return branchID, ErrBranchProvCycle{FromID: branchID, ToID: toID}
+	for _, toBranch := range branchInfo.DirectProvenance {
+		if fullSubvSet[toBranch.Key()] {
+			return branchID, ErrBranchProvCycle{From: branchInfo.Branch.Key(), To: toBranch.Key()}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
@@ -429,35 +415,8 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 	return branchPbs, nil
 }
 
-func CheckBranchProvenanceForCycles(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	var count int
-	if err := tx.QueryRowContext(ctx, `
-		WITH RECURSIVE subv(from_id) AS (
-			SELECT from_id
-			FROM pfs.branch_provenance
-			WHERE to_id = $1
-		  UNION ALL
-			SELECT bp.from_id
-			FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
-		)
-		SELECT count(*)
-		FROM subv
-		WHERE subv.from_id = $2
-		LIMIT 1
-	`, from, to).Scan(&count); err != nil {
-		return errors.Wrapf(err, "branch provenance cycle check failed for from_id = %d, to_id = %d", from, to)
-	}
-	if count == 1 {
-		return ErrBranchProvCycle{FromID: from, ToID: to}
-	}
-	return nil
-}
-
 // CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	// if err := CheckBranchProvenanceForCycles(ctx, tx, from, to); err != nil {
-	// 	return errors.Wrapf(err, "from_id = %d, to_id = %d", from, to)
-	// }
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)	
 		VALUES ($1, $2)
