@@ -25,7 +25,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 	if s.Handler != nil {
 		orig := s.Handler
 		s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx := r.Context()
+			reqCtx := r.Context()
 			requestID := r.Header.Values("x-request-id")
 			if len(requestID) == 0 {
 				requestID = append(requestID, uuid(interactiveTrace).String())
@@ -47,10 +47,10 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 					zap.String("peer", r.RemoteAddr),
 					id,
 				}
-				Info(ctx, "incoming http request", fields...)
+				Info(reqCtx, "incoming http request", fields...)
 			}
 
-			ctx = ChildLogger(ctx, "", WithFields(id))
+			ctx = ChildLogger(reqCtx, "", WithFields(id))
 			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 			r = r.WithContext(ctx)
 
@@ -109,7 +109,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 					//   otherwise.
 					fields = append(fields, zap.ByteString("errorBodyText", bodyBuf))
 				}
-				Info(ctx, "http response", fields...)
+				Info(reqCtx, "http response", fields...)
 			}
 		})
 	}
