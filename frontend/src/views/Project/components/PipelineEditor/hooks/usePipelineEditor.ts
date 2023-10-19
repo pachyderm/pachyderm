@@ -65,9 +65,9 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
 
   const clusterDefaults = useMemo(
     () =>
-      formatJSON(
-        getClusterData?.getClusterDefaults?.clusterDefaultsJson || '{}',
-      ),
+      getClusterData?.getClusterDefaults?.clusterDefaultsJson
+        ? formatJSON(getClusterData?.getClusterDefaults?.clusterDefaultsJson)
+        : '',
     [getClusterData?.getClusterDefaults?.clusterDefaultsJson],
   );
 
