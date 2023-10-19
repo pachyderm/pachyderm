@@ -84,25 +84,16 @@ jobs:
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
+      - run: 
+          name: Collect tests to run
+          command: go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
       - run:
           no_output_timeout: 20m
           command: |-
-            # These split by package, so it's not really even. 
-            # It also doesn't seem like circle picks up the test timings so that's not great.
-            go list ./... | circleci tests run --command \
-            "CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            xargs -ITEST_PACKAGES gotestsum \
-            --packages='TEST_PACKAGES' \
-            --junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml \
-            --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            --rerun-fails \
-            --rerun-fails-max-failures=25 \
-            --format testname --debug \
-            -- \
-            --coverprofile=${TEST_RESULTS}/unit-coverage.txt \
-            -covermode=atomic -coverpkg=./... \
-            -parallel=8 -p=1 -count=1" \
-            --split-by=timings --timings-type=classname
+            go run src/testing/cmds/harness/test-runner/main.go \
+              -file=tests_to_run_unit.csv \
+              -shard=$CIRCLE_NODE_INDEX \
+              -total-shards=$CIRCLE_NODE_TOTAL
       - run:
           name: Format code coverage
           when: always
@@ -182,7 +173,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 18
+    parallelism: 12
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -260,6 +251,9 @@ jobs:
       - run:
           name: Install prom # Make Launch stats
           command: kubectl apply --filename etc/kubernetes-prometheus -R
+      - run: 
+          name: Collect tests to run
+          command: go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_k8s.csv
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -289,41 +283,13 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            # collect tests to run
-            # go clean -testcache
-            # echo "Tests found: "
-            # cat tests_k8s.txt 
-            # tests=( $(cat tests_k8s.txt | circleci tests split --split-by=timings --timings-type=testname) )
-            # tests="${tests[@]}"
-            # echo "Running tests: "
-            # echo "${tests}"
-            go list ./... | circleci tests run --command \
-            "CGO_ENABLED=0 GOCOVERDIR=$TEST_RESULTS \
-            xargs -ITEST_PACKAGES gotestsum \
-            --packages='TEST_PACKAGES' \
-            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile ${TEST_RESULTS}/go-test-results.jsonl \
-            --rerun-fails \
-            --rerun-fails-max-failures=25 \
-            --format testname --debug \
-            -- \
-            -cover -covermode=atomic \
-            -parallel=8 -p=1 -count=1 -tags=k8s" \
-            --split-by=timings --timings-type=classname
-            # gotestsum \
-            # --raw-command \
-            # --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            # --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            # --format testname \
-            # --debug \
-            # -- \
-            # go test ./... -json -v \
-            # -run "^${tests// /$|^}$" \
-            # -p=1 \
-            # -tags=k8s \
-            # -parallel=4 \
-            # -count=1 \
-            # -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            go run src/testing/cmds/harness/test-runner/main.go \
+              -file=tests_to_run_k8s.csv \
+              -shard=$CIRCLE_NODE_INDEX \
+              -total-shards=$CIRCLE_NODE_TOTAL \
+              -gotestsumargs=\"--junitfile=${TEST_RESULTS}/circle/gotestsum-report.xml \
+              --jsonfile=${TEST_RESULTS}/go-test-results.jsonl \
+              --rerun-fails-max-failures=25\"
       - run:
           name: Format code coverage
           when: always
@@ -334,7 +300,7 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
-          path: "/tmp/test-results"
+          path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
       - codecov/upload:

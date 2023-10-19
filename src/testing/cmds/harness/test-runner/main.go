@@ -23,16 +23,18 @@ func main() {
 	ctx := pctx.Background("")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
+	gotestsumArgs := flag.String("gotestsum-args", "", "Additional arguments to pass to the gotestsum portion of the test command.")
+	gotestArgs := flag.String("gotest-args", "", "Additional arguments to pass to the 'go test' portion of the test command.")
 	shard := flag.Int("shard", 0, "0 indexed current runner index that we are on.")
-	totalShards := flag.Int("totalShards", 1, "Total number of runners that we are sharding over.")
+	totalShards := flag.Int("total-shards", 1, "Total number of runners that we are sharding over.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName, *shard, *totalShards)
+	err := run(ctx, *tags, *fileName, *gotestsumArgs, *gotestArgs, *shard, *totalShards)
 	if err != nil {
 		log.Error(ctx, "Error running tests", zap.Error(err))
 	}
 }
 
-func run(ctx context.Context, tags string, fileName string, shard int, totalShards int) error {
+func run(ctx context.Context, tags string, fileName string, gotestsumArgs string, gotestArgs string, shard int, totalShards int) error {
 	tests, err := readTests(ctx, fileName)
 	if err != nil {
 		return errors.Wrapf(err, "reading file %v", fileName)
@@ -41,15 +43,19 @@ func run(ctx context.Context, tags string, fileName string, shard int, totalShar
 	// loop through by the number of shards so that each gets a roughly equal number
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
 	eg, _ := errgroup.WithContext(ctx)
+	count := 0
 	for idx := shard; idx < len(tests); idx += totalShards {
 		val := strings.Split(tests[idx], ",")
 		pkg := val[0]
 		testName := val[1]
+		count++
 		eg.Go(func() error {
-			return runTest(pkg, testName, tags)
+			return runTest(pkg, testName, gotestsumArgs, gotestArgs)
 		})
 	}
-	if err := eg.Wait(); err != nil {
+	err = eg.Wait()
+	fmt.Printf("%d tests distributed to this shard.\n", count)
+	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	return nil
@@ -72,9 +78,23 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	return tests, nil
 }
 
-func runTest(pkg string, testName string, tags string) error {
-	findTestArgs := append([]string{"test", "-v", pkg, fmt.Sprintf("-run=^%s$", testName)}, fmt.Sprintf("-tags=%s", tags))
-	cmd := exec.Command("go", findTestArgs...)
+func runTest(pkg string, testName string, gotestsumArgs string, gotestArgs string) error {
+	findTestArgs := []string{
+		fmt.Sprintf("--packages=%s", pkg),
+		"--rerun-fails",
+		"--format=testname",
+		"--debug",
+	}
+	if gotestsumArgs != "" {
+		findTestArgs = append(findTestArgs, gotestsumArgs)
+	}
+	findTestArgs = append(findTestArgs, "--", fmt.Sprintf("-run=^%s$", testName))
+	if gotestArgs != "" {
+		findTestArgs = append(findTestArgs, gotestArgs)
+	}
+
+	cmd := exec.Command("gotestsum", findTestArgs...)
+	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
 	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
 	if err != nil {

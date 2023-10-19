@@ -89,7 +89,7 @@ func run(ctx context.Context, tags string, fileName string) error {
 }
 func packageNames(addtlCmdArgs ...string) ([]string, error) {
 	findPkgArgs := append([]string{"list"}, addtlCmdArgs...)
-	findPkgArgs = append(findPkgArgs, "./...")
+	findPkgArgs = append(findPkgArgs, "./...") // DNJ TODO - add packages flag
 	pkgsOutput, err := exec.Command("go", findPkgArgs...).CombinedOutput()
 	if err != nil {
 		return nil, errors.Wrapf(err, string(pkgsOutput))
