@@ -59,6 +59,6 @@ describe('mount', () => {
     cy.findByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
     cy.findAllByText('default_images').first().click();
-    cy.get('ul.jp-DirListing-content').should('have.attr', 'loading');
+    cy.get('ul.jp-DirListing-content[loading]').should('have.length', 1);
   });
 });
