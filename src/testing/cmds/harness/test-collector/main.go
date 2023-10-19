@@ -19,7 +19,7 @@ import (
 )
 
 const tagsExcludeAllFilesErr = "build constraints exclude all Go files"
-const collectPoolSize = 4
+const collectPoolSize = 8
 
 func main() {
 	log.InitPachctlLogger()
@@ -51,7 +51,7 @@ func run(ctx context.Context, tags string, fileName string) error {
 	eg, _ := errgroup.WithContext(ctx)
 	for _, pkg := range pkgs {
 		loopPkg := pkg
-		if loopPkg != "" {
+		if loopPkg != "" && !strings.HasPrefix(loopPkg, "go: downloading") {
 			err = sem.Acquire(ctx, 1)
 			if err != nil {
 				return errors.EnsureStack(err)

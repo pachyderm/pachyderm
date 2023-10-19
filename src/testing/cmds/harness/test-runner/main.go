@@ -19,7 +19,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const testPoolSize = 4
+const testPoolSize = 8
 
 func main() {
 	log.InitPachctlLogger()
