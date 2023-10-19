@@ -25,11 +25,16 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 	if s.Handler != nil {
 		orig := s.Handler
 		s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			reqCtx := r.Context()
+			ctx := r.Context()
 			requestID := r.Header.Values("x-request-id")
 			if len(requestID) == 0 {
 				requestID = append(requestID, uuid(interactiveTrace).String())
 			}
+			childFields := []zap.Field{
+				zap.Strings("x-request-id", requestID),
+			}
+			ctx = ChildLogger(ctx, "", WithFields(childFields...))
+			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 
 			// don't log Envoy health checks
 			isHealthCheck := r.Header.Get("user-agent") == "Envoy/HC"
@@ -39,21 +44,16 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 				url += fmt.Sprintf("... (%d bytes)", len(url))
 			}
 			var requestFields, responseFields []zap.Field
-			childFields := []zap.Field{
-				zap.Strings("x-request-id", requestID),
-			}
 			if !isHealthCheck {
-				requestFields = append(childFields,
+				requestFields = []zap.Field{
 					zap.String("path", url),
 					zap.String("method", r.Method),
 					zap.String("host", r.Host),
 					zap.String("peer", r.RemoteAddr),
-				)
-				Info(reqCtx, "incoming http request", requestFields...)
+				}
+				Info(ctx, "incoming http request", requestFields...)
 			}
 
-			ctx = ChildLogger(reqCtx, "", WithFields(childFields...))
-			ctx = metadata.NewOutgoingContext(ctx, metadata.MD{"x-request-id": requestID})
 			r = r.WithContext(ctx)
 
 			var bodySize, respStatusCode int
@@ -116,7 +116,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 					//   otherwise.
 					responseFields = append(responseFields, zap.ByteString("errorBodyText", bodyBuf))
 				}
-				Info(reqCtx, "http response", responseFields...)
+				Info(ctx, "http response", responseFields...)
 			}
 		})
 	}
