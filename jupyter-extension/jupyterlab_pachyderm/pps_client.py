@@ -1,7 +1,7 @@
 import json
 import yaml
 import os.path
-from dataclasses import dataclass, asdict, fields
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from inspect import getsource
 from pathlib import Path
@@ -84,7 +84,6 @@ class PpsConfig:
         else:
             resource_spec_dict = yaml.safe_load(resource_spec_str)
             resource_spec = pps.ResourceSpec().from_dict(resource_spec_dict)
-
         return cls(
             notebook_path=notebook_path,
             pipeline=pipeline,
@@ -106,9 +105,7 @@ def companion_repo_name(config: PpsConfig):
     return f"{config.pipeline.name}__context"
 
 
-def create_pipeline_spec(
-    config: PpsConfig, companion_branch: str
-) -> pps.CreatePipelineRequest:
+def create_pipeline_spec(config: PpsConfig, companion_branch: str) -> str:
     companion_repo = companion_repo_name(config)
     input_spec = pps.Input(
         cross=[
@@ -145,7 +142,7 @@ def create_pipeline_spec(
     elif config.gpu_mode == "Advanced":
         pipeline_spec.resource_limits = config.resource_spec
 
-    return pipeline_spec
+    return pipeline_spec.to_json()
 
 
 def upload_environment(
@@ -188,22 +185,19 @@ def upload_environment(
         'if __name__ == "__main__":\n'
         "    entrypoint()\n"
     )
-    project = config.pipeline.project.name
 
     master = pfs.Branch(repo=repo, name="master")
     with client.pfs.commit(branch=master) as commit:
         # Remove the old files
-        client.pfs.delete_file(commit=commit, path="/")
+        commit.delete_file(path="/")
 
         # Upload the new files
-        client.pfs.put_file_from_bytes(commit=commit, path="/user_code.py", data=script)
+        commit.put_file_from_bytes(path="/user_code.py", data=script)
         if config.requirements:
             with open(config.requirements, "rb") as reqs_file:
-                client.pfs.put_file_from_file(
-                    commit=commit, path="/requirements.txt", file=reqs_file
-                )
-        client.pfs.put_file_from_bytes(
-            commit=commit, path="/entrypoint.py", data=entrypoint_script.encode("utf-8")
+                commit.put_file_from_file(path="/requirements.txt", file=reqs_file)
+        commit.put_file_from_bytes(
+            path="/entrypoint.py", data=entrypoint_script.encode("utf-8")
         )
 
     # Use the commit ID in the branch name to avoid name collisions.
@@ -220,7 +214,9 @@ class PPSClient:
         self.nbconvert = PythonExporter()
         try:
             self.client = Client().from_config()  # from local config file
-            get_logger().debug("Created PPS client from local config file")
+            get_logger().debug(
+                f"Created PPS client for {self.client.address} from local config file"
+            )
         except FileNotFoundError:
             self.client = Client()
             get_logger().debug(
@@ -245,8 +241,7 @@ class PPSClient:
         except ValueError as err:
             raise HTTPError(status_code=400, reason=str(err))
 
-        pipeline_spec = create_pipeline_spec(config, "...")
-        return pipeline_spec.to_json()
+        return create_pipeline_spec(config, "...")
 
     async def create(self, path: str, body: dict):
         """Creates the pipeline from the Notebook file specified.
@@ -303,11 +298,8 @@ class PPSClient:
         )
         pipeline_spec = create_pipeline_spec(config, companion_branch)
         try:
-            self.client.pps.create_pipeline(
-                **{
-                    f.name: getattr(pipeline_spec, f.name)
-                    for f in fields(pipeline_spec)
-                }
+            self.client.pps.create_pipeline_v2(
+                create_pipeline_request_json=pipeline_spec, update=True, reprocess=True
             )
         except Exception as e:
             if hasattr(e, "details"):

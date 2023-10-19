@@ -43,9 +43,7 @@ def pachyderm_resources():
                 with client.pfs.commit(
                     branch=pfs.Branch.from_uri(f"{repo}@{branch}")
                 ) as c:
-                    client.pfs.put_file_from_bytes(
-                        commit=c, path=f"/{file}", data=b"some data"
-                    )
+                    c.put_file_from_bytes(path=f"/{file}", data=b"some data")
 
     yield repos, branches, files
 
@@ -139,6 +137,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "branch",
             "project",
             "commit",
+            "path",
             "files",
             "mode",
             "state",
@@ -437,9 +436,8 @@ def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline) -> 
     config = PpsConfig.from_notebook(notebook)
     config.pipeline = pipeline
     config.input_spec = f'pfs:\n  repo: {repo.name}\n  glob: "/*"'
-    config.resource_spec = (
-        ""  # this is currently not being tested so it is set to the empty string
-    )
+    # this is currently not being tested so it is set to the empty string
+    config.resource_spec = ""
     config.requirements = str(
         notebook.with_name(config.requirements).relative_to(os.getcwd())
     )
