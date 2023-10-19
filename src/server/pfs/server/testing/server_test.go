@@ -6534,7 +6534,6 @@ func TestTrigger(t *testing.T) {
 	})
 
 	t.Run("Cron", func(t *testing.T) {
-		t.Skip("timing out in CI")
 		t.Parallel()
 		repo := tu.UniqueString("Cron")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))

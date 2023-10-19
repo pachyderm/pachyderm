@@ -437,7 +437,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoPair, 
 			}
 			compactor := newCompactor(d.storage.Filesets, d.env.StorageConfig.StorageCompactionMaxFanIn)
 			taskDoer := d.env.TaskService.NewDoer(StorageTaskNamespace, commit.Id, cache)
-			return errors.EnsureStack(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
+			return errors.Wrap(d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 				start := time.Now()
 				// Compacting the diff before getting the total allows us to compose the
 				// total file set so that it includes the compacted diff.
@@ -471,7 +471,7 @@ func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoPair, 
 				details.ValidatingTime = durationpb.New(time.Since(start))
 				// Finish the commit.
 				return d.finalizeCommit(ctx, commitWithID, validationError, details, totalId)
-			}))
+			}), "finishing commit with renewer")
 		}, backoff.NewInfiniteBackOff(), func(err error, d time.Duration) error {
 			log.Error(ctx, "error finishing commit", zap.Error(err), zap.Duration("retryAfter", d))
 			return nil
