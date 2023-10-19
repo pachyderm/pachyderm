@@ -19,15 +19,15 @@ import (
 )
 
 const tagsExcludeAllFilesErr = "build constraints exclude all Go files"
-const collectPoolSize = 4
 
 func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
+	threadPool := flag.Int("threads", 4, "Number of packages to collect tests from concurrently.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName)
+	err := run(ctx, *tags, *fileName, *threadPool)
 	if err != nil {
 		log.Error(ctx, "Error during tests splitting", zap.Error(err))
 		os.Exit(1)
@@ -35,7 +35,7 @@ func main() {
 	os.Exit(0)
 }
 
-func run(ctx context.Context, tags string, fileName string) error {
+func run(ctx context.Context, tags string, fileName string, threadPool int) error {
 	tagsArg := ""
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
@@ -47,7 +47,7 @@ func run(ctx context.Context, tags string, fileName string) error {
 	}
 	testIds := map[string][]string{}
 	testIdsMu := sync.Mutex{}
-	sem := semaphore.NewWeighted(collectPoolSize)
+	sem := semaphore.NewWeighted(int64(threadPool))
 	eg, _ := errgroup.WithContext(ctx)
 	for _, pkg := range pkgs {
 		loopPkg := pkg

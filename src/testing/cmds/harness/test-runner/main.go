@@ -21,8 +21,6 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-const testPoolSize = 4 // DNJ TODO - parameterize
-
 func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("test-runner")
@@ -32,8 +30,17 @@ func main() {
 	gotestArgs := flag.String("gotest-args", "", "Additional arguments to pass to the 'go test' portion of the test command.")
 	shard := flag.Int("shard", 0, "0 indexed current runner index that we are on.")
 	totalShards := flag.Int("total-shards", 1, "Total number of runners that we are sharding over.")
+	threadPool := flag.Int("threads", 1, "Number of tests to execute concurrently.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName, *gotestsumArgs, *gotestArgs, *shard, *totalShards)
+	err := run(ctx,
+		*tags,
+		*fileName,
+		*gotestsumArgs,
+		*gotestArgs,
+		*shard,
+		*totalShards,
+		*threadPool,
+	)
 	if err != nil {
 		log.Error(ctx, "Error running tests", zap.Error(err))
 		os.Exit(1)
@@ -41,7 +48,7 @@ func main() {
 	os.Exit(0)
 }
 
-func run(ctx context.Context, tags string, fileName string, gotestsumArgs string, gotestArgs string, shard int, totalShards int) error {
+func run(ctx context.Context, tags string, fileName string, gotestsumArgs string, gotestArgs string, shard int, totalShards int, threadPool int) error {
 	tests, err := readTests(ctx, fileName)
 	if err != nil {
 		return errors.Wrapf(err, "reading file %v", fileName)
@@ -49,7 +56,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 	slices.Sort(tests) // sort so we shard them from a pre-determined order
 	// loop through by the number of shards so that each gets a roughly equal number
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-	sem := semaphore.NewWeighted(testPoolSize)
+	sem := semaphore.NewWeighted(int64(threadPool))
 	eg, _ := errgroup.WithContext(ctx)
 	count := 0
 	for idx := shard; idx < len(tests); idx += totalShards {
