@@ -56,12 +56,17 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
+// ErrBranchProvCycle is returned when a cycle is detected at branch creation time.
 type ErrBranchProvCycle struct {
 	From, To string
 }
 
 func (err ErrBranchProvCycle) Error() string {
 	return fmt.Sprintf("cycle detected because %v is already in the subvenance of %v", err.To, err.From)
+}
+
+func (err ErrBranchProvCycle) GRPCStatus() *status.Status {
+	return status.New(codes.Internal, err.Error())
 }
 
 // ErrBranchNotFound is returned when a branch is not found in postgres.
