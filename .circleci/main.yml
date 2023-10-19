@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: large
-    parallelism: 8
+    parallelism: 2
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -86,11 +86,11 @@ jobs:
       - run: etc/testing/circle/install.sh
       - run: 
           name: Collect tests to run
-          command: go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          command: GOMAXPROCS=4 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
       - run:
           no_output_timeout: 20m
           command: |-
-            go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=4 go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL
@@ -173,7 +173,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 12
+    parallelism: 2
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -253,7 +253,7 @@ jobs:
           command: kubectl apply --filename etc/kubernetes-prometheus -R
       - run: 
           name: Collect tests to run
-          command: go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_k8s.csv
+          command: GOMAXPROCS=8 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_k8s.csv
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -283,7 +283,7 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=8 go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
