@@ -30,7 +30,7 @@ type Server struct {
 }
 
 // New creates a new API server, with an http.Server to actually serve traffic.
-func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) *Server {
+func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Context) *client.APIClient) (*Server, error) {
 	ctx = pctx.Child(ctx, "httpserver")
 	mux := http.NewServeMux()
 
@@ -57,10 +57,9 @@ func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Co
 
 	// GRPC gateway.
 	client := pachClientFactory(ctx)
-	gwmux := restgateway.NewMux(ctx, client.ClientConn())
-	if gwmux == nil {
-		log.Error(ctx, "failed to register rest api handlers with grpc-gateway")
-		return nil
+	gwmux, err := restgateway.NewMux(ctx, client.ClientConn())
+	if err != nil {
+		return nil, errors.Wrap(err, "init rest gateway mux")
 	}
 	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
 	log.Info(ctx, "completed grpc gateway rest api registrations")
@@ -71,7 +70,7 @@ func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Co
 			Addr:    fmt.Sprintf(":%d", port),
 			Handler: mux,
 		},
-	}
+	}, nil
 }
 
 // CSRFWrapper is an http.Handler that provides CSRF protection to the underlying handler.
