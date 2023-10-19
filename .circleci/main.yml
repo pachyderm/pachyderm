@@ -95,7 +95,7 @@ jobs:
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=1
+              -threads=4
       - run:
           name: Format code coverage
           when: always

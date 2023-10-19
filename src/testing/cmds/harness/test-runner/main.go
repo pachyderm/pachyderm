@@ -83,7 +83,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 
 func readTests(ctx context.Context, fileName string) ([]string, error) {
 	lockFileName := fmt.Sprintf("lock-%s", fileName)
-	backoff.RetryNotify(func() error {
+	err := backoff.RetryNotify(func() error {
 		if _, err := os.Stat(fileName); err != nil {
 			return err // couldn't read file, so retry until it can
 		}
@@ -95,7 +95,9 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 		log.Info(ctx, "retry waiting for tests to be collected.", zap.Error(err))
 		return nil
 	})
-
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 	tests := []string{}
 	file, err := os.Open(fileName)
 	if err != nil {
