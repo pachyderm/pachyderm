@@ -41,6 +41,10 @@ func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return repo.CreatedAtUpdatedAt
 }
 
+func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return repo.CreatedAtUpdatedAt
+}
+
 func (repo *Repo) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
