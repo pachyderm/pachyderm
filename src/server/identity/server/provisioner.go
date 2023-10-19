@@ -126,9 +126,11 @@ func (d *determinedProvisioner) FindUser(ctx context.Context, name string) (*Use
 func (d *determinedProvisioner) CreateUser(ctx context.Context, user *User) (*User, error) {
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.PostUser(ctx, &det.PostUserRequest{User: &userv1.User{
-		Username: user.name,
-		Active:   true,
-		Remote:   true,
+		Username:    user.name,
+		Active:      true,
+		Remote:      true,
+		Admin:       false,
+		DisplayName: user.name,
 	}})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to provision determiend user %v", user.name)
