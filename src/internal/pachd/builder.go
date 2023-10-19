@@ -7,7 +7,6 @@ import (
 	"runtime/debug"
 
 	"github.com/dustin/go-humanize"
-	"go.uber.org/automaxprocs/maxprocs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -32,7 +31,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
@@ -104,34 +102,19 @@ func newBuilder(config any, name string) (b builder) {
 }
 
 func (b *builder) printVersion(ctx context.Context) error {
-	log.Info(ctx, "version info", log.Proto("versionInfo", version.Version))
-	return nil
+	return printVersion().Fn(ctx)
 }
 
 func (b *builder) tweakResources(ctx context.Context) error {
-	// set GOMAXPROCS to the container limit & log outcome to stdout
-	maxprocs.Set(maxprocs.Logger(zap.S().Named("maxprocs").Infof)) //nolint:errcheck
-	debug.SetGCPercent(b.config.GCPercent)
-	log.Info(ctx, "gc: set gc percent", zap.Int("value", b.config.GCPercent))
-	setupMemoryLimit(ctx, *b.config.GlobalConfiguration)
-	return nil
+	return tweakResources(*b.config.GlobalConfiguration).Fn(ctx)
 }
 
 func (b *builder) setupProfiling(ctx context.Context) error {
-	profileutil.StartCloudProfiler(ctx, b.name, b.config)
-	return nil
+	return setupProfiling(b.name, b.config).Fn(ctx)
 }
 
 func (b *builder) initJaeger(ctx context.Context) error {
-	// must run InstallJaegerTracer before InitWithKube (otherwise InitWithKube
-	// may create a pach client before tracing is active, not install the Jaeger
-	// gRPC interceptor in the client, and not propagate traces)
-	if endpoint := tracing.InstallJaegerTracerFromEnv(); endpoint != "" {
-		log.Info(ctx, "connecting to Jaeger", zap.String("endpoint", endpoint))
-	} else {
-		log.Info(ctx, "no Jaeger collector found (JAEGER_COLLECTOR_SERVICE_HOST not set)")
-	}
-	return nil
+	return initJaeger().Fn(ctx)
 }
 
 func (b *builder) initKube(ctx context.Context) error {
@@ -161,13 +144,7 @@ func (b *builder) setupDB(ctx context.Context) error {
 }
 
 func (b *builder) waitForDBState(ctx context.Context) error {
-	if err := dbutil.WaitUntilReady(ctx, b.env.GetDBClient()); err != nil {
-		return err
-	}
-	if err := migrations.BlockUntil(ctx, b.env.GetDBClient(), clusterstate.DesiredClusterState); err != nil {
-		return err
-	}
-	return nil
+	return awaitMigrations(b.env.GetDBClient()).Fn(ctx)
 }
 
 func (b *builder) initDexDB(ctx context.Context) error {
@@ -300,7 +277,11 @@ func (b *builder) registerPPSServer(ctx context.Context) error {
 
 func (b *builder) registerTransactionServer(ctx context.Context) error {
 	var err error
-	b.txn, err = transactionserver.NewAPIServer(b.env, b.txnEnv)
+	b.txn, err = transactionserver.NewAPIServer(transactionserver.Env{
+		DB:         b.env.GetDBClient(),
+		PGListener: b.env.GetPostgresListener(),
+		TxnEnv:     b.txnEnv,
+	})
 	if err != nil {
 		return err
 	}
@@ -390,7 +371,7 @@ func (b *builder) initS3Server(ctx context.Context) error {
 }
 
 func (b *builder) initPachHTTPServer(ctx context.Context) error {
-	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
+	b.daemon.pachhttp = http.New(ctx, b.env.Config().DownloadPort, b.env.GetPachClient)
 	return nil
 }
 
@@ -446,7 +427,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 		return err
 	}
 	go func() {
-		ctx := pctx.Child(ctx, "pfsMaster")
+		ctx := pctx.Child(ctx, "pfs-master")
 		if err := m.Run(ctx); err != nil {
 			log.Error(ctx, "from pfs-master", zap.Error(err))
 		}
@@ -455,16 +436,13 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 }
 
 func (b *builder) startPPSWorker(ctx context.Context) error {
-	pachClient := b.env.GetPachClient(ctx)
 	etcdPrefix := path.Join(b.env.Config().EtcdPrefix, b.env.Config().PPSEtcdPrefix)
 	w := pps_server.NewWorker(pps_server.WorkerEnv{
 		TaskService: b.env.GetTaskService(etcdPrefix),
-		PFS:         pachClient.PfsAPIClient,
+		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
 	})
 	go func() {
-		// This is necessary to set the auth token on the context
-		ctx := pachClient.Ctx()
-		ctx = pctx.Child(ctx, "ppsWorker")
+		ctx := pctx.Child(ctx, "pps-worker")
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from pps-worker", zap.Error(err))
 		}
@@ -473,16 +451,11 @@ func (b *builder) startPPSWorker(ctx context.Context) error {
 }
 
 func (b *builder) startDebugWorker(ctx context.Context) error {
-	pachClient := b.env.GetPachClient(ctx)
-	env := DebugEnv(b.env)
 	w := debugserver.NewWorker(debugserver.WorkerEnv{
-		PFS:         pachClient.PfsAPIClient,
-		TaskService: env.TaskService,
+		PFS:         b.env.GetPachClient(ctx).PfsAPIClient,
+		TaskService: b.env.GetTaskService(b.env.Config().EtcdPrefix),
 	})
 	go func() {
-		// This is necessary to set the auth token on the context
-		ctx = pachClient.Ctx()
-		ctx = pctx.Child(ctx, "debugWorker")
 		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from debug worker", zap.Error(err))
 		}

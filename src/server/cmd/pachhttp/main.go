@@ -25,7 +25,7 @@ func main() {
 	if err != nil {
 		log.Exit(ctx, "problem creating pachyderm client", zap.Error(err))
 	}
-	s := http.New(1659, func(ctx context.Context) *client.APIClient { return c.WithCtx(ctx) })
+	s := http.New(ctx, 1659, func(ctx context.Context) *client.APIClient { return c.WithCtx(ctx) })
 	log.Info(ctx, "starting server on port 1659")
 	if err := s.ListenAndServe(ctx); err != nil {
 		log.Exit(ctx, "problem running http server", zap.Error(err))
