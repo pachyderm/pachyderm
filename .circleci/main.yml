@@ -288,7 +288,7 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -gotestsumargs=\"--junitfile=${TEST_RESULTS}/circle/gotestsum-report.xml \
+              -gotestsum-args=\"--junitfile=${TEST_RESULTS}/circle/gotestsum-report.xml \
               --jsonfile=${TEST_RESULTS}/go-test-results.jsonl \
               --rerun-fails-max-failures=25\"
       - run:
