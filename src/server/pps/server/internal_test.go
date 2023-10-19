@@ -263,7 +263,7 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 			for name, spec := range specs {
 				b.Run(name, func(b *testing.B) {
 					for i := 0; i < b.N; i++ {
-						if _, _, err := makeEffectiveSpec(defaults, spec); err != nil {
+						if _, _, err := makeEffectiveSpec(defaults, `{}`, spec); err != nil {
 							b.Error(err)
 						}
 

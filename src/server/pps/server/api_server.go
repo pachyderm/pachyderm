@@ -2131,7 +2131,7 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
 		}
-		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
+		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", "{}", info.GetUserSpecJson())
 		if err != nil {
 			return err
 		}
@@ -2215,7 +2215,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 	if defaultsJSON == "" {
 		defaultsJSON = "{}"
 	}
-	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
+	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, "{}", req.GetCreatePipelineRequestJson())
 	if err != nil {
 		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
@@ -3782,7 +3782,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`, `{}`)
 	if err != nil {
 		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
@@ -3811,7 +3811,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			if pi.EffectiveSpecJson == "" {
 				pi.EffectiveSpecJson = pi.UserSpecJson
 			}
-			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), pi.UserSpecJson)
+			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`, pi.UserSpecJson)
 			if err != nil {
 				return errors.Wrap(err, "could not create effective spec")
 			}

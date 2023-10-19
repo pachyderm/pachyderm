@@ -307,7 +307,7 @@ func init() {
 // JSON-encoded ClusterDefaults) and user spec (a JSON-encoded
 // CreatePipelineRequest) by merging the user spec into the cluster defaults.
 // It returns the effective spec as both JSON and a CreatePipelineRequest.
-func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
+func makeEffectiveSpec(clusterDefaultsJSON, projectDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
 	type wrapper struct {
 		CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
 	}
