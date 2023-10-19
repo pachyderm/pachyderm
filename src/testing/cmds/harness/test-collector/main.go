@@ -133,6 +133,18 @@ func testNames(pkg string, addtlCmdArgs ...string) ([]string, error) {
 }
 
 func outputToFile(fileName string, pkgTests map[string][]string) error {
+	// create a lock file so tests know to wait to start if running tests at same time
+	lockFileName := fmt.Sprintf("lock-%s", fileName) // DNJ TODO share lock file name
+	lockF, err := os.Create(lockFileName)
+	if err != nil {
+		return err
+	}
+	err = lockF.Close()
+	if err != nil {
+		return err
+	}
+	defer os.Remove(lockFileName)
+
 	f, err := os.Create(fileName)
 	if err != nil {
 		return err

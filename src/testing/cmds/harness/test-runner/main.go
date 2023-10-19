@@ -9,7 +9,9 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -73,6 +75,20 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 }
 
 func readTests(ctx context.Context, fileName string) ([]string, error) {
+	lockFileName := fmt.Sprintf("lock-%s", fileName)
+	backoff.RetryNotify(func() error {
+		if _, err := os.Stat(fileName); err != nil {
+			return err // couldn't read file, so retry until it can
+		}
+		if _, err := os.Stat(lockFileName); err == nil {
+			return errors.Errorf("lock file for test collection still exists")
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*10), func(err error, d time.Duration) error {
+		log.Info(ctx, "retry waiting for tests to be collected.", zap.Error(err))
+		return nil
+	})
+
 	tests := []string{}
 	file, err := os.Open(fileName)
 	if err != nil {
