@@ -26,6 +26,11 @@ type idToken struct {
 func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
+		srw := &saveResponseWriter{
+			rw: &rw,
+			b:  &bytes.Buffer{},
+		}
+		next.ServeHTTP(srw, r)
 		ps, err := w.provisioners(ctx)
 		if err != nil {
 			log.Error(ctx, "failed to collect user provisioners", zap.Error(err))
@@ -35,11 +40,6 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 		if len(ps) == 0 {
 			return
 		}
-		srw := &saveResponseWriter{
-			rw: &rw,
-			b:  &bytes.Buffer{},
-		}
-		next.ServeHTTP(srw, r)
 		token, err := idTokenFromBytes(ctx, srw.b.Bytes())
 		if err != nil {
 			// TODO: this doesn't work
