@@ -75,11 +75,11 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Fire the trigger.
-		trigBI, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, bi.Branch.Repo.Project.Name, bi.Branch.Repo.Name,
-			bi.Branch.Repo.Type, bi.Branch.Name)
+		trigBIWithID, err := pfsdb.GetBranchInfoWithIDByName(ctx, txnCtx.SqlTx, bi.Branch.Repo.Project.Name, bi.Branch.Repo.Name, bi.Branch.Repo.Type, bi.Branch.Name)
 		if err != nil {
 			return nil, errors.Wrap(err, "trigger commit")
 		}
+		trigBI := trigBIWithID.BranchInfo
 		trigBI.Head = newHead.Commit
 		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
 		if err != nil {

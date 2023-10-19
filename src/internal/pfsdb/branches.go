@@ -67,16 +67,14 @@ func (err ErrBranchProvCycle) Error() string {
 
 // ErrBranchNotFound is returned by GetCommit() when a commit is not found in postgres.
 type ErrBranchNotFound struct {
-	ID        BranchID
-	BranchKey string
+	ID             BranchID
+	Project        string
+	Repo, RepoType string
+	Branch         string
 }
 
 func (err ErrBranchNotFound) Error() string {
-	if strings.Contains(err.BranchKey, pfs.UserRepoType) {
-		branchKeyWithoutUser := strings.Replace(err.BranchKey, "."+pfs.UserRepoType, "", 1)
-		return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, branchKeyWithoutUser)
-	}
-	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
+	return fmt.Sprintf("branch (id=%d, project=%s, repo=%s.%s, branch=%s) not found", err.ID, err.Project, err.Repo, err.RepoType, err.Branch)
 }
 
 func (err ErrBranchNotFound) GRPCStatus() *status.Status {
@@ -185,26 +183,24 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	return fetchBranchInfoByBranch(ctx, tx, branch)
 }
 
-// GetBranchInfoByName returns a *pfs.BranchInfo by name
-func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
+// GetBranchInfoWithIDByName returns both the branch's id and its info.
+func GetBranchInfoWithIDByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*BranchInfoWithID, error) {
 	row := &Branch{}
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		if err == sql.ErrNoRows {
-			errBranch := pfs.Branch{
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{Name: project},
-					Name:    repo,
-					Type:    repoType,
-				},
-				Name: branch,
+			// Could be repo does not exist, so check repo first.
+			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
+				return nil, err
 			}
-			return nil, ErrBranchNotFound{
-				BranchKey: errBranch.Key(),
-			}
+			return nil, ErrBranchNotFound{Project: project, Repo: repo, RepoType: repoType, Branch: branch}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return fetchBranchInfoByBranch(ctx, tx, row)
+	branchInfo, err := fetchBranchInfoByBranch(ctx, tx, row)
+	if err != nil {
+		return nil, err
+	}
+	return &BranchInfoWithID{ID: row.ID, BranchInfo: branchInfo}, nil
 }
 
 // GetBranchID returns the id of a branch given a set strings that uniquely identify a branch.
@@ -223,7 +219,10 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 		branch.Name,
 	); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, ErrBranchNotFound{BranchKey: branch.Key()}
+			if _, err := GetRepoByName(ctx, tx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type); err != nil {
+				return 0, err
+			}
+			return 0, ErrBranchNotFound{Project: branch.Repo.Project.Name, Repo: branch.Repo.Name, RepoType: branch.Repo.Type, Branch: branch.Name}
 		}
 		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
@@ -542,7 +541,6 @@ func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch subvenance")
 	}
-	// trigger info
 	branchInfo.Trigger, err = GetBranchTrigger(ctx, tx, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get branch trigger")

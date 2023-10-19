@@ -119,9 +119,9 @@ func TestBranchUpsert(t *testing.T) {
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
 			require.NoError(t, err)
 			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
-			gotBranchByName, err := pfsdb.GetBranchInfoByName(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Branch.Name)
+			gotBranchInfoWithID, err := pfsdb.GetBranchInfoWithIDByName(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Branch.Name)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
+			require.True(t, cmp.Equal(branchInfo, gotBranchInfoWithID.BranchInfo, compareBranchOpts()...))
 
 			// Update branch to point to second commit
 			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
@@ -429,7 +429,7 @@ func TestBranchTrigger(t *testing.T) {
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
 			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
 			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
-			require.True(t, errors.Is(err, pfsdb.ErrBranchNotFound{BranchKey: "project1/repo1.user@nonexistent"}))
+			require.ErrorIs(t, err, pfsdb.ErrBranchNotFound{Project: gotMasterBranchInfo.Branch.Repo.Project.Name, Repo: gotMasterBranchInfo.Branch.Repo.Name, RepoType: gotMasterBranchInfo.Branch.Repo.Type, Branch: gotMasterBranchInfo.Trigger.Branch})
 		})
 	})
 }

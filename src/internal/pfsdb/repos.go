@@ -10,6 +10,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -237,6 +238,10 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 		repoProject, repoName, repoType,
 	); err != nil {
 		if err == sql.ErrNoRows {
+			// Could be project name mismatch, so check project exists first.
+			if _, err := coredb.GetProjectByName(ctx, tx, repoProject); err != nil {
+				return nil, errors.Wrap(err, "get repo by name")
+			}
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
