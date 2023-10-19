@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: xlarge
-    parallelism: 2
+    parallelism: 4
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -175,7 +175,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 2
+    parallelism: 4
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -291,7 +291,6 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -gotestsum-args="--junitfile=${TEST_RESULTS}/circle/gotestsum-report.xml \-jsonfile=${TEST_RESULTS}/go-test-results.jsonl --rerun-fails-max-failures=25" \
               -threads=4
       - run:
           name: Format code coverage

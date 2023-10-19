@@ -70,7 +70,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 		}
 		eg.Go(func() error {
 			defer sem.Release(1)
-			return runTest(pkg, testName, gotestsumArgs, gotestArgs)
+			return runTest(pkg, testName, tags, gotestsumArgs, gotestArgs)
 		})
 	}
 	err = eg.Wait()
@@ -114,7 +114,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	return tests, nil
 }
 
-func runTest(pkg string, testName string, gotestsumArgs string, gotestArgs string) error {
+func runTest(pkg string, testName string, tags string, gotestsumArgs string, gotestArgs string) error {
 	findTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
@@ -124,7 +124,7 @@ func runTest(pkg string, testName string, gotestsumArgs string, gotestArgs strin
 	if gotestsumArgs != "" {
 		findTestArgs = append(findTestArgs, gotestsumArgs)
 	}
-	findTestArgs = append(findTestArgs, "--", fmt.Sprintf("-run=^%s$", testName))
+	findTestArgs = append(findTestArgs, "--", fmt.Sprintf("-tags=%s", tags), fmt.Sprintf("-run=^%s$", testName))
 	if gotestArgs != "" {
 		findTestArgs = append(findTestArgs, gotestArgs)
 	}
