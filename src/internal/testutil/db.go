@@ -95,7 +95,3 @@ func GenerateEphemeralDBName(t testing.TB) string {
 	// 	now.Hour(), now.Minute(), now.Second(),
 	// 	rand.Uint32())
 }
-
-func SetCleanup(c bool) {
-	cleanup = c
-}

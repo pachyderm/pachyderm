@@ -51,7 +51,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -4720,7 +4719,6 @@ func TestBranchProvenance(t *testing.T) {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
 			t.Parallel()
 			ctx := pctx.TestContext(t)
-			testutil.SetCleanup(false)
 			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 			for _, repo := range []string{"A", "B", "C", "D", "E"} {
 				require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
