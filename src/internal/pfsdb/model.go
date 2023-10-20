@@ -43,6 +43,10 @@ type Repo struct {
 	Branches string `db:"branches"`
 }
 
+func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return repo.CreatedAtUpdatedAt
+}
+
 func (repo *Repo) Pb() *pfs.Repo {
 	return &pfs.Repo{
 		Name:    repo.Name,
@@ -130,6 +134,10 @@ type Branch struct {
 	Repo Repo     `db:"repo"`
 	Name string   `db:"name"`
 	CreatedAtUpdatedAt
+}
+
+func (branch Branch) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return branch.CreatedAtUpdatedAt
 }
 
 func (branch *Branch) Pb() *pfs.Branch {
