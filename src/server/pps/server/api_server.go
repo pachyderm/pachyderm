@@ -124,6 +124,7 @@ type apiServer struct {
 	pipelines       col.PostgresCollection
 	jobs            col.PostgresCollection
 	clusterDefaults col.PostgresCollection
+	projectDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -3854,4 +3855,27 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
 	return &resp, nil
+}
+
+func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error) {
+	var projectDefaults ppsdb.ProjectDefaultsWrapper
+	if req.Project == nil {
+		return nil, badRequest(ctx, "missing project", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project", Description: "missing"},
+		})
+	} else if req.Project.Name == "" {
+		return nil, badRequest(ctx, "missing project name", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project.name", Description: "empty"},
+		})
+	}
+	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
+		return nil, err
+	}
+	if err := a.projectDefaults.ReadOnly(ctx).Get("", &projectDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, unknownError(ctx, "could not read project defaults", err)
+		}
+		projectDefaults.Json = "{}"
+	}
+	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
 }

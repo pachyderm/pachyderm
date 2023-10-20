@@ -1420,6 +1420,11 @@ class ApiStub:
             request_serializer=SetClusterDefaultsRequest.SerializeToString,
             response_deserializer=SetClusterDefaultsResponse.FromString,
         )
+        self.__rpc_get_project_defaults = channel.unary_unary(
+            "/pps_v2.API/GetProjectDefaults",
+            request_serializer=GetProjectDefaultsRequest.SerializeToString,
+            response_deserializer=GetProjectDefaultsResponse.FromString,
+        )
 
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
@@ -2003,6 +2008,15 @@ class ApiStub:
 
         return self.__rpc_set_cluster_defaults(request)
 
+    def get_project_defaults(
+        self, *, project: "_pfs__.Project" = None
+    ) -> "GetProjectDefaultsResponse":
+        request = GetProjectDefaultsRequest()
+        if project is not None:
+            request.project = project
+
+        return self.__rpc_get_project_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -2384,6 +2398,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_project_defaults(
+        self, project: "_pfs__.Project", context: "grpc.ServicerContext"
+    ) -> "GetProjectDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2573,5 +2594,10 @@ class ApiBase:
                 self.set_cluster_defaults,
                 request_deserializer=SetClusterDefaultsRequest.FromString,
                 response_serializer=SetClusterDefaultsRequest.SerializeToString,
+            ),
+            "GetProjectDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_project_defaults,
+                request_deserializer=GetProjectDefaultsRequest.FromString,
+                response_serializer=GetProjectDefaultsRequest.SerializeToString,
             ),
         }

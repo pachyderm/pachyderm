@@ -8070,6 +8070,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | QueryLoki | [LokiRequest](#pps_v2-LokiRequest) | [LokiLogMessage](#pps_v2-LokiLogMessage) stream | QueryLoki returns a stream of loki log messages given a query string |
 | GetClusterDefaults | [GetClusterDefaultsRequest](#pps_v2-GetClusterDefaultsRequest) | [GetClusterDefaultsResponse](#pps_v2-GetClusterDefaultsResponse) | GetClusterDefaults returns the current cluster defaults. |
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
+| GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
 
  
 

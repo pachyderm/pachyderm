@@ -85,6 +85,7 @@ func NewAPIServerNoMaster(env Env) (ppsiface.APIServer, error) {
 		pipelines:             ppsdb.Pipelines(env.DB, env.Listener),
 		jobs:                  ppsdb.Jobs(env.DB, env.Listener),
 		clusterDefaults:       ppsdb.ClusterDefaults(env.DB, env.Listener),
+		projectDefaults:       ppsdb.ProjectDefaults(env.DB, env.Listener),
 		workerGrpcPort:        config.PPSWorkerPort,
 		port:                  config.Port,
 		peerPort:              config.PeerPort,
@@ -112,6 +113,7 @@ func NewSidecarAPIServer(
 		pipelines:       ppsdb.Pipelines(env.DB, env.Listener),
 		jobs:            ppsdb.Jobs(env.DB, env.Listener),
 		clusterDefaults: ppsdb.ClusterDefaults(env.DB, env.Listener),
+		projectDefaults: ppsdb.ProjectDefaults(env.DB, env.Listener),
 		workerGrpcPort:  workerGrpcPort,
 		peerPort:        peerPort,
 	}
