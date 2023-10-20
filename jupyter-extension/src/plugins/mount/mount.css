@@ -454,7 +454,7 @@ textarea {
 }
 
 .jp-DirPagination a.active {
-  background-color: var(--jp-icon-contrast-color1);
+  background-color: var(--pachyderm-hover-plum);
   color: white;
 }
 
