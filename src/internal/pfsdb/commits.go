@@ -179,6 +179,11 @@ type AncestryOpt struct {
 	SkipParent   bool
 }
 
+// CommitsInRepoChannel returns the name of the channel that is notified when commits in repo 'repoID' are created, updated, or deleted
+func CommitsInRepoChannel(repoID RepoID) string {
+	return fmt.Sprintf("%s%d", CommitsRepoChannelName, repoID)
+}
+
 // CreateCommit creates an entry in the pfs.commits table. If the commit has a parent or children,
 // it will attempt to create entries in the pfs.commit_ancestry table unless options are provided to skip
 // ancestry creation.
