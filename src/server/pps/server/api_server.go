@@ -3845,7 +3845,10 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 	var (
 		cd  pps.ClusterDefaults
 		pp  map[*pps.Pipeline]*pps.CreatePipelineTransaction
-		cdg = new(cachedDefaultsGetter)
+		cdg = &cachedDefaultsGetter{
+			apiServer:       a,
+			clusterDefaults: req.GetClusterDefaultsJson(),
+		}
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
@@ -3858,7 +3861,6 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	cdg.clusterDefaults = req.GetClusterDefaultsJson()
 
 	if req.Regenerate {
 		// Determine if the new defaults imply changes to any pipelines.
