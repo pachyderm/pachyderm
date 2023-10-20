@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/semaphore"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -143,26 +144,35 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 	kube := testutil.GetKubeClient(t)
 	var idx int
 	var ns string
-	for idx = 1; idx < *poolSize+1; idx++ {
-		// if idx == *poolSize+1 {
-		// 	// DNJ TODO block until we can go, then restart the loop
-		// }
+	timeout := time.Second * 180
+	startAssign := time.Now()
+	for idx = 1; idx <= *poolSize+1; idx++ {
+		if idx == *poolSize+1 {
+			if time.Since(startAssign) > time.Second*180 {
+				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
+			}
+			// DNJ TODO block until we can go, then restart the loop
+			time.Sleep(5 * time.Second)
+			idx = 0
+			continue
+		}
 		ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
 		_, err := kube.CoordinationV1().
 			Leases(ns).
 			Get(context.Background(), fmt.Sprintf("%s%v", leasePrefix, idx), v1.GetOptions{})
 		if k8serrors.IsNotFound(err) { // DNJ TODO this probably needs to PutNamespace here now - is that ok with tests?
-			PutNamespace(t, ns) // DNJ TODO - need to check error to detect a race - then continue if conflict
+			PutNamespace(t, ns)
 			err = putLease(t, ns)
-			if !k8serrors.IsAlreadyExists(err) { // if it already exists, but didn't before we were racing, so continue to take the next namespaace
-				require.NoError(t, err)
-				break
+			if k8serrors.IsAlreadyExists(err) { // if it already exists, but didn't before we were racing, so don't break to take the next namespaace
+				continue
 			}
+			require.NoError(t, err)
+			break
 		} else {
 			require.NoError(t, err)
 		}
 	}
-	// cf.mu.Lock()
+	// cf.mu.Lock() // DNJ TODSO -clean
 	// defer cf.mu.Unlock()
 	// idx := len(cf.managedClusters) + 1
 	// v := fmt.Sprintf("%s%v", namespacePrefix, idx)

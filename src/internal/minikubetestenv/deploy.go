@@ -25,6 +25,7 @@ import (
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
@@ -757,7 +758,9 @@ func PutNamespace(t testing.TB, namespace string) {
 				},
 			},
 			metav1.CreateOptions{})
-		require.NoError(t, err)
+		if !k8serrors.IsAlreadyExists(err) { // if it already exists we still have the end result we want and idempotence
+			require.NoError(t, err)
+		}
 	}
 }
 func putLease(t testing.TB, namespace string) error {

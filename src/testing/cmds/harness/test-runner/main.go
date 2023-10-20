@@ -149,7 +149,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs string, 
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
 
-	findTestArgs = append(findTestArgs, "--",
+	findTestArgs = append(findTestArgs, "--", "-v",
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()))
 	if gotestArgs != "" {
