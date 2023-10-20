@@ -4,7 +4,7 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"github.com/grpc-ecosystem/grpc-gateway/v2/runtime"
@@ -25,7 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/worker"
 )
 
-func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) http.Handler {
+func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) (http.Handler, error) {
 
 	ctx = pctx.Child(ctx, "restgateway")
 
@@ -36,77 +36,42 @@ func NewMux(ctx context.Context, grpcConn *grpc.ClientConn) http.Handler {
 		return s, false
 	}))
 
-	err := pps.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register pps api with grpc-gateway")
-		return nil
+	var errs error
+	if err := pps.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register PPS"))
 	}
-
-	err = pfs.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register pfs api with grpc-gateway")
-		return nil
+	if err := pfs.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register PFS"))
 	}
-
-	err = worker.RegisterWorkerHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register worker api with grpc-gateway")
-		return nil
+	if err := worker.RegisterWorkerHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register worker"))
 	}
-
-	err = proxy.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register proxy api with grpc-gateway")
-		return nil
+	if err := proxy.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register proxy"))
 	}
-
-	err = admin.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register admin api with grpc-gateway")
-		return nil
+	if err := admin.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register admin"))
 	}
-
-	err = auth.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register auth api with grpc-gateway")
-		return nil
+	if err := auth.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register auth"))
 	}
-
-	err = license.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register license api with grpc-gateway")
-		return nil
+	if err := license.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register license"))
 	}
-
-	err = identity.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register identity api with grpc-gateway")
-		return nil
+	if err := identity.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register identity"))
 	}
-
-	err = debug.RegisterDebugHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register debug api with grpc-gateway")
-		return nil
+	if err := debug.RegisterDebugHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register debug"))
 	}
-
-	err = enterprise.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register enterprise api with grpc-gateway")
-		return nil
+	if err := enterprise.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register enterprise"))
 	}
-
-	err = transaction.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register transaction api with grpc-gateway")
-		return nil
+	if err := transaction.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register transaction"))
 	}
-
-	err = versionpb.RegisterAPIHandler(ctx, mux, grpcConn)
-	if err != nil {
-		log.Error(ctx, "failed to register version api with grpc-gateway")
-		return nil
+	if err := versionpb.RegisterAPIHandler(ctx, mux, grpcConn); err != nil {
+		errors.JoinInto(&errs, errors.Wrap(err, "register version"))
 	}
-
-	return mux
+	return mux, errs
 }

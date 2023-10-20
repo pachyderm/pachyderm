@@ -2131,17 +2131,17 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
 		}
-		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
-		if err != nil {
-			return err
+		var effectiveSpec pps.CreatePipelineRequest
+		if err := protojson.Unmarshal([]byte(info.GetEffectiveSpecJson()), &effectiveSpec); err != nil {
+			return errors.Wrapf(err, "could not unmarshal effective spec %s", info.GetEffectiveSpecJson())
 		}
 
 		effectiveSpec.Reprocess = request.Reprocess
 		effectiveSpec.Update = true
 
 		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
-			CreatePipelineRequest: effectiveSpec,
-			EffectiveJson:         effectiveSpecJSON,
+			CreatePipelineRequest: &effectiveSpec,
+			EffectiveJson:         info.GetEffectiveSpecJson(),
 			UserJson:              info.GetUserSpecJson(),
 		})
 	}); err != nil {
