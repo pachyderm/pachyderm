@@ -71,3 +71,6 @@ __pycache__
 
 # Dev files
 .vscode/
+
+# Test files
+tests_to_run.csv

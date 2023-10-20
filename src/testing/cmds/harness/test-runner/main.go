@@ -54,27 +54,41 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs string
 		return errors.Wrapf(err, "reading file %v", fileName)
 	}
 	slices.Sort(tests) // sort so we shard them from a pre-determined order
-	// loop through by the number of shards so that each gets a roughly equal number
-	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-	sem := semaphore.NewWeighted(int64(threadPool))
-	eg, _ := errgroup.WithContext(ctx)
-	count := 0
+
+	// loop through by the number of shards so that each gets a roughly equal number on each
+	testsForShard := map[string][]string{}
 	for idx := shard; idx < len(tests); idx += totalShards {
 		val := strings.Split(tests[idx], ",")
 		pkg := val[0]
 		testName := val[1]
-		count++
+		// index all tests by package as we collect the ones for this shard. This lets
+		// us run all tests in each package on this shard with one `go test` command, preserving the serial
+		// running of tests without t.parallel the same way that go test ./... would since
+		// got test also runs packages in paralllel.
+		if _, ok := testsForShard[pkg]; !ok {
+			testsForShard[pkg] = []string{testName}
+		} else {
+			testsForShard[pkg] = append(testsForShard[pkg], testName)
+		}
+	}
+
+	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
+	sem := semaphore.NewWeighted(int64(threadPool))
+	eg, _ := errgroup.WithContext(ctx)
+	for pkg, tests := range testsForShard {
+		threadLocalPkg := pkg
+		threadLocalTests := tests
 		err = sem.Acquire(ctx, 1)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		eg.Go(func() error {
 			defer sem.Release(1)
-			return runTest(pkg, testName, tags, gotestsumArgs, gotestArgs)
+			return runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs)
 		})
 	}
 	err = eg.Wait()
-	fmt.Printf("%d tests distributed to this shard.\n", count)
+
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -114,24 +128,37 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	return tests, nil
 }
 
-func runTest(pkg string, testName string, tags string, gotestsumArgs string, gotestArgs string) error {
+// run tests with `go test`. We run one package at a time so tests with the same name in different packages
+// like TestConfig or TestDebug don't run multiple times if they land on separate shards.
+func runTest(pkg string, testNames []string, tags string, gotestsumArgs string, gotestArgs string) error {
 	findTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
+		"--rerun-fails-max-failures=3",
 		"--format=testname",
 		"--debug",
 	}
 	if gotestsumArgs != "" {
 		findTestArgs = append(findTestArgs, gotestsumArgs)
 	}
-	findTestArgs = append(findTestArgs, "--", fmt.Sprintf("-tags=%s", tags), fmt.Sprintf("-run=^%s$", testName))
+	testRegex := strings.Builder{}
+	for _, test := range testNames {
+		if testRegex.Len() > 0 {
+			testRegex.WriteString("|")
+		}
+		testRegex.WriteString(fmt.Sprintf("^%s$", test))
+	}
+
+	findTestArgs = append(findTestArgs, "--",
+		fmt.Sprintf("-tags=%s", tags),
+		fmt.Sprintf("-run=%s", testRegex.String()))
 	if gotestArgs != "" {
 		findTestArgs = append(findTestArgs, gotestArgs)
 	}
 
 	cmd := exec.Command("gotestsum", findTestArgs...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "CGO_ENABLED=0") // DNJ TODO - parameter?
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0") // DNJ TODO - parameter - how to take form args?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
 	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
