@@ -134,7 +134,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs string, 
 	findTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
-		"--rerun-fails-max-failures=2",
+		"--rerun-fails-max-failures=1",
 		"--format=testname",
 		"--debug",
 	}
