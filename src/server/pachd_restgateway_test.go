@@ -3,7 +3,9 @@
 package server
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +23,7 @@ func TestRouting(t *testing.T) {
 		name     string
 		method   string
 		url      string
+		body     []byte
 		wantCode int
 	}{
 		{
@@ -41,19 +44,33 @@ func TestRouting(t *testing.T) {
 			url:      "http://pachyderm.example.com/jsonschema/pps_v2/CreatePipelineRequest.schema.json",
 			wantCode: http.StatusOK,
 		},
+		{
+			name:     "restgateway InspectCluster",
+			method:   "POST",
+			url:      "http://pachyderm.example.com/api/admin_v2.API/InspectCluster",
+			body:     []byte(`{"clientVersion":{}}`),
+			wantCode: http.StatusOK,
+		},
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := pctx.TestContext(t)
 
-			s := pachdhttp.New(ctx, 0, func(ctx context.Context) *client.APIClient {
+			s, err := pachdhttp.New(ctx, 0, func(ctx context.Context) *client.APIClient {
 				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
 				client := env.PachClient
 				return client
 			})
+			if err != nil {
+				t.Fatalf("new pachdhttp server: %v", err)
+			}
 			log.AddLoggerToHTTPServer(ctx, test.name, s.Server)
 
-			req := httptest.NewRequest(test.method, test.url, nil)
+			var body io.Reader
+			if test.body != nil {
+				body = bytes.NewReader(test.body)
+			}
+			req := httptest.NewRequest(test.method, test.url, body)
 			req = req.WithContext(ctx)
 			rec := httptest.NewRecorder()
 
