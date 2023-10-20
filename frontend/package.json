@@ -77,7 +77,7 @@
     "react-router": "5.3.4",
     "react-router-dom": "5.3.4",
     "react-transition-group": "4.4.5",
-    "react-virtualized-auto-sizer": "1.0.7",
+    "react-virtualized-auto-sizer": "1.0.20",
     "react-window": "1.8.8",
     "remark-gfm": "3.0.1",
     "rudder-sdk-js": "2.20.0"

@@ -2,7 +2,7 @@ import {ApolloError} from '@apollo/client';
 import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
-import AutoSizer from 'react-virtualized-auto-sizer';
+import AutoSizer, {Size} from 'react-virtualized-auto-sizer';
 import {VariableSizeList} from 'react-window';
 
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
@@ -47,7 +47,7 @@ const LogsBody: React.FC<LogsBodyProps> = ({
   if (logs.length > 0) {
     return (
       <AutoSizer key={page}>
-        {({height, width}) => (
+        {({height, width}: Size) => (
           <VariableSizeList
             ref={listRef}
             className={classnames({[styles.raw]: rawLogs})}
