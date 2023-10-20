@@ -11,13 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-const (
-	DefaultPostgresHost     = "127.0.0.1"
-	DefaultPostgresUser     = "pachyderm"
-	DefaultPostgresPassword = "correcthorsebatterystaple"
-	DefaultPostgresDatabase = "pachyderm"
-)
-
 // set this to false if you want to keep the database around
 var cleanup = true
 

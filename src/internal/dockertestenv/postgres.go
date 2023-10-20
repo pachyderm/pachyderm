@@ -18,9 +18,12 @@ import (
 )
 
 const (
-	postgresPort  = 30228
-	PGBouncerPort = 30229
-	maxOpenConns  = 10
+	postgresPort            = 30228
+	PGBouncerPort           = 30229
+	maxOpenConns            = 10
+	DefaultPostgresPassword = "correcthorsebatterystable"
+	DefaultPostgresUser     = "pachyderm"
+	DefaultPostgresDatabase = "pachyderm"
 )
 
 func postgresHost() string {
@@ -31,7 +34,49 @@ func PGBouncerHost() string {
 	return postgresHost()
 }
 
-func NewTestDBConfig(t testing.TB) pachconfig.ConfigOption {
+type PostgresConfig struct {
+	Host     string
+	Port     uint16
+	User     string
+	Password string
+
+	DBName string
+}
+
+func (pgc PostgresConfig) DBOptions() []dbutil.Option {
+	return []dbutil.Option{
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(pgc.User, pgc.Password),
+		dbutil.WithHostPort(pgc.Host, int(pgc.Port)),
+		dbutil.WithDBName(pgc.DBName),
+	}
+}
+
+type DBConfig struct {
+	Direct    PostgresConfig
+	PGBouncer PostgresConfig
+	Identity  PostgresConfig
+}
+
+func (dbc DBConfig) PachConfigOption(c *pachconfig.Configuration) {
+	// common
+	c.PostgresDBName = dbc.PGBouncer.DBName
+	c.IdentityServerDatabase = dbc.Identity.DBName
+	c.PostgresUser = dbc.PGBouncer.User
+	c.PostgresPassword = dbc.PGBouncer.Password
+
+	// direct
+	c.PostgresHost = dbc.Direct.Host
+	c.PostgresPort = int(dbc.Direct.Port)
+
+	// pg_bouncer
+	c.PGBouncerHost = dbc.PGBouncer.Host
+	c.PGBouncerPort = int(dbc.PGBouncer.Port)
+}
+
+// NewTestDBConfig returns a DBConfig for a test environment
+// The environment will be torn down at the end of the test.
+func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
 		ctx     = pctx.Background("testDB")
 		dbName  = testutil.GenerateEphemeralDBName(t)
@@ -43,83 +88,49 @@ func NewTestDBConfig(t testing.TB) pachconfig.ConfigOption {
 	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+		dbutil.WithDBName(DefaultPostgresDatabase),
 	)
 	testutil.CreateEphemeralDB(t, db, dbName)
 	testutil.CreateEphemeralDB(t, db, dexName)
-	return func(c *pachconfig.Configuration) {
-		// common
-		c.PostgresDBName = dbName
-		c.IdentityServerDatabase = dexName
-
-		// direct
-		c.PostgresHost = postgresHost()
-		c.PostgresPort = postgresPort
-		// pg_bouncer
-		c.PGBouncerHost = PGBouncerHost()
-		c.PGBouncerPort = PGBouncerPort
-
-		c.PostgresUser = testutil.DefaultPostgresUser
+	return DBConfig{
+		Direct: PostgresConfig{
+			Host:     postgresHost(),
+			Port:     postgresPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		PGBouncer: PostgresConfig{
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		Identity: PostgresConfig{
+			DBName: dexName,
+		},
 	}
 }
 
+// NewTestDB creates a new database connection scoped to the test.
 func NewTestDB(t testing.TB) *pachsql.DB {
-	return testutil.OpenDB(t, NewTestDBOptions(t)...)
+	cfg := NewTestDBConfig(t)
+	return testutil.OpenDB(t, cfg.PGBouncer.DBOptions()...)
+}
+
+func NewTestDirectDB(t testing.TB) *pachsql.DB {
+	cfg := NewTestDBConfig(t)
+	return testutil.OpenDB(t, cfg.Direct.DBOptions()...)
 }
 
 // NewEphemeralPostgresDB creates a randomly-named new database, returning a
 // connection to the new DB and the name itself.
 func NewEphemeralPostgresDB(ctx context.Context, t testing.TB) (*pachsql.DB, string) {
-	var (
-		name = testutil.GenerateEphemeralDBName(t)
-	)
-	err := backoff.Retry(func() error {
-		return ensureDBEnv(t, ctx)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err, "DB should be created")
-	db := testutil.OpenDB(t,
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-	)
-	testutil.CreateEphemeralDB(t, db, name)
-	return testutil.OpenDB(t,
-		dbutil.WithMaxOpenConns(1),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-		dbutil.WithDBName(name),
-	), name
-}
-
-func NewTestDBOptions(t testing.TB) []dbutil.Option {
-	ctx := context.Background()
-	err := backoff.Retry(func() error {
-		return ensureDBEnv(t, ctx)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err, "DB should be created")
-	return testutil.NewTestDBOptions(t, []dbutil.Option{
-		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithMaxOpenConns(maxOpenConns),
-	})
-}
-
-func NewTestDirectDBOptions(t testing.TB) []dbutil.Option {
-	ctx := context.Background()
-	err := backoff.Retry(func() error {
-		return ensureDBEnv(t, ctx)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err, "DB should be created")
-	return testutil.NewTestDBOptions(t, []dbutil.Option{
-		dbutil.WithDBName(testutil.DefaultPostgresDatabase),
-		dbutil.WithHostPort(postgresHost(), postgresPort),
-		dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
-		dbutil.WithMaxOpenConns(maxOpenConns),
-	})
+	c := NewTestDBConfig(t)
+	return testutil.OpenDB(t, c.Direct.DBOptions()...), c.Direct.DBName
 }
 
 var spawnLock sync.Mutex
@@ -179,9 +190,9 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 
 	return backoff.RetryUntilCancel(ctx, func() error {
 		db, err := dbutil.NewDB(
-			dbutil.WithDBName(testutil.DefaultPostgresDatabase),
+			dbutil.WithDBName(DefaultPostgresDatabase),
 			dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
-			dbutil.WithUserPassword(testutil.DefaultPostgresUser, testutil.DefaultPostgresPassword),
+			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		)
 		if err != nil {
 			t.Logf("error connecting to db: %v", err)

@@ -203,3 +203,23 @@ func isTransactionError(err error) bool {
 	pgxErr := &pgconn.PgError{}
 	return errors.As(err, &pgxErr) && strings.HasPrefix(pgxErr.Code, "40")
 }
+
+// DoTx is a shorter alias for WithTx
+func DoTx(ctx context.Context, db *pachsql.DB, fn func(ctx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
+	return WithTx(ctx, db, fn, opts...)
+}
+
+// DoTx1 performs a transaction which returns 1 value or an error
+func DoTx1[T any](ctx context.Context, db *pachsql.DB, fn func(ctx context.Context, tx *pachsql.Tx) (T, error), opts ...WithTxOption) (T, error) {
+	var ret T
+	err := DoTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+		var err error
+		ret, err = fn(ctx, tx)
+		return err
+	})
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return ret, nil
+}

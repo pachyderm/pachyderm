@@ -1,12 +1,13 @@
 package clusterstate
 
 import (
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -20,8 +21,7 @@ import (
 
 func Test_v2_8_0_ClusterState(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
-	defer db.Close()
+	db := dockertestenv.NewTestDirectDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 
 	// Pre-migration

@@ -13,6 +13,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -153,6 +154,7 @@ type Full struct {
 	selfGRPC        *grpc.ClientConn
 	authInterceptor *auth_interceptor.Interceptor
 	txnEnv          *transactionenv.TransactionEnv
+	pgLis           collection.PostgresListener
 
 	healthSrv grpc_health_v1.HealthServer
 	version   version.APIServer

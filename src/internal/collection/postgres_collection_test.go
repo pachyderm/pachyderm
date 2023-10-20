@@ -54,7 +54,7 @@ func TestPostgresCollections(suite *testing.T) {
 func TestPostgresCollectionsProxy(suite *testing.T) {
 	ctx := pctx.TestContext(suite)
 	watchTests(ctx, suite, newCollectionFunc(func(_ context.Context, t *testing.T) (*pachsql.DB, col.PostgresListener) {
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 		listener := client.NewProxyPostgresListener(func() (proxy.APIClient, error) { return env.PachClient.ProxyClient, nil })
 		t.Cleanup(func() {
 			require.NoError(t, listener.Close())
@@ -211,7 +211,7 @@ func PostgresCollectionWatchTests(suite *testing.T, newCollection func(context.C
 }
 
 func newTestDB(t testing.TB) (*pachsql.DB, string) {
-	options := dockertestenv.NewTestDBOptions(t)
+	options := dockertestenv.NewTestDBConfig(t).PGBouncer.DBOptions()
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)
 	require.NoError(t, err)
@@ -222,7 +222,7 @@ func newTestDB(t testing.TB) (*pachsql.DB, string) {
 }
 
 func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
-	options := dockertestenv.NewTestDirectDBOptions(t)
+	options := dockertestenv.NewTestDBConfig(t).PGBouncer.DBOptions()
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)
 	require.NoError(t, err)
