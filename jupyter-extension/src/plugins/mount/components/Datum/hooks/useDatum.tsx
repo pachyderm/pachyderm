@@ -172,6 +172,7 @@ export const useDatum = (
       open('');
       setCurrDatum(res);
     } catch (e) {
+      console.log(e);
       if (e instanceof ServerConnection.ResponseError) {
         setCurrDatum({
           id: currDatum.id,

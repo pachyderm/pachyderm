@@ -45,10 +45,6 @@ import (
 // specify page size. #ListDatumPagination
 const NumDatumsPerPage = 0 // The number of datums requested per ListDatum call
 
-var (
-	ErrUnsupportedInputType = errors.New("input type not supported")
-)
-
 type ServerOptions struct {
 	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
@@ -616,12 +612,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-		// Reset DatumState in case datums were mounted
-		mm.resetDatumState()
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Reset DatumState in case datums were mounted
+		mm.resetDatumState()
 		defer req.Body.Close()
 		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
@@ -637,11 +633,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := mm.sanitizeInputAndSaveAliasMap(pipelineReq.Input); err != nil {
+		var useGlobFile bool
+		if useGlobFile, err = mm.processInput(pipelineReq.Input); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := mm.GetDatums(); err != nil {
+		if err := mm.GetDatums(useGlobFile); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -1185,14 +1182,21 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) error {
+// Create a map from input to mount name(s) for use in mounting datums
+// Return whether the input has a cron, group by, or join for later use to
+// determine whether to use GlobFile or ListDatum #ListDatumPagination
+func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 	if datumInput == nil {
-		return errors.New("datum input is not specified")
+		return true, errors.New("datum input is not specified")
 	}
 
 	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
+	useGlobFile := true
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
+			if input.Cron != nil || input.Join != nil || input.Group != nil {
+				useGlobFile = false
+			}
 			return nil
 		}
 
@@ -1227,7 +1231,7 @@ func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) erro
 		}
 		return nil
 	}); err != nil {
-		return err
+		return true, err
 	}
 	func() {
 		mm.mu.Lock()
@@ -1235,7 +1239,7 @@ func (mm *MountManager) sanitizeInputAndSaveAliasMap(datumInput *pps.Input) erro
 		mm.DatumInput = datumInput
 		mm.DatumInputsToMounts = datumInputsToMounts
 	}()
-	return nil
+	return useGlobFile, nil
 }
 
 func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
@@ -1264,16 +1268,14 @@ func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) (
 	}
 }
 
-func (mm *MountManager) GetDatums() (retErr error) {
+func (mm *MountManager) GetDatums(useGlobFile bool) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	// TODO: Try creating datums using GlobFile for now because it's faster than ListDatum.
 	// Once ListDatum pagination is efficient, we can remove this. #ListDatumPagination
-	if err := mm.CreateDatums(); err == nil {
-		return nil
-	} else if !errors.Is(err, ErrUnsupportedInputType) {
-		return err
+	if useGlobFile {
+		return mm.CreateDatums()
 	}
 	// If input spec has Join or Group, fall back to ListDatum
 	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
@@ -1295,53 +1297,9 @@ func (mm *MountManager) GetDatums() (retErr error) {
 	return nil
 }
 
-func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) error {
-	var source []*pps.Input
-	switch {
-	case input == nil:
-		return errors.Errorf("spouts not supported") // Spouts may have nil input
-	case input.Cross != nil:
-		source = input.Cross
-	case input.Join != nil:
-		source = input.Join
-	case input.Group != nil:
-		source = input.Group
-	case input.Union != nil:
-		source = input.Union
-	}
-	for _, input := range source {
-		if err := visitInput(input, level+1, f); err != nil {
-			return err
-		}
-	}
-	return f(input, level)
-}
-
-func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
-	if len(datums) == 0 {
-		return nil
-	}
-	ret := datums[0]
-	for _, slice := range datums[1:] {
-		var temp []*pps.DatumInfo
-		for _, d1 := range ret {
-			for _, d2 := range slice {
-				temp = append(temp, &pps.DatumInfo{
-					Data: append(d1.Data, d2.Data...),
-				})
-			}
-		}
-		ret = temp
-	}
-	return ret
-}
-
 func (mm *MountManager) CreateDatums() error {
 	datumsAtLevel := make(map[int][][]*pps.DatumInfo)
 	if err := visitInput(mm.DatumInput, 0, func(input *pps.Input, level int) error {
-		if input.Cron != nil || input.Join != nil || input.Group != nil {
-			return ErrUnsupportedInputType
-		}
 		if input.Pfs != nil {
 			// Glob file to get datums associated with this PFS input
 			commit := client.NewCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
@@ -1385,14 +1343,6 @@ func (mm *MountManager) CreateDatums() error {
 		mm.AllDatumsReceived = true
 	}()
 	return nil
-}
-
-func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
-	datumInputsToMountsCopy := map[string][]string{}
-	for k, v := range datumInputsToMounts {
-		datumInputsToMountsCopy[k] = v
-	}
-	return datumInputsToMountsCopy
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {

@@ -3,6 +3,9 @@ package fuse
 import (
 	"path/filepath"
 	"strings"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 const Separator = string(filepath.Separator)
@@ -61,4 +64,53 @@ func isDescendantOf(path1, path2 string) bool {
 	path1 = standardizeSlashes(path1)
 	path2 = standardizeSlashes(path2)
 	return strings.HasPrefix(path1, path2)
+}
+
+func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) error {
+	var source []*pps.Input
+	switch {
+	case input == nil:
+		return errors.Errorf("spouts not supported") // Spouts may have nil input
+	case input.Cross != nil:
+		source = input.Cross
+	case input.Join != nil:
+		source = input.Join
+	case input.Group != nil:
+		source = input.Group
+	case input.Union != nil:
+		source = input.Union
+	}
+	for _, input := range source {
+		if err := visitInput(input, level+1, f); err != nil {
+			return err
+		}
+	}
+	return f(input, level)
+}
+
+func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
+	if len(datums) == 0 {
+		return nil
+	}
+	ret := datums[0]
+	for _, slice := range datums[1:] {
+		var temp []*pps.DatumInfo
+		for _, d1 := range ret {
+			for _, d2 := range slice {
+				temp = append(temp, &pps.DatumInfo{
+					Data: append(d1.Data, d2.Data...),
+				})
+			}
+		}
+		ret = temp
+	}
+	return ret
+}
+
+func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
+	datumInputsToMountsCopy := map[string][]string{}
+	for k, v := range datumInputsToMounts {
+		datumInputsToMountsCopy[k] = v
+	}
+	return datumInputsToMountsCopy
 }
