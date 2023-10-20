@@ -286,12 +286,12 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMAXPROCS=2 go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=8 go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=1
+              -threads=4
       - run:
           name: Format code coverage
           when: always

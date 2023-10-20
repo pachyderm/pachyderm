@@ -37,7 +37,7 @@ var (
 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
 	}
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 4, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 10, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
 	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
@@ -144,11 +144,11 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 	kube := testutil.GetKubeClient(t)
 	var idx int
 	var ns string
-	timeout := time.Second * 180
+	timeout := time.Second * 300
 	startAssign := time.Now()
 	for idx = 1; idx <= *poolSize+1; idx++ {
 		if idx == *poolSize+1 {
-			if time.Since(startAssign) > time.Second*180 {
+			if time.Since(startAssign) > timeout {
 				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
 			}
 			// DNJ TODO block until we can go, then restart the loop
@@ -183,7 +183,6 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
-	PutNamespace(t, assigned)
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
@@ -264,10 +263,10 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	for _, o := range opts {
 		o(as)
 	}
-	assigned, mc := clusterFactory.acquireFreeCluster()
-	if assigned == "" {
-		assigned, mc = clusterFactory.acquireNewCluster(t, as)
-	}
+	// assigned, mc := clusterFactory.acquireFreeCluster() // DNJ TODO - anything we can do for perf so we don't always install?
+	// if assigned == "" {
+	assigned, mc := clusterFactory.acquireNewCluster(t, as)
+	// }
 
 	// If the cluster settings have changed, upgrade the cluster to make them take effect.
 	if !reflect.DeepEqual(mc.settings, as) {
