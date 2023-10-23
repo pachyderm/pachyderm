@@ -737,10 +737,6 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	var values []any
 	// Note that using ? as the bindvar is okay because we rebind it later.
 	if filter != nil {
-		if filter.Repo.Project != nil && filter.Repo.Project.Name != "" {
-			conditions = append(conditions, "project.name = ?")
-			values = append(values, filter.Repo.Project.Name)
-		}
 		if filter.Repo != nil && filter.Repo.Name != "" {
 			conditions = append(conditions, "repo.name = ?")
 			values = append(values, filter.Repo.Name)
@@ -748,6 +744,10 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 		if filter.Repo != nil && filter.Repo.Type != "" {
 			conditions = append(conditions, "repo.type = ?")
 			values = append(values, filter.Repo.Type)
+		}
+		if filter.Repo != nil && filter.Repo.Project != nil && filter.Repo.Project.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Repo.Project.Name)
 		}
 		if filter.Id != "" {
 			conditions = append(conditions, "commit.commit_set_id = ?")
