@@ -112,7 +112,7 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 		}
 		parsedValue, err := parseField(structField, value)
 		if err != nil {
-			errors.JoinInto(&errs, errors.Wrapf(err, "%v (=%v)", structField.Name, value))
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v (%v = %v)", envTag.key, structField.Name, value))
 			continue
 		}
 		reflectValue.Field(i).Set(reflect.ValueOf(parsedValue))
