@@ -377,7 +377,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoPair)
 	}
 	defer watcher.Close()
 	// Get existing entries.
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{repoKey}}, false, true)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: repoPair.RepoInfo.Repo})
 	if err != nil {
 		return errors.Wrap(err, "create list commits iterator")
 	}

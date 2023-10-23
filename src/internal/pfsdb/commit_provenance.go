@@ -2,6 +2,7 @@ package pfsdb
 
 import (
 	"context"
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -60,7 +61,7 @@ func CommitSetProvenance(tx *pachsql.Tx, id string) (_ []*pfs.Commit, retErr err
 	return cs, nil
 }
 
-func CommitDirectProvenance(ctx context.Context, tx *pachsql.Tx, id CommitID) ([]*pfs.Commit, error) {
+func CommitDirectProvenance(ctx context.Context, extCtx sqlx.ExtContext, id CommitID) ([]*pfs.Commit, error) {
 	var commits []Commit
 	query := `
 	SELECT DISTINCT
@@ -77,7 +78,7 @@ func CommitDirectProvenance(ctx context.Context, tx *pachsql.Tx, id CommitID) ([
 		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
 	WHERE prov.from_id = $1	
 	`
-	if err := tx.SelectContext(ctx, &commits, query, id); err != nil {
+	if err := sqlx.SelectContext(ctx, extCtx, &commits, query, id); err != nil {
 		return nil, errors.Wrapf(err, "getting direct commit provenance for commitID=%d", id)
 	}
 	var commitPbs []*pfs.Commit
