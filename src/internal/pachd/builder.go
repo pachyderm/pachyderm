@@ -486,13 +486,13 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 	// > account for memory sources the Go runtime is unaware of.
 	//
 	// We pick 5%, since CGO_ENABLED=0 which reduces "unknown" sources of memory.
-	var target int64
+	var target float64
 	var source string
 	if v := config.K8sMemoryRequest; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes request"
 	} else if v := config.K8sMemoryLimit; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes limit"
 	}
 	if target <= 0 {
@@ -500,8 +500,9 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 		return
 	}
 
-	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
-	debug.SetMemoryLimit(target)
+	actual := int64(math.Ceil(target))
+	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(actual))), zap.String("setFrom", source))
+	debug.SetMemoryLimit(actual)
 }
 
 func (b *builder) newDebugServer() debugclient.DebugServer {
