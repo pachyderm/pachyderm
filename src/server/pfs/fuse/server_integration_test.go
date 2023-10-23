@@ -239,20 +239,20 @@ func TestCrossDatum(t *testing.T) {
 				'cross': [
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m2'}}
 						]
 					},
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m2'}}
 						]
 					},
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m3'}},
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m3'}}
 						]
 					}
 				]
@@ -269,6 +269,10 @@ func TestCrossDatum(t *testing.T) {
 		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 16, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		files, err = os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 6, len(files))
 	})
 }
 
@@ -323,14 +327,14 @@ func TestUnionDatum(t *testing.T) {
 				'union': [
 					{
 						'union': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m2'}}
 						]
 					},
 					{
 						'union': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m2'}}
 						]
 					}
 				]
@@ -439,8 +443,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 
 	withServerMount(t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
-			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}}]}}`,
+			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo2_m2'}}]}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
 		resp, err := put("datums/_mount", bytes.NewReader(input))
@@ -456,8 +460,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 
 		files, err := os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, files[0].Name()))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -466,9 +470,9 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.Equal(t, 200, resp.StatusCode)
 
 		input = []byte(fmt.Sprintf(
-			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
+			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m2'}},
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev', 'name': 'repo1_m3'}},}}]}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
 		resp, err = put("datums/_mount", bytes.NewReader(input))
@@ -486,8 +490,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 		files, err = os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
-		require.Equal(t, 3, len(files)) // Need to account for "out" rw mount
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1_dev"))
+		require.Equal(t, 4, len(files)) // Need to account for "out" rw mount
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1_m1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
