@@ -113,9 +113,10 @@ func packageNames(addtlCmdArgs ...string) ([]string, error) {
 
 func testNames(pkg string, addtlCmdArgs ...string) ([]string, error) {
 	findTestArgs := append([]string{"test", pkg, "-list=."}, addtlCmdArgs...)
-	testsOutput, err := exec.Command("go", findTestArgs...).CombinedOutput()
-	if err != nil && !strings.Contains(string(testsOutput), tagsExcludeAllFilesErr) {
-		return nil, errors.Wrapf(err, string(testsOutput))
+	testsOutputBytes, err := exec.Command("go", findTestArgs...).CombinedOutput()
+	testsOutput := string(testsOutputBytes)
+	if err != nil && !strings.Contains(testsOutput, tagsExcludeAllFilesErr) {
+		return nil, errors.Wrapf(err, testsOutput)
 	}
 	// Note that this includes k8s and non-k8s tests since tags are inclusive
 	testList := strings.Split(string(testsOutput), "\n")

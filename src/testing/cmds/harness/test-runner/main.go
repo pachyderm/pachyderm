@@ -150,7 +150,8 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs string, 
 	}
 
 	findTestArgs = append(findTestArgs, "--",
-		"-parallel=2", // DNJ TODO allow this to change with args
+		"-timeout=20m",
+		"-parallel=4", // DNJ TODO allow this to change with args
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()))
 	if gotestArgs != "" {
