@@ -624,8 +624,8 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
-	repoName := ro.Files[0].Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
+	repoName := ro.File.Commit.Branch.Repo.Name
 	commit := client.NewCommit(projectName, repoName, branch, commitID)
 	filePath := filepath.Join(parts[1:]...)
 	// ListFile callback function
@@ -668,41 +668,39 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	}
 	// Calling ListFile on a repo with many files at the top level when we only care about a single
 	// file, for example, is very expensive. Hence the below optimizations.
-	// We only want to create descendants and ancestors of mounted file(s) ro.Files
-	// ro.Files[i].Path is the path of a mounted file, filePath is OS requested path
-	// Example: ro.Files[i].Path = /file, filePath = /files <--- DON'T CREATE
-	// Example: ro.Files[i].Path = /file, filePath = /file/path <--- CREATE
-	// Example: ro.Files[i].Path = /dir/file, filePath = /dir <--- CREATE
-	for _, f := range ro.Files {
-		ancestor, intermediates := isGrandparentOf(filePath, f.Path)
-		switch {
-		case ancestor:
-			path := filepath.Join(n.namePath(name), filePath, intermediates)
-			if err := errors.EnsureStack(os.MkdirAll(path, 0777)); err != nil {
-				return err
-			}
-		case isParentOf(filePath, f.Path):
-			fi, err := n.c().InspectFile(commit, f.Path)
-			if err != nil {
-				return err
-			}
-			if fi.FileType == pfs.FileType_DIR {
-				if err := errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777)); err != nil {
-					return err
-				}
-			} else {
-				if err := n.createFiles(commit, f.Path, createFile); err != nil {
-					return err
-				}
-			}
-		case isDescendantOf(filePath, f.Path):
-			if err := n.createFiles(commit, filePath, createFile); err != nil {
-				return err
-			}
-		default:
-			// If a user creates folders in the mount, they will enter a path that fails the
-			// previous cases. In this case, we ignore, since there's nothing to mount.
+	// We only create descendants and ancestors of mounted file ro.File
+	// ro.File.Path is the path of a mounted file, filePath is OS requested path
+	// Example: ro.File.Path = /file, filePath = /files <--- DON'T CREATE
+	// Example: ro.File.Path = /file, filePath = /file/path <--- CREATE
+	// Example: ro.File.Path = /dir/file, filePath = /dir <--- CREATE
+	ancestor, intermediates := isGrandparentOf(filePath, ro.File.Path)
+	switch {
+	case ancestor:
+		path := filepath.Join(n.namePath(name), filePath, intermediates)
+		if err := errors.EnsureStack(os.MkdirAll(path, 0777)); err != nil {
+			return err
 		}
+	case isParentOf(filePath, ro.File.Path):
+		fi, err := n.c().InspectFile(commit, ro.File.Path)
+		if err != nil {
+			return err
+		}
+		if fi.FileType == pfs.FileType_DIR {
+			if err := errors.EnsureStack(os.MkdirAll(n.filePath(name, fi), 0777)); err != nil {
+				return err
+			}
+		} else {
+			if err := n.createFiles(commit, ro.File.Path, createFile); err != nil {
+				return err
+			}
+		}
+	case isDescendantOf(filePath, ro.File.Path):
+		if err := n.createFiles(commit, filePath, createFile); err != nil {
+			return err
+		}
+	default:
+		// If a user creates folders in the mount, they will enter a path that fails the
+		// previous cases. In this case, we ignore, since there's nothing to mount.
 	}
 	return nil
 }
@@ -741,8 +739,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.Files[0].Commit.Branch.Repo.Project.GetName()
-	repoName := ro.Files[0].Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
+	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
 	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
