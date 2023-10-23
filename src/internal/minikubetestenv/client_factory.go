@@ -105,7 +105,7 @@ func clusterIdx(t testing.TB, name string) int {
 
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16((clusterIdx + 1) * 10), // DNJ TODO - cleanup
+		PortOffset:         uint16(clusterIdx * 10),
 		UseLeftoverCluster: *useLeftoverClusters,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
