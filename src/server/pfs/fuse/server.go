@@ -115,12 +115,12 @@ type Response struct {
 }
 
 type DatumState struct {
-	Datums              []*pps.DatumInfo
-	PaginationMarker    string
-	DatumInput          *pps.Input
-	DatumInputsToMounts map[string][]string
-	DatumIdx            int
-	AllDatumsReceived   bool
+	Datums            []*pps.DatumInfo
+	PaginationMarker  string
+	DatumInput        *pps.Input
+	DatumInputToName  map[string]string
+	DatumIdx          int
+	AllDatumsReceived bool
 }
 
 type MountManager struct {
@@ -1179,7 +1179,7 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-// Create a map from input to mount name(s) for use in mounting datums
+// Create a map from input to mount name for use in mounting datums
 // Return whether the input has a cron, group by, or join for later use to
 // determine whether to use GlobFile or ListDatum #ListDatumPagination
 func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
@@ -1187,7 +1187,7 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 		return true, errors.New("datum input is not specified")
 	}
 
-	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
+	datumInputToName := make(map[string]string)
 	useGlobFile := true
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
@@ -1219,13 +1219,10 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 			return err
 		}
 		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		// In the case where a cross is done on the same repo, we will need to map FileInfo's from
-		// the same repo to different user-specified mount names.
-		if mountNames, ok := datumInputsToMounts[pfsInput]; ok {
-			datumInputsToMounts[pfsInput] = append(mountNames, input.Pfs.Name)
-		} else {
-			datumInputsToMounts[pfsInput] = []string{input.Pfs.Name}
+		if _, ok := datumInputToName[pfsInput]; ok {
+			return errors.Errorf("duplicate pfs input %s", pfsInput)
 		}
+		datumInputToName[pfsInput] = input.Pfs.Name
 		return nil
 	}); err != nil {
 		return true, err
@@ -1234,7 +1231,7 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 		mm.mu.Lock()
 		defer mm.mu.Unlock()
 		mm.DatumInput = datumInput
-		mm.DatumInputsToMounts = datumInputsToMounts
+		mm.DatumInputToName = datumInputToName
 	}()
 	return useGlobFile, nil
 }
@@ -1343,17 +1340,13 @@ func (mm *MountManager) CreateDatums() error {
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
-	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
 	mis := []*MountInfo{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
-		name := mountsForRepo[0]
-		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
-
+		name := mm.DatumInputToName[client.NewBranch(project, repo, branch).String()]
 		mi := &MountInfo{
 			Name:    name,
 			Project: project,
@@ -1399,7 +1392,7 @@ func (mm *MountManager) resetDatumState() {
 	mm.PaginationMarker = ""
 	mm.DatumInput = nil
 	mm.DatumIdx = -1
-	mm.DatumInputsToMounts = nil
+	mm.DatumInputToName = nil
 	mm.AllDatumsReceived = false
 }
 
