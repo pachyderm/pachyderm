@@ -755,7 +755,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 		}
 		if filter.Branch != nil && filter.Branch.Name != "" {
 			conditions = append(conditions, "branch.name = ?")
-			values = append(values, filter.Id)
+			values = append(values, filter.Branch.Name)
 		}
 	}
 	query := getCommit
