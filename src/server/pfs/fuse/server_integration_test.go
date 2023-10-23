@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -826,121 +827,147 @@ func TestMountDatumsSpecifyingCommit(t *testing.T) {
 	})
 }
 
-// Uncomment when ListDatum pagination is efficient #ListDatumPagination
-// func TestMountDatumsPagination(t *testing.T) {
-// 	c, _ := minikubetestenv.AcquireCluster(t)
-// 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+func TestMountDatumsPagination(t *testing.T) {
+	t.Skip("Include test when ListDatum pagination is efficient #ListDatumPagination")
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-// 	// Arbitrary number of files less than fuse.NumDatumsPerPage
-// 	lessThanNumDatumsPerPage := 200
-// 	commit := client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(lessThanNumDatumsPerPage), "")
-// 	for i := 0; i < lessThanNumDatumsPerPage; i++ {
-// 		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
-// 		require.NoError(t, err)
-// 	}
-// 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(lessThanNumDatumsPerPage), "")
-// 	require.NoError(t, err)
-// 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
-// 	require.NoError(t, err)
+	// Arbitrary number of files less than fuse.NumDatumsPerPage
+	lessThanNumDatumsPerPage := 200
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(lessThanNumDatumsPerPage), "")
+	for i := 0; i < lessThanNumDatumsPerPage; i++ {
+		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(lessThanNumDatumsPerPage), "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
 
-// 	numDatumsPerPage := NumDatumsPerPage
-// 	commit = client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPage), "")
-// 	for i := 0; i < numDatumsPerPage; i++ {
-// 		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
-// 		require.NoError(t, err)
-// 	}
-// 	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPage), "")
-// 	require.NoError(t, err)
-// 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
-// 	require.NoError(t, err)
+	numDatumsPerPage := NumDatumsPerPage
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPage), "")
+	for i := 0; i < numDatumsPerPage; i++ {
+		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPage), "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
 
-// 	numDatumsPerPagePlusOne := numDatumsPerPage + 1
-// 	commit = client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPagePlusOne), "")
-// 	for i := 0; i < numDatumsPerPagePlusOne; i++ {
-// 		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
-// 		require.NoError(t, err)
-// 	}
-// 	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPagePlusOne), "")
-// 	require.NoError(t, err)
-// 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
-// 	require.NoError(t, err)
+	numDatumsPerPagePlusOne := numDatumsPerPage + 1
+	commit = client.NewCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPagePlusOne), "")
+	for i := 0; i < numDatumsPerPagePlusOne; i++ {
+		err := c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo"))
+		require.NoError(t, err)
+	}
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, "repo", strconv.Itoa(numDatumsPerPagePlusOne), "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
 
-// 	withServerMount(t, c, nil, func(mountPoint string) {
-// 		input := []byte(fmt.Sprintf(
-// 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
-// 			pfs.DefaultProjectName, lessThanNumDatumsPerPage),
-// 		)
-// 		resp, err := put("datums/_mount", bytes.NewReader(input))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 200, resp.StatusCode)
-// 		mdr := &MountDatumResponse{}
-// 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
-// 		require.Equal(t, 0, mdr.Idx)
-// 		// require.NotEqual(t, "", mdr.Id)
-// 		require.Equal(t, lessThanNumDatumsPerPage, mdr.NumDatums)
-// 		require.Equal(t, true, mdr.AllDatumsReceived)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
+			pfs.DefaultProjectName, lessThanNumDatumsPerPage),
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		// require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, lessThanNumDatumsPerPage, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
 
-// 		input = []byte(fmt.Sprintf(
-// 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
-// 			pfs.DefaultProjectName, numDatumsPerPage),
-// 		)
-// 		resp, err = put("datums/_mount", bytes.NewReader(input))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 200, resp.StatusCode)
-// 		mdr = &MountDatumResponse{}
-// 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
-// 		require.Equal(t, 0, mdr.Idx)
-// 		// require.NotEqual(t, "", mdr.Id)
-// 		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
-// 		require.Equal(t, false, mdr.AllDatumsReceived)
+		input = []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
+			pfs.DefaultProjectName, numDatumsPerPage),
+		)
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		mdr = &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		// require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
+		require.Equal(t, false, mdr.AllDatumsReceived)
 
-// 		// Cycle to last datum in page
-// 		for i := 0; i < numDatumsPerPage-1; i++ {
-// 			resp, err = put("datums/_next", nil)
-// 			require.NoError(t, err)
-// 			require.Equal(t, 200, resp.StatusCode)
-// 		}
-// 		resp, err = put("datums/_next", bytes.NewReader(input))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 400, resp.StatusCode)
+		// Cycle to last datum in page
+		for i := 0; i < numDatumsPerPage-1; i++ {
+			resp, err = put("datums/_next", nil)
+			require.NoError(t, err)
+			require.Equal(t, 200, resp.StatusCode)
+		}
+		resp, err = put("datums/_next", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
 
-// 		resp, err = get("datums")
-// 		require.NoError(t, err)
-// 		require.Equal(t, 200, resp.StatusCode)
-// 		dr := &DatumsResponse{}
-// 		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
-// 		require.Equal(t, numDatumsPerPage, dr.NumDatums)
-// 		require.Equal(t, numDatumsPerPage-1, dr.Idx)
-// 		require.Equal(t, true, dr.AllDatumsReceived)
+		resp, err = get("datums")
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		dr := &DatumsResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(dr))
+		require.Equal(t, numDatumsPerPage, dr.NumDatums)
+		require.Equal(t, numDatumsPerPage-1, dr.Idx)
+		require.Equal(t, true, dr.AllDatumsReceived)
 
-// 		input = []byte(fmt.Sprintf(
-// 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
-// 			pfs.DefaultProjectName, numDatumsPerPagePlusOne),
-// 		)
-// 		resp, err = put("datums/_mount", bytes.NewReader(input))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 200, resp.StatusCode)
-// 		mdr = &MountDatumResponse{}
-// 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
-// 		require.Equal(t, 0, mdr.Idx)
-// 		// require.NotEqual(t, "", mdr.Id)
-// 		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
-// 		require.Equal(t, false, mdr.AllDatumsReceived)
+		input = []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
+			pfs.DefaultProjectName, numDatumsPerPagePlusOne),
+		)
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+		mdr = &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		// require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, numDatumsPerPage, mdr.NumDatums)
+		require.Equal(t, false, mdr.AllDatumsReceived)
 
-// 		// Cycle to last datum in page
-// 		for i := 0; i < numDatumsPerPage-1; i++ {
-// 			resp, err = put("datums/_next", nil)
-// 			require.NoError(t, err)
-// 			require.Equal(t, 200, resp.StatusCode)
-// 		}
-// 		resp, err = put("datums/_next", bytes.NewReader(input))
-// 		require.NoError(t, err)
-// 		require.Equal(t, 200, resp.StatusCode)
+		// Cycle to last datum in page
+		for i := 0; i < numDatumsPerPage-1; i++ {
+			resp, err = put("datums/_next", nil)
+			require.NoError(t, err)
+			require.Equal(t, 200, resp.StatusCode)
+		}
+		resp, err = put("datums/_next", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
 
-// 		mdr = &MountDatumResponse{}
-// 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
-// 		require.Equal(t, numDatumsPerPagePlusOne, mdr.NumDatums)
-// 		require.Equal(t, numDatumsPerPagePlusOne-1, mdr.Idx)
-// 		require.Equal(t, true, mdr.AllDatumsReceived)
-// 	})
-// }
+		mdr = &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, numDatumsPerPagePlusOne, mdr.NumDatums)
+		require.Equal(t, numDatumsPerPagePlusOne-1, mdr.Idx)
+		require.Equal(t, true, mdr.AllDatumsReceived)
+	})
+}
+
+func TestMountingDatumsDuplicateRepoNoAliasError(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo1'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo1'}}
+				]
+			}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+	})
+}
