@@ -34,6 +34,7 @@ const PipelineDetails: React.FC = () => {
     pipelineId,
     editRolesPermission,
     pipelineReadPermission,
+    globalId,
   } = usePipelineDetails();
   const {
     openModal: openRolesModal,
@@ -73,7 +74,7 @@ const PipelineDetails: React.FC = () => {
           {!isSpout && pipelineReadPermission && (
             <>
               <Description
-                term="Most Recent Job ID"
+                term={globalId ? 'Global ID' : 'Most Recent Job ID'}
                 loading={pipelineAndJobloading}
               >
                 {lastJob?.id}
@@ -104,9 +105,11 @@ const PipelineDetails: React.FC = () => {
               <Tabs.Tab id={TAB_ID.INFO} key={TAB_ID.INFO}>
                 Pipeline Info
               </Tabs.Tab>
-              <Tabs.Tab id={TAB_ID.SPEC} key={TAB_ID.SPEC}>
-                Spec
-              </Tabs.Tab>
+              {!globalId && (
+                <Tabs.Tab id={TAB_ID.SPEC} key={TAB_ID.SPEC}>
+                  Spec
+                </Tabs.Tab>
+              )}
             </Tabs.TabsHeader>
             {!isServiceOrSpout && (
               <Tabs.TabPanel id={TAB_ID.JOB}>
@@ -136,9 +139,11 @@ const PipelineDetails: React.FC = () => {
             <Tabs.TabPanel id={TAB_ID.INFO}>
               <PipelineInfo />
             </Tabs.TabPanel>
-            <Tabs.TabPanel id={TAB_ID.SPEC}>
-              <PipelineSpec />
-            </Tabs.TabPanel>
+            {!globalId && (
+              <Tabs.TabPanel id={TAB_ID.SPEC}>
+                <PipelineSpec />
+              </Tabs.TabPanel>
+            )}
           </Tabs.RouterTabs>
         )}
       </div>

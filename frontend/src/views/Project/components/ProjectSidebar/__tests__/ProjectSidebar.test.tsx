@@ -14,8 +14,10 @@ import {
   mockEmptyGetRoles,
   mockFalseGetAuthorize,
   mockGetCommitA4,
+  mockGetCommitC4,
   mockGetImageCommits,
   mockGetMontageJob_5C,
+  mockGetMontageJob_1D,
   mockGetMontagePipeline,
   mockGetServicePipeline,
   mockGetSpoutPipeline,
@@ -168,6 +170,63 @@ describe('ProjectSidebar', () => {
       );
 
       expect(within(overviewTab).getAllByText(/"joinOn"/)).toHaveLength(2);
+    });
+
+    it('should display a specific job overview when a global id filter is applied', async () => {
+      server.use(mockGetMontageJob_1D());
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/default/pipelines/montage?globalIdFilter=1dc67e479f03498badcc6180be4ee6ce',
+      );
+
+      render(<Project />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      expect(
+        screen.getByRole('definition', {name: 'Global ID'}),
+      ).toBeInTheDocument();
+
+      expect(screen.getByRole('link', {name: /inspect jobs/i})).toHaveAttribute(
+        'href',
+        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs',
+      );
+
+      const overviewTab = await screen.findByRole('tabpanel', {
+        name: /job overview/i,
+      });
+
+      expect(
+        within(overviewTab).getByRole('heading', {name: /killed/i}),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).getByRole('link', {name: /inspect job/i}),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs/datum',
+      );
+    });
+
+    it('should hide the spec tab when a global id filter is applied', async () => {
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/default/pipelines/montage?globalIdFilter=5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+      );
+
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'montage',
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByRole('tab', {name: /spec/i}),
+      ).not.toBeInTheDocument();
     });
 
     it('should display effective specs in the pipeline spec tab', async () => {
@@ -696,9 +755,9 @@ description: >-
       );
 
       expect(
-        screen.getByRole('link', {
-          name: 'Inspect Current Commit',
-        }),
+        screen.getAllByRole('link', {
+          name: 'Inspect Commit',
+        })[0],
       ).toHaveAttribute(
         'href',
         '/lineage/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
@@ -726,6 +785,51 @@ description: >-
         'href',
         '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
+    });
+
+    it('should display specific commit details when a global id filter is applied', async () => {
+      server.use(mockGetCommitC4());
+      window.history.replaceState(
+        '',
+        '',
+        '/lineage/default/repos/images?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe',
+      );
+
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('heading', {name: 'images'}),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('c43fffd650a24b40b7d9f1bf90fcfdbe'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('definition', {name: 'Global ID'}),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('definition', {name: 'Global ID Commit Start'}),
+      ).toBeInTheDocument();
+      expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
+
+      expect(
+        screen.getByRole('link', {
+          name: 'Inspect Commits',
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+      );
+
+      expect(
+        screen.getByRole('link', {
+          name: 'Inspect Commit',
+        }),
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+      );
+
+      expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(0);
     });
 
     it('should show no data when the repo has no data', async () => {

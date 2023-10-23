@@ -129,6 +129,19 @@ export const mockGetCommitA4 = () =>
     );
   });
 
+export const mockGetCommitC4 = () =>
+  mockCommitQuery((req, res, ctx) => {
+    if (req.variables.args.id === 'c43fffd650a24b40b7d9f1bf90fcfdbe') {
+      return res(
+        ctx.data({
+          commit: COMMIT_C4,
+        }),
+      );
+    } else {
+      return res(ctx.errors([]));
+    }
+  });
+
 export const mockEmptyCommitDiff = () =>
   mockCommitDiffQuery((_req, res, ctx) => {
     return res(

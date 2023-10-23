@@ -46,6 +46,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     editRolesPermission,
     getPathToFileBrowser,
     repoReadPermission,
+    globalId,
   } = useRepoDetails();
   const {
     openModal: openRolesModal,
@@ -121,7 +122,11 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
             {(currentRepoLoading || commit) && (
               <Description
                 loading={currentRepoLoading}
-                term="Most Recent Commit Start"
+                term={`${
+                  !globalId
+                    ? 'Most Recent Commit Start'
+                    : 'Global ID Commit Start'
+                }`}
               >
                 {commit ? getStandardDate(commit.started) : 'N/A'}
               </Description>
@@ -129,7 +134,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
             {(currentRepoLoading || commit) && (
               <Description
                 loading={currentRepoLoading}
-                term="Most Recent Commit ID"
+                term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
               >
                 {commit ? (
                   <CommitIdCopy commit={commit.id} clickable small longId />
@@ -202,7 +207,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
           <CaptionTextSmall className={styles.commitDetailsLabel}>
             <Switch>
               <Route path={LINEAGE_REPO_PATH} exact>
-                Current Commit Stats
+                {!globalId ? 'Current Commit Stats' : 'Global ID Commit Stats'}
                 {commit && (
                   <Button
                     buttonType="ghost"
@@ -213,7 +218,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                       branchId: commit.branch?.name || '',
                     })}
                     disabled={!commit}
-                    aria-label="Inspect Current Commit"
+                    aria-label="Inspect Commit"
                   >
                     Inspect Commit
                   </Button>
@@ -232,7 +237,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       )}
 
       <Route path={LINEAGE_REPO_PATH} exact>
-        {repo && commit && <CommitList repo={repo} />}
+        {repo && commit && !globalId && <CommitList repo={repo} />}
       </Route>
     </div>
   );

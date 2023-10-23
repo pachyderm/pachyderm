@@ -2,17 +2,20 @@ import React from 'react';
 
 import useCommit from '@dash-frontend/hooks/useCommit';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Button, RepoSVG} from '@pachyderm/components';
 
 const InspectCommitsButton: React.FC = () => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
+  const {searchParams} = useUrlQueryState();
   const {repoId, projectId} = useUrlState();
 
   const {commit} = useCommit({
     args: {
       projectId,
       repoName: repoId,
+      id: searchParams.globalIdFilter || '',
     },
   });
 

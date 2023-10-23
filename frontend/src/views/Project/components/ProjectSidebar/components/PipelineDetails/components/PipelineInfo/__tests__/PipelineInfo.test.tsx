@@ -1,5 +1,10 @@
 import {PipelineType, mockPipelineQuery} from '@graphqlTypes';
-import {render, within, screen} from '@testing-library/react';
+import {
+  render,
+  within,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
@@ -53,6 +58,27 @@ describe('PipelineInfo', () => {
     expect(screen.getByLabelText('Output Branch')).toHaveTextContent('master');
     expect(screen.getByLabelText('Egress')).toHaveTextContent('No');
     expect(screen.getByLabelText('S3 Output Repo')).toHaveTextContent(`N/A`);
+  });
+
+  it('should hide items if a global id filter is applied', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      `/lineage/default/pipelines/montage?globalIdFilter=be7e4aa9caf148bb886b469d19f482d1`,
+    );
+
+    render(<PipelineInfo />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+    const outputRepo = screen.getByLabelText('Output Repo');
+    expect(outputRepo).toHaveTextContent('montage');
+
+    expect(
+      screen.queryByRole('heading', {name: 'Failure'}),
+    ).not.toBeInTheDocument();
+
+    expect(screen.queryByLabelText('Failure Reason')).not.toBeInTheDocument();
   });
 
   it('shows an S3 output when it is present', async () => {

@@ -11,9 +11,12 @@ const useFileBrowserNavigation = () => {
 
   const getPathToFileBrowser = useCallback(
     (args: Parameters<typeof fileBrowserRoute>[0]) => {
-      return `${fileBrowserRoute(args, false)}?${getUpdatedSearchParams({
-        prevPath: pathname,
-      })}`;
+      return `${fileBrowserRoute(args, false)}?${getUpdatedSearchParams(
+        {
+          prevPath: pathname,
+        },
+        true,
+      )}`;
     },
     [pathname, getUpdatedSearchParams],
   );

@@ -236,6 +236,19 @@ export const mockGetMontageJob_5C = () =>
     );
   });
 
+export const mockGetMontageJob_1D = () =>
+  mockJobQuery((req, res, ctx) => {
+    if (req.variables.args.id === '1dc67e479f03498badcc6180be4ee6ce') {
+      return res(
+        ctx.data({
+          job: MONTAGE_JOB_1D,
+        }),
+      );
+    } else {
+      return res(ctx.errors([]));
+    }
+  });
+
 export const mockEmptyJob = () =>
   mockJobQuery((_req, res, ctx) => {
     return res(

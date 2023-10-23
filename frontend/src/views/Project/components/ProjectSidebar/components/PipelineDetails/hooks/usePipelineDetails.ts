@@ -2,12 +2,14 @@ import {Permission, ResourceType} from '@graphqlTypes';
 
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJob} from '@dash-frontend/hooks/useJob';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 const usePipelineDetails = () => {
   const {pipelineId, projectId} = useUrlState();
+  const {searchParams} = useUrlQueryState();
   const {
     loading: pipelineLoading,
     pipeline,
@@ -18,6 +20,7 @@ const usePipelineDetails = () => {
     {
       projectId,
       pipelineName: pipelineId,
+      id: searchParams.globalIdFilter || '',
     },
     {
       skip: isSpout || !pipeline || pipelineLoading,
@@ -49,6 +52,7 @@ const usePipelineDetails = () => {
     tabsBasePath,
     editRolesPermission,
     pipelineReadPermission,
+    globalId: searchParams.globalIdFilter,
   };
 };
 

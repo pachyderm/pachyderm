@@ -16,7 +16,7 @@ interface ReadLogsButtonProps {
 
 const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   const {projectId, pipelineId, jobId} = useUrlState();
-  const {getUpdatedSearchParams} = useUrlQueryState();
+  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
   const {isServiceOrSpout} = useCurrentPipeline();
 
   const buttonText = !isServiceOrSpout ? 'Inspect Jobs' : 'Read Logs';
@@ -25,6 +25,7 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
     {
       projectId,
       pipelineName: pipelineId,
+      id: searchParams.globalIdFilter,
     },
     {
       skip: !pipelineId,
@@ -53,9 +54,12 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   }
   const addLogsQueryParams = useCallback(
     (path: string) => {
-      return `${path}?${getUpdatedSearchParams({
-        datumFilters: [],
-      })}`;
+      return `${path}?${getUpdatedSearchParams(
+        {
+          datumFilters: [],
+        },
+        true,
+      )}`;
     },
     [getUpdatedSearchParams],
   );

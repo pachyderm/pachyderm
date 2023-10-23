@@ -4,11 +4,13 @@ import {useCommitDiffQuery} from '@dash-frontend/generated/hooks';
 import useCommit from '@dash-frontend/hooks/useCommit';
 import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 
 const useRepoDetails = () => {
   const {repoId, projectId, commitId} = useUrlState();
+  const {searchParams} = useUrlQueryState();
   const {loading: repoLoading, repo, error: repoError} = useCurrentRepo();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
 
@@ -20,7 +22,7 @@ const useRepoDetails = () => {
     args: {
       projectId,
       repoName: repoId,
-      id: commitId ? commitId : '',
+      id: searchParams.globalIdFilter || commitId || '',
     },
   });
   const {
@@ -66,6 +68,7 @@ const useRepoDetails = () => {
     editRolesPermission,
     getPathToFileBrowser,
     repoReadPermission,
+    globalId: searchParams.globalIdFilter,
   };
 };
 

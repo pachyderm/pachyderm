@@ -18,6 +18,7 @@
   padding-left: 1rem;
   padding-top: 1rem;
   display: inline-flex;
+  align-items: center;
   width: 100%;
   background-color: var(--white);
 }

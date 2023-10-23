@@ -13,10 +13,10 @@ import {logsViewerDatumRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useInfoPanel = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
-  const {getUpdatedSearchParams} = useUrlQueryState();
+  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
 
   const {job, loading: jobLoading} = useJob({
-    id: jobId,
+    id: searchParams.globalIdFilter || jobId,
     pipelineName: pipelineId,
     projectId,
   });
@@ -90,9 +90,12 @@ const useInfoPanel = () => {
 
   const addLogsQueryParams = useCallback(
     (path: string, filter: DatumFilter) => {
-      return `${path}?${getUpdatedSearchParams({
-        datumFilters: [filter],
-      })}`;
+      return `${path}?${getUpdatedSearchParams(
+        {
+          datumFilters: [filter],
+        },
+        true,
+      )}`;
     },
     [getUpdatedSearchParams],
   );
