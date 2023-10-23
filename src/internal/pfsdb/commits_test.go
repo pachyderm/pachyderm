@@ -466,7 +466,7 @@ func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.C
 	require.Equal(t, len(expectedInfos), i)
 }
 
-func TestListCommitV2(t *testing.T) {
+func TestListCommit(t *testing.T) {
 	size := 330
 	expectedInfos := make([]*pfs.CommitInfo, size)
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
@@ -497,7 +497,7 @@ func TestListCommitV2(t *testing.T) {
 	})
 }
 
-func TestListCommitsFilterV2(t *testing.T) {
+func TestListCommitsFilter(t *testing.T) {
 	repos := []*pfs.Repo{
 		pfsdb.ParseRepo("default/a.user"), pfsdb.ParseRepo("default/b.user"), pfsdb.ParseRepo("default/c.user")}
 	size := 330
@@ -526,7 +526,7 @@ func TestListCommitsFilterV2(t *testing.T) {
 	})
 }
 
-func TestListCommitRevisionV2(t *testing.T) {
+func TestListCommitRevision(t *testing.T) {
 	revMap := make(map[int64]bool)
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		for i := 0; i < 10; i++ {
