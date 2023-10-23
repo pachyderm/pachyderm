@@ -285,6 +285,19 @@ class HealthHandler(BaseHandler):
             )
 
 
+class PPSHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self, project_name, name):
+        """Get details for the specified pipeline"""
+        try:
+            response = await self.pps_client.retrieve(name=name, project_name=project_name)
+            get_logger().debug(f"RetrievePipeline: {response}")
+            await self.finish(response)
+        except Exception as e:
+            get_logger().error(f"couldn't retrieve details for pipeline: {e}")
+            raise tornado.web.HTTPError(status_code=404, reason="Pipeline not found.")
+
+
 class PPSCreateHandler(BaseHandler):
 
     @tornado.web.authenticated
@@ -341,6 +354,7 @@ def setup_handlers(web_app):
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
         ("/health", HealthHandler),
+        (r"/pps/(\w+)/(\w+)", PPSHandler),
         (r"/pps/_create%s" % path_regex, PPSCreateHandler),
     ]
 

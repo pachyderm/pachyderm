@@ -17,13 +17,48 @@ from tornado.web import HTTPError
 from .log import get_logger
 
 METADATA_KEY = 'pachyderm_pps'
-
+PIPELINE_TYPE_SERVICE = 3
 
 class PPSClient:
     """Client interface for the PPS extension backend."""
 
     def __init__(self):
         self.nbconvert = PythonExporter()
+
+    async def retrieve(self, name, project_name):
+        """Retrieves details about the specified pipeline.
+
+        Args:
+            name: The name of the pipeline
+            project_name: The name of the project
+        """
+        get_logger().debug(f"Retrieving {project_name}/{name}")
+        client = self._client()
+
+        try:
+            for p in client.inspect_pipeline(pipeline_name=name, project_name=project_name, details=True):
+                # This is an incomplete serialization, as
+                # we only need the LB IP at present.
+                pd = {
+                    "pipeline": {
+                        "name": p.pipeline.name,
+                        "project": {
+                            "name": p.pipeline.project.name,
+                        },
+                    },
+                    "details": {}
+                }
+                if p.type == PIPELINE_TYPE_SERVICE:
+                    pd["details"]["service"] = {
+                        "internal_port": p.details.service.internal_port,
+                        "external_port": p.details.service.external_port,
+                        "ip": p.details.service.ip,
+                        "type": p.details.service.type,
+                    }
+                return json.dumps(pd)
+        except Exception as e:
+            get_logger().error(f"e: {e} pipeline: {p}")
+            raise e
 
     @staticmethod
     async def generate(path):
@@ -84,14 +119,7 @@ class PPSClient:
 
         script, _resources = self.nbconvert.from_filename(str(path))
 
-        client = python_pachyderm.Client()  # TODO: Auth?
-        try:  # Verify connection to cluster.
-            client.inspect_cluster()
-        except Exception as e:
-            raise HTTPError(
-                status_code=500,
-                reason=f"could not verify connection to Pachyderm cluster: {repr(e)}"
-            )
+        client = self._client()
 
         companion_repo = f"{config.pipeline.name}__context"
         for item in client.list_repo():
@@ -124,6 +152,17 @@ class PPSClient:
             dict(message="Create pipeline request sent. You may monitor its status by running"
                  " \"pachctl list pipelines\" in a terminal.")  # We can send back console link here.
         )
+
+    def _client(self):
+        client = python_pachyderm.Client()  # TODO: Auth?
+        try:  # Verify connection to cluster.
+            client.inspect_cluster()
+        except Exception as e:
+            raise HTTPError(
+                status_code=500,
+                reason=f"could not verify connection to Pachyderm cluster: {repr(e)}"
+            )
+        return client
 
 
 @dataclass

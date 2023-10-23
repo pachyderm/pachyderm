@@ -4,7 +4,7 @@ import {ServerConnection} from '@jupyterlab/services';
 import {
   CreatePipelineResponse,
   GpuMode,
-  MountSettings,
+  MountSettings, PPS,
   PpsContext,
   PpsMetadata,
 } from '../../../types';
@@ -122,12 +122,36 @@ export const usePipeline = (
         }
       }
       setLoading(false);
+      pollForIp(ppsMetadata.config.pipeline.project.name, ppsMetadata.config.pipeline.name).then((s) => setResponseMessage(s));
     };
   } else {
     // If no notebookModel is defined, we cannot create a pipeline.
     callCreatePipeline = async () => {
       setErrorMessage('Error: No notebook in focus');
     };
+  }
+
+  const pollForIp = async (
+    project_name: string,
+    name: string,
+  ): Promise<string> => {
+    try {
+      const response = await requestAPI<PPS>(
+        `pps/${project_name}/${name}`,
+        'GET',
+      );
+      if ((response.details.service.ip !== null) && (response.details.service.ip.length > 0)) {
+        return `Create pipeline request successful. See output at ${response.details.service.ip}.`;
+      }
+    }
+    catch(e) {
+      if (e instanceof ServerConnection.ResponseError) {
+        setErrorMessage('Error retrieving pipeline: ' + e.response.statusText);
+      } else {
+        throw e;
+      }
+    }
+    return pollForIp(project_name, name);
   }
 
   const buildMetadata = (): PpsMetadata => {
