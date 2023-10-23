@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetProjectDefaultsResponse",
+    "definitions": {
+        "GetProjectDefaultsResponse": {
+            "properties": {
+                "projectDefaultsJson": {
+                    "type": "string",
+                    "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed to SetProjectDefaults."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Project Defaults Response"
+        }
+    }
+}

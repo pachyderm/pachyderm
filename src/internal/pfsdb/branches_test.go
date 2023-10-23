@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -91,12 +92,12 @@ func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, rep
 	return &pfsdb.RepoPair{ID: id, RepoInfo: repoInfo}
 }
 
-func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitPair {
+func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
 	t.Helper()
 	createRepoInfoWithID(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 	require.NoError(t, err)
-	return &pfsdb.CommitPair{ID: commitID, CommitInfo: commitInfo}
+	return &pfsdb.CommitWithID{ID: commitID, CommitInfo: commitInfo}
 }
 
 func TestBranchUpsert(t *testing.T) {
@@ -178,14 +179,16 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch, branchBInfo.Branch}
 			branchCInfo.Provenance = []*pfs.Branch{branchBInfo.Branch, branchAInfo.Branch}
 			// Create all branches, and provenance relationships
-			allBranches := make(map[pfsdb.BranchID]*pfs.BranchInfo)
+			allBranches := make(map[string]pfsdb.BranchInfoWithID)
 			for _, branchInfo := range []*pfs.BranchInfo{branchAInfo, branchBInfo, branchCInfo} {
 				id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo) // implicitly creates prov relationships
 				require.NoError(t, err)
-				allBranches[id] = branchInfo
+				allBranches[branchInfo.Branch.Key()] = pfsdb.BranchInfoWithID{ID: id, BranchInfo: branchInfo}
 			}
 			// Verify direct provenance, full provenance, and full subvenance relationships
-			for id, branchInfo := range allBranches {
+			for _, branchInfoWithID := range allBranches {
+				id := branchInfoWithID.ID
+				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
 				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
@@ -206,12 +209,20 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.DirectProvenance = nil
 			branchCInfo.Provenance = nil
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
-			for id, branchInfo := range allBranches {
-				gotID, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
-				require.NoError(t, err)
-				require.Equal(t, id, gotID, "UpsertBranch should keep id stable")
-			}
-			for id, branchInfo := range allBranches {
+			// The B -> C relationship causes a cycle, so need to update C first and remove the B <- C relationship.
+			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
+			require.ErrorIs(t, err, pfsdb.ErrBranchProvCycle{From: branchBInfo.Branch.Key(), To: branchCInfo.Branch.Key()})
+			require.ErrorContains(t, err, "cycle detected")
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
+			require.NoError(t, err)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchAInfo)
+			require.NoError(t, err)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchBInfo)
+			require.NoError(t, err)
+
+			for _, branchInfoWithID := range allBranches {
+				id := branchInfoWithID.ID
+				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
 				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
@@ -343,7 +354,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
-			require.ErrorContains(t, err, "sql: no rows in result set")
+			require.True(t, errors.Is(err, pfsdb.ErrBranchNotFound{ID: branchBID}))
 			// Verify that BranchA no longer has BranchB in its subvenance
 			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
 			branchAID, err := pfsdb.GetBranchID(ctx, tx, branchAInfo.Branch)
@@ -418,7 +429,7 @@ func TestBranchTrigger(t *testing.T) {
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
 			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
 			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
-			require.ErrorContains(t, err, "no rows in result set")
+			require.True(t, errors.Is(err, pfsdb.ErrBranchNotFound{BranchKey: "project1/repo1.user@nonexistent"}))
 		})
 	})
 }

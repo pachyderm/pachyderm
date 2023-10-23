@@ -124,6 +124,7 @@ type apiServer struct {
 	pipelines       col.PostgresCollection
 	jobs            col.PostgresCollection
 	clusterDefaults col.PostgresCollection
+	projectDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -2130,17 +2131,17 @@ func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelin
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
 		}
-		effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec("{}", info.GetUserSpecJson())
-		if err != nil {
-			return err
+		var effectiveSpec pps.CreatePipelineRequest
+		if err := protojson.Unmarshal([]byte(info.GetEffectiveSpecJson()), &effectiveSpec); err != nil {
+			return errors.Wrapf(err, "could not unmarshal effective spec %s", info.GetEffectiveSpecJson())
 		}
 
 		effectiveSpec.Reprocess = request.Reprocess
 		effectiveSpec.Update = true
 
 		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
-			CreatePipelineRequest: effectiveSpec,
-			EffectiveJson:         effectiveSpecJSON,
+			CreatePipelineRequest: &effectiveSpec,
+			EffectiveJson:         info.GetEffectiveSpecJson(),
 			UserJson:              info.GetUserSpecJson(),
 		})
 	}); err != nil {
@@ -3311,7 +3312,8 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
-			if col.IsErrNotFound(err) {
+			// the branch key of the returned error will be for the spec commit to commitInfo.Commit.Repo.Branch
+			if pfsServer.IsBranchNotFoundErr(err) {
 				continue
 			}
 			return err
@@ -3854,4 +3856,27 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
 	return &resp, nil
+}
+
+func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error) {
+	var projectDefaults ppsdb.ProjectDefaultsWrapper
+	if req.Project == nil {
+		return nil, badRequest(ctx, "missing project", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project", Description: "missing"},
+		})
+	} else if req.Project.Name == "" {
+		return nil, badRequest(ctx, "missing project name", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project.name", Description: "empty"},
+		})
+	}
+	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
+		return nil, err
+	}
+	if err := a.projectDefaults.ReadOnly(ctx).Get("", &projectDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, unknownError(ctx, "could not read project defaults", err)
+		}
+		projectDefaults.Json = "{}"
+	}
+	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
 }

@@ -157,6 +157,16 @@
           timeout: '604800s',
         },
       },
+      {
+        match: {
+          prefix: '/api/',
+        },
+        route: {
+          cluster: 'pachd-http',
+          idle_timeout: '600s',
+          timeout: '604800s',
+        },
+      },
     ],
     health_check: {
       healthy_threshold: 1,
