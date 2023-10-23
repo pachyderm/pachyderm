@@ -50,6 +50,7 @@ describe('Repo Commits List', () => {
     const commit = screen.getAllByTestId('CommitsList__row')[2];
     expect(commit).toHaveTextContent('@images');
     expect(commit).toHaveTextContent('master');
+    expect(commit).toHaveTextContent('Jul 24, 2023; 17:58');
     expect(commit).toHaveTextContent('58.65 kB');
     expect(commit).toHaveTextContent('c43fffd650a24b40b7d9f1bf90fcfdbe');
     expect(commit).toHaveTextContent('sold materia');

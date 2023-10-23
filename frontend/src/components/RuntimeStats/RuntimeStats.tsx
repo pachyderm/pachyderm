@@ -67,7 +67,7 @@ const RuntimeStats = ({
             className={styles.duration}
             data-testid="RuntimeStats__created"
           >
-            {started}
+            {created}
           </Description>
         </div>
       )}

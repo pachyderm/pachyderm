@@ -52,6 +52,7 @@ describe('JobSet SubJobs List', () => {
     expect(job2).toHaveTextContent('3 s');
     expect(job2).toHaveTextContent('380.91 kB');
     expect(job2).toHaveTextContent('1.42 MB');
+    expect(job2).toHaveTextContent('Aug 1, 2023; 14:20');
   });
 
   it('should apply a globalId and redirect', async () => {

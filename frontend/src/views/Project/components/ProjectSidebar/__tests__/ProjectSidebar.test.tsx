@@ -104,6 +104,18 @@ describe('ProjectSidebar', () => {
         '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum',
       );
 
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /created/i,
+        }),
+      ).toHaveTextContent('Aug 1, 2023; 14:20');
+
+      expect(
+        within(overviewTab).getByRole('definition', {
+          name: /start/i,
+        }),
+      ).toHaveTextContent('Aug 1, 2023; 14:20');
+
       const runtimeDropdown = within(overviewTab).getByRole('definition', {
         name: /runtime/i,
       });
@@ -660,6 +672,19 @@ description: >-
       render(<Project />);
 
       await screen.findByRole('heading', {name: 'images'});
+
+      expect(
+        screen.getByRole('definition', {
+          name: /repo created/i,
+        }),
+      ).toHaveTextContent('Jul 24, 2023; 17:58');
+
+      expect(
+        screen.getByRole('definition', {
+          name: /most recent commit start/i,
+        }),
+      ).toHaveTextContent('Jul 24, 2023; 17:58');
+
       expect(screen.getAllByText('139.24 kB')).toHaveLength(2);
       await screen.findByText('4a83c74809664f899261baccdb47cd90');
       expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
@@ -682,7 +707,9 @@ description: >-
       const previousCommits = screen.queryAllByTestId('CommitList__commit');
       expect(previousCommits).toHaveLength(2);
       expect(previousCommits[0]).toHaveTextContent(/4a83c...@master/);
+      expect(previousCommits[0]).toHaveTextContent('Jul 24, 2023; 17:58');
       expect(previousCommits[1]).toHaveTextContent(/c43ff...@master/);
+      expect(previousCommits[1]).toHaveTextContent('Jul 24, 2023; 17:58');
       expect(
         within(previousCommits[0]).getByRole('link', {
           name: 'Inspect Commit',

@@ -40,6 +40,7 @@ describe('JobSet Jobs List', () => {
     expect(jobs[1]).toHaveTextContent('a4423427351e42aabc40c1031928628e');
     expect(jobs[1]).toHaveTextContent('22 s');
     expect(jobs[1]).toHaveTextContent('2 Jobs Total');
+    expect(jobs[1]).toHaveTextContent('Aug 1, 2023; 14:20');
   });
 
   it('should allow the user to select a subset of jobs', async () => {

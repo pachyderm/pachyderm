@@ -46,6 +46,7 @@ describe('Repo List', () => {
     const repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[1]).toHaveTextContent('edges');
     expect(repos[1]).toHaveTextContent('22.79 kB');
+    expect(repos[1]).toHaveTextContent('Jul 24, 2023; 17:58');
     expect(repos[1]).toHaveTextContent('544e62..');
     expect(repos[1]).toHaveTextContent(
       'Output repo for pipeline default/edges.',
@@ -53,6 +54,7 @@ describe('Repo List', () => {
     expect(repos[1]).toHaveTextContent('clusterAdmin');
 
     expect(repos[3]).toHaveTextContent('empty');
+    expect(repos[3]).toHaveTextContent('Jul 24, 2023; 17:58');
     expect(repos[3]).toHaveTextContent('0 B');
     expect(repos[3]).toHaveTextContent('N/A');
     expect(repos[3]).toHaveTextContent('clusterAdmin, repoOwner');

@@ -50,6 +50,7 @@ describe('Pipelines', () => {
     expect(pipelines[0]).toHaveTextContent('Error - Failure');
     expect(pipelines[0]).toHaveTextContent('Error - Killed');
     expect(pipelines[0]).toHaveTextContent('v:1');
+    expect(pipelines[0]).toHaveTextContent('Jul 24, 2023; 17:58');
     expect(pipelines[0]).toHaveTextContent('clusterAdmin');
     expect(pipelines[0]).toHaveTextContent(
       'A pipeline that combines images from the `images` and `edges` repositories into a montage',
