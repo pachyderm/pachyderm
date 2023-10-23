@@ -60,7 +60,7 @@ func run(ctx context.Context, tags string, fileName string, threadPool int) erro
 				defer sem.Release(1)
 				log.Info(ctx, "Collecting tests from package", zap.String("package", loopPkg))
 				var testsToRun []string
-				testsTagged, err := testNames(loopPkg, tagsArg)
+				testsTagged, err := testNames(ctx, loopPkg, tagsArg)
 				if err != nil {
 					return errors.EnsureStack(err)
 				}
@@ -69,7 +69,7 @@ func run(ctx context.Context, tags string, fileName string, threadPool int) erro
 					testsToRun = testsTagged
 				} else {
 					testsToRun = []string{}
-					testsUntagged, err := testNames(loopPkg)
+					testsUntagged, err := testNames(ctx, loopPkg)
 					if err != nil {
 						return errors.EnsureStack(err)
 					}
@@ -111,9 +111,11 @@ func packageNames(addtlCmdArgs ...string) ([]string, error) {
 	return strings.Split(string(pkgsOutput), "\n"), nil
 }
 
-func testNames(pkg string, addtlCmdArgs ...string) ([]string, error) {
+func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) ([]string, error) {
 	findTestArgs := append([]string{"test", pkg, "-list=."}, addtlCmdArgs...)
-	testsOutputBytes, err := exec.Command("go", findTestArgs...).CombinedOutput()
+	cmd := exec.Command("go", findTestArgs...)
+	log.Info(ctx, "About to run command to find tests ", zap.String("command", cmd.String()))
+	testsOutputBytes, err := cmd.CombinedOutput()
 	testsOutput := string(testsOutputBytes)
 	if err != nil && !strings.Contains(testsOutput, tagsExcludeAllFilesErr) {
 		return nil, errors.Wrapf(err, testsOutput)
