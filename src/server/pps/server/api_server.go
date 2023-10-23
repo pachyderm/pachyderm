@@ -3932,14 +3932,8 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 
 func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error) {
 	var projectDefaults ppsdb.ProjectDefaultsWrapper
-	if req.Project == nil {
-		return nil, badRequest(ctx, "missing project", []*errdetails.BadRequest_FieldViolation{
-			{Field: "project", Description: "missing"},
-		})
-	} else if req.Project.Name == "" {
-		return nil, badRequest(ctx, "missing project name", []*errdetails.BadRequest_FieldViolation{
-			{Field: "project.name", Description: "empty"},
-		})
+	if req.Project == nil || req.Project.Name == "" {
+		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
