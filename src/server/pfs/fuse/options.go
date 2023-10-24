@@ -35,8 +35,11 @@ type RepoOptions struct {
 	// of the same repo at the same time.
 	Name string
 
-	File     *pfs.File
-	Subpaths []string
+	// Files is the set of files from a single repo to mount. Most of the time,
+	// there will only be one file in this list. However, when mounting datums
+	// it's possible to have multiple files from the same repo that need to be
+	// mounted. It's best if these files don't overlap.
+	Files []*pfs.File
 	// Repo is the name of the repo to mount
 	// Repo string
 	// Branch is the branch of the repo to mount
@@ -69,8 +72,8 @@ func (o *Options) getBranches() map[string]string {
 		return result
 	}
 	for name, opts := range o.RepoOptions {
-		if opts.File.Commit.Branch.Name != "" {
-			result[name] = opts.File.Commit.Branch.Name
+		if opts.Files[0].Commit.Branch.Name != "" {
+			result[name] = opts.Files[0].Commit.Branch.Name
 		}
 	}
 	return result
@@ -96,15 +99,15 @@ func (o *Options) validate(c *client.APIClient) error {
 	}
 	for _, opts := range o.RepoOptions {
 		if opts.Write {
-			if uuid.IsUUIDWithoutDashes(opts.File.Commit.Branch.Name) {
-				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
+			if uuid.IsUUIDWithoutDashes(opts.Files[0].Commit.Branch.Name) {
+				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.Files[0].Commit.Branch.Repo.Name, opts.Files[0].Commit.Branch.Name, opts.Name)
 			}
-			bi, err := c.InspectBranch(opts.File.Commit.Branch.Repo.Project.GetName(), opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name)
+			bi, err := c.InspectBranch(opts.Files[0].Commit.Branch.Repo.Project.GetName(), opts.Files[0].Commit.Branch.Repo.Name, opts.Files[0].Commit.Branch.Name)
 			if err != nil && !errutil.IsNotFoundError(err) {
 				return err
 			}
 			if bi != nil && len(bi.Provenance) > 0 {
-				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.File.Commit.Branch.Repo.Name, opts.File.Commit.Branch.Name, opts.Name)
+				return errors.Errorf("can't mount branch %s@%s as %s in Write mode because it's an output branch", opts.Files[0].Commit.Branch.Repo.Name, opts.Files[0].Commit.Branch.Name, opts.Name)
 			}
 		}
 	}

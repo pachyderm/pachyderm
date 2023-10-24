@@ -31,6 +31,7 @@ const (
 	API_InspectDatum_FullMethodName       = "/pps_v2.API/InspectDatum"
 	API_ListDatum_FullMethodName          = "/pps_v2.API/ListDatum"
 	API_RestartDatum_FullMethodName       = "/pps_v2.API/RestartDatum"
+	API_RerunPipeline_FullMethodName      = "/pps_v2.API/RerunPipeline"
 	API_CreatePipeline_FullMethodName     = "/pps_v2.API/CreatePipeline"
 	API_CreatePipelineV2_FullMethodName   = "/pps_v2.API/CreatePipelineV2"
 	API_InspectPipeline_FullMethodName    = "/pps_v2.API/InspectPipeline"
@@ -58,6 +59,7 @@ const (
 	API_QueryLoki_FullMethodName          = "/pps_v2.API/QueryLoki"
 	API_GetClusterDefaults_FullMethodName = "/pps_v2.API/GetClusterDefaults"
 	API_SetClusterDefaults_FullMethodName = "/pps_v2.API/SetClusterDefaults"
+	API_GetProjectDefaults_FullMethodName = "/pps_v2.API/GetProjectDefaults"
 )
 
 // APIClient is the client API for API service.
@@ -76,6 +78,7 @@ type APIClient interface {
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
 	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	RerunPipeline(ctx context.Context, in *RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePipelineV2(ctx context.Context, in *CreatePipelineV2Request, opts ...grpc.CallOption) (*CreatePipelineV2Response, error)
 	InspectPipeline(ctx context.Context, in *InspectPipelineRequest, opts ...grpc.CallOption) (*PipelineInfo, error)
@@ -115,6 +118,8 @@ type APIClient interface {
 	GetClusterDefaults(ctx context.Context, in *GetClusterDefaultsRequest, opts ...grpc.CallOption) (*GetClusterDefaultsResponse, error)
 	// SetClusterDefaults returns the current cluster defaults.
 	SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error)
+	// GetProjectDefaults returns the defaults for a particular project.
+	GetProjectDefaults(ctx context.Context, in *GetProjectDefaultsRequest, opts ...grpc.CallOption) (*GetProjectDefaultsResponse, error)
 }
 
 type aPIClient struct {
@@ -324,6 +329,15 @@ func (x *aPIListDatumClient) Recv() (*DatumInfo, error) {
 func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_RestartDatum_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) RerunPipeline(ctx context.Context, in *RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	out := new(emptypb.Empty)
+	err := c.cc.Invoke(ctx, API_RerunPipeline_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -711,6 +725,15 @@ func (c *aPIClient) SetClusterDefaults(ctx context.Context, in *SetClusterDefaul
 	return out, nil
 }
 
+func (c *aPIClient) GetProjectDefaults(ctx context.Context, in *GetProjectDefaultsRequest, opts ...grpc.CallOption) (*GetProjectDefaultsResponse, error) {
+	out := new(GetProjectDefaultsResponse)
+	err := c.cc.Invoke(ctx, API_GetProjectDefaults_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -727,6 +750,7 @@ type APIServer interface {
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
 	RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error)
+	RerunPipeline(context.Context, *RerunPipelineRequest) (*emptypb.Empty, error)
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error)
 	CreatePipelineV2(context.Context, *CreatePipelineV2Request) (*CreatePipelineV2Response, error)
 	InspectPipeline(context.Context, *InspectPipelineRequest) (*PipelineInfo, error)
@@ -766,6 +790,8 @@ type APIServer interface {
 	GetClusterDefaults(context.Context, *GetClusterDefaultsRequest) (*GetClusterDefaultsResponse, error)
 	// SetClusterDefaults returns the current cluster defaults.
 	SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error)
+	// GetProjectDefaults returns the defaults for a particular project.
+	GetProjectDefaults(context.Context, *GetProjectDefaultsRequest) (*GetProjectDefaultsResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -802,6 +828,9 @@ func (UnimplementedAPIServer) ListDatum(*ListDatumRequest, API_ListDatumServer) 
 }
 func (UnimplementedAPIServer) RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestartDatum not implemented")
+}
+func (UnimplementedAPIServer) RerunPipeline(context.Context, *RerunPipelineRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method RerunPipeline not implemented")
 }
 func (UnimplementedAPIServer) CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreatePipeline not implemented")
@@ -883,6 +912,9 @@ func (UnimplementedAPIServer) GetClusterDefaults(context.Context, *GetClusterDef
 }
 func (UnimplementedAPIServer) SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SetClusterDefaults not implemented")
+}
+func (UnimplementedAPIServer) GetProjectDefaults(context.Context, *GetProjectDefaultsRequest) (*GetProjectDefaultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetProjectDefaults not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -1088,6 +1120,24 @@ func _API_RestartDatum_Handler(srv interface{}, ctx context.Context, dec func(in
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(APIServer).RestartDatum(ctx, req.(*RestartDatumRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_RerunPipeline_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RerunPipelineRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).RerunPipeline(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_RerunPipeline_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).RerunPipeline(ctx, req.(*RerunPipelineRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1596,6 +1646,24 @@ func _API_SetClusterDefaults_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_GetProjectDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetProjectDefaultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).GetProjectDefaults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_GetProjectDefaults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).GetProjectDefaults(ctx, req.(*GetProjectDefaultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1622,6 +1690,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RestartDatum",
 			Handler:    _API_RestartDatum_Handler,
+		},
+		{
+			MethodName: "RerunPipeline",
+			Handler:    _API_RerunPipeline_Handler,
 		},
 		{
 			MethodName: "CreatePipeline",
@@ -1706,6 +1778,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "SetClusterDefaults",
 			Handler:    _API_SetClusterDefaults_Handler,
+		},
+		{
+			MethodName: "GetProjectDefaults",
+			Handler:    _API_GetProjectDefaults_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

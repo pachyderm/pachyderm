@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.21.1"
+    default: "1.21.3"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -98,6 +98,7 @@ jobs:
             go test ./... -json \
             -tags=unit_test \
             -count=1 \
+            -timeout 20m \
             -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
       - run:
           name: Format code coverage
@@ -737,6 +738,7 @@ jobs:
         default: false
     machine:
       image: << pipeline.parameters.machine_image >>
+      docker_layer_caching: true
     resource_class: xlarge
     steps:
       - go/install:
@@ -866,7 +868,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.27.0
+      - image: envoyproxy/envoy:v1.27.1
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -1016,6 +1018,13 @@ jobs:
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+      - when:
+          condition: on_fail
+          steps:
+            - store_artifacts:
+                path: cypress/videos/
+            - store_artifacts:
+                path: cypress/screenshots/
 
   jupyter-extension-frontend-test:
     resource_class: xlarge
@@ -2251,6 +2260,7 @@ commands:
     steps:
       - attach_workspace:
           at: ./
+      - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
       - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
       - run:
           name: Fuse options

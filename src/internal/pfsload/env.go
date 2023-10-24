@@ -1,11 +1,12 @@
 package pfsload
 
 import (
+	"context"
 	"math/rand"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 type Env struct {
@@ -17,8 +18,8 @@ type Env struct {
 	authToken   string
 }
 
-func NewEnv(pachClient *client.APIClient, taskService task.Service, spec *CommitSpec, seed int64) (*Env, error) {
-	client := NewPachClient(pachClient)
+func NewEnv(ctx context.Context, c pfs.APIClient, taskService task.Service, spec *CommitSpec, seed int64) (*Env, error) {
+	client := NewPachClient(c)
 	random := rand.New(rand.NewSource(seed))
 	fileSources := make(map[string]*FileSourceSpec)
 	for _, fileSource := range spec.FileSources {
@@ -32,7 +33,7 @@ func NewEnv(pachClient *client.APIClient, taskService task.Service, spec *Commit
 	if err != nil {
 		return nil, err
 	}
-	authToken, err := auth.GetAuthToken(pachClient.Ctx())
+	authToken, err := auth.GetAuthToken(ctx)
 	if err != nil && !auth.IsErrNotSignedIn(err) {
 		return nil, err
 	}

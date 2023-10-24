@@ -107,7 +107,7 @@ var (
 // apiServer implements the public interface of the Pachyderm Pipeline System,
 // including all RPCs defined in the protobuf spec.
 type apiServer struct {
-	pps.UnimplementedAPIServer
+	pps.UnsafeAPIServer
 
 	etcdPrefix            string
 	env                   Env
@@ -130,6 +130,7 @@ type apiServer struct {
 	pipelines       col.PostgresCollection
 	jobs            col.PostgresCollection
 	clusterDefaults col.PostgresCollection
+	projectDefaults col.PostgresCollection
 }
 
 func merge(from, to map[string]bool) {
@@ -1253,7 +1254,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
 	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
-	di, err := datum.NewIterator(pachClient, taskDoer, input)
+	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err
 	}
@@ -1302,7 +1303,7 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	metaCommit := ppsutil.MetaCommit(jobInfo.OutputCommit)
-	fsi := datum.NewCommitIterator(pachClient, metaCommit, nil)
+	fsi := datum.NewCommitIterator(pachClient.Ctx(), pachClient.PfsAPIClient, metaCommit, nil)
 	err = fsi.Iterate(func(meta *datum.Meta) error {
 		// TODO: Potentially refactor into datum package (at least the path).
 		pfsState := &pfs.File{
@@ -2178,6 +2179,33 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 	}
 }
 
+func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
+	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
+	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
+		if err != nil {
+			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
+		}
+		var effectiveSpec pps.CreatePipelineRequest
+		if err := protojson.Unmarshal([]byte(info.GetEffectiveSpecJson()), &effectiveSpec); err != nil {
+			return errors.Wrapf(err, "could not unmarshal effective spec %s", info.GetEffectiveSpecJson())
+		}
+
+		effectiveSpec.Reprocess = request.Reprocess
+		effectiveSpec.Update = true
+
+		return a.CreatePipelineInTransaction(ctx, txnCtx, &pps.CreatePipelineTransaction{
+			CreatePipelineRequest: &effectiveSpec,
+			EffectiveJson:         info.GetEffectiveSpecJson(),
+			UserJson:              info.GetUserSpecJson(),
+		})
+	}); err != nil {
+		return nil, err
+	}
+	return &emptypb.Empty{}, nil
+}
+
 func (a *apiServer) CreatePipelineV2(ctx context.Context, request *pps.CreatePipelineV2Request) (resp *pps.CreatePipelineV2Response, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "CreatePipelineV2")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
@@ -2600,7 +2628,14 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}); err != nil {
 		return errors.Wrapf(err, "could not create/update output branch")
 	}
-
+	if request.Spout != nil {
+		c := &pfs.Commit{Repo: outputBranch.Repo, Id: txnCtx.CommitSetID}
+		if err := a.env.PFSServer.FinishCommitInTransaction(ctx, txnCtx, &pfs.FinishCommitRequest{Commit: c, Description: "close spout commit"}); err != nil {
+			if !errutil.IsNotFoundError(err) {
+				return errors.Wrapf(err, "could not finish the spout's commit %q", outputBranch.String())
+			}
+		}
+	}
 	if visitErr := pps.VisitInput(request.Input, func(input *pps.Input) error {
 		if input.Pfs != nil && input.Pfs.Trigger != nil {
 			var prevHead *pfs.Commit
@@ -3334,7 +3369,8 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
-			if col.IsErrNotFound(err) {
+			// the branch key of the returned error will be for the spec commit to commitInfo.Commit.Repo.Branch
+			if pfsServer.IsBranchNotFoundErr(err) {
 				continue
 			}
 			return err
@@ -3805,6 +3841,12 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
+	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	if err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
+			{Field: "cluster_defaults_json", Description: err.Error()},
+		})
+	}
 
 	if req.Regenerate {
 		// Determine if the new defaults imply changes to any pipelines.
@@ -3872,4 +3914,27 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return nil, unknownError(ctx, "could not write cluster defaults", err)
 	}
 	return &resp, nil
+}
+
+func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error) {
+	var projectDefaults ppsdb.ProjectDefaultsWrapper
+	if req.Project == nil {
+		return nil, badRequest(ctx, "missing project", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project", Description: "missing"},
+		})
+	} else if req.Project.Name == "" {
+		return nil, badRequest(ctx, "missing project name", []*errdetails.BadRequest_FieldViolation{
+			{Field: "project.name", Description: "empty"},
+		})
+	}
+	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
+		return nil, err
+	}
+	if err := a.projectDefaults.ReadOnly(ctx).Get("", &projectDefaults); err != nil {
+		if !errors.As(err, &col.ErrNotFound{}) {
+			return nil, unknownError(ctx, "could not read project defaults", err)
+		}
+		projectDefaults.Json = "{}"
+	}
+	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
 }

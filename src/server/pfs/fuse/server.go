@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -48,6 +49,8 @@ type ServerOptions struct {
 	Unmount chan struct{}
 	// True if allow-other option is to be specified
 	AllowOther bool
+	// Socket directory for Unix Domain Socket
+	SockPath string
 }
 
 type ConfigRequest struct {
@@ -85,7 +88,7 @@ type MountInfo struct {
 	Repo    string   `json:"repo"`
 	Branch  string   `json:"branch"`
 	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
-	Files   []string `json:"files"`
+	Paths   []string `json:"paths"`
 	Mode    string   `json:"mode"` // "ro", "rw"
 }
 
@@ -112,7 +115,7 @@ type MountManager struct {
 
 	Datums              []*pps.DatumInfo
 	DatumInput          *pps.Input
-	DatumInputsToMounts map[string]string
+	DatumInputsToMounts map[string][]string
 	CurrDatumIdx        int
 
 	// map from mount name onto mfc for that mount
@@ -199,7 +202,6 @@ func (mm *MountManager) ListByMounts() (ListMountResponse, error) {
 				return mr, err
 			}
 			ms := msm.MountState
-			ms.Files = nil
 			mr.Mounted = append(mr.Mounted, ms)
 		}
 	}
@@ -943,10 +945,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// TODO: switch http server for gRPC server and bind to a unix socket not a
-	// TCP port (just for convenient manual testing with curl for now...)
-	// TODO: make port and bind ip parameterizable
-	srv := &http.Server{Addr: ":9002", Handler: router}
+	// Using unix domain socket
+	var sockPath string
+	var srv *http.Server
+	if len(sopts.SockPath) > 0 {
+		sockPath = sopts.SockPath
+		srv = &http.Server{Handler: router}
+	} else {
+		srv = &http.Server{Addr: ":9002", Handler: router}
+	}
+
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
 
 	go func() {
@@ -954,6 +962,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
+			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
 		if mm.Client != nil {
@@ -963,7 +972,19 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	return errors.EnsureStack(srv.ListenAndServe())
+	var socket net.Listener
+	var err1 error
+	var err2 error
+	var err error
+	if len(sopts.SockPath) > 0 {
+		socket, err1 = net.Listen("unix", sockPath)
+		err2 = srv.Serve(socket)
+		err = errors.Join(err1, err2)
+	} else {
+		err = srv.ListenAndServe()
+	}
+
+	return errors.EnsureStack(err)
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
@@ -1099,7 +1120,9 @@ func (mi *MountInfo) verifyProjectRepoBranchCommitExist(client *client.APIClient
 	if err != nil {
 		return false, err
 	}
-	mi.Branch = commitInfo.Commit.Branch.Name
+	if commitInfo.Commit.Branch != nil {
+		mi.Branch = commitInfo.Commit.Branch.Name
+	}
 	mi.Commit = commitInfo.Commit.Id
 	return true, nil
 }
@@ -1114,6 +1137,9 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		}
 		if mi.Repo == "" {
 			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
+		}
+		if len(mi.Paths) == 0 {
+			mi.Paths = []string{"/"}
 		}
 		// In read-only mode, a commit or branch must exist to mount. In read-write mode, it
 		// is not necessary for the branch to exist, as it will be created.
@@ -1144,12 +1170,12 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string]string, error) {
+func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string][]string, error) {
 	if datumInput == nil {
 		return nil, errors.New("datum input is not specified")
 	}
 
-	datumInputsToMounts := map[string]string{} // Maps input to mount name
+	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			return nil
@@ -1177,7 +1203,13 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 			return err
 		}
 		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		datumInputsToMounts[pfsInput] = input.Pfs.Name
+		// In the case where a cross is done on the same repo, we will need to map FileInfo's from
+		// the same repo to different user-specified mount names.
+		if mountNames, ok := datumInputsToMounts[pfsInput]; ok {
+			datumInputsToMounts[pfsInput] = append(mountNames, input.Pfs.Name)
+		} else {
+			datumInputsToMounts[pfsInput] = []string{input.Pfs.Name}
+		}
 
 		return nil
 	}); err != nil {
@@ -1187,40 +1219,46 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 	return datumInputsToMounts, nil
 }
 
+func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
+	datumInputsToMountsCopy := map[string][]string{}
+	for k, v := range datumInputsToMounts {
+		datumInputsToMountsCopy[k] = v
+	}
+	return datumInputsToMountsCopy
+}
+
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
-	mounts := map[string]*MountInfo{}
-	files := map[string]map[string]bool{}
+	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
+	mountToMi := map[string]*MountInfo{}
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		name := mm.DatumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 
-		if _, ok := files[name]; !ok {
-			files[name] = map[string]bool{}
-		}
-		var mi *MountInfo
-		var ok bool
-		if mi, ok = mounts[name]; !ok {
-			mi = &MountInfo{
+		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
+		name := mountsForRepo[0]
+
+		// Could have multiple files to mount from same repo
+		if mi, ok := mountToMi[name]; ok {
+			mi.Paths = append(mi.Paths, fi.File.Path)
+		} else {
+			mountToMi[name] = &MountInfo{
 				Name:    name,
 				Project: project,
 				Repo:    repo,
 				Branch:  branch,
 				Commit:  commit,
-				Files:   []string{fi.File.Path},
+				Paths:   []string{fi.File.Path},
 				Mode:    "ro",
 			}
-		} else if _, ok = files[name][fi.File.Path]; !ok {
-			mi.Files = append(mi.Files, fi.File.Path)
 		}
-		mounts[name] = mi
-		files[name][fi.File.Path] = true
-	}
 
+		// Cycle to next mount name for that repo
+		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
+	}
 	mis := []*MountInfo{}
-	for _, mi := range mounts {
+	for _, mi := range mountToMi {
 		mis = append(mis, mi)
 	}
 	return mis
@@ -1243,7 +1281,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		File:  client.NewFile("", "out", "", "", ""),
+		Files: []*pfs.File{client.NewFile("", "out", "", "", "")},
 		Write: true,
 	}
 }
@@ -1465,7 +1503,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			m.Repo = req.Repo
 			m.Branch = req.Branch
 			m.Commit = req.Commit
-			m.Files = req.Files
+			m.Paths = req.Paths
 			m.Mode = req.Mode
 			return mountingState
 		case "commit":
@@ -1497,13 +1535,16 @@ func mountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
 	func() {
+		files := []*pfs.File{}
+		for _, path := range m.Paths {
+			files = append(files, client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, path))
+		}
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
-			Name:     m.Name,
-			File:     client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, ""),
-			Subpaths: m.Files,
-			Write:    m.Mode == "rw",
+			Name:  m.Name,
+			Files: files,
+			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
 		if m.Commit != "" {
@@ -1720,8 +1761,8 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if !ok {
 		return nil, errors.Errorf("could not get fuse repo options for mount %s", name)
 	}
-	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
-	repoName := opts.File.Commit.Branch.Repo.Name
+	projectName := opts.Files[0].Commit.Branch.Repo.Project.GetName()
+	repoName := opts.Files[0].Commit.Branch.Repo.Name
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err

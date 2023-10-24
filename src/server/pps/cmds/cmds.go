@@ -1649,6 +1649,33 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	validatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "A JSON file (url or filepath) containing one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
 	commands = append(commands, cmdutil.CreateAliases(validatePipeline, "validate pipeline", pipelines))
 
+	rerunPipeline := &cobra.Command{
+		Use:   "{{alias}} <pipeline>",
+		Short: "Rerun a pipeline.",
+		Long:  "This command is used to rerun an existing pipeline.",
+		Example: "\t- {{alias}} foo \n" +
+			"\t- {{alias}} foo --reprocess\n" +
+			"\t- {{alias}} foo --project bar\n",
+		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer client.Close()
+			_, err = client.PpsAPIClient.RerunPipeline(
+				client.Ctx(),
+				&pps.RerunPipelineRequest{
+					Pipeline:  pachdclient.NewPipeline(project, args[0]),
+					Reprocess: reprocess,
+				},
+			)
+			return grpcutil.ScrubGRPC(err)
+		}),
+	}
+	rerunPipeline.Flags().BoolVar(&reprocess, "reprocess", false, "If true, reprocess datums that were already processed by previous version of the pipeline.")
+	rerunPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing project")
+	commands = append(commands, cmdutil.CreateAlias(rerunPipeline, "rerun pipeline"))
+
 	var cluster bool
 	inspectDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
@@ -1670,7 +1697,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
 	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
@@ -1692,7 +1718,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
 	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
@@ -1711,7 +1736,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
 	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
@@ -1733,7 +1757,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			}
 			return errors.New("--cluster must be specified")
 		}),
-		Hidden: true,
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
 	updateDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
@@ -1750,18 +1773,17 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	if reprocess {
 		regenerate = true
 	}
-	b, err := io.ReadAll(r)
+	js, err := ppsutil.ReadYAMLAsJSON(r)
 	if err != nil {
-		return errors.Wrap(err, "could not read cluster defaults")
+		return errors.Wrap(err, "could not read input as YAML")
 	}
-	b = bytes.TrimSpace(b) // remove leading & trailing whitespace
 	// validate that the provided defaults parse
 	var cd pps.ClusterDefaults
-	if err := protojson.Unmarshal(b, &cd); err != nil {
+	if err := protojson.Unmarshal([]byte(js), &cd); err != nil {
 		return errors.Wrapf(err, "invalid cluster defaults")
 	}
 	var req = &pps.SetClusterDefaultsRequest{
-		ClusterDefaultsJson: string(b),
+		ClusterDefaultsJson: js,
 		Regenerate:          regenerate,
 		Reprocess:           reprocess,
 		DryRun:              dryRun,

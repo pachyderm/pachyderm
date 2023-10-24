@@ -14,38 +14,32 @@ type Client interface {
 	WithCreateFileSetClient(ctx context.Context, cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error)
 	AddFileSet(ctx context.Context, commit *pfs.Commit, ID string) error
 	GlobFile(ctx context.Context, commit *pfs.Commit, pattern string, cb func(*pfs.FileInfo) error) error
-	WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) error
-	Ctx() context.Context
+	WaitCommitSet(ctx context.Context, id string, cb func(*pfs.CommitInfo) error) error
 }
 
 type pachClient struct {
-	client *client.APIClient
+	pfs pfs.APIClient
 }
 
-func NewPachClient(client *client.APIClient) Client {
-	return &pachClient{client: client}
+func NewPachClient(pfs pfs.APIClient) Client {
+	return &pachClient{pfs: pfs}
 }
 
 func (pc *pachClient) WithCreateFileSetClient(ctx context.Context, cb func(client.ModifyFile) error) (*pfs.CreateFileSetResponse, error) {
-	ctx = pc.client.AddMetadata(ctx)
-	return pc.client.WithCtx(ctx).WithCreateFileSetClient(cb)
+	return client.WithCreateFileSetClient(ctx, pc.pfs, cb)
 }
 
 func (pc *pachClient) AddFileSet(ctx context.Context, commit *pfs.Commit, filesetID string) error {
 	project := commit.Repo.Project.GetName()
 	repo := commit.Repo.Name
 	branch := commit.Branch.Name
-	return pc.client.WithCtx(ctx).AddFileSet(project, repo, branch, commit.Id, filesetID)
+	return client.AddFileSet(ctx, pc.pfs, project, repo, branch, commit.Id, filesetID)
 }
 
 func (pc *pachClient) GlobFile(ctx context.Context, commit *pfs.Commit, pattern string, cb func(*pfs.FileInfo) error) error {
-	return pc.client.WithCtx(ctx).GlobFile(commit, pattern, cb)
+	return client.GlobFile(ctx, pc.pfs, commit, pattern, cb)
 }
 
-func (pc *pachClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) error {
-	return pc.client.WaitCommitSet(id, cb)
-}
-
-func (pc *pachClient) Ctx() context.Context {
-	return pc.client.Ctx()
+func (pc *pachClient) WaitCommitSet(ctx context.Context, id string, cb func(*pfs.CommitInfo) error) error {
+	return client.WaitCommitSet(ctx, pc.pfs, id, cb)
 }

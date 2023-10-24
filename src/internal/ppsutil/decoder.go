@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -168,6 +169,8 @@ func (r *SpecReader) validateRequest(b []byte) (string, error) {
 	return string(b), nil
 }
 
+var intRegexp = regexp.MustCompile("^(0|(-?[1-9][0-9]*))$")
+
 // yamlToJSON converts a YAML node into an any value which represents a JSON
 // value.  Strings are strings; numbers are json.Number; booleans are bools;
 // nulls are nil; arrays are []any; and maps are map[string]any.
@@ -183,8 +186,8 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 		case "!!str":
 			return n.Value, nil
 		case "!!int":
-			if strings.HasPrefix(n.Value, "0") {
-				return nil, errors.Errorf("number %s has a leading zero", n.Value)
+			if !intRegexp.MatchString(n.Value) {
+				return nil, errors.Errorf("integer value %q does not match regexp %s", n.Value, intRegexp)
 			}
 			return json.Number(n.Value), nil
 		case "!!float":
@@ -244,4 +247,32 @@ func yamlToJSON(n *yaml.Node) (any, error) {
 	default:
 		return nil, errors.Errorf("unknown kind %d", int(n.Kind))
 	}
+}
+
+// ReadYAMLAsJSON reads r as either YAML (or JSON, which is a subset of YAML),
+// and returns JSON.
+func ReadYAMLAsJSON(r io.Reader) (string, error) {
+	var holder yaml.Node
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return "", errors.Wrap(err, "could not read all")
+	}
+	if err := yaml.Unmarshal(b, &holder); err != nil {
+		return "", errors.Wrap(err, "could not unmarshal YAML")
+	}
+	if holder.Kind != yaml.DocumentNode {
+		return "", errors.Errorf("unexpected YAML kind %v", holder.Kind)
+	}
+	content := holder.Content
+	if len(content) != 1 {
+		return "", errors.Errorf("expected a single YAML document; got %d", len(content))
+	}
+	js, err := yamlToJSON(content[0])
+	if err != nil {
+		return "", errors.Wrap(err, "could not convert YAML to JSON")
+	}
+	if b, err = json.Marshal(js); err != nil {
+		return "", errors.Wrap(err, "could not marshal JSON")
+	}
+	return string(b), nil
 }

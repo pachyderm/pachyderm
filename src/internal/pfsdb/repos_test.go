@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -95,11 +96,27 @@ func TestDeleteRepo(t *testing.T) {
 	})
 }
 
+func createCommitAndBranches(ctx context.Context, tx *pachsql.Tx, t *testing.T, repoInfo *pfs.RepoInfo) {
+	for _, branch := range repoInfo.Branches {
+		commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: nil, Id: random.String(32)}
+		commitInfo := &pfs.CommitInfo{Commit: commit,
+			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+			Started: timestamppb.Now()}
+		_, err := pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		require.NoError(t, err, "should be able to create commit")
+		branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
+		_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to create branch")
+		commitInfo.Commit.Branch = branch
+		_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		require.NoError(t, err, "should be able to update commit")
+	}
+}
+
 func TestGetRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-	branchesCol := pfsdb.Branches(db, nil)
 	createInfo := testRepo(testRepoName, testRepoType)
 	createInfo.Branches = []*pfs.Branch{
 		{Repo: createInfo.Repo, Name: "master"},
@@ -107,13 +124,9 @@ func TestGetRepo(t *testing.T) {
 		{Repo: createInfo.Repo, Name: "b"},
 	}
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-		for _, branch := range createInfo.Branches {
-			commit := &pfs.Commit{Repo: createInfo.Repo, Branch: branch, Id: random.String(32)}
-			branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
-			require.NoError(t, branchesCol.ReadWrite(tx).Put(branch, branchInfo), "should be able to create branches")
-		}
 		repoID, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
 		require.NoError(t, err, "should be able to create repo")
+		createCommitAndBranches(ctx, tx, t, createInfo)
 		getInfo, err := pfsdb.GetRepo(ctx, tx, repoID)
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
@@ -126,26 +139,21 @@ func TestListRepos(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-	branchesCol := pfsdb.Branches(db, nil)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		size := 210
 		expectedInfos := make([]*pfs.RepoInfo, size)
 		for i := 0; i < size; i++ {
 			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "unknown")
+			id, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
+			require.NoError(t, err, "should be able to create repo")
+			require.Equal(t, pfsdb.RepoID(i+1), id, "id should be auto incremented")
 			createInfo.Branches = []*pfs.Branch{
 				{Repo: createInfo.Repo, Name: "master"},
 				{Repo: createInfo.Repo, Name: "a"},
 				{Repo: createInfo.Repo, Name: "b"},
 			}
+			createCommitAndBranches(ctx, tx, t, createInfo)
 			expectedInfos[i] = createInfo
-			for _, branch := range createInfo.Branches {
-				commit := &pfs.Commit{Repo: createInfo.Repo, Branch: branch, Id: random.String(32)}
-				branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
-				require.NoError(t, branchesCol.ReadWrite(tx).Put(branch, branchInfo), "should be able to create branches")
-			}
-			id, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
-			require.NoError(t, err, "should be able to create repo")
-			require.Equal(t, pfsdb.RepoID(i+1), id, "id should be auto incremented")
 		}
 		iter, err := pfsdb.ListRepo(ctx, tx, nil)
 		require.NoError(t, err, "should be able to list repos")

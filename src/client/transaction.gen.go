@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
+	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
 	proxy "github.com/pachyderm/pachyderm/v2/src/proxy"
 	taskapi "github.com/pachyderm/pachyderm/v2/src/task"
@@ -485,6 +486,44 @@ func (c *unsupportedPfsBuilderClient) WalkFile(_ context.Context, _ *pfs_v2.Walk
 	return nil, unsupportedError("WalkFile")
 }
 
+type unsupportedPjsBuilderClient struct{}
+
+func (c *unsupportedPjsBuilderClient) CancelJob(_ context.Context, _ *pjs.CancelJobRequest, opts ...grpc.CallOption) (*pjs.CancelJobResponse, error) {
+	return nil, unsupportedError("CancelJob")
+}
+
+func (c *unsupportedPjsBuilderClient) CreateJob(_ context.Context, _ *pjs.CreateJobRequest, opts ...grpc.CallOption) (*pjs.CreateJobResponse, error) {
+	return nil, unsupportedError("CreateJob")
+}
+
+func (c *unsupportedPjsBuilderClient) DeleteJob(_ context.Context, _ *pjs.DeleteJobRequest, opts ...grpc.CallOption) (*pjs.DeleteJobResponse, error) {
+	return nil, unsupportedError("DeleteJob")
+}
+
+func (c *unsupportedPjsBuilderClient) InspectJob(_ context.Context, _ *pjs.InspectJobRequest, opts ...grpc.CallOption) (*pjs.InspectJobResponse, error) {
+	return nil, unsupportedError("InspectJob")
+}
+
+func (c *unsupportedPjsBuilderClient) InspectQueue(_ context.Context, _ *pjs.InspectQueueRequest, opts ...grpc.CallOption) (*pjs.InspectQueueResponse, error) {
+	return nil, unsupportedError("InspectQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) ListJob(_ context.Context, _ *pjs.ListJobRequest, opts ...grpc.CallOption) (pjs.API_ListJobClient, error) {
+	return nil, unsupportedError("ListJob")
+}
+
+func (c *unsupportedPjsBuilderClient) ListQueue(_ context.Context, _ *pjs.ListQueueRequest, opts ...grpc.CallOption) (pjs.API_ListQueueClient, error) {
+	return nil, unsupportedError("ListQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) ProcessQueue(_ context.Context, opts ...grpc.CallOption) (pjs.API_ProcessQueueClient, error) {
+	return nil, unsupportedError("ProcessQueue")
+}
+
+func (c *unsupportedPjsBuilderClient) WalkJob(_ context.Context, _ *pjs.WalkJobRequest, opts ...grpc.CallOption) (pjs.API_WalkJobClient, error) {
+	return nil, unsupportedError("WalkJob")
+}
+
 type unsupportedPpsBuilderClient struct{}
 
 func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.ActivateAuthRequest, opts ...grpc.CallOption) (*pps_v2.ActivateAuthResponse, error) {
@@ -539,6 +578,10 @@ func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLo
 	return nil, unsupportedError("GetLogs")
 }
 
+func (c *unsupportedPpsBuilderClient) GetProjectDefaults(_ context.Context, _ *pps_v2.GetProjectDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.GetProjectDefaultsResponse, error) {
+	return nil, unsupportedError("GetProjectDefaults")
+}
+
 func (c *unsupportedPpsBuilderClient) InspectDatum(_ context.Context, _ *pps_v2.InspectDatumRequest, opts ...grpc.CallOption) (*pps_v2.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
@@ -589,6 +632,10 @@ func (c *unsupportedPpsBuilderClient) QueryLoki(_ context.Context, _ *pps_v2.Lok
 
 func (c *unsupportedPpsBuilderClient) RenderTemplate(_ context.Context, _ *pps_v2.RenderTemplateRequest, opts ...grpc.CallOption) (*pps_v2.RenderTemplateResponse, error) {
 	return nil, unsupportedError("RenderTemplate")
+}
+
+func (c *unsupportedPpsBuilderClient) RerunPipeline(_ context.Context, _ *pps_v2.RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+	return nil, unsupportedError("RerunPipeline")
 }
 
 func (c *unsupportedPpsBuilderClient) RestartDatum(_ context.Context, _ *pps_v2.RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {

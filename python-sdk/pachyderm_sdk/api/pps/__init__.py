@@ -882,6 +882,13 @@ class SchedulingSpec(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RerunPipelineRequest(betterproto.Message):
+    pipeline: "Pipeline" = betterproto.message_field(1)
+    reprocess: bool = betterproto.bool_field(15)
+    """Reprocess forces the pipeline to reprocess all datums."""
+
+
+@dataclass(eq=False, repr=False)
 class CreatePipelineRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
     tf_job: "TfJob" = betterproto.message_field(2)
@@ -1190,6 +1197,42 @@ class CreatePipelineTransaction(betterproto.Message):
     effective_json: str = betterproto.string_field(3)
 
 
+@dataclass(eq=False, repr=False)
+class ProjectDefaults(betterproto.Message):
+    create_pipeline_request: "CreatePipelineRequest" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GetProjectDefaultsRequest(betterproto.Message):
+    project: "_pfs__.Project" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class GetProjectDefaultsResponse(betterproto.Message):
+    project_defaults_json: str = betterproto.string_field(1)
+    """
+    A JSON-encoded ProjectDefaults message, this is the verbatim input passed
+    to SetProjectDefaults.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetProjectDefaultsRequest(betterproto.Message):
+    project: "_pfs__.Project" = betterproto.message_field(1)
+    regenerate: bool = betterproto.bool_field(2)
+    reprocess: bool = betterproto.bool_field(3)
+    dry_run: bool = betterproto.bool_field(4)
+    project_defaults_json: str = betterproto.string_field(5)
+    """
+    A JSON-encoded ProjectDefaults message, this will be stored verbatim.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SetProjectDefaultsResponse(betterproto.Message):
+    affected_pipelines: List["Pipeline"] = betterproto.message_field(1)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
@@ -1240,6 +1283,11 @@ class ApiStub:
         self.__rpc_restart_datum = channel.unary_unary(
             "/pps_v2.API/RestartDatum",
             request_serializer=RestartDatumRequest.SerializeToString,
+            response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_rerun_pipeline = channel.unary_unary(
+            "/pps_v2.API/RerunPipeline",
+            request_serializer=RerunPipelineRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
         )
         self.__rpc_create_pipeline = channel.unary_unary(
@@ -1371,6 +1419,11 @@ class ApiStub:
             "/pps_v2.API/SetClusterDefaults",
             request_serializer=SetClusterDefaultsRequest.SerializeToString,
             response_deserializer=SetClusterDefaultsResponse.FromString,
+        )
+        self.__rpc_get_project_defaults = channel.unary_unary(
+            "/pps_v2.API/GetProjectDefaults",
+            request_serializer=GetProjectDefaultsRequest.SerializeToString,
+            response_deserializer=GetProjectDefaultsResponse.FromString,
         )
 
     def inspect_job(
@@ -1527,6 +1580,16 @@ class ApiStub:
         request.data_filters = data_filters
 
         return self.__rpc_restart_datum(request)
+
+    def rerun_pipeline(
+        self, *, pipeline: "Pipeline" = None, reprocess: bool = False
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        request = RerunPipelineRequest()
+        if pipeline is not None:
+            request.pipeline = pipeline
+        request.reprocess = reprocess
+
+        return self.__rpc_rerun_pipeline(request)
 
     def create_pipeline(
         self,
@@ -1945,6 +2008,15 @@ class ApiStub:
 
         return self.__rpc_set_cluster_defaults(request)
 
+    def get_project_defaults(
+        self, *, project: "_pfs__.Project" = None
+    ) -> "GetProjectDefaultsResponse":
+        request = GetProjectDefaultsRequest()
+        if project is not None:
+            request.project = project
+
+        return self.__rpc_get_project_defaults(request)
+
 
 class ApiBase:
     def inspect_job(
@@ -2043,6 +2115,13 @@ class ApiBase:
         job: "Job",
         data_filters: Optional[List[str]],
         context: "grpc.ServicerContext",
+    ) -> "betterproto_lib_google_protobuf.Empty":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def rerun_pipeline(
+        self, pipeline: "Pipeline", reprocess: bool, context: "grpc.ServicerContext"
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2319,6 +2398,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_project_defaults(
+        self, project: "_pfs__.Project", context: "grpc.ServicerContext"
+    ) -> "GetProjectDefaultsResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     __proto_path__ = "pps_v2.API"
 
     @property
@@ -2373,6 +2459,11 @@ class ApiBase:
                 self.restart_datum,
                 request_deserializer=RestartDatumRequest.FromString,
                 response_serializer=RestartDatumRequest.SerializeToString,
+            ),
+            "RerunPipeline": grpc.unary_unary_rpc_method_handler(
+                self.rerun_pipeline,
+                request_deserializer=RerunPipelineRequest.FromString,
+                response_serializer=RerunPipelineRequest.SerializeToString,
             ),
             "CreatePipeline": grpc.unary_unary_rpc_method_handler(
                 self.create_pipeline,
@@ -2503,5 +2594,10 @@ class ApiBase:
                 self.set_cluster_defaults,
                 request_deserializer=SetClusterDefaultsRequest.FromString,
                 response_serializer=SetClusterDefaultsRequest.SerializeToString,
+            ),
+            "GetProjectDefaults": grpc.unary_unary_rpc_method_handler(
+                self.get_project_defaults,
+                request_deserializer=GetProjectDefaultsRequest.FromString,
+                response_serializer=GetProjectDefaultsRequest.SerializeToString,
             ),
         }

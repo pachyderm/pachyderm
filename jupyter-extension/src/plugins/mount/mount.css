@@ -435,3 +435,29 @@ textarea {
   padding: 0.25em;
   text-align: center;
 }
+
+.jp-DirListing-content[loading="true"] {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.jp-DirPagination {
+  flex: 0 0 auto;
+  display: flex;
+}
+
+.jp-DirPagination * {
+  color: black;
+  flex: 1;
+  text-align: center;
+  padding: 8px 0;
+}
+
+.jp-DirPagination a.active {
+  background-color: var(--pachyderm-hover-plum);
+  color: white;
+}
+
+.jp-DirPagination a:hover:not(.active) {
+  background-color: var(--jp-layout-color0);
+}

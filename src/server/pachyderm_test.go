@@ -8502,6 +8502,59 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	require.True(t, math.Abs((finished.Sub(started)-(time.Second*20)).Seconds()) <= 1.0)
 }
 
+func TestPipelineEmptyInput(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	dataRepo := tu.UniqueString("TestPipelineEmptyInput_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	commit, err := c.PfsAPIClient.StartCommit(ctx, &pfs.StartCommitRequest{
+		Branch:      client.NewBranch(pfs.DefaultProjectName, dataRepo, "master"),
+		Description: "test commit description in 'start commit'",
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	pipeline := tu.UniqueString("TestPipelineEmptyInput")
+	_, err = c.PpsAPIClient.CreatePipeline(
+		context.Background(),
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+		})
+	require.NoError(t, err)
+	// update pipeline to empty input
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Update:    true,
+		})
+	require.NoError(t, err)
+	// restore pipeline by setting its input back
+	_, err = c.PpsAPIClient.CreatePipeline(
+		ctx,
+		&pps.CreatePipelineRequest{
+			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
+			Transform: &pps.Transform{Cmd: []string{"true"}},
+			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/"),
+			Update:    true,
+		})
+	require.NoError(t, err)
+	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
+	require.NoError(t, err)
+	jis, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, false)
+	require.NoError(t, err)
+	require.Equal(t, 3, len(jis))
+	require.Equal(t, jis[0].State, pps.JobState_JOB_SUCCESS)
+}
+
 func TestCommitDescription(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9443,9 +9496,9 @@ func TestListPipelineAtCommit(t *testing.T) {
 	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
 	require.NoError(t, err)
 	expected := []map[string]uint64{
-		{pipeline1: 2, pipeline2: 1},
-		{pipeline1: 1, pipeline2: 1},
 		{pipeline1: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 2, pipeline2: 1},
 	}
 	i := 0
 	require.NoError(t, grpcutil.ForEach[*pfs.CommitSetInfo](commitSets, func(csi *pfs.CommitSetInfo) error {
@@ -9725,12 +9778,10 @@ func TestCreatePipelineError(t *testing.T) {
 	// Create pipeline w/ no transform--make sure we get a response (& make sure
 	// it explains the problem)
 	pipeline := tu.UniqueString("no-transform-")
-	_, err := c.PpsAPIClient.CreatePipeline(
+	_, err := c.PpsAPIClient.CreatePipelineV2(
 		context.Background(),
-		&pps.CreatePipelineRequest{
-			Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: nil,
-			Input:     client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+		&pps.CreatePipelineV2Request{
+			CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null, "input": {"pfs": {"project": %q, "repo": %q, "glob": %q}}}`, pfs.DefaultProjectName, pipeline, pfs.DefaultProjectName, dataRepo, "/*"),
 		})
 	require.YesError(t, err)
 	require.Matches(t, "transform", err.Error())
@@ -10186,8 +10237,8 @@ func TestMalformedPipeline(t *testing.T) {
 	require.YesError(t, err)
 	require.Matches(t, "request.Pipeline cannot be nil", err.Error())
 
-	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)},
+	_, err = c.PpsAPIClient.CreatePipelineV2(c.Ctx(), &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: fmt.Sprintf(`{"pipeline": {"project": {"name": %q}, "name": %q}, "transform": null}`, pfs.DefaultProjectName, pipelineName)},
 	)
 	require.YesError(t, err)
 	require.Matches(t, "must specify a transform", err.Error())
@@ -10201,9 +10252,11 @@ func TestMalformedPipeline(t *testing.T) {
 	require.Matches(t, "no input set", err.Error())
 
 	_, err = c.PpsAPIClient.CreatePipeline(c.Ctx(), &pps.CreatePipelineRequest{
-		Pipeline:        client.NewPipeline(pfs.DefaultProjectName, pipelineName),
-		Transform:       &pps.Transform{},
-		Service:         &pps.Service{},
+		Pipeline:  client.NewPipeline(pfs.DefaultProjectName, pipelineName),
+		Transform: &pps.Transform{},
+		Service: &pps.Service{
+			Type: string(v1.ServiceTypeNodePort),
+		},
 		ParallelismSpec: &pps.ParallelismSpec{},
 	})
 	require.YesError(t, err)
@@ -10336,6 +10389,7 @@ func TestTrigger(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	pipeline1 := tu.UniqueString("TestTrigger1")
 	pipelineCommit1 := client.NewCommit(pfs.DefaultProjectName, pipeline1, "master", "")
@@ -11082,7 +11136,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
 }
 
-func TestMoveBranchTrigger(t *testing.T) {
+func TestPipelineInputTriggerSimple(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -11090,10 +11144,12 @@ func TestMoveBranchTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
 
-	// create a pipeline taking both master and the trigger branch as input
+	// Create a pipeline taking in a trigger branch (to be created at pipeline creation), which is triggered by the toMove branch.
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
@@ -11109,16 +11165,12 @@ func TestMoveBranchTrigger(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	// create the trigger source branch
-	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
-	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
+	// Make sure the trigger triggered
 	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "toMove", ""), "foo", strings.NewReader("bar")))
 	_, err = c.WaitCommit(pfs.DefaultProjectName, dataRepo, "toMove", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
-	// make sure the trigger triggered
 	files, err := c.ListFileAll(client.NewCommit(pfs.DefaultProjectName, dataRepo, "trigger", ""), "/")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
@@ -11616,8 +11668,9 @@ func TestDatabaseStats(t *testing.T) {
 	}
 
 	type rowCountResults struct {
-		NLiveTup int    `json:"n_live_tup"`
-		RelName  string `json:"relname"`
+		NLiveTup   int    `json:"n_live_tup"`
+		RelName    string `json:"relname"`
+		SchemaName string `json:"schemaname"`
 	}
 
 	type commitResults struct {
@@ -11658,13 +11711,13 @@ func TestDatabaseStats(t *testing.T) {
 				"unmarshalling row-counts.json should succeed")
 
 			for _, row := range rows {
-				if row.RelName == "commits" {
+				if row.RelName == "commits" && row.SchemaName == "pfs" {
 					require.NotEqual(t, 0, row.NLiveTup,
 						"some commits from createTestCommits should be accounted for")
 					foundRowCounts = true
 				}
 			}
-		case "database/tables/collections/commits.json":
+		case "database/tables/pfs/commits.json":
 			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
 				"unmarshalling commits.json should succeed")
 			require.Equal(t, numCommits, len(rows), "number of commits should match number of rows")

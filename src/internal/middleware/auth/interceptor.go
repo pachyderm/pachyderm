@@ -202,6 +202,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/RestartDatum":     authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipeline":   authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipelineV2": authDisabledOr(authenticated),
+	"/pps_v2.API/RerunPipeline":    authDisabledOr(authenticated),
 	"/pps_v2.API/InspectPipeline":  authDisabledOr(authenticated),
 	"/pps_v2.API/DeletePipeline":   authDisabledOr(authenticated),
 	"/pps_v2.API/DeletePipelines":  authDisabledOr(authenticated),
@@ -229,6 +230,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/QueryLoki":          authDisabledOr(authenticated),
 	"/pps_v2.API/GetClusterDefaults": authDisabledOr(authenticated),
 	"/pps_v2.API/SetClusterDefaults": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SET_DEFAULTS)),
+	"/pps_v2.API/GetProjectDefaults": authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI
