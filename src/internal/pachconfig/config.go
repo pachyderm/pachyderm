@@ -78,8 +78,8 @@ type GlobalConfiguration struct {
 	// These are automatically injected into pachd by Kubernetes so that Go's GC can be tuned to
 	// take advantage of the memory made available to the container.  They should not be set by
 	// users manually; use GOMEMLIMIT directly instead.
-	K8sMemoryLimit   int64 `env:"K8S_MEMORY_LIMIT,default=0"`
-	K8sMemoryRequest int64 `env:"K8S_MEMORY_REQUEST,default=0"`
+	K8sMemoryLimit   float64 `env:"K8S_MEMORY_LIMIT,default=0"`
+	K8sMemoryRequest float64 `env:"K8S_MEMORY_REQUEST,default=0"`
 
 	// Users tend to have a bad experience when they request 0 resources from k8s.  These are
 	// the defaults for piplines that don't supply any requests or limits.  (As soon as you
