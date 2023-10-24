@@ -630,7 +630,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		defer req.Body.Close()
 		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error creating pipelineReader from request: %v", err), http.StatusBadRequest)
 			return
 		}
 		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
@@ -639,16 +639,16 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error reading next CreatePipeline request: %v", err), http.StatusBadRequest)
 			return
 		}
 		var simpleInput bool
 		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error converting datum inputs to mounts: %v", err), http.StatusBadRequest)
 			return
 		}
 		if err := mm.GetDatums(simpleInput); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
 			return
 		}
 		func() {
@@ -657,11 +657,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(pctx.TODO(), "Mounting first datum")
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:(%s): %v", mi.Project, mi.Repo, mi.Branch, strings.Join(mi.Paths, ","), err)
+				http.Error(w, errorMsg, http.StatusInternalServerError)
 				return
 			}
 		}
@@ -674,7 +675,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error marshalling response: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
@@ -829,7 +830,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		var cfgReq ConfigRequest
 		defer req.Body.Close()
 		if err := json.NewDecoder(req.Body).Decode(&cfgReq); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error decoding request: %v", err), http.StatusBadRequest)
 			return
 		}
 		pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
@@ -840,7 +841,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if isNewCluster(mm, pachdAddress) {
 			newClient, err := getNewClient(cfgReq)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("error creating new client: %v", err), http.StatusInternalServerError)
 				return
 			}
 			if mm.Client != nil {
@@ -850,19 +851,19 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("error establishing mount with new pachd address: %v", err), http.StatusInternalServerError)
 				return
 			}
 		}
 
 		clusterStatus, err := getClusterStatus(mm.Client)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error retrieving cluster status: %v", err), http.StatusInternalServerError)
 			return
 		}
 		marshalled, err := jsonMarshal(clusterStatus)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error marshalling cluster status for response: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
