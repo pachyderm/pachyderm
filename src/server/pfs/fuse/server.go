@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"net/http"
 	"os"
@@ -894,13 +893,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 	// returns pachyderm config for the mount-server
 	router.Methods("PUT").Path("/auth/_login_token").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		defer req.Body.Close()
-		oidcState, err := io.ReadAll(req.Body)
-		if err != nil {
+		data := make(map[string]string) // Maps "oidc" to the OIDC state
+		if err := json.NewDecoder(req.Body).Decode(&data); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 
-		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OidcState: string(oidcState)})
+		resp, err := mm.Client.Authenticate(mm.Client.Ctx(), &auth.AuthenticateRequest{OidcState: data["oidc"]})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
