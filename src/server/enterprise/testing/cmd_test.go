@@ -27,9 +27,15 @@ func startEnterpriseCluster(ctx context.Context, t *testing.T) {
 	valueOverrides := map[string]string{
 		"pachd.rootToken":            "",
 		"pachd.enterpriseLicenseKey": "",
+		// these should switch to proxy if enterprise sticks around, need to change how auth
+		// exchange is calculating the hhost with DexHost and RewriteUrl.
+		// Proxy + enterprise is covered in deploy_test.go
+		"proxy.enabled":                 "false",
+		"enterpriseServer.service.type": "NodePort",
 	}
 	k := testutil.GetKubeClient(t)
 	minikubetestenv.PutNamespace(t, "enterprise")
+	minikubetestenv.LeaseNamespace(t, "enterprise")
 	_ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		EnterpriseServer: true,
 		CleanupAfter:     false,
@@ -228,7 +234,6 @@ func TestLoginEnterprise(t *testing.T) {
 		"license", tu.GetTestEnterpriseCode(t),
 		"pach_address", pachAddress,
 	).Run())
-
 	cmd := tu.PachctlBashCmd(t, c, "pachctl auth login --no-browser --enterprise")
 	out, err := cmd.StdoutPipe()
 	require.NoError(t, err)

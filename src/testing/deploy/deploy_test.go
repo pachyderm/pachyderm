@@ -79,6 +79,7 @@ func TestEnterpriseServerMember(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	minikubetestenv.PutNamespace(t, "enterprise")
+	minikubetestenv.LeaseNamespace(t, "enterprise")
 	valueOverrides["pachd.replicas"] = "2"
 	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,

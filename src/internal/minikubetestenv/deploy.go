@@ -748,6 +748,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	return pClient
 }
 
+// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
 func PutNamespace(t testing.TB, namespace string) {
 	kube := testutil.GetKubeClient(t)
 	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
@@ -763,6 +764,16 @@ func PutNamespace(t testing.TB, namespace string) {
 		}
 	}
 }
+
+// LeaseNamespace blocks until the namespace is no longer leased by someone else. It then creates a lease that is cleaned up at the end of the test.
+// Since PutNamespace doesn't modify existing namespaces, doing PutNamespace(t, ns) then LeaseNamespace(t, ns) is a safe way to wait for a custom
+// namespace to become available and get an exclusive lock on it.
+func LeaseNamespace(t testing.TB, namespace string) {
+	require.NoErrorWithinTRetry(t, time.Second*300, func() error {
+		return putLease(t, namespace)
+	})
+}
+
 func putLease(t testing.TB, namespace string) error {
 	kube := testutil.GetKubeClient(t)
 	var identity *string = new(string)
