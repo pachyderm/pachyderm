@@ -1869,8 +1869,8 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
 	}
-	if request.Autoscaling && request.MaximumExpectedUptime == nil {
-		return errors.Errorf("maximum expected up time required when using autoscaling pipelines")
+	if !request.Autoscaling && request.MaximumExpectedUptime != nil {
+		return errors.Errorf("maximum expected up time cannot be set when autoscaling pipelines is false")
 	}
 	var tolErrs error
 	for i, t := range request.GetTolerations() {
