@@ -63,7 +63,10 @@ func populate(object interface{}, decoders []Decoder) error {
 	if err != nil {
 		return err
 	}
-	return populateInternal(reflect.ValueOf(object), decoderMap, false)
+	if err := populateInternal(reflect.ValueOf(object), decoderMap, false); err != nil {
+		return errors.Wrap(err, "populate configuration from environment")
+	}
+	return nil
 }
 
 func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, recursive bool) error {
@@ -76,20 +79,25 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 		return errors.Errorf("%s: %v", expectedStructErr, reflectValue.Type())
 	}
 
+	var errs error
 	for i := 0; i < reflectValue.NumField(); i++ {
 		structField := reflectValue.Type().Field(i)
 		ptrToStruct := structField.Type.Kind() == reflect.Ptr && structField.Type.Elem().Kind() == reflect.Struct
 		if structField.Type.Kind() == reflect.Struct || ptrToStruct {
 			if _, ok := knownStructs[structField.Type]; !ok {
 				if err := populateInternal(reflectValue.Field(i), decoderMap, true); err != nil {
-					return err
+					// err is in [] because it is possibly a multi-error, and
+					// this formatting makes it clearer which errors are common
+					// to the named field.
+					errors.JoinInto(&errs, errors.Errorf("%s: [\n%v\n]", structField.Name, err))
 				}
 				continue
 			}
 		}
 		envTag, err := getEnvTag(structField)
 		if err != nil {
-			return err
+			errors.JoinInto(&errs, errors.Wrapf(err, "getEnvTag(%s)", structField.Name))
+			continue
 		}
 		if envTag == nil {
 			continue
@@ -97,15 +105,20 @@ func populateInternal(reflectValue reflect.Value, decoderMap map[string]string, 
 		value := getValue(envTag.key, envTag.defaultValue, decoderMap)
 		if value == "" {
 			if envTag.required {
-				return errors.Errorf("%s: %s %v", envKeyNotSetWhenRequiredErr, envTag.key, reflectValue.Type())
+				errors.JoinInto(&errs, errors.Errorf("%s: %s (field %v of %v)", envKeyNotSetWhenRequiredErr, envTag.key, structField.Name, reflectValue.Type()))
+				continue
 			}
 			continue
 		}
 		parsedValue, err := parseField(structField, value)
 		if err != nil {
-			return err
+			errors.JoinInto(&errs, errors.Wrapf(err, "%v (%v = %v)", envTag.key, structField.Name, value))
+			continue
 		}
 		reflectValue.Field(i).Set(reflect.ValueOf(parsedValue))
+	}
+	if errs != nil {
+		return errs
 	}
 	return nil
 }

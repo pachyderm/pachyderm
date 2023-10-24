@@ -223,8 +223,10 @@ PUT /_mount # mounts a single repo
 PUT /_unmount # unmounts a single repo
 PUT /_commit # commits any changes to the repo
 PUT /_unmount_all # unmounts all repos
-PUT /_mount_datums # mounts first datum of given input spec
-PUT /_show_datum # cycles through mounted datums
+PUT /datums/_mount # mounts first datum of given input spec
+PUT /datums/_next # mounts next datum
+PUT /datums/_prev # mounts prev datum
+GET /datums # returns info on mounted datum
 ```
 
 The servers-side extension extends jupyter server, so it automatically starts as part of `jupyter lab`.
