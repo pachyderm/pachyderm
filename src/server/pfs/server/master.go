@@ -132,13 +132,13 @@ func (m *Master) watchRepos(ctx context.Context) error {
 				if err != nil {
 					return errors.Wrap(err, "create list repo iterator")
 				}
-				return errors.Wrap(stream.ForEach[pfsdb.RepoPair](cbCtx, iter, func(repoPair pfsdb.RepoPair) error {
-					lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoPair.ID))
+				return errors.Wrap(stream.ForEach[pfsdb.RepoWithID](cbCtx, iter, func(repoWithID pfsdb.RepoWithID) error {
+					lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoWithID.ID))
 					// cbCtx cannot be used here because it expires at the end of the callback and the
 					// goroutines spawned by manageRepo need to live until the main master routine is cancelled.
 					ctx, cancel := pctx.WithCancel(ctx)
-					repos[repoPair.ID] = cancel
-					go m.driver.manageRepo(ctx, ring, repoPair, lockPrefix)
+					repos[repoWithID.ID] = cancel
+					go m.driver.manageRepo(ctx, ring, repoWithID, lockPrefix)
 					return nil
 				}), "for each repo")
 			}, dbutil.WithReadOnly()); err != nil {
@@ -185,14 +185,14 @@ func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.R
 			}, dbutil.WithReadOnly()); err != nil {
 				return errors.Wrap(err, "get repo")
 			}
-			go d.manageRepo(ctx, ring, pfsdb.RepoPair{ID: repoID, RepoInfo: repo}, lockPrefix)
+			go d.manageRepo(ctx, ring, pfsdb.RepoWithID{ID: repoID, RepoInfo: repo}, lockPrefix)
 		case <-ctx.Done():
 			return nil
 		}
 	}
 }
 
-func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repoPair pfsdb.RepoPair, lockPrefix string) {
+func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repoPair pfsdb.RepoWithID, lockPrefix string) {
 	key := pfsdb.RepoKey(repoPair.RepoInfo.Repo)
 	backoff.RetryUntilCancel(ctx, func() (retErr error) { //nolint:errcheck
 		ctx, cancel := pctx.WithCancel(ctx)
@@ -232,7 +232,7 @@ type cronTrigger struct {
 	spec   string
 }
 
-func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoPair) error {
+func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoWithID) error {
 	repoKey := repoPair.RepoInfo.Repo.Key()
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
@@ -368,7 +368,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 }
 
-func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoPair) error {
+func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoWithID) error {
 	repoKey := repoPair.RepoInfo.Repo.Key()
 	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "finishRepoCommits"),
 		pfsdb.CommitsInRepoChannel(repoPair.ID))
@@ -410,7 +410,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoPair)
 	}
 }
 
-func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoPair, commitWithID *pfsdb.CommitWithID) error {
+func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoWithID, commitWithID *pfsdb.CommitWithID) error {
 	commitInfo := commitWithID.CommitInfo
 	if commitInfo.Finishing == nil || commitInfo.Finished != nil {
 		return nil

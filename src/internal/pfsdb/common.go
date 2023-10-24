@@ -24,7 +24,9 @@ type (
 		Repo | Commit | Branch
 		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
 	}
-	ColumnName interface{ string | branchColumn }
+	ColumnName interface {
+		string | branchColumn | repoColumn
+	}
 )
 
 type OrderByColumn[T ColumnName] struct {
@@ -40,7 +42,7 @@ func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
 	for i, col := range orderBys {
 		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
 	}
-	return "ORDER BY " + strings.Join(values, ", ")
+	return "\nORDER BY " + strings.Join(values, ", ")
 }
 
 type pageIterator[T ModelType] struct {

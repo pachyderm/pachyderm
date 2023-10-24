@@ -271,16 +271,13 @@ func (d *driver) hasProjectAccess(
 }
 
 func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project) ([]*pfs.RepoInfo, error) {
-	projectNames := make([]string, 0)
+	projectNames := make(map[string]bool, 0)
 	for _, project := range projects {
-		projectNames = append(projectNames, project.GetName())
+		projectNames[project.GetName()] = true
 	}
-	filter := make(pfsdb.RepoListFilter)
-	if len(projects) != 0 {
-		filter[pfsdb.RepoProjects] = projectNames
-	}
+	filter := &pfs.Repo{}
 	if repoType != "" { // blank type means return all, otherwise return a specific type
-		filter[pfsdb.RepoTypes] = []string{repoType}
+		filter.Type = repoType
 	}
 	var authActive bool
 	if includeAuth {
@@ -299,27 +296,30 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		return nil, errors.Wrap(err, "could not list repos of all types")
 	}
 	var repos []*pfs.RepoInfo
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
+	if err := stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok {
+			return nil // project doesn't match filter.
+		}
 		if authActive {
-			hasAccess, err := d.hasProjectAccess(txnCtx, repoPair.RepoInfo, checkProjectAccess)
+			hasAccess, err := d.hasProjectAccess(txnCtx, repoWithID.RepoInfo, checkProjectAccess)
 			if err != nil {
 				return errors.Wrap(err, "checking project access")
 			}
 			if !hasAccess {
 				return nil
 			}
-			permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoPair.RepoInfo.Repo)
+			permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoWithID.RepoInfo.Repo)
 			if err != nil {
-				return errors.Wrapf(err, "error getting access level for %q", repoPair.RepoInfo.Repo)
+				return errors.Wrapf(err, "error getting access level for %q", repoWithID.RepoInfo.Repo)
 			}
-			repoPair.RepoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
+			repoWithID.RepoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
-		size, err := d.repoSize(ctx, txnCtx, repoPair.RepoInfo)
+		size, err := d.repoSize(ctx, txnCtx, repoWithID.RepoInfo)
 		if err != nil {
-			return errors.Wrapf(err, "getting repo size for %q", repoPair.RepoInfo.Repo)
+			return errors.Wrapf(err, "getting repo size for %q", repoWithID.RepoInfo.Repo)
 		}
-		repoPair.RepoInfo.SizeBytesUpperBound = size
-		repos = append(repos, repoPair.RepoInfo)
+		repoWithID.RepoInfo.SizeBytesUpperBound = size
+		repos = append(repos, repoWithID.RepoInfo)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "for each repo")
@@ -517,14 +517,15 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		return []*pfs.RepoInfo{ri}, nil
 	}
 	var related []*pfs.RepoInfo
-	filter := make(pfsdb.RepoListFilter)
-	filter[pfsdb.RepoNames] = []string{repo.Name}
-	filter[pfsdb.RepoProjects] = []string{repo.Project.Name}
+	filter := &pfs.Repo{
+		Name:    repo.Name,
+		Project: repo.Project,
+	}
 	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(otherRepo pfsdb.RepoPair) error {
+	if err := stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(otherRepo pfsdb.RepoWithID) error {
 		related = append(related, otherRepo.RepoInfo)
 		return nil
 	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
