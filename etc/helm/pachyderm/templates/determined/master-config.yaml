@@ -1,16 +1,18 @@
 {{- if .Values.determined.enabled }}
 apiVersion: v1
-kind: ConfigMap
+kind: Secret
 metadata:
    name: determined-master-config-{{ .Release.Name }}
    namespace: {{ .Release.Namespace }}
    labels:
      app: determined-master-{{ .Release.Name }}
      release: {{ .Release.Name }}
-data:
+stringData:
   master.yaml: |
     log:
-      level: debug
+      level: {{ .Values.determined.logLevel  | quote | default "info" }}
+      color: {{ .Values.determined.logColor | default true }}
+
     checkpoint_storage:
       type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.determined.checkpointStorage.type | quote}}
       {{- if eq .Values.determined.checkpointStorage.type "shared_fs" }}
@@ -80,7 +82,7 @@ data:
     {{- if .Values.determined.enterpriseEdition }}
     {{- if .Values.determined.oidc }}
     oidc:
-      enabled: {{ .Values.determined.oidc.enabled | default true }}
+      enabled: {{ .Values.determined.oidc.enabled | default false }}
       provider: {{ default .Values.determined.oidc.provider "dex"}}
       idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.oidc.idpRecipientUrl }}
       idp_sso_url: {{ default .Values.determined.oidc.idpSsoUrl (include "pachyderm.issuerURI" . | quote) }}
@@ -95,7 +97,7 @@ data:
 
     {{- if .Values.determined.scim }}
     scim:
-      enabled: {{ .Values.determined.scim.enabled | default true }}
+      enabled: {{ .Values.determined.scim.enabled | default false }}
       auth:
         type: {{ required "A valid authentication type is required!" .Values.determined.scim.auth.type }}
         {{- if eq .Values.determined.scim.auth.type "basic" }}
@@ -136,8 +138,6 @@ data:
       {{- toYaml .Values.determined.resourcePools | nindent 6}}
     {{- end }}
 
-    {{$cpuImage := (split "/" "determinedai/environments:py-3.8-pytorch-1.12-tf-2.11-cpu-6eceaca")._1}}
-    {{- $gpuImage := (split "/" "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-6eceaca")._1 -}}
     {{ if .Values.determined.taskContainerDefaults -}}
     task_container_defaults:
       {{- if .Values.determined.taskContainerDefaults.networkMode }}
@@ -156,10 +156,10 @@ data:
       image:
          cpu: {{ .Values.determined.taskContainerDefaults.cpuImage | quote }}
          gpu: {{ .Values.determined.taskContainerDefaults.gpuImage | quote }}
-      {{- else if .Values.determined.imageRegistry }}
+      {{- else }}
       image:
-         cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
-         gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+         cpu: {{ .Values.determined.defaultImages.cpuImage | quote }}
+         gpu: {{ .Values.determined.defaultImages.gpuImage | quote }}
       {{- if or .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
         {{ required "A valid .Values.determined.taskContainerDefaults.cpuImage entry is required if setting .Values.determined.taskContainerDefaults.gpuImage!" .Values.determined.taskContainerDefaults.cpuImage }}
         {{ required "A valid .Values.determined.taskContainerDefaults.gpuImage entry is required if setting .Values.determined.taskContainerDefaults.cpuImage!" .Values.determined.taskContainerDefaults.gpuImage }}
@@ -168,11 +168,11 @@ data:
       {{- if .Values.determined.taskContainerDefaults.forcePullImage }}
       force_pull_image: {{ .Values.determined.taskContainerDefaults.forcePullImage }}
       {{- end }}
-    {{ else if .Values.determined.imageRegistry }}
+    {{ else }}
     task_container_defaults:
       image:
-         cpu: {{ .Values.determined.imageRegistry }}/{{ $cpuImage }}
-         gpu: {{ .Values.determined.imageRegistry }}/{{ $gpuImage }}
+         cpu: {{ .Values.determined.defaultImages.cpuImage | quote }}
+         gpu: {{ .Values.determined.defaultImages.gpuImage | quote }}
     {{ end }}
 
     {{- if .Values.determined.telemetry }}
