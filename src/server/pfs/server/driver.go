@@ -448,17 +448,17 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 // all of the repo's branches are deleted using d.deleteBranches()
 func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
 	var nonCtxCommitInfos []*pfs.CommitInfo
-	iter2, err := pfsdb.ListCommit(ctx, d.env.DB, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false, false)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: ri.Repo})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter2, func(commitWithID pfsdb.CommitWithID) error {
+	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
 		nonCtxCommitInfos = append(nonCtxCommitInfos, commitWithID.CommitInfo)
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(ri.Repo)}}, false, false)
+	commitInfos, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Repo: ri.Repo})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
@@ -473,12 +473,12 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
 	// todo(fahad/albert): write delete: d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo))
-	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: ri.Repo},
+	branchIter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: ri.Repo},
 		pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
 		if err := pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID); err != nil {
 			return errors.Wrap(err, "delete repo info")
 		}
@@ -1511,20 +1511,22 @@ func (d *driver) listCommit(
 
 		// if neither from and to is given, we list all commits in
 		// the repo, sorted by revision timestamp.
-		var filter pfsdb.CommitListFilter
+		var filter *pfs.Commit
 		if repo.Name != "" {
-			filter = pfsdb.CommitListFilter{
-				pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)},
-			}
+			filter = &pfs.Commit{Repo: repo}
 		}
 		// driver.listCommit should return more recent commits by default, which is the
 		// opposite behavior of pfsdb.ListCommit.
-		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, !reverse, true)
+		order := pfsdb.SortOrderDesc
+		if reverse {
+			order = pfsdb.SortOrderAsc
+		}
+		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: order})
 		if err != nil {
 			return errors.Wrap(err, "list commit")
 		}
 		if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
-			return listCallback(commitWithID.CommitInfo, int64(commitWithID.Revision))
+			return listCallback(commitWithID.CommitInfo, commitWithID.Revision)
 		}); err != nil {
 			return errors.Wrap(err, "list commit")
 		}
@@ -1603,8 +1605,7 @@ func (d *driver) subscribeCommit(
 	}
 	defer watcher.Close()
 	// Get existing entries.
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB,
-		pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo)}}, false, true)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: repo})
 	if err != nil {
 		return errors.Wrap(err, "create list commits iterator")
 	}
@@ -2092,10 +2093,10 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		}
 		// we need to find all commits that reference this branch and update them so they no longer do that.
 		if err := pfsdb.UpdateCommitTxByFilter(ctx, txnCtx.SqlTx,
-			pfsdb.CommitListFilter{
-				pfsdb.CommitBranches: []string{branch.Name},
-				pfsdb.CommitRepos:    []string{branch.Repo.Key()},
-			}, false, false,
+			&pfs.Commit{
+				Branch: branch,
+				Repo:   branch.Repo,
+			},
 			func(commitWithID pfsdb.CommitWithID) error {
 				commitWithID.CommitInfo.Commit.Branch = nil
 				return nil
