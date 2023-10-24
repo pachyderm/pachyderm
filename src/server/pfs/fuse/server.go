@@ -14,7 +14,6 @@ import (
 	pathpkg "path"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -41,6 +40,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
+
+// TODO: Get all datums for now (value of 0). Once ListDatum pagination is efficient,
+// specify page size. #ListDatumPagination
+const NumDatumsPerPage = 0 // The number of datums requested per ListDatum call
 
 type ServerOptions struct {
 	MountDir string
@@ -71,15 +74,19 @@ type CommitRequest struct {
 }
 
 type MountDatumResponse struct {
-	Id        string `json:"id"`
-	Idx       int    `json:"idx"`
-	NumDatums int    `json:"num_datums"`
+	// We'll return this as empty string until #ListDatumPagination since we don't know the
+	// ID for datums we artificially constructed in CreateDatums()
+	Id                string `json:"id"`
+	Idx               int    `json:"idx"`
+	NumDatums         int    `json:"num_datums"`
+	AllDatumsReceived bool   `json:"all_datums_received"`
 }
 
 type DatumsResponse struct {
-	NumDatums int        `json:"num_datums"`
-	Input     *pps.Input `json:"input"`
-	CurrIdx   int        `json:"curr_idx"`
+	NumDatums         int        `json:"num_datums"`
+	Input             *pps.Input `json:"input"`
+	Idx               int        `json:"idx"`
+	AllDatumsReceived bool       `json:"all_datums_received"`
 }
 
 type MountInfo struct {
@@ -107,17 +114,21 @@ type Response struct {
 	Error      error
 }
 
+type DatumState struct {
+	Datums              []*pps.DatumInfo
+	PaginationMarker    string
+	DatumInput          *pps.Input
+	DatumInputsToMounts map[string][]string
+	DatumIdx            int
+	AllDatumsReceived   bool
+}
+
 type MountManager struct {
 	Client *client.APIClient
 	// only put a value into the States map when we have a goroutine running for
 	// it. i.e. when we try to mount it for the first time.
 	States map[string]*MountStateMachine
-
-	Datums              []*pps.DatumInfo
-	DatumInput          *pps.Input
-	DatumInputsToMounts map[string][]string
-	CurrDatumIdx        int
-
+	DatumState
 	// map from mount name onto mfc for that mount
 	mfcs     map[string]*client.ModifyFileClient
 	root     *loopbackRoot
@@ -577,22 +588,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-
+		// Reset DatumState in case datums were mounted
+		mm.resetDatumState()
 		if err := mm.UnmountAll(); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		func() {
-			mm.mu.Lock()
-			defer mm.mu.Unlock()
-
-			mm.Datums = nil
-			mm.DatumInput = nil
-			mm.CurrDatumIdx = -1
-			mm.DatumInputsToMounts = nil
-		}()
-
 		mountsList, err := mm.ListByMounts()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -605,13 +606,18 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		w.Write(marshalled) //nolint:errcheck
 	})
-	router.Methods("PUT").Path("/_mount_datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+	router.Methods("PUT").Path("/datums/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		errMsg, webCode := initialChecks(mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
 		}
-
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Reset DatumState in case datums were mounted
+		mm.resetDatumState()
 		defer req.Body.Close()
 		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
@@ -627,104 +633,22 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datumInputsToMounts, err := sanitizeInputAndGetAlias(pipelineReq.Input, mm.Client)
-		if err != nil {
+		var simpleInput bool
+		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		datums, err := mm.Client.ListDatumInputAll(pipelineReq.Input)
-		if err != nil {
+		if err := mm.GetDatums(simpleInput); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-		if len(datums) == 0 {
-			http.Error(w, "no datums match the given input spec", http.StatusBadRequest)
 			return
 		}
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
-
-			mm.CurrDatumIdx = 0
-			mm.Datums = datums
-			mm.DatumInput = pipelineReq.Input
-			mm.DatumInputsToMounts = datumInputsToMounts
+			mm.DatumIdx = 0
 		}()
-
-		if err := mm.UnmountAll(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
-		mis := mm.datumToMounts(datums[0])
-		for _, mi := range mis {
-			if _, err := mm.MountRepo(mi); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
-		createLocalOutDir(mm)
-
-		resp := MountDatumResponse{
-			Id:        datums[0].Datum.Id,
-			Idx:       0,
-			NumDatums: len(datums),
-		}
-		marshalled, err := jsonMarshal(resp)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Write(marshalled) //nolint:errcheck
-	})
-	router.Methods("PUT").Path("/_show_datum").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
-		if errMsg != "" {
-			http.Error(w, errMsg, webCode)
-			return
-		}
-		if len(mm.Datums) == 0 {
-			http.Error(w, "no datums mounted", http.StatusBadRequest)
-			return
-		}
-
-		vs := req.URL.Query()
-		idxStr := vs.Get("idx")
-		id := vs.Get("id")
-		if idxStr == "" && id == "" {
-			http.Error(w, "need to specify either datum idx or id", http.StatusBadRequest)
-			return
-		}
-		idx := 0
-		if idxStr != "" {
-			var err error
-			idx, err = strconv.Atoi(idxStr)
-			if err != nil {
-				http.Error(w, "used a non-integer for datum index", http.StatusBadRequest)
-				return
-			}
-		}
-
-		var di *pps.DatumInfo
-		if id != "" {
-			foundDatum := false
-			for idx, di = range mm.Datums {
-				if di.Datum.Id == id {
-					foundDatum = true
-					break
-				}
-			}
-			if !foundDatum {
-				http.Error(w, "specify a valid datum id", http.StatusBadRequest)
-				return
-			}
-		} else {
-			di = mm.Datums[idx]
-		}
-		if err := mm.UnmountAll(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+		di := mm.Datums[mm.DatumIdx]
+		log.Info(pctx.TODO(), "Mounting first datum")
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -734,17 +658,108 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		createLocalOutDir(mm)
 
+		resp := MountDatumResponse{
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
+		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled) //nolint:errcheck
+	})
+	router.Methods("PUT").Path("/datums/_prev").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "no datums mounted", http.StatusBadRequest)
+			return
+		}
+		if mm.DatumIdx == 0 {
+			http.Error(w, "already at first datum", http.StatusBadRequest)
+			return
+		}
+
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
-
-			mm.CurrDatumIdx = idx
+			mm.DatumIdx--
 		}()
+		di := mm.Datums[mm.DatumIdx]
+		mis := mm.datumToMounts(di)
+		for _, mi := range mis {
+			if _, err := mm.MountRepo(mi); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		createLocalOutDir(mm)
 
 		resp := MountDatumResponse{
-			Id:        di.Datum.Id,
-			Idx:       idx,
-			NumDatums: len(mm.Datums),
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
+		}
+		marshalled, err := jsonMarshal(resp)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Write(marshalled) //nolint:errcheck
+	})
+	router.Methods("PUT").Path("/datums/_next").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		errMsg, webCode := initialChecks(mm, true)
+		if errMsg != "" {
+			http.Error(w, errMsg, webCode)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "no datums mounted", http.StatusBadRequest)
+			return
+		}
+		if !mm.AllDatumsReceived && mm.DatumIdx == len(mm.Datums)-1 {
+			if err := mm.getMoreDatums(); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		if mm.AllDatumsReceived && mm.DatumIdx == len(mm.Datums)-1 {
+			http.Error(w, "already at last datum", http.StatusBadRequest)
+			return
+		}
+
+		if err := mm.UnmountAll(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		func() {
+			mm.mu.Lock()
+			defer mm.mu.Unlock()
+			mm.DatumIdx++
+		}()
+		di := mm.Datums[mm.DatumIdx]
+		mis := mm.datumToMounts(di)
+		for _, mi := range mis {
+			if _, err := mm.MountRepo(mi); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+		createLocalOutDir(mm)
+
+		resp := MountDatumResponse{
+			Idx:               mm.DatumIdx,
+			NumDatums:         len(mm.Datums),
+			AllDatumsReceived: mm.AllDatumsReceived,
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
@@ -760,16 +775,13 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 
-		var resp DatumsResponse
-		if len(mm.Datums) == 0 {
-			resp = DatumsResponse{
-				NumDatums: 0,
-			}
-		} else {
-			resp = DatumsResponse{
-				NumDatums: len(mm.Datums),
-				Input:     mm.DatumInput,
-				CurrIdx:   mm.CurrDatumIdx,
+		resp := &DatumsResponse{}
+		if len(mm.Datums) != 0 {
+			resp = &DatumsResponse{
+				NumDatums:         len(mm.Datums),
+				Input:             mm.DatumInput,
+				Idx:               mm.DatumIdx,
+				AllDatumsReceived: mm.AllDatumsReceived,
 			}
 		}
 		marshalled, err := jsonMarshal(resp)
@@ -1170,14 +1182,21 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 }
 
 // Visit each entry in the Input spec and set default values if unassigned
-func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[string][]string, error) {
+// Create a map from input to mount name(s) for use in mounting datums
+// Return whether the input has a cron, group by, or join for later use to
+// determine whether to use GlobFile or ListDatum #ListDatumPagination
+func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 	if datumInput == nil {
-		return nil, errors.New("datum input is not specified")
+		return true, errors.New("datum input is not specified")
 	}
 
 	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
+	simpleInput := true
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
+			if input.Cron != nil || input.Join != nil || input.Group != nil {
+				simpleInput = false
+			}
 			return nil
 		}
 
@@ -1198,7 +1217,7 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 		}
 		// In the case a branch is created off another branch, listing datums returns files from
 		// the original branch a commit is on. We should index on that original branch instead.
-		bi, err := c.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+		bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
 		if err != nil {
 			return err
 		}
@@ -1210,21 +1229,121 @@ func sanitizeInputAndGetAlias(datumInput *pps.Input, c *client.APIClient) (map[s
 		} else {
 			datumInputsToMounts[pfsInput] = []string{input.Pfs.Name}
 		}
-
 		return nil
 	}); err != nil {
-		return nil, err
+		return true, err
 	}
-
-	return datumInputsToMounts, nil
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.DatumInput = datumInput
+		mm.DatumInputsToMounts = datumInputsToMounts
+	}()
+	return simpleInput, nil
 }
 
-func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
-	datumInputsToMountsCopy := map[string][]string{}
-	for k, v := range datumInputsToMounts {
-		datumInputsToMountsCopy[k] = v
+func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
+	req := &pps.ListDatumRequest{
+		Input:            mm.DatumInput,
+		Number:           int64(numDatums),
+		PaginationMarker: paginationMarker,
 	}
-	return datumInputsToMountsCopy
+
+	ctx, cf := context.WithCancel(mm.Client.Ctx())
+	defer cf()
+	client, err := mm.Client.PpsAPIClient.ListDatum(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	var dis []*pps.DatumInfo
+	for {
+		di, err := client.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return dis, nil
+			}
+			return nil, err
+		}
+		dis = append(dis, di)
+	}
+}
+
+func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
+	defer func() {
+		retErr = grpcutil.ScrubGRPC(retErr)
+	}()
+	if simpleInput {
+		return mm.CreateDatums()
+	}
+	// If input spec has Join or Group, fall back to ListDatum
+	datums, err := mm.GetNextXDatums(NumDatumsPerPage, "")
+	if err != nil {
+		return err
+	}
+	if len(datums) == 0 {
+		return errors.New("no datums to mount")
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.Datums = datums
+		mm.PaginationMarker = datums[len(datums)-1].Datum.Id
+		if len(datums) < NumDatumsPerPage || NumDatumsPerPage == 0 {
+			mm.AllDatumsReceived = true
+		}
+	}()
+	return nil
+}
+
+// TODO: For input specs that only have cross, union, or PFS inputs, create datums manually
+// using GlobFile for now because it's faster than ListDatum. Once ListDatum pagination is
+// efficient, we can remove this. #ListDatumPagination
+func (mm *MountManager) CreateDatums() error {
+	datumsAtLevel := make(map[int][][]*pps.DatumInfo)
+	if err := visitInput(mm.DatumInput, 0, func(input *pps.Input, level int) error {
+		if input.Pfs != nil {
+			// Glob file to get datums associated with this PFS input
+			commit := client.NewCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
+			datums := []*pps.DatumInfo{}
+			if err := mm.Client.GlobFile(commit, input.Pfs.Glob, func(fi *pfs.FileInfo) error {
+				datums = append(datums, &pps.DatumInfo{Data: []*pfs.FileInfo{fi}})
+				return nil
+			}); err != nil {
+				return err
+			}
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+		}
+		if input.Union != nil {
+			// Union all the children PFS inputs datums at level+1
+			datums := []*pps.DatumInfo{}
+			for _, pfsInputDatums := range datumsAtLevel[level+1] {
+				datums = append(datums, pfsInputDatums...)
+			}
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+			delete(datumsAtLevel, level+1)
+		}
+		if input.Cross != nil {
+			// Cross all the children PFS inputs datums at level+1
+			datums := crossDatums(datumsAtLevel[level+1])
+			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
+			delete(datumsAtLevel, level+1)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	datums := datumsAtLevel[0][0]
+	if len(datums) == 0 {
+		return errors.New("no datums to mount")
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		mm.Datums = datums
+		mm.AllDatumsReceived = true
+	}()
+	return nil
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
@@ -1235,7 +1354,6 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-
 		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
 		name := mountsForRepo[0]
 
@@ -1262,6 +1380,41 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		mis = append(mis, mi)
 	}
 	return mis
+}
+
+// Appends the next page of datums if they exist. Might discover we've already
+// received all datums.
+func (mm *MountManager) getMoreDatums() error {
+	datums, err := mm.GetNextXDatums(NumDatumsPerPage, mm.PaginationMarker)
+	if err != nil {
+		return err
+	}
+	func() {
+		mm.mu.Lock()
+		defer mm.mu.Unlock()
+		if len(datums) == 0 {
+			// we already had all the datums
+			mm.AllDatumsReceived = true
+		} else {
+			mm.Datums = append(mm.Datums, datums...)
+			mm.PaginationMarker = datums[len(datums)-1].Datum.Id
+			if len(datums) < NumDatumsPerPage || NumDatumsPerPage == 0 {
+				mm.AllDatumsReceived = true
+			}
+		}
+	}()
+	return nil
+}
+
+func (mm *MountManager) resetDatumState() {
+	mm.mu.Lock()
+	defer mm.mu.Unlock()
+	mm.Datums = nil
+	mm.PaginationMarker = ""
+	mm.DatumInput = nil
+	mm.DatumIdx = -1
+	mm.DatumInputsToMounts = nil
+	mm.AllDatumsReceived = false
 }
 
 func removeOutDir(mm *MountManager) error {

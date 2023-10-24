@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func TestBasicServerSameNames(t *testing.T) {
@@ -1113,6 +1114,30 @@ func TestMountingCommitRWMode(t *testing.T) {
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
 		require.Equal(t, commitInfo2.Commit.Id, (*mountResp).Mounted[0].Commit)
 	})
+}
+
+func TestCrossDatumsHelper(t *testing.T) {
+	datums := [][]*pps.DatumInfo{
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "/file1")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "/dir1")}}},
+		},
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", "/file2")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", "/dir2")}}},
+		},
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir1")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir2")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir3")}}},
+		},
+	}
+
+	result := crossDatums(datums)
+	require.Equal(t, 12, len(result))
+	for _, datum := range result {
+		require.Equal(t, 3, len(datum.Data))
+	}
 }
 
 func TestMountingMultipleFiles(t *testing.T) {
