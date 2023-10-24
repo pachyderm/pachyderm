@@ -633,12 +633,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		var useGlobFile bool
-		if useGlobFile, err = mm.processInput(pipelineReq.Input); err != nil {
+		var simpleInput bool
+		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := mm.GetDatums(useGlobFile); err != nil {
+		if err := mm.GetDatums(simpleInput); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -1191,11 +1191,11 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 	}
 
 	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
-	useGlobFile := true
+	simpleInput := true
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		if input.Pfs == nil {
 			if input.Cron != nil || input.Join != nil || input.Group != nil {
-				useGlobFile = false
+				simpleInput = false
 			}
 			return nil
 		}
@@ -1239,7 +1239,7 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 		mm.DatumInput = datumInput
 		mm.DatumInputsToMounts = datumInputsToMounts
 	}()
-	return useGlobFile, nil
+	return simpleInput, nil
 }
 
 func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
@@ -1268,13 +1268,13 @@ func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) (
 	}
 }
 
-func (mm *MountManager) GetDatums(useGlobFile bool) (retErr error) {
+func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
 	// TODO: Try creating datums using GlobFile for now because it's faster than ListDatum.
 	// Once ListDatum pagination is efficient, we can remove this. #ListDatumPagination
-	if useGlobFile {
+	if simpleInput {
 		return mm.CreateDatums()
 	}
 	// If input spec has Join or Group, fall back to ListDatum
