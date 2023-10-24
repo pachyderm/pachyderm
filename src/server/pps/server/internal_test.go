@@ -54,7 +54,7 @@ func TestNewMessageFilterFunc(t *testing.T) {
 
 func BenchmarkMakeEffectiveSpec(b *testing.B) {
 	var (
-		defaults = map[string]string{
+		clusterDefaults = map[string]string{
 			"empty defaults":                      `{}`,
 			"empty default createPipelineRequest": `{"createPipelineRequest":{}}`,
 			"default autoscaling":                 `{"createPipelineRequest":{"autoscaling": true}}`,
@@ -68,6 +68,23 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 				"resource_limits": {
 					"cpu": "1",
 					"disk": "187Mi"
+				}
+			}}`,
+		}
+		projectDefaults = map[string]string{
+			"empty defaults":                      `{}`,
+			"empty default createPipelineRequest": `{"createPipelineRequest":{}}`,
+			"default autoscaling":                 `{"createPipelineRequest":{"autoscaling": true}}`,
+			"default datum_tries":                 `{"create_pipeline_request":{"datum_tries": 7}}`,
+			"default autoscaling and datumTries":  `{"createPipelineRequest":{"autoscaling": false, "datumTries": 4}}`,
+			"default resource requests and limits": `{"createPipelineRequest":{
+				"resource_requests": {
+					"cpu": "1",
+					"disk": "186Mi"
+				},
+				"resource_limits": {
+					"cpu": "1",
+					"disk": "188Mi"
 				}
 			}}`,
 		}
@@ -258,15 +275,19 @@ func BenchmarkMakeEffectiveSpec(b *testing.B) {
 		}
 	)
 	// merge each spec into each default
-	for name, defaults := range defaults {
+	for name, clusterDefaults := range clusterDefaults {
 		b.Run(name, func(b *testing.B) {
-			for name, spec := range specs {
+			for name, projectDefaults := range projectDefaults {
 				b.Run(name, func(b *testing.B) {
-					for i := 0; i < b.N; i++ {
-						if _, _, err := makeEffectiveSpec(defaults, `{}`, spec); err != nil {
-							b.Error(err)
-						}
+					for name, spec := range specs {
+						b.Run(name, func(b *testing.B) {
+							for i := 0; i < b.N; i++ {
+								if _, _, err := makeEffectiveSpec(clusterDefaults, projectDefaults, spec); err != nil {
+									b.Error(err)
+								}
 
+							}
+						})
 					}
 				})
 			}
