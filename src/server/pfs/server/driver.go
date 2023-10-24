@@ -297,7 +297,7 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	}
 	var repos []*pfs.RepoInfo
 	if err := stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
-		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok {
+		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok && len(projectNames) > 0 {
 			return nil // project doesn't match filter.
 		}
 		if authActive {
