@@ -924,7 +924,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command checks the status of an existing Pachyderm pipeline withing a project.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --project bar \n",
-		Run: cmdutil.RunMinimumArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
