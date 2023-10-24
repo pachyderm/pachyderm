@@ -3938,11 +3938,30 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
 	}
-	if err := a.projectDefaults.ReadOnly(ctx).Get("", &projectDefaults); err != nil {
+	if err := a.projectDefaults.ReadOnly(ctx).Get(req.Project.String(), &projectDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read project defaults", err)
 		}
+
 		projectDefaults.Json = "{}"
 	}
 	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
+}
+
+// SetProjectDefaults is a stub, for use in testing.
+//
+// TODO(CORE-1712): implement as an RPC.
+func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error) {
+	if req.Project == nil || req.Project.Name == "" {
+		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.Project.String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, unknownError(ctx, "could not write cluster defaults", err)
+	}
+	return &pps.SetProjectDefaultsResponse{}, nil
 }
