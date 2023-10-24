@@ -1272,8 +1272,6 @@ func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	// TODO: Try creating datums using GlobFile for now because it's faster than ListDatum.
-	// Once ListDatum pagination is efficient, we can remove this. #ListDatumPagination
 	if simpleInput {
 		return mm.CreateDatums()
 	}
@@ -1297,6 +1295,9 @@ func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
 	return nil
 }
 
+// TODO: For input specs that only have cross, union, or PFS inputs, create datums manually
+// using GlobFile for now because it's faster than ListDatum. Once ListDatum pagination is
+// efficient, we can remove this. #ListDatumPagination
 func (mm *MountManager) CreateDatums() error {
 	datumsAtLevel := make(map[int][][]*pps.DatumInfo)
 	if err := visitInput(mm.DatumInput, 0, func(input *pps.Input, level int) error {
@@ -1313,7 +1314,7 @@ func (mm *MountManager) CreateDatums() error {
 			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
 		}
 		if input.Union != nil {
-			// Union all the children PFS inputs datums
+			// Union all the children PFS inputs datums at level+1
 			datums := []*pps.DatumInfo{}
 			for _, pfsInputDatums := range datumsAtLevel[level+1] {
 				datums = append(datums, pfsInputDatums...)
@@ -1322,7 +1323,7 @@ func (mm *MountManager) CreateDatums() error {
 			delete(datumsAtLevel, level+1)
 		}
 		if input.Cross != nil {
-			// Cross all the children PFS inputs datums
+			// Cross all the children PFS inputs datums at level+1
 			datums := crossDatums(datumsAtLevel[level+1])
 			datumsAtLevel[level] = append(datumsAtLevel[level], datums)
 			delete(datumsAtLevel, level+1)

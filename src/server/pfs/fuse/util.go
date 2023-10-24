@@ -66,6 +66,7 @@ func isDescendantOf(path1, path2 string) bool {
 	return strings.HasPrefix(path1, path2)
 }
 
+// Does a DFS of the input tree, calling f on each node after visiting its children
 func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) error {
 	var source []*pps.Input
 	switch {
@@ -88,6 +89,7 @@ func visitInput(input *pps.Input, level int, f func(*pps.Input, int) error) erro
 	return f(input, level)
 }
 
+// Does the cartesian product among multiple datum slices
 func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
 	if len(datums) == 0 {
 		return nil
