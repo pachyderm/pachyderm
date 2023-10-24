@@ -243,7 +243,7 @@ class MountServerClient(MountInterface):
 
     async def auth_login(self):
         await self._ensure_mount_server()
-        resource = "_login"
+        resource = "auth/_login"
         response = await self._put(resource, {})
         resp_json = json.loads(response.body.decode())
         # may bubble exception up to handler if oidc_state not in response
@@ -258,7 +258,7 @@ class MountServerClient(MountInterface):
 
     async def auth_login_token(self, oidc):
         resource = "auth/_login_token"
-        response = await self._put(resource, {})
+        response = await self._put(resource, {"oidc": oidc})
         response.rethrow()
         pach_config_path = Path.home().joinpath('.pachyderm', 'config.json')
         if pach_config_path.is_file():
