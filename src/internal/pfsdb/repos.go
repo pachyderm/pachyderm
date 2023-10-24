@@ -204,7 +204,7 @@ func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize ui
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}
-	query += "\nGROUP BY repo.id, project.name, project.id"
+	query += "\nGROUP BY repo.id, project.name, project.id\n"
 	var orderByGeneric []OrderByColumn[repoColumn]
 	if len(orderBys) == 0 {
 		orderByGeneric = []OrderByColumn[repoColumn]{{Column: RepoColumnID, Order: SortOrderAsc}}

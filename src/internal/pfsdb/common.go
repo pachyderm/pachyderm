@@ -42,7 +42,7 @@ func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
 	for i, col := range orderBys {
 		values[i] = fmt.Sprintf("%s %s", col.Column, col.Order)
 	}
-	return "\nORDER BY " + strings.Join(values, ", ")
+	return "ORDER BY " + strings.Join(values, ", ")
 }
 
 type pageIterator[T ModelType] struct {
