@@ -657,7 +657,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", datums[0].Datum.Id))
+		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", di.Datum.Id))
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
