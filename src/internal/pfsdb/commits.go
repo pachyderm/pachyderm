@@ -4,17 +4,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
 )
 
 const (
@@ -818,4 +822,84 @@ func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 		return errors.Wrap(err, "list index")
 	}
 	return nil
+}
+
+// Watch commits
+type CommitEvent struct {
+	Event  postgres.Event
+	Commit CommitWithID
+}
+
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, id string, channel string, commit *pfs.Commit, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error, watcherOps []postgres.WatcherOption, orderBys []OrderByCommitColumn) error {
+
+	processEvent := func(event *postgres.Event) error {
+		if event == nil {
+			return nil
+		}
+		if event.Err != nil {
+			return event.Err
+		}
+		commitWithID := CommitWithID{ID: CommitID(event.Id)}
+		if event.Type != postgres.EventDelete {
+			if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+				var err error
+				commitWithID.CommitInfo, err = GetCommit(ctx, tx, CommitID(event.Id))
+				if err != nil {
+					return err
+				}
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}
+		commitEvent := CommitEvent{Event: *event, Commit: commitWithID}
+		return handleEvent(commitEvent)
+	}
+
+	watcher, err := postgres.NewWatcher(db, listener, id, channel, watcherOps...)
+	if err != nil {
+		return err
+	}
+	iter, err := ListCommit(ctx, db, nil, orderBys...)
+	if err != nil {
+		return err
+	}
+
+	var firstEvent *postgres.Event
+	events := watcher.Watch()
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWith CommitWithID) error {
+		if firstEvent == nil {
+			select {
+			case firstEvent = <-events:
+			default:
+			}
+		}
+		if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
+			return errutil.ErrBreak
+		}
+		if err := handleSnapshot(commitWith); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	if err := processEvent(firstEvent); err != nil {
+		return err
+	}
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return errors.Errorf("watcher closed")
+			}
+			if err := processEvent(event); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
 }
