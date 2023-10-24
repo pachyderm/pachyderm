@@ -165,7 +165,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs string, 
 	testsOutput, err := cmd.CombinedOutput()
 	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
 	if err != nil {
-		return errors.Wrap(err, string(testsOutput))
+		return errors.EnsureStack(err)
 	}
 	return nil
 }

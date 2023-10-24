@@ -25,7 +25,7 @@ func main() {
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
-	threadPool := flag.Int("threads", 2, "Number of packages to collect tests from concurrently.")
+	threadPool := flag.Int("threads", 1, "Number of packages to collect tests from concurrently.")
 	flag.Parse()
 	err := run(ctx, *tags, *fileName, *threadPool)
 	if err != nil {
@@ -118,7 +118,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) ([]strin
 	testsOutputBytes, err := cmd.CombinedOutput()
 	testsOutput := string(testsOutputBytes)
 	if err != nil && !strings.Contains(testsOutput, tagsExcludeAllFilesErr) {
-		return nil, errors.Wrapf(err, testsOutput)
+		return nil, errors.EnsureStack(err)
 	}
 	// Note that this includes k8s and non-k8s tests since tags are inclusive
 	testList := strings.Split(string(testsOutput), "\n")
