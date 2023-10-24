@@ -174,8 +174,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: xlarge
-    parallelism: 16
+    resource_class: large
+    parallelism: 24
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
