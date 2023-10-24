@@ -3350,7 +3350,8 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		// Skip commits from repos that have no associated pipeline
 		var pipelineInfo *pps.PipelineInfo
 		if pipelineInfo, err = a.InspectPipelineInTransaction(ctx, txnCtx, pps.RepoPipeline(commitInfo.Commit.Repo)); err != nil {
-			if col.IsErrNotFound(err) {
+			// the branch key of the returned error will be for the spec commit to commitInfo.Commit.Repo.Branch
+			if pfsServer.IsBranchNotFoundErr(err) {
 				continue
 			}
 			return err
