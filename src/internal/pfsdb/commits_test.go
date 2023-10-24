@@ -2,6 +2,7 @@ package pfsdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -489,41 +490,10 @@ func TestListCommit(t *testing.T) {
 				}
 				prevCommit = commitInfo
 			}
+			iter, err := pfsdb.NewCommitsIterator(ctx, tx, 0, 100, nil)
+			require.NoError(t, err, "should be able to list repos")
+			checkOutput(ctx, t, iter, expectedInfos)
 		})
-		iter, err := pfsdb.ListCommit(ctx, db, nil, false, false)
-		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos)
-	})
-}
-
-func TestListCommitRev(t *testing.T) {
-	size := 210
-	expectedInfos := make([]*pfs.CommitInfo, size)
-	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
-		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			var prevCommit *pfs.CommitInfo
-			for i := size - 1; i >= 0; i-- {
-				commitInfo := testCommit(ctx, t, tx, testRepoName)
-				if prevCommit != nil {
-					commitInfo.ParentCommit = prevCommit.Commit
-				}
-				expectedInfos[i] = commitInfo
-				commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
-				require.NoError(t, err, "should be able to create commit")
-				createBranch(ctx, t, tx, commitInfo.Commit)
-				if i == size-1 { // the first commit will be missing branch information, so we need to add it.
-					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo))
-				}
-				if prevCommit != nil {
-					require.NoError(t, pfsdb.CreateCommitParent(ctx, tx, prevCommit.Commit, commitID))
-					expectedInfos[i+1].ChildCommits = append(expectedInfos[i+1].ChildCommits, commitInfo.Commit)
-				}
-				prevCommit = commitInfo
-			}
-		})
-		iter, err := pfsdb.ListCommit(ctx, db, nil, true, false)
-		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos)
 	})
 }
 
@@ -532,39 +502,55 @@ func TestListCommitsFilter(t *testing.T) {
 		pfsdb.ParseRepo("default/a.user"), pfsdb.ParseRepo("default/b.user"), pfsdb.ParseRepo("default/c.user")}
 	size := 330
 	expectedInfos := make([]*pfs.CommitInfo, 0)
-	commitSetIds := make([]string, 0)
-	commits := make([]*pfs.CommitInfo, 0)
-	filter := pfsdb.CommitListFilter{
-		pfsdb.CommitRepos:    []string{"default/b.user"},
-		pfsdb.CommitOrigins:  []string{pfs.OriginKind_ORIGIN_KIND_UNKNOWN.String(), pfs.OriginKind_USER.String()},
-		pfsdb.CommitBranches: []string{"master"},
-		pfsdb.CommitProjects: []string{"default"},
+	pfsFilter := &pfs.Commit{
+		Repo: pfsdb.ParseRepo("default/b.user"),
 	}
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			for i := 0; i < size; i++ {
 				commitInfo := testCommit(ctx, t, tx, repos[i%len(repos)].Name)
-				if commitInfo.Commit.Repo.Name == "b" && i%10 == 0 {
+				if commitInfo.Commit.Repo.Name == "b" {
 					expectedInfos = append(expectedInfos, commitInfo)
-					commitSetIds = append(commitSetIds, commitInfo.Commit.Id)
 				}
-				commits = append(commits, commitInfo)
-			}
-			filter[pfsdb.CommitSetIDs] = commitSetIds
-			for _, commitInfo := range commits {
 				_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 				require.NoError(t, err, "should be able to create commit")
 				createBranch(ctx, t, tx, commitInfo.Commit)
+				require.NoError(t, pfsdb.UpdateCommit(ctx, tx, pfsdb.CommitID(i+1), commitInfo), "should be able to update commit")
 			}
 		})
-		iter, err := pfsdb.ListCommit(ctx, db, filter, false, false)
-		require.NoError(t, err, "should be able to list repos")
-		checkOutput(ctx, t, iter, expectedInfos)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			gotInfos, err := pfsdb.ListCommitTxByFilter(ctx, tx, filter, false, false)
+			iter, err := pfsdb.NewCommitsIterator(ctx, tx, 0, 100, pfsFilter)
 			require.NoError(t, err, "should be able to list repos")
-			for i := range expectedInfos {
-				commitsMatch(t, expectedInfos[i], gotInfos[i])
+			checkOutput(ctx, t, iter, expectedInfos)
+		})
+	})
+}
+
+func TestListCommitRevision(t *testing.T) {
+	revMap := make(map[int64]bool)
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		for i := 0; i < 10; i++ {
+			withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+				for j := 0; j < 3; j++ {
+					commitInfo := testCommit(ctx, t, tx, fmt.Sprintf("repo%d", j))
+					commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
+					require.NoError(t, err, "should be able to create commit")
+					createBranch(ctx, t, tx, commitInfo.Commit)
+					require.NoError(t, pfsdb.UpdateCommit(ctx, tx, commitID, commitInfo))
+				}
+			})
+		}
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			iter, err := pfsdb.NewCommitsIterator(ctx, tx, 0, 100, nil, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnCreatedAt},
+				pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID})
+			require.NoError(t, err, "should be able to create new commit iterator")
+			require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commit pfsdb.CommitWithID) error {
+				revMap[commit.Revision] = true
+				return nil
+			}))
+			require.Equal(t, len(revMap), 10, "revisions should equal 10")
+			for i := int64(0); i < int64(10); i++ {
+				require.True(t, revMap[i], "revision should exist.")
 			}
 		})
 	})
