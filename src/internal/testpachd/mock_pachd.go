@@ -1469,6 +1469,7 @@ type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*emptyp
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*emptypb.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*emptypb.Empty, error)
 type runCronFunc func(context.Context, *pps.RunCronRequest) (*emptypb.Empty, error)
+type checkStatus func(*pps.CheckStatusRequest, pps.API_CheckStatusServer) error
 type createSecretFunc func(context.Context, *pps.CreateSecretRequest) (*emptypb.Empty, error)
 type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*emptypb.Empty, error)
 type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
@@ -1509,6 +1510,7 @@ type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
 type mockRunCron struct{ handler runCronFunc }
+type mockCheckStatus struct{ handler checkStatus }
 type mockCreateSecret struct{ handler createSecretFunc }
 type mockDeleteSecret struct{ handler deleteSecretFunc }
 type mockInspectSecret struct{ handler inspectSecretFunc }
@@ -1551,6 +1553,7 @@ func (mock *mockStartPipeline) Use(cb startPipelineFunc)                 { mock.
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                   { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)                     { mock.handler = cb }
 func (mock *mockRunCron) Use(cb runCronFunc)                             { mock.handler = cb }
+func (mock *mockCheckStatus) Use(cb checkStatus)                         { mock.handler = cb }
 func (mock *mockCreateSecret) Use(cb createSecretFunc)                   { mock.handler = cb }
 func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)                   { mock.handler = cb }
 func (mock *mockInspectSecret) Use(cb inspectSecretFunc)                 { mock.handler = cb }
@@ -1600,6 +1603,7 @@ type mockPPSServer struct {
 	StopPipeline                 mockStopPipeline
 	RunPipeline                  mockRunPipeline
 	RunCron                      mockRunCron
+	CheckStatus                  mockCheckStatus
 	CreateSecret                 mockCreateSecret
 	DeleteSecret                 mockDeleteSecret
 	InspectSecret                mockInspectSecret
@@ -1752,6 +1756,12 @@ func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (
 		return api.mock.RunCron.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunCron")
+}
+func (api *ppsServerAPI) CheckStatus(req *pps.CheckStatusRequest, serv pps.API_CheckStatusServer) error {
+	if api.mock.CheckStatus.handler != nil {
+		return api.mock.CheckStatus.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.CheckStatus")
 }
 func (api *ppsServerAPI) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest) (*emptypb.Empty, error) {
 	if api.mock.CreateSecret.handler != nil {
