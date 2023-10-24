@@ -55,7 +55,7 @@ class UnixSocketResolver(Resolver):
         host: str, port: int, family: socket.AddressFamily = socket.AF_UNSPEC,
         *args, **kwargs
     ):
-        if host == "unix":
+        if host == UNIX_SOCKET_ADDRESS:
             return [(socket.AF_UNIX, self.socket_path)]
         return await self.old_resolver.resolve(host, port, family, *args, **kwargs)
 
@@ -72,18 +72,13 @@ class MountServerClient(MountInterface):
 
         self.client = AsyncHTTPClient()
         if PFS_SOCK_PATH and not SIDECAR_MODE:
-            self.address = f"http://unix"
-            self.address_desc = (f"http://\"unix"+
-            f"({PFS_SOCK_PATH})\"" if PFS_SOCK_PATH else "\"")
+            self.address = f"http://" + UNIX_SOCKET_ADDRESS
+            self.address_desc = (f"http://\"{UNIX_SOCKET_ADDRESS}"+
+                f"({PFS_SOCK_PATH})\"" if PFS_SOCK_PATH else "\"")
         else:
             self.address = f"http://localhost:{MOUNT_SERVER_PORT}"
             self.address_desc = self.address
-        # non-prived container flag (set via -e NONPRIV_CONTAINER=1)
-        # or use DET_RESOURCES_TYPE environment variable to auto-detect this.
-        self.nopriv = NONPRIV_CONTAINER
-        if DET_RESOURCES_TYPE == SLURM_JOB:
-            get_logger().debug("Inferring non privileged container for launcher/MLDE...")
-            self.nopriv = 1
+        self.nopriv = NONPRIV_CONTAINER or DET_RESOURCES_TYPE == SLURM_JOB
 
     async def _is_mount_server_running(self):
         get_logger().debug("Checking if mount-server running...")
@@ -121,9 +116,15 @@ class MountServerClient(MountInterface):
         async with lock:
             if not await self._is_mount_server_running():
                 self._unmount()
+
+                mount_server_path = shutil.which("mount-server")
+                if not mount_server_path:
+                    get_logger().error("Cannot locate mount-server binary")
+                    return False
+
                 mount_server_cmd = [
-                   shutil.which("mount-server"),
-                   "--mount-dir", self.mount_dir,
+                    mount_server_path,
+                    "--mount-dir", self.mount_dir,
                 ]
                 if self.nopriv:
                     # Cannot mount in non-privileged container, so create a new
@@ -140,7 +141,7 @@ class MountServerClient(MountInterface):
                     # jupyterlab-pachyderm in an unprivileged container, but
                     # where unshare is allowed, giving us a path to making FUSE
                     # work.
-                    get_logger().info("Starting mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
+                    get_logger().info("Preparing to run mount-server in new namespace, per NONPRIV_CONTAINER ({NONPRIV_CONTAINER}) or DET_RESOURCES_TYPE ({DET_RESOURCES_TYPE}).")
                     relative_mount_dir = Path("/mnt") / Path(self.mount_dir).relative_to("/")
                     subprocess.run(['mkdir','-p', relative_mount_dir])
                     mount_server_cmd = [
@@ -161,12 +162,14 @@ class MountServerClient(MountInterface):
                         #     mount in the new namespace will accessible from
                         #     the current namespace via symlink.
                         "unshare", "-Ufirm",
-                        shutil.which("mount-server"),
+                        mount_server_path,
                         "--mount-dir", relative_mount_dir,
                         "--allow-other=false",
                     ]
 
                 if PFS_SOCK_PATH and not SIDECAR_MODE:
+                    # As PFS_SOCK_PATH is set by default, simply ignore it if
+                    # SIDECAR_MODE is also set (they are incompatible).
                     mount_server_cmd += ["--sock-path", PFS_SOCK_PATH]
 
                 if MOUNT_SERVER_LOG_FILE:
@@ -213,105 +216,78 @@ class MountServerClient(MountInterface):
         return True
 
     async def _get(self, resource):
-        return await self.client.fetch(f"{self.address}/{resource}")
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/{resource}")
+        return response.body
 
     async def _put(self, resource, body):
-        return await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body))
+        await self._ensure_mount_server()
+        response = await self.client.fetch(f"{self.address}/{resource}", method="PUT", body=json.dumps(body))
+        if resource == "auth/_login_token": response.rethrow()  # slight hack
+        return response.body
 
     async def list_repos(self):
-        await self._ensure_mount_server()
-        resource = "repos"
-        response = await self._get(resource)
-        return response.body
+        return await self._get("repos")
 
     async def list_mounts(self):
-        await self._ensure_mount_server()
-        resource = "mounts"
-        response = await self._get(resource)
-        return response.body
+        return await self._get("mounts")
 
     async def list_projects(self):
-        await self._ensure_mount_server()
-        resource = "projects"
-        response = await self._get(resource)
-        return response.body
+        return await self._get("projects")
 
     async def mount(self, body):
-        await self._ensure_mount_server()
-        resource = "_mount"
-        response = await self._put(resource, body)
+        return  await self._put("_mount", body)
         return response.body
 
     async def unmount(self, body):
-        await self._ensure_mount_server()
-        resource = "_unmount"
-        response = await self._put(resource, body)
-        return response.body
+        return await self._put("_unmount", body)
 
     async def commit(self, body):
         await self._ensure_mount_server()
         pass
 
     async def unmount_all(self):
-        await self._ensure_mount_server()
-        resource = "_unmount_all"
-        response = await self._put(resource, {})
-        return response.body
+        return await self._put("_unmount_all", {})
 
     async def mount_datums(self, body):
-        await self._ensure_mount_server()
-        resource = "_mount_datums"
-        response = await self._put(resource, body)
-        return response.body
+        return await self._put("_mount_datums", body)
 
     async def show_datum(self, slug):
-        await self._ensure_mount_server()
         slug = '&'.join(f"{k}={v}" for k,v in slug.items() if v is not None)
-        resource = "_show_datum?" + slug
-        response = await self._put(resource, {})
-        return response.body
+        return await self._put("_show_datum?" + slug, {})
 
     async def get_datums(self):
-        await self._ensure_mount_server()
-        resource = "datums"
-        response = await self._get(resource)
-        return response.body
+        return await self._get("datums")
 
     async def config(self, body=None):
         await self._ensure_mount_server()
         if body is None:
             try:
-                resource = "config"
-                response = await self._get(resource)
+                return await self._get("config")
             except HTTPClientError as e:
                 if e.code == 404:
                     return json.dumps({"cluster_status": "INVALID"})
                 raise e
-        else:
-            resource = "config"
-            response = await self._put(resource, body)
-        return response.body
+        return await self._put("config", body)
 
     async def auth_login(self):
-        await self._ensure_mount_server()
-        resource = "_login"
-        response = await self._put(resource, {})
-        resp_json = json.loads(response.body.decode())
-        # may bubble exception up to handler if oidc_state not in response
-        oidc = resp_json['oidc_state']
-
+        response = await self._put("_login", {})
+        resp_json = json.loads(response.decode())
+        
         # we explicitly send the login_token request and do not await here.
         # the reason for this is that we want the user to be redirected to
-        # the login page without awaiting the result of the login before
-        # doing so.
-        asyncio.create_task(self.auth_login_token(oidc))
-        return response.body
+        # the login page--if this awaits the result of logging in without ever
+        # giving the user a chance to log in, this will block forever.
+        #
+        # (this bubbles the exception up if oidc_state is not in the response)
+        oidc = resp_json['oidc_state']
+asyncio.create_task(self.auth_login_token(oidc))
+        return response
 
     async def auth_login_token(self, oidc):
-        resource = "auth/_login_token"
-        response = await self._put(resource, {})
-        response.rethrow()
-        pach_config_path = Path.home().joinpath('.pachyderm', 'config.json')
+        response = await self._put("auth/_login_token", {})
+        pach_config_path = Path(os.environ.get('PACH_CONFIG',
+             Path.home().joinpath('.pachyderm', 'config.json')))
         if pach_config_path.is_file():
             # if config already exists, need to add new context into it and
             # switch active context over
@@ -324,19 +300,14 @@ class MountServerClient(MountInterface):
             # otherwise, write the entire config to file
             os.makedirs(os.path.dirname(pach_config_path), exist_ok=True)
             with open(pach_config_path, 'w') as f:
-                f.write(response.body.decode())
-        return response.body
-
-    async def auth_logout(self):
-        await self._ensure_mount_server()
-        resource = "auth/_logout"
-        response = await self._put(resource, {})
+                f.write(response.decode())
         return response
 
+    async def auth_logout(self):
+        return await self._put("auth/_logout", {})
+
     async def health(self):
-        resource = "health"
-        response = await self._get(resource)
-        return response.body
+        return await self._get("health")
 
 
 def write_token_to_config(pach_config_path, mount_server_config_str):
