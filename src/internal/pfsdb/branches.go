@@ -87,6 +87,11 @@ func (err ErrBranchNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
+// BranchesInRepoChannel returns the name of the channel that is notified when branches in repo 'repoID' are created, updated, or deleted
+func BranchesInRepoChannel(repoID RepoID) string {
+	return fmt.Sprintf("%s%d", BranchesRepoChannelName, repoID)
+}
+
 type BranchIterator struct {
 	paginator pageIterator[Branch]
 	tx        *pachsql.Tx

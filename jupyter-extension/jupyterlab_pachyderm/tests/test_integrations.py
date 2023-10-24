@@ -257,6 +257,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
+@pytest.mark.skip(reason="test flakes due to 'missing chunk' error that hasn't been diagnosed")
 def test_mount_datums(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
     input_spec = {

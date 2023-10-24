@@ -577,7 +577,7 @@ func withDB(t *testing.T, testCase commitTestCase) {
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
-	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.State_2_8_0_temp), "should be able to set up tables")
+	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	testCase(ctx, t, db)
 }
 
