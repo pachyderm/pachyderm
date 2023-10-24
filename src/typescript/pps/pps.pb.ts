@@ -356,6 +356,8 @@ export type PipelineInfoDetails = {
   tolerations?: Toleration[]
   sidecarResourceRequests?: ResourceSpec
   determined?: Determined
+  maximumExpectedUptime?: GoogleProtobufDuration.Duration
+  workersStartedAt?: GoogleProtobufTimestamp.Timestamp
 }
 
 export type PipelineInfo = {
@@ -538,6 +540,7 @@ export type CreatePipelineRequest = {
   sidecarResourceRequests?: ResourceSpec
   dryRun?: boolean
   determined?: Determined
+  maximumExpectedUptime?: GoogleProtobufDuration.Duration
 }
 
 export type CreatePipelineV2Request = {
@@ -601,6 +604,19 @@ export type RunPipelineRequest = {
 
 export type RunCronRequest = {
   pipeline?: Pipeline
+}
+
+
+type BaseCheckStatusRequest = {
+}
+
+export type CheckStatusRequest = BaseCheckStatusRequest
+  & OneOf<{ global: boolean; project: Pfs_v2Pfs.Project }>
+
+export type CheckStatusResponse = {
+  project?: Pfs_v2Pfs.Project
+  pipeline?: string
+  alerts?: string[]
 }
 
 export type CreateSecretRequest = {
@@ -783,6 +799,9 @@ export class API {
   }
   static RunCron(req: RunCronRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<RunCronRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/RunCron`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static CheckStatus(req: CheckStatusRequest, entityNotifier?: fm.NotifyStreamEntityArrival<CheckStatusResponse>, initReq?: fm.InitReq): Promise<void> {
+    return fm.fetchStreamingRequest<CheckStatusRequest, CheckStatusResponse>(`/pps_v2.API/CheckStatus`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static CreateSecret(req: CreateSecretRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreateSecretRequest, GoogleProtobufEmpty.Empty>(`/pps_v2.API/CreateSecret`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

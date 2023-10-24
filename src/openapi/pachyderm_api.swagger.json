@@ -4470,6 +4470,44 @@
         ]
       }
     },
+    "/pps_v2.API/CheckStatus": {
+      "post": {
+        "operationId": "API_CheckStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2CheckStatusResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2CheckStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CheckStatusRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/CreateSecret": {
       "post": {
         "operationId": "API_CreateSecret",
@@ -4983,6 +5021,36 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pps_v2SetClusterDefaultsRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pps_v2.API/GetProjectDefaults": {
+      "post": {
+        "summary": "GetProjectDefaults returns the defaults for a particular project.",
+        "operationId": "API_GetProjectDefaults",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pps_v2GetProjectDefaultsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2GetProjectDefaultsRequest"
             }
           }
         ]
@@ -8584,6 +8652,34 @@
     "pps_v2ActivateAuthResponse": {
       "type": "object"
     },
+    "pps_v2CheckStatusRequest": {
+      "type": "object",
+      "properties": {
+        "global": {
+          "type": "boolean"
+        },
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pps_v2CheckStatusResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        },
+        "pipeline": {
+          "type": "string"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
       "properties": {
@@ -8692,6 +8788,9 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
         }
       }
     },
@@ -9031,6 +9130,23 @@
         "since": {
           "type": "string",
           "description": "Since specifies how far in the past to return logs from. It defaults to 24 hours."
+        }
+      }
+    },
+    "pps_v2GetProjectDefaultsRequest": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pps_v2GetProjectDefaultsResponse": {
+      "type": "object",
+      "properties": {
+        "projectDefaultsJson": {
+          "type": "string",
+          "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed\nto SetProjectDefaults."
         }
       }
     },
@@ -9816,6 +9932,13 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
+        },
+        "workersStartedAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
