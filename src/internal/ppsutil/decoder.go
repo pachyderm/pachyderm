@@ -31,7 +31,7 @@ func NewPipelineManifestReader(r io.Reader) (result *PipelineManifestReader, ret
 
 // DisableValidation disables pipeline validation.
 //
-// TODO(INT-1006): this exists only because the implementation of the /_mount_datums
+// TODO(INT-1006): this exists only because the implementation of the /datums/_mount
 // endpoint in the FUSE server parses its PUT body as a full pipeline spec.
 func (r *PipelineManifestReader) DisableValidation() *PipelineManifestReader {
 	r.specReader = r.specReader.DisableValidation()
@@ -67,7 +67,7 @@ func NewSpecReader(r io.Reader) *SpecReader {
 
 // DisableValidation disables pipeline validation.
 //
-// TODO(INT-1006): this exists only because the implementation of the /_mount_datums
+// TODO(INT-1006): this exists only because the implementation of the /datums/_mount
 // endpoint in the FUSE server parses its PUT body as a full pipeline spec.
 func (r *SpecReader) DisableValidation() *SpecReader {
 	r.noValidate = true
