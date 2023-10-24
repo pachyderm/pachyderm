@@ -7,12 +7,15 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// RepoID is the row id for a repo entry in postgres.
 // A separate type is defined for safety so row ids must be explicitly cast for use in another table.
+
+// ProjectID is the row id for a project entry in postgres.
+type ProjectID uint64
+
+// RepoID is the row id for a repo entry in postgres.
 type RepoID uint64
 
 // CommitID is the row id for a commit entry in postgres.
@@ -26,13 +29,30 @@ type CreatedAtUpdatedAt struct {
 	UpdatedAt time.Time `db:"updated_at"`
 }
 
+type Project struct {
+	ID          ProjectID `db:"id"`
+	Name        string    `db:"name"`
+	Description string    `db:"description"`
+	CreatedAtUpdatedAt
+}
+
+func (project *Project) Pb() *pfs.Project {
+	return &pfs.Project{
+		Name: project.Name,
+	}
+}
+
+func (project Project) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return project.CreatedAtUpdatedAt
+}
+
 // Repo is a row in the pfs.repos table.
 type Repo struct {
-	ID          RepoID         `db:"id"`
-	Project     coredb.Project `db:"project"`
-	Name        string         `db:"name"`
-	Type        string         `db:"type"`
-	Description string         `db:"description"`
+	ID          RepoID  `db:"id"`
+	Project     Project `db:"project"`
+	Name        string  `db:"name"`
+	Type        string  `db:"type"`
+	Description string  `db:"description"`
 	CreatedAtUpdatedAt
 	BranchesNames string `db:"branches"`
 }

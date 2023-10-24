@@ -7,7 +7,6 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -75,19 +74,20 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
+	projIter, err := pfsdb.ListProject(ctx, txnCtx.SqlTx)
 	if err != nil {
 		return nil, errors.Wrap(err, "list projects")
 	}
-	if err := stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
+	if err := stream.ForEach[pfsdb.ProjectWithID](ctx, projIter, func(proj pfsdb.ProjectWithID) error {
 		var principal string
 		var roleSlice []string
-		if proj.Project.Name == pfs.DefaultProjectName {
+		if proj.ProjectInfo.Project.Name == pfs.DefaultProjectName {
 			// Grant all users ProjectWriter role for default project.
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice,
+			&auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.ProjectInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
 			return errors.Wrap(err, "create role binding in transaction")
 		}

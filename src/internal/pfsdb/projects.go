@@ -1,9 +1,10 @@
-package coredb
+package pfsdb
 
 import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
 
@@ -13,13 +14,8 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
-
-// ProjectID is the row id for a repo entry in postgres.
-// A separate type is defined for safety so row ids must be explicitly cast for use in another table.
-type ProjectID uint64
 
 // ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
 type ErrProjectNotFound struct {
@@ -74,67 +70,81 @@ func IsErrProjectAlreadyExists(err error) bool {
 	return strings.Contains(err.Error(), "SQLSTATE 23505")
 }
 
-// ProjectIterator batches a page of projectRow entries. Entries can be retrieved using iter.Next().
+type projectColumn string
+
+var (
+	ProjectColumnID        = projectColumn("project.id")
+	ProjectColumnCreatedAt = projectColumn("project.created_at")
+	ProjectColumnUpdatedAt = projectColumn("project.updated_at")
+)
+
+type OrderByProjectColumn OrderByColumn[projectColumn]
+
 type ProjectIterator struct {
-	limit    int
-	offset   int
-	projects []Project
-	index    int
-	tx       *pachsql.Tx
+	paginator pageIterator[Project]
+	extCtx    sqlx.ExtContext
 }
 
-type Project struct {
-	ID          ProjectID `db:"id"`
-	Name        string    `db:"name"`
-	Description string    `db:"description"`
-	CreatedAt   time.Time `db:"created_at"`
-	UpdatedAt   time.Time `db:"updated_at"`
+type ProjectWithID struct {
+	ProjectInfo *pfs.ProjectInfo
+	ID          ProjectID
+	Revision    int64
 }
 
-func (project *Project) Pb() *pfs.Project {
-	return &pfs.Project{
-		Name: project.Name,
-	}
-}
-
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *ProjectIterator) Next(ctx context.Context, dst **pfs.ProjectInfo) error {
+func (i *ProjectIterator) Next(ctx context.Context, dst *ProjectWithID) error {
 	if dst == nil {
-		return errors.Wrap(fmt.Errorf("project is nil"), "get next project")
+		return errors.Errorf("dst ProjectInfo cannot be nil")
 	}
-	var err error
-	if iter.index >= len(iter.projects) {
-		iter.index = 0
-		iter.offset += iter.limit
-		iter.projects, err = listProject(ctx, iter.tx, iter.limit, iter.offset)
-		if err != nil {
-			return errors.Wrap(err, "list project page")
-		}
-		if len(iter.projects) == 0 {
-			return stream.EOS()
-		}
+	project, rev, err := i.paginator.next(ctx, i.extCtx)
+	if err != nil {
+		return err
 	}
-	row := iter.projects[iter.index]
-	*dst = &pfs.ProjectInfo{
-		Project:     &pfs.Project{Name: row.Name},
-		Description: row.Description,
-		CreatedAt:   timestamppb.New(row.CreatedAt),
+	createdAt := timestamppb.New(project.CreatedAt)
+	projectInfo := &pfs.ProjectInfo{
+		Project:     project.Pb(),
+		Description: project.Description,
+		CreatedAt:   createdAt,
 	}
-	iter.index++
+	dst.ID = project.ID
+	dst.ProjectInfo = projectInfo
+	dst.Revision = rev
 	return nil
+}
+
+func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, pageSize uint64, filter *pfs.Project, orderBys ...OrderByProjectColumn) (*ProjectIterator, error) {
+	var conditions []string
+	var values []any
+	if filter != nil {
+		if filter.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Name)
+		}
+	}
+	query := "SELECT id,name,description,created_at FROM core.projects"
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+	}
+	// Compute ORDER BY
+	var orderByGeneric []OrderByColumn[projectColumn]
+	if len(orderBys) == 0 {
+		orderByGeneric = []OrderByColumn[projectColumn]{{Column: ProjectColumnID, Order: SortOrderAsc}}
+	} else {
+		for _, orderBy := range orderBys {
+			orderByGeneric = append(orderByGeneric, OrderByColumn[projectColumn](orderBy))
+		}
+	}
+	query = extCtx.Rebind(query + OrderByQuery[projectColumn](orderByGeneric...))
+	return &ProjectIterator{
+		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize),
+		extCtx:    extCtx,
+	}, nil
 }
 
 // ListProject returns a ProjectIterator that exposes a Next() function for retrieving *pfs.ProjectInfo references.
 func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) {
-	limit := 100
-	page, err := listProject(ctx, tx, limit, 0)
+	iter, err := NewProjectIterator(ctx, tx, 0, 100, nil)
 	if err != nil {
-		return nil, errors.Wrap(err, "list projects")
-	}
-	iter := &ProjectIterator{
-		projects: page,
-		limit:    limit,
-		tx:       tx,
+		return nil, errors.Wrap(err, "list project")
 	}
 	return iter, nil
 }

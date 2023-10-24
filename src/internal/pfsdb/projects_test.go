@@ -1,6 +1,6 @@
 //go:build unit_test
 
-package coredb
+package pfsdb
 
 import (
 	"context"

@@ -21,11 +21,15 @@ const (
 
 type (
 	ModelType interface {
-		Repo | Commit | Branch
+		Repo | Commit | Branch | Project
 		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
 	}
 	ColumnName interface {
+<<<<<<< Updated upstream
 		string | branchColumn | commitColumn
+=======
+		string | projectColumn | branchColumn | commitColumn | repoColumn
+>>>>>>> Stashed changes
 	}
 )
 
