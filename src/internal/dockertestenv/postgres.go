@@ -45,7 +45,7 @@ type PostgresConfig struct {
 
 func (pgc PostgresConfig) DBOptions() []dbutil.Option {
 	return []dbutil.Option{
-		dbutil.WithMaxOpenConns(1),
+		dbutil.WithMaxOpenConns(10),
 		dbutil.WithUserPassword(pgc.User, pgc.Password),
 		dbutil.WithHostPort(pgc.Host, int(pgc.Port)),
 		dbutil.WithDBName(pgc.DBName),
