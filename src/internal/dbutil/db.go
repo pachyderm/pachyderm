@@ -113,25 +113,6 @@ func GetDSN(opts ...Option) string {
 	return getDSN(dbc)
 }
 
-// GetDSN2 extracts the DSN from a sqlx.DB
-func GetDSN2(db *sqlx.DB) (string, error) {
-	ctx, cf := context.WithCancel(pctx.TODO())
-	defer cf()
-	c, err := db.Conn(ctx)
-	if err != nil {
-		return "", err
-	}
-	var ret string
-	if err := c.Raw(func(driverConn any) error {
-		c2 := driverConn.(pgx.Conn)
-		ret = c2.Config().ConnString()
-		return nil
-	}); err != nil {
-		return "", err
-	}
-	return ret, nil
-}
-
 // NewDB creates a new DB.
 func NewDB(opts ...Option) (*pachsql.DB, error) {
 	dbc := newConfig(opts...)

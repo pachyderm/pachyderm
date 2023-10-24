@@ -35,7 +35,7 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	lis := testutil.Listen(t)
 	env := Env{
 		DB:         testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...),
-		DirectDB:   testutil.OpenDB(t, dbcfg.Direct.DBOptions()...), // TODO
+		DirectDB:   testutil.OpenDB(t, dbcfg.Direct.DBOptions()...),
 		ObjClient:  objC,
 		EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient,
 		Listener:   lis,

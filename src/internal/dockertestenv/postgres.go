@@ -110,7 +110,11 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 			DBName:   dbName,
 		},
 		Identity: PostgresConfig{
-			DBName: dexName,
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dexName,
 		},
 	}
 }
