@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -830,8 +831,48 @@ type CommitEvent struct {
 	Commit CommitWithID
 }
 
-func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, id string, channel string, commit *pfs.Commit, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error, watcherOps []postgres.WatcherOption, orderBys []OrderByCommitColumn) error {
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
+	if err != nil {
+		return err
+	}
+	snapshot, err := ListCommit(ctx, db, nil)
+	if err != nil {
+		return err
+	}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), handleSnapshot, handleEvent)
+}
 
+func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoWithID RepoPair, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoWithID.ID)), CommitsInRepoChannel(repoWithID.ID))
+	if err != nil {
+		return err
+	}
+	snapshot, err := ListCommit(ctx, db, &pfs.Commit{Repo: repoWithID.RepoInfo.Repo})
+	if err != nil {
+		return err
+	}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), handleSnapshot, handleEvent)
+}
+
+func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
+	if err != nil {
+		return err
+	}
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo, err := GetCommit(ctx, tx, commitID)
+		if err != nil {
+			return errors.Wrap(err, "watch commit")
+		}
+		return handleSnapshot(CommitWithID{ID: commitID, CommitInfo: commitInfo})
+	}); err != nil {
+		return err
+	}
+	return watchCommits(ctx, db, nil /* snapshot */, watcher.Watch(), handleSnapshot, handleEvent)
+}
+
+func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
 	processEvent := func(event *postgres.Event) error {
 		if event == nil {
 			return nil
@@ -857,38 +898,31 @@ func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.Postg
 		return handleEvent(commitEvent)
 	}
 
-	watcher, err := postgres.NewWatcher(db, listener, id, channel, watcherOps...)
-	if err != nil {
-		return err
-	}
-	iter, err := ListCommit(ctx, db, nil, orderBys...)
-	if err != nil {
-		return err
-	}
-
-	var firstEvent *postgres.Event
-	events := watcher.Watch()
-	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWith CommitWithID) error {
-		if firstEvent == nil {
-			select {
-			case firstEvent = <-events:
-			default:
+	// Handle snapshot
+	if snapshot != nil {
+		var firstEvent *postgres.Event
+		if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
+			if firstEvent == nil {
+				select {
+				case firstEvent = <-events:
+				default:
+				}
 			}
-		}
-		if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
-			return errutil.ErrBreak
-		}
-		if err := handleSnapshot(commitWith); err != nil {
+			if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
+				return errutil.ErrBreak
+			}
+			if err := handleSnapshot(commitWith); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
 			return err
 		}
-		return nil
-	}); err != nil {
-		return err
+		if err := processEvent(firstEvent); err != nil {
+			return err
+		}
 	}
-
-	if err := processEvent(firstEvent); err != nil {
-		return err
-	}
+	// Handle new events after snapshot
 	for {
 		select {
 		case event, ok := <-events:
