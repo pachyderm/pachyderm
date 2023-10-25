@@ -3,6 +3,7 @@ import sys
 import subprocess
 import time
 import json
+import shutil
 from datetime import datetime
 from pathlib import Path
 from random import randint
@@ -59,10 +60,11 @@ def dev_server():
         # preserve specifically:
         # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
         # The args after os.environ should be no-ops, but they're here in case
-        # env.py changes (MOUNT_SERVER_LOG_FILE may be None so can't be passed)
+        # env.py changes (mount-server should use jupyterlab-pach's defaults).
         env=dict(os.environ,
             PACH_CONFIG=PACH_CONFIG,
             PFS_MOUNT_DIR=PFS_MOUNT_DIR,
+            MOUNT_SERVER_LOG_FILE=MOUNT_SERVER_LOG_FILE,
         ),
         stdout=subprocess.PIPE,
     )
@@ -91,11 +93,7 @@ def dev_server():
     print("killing development server...")
 
     subprocess.run(["pkill", "-f", "mount-server"])
-    subprocess.run(
-        ["bash", "-c", f"umount {PFS_MOUNT_DIR}"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    subprocess.run([shutil.which("umount"), PFS_MOUNT_DIR])
     p.terminate()
     p.wait()
     time.sleep(1)
