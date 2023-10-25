@@ -1627,9 +1627,10 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	var cluster bool
 	inspectDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster | --project PROJECT]",
-		Short: "Return defaults.",
-		Long:  "Return cluster or project defaults.",
+		Use:    "{{alias}} [--cluster | --project PROJECT]",
+		Short:  "Return defaults.",
+		Long:   "Return cluster or project defaults.",
+		Hidden: true,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
@@ -1644,11 +1645,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				fmt.Println(resp.ClusterDefaultsJson)
 				return nil
 			}
-			return errors.New("--cluster must be specified")
+			resp, err := client.PpsAPIClient.GetProjectDefaults(client.Ctx(), &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: project}})
+			if err != nil {
+				return errors.Wrap(err, "could not get project defaults")
+			}
+			fmt.Println(resp.ProjectDefaultsJson)
+			return nil
 		}),
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
-	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
+	inspectDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Inspect project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
 
 	var pathname string
