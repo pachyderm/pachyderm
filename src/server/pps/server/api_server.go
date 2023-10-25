@@ -3949,20 +3949,109 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
 }
 
-// SetProjectDefaults is a stub, for use in testing.
-//
-// TODO(CORE-1712): implement as an RPC.
+// SetProjectDefaults sets the defaults for a project.  If regenerate is true,
+// then the effective spec for each pipeline in the project will be regenerated
+// and if has changed it will be saved; if reprocess is true then regenerated
+// (and changed) pipelines will reprocess previously-processed datums.
 func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error) {
+	var cdg = &cachedDefaultsGetter{
+		apiServer:       a,
+		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
+	}
 	if req.Project == nil || req.Project.Name == "" {
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+
+	// if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	// 	if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.Project.String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+	// 		return err
+	// 	}
+	// 	return nil
+	// }); err != nil {
+	// 	return nil, unknownError(ctx, "could not write cluster defaults", err)
+	// }
+	// return &pps.SetProjectDefaultsResponse{}, nil
+
+	var (
+		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
+	)
+	cResp, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return nil, unknownError(ctx, fmt.Sprintf("could not get cluster defaults"), err)
+	}
+	if _, _, err := makeEffectiveSpec(cResp.GetClusterDefaultsJson(), req.GetProjectDefaultsJson(), `{}`); err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("could not merge project defaults %s into cluster defaults %s", req.GetProjectDefaultsJson(), cResp.GetClusterDefaultsJson()), []*errdetails.BadRequest_FieldViolation{
+			{Field: "project_defaults_json", Description: err.Error()},
+		})
+	}
+
+	if req.Regenerate {
+		// Determine if the new defaults imply changes to any pipelines.
+		// To do this, each pipeline’s info is synthesized to a
+		// CreatePipelineRequest using the same logic already ultimately
+		// used by `pachctl edit pipeline`, then that is turned into
+		// JSON and merged with the new defaults.  The result of the
+		// merger is then unmarshalled into a CreatePipelineRequest and
+		// equality is checked with proto.Equal.
+		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
+				return nil
+			}
+			// if the old details are missing, synthesize them
+			if pi.UserSpecJson == "" {
+				spec := ppsutil.PipelineReqFromInfo(pi)
+				b, err := protojson.Marshal(spec)
+				if err != nil {
+					return errors.Wrap(err, "could not marshal spec to JSON")
+				}
+				pi.UserSpecJson = string(b)
+			}
+			if pi.EffectiveSpecJson == "" {
+				pi.EffectiveSpecJson = pi.UserSpecJson
+			}
+			effectiveSpecJSON, effectiveSpec, err := a.makeEffectiveSpec(ctx, cdg, pi.UserSpecJson)
+			if err != nil {
+				return errors.Wrap(err, "could not create effective spec")
+			}
+			var oldEffectiveSpec pps.CreatePipelineRequest
+			if err := protojson.Unmarshal([]byte(pi.EffectiveSpecJson), &oldEffectiveSpec); err != nil {
+				return errors.Wrap(err, "could not unmarshal old effective spec JSON")
+			}
+			if !proto.Equal(&oldEffectiveSpec, effectiveSpec) {
+				effectiveSpec.Update = true
+				effectiveSpec.Reprocess = req.Reprocess
+				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
+					CreatePipelineRequest: effectiveSpec,
+					EffectiveJson:         effectiveSpecJSON,
+					UserJson:              pi.UserSpecJson,
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, unknownError(ctx, "could not list pipelines", err)
+		}
+	}
+	var resp pps.SetProjectDefaultsResponse
+	for p := range pp {
+		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
+	}
+	if req.DryRun {
+		return &resp, nil
+	}
+
 	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.Project.String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
 			return err
+		}
+		for _, p := range pp {
+			if err := a.CreatePipelineInTransaction(ctx, txnCtx, p); err != nil {
+				return errors.Wrapf(err, "could not regenerate pipeline %v", p.CreatePipelineRequest.Pipeline)
+			}
 		}
 		return nil
 	}); err != nil {
-		return nil, unknownError(ctx, "could not write cluster defaults", err)
+		return nil, unknownError(ctx, "could not write project defaults", err)
 	}
-	return &pps.SetProjectDefaultsResponse{}, nil
+	return &resp, nil
 }
