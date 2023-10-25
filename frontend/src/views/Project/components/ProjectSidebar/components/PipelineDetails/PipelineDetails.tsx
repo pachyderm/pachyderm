@@ -3,6 +3,7 @@ import React from 'react';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState';
+import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import InfoPanel from '@dash-frontend/components/InfoPanel';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import useCurrentOuptutRepoOfPipeline from '@dash-frontend/hooks/useCurrentOuptutRepoOfPipeline';
@@ -77,7 +78,7 @@ const PipelineDetails: React.FC = () => {
                 term={globalId ? 'Global ID' : 'Most Recent Job ID'}
                 loading={pipelineAndJobloading}
               >
-                {lastJob?.id}
+                {lastJob?.id ? <GlobalIdCopy id={lastJob?.id} /> : 'N/A'}
               </Description>
             </>
           )}

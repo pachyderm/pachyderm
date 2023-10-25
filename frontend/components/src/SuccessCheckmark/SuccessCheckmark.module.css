@@ -1,14 +1,3 @@
-@keyframes dash {
-  to {
-    stroke-dashoffset: 0;
-  }
-}
-
 .base > path {
   fill: var(--success-green);
-  stroke: var(--success-green);
-  stroke-width: 2;
-  stroke-dasharray: 1000;
-  stroke-dashoffset: 1000;
-  animation: dash 1s ease forwards;
 }

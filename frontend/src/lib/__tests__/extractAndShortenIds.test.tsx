@@ -10,7 +10,7 @@ describe('extractAndShortenIds', () => {
     expect(
       screen.queryByText('7c6134fc957c489d8b522776d9eacc86'),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('7c6134fc...')).toBeInTheDocument();
+    expect(screen.getByText('7c6134...')).toBeInTheDocument();
   });
 
   it('should extra and shorten a datum id', () => {
@@ -23,6 +23,6 @@ describe('extractAndShortenIds', () => {
         '5bd54942c533f497a7e7704b23f2b0f905917dae71beebdea7003b18507ffb91',
       ),
     ).not.toBeInTheDocument();
-    expect(screen.getByText('5bd54942...')).toBeInTheDocument();
+    expect(screen.getByText('5bd549...')).toBeInTheDocument();
   });
 });

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import ShortId from '@dash-frontend/components/ShortId';
+import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import {SHORT_OR_LONG_UUID} from '@dash-frontend/constants/pachCore';
 
 const extractAndShortenIds = (inputString: string) => {
@@ -9,7 +9,7 @@ const extractAndShortenIds = (inputString: string) => {
       {inputString.split(' ').map((substring) =>
         substring.match(SHORT_OR_LONG_UUID) ? (
           <span key={substring}>
-            <ShortId key={substring} inputString={substring} />{' '}
+            <GlobalIdCopy shortenId id={substring} />{' '}
           </span>
         ) : (
           `${substring} `

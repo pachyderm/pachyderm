@@ -4,9 +4,9 @@ import {Route, Switch} from 'react-router-dom';
 
 import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
-import CommitIdCopy from '@dash-frontend/components/CommitIdCopy';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
+import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
@@ -136,11 +136,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 loading={currentRepoLoading}
                 term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
               >
-                {commit ? (
-                  <CommitIdCopy commit={commit.id} clickable small longId />
-                ) : (
-                  'N/A'
-                )}
+                {commit ? <GlobalIdCopy id={commit.id} /> : 'N/A'}
               </Description>
             )}
 

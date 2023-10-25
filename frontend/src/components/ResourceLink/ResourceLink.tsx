@@ -1,4 +1,4 @@
-import React, {useCallback} from 'react';
+import React from 'react';
 
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -6,15 +6,7 @@ import {
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {
-  Link,
-  RepoSVG,
-  PipelineSVG,
-  Icon,
-  useClipboardCopy,
-  SuccessCheckmark,
-  CopySVG,
-} from '@pachyderm/components';
+import {Link, RepoSVG, PipelineSVG, Icon} from '@pachyderm/components';
 
 import styles from './ResourceLink.module.css';
 
@@ -111,38 +103,5 @@ export const CommitLink: React.FC<CommitLinkProps> = ({
         {name}
       </span>
     </Link>
-  );
-};
-
-export const EgressLink: React.FC<ResourceLinkProps> = ({name, ...rest}) => {
-  const {copy, copied, reset} = useClipboardCopy(name);
-  const handleCopy = useCallback(() => {
-    copy();
-    setTimeout(reset, 2000);
-  }, [copy, reset]);
-
-  return (
-    <button
-      data-testid="ResourceLink__egress"
-      onClick={handleCopy}
-      aria-label={name}
-      className={styles.base}
-    >
-      <Icon small className={styles.nodeImage}>
-        <PipelineSVG />
-      </Icon>
-      <span {...rest} className={styles.nodeName}>
-        {name}
-      </span>
-      <Icon small className={styles.nodeImage}>
-        <CopySVG />
-      </Icon>
-      <Icon small>
-        <SuccessCheckmark
-          show={copied}
-          aria-label={'You have successfully copied the id'}
-        />
-      </Icon>
-    </button>
   );
 };

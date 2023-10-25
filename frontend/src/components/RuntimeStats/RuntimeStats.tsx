@@ -3,14 +3,13 @@ import classNames from 'classnames';
 import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
+import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import {
   CaptionTextSmall,
   ChevronDownSVG,
   ChevronUpSVG,
   Icon,
 } from '@pachyderm/components';
-
-import {CopiableField} from '../ShortId';
 
 import {useRuntimeStats} from './hooks/useRuntimeStats';
 import styles from './RuntimeStats.module.css';
@@ -49,12 +48,7 @@ const RuntimeStats = ({
               className={styles.jobIdContainer}
               data-testid="RuntimeStats__jobId"
             >
-              <CopiableField
-                inputString={previousJobId}
-                successCheckmarkAriaLabel="You have successfully copied the id"
-              >
-                <p className={styles.overflow}>{previousJobId}</p>
-              </CopiableField>
+              <GlobalIdCopy id={previousJobId} />
             </Description>
           </div>
         </>
