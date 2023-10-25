@@ -137,7 +137,7 @@ export type PpsConfig = {
   image: string;
   requirements: string | null;
   input_spec: string;
-  port: number;
+  port: string;
   gpu_mode: GpuMode;
   resource_spec: string | null;
 };

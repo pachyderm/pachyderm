@@ -25,7 +25,7 @@ class PpsConfig:
     pipeline: pps.Pipeline
     image: str
     requirements: Optional[str]
-    port: int
+    port: str
     gpu_mode: str
     resource_spec: dict
     input_spec: pps.Input
@@ -74,8 +74,7 @@ class PpsConfig:
         input_spec_dict = yaml.safe_load(input_spec_str)
         input_spec = pps.Input().from_dict(input_spec_dict)
 
-        # TODO: figure out why port is coming thru as a str and therefore needs to be casted
-        port = int(config.get("port")) if config.get("port") else None
+        port = config.get("port")
 
         gpu_mode = config.get("gpu_mode")
         resource_spec_str = config.get("resource_spec")
