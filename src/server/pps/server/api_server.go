@@ -1385,7 +1385,10 @@ func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusS
 			time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
 			exceededTime := time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) - pipelineInfo.Details.MaximumExpectedUptime.AsDuration()
 			alerts = append(alerts, fmt.Sprintf("project/pipeline: Started running at %v, exceeded maximum uptime by %s", pipelineInfo.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
-			apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline.Name, Alerts: alerts})
+			err := apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline.Name, Alerts: alerts})
+			if err != nil {
+				return errors.Wrap(err, "error sending check status response")
+			}
 			lastOk := pipelineInfo.Details.WorkersStartedAt.AsTime().Add(pipelineInfo.Details.MaximumExpectedUptime.AsDuration())
 			pipelineLastOkMetric.WithLabelValues(pipelineInfo.Pipeline.Name, pipelineInfo.Pipeline.Project.GetName()).Set(float64(lastOk.Unix()))
 		}
