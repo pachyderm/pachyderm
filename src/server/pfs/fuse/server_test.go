@@ -683,7 +683,8 @@ func TestAuthLoginLogout(t *testing.T) {
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
 
-		b := bytes.NewBufferString(getAuthLogin.OidcState)
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(map[string]string{"oidc": getAuthLogin.OidcState}))
 		tokenResp, err := put("auth/_login_token", b)
 		require.NoError(t, err)
 		require.Equal(t, 200, tokenResp.StatusCode)
