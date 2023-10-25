@@ -1658,14 +1658,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Set cluster defaults.",
 		Long:  "Set cluster defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			rc, err := fileIndicatorToReadCloser(pathname)
+			if err != nil {
+				return errors.Wrapf(err, "could not open path %q for reading", pathname)
+			}
 			if cluster {
-				rc, err := fileIndicatorToReadCloser(pathname)
-				if err != nil {
-					return errors.Wrapf(err, "could not open path %q for reading", pathname)
-				}
 				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 			}
-			return errors.New("--cluster must be specified")
+			return setProjectDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 		}),
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
@@ -1673,6 +1673,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
 	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
+	createDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Create project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
