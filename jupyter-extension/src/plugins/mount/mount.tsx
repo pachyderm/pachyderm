@@ -338,7 +338,12 @@ export class MountPlugin implements IMountPlugin {
     if (this.isCurrentWidgetNotebook(widget.newValue)) {
       await this.handleNotebookChanged(widget.newValue);
     }
-    this.setShowPipeline(this._showPipeline);
+    // Only make this call if the user is currently in the "Publish" tab.
+    // Otherwise it can mess with the "Test" tab, where it switches off the "Test"
+    // tab to the "Explore" tab on a browser refresh.
+    if (this._showPipeline) {
+      this.setShowPipeline(this._showPipeline);
+    }
     await Promise.resolve();
   };
 
