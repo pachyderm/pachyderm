@@ -68,8 +68,8 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: medium
-    parallelism: 8
+    resource_class: large
+    parallelism: 6
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -82,7 +82,7 @@ jobs:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       - run: 
           name: Collect tests to run
-          command: GOMAXPROCS=2 GOMEMLIMIT=4000MiB go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          command: GOMAXPROCS=4 GOMEMLIMIT=4000MiB go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
           background: true
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -221,7 +221,6 @@ jobs:
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - run: make docker-build-connectors # for snowflake tests
       - wait-for-docker
       - start-minikube
       # The build cache will grow indefinitely, so we rotate the cache once a week.
@@ -252,6 +251,9 @@ jobs:
           name: Collect kube events
           command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
+      - run: 
+          name: Snowflake build
+          command: eval $(minikube -p minikube docker-env) && make docker-build-connectors # for snowflake tests
       - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
@@ -262,7 +264,7 @@ jobs:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
-          no_output_timeout: 20m
+          no_output_timeout: 30m
           command: |-
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT

@@ -17,6 +17,7 @@ cmds=(
      pachctl list commit "${r}";
      echo;
    done'
+  'docker ps'
   'pachctl list pipeline'
   'pachctl list job --no-pager'
   'kubectl version'

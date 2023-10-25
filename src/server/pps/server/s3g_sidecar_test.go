@@ -37,7 +37,7 @@ import (
 
 func initPachClient(t testing.TB, auth bool) (*client.APIClient, string, string) {
 	c, ns := minikubetestenv.AcquireCluster(t)
-	if auth {
+	if !auth {
 		return c, "", ns
 	}
 	c = tu.AuthenticatedPachClient(t, c, tu.UniqueString("user-"))
