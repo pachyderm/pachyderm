@@ -223,8 +223,9 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls,
-        config_file: Union[Path, str] = os.environ.get(PACH_CONFIG_ENV, CONFIG_PATH_LOCAL)
+    def from_config(
+        cls,
+        config_file: Union[Path, str] = os.environ.get(PACH_CONFIG_ENV, CONFIG_PATH_LOCAL),
     ) -> "Client":
         """Creates a Pachyderm client from a config file.
 
