@@ -376,7 +376,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	}
 	for _, repo := range repoInfos {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			commits, err := pfsdb.ListCommitTxByFilter(ctx, tx, pfsdb.CommitListFilter{pfsdb.CommitRepos: []string{pfsdb.RepoKey(repo.Repo)}}, false, false)
+			commits, err := pfsdb.ListCommitTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
 			if err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
 			}

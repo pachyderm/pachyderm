@@ -32,7 +32,7 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 			cis = append(cis, ci)
 		}
 	}
-	commits, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, pfsdb.CommitListFilter{pfsdb.CommitSetIDs: []string{commitSet.Id}}, false, false)
+	commits, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Id: commitSet.Id})
 	if err != nil {
 		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
@@ -124,17 +124,18 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 }
 
 // TODO(provenance): performance concerns in inspecting each commit set
+// TODO(fahad/albert): change list commit set to query the pfsdb and return a list of all unique commit sets.
 func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, false, false)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil)
 	if err != nil {
 		return errors.Wrap(err, "list commit set")
 	}
-	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitPair pfsdb.CommitWithID) error {
-		commitInfo := commitPair.CommitInfo
+	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+		commitInfo := commitWithID.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
 		}
