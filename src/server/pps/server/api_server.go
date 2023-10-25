@@ -3962,22 +3962,12 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
 
-	// if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-	// 	if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.Project.String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
-	// 		return err
-	// 	}
-	// 	return nil
-	// }); err != nil {
-	// 	return nil, unknownError(ctx, "could not write cluster defaults", err)
-	// }
-	// return &pps.SetProjectDefaultsResponse{}, nil
-
 	var (
 		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
 	)
 	cResp, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	if err != nil {
-		return nil, unknownError(ctx, fmt.Sprintf("could not get cluster defaults"), err)
+		return nil, unknownError(ctx, "could not get cluster defaults", err)
 	}
 	if _, _, err := makeEffectiveSpec(cResp.GetClusterDefaultsJson(), req.GetProjectDefaultsJson(), `{}`); err != nil {
 		return nil, badRequest(ctx, fmt.Sprintf("could not merge project defaults %s into cluster defaults %s", req.GetProjectDefaultsJson(), cResp.GetClusterDefaultsJson()), []*errdetails.BadRequest_FieldViolation{
