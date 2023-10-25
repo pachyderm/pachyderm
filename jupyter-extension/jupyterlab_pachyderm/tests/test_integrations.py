@@ -12,7 +12,7 @@ import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import (
-    PFS_MOUNT_DIR
+    PFS_MOUNT_DIR,
     MOUNT_SERVER_LOG_FILE,
     PACH_CONFIG
 )
@@ -54,17 +54,15 @@ def pachyderm_resources():
 @pytest.fixture()
 def dev_server():
     print("starting development server...")
-    log_file_path = os.environ.get("MOUNT_SERVER_LOG_FILE", "/tmp/mount-server.log")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
         # preserve specifically:
         # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
         # The args after os.environ should be no-ops, but they're here in case
-        # env.py changes
+        # env.py changes (MOUNT_SERVER_LOG_FILE may be None so can't be passed)
         env=dict(os.environ,
             PACH_CONFIG=PACH_CONFIG,
             PFS_MOUNT_DIR=PFS_MOUNT_DIR,
-            MOUNT_SERVER_LOG_FILE=MOUNT_SERVER_LOG_FILE,
         ),
         stdout=subprocess.PIPE,
     )
@@ -394,7 +392,7 @@ def test_config(dev_server):
         f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
     )
 
-    config = json.load(open(os.path.expanduser(CONFIG_PATH)))
+    config = json.load(open(os.path.expanduser(PACH_CONFIG)))
     active_context = config["v2"]["active_context"]
     try:
         endpoint_in_config = config["v2"]["contexts"][active_context]["pachd_address"]
