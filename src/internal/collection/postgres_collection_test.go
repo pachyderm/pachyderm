@@ -222,7 +222,7 @@ func newTestDB(t testing.TB) (*pachsql.DB, string) {
 }
 
 func newTestDirectDB(t testing.TB) (*pachsql.DB, string) {
-	options := dockertestenv.NewTestDBConfig(t).PGBouncer.DBOptions()
+	options := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
 	dsn := dbutil.GetDSN(options...)
 	db, err := dbutil.NewDB(options...)
 	require.NoError(t, err)
