@@ -63,13 +63,15 @@ export type CrossInputSpec = {
 export type CurrentDatumResponse = {
   num_datums: number;
   input: {[key: string]: any};
-  curr_idx: number;
+  idx: number;
+  all_datums_received: boolean;
 };
 
 export type MountDatumResponse = {
   id: string;
   idx: number;
   num_datums: number;
+  all_datums_received: boolean;
 };
 
 export type ListMountsResponse = {
