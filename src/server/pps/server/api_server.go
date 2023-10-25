@@ -3954,12 +3954,12 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 // and if has changed it will be saved; if reprocess is true then regenerated
 // (and changed) pipelines will reprocess previously-processed datums.
 func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error) {
+	if req.Project == nil || req.Project.Name == "" {
+		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
 	var cdg = &cachedDefaultsGetter{
 		apiServer:       a,
 		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
-	}
-	if req.Project == nil || req.Project.Name == "" {
-		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
 
 	var (
@@ -3986,6 +3986,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
 		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
+				fmt.Println("returning")
 				return nil
 			}
 			// if the old details are missing, synthesize them
