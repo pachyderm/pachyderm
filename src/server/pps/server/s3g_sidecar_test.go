@@ -604,16 +604,10 @@ func TestS3SkippedDatumsAuth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _, ns := initPachClient(t, true)
+	c, _, ns := initPachClient(t, true) // There are explicit auth calls in this test so it can't run without auth
 	testS3SkippedDatumsProject(t, c, ns)
 }
-func TestS3SkippedDatums(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
-	c, _, ns := initPachClient(t, false)
-	testS3SkippedDatumsProject(t, c, ns)
-}
+
 func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName string) {
 	// NOTE: in tests, the S3G port (not just the NodePort but the
 	// cluster-internal port) is assigned dynamically in
