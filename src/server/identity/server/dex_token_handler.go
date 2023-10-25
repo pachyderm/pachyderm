@@ -3,14 +3,15 @@ package server
 import (
 	"bytes"
 	"context"
-	b64 "encoding/base64"
+	"encoding/base64"
 	"encoding/json"
 	"net/http"
 	"strings"
 
+	"go.uber.org/zap"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"go.uber.org/zap"
 )
 
 type tokenResp struct {
@@ -52,16 +53,16 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 			return
 		}
 		for _, p := range ps {
-			defer p.Close()
+			defer p.close()
 			u := &User{name: token.Email}
-			if _, err := p.FindUser(ctx, token.Email); err != nil {
+			if _, err := p.findUser(ctx, token.Email); err != nil {
 				if !errors.As(err, &errNotFound{}) {
 					log.Error(ctx, "failed to find user", zap.Error(err),
 						zap.String("user", token.Email))
 					rw.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				if _, err := p.CreateUser(ctx, &User{name: token.Email}); err != nil {
+				if _, err := p.createUser(ctx, &User{name: token.Email}); err != nil {
 					log.Error(ctx, "failed to provision user", zap.Error(err),
 						zap.String("user", token.Email))
 					rw.WriteHeader(http.StatusInternalServerError)
@@ -70,7 +71,7 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 			}
 			var gs []*Group
 			for _, grp := range token.Groups {
-				g, err := p.FindGroup(ctx, grp)
+				g, err := p.findGroup(ctx, grp)
 				if err != nil {
 					if !errors.As(err, &errNotFound{}) {
 						log.Error(ctx, "failed to find group", zap.Error(err),
@@ -78,7 +79,7 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 						rw.WriteHeader(http.StatusInternalServerError)
 						return
 					}
-					if _, err := p.CreateGroup(ctx, &Group{name: grp}); err != nil {
+					if _, err := p.createGroup(ctx, &Group{name: grp}); err != nil {
 						log.Error(ctx, "failed to provision group", zap.Error(err),
 							zap.String("group", grp))
 						rw.WriteHeader(http.StatusInternalServerError)
@@ -87,7 +88,7 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 				}
 				gs = append(gs, g)
 			}
-			if err := p.SetUserGroups(ctx, u, gs); err != nil {
+			if err := p.setUserGroups(ctx, u, gs); err != nil {
 				log.Error(ctx, "failed to set user groups", zap.Error(err),
 					zap.String("user", token.Email),
 					zap.Any("groups", token.Groups))
@@ -105,7 +106,7 @@ func idTokenFromBytes(ctx context.Context, b []byte) (*idToken, error) {
 		log.Error(ctx, msg, zap.Error(err))
 		return nil, errors.Wrap(err, msg)
 	}
-	tok, err := b64.RawStdEncoding.DecodeString(jwtPayload(resp.IdToken))
+	tok, err := base64.RawStdEncoding.DecodeString(jwtPayload(resp.IdToken))
 	if err != nil {
 		msg := "failed to base64 decode ID token"
 		log.Error(ctx, msg, zap.Error(err),
@@ -148,14 +149,14 @@ func (sr *saveResponseWriter) WriteHeader(statusCode int) {
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
 	var ps []provisioner
 	if w.env.Config.DeterminedURL != "" {
-		d, err := NewDeterminedProvisioner(ctx, DeterminedConfig{
+		d, err := newDeterminedProvisioner(ctx, DeterminedConfig{
 			MasterURL: w.env.Config.DeterminedURL,
 			Username:  w.env.Config.DeterminedUsername,
 			Password:  w.env.Config.DeterminedPassword,
 			TLS:       w.env.Config.DeterminedTLS,
 		})
 		if err != nil {
-			log.Error(ctx, "failed to find instantiate determined user provisioner", zap.Error(err))
+			log.Error(ctx, "failed to instantiate determined user provisioner", zap.Error(err))
 			return nil, err
 		}
 		ps = append(ps, d)

@@ -6,23 +6,25 @@ import (
 	"fmt"
 	"net/url"
 
-	det "github.com/determined-ai/determined/proto/pkg/apiv1"
-	userv1 "github.com/determined-ai/determined/proto/pkg/userv1"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
+
+	det "github.com/determined-ai/determined/proto/pkg/apiv1"
+	"github.com/determined-ai/determined/proto/pkg/userv1"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 )
 
 type provisioner interface {
-	FindUser(ctx context.Context, name string) (*User, error)
-	CreateUser(context.Context, *User) (*User, error)
-	FindGroup(ctx context.Context, name string) (*Group, error)
-	CreateGroup(context.Context, *Group) (*Group, error)
-	SetUserGroups(context.Context, *User, []*Group) error
-	Close() error
+	findUser(ctx context.Context, name string) (*User, error)
+	createUser(context.Context, *User) (*User, error)
+	findGroup(ctx context.Context, name string) (*Group, error)
+	createGroup(context.Context, *Group) (*Group, error)
+	setUserGroups(context.Context, *User, []*Group) error
+	close() error
 }
 
 type User struct {
@@ -59,7 +61,7 @@ func withDetToken(ctx context.Context, token string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", token))
 }
 
-func NewDeterminedProvisioner(ctx context.Context, config DeterminedConfig) (provisioner, error) {
+func newDeterminedProvisioner(ctx context.Context, config DeterminedConfig) (provisioner, error) {
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	if config.TLS {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
@@ -70,7 +72,7 @@ func NewDeterminedProvisioner(ctx context.Context, config DeterminedConfig) (pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "parsing determined url %q", config.MasterURL)
 	}
-	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
+	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(client.LogStream), grpc.WithUnaryInterceptor(client.LogUnary))
 	if err != nil {
 		return nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
@@ -99,7 +101,7 @@ func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username,
 	return loginResp.Token, nil
 }
 
-func (d *determinedProvisioner) FindUser(ctx context.Context, name string) (*User, error) {
+func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*User, error) {
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.GetUserByUsername(ctx, &det.GetUserByUsernameRequest{Username: name})
 	if err != nil {
@@ -123,7 +125,7 @@ func (d *determinedProvisioner) FindUser(ctx context.Context, name string) (*Use
 	}, nil
 }
 
-func (d *determinedProvisioner) CreateUser(ctx context.Context, user *User) (*User, error) {
+func (d *determinedProvisioner) createUser(ctx context.Context, user *User) (*User, error) {
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.PostUser(ctx, &det.PostUserRequest{User: &userv1.User{
 		Username:    user.name,
@@ -138,7 +140,7 @@ func (d *determinedProvisioner) CreateUser(ctx context.Context, user *User) (*Us
 	return &User{id: u.User.Id, name: u.User.Username}, nil
 }
 
-func (d *determinedProvisioner) FindGroup(ctx context.Context, name string) (*Group, error) {
+func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*Group, error) {
 	ctx = withDetToken(ctx, d.token)
 	g, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{Name: name})
 	if err != nil {
@@ -150,7 +152,7 @@ func (d *determinedProvisioner) FindGroup(ctx context.Context, name string) (*Gr
 	return &Group{id: g.Groups[0].Group.GroupId, name: name}, nil
 }
 
-func (d *determinedProvisioner) CreateGroup(ctx context.Context, group *Group) (*Group, error) {
+func (d *determinedProvisioner) createGroup(ctx context.Context, group *Group) (*Group, error) {
 	ctx = withDetToken(ctx, d.token)
 	g, err := d.dc.CreateGroup(ctx, &det.CreateGroupRequest{Name: group.name})
 	if err != nil {
@@ -159,7 +161,7 @@ func (d *determinedProvisioner) CreateGroup(ctx context.Context, group *Group) (
 	return &Group{id: g.Group.GroupId, name: g.Group.Name}, nil
 }
 
-func (d *determinedProvisioner) SetUserGroups(ctx context.Context, user *User, groups []*Group) error {
+func (d *determinedProvisioner) setUserGroups(ctx context.Context, user *User, groups []*Group) error {
 	ctx = withDetToken(ctx, d.token)
 	gIds := make(map[int32]struct{})
 	for _, g := range groups {
@@ -183,6 +185,6 @@ func (d *determinedProvisioner) SetUserGroups(ctx context.Context, user *User, g
 	return nil
 }
 
-func (d *determinedProvisioner) Close() error {
+func (d *determinedProvisioner) close() error {
 	return errors.Wrap(d.conn.Close(), "close the determined client's grpc connection")
 }
