@@ -1712,7 +1712,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
-	updateDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Inspect project defaults.")
+	updateDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Update project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
