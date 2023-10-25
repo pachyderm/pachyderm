@@ -6,12 +6,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactiondb"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -28,14 +28,15 @@ type driver struct {
 }
 
 func newDriver(
-	env serviceenv.ServiceEnv,
+	db *pachsql.DB,
+	pgListener collection.PostgresListener,
 	txnEnv *txnenv.TransactionEnv,
 ) (*driver, error) {
 
 	return &driver{
 		txnEnv:       txnEnv,
-		db:           env.GetDBClient(),
-		transactions: transactiondb.Transactions(env.GetDBClient(), env.GetPostgresListener()),
+		db:           db,
+		transactions: transactiondb.Transactions(db, pgListener),
 	}, nil
 }
 

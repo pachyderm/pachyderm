@@ -2,15 +2,12 @@ package pfsdb
 
 import (
 	"database/sql"
-	"encoding/hex"
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -37,10 +34,11 @@ type Repo struct {
 	Type        string         `db:"type"`
 	Description string         `db:"description"`
 	CreatedAtUpdatedAt
+	BranchesNames string `db:"branches"`
+}
 
-	// Branches is a string that contains an array of hex-encoded branchInfos. The array is enclosed with curly braces.
-	// Each entry is prefixed with '//x' and entries are delimited by a ','
-	Branches string `db:"branches"`
+func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return repo.CreatedAtUpdatedAt
 }
 
 func (repo *Repo) Pb() *pfs.Repo {
@@ -52,7 +50,7 @@ func (repo *Repo) Pb() *pfs.Repo {
 }
 
 func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
-	branches, err := parseBranches(repo.Branches)
+	branches, err := parseBranches(repo)
 	if err != nil {
 		return nil, err
 	}
@@ -64,40 +62,35 @@ func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
 	}, nil
 }
 
-func parseBranches(branchInfos string) ([]*pfs.Branch, error) {
+func parseBranches(repo *Repo) ([]*pfs.Branch, error) {
 	var branches []*pfs.Branch
-	if branchInfos == noBranches {
+	if repo.BranchesNames == noBranches {
 		return branches, nil
 	}
 	// after aggregation, braces, quotes, and leading hex prefixes need to be removed from the encoded branch strings.
-	for _, branchStr := range strings.Split(strings.Trim(branchInfos, "{}"), ",") {
-		branchHex := strings.Trim(strings.Trim(branchStr, "\""), "\\x")
-		decodedString, err := hex.DecodeString(branchHex)
-		if err != nil {
-			return nil, errors.Wrap(err, "branch not hex encoded")
+	for _, branchName := range strings.Split(strings.Trim(repo.BranchesNames, "{}"), ",") {
+		branch := &pfs.Branch{
+			Name: branchName,
+			Repo: repo.Pb(),
 		}
-		branchInfo := &pfs.BranchInfo{}
-		if err := proto.Unmarshal(decodedString, branchInfo); err != nil {
-			return nil, errors.Wrap(err, "could not unmarshal BranchInfo")
-		}
-		branches = append(branches, branchInfo.Branch)
+		branches = append(branches, branch)
 	}
 	return branches, nil
 }
 
 type Commit struct {
-	ID             CommitID  `db:"int_id"`
-	CommitSetID    string    `db:"commit_set_id"`
-	CommitID       string    `db:"commit_id"`
-	Origin         string    `db:"origin"`
-	Description    string    `db:"description"`
-	StartTime      time.Time `db:"start_time"`
-	FinishingTime  time.Time `db:"finishing_time"`
-	FinishedTime   time.Time `db:"finished_time"`
-	CompactingTime int64     `db:"compacting_time_s"`
-	ValidatingTime int64     `db:"validating_time_s"`
-	Error          string    `db:"error"`
-	Size           int64     `db:"size"`
+	ID             CommitID      `db:"int_id"`
+	CommitSetID    string        `db:"commit_set_id"`
+	CommitID       string        `db:"commit_id"`
+	Origin         string        `db:"origin"`
+	Description    string        `db:"description"`
+	StartTime      sql.NullTime  `db:"start_time"`
+	FinishingTime  sql.NullTime  `db:"finishing_time"`
+	FinishedTime   sql.NullTime  `db:"finished_time"`
+	CompactingTime sql.NullInt64 `db:"compacting_time_s"`
+	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
+	Error          string        `db:"error"`
+	Size           int64         `db:"size"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
@@ -105,11 +98,22 @@ type Commit struct {
 	CreatedAtUpdatedAt
 }
 
+func (commit Commit) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return commit.CreatedAtUpdatedAt
+}
+
 func (commit *Commit) Pb() *pfs.Commit {
-	return &pfs.Commit{
+	pb := &pfs.Commit{
 		Id:   commit.CommitSetID,
 		Repo: commit.Repo.Pb(),
 	}
+	if commit.BranchName.Valid {
+		pb.Branch = &pfs.Branch{
+			Repo: pb.Repo,
+			Name: commit.BranchName.String,
+		}
+	}
+	return pb
 }
 
 // Branch is a row in the pfs.branches table.
@@ -119,6 +123,10 @@ type Branch struct {
 	Repo Repo     `db:"repo"`
 	Name string   `db:"name"`
 	CreatedAtUpdatedAt
+}
+
+func (branch Branch) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
+	return branch.CreatedAtUpdatedAt
 }
 
 func (branch *Branch) Pb() *pfs.Branch {

@@ -51,7 +51,7 @@ func (t *Propagater) Run(ctx context.Context) error {
 	for _, branch := range t.branches {
 		branches = append(branches, branch)
 	}
-	if err := t.d.validateDAGStructure(t.txnCtx, branches); err != nil {
+	if err := t.d.validateDAGStructure(ctx, t.txnCtx, branches); err != nil {
 		return errors.Wrap(err, "validate DAG at end of transaction")
 	}
 	return t.d.propagateBranches(ctx, t.txnCtx, branches)

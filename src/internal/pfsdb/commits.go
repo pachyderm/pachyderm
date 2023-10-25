@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -18,9 +19,11 @@ import (
 
 const (
 	// CommitsChannelName is used to watch events for the commits table.
-	CommitsChannelName = "pfs_commits"
-	createCommit       = `
-		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
+	CommitsChannelName     = "pfs_commits"
+	CommitsRepoChannelName = "pfs_commits_repo_"
+	CommitChannelName      = "pfs_commits_"
+	createCommit           = `
+		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=$1 AND type=$2 AND project_id=(SELECT id from core.projects WHERE name=$3))
 		INSERT INTO pfs.commits 
     	(commit_id, 
     	 commit_set_id, 
@@ -36,19 +39,10 @@ const (
     	 size, 
     	 error) 
 		VALUES 
-		(:commit_id, 
-		 :commit_set_id, 
+		($4, $5,
 		 (SELECT id from repo_row_id), 
-		(SELECT id from pfs.branches WHERE name=:branch_name AND repo_id=(SELECT id from repo_row_id)), 
-		:description, 
-		:origin, 
-		:start_time,
-		:finishing_time,
-		:finished_time,
-		:compacting_time_s,
-		:validating_time_s,
-		:size,
-		:error)
+		 (SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)), 
+		 $7, $8, $9, $10, $11, $12, $13, $14, $15)
 		RETURNING int_id;`
 	updateCommit = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
@@ -68,9 +62,10 @@ const (
 			error=:error 
 		WHERE int_id=:int_id;`
 	getCommit = `
-		SELECT 
+		SELECT DISTINCT
     		commit.int_id, 
     		commit.commit_id, 
+			commit.commit_set_id,
     		commit.branch_id, 
     		commit.origin, 
     		commit.description, 
@@ -81,6 +76,8 @@ const (
     		commit.validating_time_s,
     		commit.error, 
     		commit.size, 
+    		commit.created_at,
+    		commit.updated_at,
     		commit.repo_id AS "repo.id", 
     		repo.name AS "repo.name",
     		repo.type AS "repo.type",
@@ -89,7 +86,8 @@ const (
 		FROM pfs.commits commit
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id
-		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id`
+		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
+		`
 	getParentCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.parent = commit.int_id`
 	getChildCommit = getCommit + `
@@ -181,6 +179,11 @@ type AncestryOpt struct {
 	SkipParent   bool
 }
 
+// CommitsInRepoChannel returns the name of the channel that is notified when commits in repo 'repoID' are created, updated, or deleted
+func CommitsInRepoChannel(repoID RepoID) string {
+	return fmt.Sprintf("%s%d", CommitsRepoChannelName, repoID)
+}
+
 // CreateCommit creates an entry in the pfs.commits table. If the commit has a parent or children,
 // it will attempt to create entries in the pfs.commit_ancestry table unless options are provided to skip
 // ancestry creation.
@@ -217,11 +220,11 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
 	}
-	namedStmt, err := tx.PrepareNamedContext(ctx, createCommit)
-	if err != nil {
-		return 0, errors.Wrap(err, "prepare create commitInfo")
-	}
-	row := namedStmt.QueryRowxContext(ctx, insert)
+	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
+	// we run into errors when using named statements: (named statement already exists).
+	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
+		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
+		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
 	if row.Err() != nil {
 		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
 			return 0, ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
@@ -343,15 +346,8 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 	// repoint commit.parent -> commit.children
 	if parent != nil && children != nil {
 		childrenIDs := make([]CommitID, 0)
-		commitsNotFinished := make([]string, 0)
 		for _, child := range children {
-			if child.FinishedTime.IsZero() {
-				commitsNotFinished = append(commitsNotFinished, child.CommitID)
-			}
 			childrenIDs = append(childrenIDs, child.ID)
-		}
-		if len(commitsNotFinished) > 0 {
-			return errors.New(fmt.Sprintf("commits not finished before deleting: %v", commitsNotFinished))
 		}
 		if err := CreateCommitAncestries(ctx, tx, parent.ID, childrenIDs); err != nil {
 			return errors.Wrap(err, fmt.Sprintf("repointing id=%d at %v", parent.ID, childrenIDs))
@@ -407,8 +403,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	return commitInfo, err
 }
 
-// GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
-func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+func GetCommitWithIDByKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*CommitWithID, error) {
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit by commit key")
@@ -417,28 +412,47 @@ func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commi
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit info from row")
 	}
-	return commitInfo, err
+	return &CommitWithID{
+		CommitInfo: commitInfo,
+		ID:         row.ID,
+	}, nil
+}
+
+// GetCommitByCommitKey is like GetCommit but derives the int_id on behalf of the caller.
+func GetCommitByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*pfs.CommitInfo, error) {
+	pair, err := GetCommitWithIDByKey(ctx, tx, commit)
+	if err != nil {
+		return nil, err
+	}
+	return pair.CommitInfo, nil
 }
 
 // GetCommitParent uses the pfs.commit_ancestry and pfs.commits tables to retrieve a commit given an int_id of
 // one of its children.
 func GetCommitParent(ctx context.Context, tx *pachsql.Tx, childCommit CommitID) (*pfs.Commit, error) {
-	row, err := getCommitParentRow(ctx, tx, childCommit)
+	return getCommitParent(ctx, tx, childCommit)
+}
+
+// GetCommitParent uses the pfs.commit_ancestry and pfs.commits tables to retrieve a commit given an int_id of
+// one of its children.
+func getCommitParent(ctx context.Context, extCtx sqlx.ExtContext, childCommit CommitID) (*pfs.Commit, error) {
+	row, err := getCommitParentRow(ctx, extCtx, childCommit)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting parent commit row")
 	}
-	parentCommitInfo, err := parseCommitInfoFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "get parent commit from row")
-	}
+	parentCommitInfo := parseCommitInfoFromRow(row)
 	return parentCommitInfo.Commit, nil
 }
 
 // GetCommitChildren uses the pfs.commit_ancestry and pfs.commits tables to retrieve commits of all
 // of the children given an int_id of the parent.
 func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitID) ([]*pfs.Commit, error) {
+	return getCommitChildren(ctx, tx, parentCommit)
+}
+
+func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit CommitID) ([]*pfs.Commit, error) {
 	children := make([]*pfs.Commit, 0)
-	rows, err := tx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.parent=$1", getChildCommit), parentCommit)
+	rows, err := extCtx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.parent=$1", getChildCommit), parentCommit)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
@@ -450,10 +464,7 @@ func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitI
 		if err := rows.StructScan(row); err != nil {
 			return nil, errors.Wrap(err, "scanning commit row for child")
 		}
-		childCommitInfo, err := parseCommitInfoFromRow(row)
-		if err != nil {
-			return nil, errors.Wrap(err, "getting child commit from row")
-		}
+		childCommitInfo := parseCommitInfoFromRow(row)
 		children = append(children, childCommitInfo.Commit)
 	}
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
@@ -467,7 +478,7 @@ func GetCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit CommitI
 func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
 	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
 	if err != nil {
-		if errors.Is(ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}, errors.Cause(err)) {
+		if errors.Is(err, ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}) {
 			return CreateCommit(ctx, tx, commitInfo, opts...)
 		}
 		return 0, errors.Wrap(err, "upserting commit")
@@ -565,35 +576,37 @@ func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	return nil
 }
 
-func getCommitInfoFromCommitRow(ctx context.Context, tx *pachsql.Tx, row *Commit) (*pfs.CommitInfo, error) {
-	commitInfo, err := parseCommitInfoFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "get commit from row")
-	}
-	commitInfo.ParentCommit, commitInfo.ChildCommits, err = getCommitRelatives(ctx, tx, row.ID)
+func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row *Commit) (*pfs.CommitInfo, error) {
+	var err error
+	commitInfo := parseCommitInfoFromRow(row)
+	commitInfo.ParentCommit, commitInfo.ChildCommits, err = getCommitRelatives(ctx, extCtx, row.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "get commit relatives")
+	}
+	commitInfo.DirectProvenance, err = CommitDirectProvenance(ctx, extCtx, row.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get provenance for commit")
 	}
 	return commitInfo, err
 }
 
-func getCommitRelatives(ctx context.Context, tx *pachsql.Tx, commitID CommitID) (*pfs.Commit, []*pfs.Commit, error) {
-	parentCommit, err := GetCommitParent(ctx, tx, commitID)
-	if err != nil && !errors.Is(ErrParentCommitNotFound{ChildRowID: commitID}, errors.Cause(err)) {
+func getCommitRelatives(ctx context.Context, extCtx sqlx.ExtContext, commitID CommitID) (*pfs.Commit, []*pfs.Commit, error) {
+	parentCommit, err := getCommitParent(ctx, extCtx, commitID)
+	if err != nil && !errors.Is(err, ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
-	childCommits, err := GetCommitChildren(ctx, tx, commitID)
-	if err != nil && !errors.Is(ErrChildCommitNotFound{ParentRowID: commitID}, errors.Cause(err)) {
+	childCommits, err := getCommitChildren(ctx, extCtx, commitID)
+	if err != nil && !errors.Is(err, ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}
 	return parentCommit, childCommits, nil
 }
 
-func getCommitParentRow(ctx context.Context, tx *pachsql.Tx, childCommit CommitID) (*Commit, error) {
+func getCommitParentRow(ctx context.Context, extCtx sqlx.ExtContext, childCommit CommitID) (*Commit, error) {
 	row := &Commit{}
-	if err := tx.GetContext(ctx, row, fmt.Sprintf("%s WHERE ancestry.child=$1", getParentCommit), childCommit); err != nil {
+	if err := sqlx.GetContext(ctx, extCtx, row, fmt.Sprintf("%s WHERE ancestry.child=$1", getParentCommit), childCommit); err != nil {
 		if err == sql.ErrNoRows {
 			return nil, ErrParentCommitNotFound{ChildRowID: childCommit}
 		}
@@ -626,12 +639,12 @@ func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit Com
 
 func getCommitRelativeRows(ctx context.Context, tx *pachsql.Tx, commitID CommitID) (*Commit, []*Commit, error) {
 	commitParentRows, err := getCommitParentRow(ctx, tx, commitID)
-	if err != nil && !errors.Is(ErrParentCommitNotFound{ChildRowID: commitID}, errors.Cause(err)) {
+	if err != nil && !errors.Is(err, ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
 	commitChildrenRows, err := getCommitChildrenRows(ctx, tx, commitID)
-	if err != nil && !errors.Is(ErrChildCommitNotFound{ParentRowID: commitID}, errors.Cause(err)) {
+	if err != nil && !errors.Is(err, ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}
@@ -654,213 +667,155 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 	return row, nil
 }
 
-func parseCommitInfoFromRow(row *Commit) (*pfs.CommitInfo, error) {
-	commit, err := parseCommitFromRow(row)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting commit from row")
-	}
+func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 	commitInfo := &pfs.CommitInfo{
-		Commit:      commit,
+		Commit:      row.Pb(),
 		Origin:      &pfs.CommitOrigin{Kind: pfs.OriginKind(pfs.OriginKind_value[strings.ToUpper(row.Origin)])},
 		Started:     pbutil.TimeToTimestamppb(row.StartTime),
 		Finishing:   pbutil.TimeToTimestamppb(row.FinishingTime),
 		Finished:    pbutil.TimeToTimestamppb(row.FinishedTime),
 		Description: row.Description,
+		Error:       row.Error,
 		Details: &pfs.CommitInfo_Details{
 			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
 			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),
 			SizeBytes:      row.Size,
 		},
 	}
-	return commitInfo, nil
+	return commitInfo
 }
 
-func parseCommitFromRow(row *Commit) (*pfs.Commit, error) {
-	repo := &pfs.Repo{
-		Name: row.Repo.Name,
-		Type: row.Repo.Type,
-		Project: &pfs.Project{
-			Name: row.Repo.Project.Name,
-		},
-	}
-	parsedId := strings.Split(row.CommitID, "@")
-	if len(parsedId) != 2 {
-		return nil, errors.New(fmt.Sprintf("got invalid commit id from postgres: %s", row.CommitID))
-	}
-	commit := &pfs.Commit{
-		Repo: repo,
-		Id:   parsedId[1],
-		Branch: &pfs.Branch{
-			Repo: repo,
-			Name: row.BranchName.String,
-		},
-	}
-	return commit, nil
-}
-
-// CommitPair is an (id, commitInfo) tuple returned by the commit iterator.
-type CommitPair struct {
+// CommitWithID is returned by the commit iterator.
+type CommitWithID struct {
 	ID         CommitID
 	CommitInfo *pfs.CommitInfo
+	Revision   int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
-var _ stream.Iterator[CommitPair] = &CommitIterator{}
+var _ stream.Iterator[CommitWithID] = &CommitIterator{}
 
-// CommitIterator batches a page of Commit entries along with their parent and children. (id, entry) tuples can be retrieved using iter.Next().
+// commitColumn is used in the ListCommit filter and defines specific field names for type safety.
+// This should hopefully prevent a library user from misconfiguring the filter.
+type commitColumn string
+
+var (
+	CommitColumnID        = commitColumn("commit.int_id")
+	CommitColumnSetID     = commitColumn("commit.commit_set_id")
+	CommitColumnOrigin    = commitColumn("commit.origin")
+	CommitColumnCreatedAt = commitColumn("commit.created_at")
+	CommitColumnUpdatedAt = commitColumn("commit.updated_at")
+)
+
+type OrderByCommitColumn OrderByColumn[commitColumn]
+
 type CommitIterator struct {
-	commitInfos map[CommitID]*pfs.CommitInfo
-	db          *pachsql.DB
-	gottenInfos int
-	rev         bool
-	limit       int
-	offset      int
-	commits     []Commit
-	index       int
-	filter      CommitListFilter
+	paginator pageIterator[Commit]
+	extCtx    sqlx.ExtContext
 }
 
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-// The iterator prefetches the parents and children of the buffered commits until it hits an internal
-// capacity.
-func (iter *CommitIterator) Next(ctx context.Context, dst *CommitPair) error {
+func (i *CommitIterator) Next(ctx context.Context, dst *CommitWithID) error {
 	if dst == nil {
-		return errors.Wrap(fmt.Errorf("commit is nil"), "get next commit")
+		return errors.Errorf("dst CommitInfo cannot be nil")
 	}
-	var err error
-	if iter.index >= len(iter.commits) {
-		iter.gottenInfos = 0
-		iter.index = 0
-		iter.offset += iter.limit
-		if err := dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
-			iter.commits, err = listCommitPage(ctx, tx, iter.limit, iter.offset, iter.filter, iter.rev)
-			if err != nil {
-				return errors.Wrap(err, "list commit page")
-			}
-			if len(iter.commits) == 0 {
-				return stream.EOS()
-			}
-			return errors.Wrap(iter.getCommitInfosForPageUntilCapacity(ctx, tx),
-				"getting commit infos for page in list commits")
-		}); err != nil {
-			return err
-		}
-	} else if iter.index >= iter.gottenInfos {
-		if err := dbutil.WithTx(ctx, iter.db, func(ctx context.Context, tx *pachsql.Tx) error {
-			return errors.Wrap(iter.getCommitInfosForPageUntilCapacity(ctx, tx),
-				"getting commit infos for page in list commits")
-		}); err != nil {
-			return err
-		}
+	commit, rev, err := i.paginator.next(ctx, i.extCtx)
+	if err != nil {
+		return err
 	}
-	id := iter.commits[iter.index].ID
-	*dst = CommitPair{
-		CommitInfo: iter.commitInfos[id],
-		ID:         id,
+	commitInfo, err := getCommitInfoFromCommitRow(ctx, i.extCtx, commit)
+	if err != nil {
+		return err
 	}
-	iter.index++
+	dst.ID = commit.ID
+	dst.CommitInfo = commitInfo
+	dst.Revision = rev
 	return nil
 }
 
-// CommitFields is used in the ListCommitFilter and defines specific field names for type safety.
-// This should hopefully prevent a library user from misconfiguring the filter.
-type CommitFields string
-
-var (
-	CommitSetIDs   = CommitFields("commit_set_id")
-	CommitOrigins  = CommitFields("origin")
-	CommitRepos    = CommitFields("repo_id")
-	CommitBranches = CommitFields("branch_id")
-	CommitProjects = CommitFields("project_id")
-)
-
-// CommitListFilter is a filter for listing commits. It ANDs together separate keys, but ORs together the key values:
-// where commit.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND commit.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type CommitListFilter map[CommitFields][]string
+func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, pageSize uint64, filter *pfs.Commit, orderBys ...OrderByCommitColumn) (*CommitIterator, error) {
+	var conditions []string
+	var values []any
+	// Note that using ? as the bindvar is okay because we rebind it later.
+	if filter != nil {
+		if filter.Repo != nil && filter.Repo.Name != "" {
+			conditions = append(conditions, "repo.name = ?")
+			values = append(values, filter.Repo.Name)
+		}
+		if filter.Repo != nil && filter.Repo.Type != "" {
+			conditions = append(conditions, "repo.type = ?")
+			values = append(values, filter.Repo.Type)
+		}
+		if filter.Repo != nil && filter.Repo.Project != nil && filter.Repo.Project.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Repo.Project.Name)
+		}
+		if filter.Id != "" {
+			conditions = append(conditions, "commit.commit_set_id = ?")
+			values = append(values, filter.Id)
+		}
+		if filter.Branch != nil && filter.Branch.Name != "" {
+			conditions = append(conditions, "branch.name = ?")
+			values = append(values, filter.Branch.Name)
+		}
+	}
+	query := getCommit
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+	}
+	// Compute ORDER BY
+	var orderByGeneric []OrderByColumn[commitColumn]
+	if len(orderBys) == 0 {
+		orderByGeneric = []OrderByColumn[commitColumn]{{Column: CommitColumnID, Order: SortOrderAsc}}
+	} else {
+		for _, orderBy := range orderBys {
+			orderByGeneric = append(orderByGeneric, OrderByColumn[commitColumn](orderBy))
+		}
+	}
+	query = extCtx.Rebind(query + OrderByQuery[commitColumn](orderByGeneric...))
+	return &CommitIterator{
+		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
+		extCtx:    extCtx,
+	}, nil
+}
 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
-func ListCommit(ctx context.Context, db *pachsql.DB, filter CommitListFilter, rev bool) (*CommitIterator, error) {
-	var iter *CommitIterator
-	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		limit := 100
-		page, err := listCommitPage(ctx, tx, limit, 0, filter, rev)
-		if err != nil {
-			return errors.Wrap(err, "new commits iterator")
-		}
-		iter = &CommitIterator{
-			rev:         rev,
-			commits:     page,
-			limit:       limit,
-			filter:      filter,
-			gottenInfos: 0,
-			db:          db,
-		}
-		return iter.getCommitInfosForPageUntilCapacity(ctx, tx)
-	}); err != nil {
-		return nil, errors.Wrap(err, "list commits first page")
-	}
-	return iter, nil
+func ListCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, orderBys ...OrderByCommitColumn) (*CommitIterator, error) {
+	return NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
 }
 
-func (iter *CommitIterator) getCommitInfosForPageUntilCapacity(ctx context.Context, tx *pachsql.Tx) error {
-	capacity := 500
-	commitCount := 0
-	iter.commitInfos = make(map[CommitID]*pfs.CommitInfo)
-	for ; iter.gottenInfos < len(iter.commits); iter.gottenInfos++ {
-		row := iter.commits[iter.gottenInfos]
-		commit, err := getCommitInfoFromCommitRow(ctx, tx, &row)
-		if err != nil {
-			return errors.Wrap(err, "getting commitInfo from commit row")
+func UpdateCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	return errors.Wrap(listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
+		if err := cb(commitWithID); err != nil {
+			return err
 		}
-		commitCount += 1 + len(commit.ChildCommits)
-		if commit.ParentCommit != nil {
-			commitCount++
-		}
-		iter.commitInfos[row.ID] = commit
-		if commitCount >= capacity {
-			iter.gottenInfos++
-			return nil
-		}
+		return UpdateCommit(ctx, tx, commitWithID.ID, commitWithID.CommitInfo)
+	}, orderBys...), "update commits tx by filter")
+}
+
+func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, orderBys ...OrderByCommitColumn) ([]*pfs.CommitInfo, error) {
+	var commits []*pfs.CommitInfo
+	if err := listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
+		commits = append(commits, commitWithID.CommitInfo)
+		return nil
+	}, orderBys...); err != nil {
+		return nil, errors.Wrap(err, "list commits tx by filter")
+	}
+	return commits, nil
+}
+
+func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	if filter == nil {
+		return errors.Errorf("filter cannot be empty")
+	}
+	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "list commit tx by filter")
+	}
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
+		return cb(commitWithID)
+	}); err != nil {
+		return errors.Wrap(err, "list index")
 	}
 	return nil
-}
-
-func listCommitPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter CommitListFilter, rev bool) ([]Commit, error) {
-	var page []Commit
-	where := ""
-	conditions := make([]string, 0)
-	query := getCommit
-	order := "ASC"
-	if rev {
-		order = "DESC"
-	}
-	for key, vals := range filter {
-		if len(vals) == 0 {
-			continue
-		}
-		quotedVals := make([]string, 0)
-		for _, val := range vals {
-			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
-		}
-		switch key {
-		case CommitBranches:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.branches WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		case CommitRepos:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (SELECT id FROM pfs.repos WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		case CommitProjects:
-			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		default:
-			conditions = append(conditions, fmt.Sprintf("commit.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
-		}
-	}
-	if len(conditions) > 0 {
-		where = "WHERE " + strings.Join(conditions, " AND ")
-	}
-	if err := tx.SelectContext(ctx, &page,
-		fmt.Sprintf("%s %s GROUP BY commit.int_id, repo.name, repo.type, branch.name, project.name "+
-			"ORDER BY commit.int_id %s LIMIT $1 OFFSET $2;", query, where, order), limit, offset); err != nil {
-		return nil, errors.Wrap(err, "could not get commit page")
-	}
-	return page, nil
 }

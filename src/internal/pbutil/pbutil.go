@@ -1,6 +1,7 @@
 package pbutil
 
 import (
+	"database/sql"
 	"encoding/binary"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -97,30 +98,30 @@ func NewReadWriter(rw io.ReadWriter) ReadWriter {
 	return &readWriter{r: rw, w: rw}
 }
 
-func SanitizeTimestampPb(timestamp *timestamppb.Timestamp) time.Time {
+func SanitizeTimestampPb(timestamp *timestamppb.Timestamp) sql.NullTime {
 	if timestamp == nil {
-		return time.Time{}
+		return sql.NullTime{Valid: false, Time: time.Time{}}
 	}
-	return timestamp.AsTime()
+	return sql.NullTime{Valid: true, Time: timestamp.AsTime()}
 }
 
-func DurationPbToBigInt(duration *durationpb.Duration) int64 {
+func DurationPbToBigInt(duration *durationpb.Duration) sql.NullInt64 {
 	if duration == nil {
-		return 0
+		return sql.NullInt64{Valid: false, Int64: 0}
 	}
-	return duration.Seconds
+	return sql.NullInt64{Valid: true, Int64: duration.Seconds}
 }
 
-func TimeToTimestamppb(t time.Time) *timestamppb.Timestamp {
-	if t.IsZero() {
+func TimeToTimestamppb(t sql.NullTime) *timestamppb.Timestamp {
+	if !t.Valid {
 		return nil
 	}
-	return timestamppb.New(t)
+	return timestamppb.New(t.Time)
 }
 
-func BigIntToDurationpb(s int64) *durationpb.Duration {
-	if s == 0 {
+func BigIntToDurationpb(s sql.NullInt64) *durationpb.Duration {
+	if !s.Valid {
 		return nil
 	}
-	return durationpb.New(time.Duration(s))
+	return durationpb.New(time.Duration(s.Int64))
 }

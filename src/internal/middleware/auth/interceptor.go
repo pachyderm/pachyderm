@@ -229,6 +229,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/QueryLoki":          authDisabledOr(authenticated),
 	"/pps_v2.API/GetClusterDefaults": authDisabledOr(authenticated),
 	"/pps_v2.API/SetClusterDefaults": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SET_DEFAULTS)),
+	"/pps_v2.API/GetProjectDefaults": authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

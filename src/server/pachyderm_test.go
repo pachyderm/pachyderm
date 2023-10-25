@@ -9395,9 +9395,9 @@ func TestListPipelineAtCommit(t *testing.T) {
 	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
 	require.NoError(t, err)
 	expected := []map[string]uint64{
-		{pipeline1: 2, pipeline2: 1},
-		{pipeline1: 1, pipeline2: 1},
 		{pipeline1: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 2, pipeline2: 1},
 	}
 	i := 0
 	require.NoError(t, grpcutil.ForEach[*pfs.CommitSetInfo](commitSets, func(csi *pfs.CommitSetInfo) error {
@@ -10288,6 +10288,7 @@ func TestTrigger(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	dataRepo := tu.UniqueString("TestTrigger_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	pipeline1 := tu.UniqueString("TestTrigger1")
 	pipelineCommit1 := client.NewCommit(pfs.DefaultProjectName, pipeline1, "master", "")
@@ -11034,7 +11035,7 @@ func TestRewindCrossPipeline(t *testing.T) {
 	require.ElementsEqualUnderFn(t, []string{"/first", "/later"}, files, func(f interface{}) interface{} { return f.(*pfs.FileInfo).File.Path })
 }
 
-func TestMoveBranchTrigger(t *testing.T) {
+func TestPipelineInputTriggerSimple(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -11042,10 +11043,12 @@ func TestMoveBranchTrigger(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	dataRepo := tu.UniqueString("TestRewindTrigger_data")
+	dataRepo := tu.UniqueString(t.Name())
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
 
-	// create a pipeline taking both master and the trigger branch as input
+	// Create a pipeline taking in a trigger branch (to be created at pipeline creation), which is triggered by the toMove branch.
 	pipeline := tu.UniqueString("pipeline")
 	_, err := c.PpsAPIClient.CreatePipeline(context.Background(),
 		&pps.CreatePipelineRequest{
@@ -11061,16 +11064,12 @@ func TestMoveBranchTrigger(t *testing.T) {
 		})
 	require.NoError(t, err)
 
-	// create the trigger source branch
-	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "master", "", "", nil))
-	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, dataRepo, "toMove", "master", "", nil))
+	// Make sure the trigger triggered
 	require.NoError(t, c.PutFile(client.NewCommit(pfs.DefaultProjectName, dataRepo, "toMove", ""), "foo", strings.NewReader("bar")))
 	_, err = c.WaitCommit(pfs.DefaultProjectName, dataRepo, "toMove", "")
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
-	// make sure the trigger triggered
 	files, err := c.ListFileAll(client.NewCommit(pfs.DefaultProjectName, dataRepo, "trigger", ""), "/")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(files))
@@ -11568,8 +11567,9 @@ func TestDatabaseStats(t *testing.T) {
 	}
 
 	type rowCountResults struct {
-		NLiveTup int    `json:"n_live_tup"`
-		RelName  string `json:"relname"`
+		NLiveTup   int    `json:"n_live_tup"`
+		RelName    string `json:"relname"`
+		SchemaName string `json:"schemaname"`
 	}
 
 	type commitResults struct {
@@ -11610,13 +11610,13 @@ func TestDatabaseStats(t *testing.T) {
 				"unmarshalling row-counts.json should succeed")
 
 			for _, row := range rows {
-				if row.RelName == "commits" {
+				if row.RelName == "commits" && row.SchemaName == "pfs" {
 					require.NotEqual(t, 0, row.NLiveTup,
 						"some commits from createTestCommits should be accounted for")
 					foundRowCounts = true
 				}
 			}
-		case "database/tables/collections/commits.json":
+		case "database/tables/pfs/commits.json":
 			require.NoError(t, json.Unmarshal(fileContents.Bytes(), &rows),
 				"unmarshalling commits.json should succeed")
 			require.Equal(t, numCommits, len(rows), "number of commits should match number of rows")

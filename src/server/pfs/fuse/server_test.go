@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 func TestBasicServerSameNames(t *testing.T) {
@@ -682,7 +683,8 @@ func TestAuthLoginLogout(t *testing.T) {
 		tu.DoOAuthExchange(t, c, c, getAuthLogin.AuthUrl)
 		time.Sleep(1 * time.Second)
 
-		b := bytes.NewBufferString(getAuthLogin.OidcState)
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(map[string]string{"oidc": getAuthLogin.OidcState}))
 		tokenResp, err := put("auth/_login_token", b)
 		require.NoError(t, err)
 		require.Equal(t, 200, tokenResp.StatusCode)
@@ -1112,5 +1114,92 @@ func TestMountingCommitRWMode(t *testing.T) {
 		mountResp := &ListMountResponse{}
 		require.NoError(t, json.NewDecoder(resp.Body).Decode(mountResp))
 		require.Equal(t, commitInfo2.Commit.Id, (*mountResp).Mounted[0].Commit)
+	})
+}
+
+func TestCrossDatumsHelper(t *testing.T) {
+	datums := [][]*pps.DatumInfo{
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "/file1")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo1", "master", "", "/dir1")}}},
+		},
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", "/file2")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo2", "master", "", "/dir2")}}},
+		},
+		{
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir1")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir2")}}},
+			{Data: []*pfs.FileInfo{{File: client.NewFile(pfs.DefaultProjectName, "repo3", "master", "", "/dir3/sdir3")}}},
+		},
+	}
+
+	result := crossDatums(datums)
+	require.Equal(t, 12, len(result))
+	for _, datum := range result {
+		require.Equal(t, 3, len(datum.Data))
+	}
+}
+
+func TestMountingMultipleFiles(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
+
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := env.PachClient.PutFile(commit, "dir/sdir/showfile1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "dir/sdir/hidefile2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "show/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "show/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "hide/file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = env.PachClient.PutFile(commit, "hide/file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+
+	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+		mr := MountRequest{
+			Mounts: []*MountInfo{
+				{
+					Name:   "repo",
+					Repo:   "repo",
+					Commit: commitInfo.Commit.Id,
+					Mode:   "ro",
+					Paths:  []string{"show", "dir/sdir/showfile1"},
+				},
+			},
+		}
+
+		b := new(bytes.Buffer)
+		require.NoError(t, json.NewEncoder(b).Encode(mr))
+		resp, err := put("_mount", b)
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "dir", filepath.Base(files[0].Name()))
+		require.Equal(t, "show", filepath.Base(files[1].Name()))
+
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "sdir", filepath.Base(files[0].Name()))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir", "sdir"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+		require.Equal(t, "showfile1", filepath.Base(files[0].Name()))
+
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "show"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.Equal(t, "file1", filepath.Base(files[0].Name()))
+		require.Equal(t, "file2", filepath.Base(files[1].Name()))
 	})
 }

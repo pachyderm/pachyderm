@@ -84,6 +84,8 @@ type RealEnv struct {
 // NewRealEnv constructs a MockEnv, then forwards all API calls to go to API
 // server instances for supported operations. PPS uses a fake clientset which allows
 // some PPS behavior to work.
+//
+// *Deprecated: Use pachd.NewTestPachd instead.
 func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
 	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
@@ -226,7 +228,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	require.NoError(t, err)
 	go func() {
-		if err := w.Run(pfsEnv.BackgroundContext); err != nil {
+		if err := w.Run(ctx); err != nil {
 			log.Error(ctx, "from worker", zap.Error(err))
 		}
 	}()
@@ -236,7 +238,11 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	go pfsMaster.Run(ctx) //nolint:errcheck
 
 	// TRANSACTION
-	realEnv.TransactionServer, err = txnserver.NewAPIServer(realEnv.ServiceEnv, txnEnv)
+	realEnv.TransactionServer, err = txnserver.NewAPIServer(txnserver.Env{
+		DB:         realEnv.ServiceEnv.GetDBClient(),
+		PGListener: realEnv.ServiceEnv.GetPostgresListener(),
+		TxnEnv:     txnEnv,
+	})
 	require.NoError(t, err)
 	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
 

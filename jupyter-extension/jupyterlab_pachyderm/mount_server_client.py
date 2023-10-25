@@ -22,7 +22,7 @@ from .env import (
     DEFAULT_SCHEMA,
     DET_RESOURCES_TYPE,
     SLURM_JOB
-    )
+)
 
 lock = locks.Lock()
 MOUNT_SERVER_PORT = 9002
@@ -111,12 +111,7 @@ class MountServerClient(MountInterface):
 
                 get_logger().debug(f"Starting {mount_server_cmd} ")
                 mount_process = subprocess.Popen(
-                    [
-                        "bash",
-                        "-c",
-                        "set -o pipefail; "
-                        + mount_server_cmd
-                    ]
+                    ["bash", "-c", "set -o pipefail; " + mount_server_cmd]
                 )
 
                 tries = 0
@@ -131,7 +126,15 @@ class MountServerClient(MountInterface):
 
                 if self.nopriv:
                     # Using un-shared mount, replace /pfs with a softlink to the mount point
-                    mount_server_proc = subprocess.run(['pgrep', '-s', str(os.getsid(mount_process.pid)), 'mount-server'], capture_output=True)
+                    mount_server_proc = subprocess.run(
+                        [
+                            "pgrep",
+                            "-s",
+                            str(os.getsid(mount_process.pid)),
+                            "mount-server",
+                        ],
+                        capture_output=True,
+                    )
                     mount_server_pid = mount_server_proc.stdout.decode("utf-8")
                     if not mount_server_pid or not int(mount_server_pid) > 0:
                         get_logger().debug(
@@ -179,7 +182,7 @@ class MountServerClient(MountInterface):
             response = await self.client.fetch(f"{self.address}/{resource}")
         return response
 
-    async def _put(self, resource, body):
+    async def _put(self, resource, body, request_timeout=None):
         if DEFAULT_SCHEMA == HTTP_UNIX_SOCKET_SCHEMA:
             response = await self.client.fetch(
                 f"{self.address}/{resource}",
@@ -188,12 +191,14 @@ class MountServerClient(MountInterface):
                 prepare_curl_callback=lambda curl: curl.setopt(
                     pycurl.UNIX_SOCKET_PATH, self.sock_path
                 ),
+                request_timeout=request_timeout,
             )
         else:
             response = await self.client.fetch(
                 f"{self.address}/{resource}",
                 method="PUT",
                 body=json.dumps(body),
+                request_timeout=request_timeout,
             )
         return response
 
@@ -238,14 +243,19 @@ class MountServerClient(MountInterface):
 
     async def mount_datums(self, body):
         await self._ensure_mount_server()
-        resource = "_mount_datums"
-        response = await self._put(resource, body)
+        resource = "datums/_mount"
+        response = await self._put(resource, body, request_timeout=0)
         return response.body
 
-    async def show_datum(self, slug):
+    async def next_datum(self):
         await self._ensure_mount_server()
-        slug = "&".join(f"{k}={v}" for k, v in slug.items() if v is not None)
-        resource = "_show_datum?" + slug
+        resource = "datums/_next"
+        response = await self._put(resource, {})
+        return response.body
+
+    async def prev_datum(self):
+        await self._ensure_mount_server()
+        resource = "datums/_prev"
         response = await self._put(resource, {})
         return response.body
 
@@ -272,7 +282,7 @@ class MountServerClient(MountInterface):
 
     async def auth_login(self):
         await self._ensure_mount_server()
-        resource = "_login"
+        resource = "auth/_login"
         response = await self._put(resource, {})
         resp_json = json.loads(response.body.decode())
         # may bubble exception up to handler if oidc_state not in response
@@ -287,7 +297,7 @@ class MountServerClient(MountInterface):
 
     async def auth_login_token(self, oidc):
         resource = "auth/_login_token"
-        response = await self._put(resource, {})
+        response = await self._put(resource, {"oidc": oidc})
         response.rethrow()
         pach_config_path = Path.home().joinpath(".pachyderm", "config.json")
         if pach_config_path.is_file():
