@@ -1,0 +1,41 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SetProjectDefaultsRequest",
+    "definitions": {
+        "SetProjectDefaultsRequest": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "regenerate": {
+                    "type": "boolean"
+                },
+                "reprocess": {
+                    "type": "boolean",
+                    "description": "must be false if regenerate is false"
+                },
+                "dryRun": {
+                    "type": "boolean"
+                },
+                "projectDefaultsJson": {
+                    "type": "string",
+                    "description": "A JSON-encoded ProjectDefaults message, this will be stored verbatim."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Set Project Defaults Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

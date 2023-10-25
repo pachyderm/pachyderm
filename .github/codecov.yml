@@ -1,0 +1,6 @@
+ignore:
+    - src/*/*.pb.go
+    - src/*/*.pb.validate.go
+    - src/*/*.zap.go
+    - src/*/*_grpc.pb.go
+    - src/*/*.pb.gw.go

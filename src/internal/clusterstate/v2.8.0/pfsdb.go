@@ -246,18 +246,18 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 }
 
 // alterCommitsTable adds useful new columns to pfs.commits table.
-// Note that this is not the end all be all. We will need to make more changes after data has been migrated.
+// Note: that this is not the end all be all. We will need to make more changes after data has been migrated.
+// Note: we don't cascade deleting on branch_id because we need to delete the commit_totals and commit_diffs.
 // TODO
 //   - rename int_id to id? This will requires changing all references as well.
 //   - make repo_id not null
 //   - make origin not null
-//   - make updated_at not null and default to current timestamp
 func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TYPE pfs.commit_origin AS ENUM ('ORIGIN_KIND_UNKNOWN', 'USER', 'AUTO', 'FSCK');
 
 	ALTER TABLE pfs.commits
-		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id),
+		ADD COLUMN repo_id bigint REFERENCES pfs.repos(id) ON DELETE CASCADE,
 		ADD COLUMN origin pfs.commit_origin,
 		ADD COLUMN description text NOT NULL DEFAULT '',
 		ADD COLUMN start_time timestamptz NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -295,8 +295,8 @@ func alterCommitsTablePostDataMigration(ctx context.Context, env migrations.Env)
 func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE TABLE pfs.commit_ancestry (
-		parent bigint REFERENCES pfs.commits(int_id),
-		child bigint REFERENCES pfs.commits(int_id),
+		parent bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
+		child bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
 		PRIMARY KEY (parent, child)
 	);
 	CREATE INDEX ON pfs.commit_ancestry (child, parent);
@@ -307,7 +307,6 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
-//nolint:unused //will use after table migration logic is implemented.
 func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 	query := `
 	CREATE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
@@ -323,6 +322,7 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 		payload := TG_OP || ' ' || row.int_id::text;
 		PERFORM pg_notify('pfs_commits', payload);
 		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		PERFORM pg_notify('pfs_commits_' || row.int_id::text, payload);
 		return row;
 	END;
 	$$ LANGUAGE plpgsql;
@@ -345,6 +345,12 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 		return err
 	}
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
+		return err
+	}
+	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
+		return err
+	}
+	if err := createNotifyCommitsTrigger(ctx, env.Tx); err != nil {
 		return err
 	}
 	return nil
@@ -412,6 +418,9 @@ func migratePage(ctx context.Context, tx *pachsql.Tx, page []commitCollection) e
 		commit, ancestry, err := protoToCommit(col)
 		if err != nil {
 			return err
+		}
+		if !commit.StartTime.Valid {
+			return errors.Errorf("commit %s has a nil start time", commit.IntID)
 		}
 		_, err = tx.NamedExecContext(ctx, migrateQuery, commit)
 		if err != nil {
@@ -514,7 +523,7 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			id bigserial PRIMARY KEY,
 			name text NOT NULL,
 			head bigint REFERENCES pfs.commits(int_id) NOT NULL,
-			repo_id bigint REFERENCES pfs.repos(id) NOT NULL,
+			repo_id bigint REFERENCES pfs.repos(id) ON DELETE CASCADE NOT NULL,
 			created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			updated_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
 			UNIQUE (repo_id, name)
@@ -526,7 +535,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		CREATE TABLE IF NOT EXISTS pfs.branch_provenance (
 			from_id bigint REFERENCES pfs.branches(id) NOT NULL,
 			to_id bigint REFERENCES pfs.branches(id) NOT NULL,
-			PRIMARY KEY (from_id, to_id)
+			PRIMARY KEY (from_id, to_id),
+			CHECK (from_id <> to_id)
 		);
 	`); err != nil {
 		return errors.Wrap(err, "creating branch_provenance table")
@@ -601,12 +611,16 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			ELSE
 				row := NEW;
 			END IF;
-			payload := TG_OP || ' ' || row.int_id::text;
+			payload := TG_OP || ' ' || row.id::text;
 			PERFORM pg_notify('pfs_branches', payload);
 			PERFORM pg_notify('pfs_branches_repo_' || row.repo_id::text, payload);
 			return row;
 		END;
 		$$ LANGUAGE plpgsql;
+		
+		CREATE TRIGGER notify
+			AFTER INSERT OR UPDATE OR DELETE ON pfs.branches
+			FOR EACH ROW EXECUTE PROCEDURE pfs.notify_branches();
 	`); err != nil {
 		return errors.Wrap(err, "creating notify trigger on pfs.branches")
 	}
