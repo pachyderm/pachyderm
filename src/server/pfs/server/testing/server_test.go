@@ -150,7 +150,7 @@ func newEnv(ctx context.Context, t testing.TB) TestEnv {
 
 func TestWalkFileTest(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := newEnv(ctx, t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
