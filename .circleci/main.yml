@@ -96,7 +96,7 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=2 \
-              -gotest-args="-parallel=4 -timeout=20m"
+              -gotest-args="-parallel=5 -timeout=20m"
       - run:
           name: Format code coverage
           when: always
