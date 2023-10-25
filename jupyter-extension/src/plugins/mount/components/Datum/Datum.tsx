@@ -40,11 +40,11 @@ const Datum: React.FC<DatumProps> = ({
     loading,
     shouldShowCycler,
     currDatum,
-    currIdx,
-    setCurrIdx,
     inputSpec,
     setInputSpec,
     callMountDatums,
+    callNextDatum,
+    callPrevDatum,
     callUnmountAll,
     errorMessage,
     saveInputSpec,
@@ -135,28 +135,28 @@ const Datum: React.FC<DatumProps> = ({
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerLeft"
-                disabled={currIdx <= 0}
-                onClick={() => {
-                  if (currIdx >= 1) {
-                    setCurrIdx(currIdx - 1);
-                  }
-                }}
+                disabled={currDatum.idx <= 0}
+                onClick={callPrevDatum}
               >
                 <caretLeftIcon.react
                   tag="span"
                   className="pachyderm-mount-datum-left"
                 />
               </button>
-              {'(' + (currIdx + 1) + '/' + currDatum.num_datums + ')'}
+              {'(' +
+                (currDatum.idx + 1) +
+                '/' +
+                currDatum.num_datums +
+                (currDatum.all_datums_received ? '' : '+') +
+                ')'}
               <button
                 className="pachyderm-button-link"
                 data-testid="Datum__cyclerRight"
-                disabled={currIdx >= currDatum.num_datums - 1}
-                onClick={() => {
-                  if (currIdx < currDatum.num_datums - 1) {
-                    setCurrIdx(currIdx + 1);
-                  }
-                }}
+                disabled={
+                  currDatum.idx >= currDatum.num_datums - 1 &&
+                  currDatum.all_datums_received
+                }
+                onClick={callNextDatum}
               >
                 <caretRightIcon.react
                   tag="span"
