@@ -924,7 +924,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command checks the status of an existing Pachyderm pipeline withing a project.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --project bar \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
+		Run: cmdutil.RunMinimumArgs(0, func(args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
@@ -967,6 +967,11 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	checkStatus.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing the pipeline.")
 	checkStatus.Flags().BoolVar(&raw, "raw", false, "Specify results should only return log messages verbatim from server.")
 	checkStatus.Flags().BoolVarP(&allProjects, "global", "G", false, "Show pipeline status form all projects.")
+	check := &cobra.Command{
+		Short: "Check the status of an existing Pachyderm pipelines within a project.",
+		Long:  "This command checks the status of an existing Pachyderm pipeline withing a project.",
+	}
+	commands = append(commands, cmdutil.CreateAlias(check, "check"))
 	commands = append(commands, cmdutil.CreateAlias(checkStatus, "check status"))
 
 	inspectPipeline := &cobra.Command{
