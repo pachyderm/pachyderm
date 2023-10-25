@@ -1693,18 +1693,18 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Update defaults.",
-		Long:  "Update defaults.",
+		Long:  "Update cluster or project defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+			rc, err := fileIndicatorToReadCloser(pathname)
+			if err != nil {
+				return errors.Wrapf(err, "could not open path %q for reading", pathname)
+			}
 			if cluster {
-				rc, err := fileIndicatorToReadCloser(pathname)
-				if err != nil {
-					return errors.Wrapf(err, "could not open path %q for reading", pathname)
-				}
 				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 			}
-			return errors.New("--cluster must be specified")
+			return setProjectDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 		}),
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
@@ -1712,6 +1712,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
+	updateDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Inspect project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
@@ -1747,6 +1748,50 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	var resp *pps.SetClusterDefaultsResponse
 	if resp, err = client.PpsAPIClient.SetClusterDefaults(client.Ctx(), req); err != nil {
 		return errors.Wrap(err, "could not set cluster defaults")
+	}
+	if req.Regenerate {
+		if len(resp.AffectedPipelines) == 0 {
+			fmt.Println("no affected pipelines")
+			return nil
+		}
+		fmt.Println("affected pipelines:")
+		for _, p := range resp.AffectedPipelines {
+			fmt.Println("\t", p)
+		}
+	}
+	return nil
+}
+
+// setProjectDefaults sets the project defaults to the result of reading from r.  Reprocess implies regenerate.
+func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+	if reprocess {
+		regenerate = true
+	}
+	js, err := ppsutil.ReadYAMLAsJSON(r)
+	if err != nil {
+		return errors.Wrap(err, "could not read input as YAML")
+	}
+	// validate that the provided defaults parse
+	var pd pps.ProjectDefaults
+	if err := protojson.Unmarshal([]byte(js), &pd); err != nil {
+		return errors.Wrapf(err, "invalid project defaults")
+	}
+	var req = &pps.SetProjectDefaultsRequest{
+		ProjectDefaultsJson: js,
+		Regenerate:          regenerate,
+		Reprocess:           reprocess,
+		DryRun:              dryRun,
+	}
+
+	client, err := pachctlCfg.NewOnUserMachine(ctx, false)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	var resp *pps.SetProjectDefaultsResponse
+	if resp, err = client.PpsAPIClient.SetProjectDefaults(client.Ctx(), req); err != nil {
+		return errors.Wrap(err, "could not set project defaults")
 	}
 	if req.Regenerate {
 		if len(resp.AffectedPipelines) == 0 {
