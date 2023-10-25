@@ -26,6 +26,7 @@ from .constants import (
     DEFAULT_PORT,
     GRPC_CHANNEL_OPTIONS,
     OIDC_TOKEN_ENV,
+    PACH_CONFIG_ENV,
     PACHD_SERVICE_HOST_ENV,
     PACHD_SERVICE_PORT_ENV,
     WORKER_PORT_ENV,
@@ -222,7 +223,9 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str] = CONFIG_PATH_LOCAL) -> "Client":
+    def from_config(cls,
+        config_file: Union[Path, str] = os.environ.get(PACH_CONFIG_ENV, CONFIG_PATH_LOCAL)
+    ) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters
