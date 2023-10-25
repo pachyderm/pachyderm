@@ -11,7 +11,11 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.env import (
+    PFS_MOUNT_DIR
+    MOUNT_SERVER_LOG_FILE,
+    PACH_CONFIG
+)
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -20,7 +24,6 @@ from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
-CONFIG_PATH = os.environ.get("PACH_CONFIG", "~/.pachyderm/config.json")
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
@@ -54,11 +57,14 @@ def dev_server():
     log_file_path = os.environ.get("MOUNT_SERVER_LOG_FILE", "/tmp/mount-server.log")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        # preserve PATH and PACH_CONFIG, but override PFS_MOUNT_DIR and possibly
-        # MOUNT_SERVER_LOG_FILE
+        # preserve specifically:
+        # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
+        # The args after os.environ should be no-ops, but they're here in case
+        # env.py changes
         env=dict(os.environ,
+            PACH_CONFIG=PACH_CONFIG,
             PFS_MOUNT_DIR=PFS_MOUNT_DIR,
-            MOUNT_SERVER_LOG_FILE=log_file_path,
+            MOUNT_SERVER_LOG_FILE=MOUNT_SERVER_LOG_FILE,
         ),
         stdout=subprocess.PIPE,
     )
@@ -329,8 +335,8 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
-    #TODO: uncomment this and below line when we transition fully to using ListDatum when getting datums. #ListDatumPagination
-    # assert r.json()["id"] != datum0_id  
+    # TODO: uncomment this and below line when we transition fully to using ListDatum when getting datums. #ListDatumPagination
+    # assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] == True
 
     r = requests.put(f"{BASE_URL}/datums/_prev")

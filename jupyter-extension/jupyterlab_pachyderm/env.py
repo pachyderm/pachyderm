@@ -8,6 +8,8 @@ PFS_SOCK_PATH = os.environ.get("PFS_SOCK_PATH", "/tmp/pfs.sock")
 DEFAULT_SCHEMA = os.environ.get("DEFAULT_SCHEMA", HTTP_UNIX_SOCKET_SCHEMA)
 SIDECAR_MODE = strtobool(os.environ.get("SIDECAR_MODE", "False").lower())
 MOUNT_SERVER_LOG_FILE = os.environ.get("MOUNT_SERVER_LOG_FILE") # defaults to stdout/stderr
+# TODO(msteffen) Maybe depend on Pachyderm SDK for this
+PACH_CONFIG = os.environ.get("PACH_CONFIG", "~/.pachyderm/config.json")
 NONPRIV_CONTAINER = strtobool(os.environ.get("NONPRIV_CONTAINER", "False").lower()) # Unset assume --privileged container
 DET_RESOURCES_TYPE = os.environ.get("DET_RESOURCES_TYPE") # Assume MLDE if set
 SLURM_JOB="slurm-job" # For launcher this is set in DispatcherRM
