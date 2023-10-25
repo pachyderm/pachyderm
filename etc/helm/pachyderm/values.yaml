@@ -69,13 +69,13 @@ determined:
   # HPE Machine Learning Development Environment (MLDE), Determined Enterprise Edition, uses the HPE MSC as the image registry
   #imageRegistry: hub.myenterpriselicense.hpe.com/hpe-mlde/<SKU>
   # ATTENTION
-  # Please also set: 
-  #   - communicated product SKU, 
-  #   - enterpriseEdition flag to true, 
+  # Please also set:
+  #   - communicated product SKU,
+  #   - enterpriseEdition flag to true,
   # and configure the imagePullSecretName to the HPE MSC credentials K8s Secret (e.g. mlde-hpe-registry)
   #
   # To get the HPE MSC credentials go to the myenterpriselicense.hpe.com website, and along with the information provided with your order
-  # create the HPE MSC credentials K8s Secret (e.g. mlde-hpe-registry) using the following command: 
+  # create the HPE MSC credentials K8s Secret (e.g. mlde-hpe-registry) using the following command:
   # kubectl create secret docker-registry mlde-hpe-registry  \
   # --docker-server=hub.myenterpriselicense.hpe.com/hpe-mlde/<SKU> \
   # --docker-username=<HPE MSC user name>  \
@@ -83,10 +83,10 @@ determined:
   # --docker-email=<HPE MSC user email> \
   # -n <MLDE deployment K8s namespace, if any>
 
-  # Default images used during the deployment 
+  # Default images used during the deployment
   defaultImages:
     # PostgreSQL image
-    postgreSQL: "postgres:10.14" 
+    postgreSQL: "postgres:10.14"
 
     # default Kube Scheduler image
     kubeScheduler: "k8s.gcr.io/scheduler-plugins/kube-scheduler:v0.18.9"
@@ -107,26 +107,26 @@ determined:
   imagePullSecretName: ""
 
   # Logger Level in master.yaml - Four severity levels: debug, info, warn, error
-  logLevel: info 
+  logLevel: info
   # Sets in master.yaml the output of Logger in color mode - Values: true (default), false
-  logColor: true 
+  logColor: true
 
   # masterPort configures the port at which the Determined master listens for connections on.
   masterPort: 8080
 
   # Enables the creation of non-namespaced objects - Default: true
   # Non-namespaced object are cluster-wide resources, such as the PriorityClasses.
-  # In multiple installation on a single cluster (using different namespaces), 
-  # this flag set to false avoids to recreate non-namespaced objects. In some cases (e.g., GitOps w/ArgoCD) 
+  # In multiple installation on a single cluster (using different namespaces),
+  # this flag set to false avoids to recreate non-namespaced objects. In some cases (e.g., GitOps w/ArgoCD)
   # creating existing cluster-wide resources could stop/hang automatic deployments.
   #
-  # WARNING 
-  # The first installation must run with the createNonNamespacedObjects flag set to true to ensure 
+  # WARNING
+  # The first installation must run with the createNonNamespacedObjects flag set to true to ensure
   # the non-namespaced objects are created.
   createNonNamespacedObjects: true
 
   # External ca.crt injection certificate/s secret name
-  # Command to create the ca cert secret: 
+  # Command to create the ca cert secret:
   #     kubectl create secret generic <external ca cert secret name, e.g., ext-ca-cert> --from-file=<ca.crt or ca bundle filename> -n <namespace>
   #
   # externalCaCertSecretName: <external ca cert secret name, e.g., ext-ca-cert>
@@ -141,9 +141,9 @@ determined:
 
   # Enable route support for Openshift by setting enabled to true. Configure tls termination (i.e edge) if needed.
   # openshiftRoute:
-    # enabled:
-    # host:
-    # termination:
+  # enabled:
+  # host:
+  # termination:
 
   # tlsSecret enables TLS encryption for all communication made to the Determined master (TLS
   # termination is performed in the Determined master). This includes communication between the
@@ -153,18 +153,18 @@ determined:
   # tlsSecret:
 
   # security:
-    # defaultTask sets the user and group that tasks will run as. For convenience, the default Determined
-    # environments contain an unprivileged user named det-nobody, which does have a writable HOME
-    # directory. The det-nobody user is a suitable default user when using the default Determined
-    # environment images and when running containers as root is not desired.
-    # defaultTask:
-    #   user: det-nobody
-    #   uid: 65533
-    #   group: det-nobody
-    #   gid: 65533
-    # authz option (EE-only) sets the authorization mode.
-    # authz:
-    #   type: rbac
+  # defaultTask sets the user and group that tasks will run as. For convenience, the default Determined
+  # environments contain an unprivileged user named det-nobody, which does have a writable HOME
+  # directory. The det-nobody user is a suitable default user when using the default Determined
+  # environment images and when running containers as root is not desired.
+  # defaultTask:
+  #   user: det-nobody
+  #   uid: 65533
+  #   group: det-nobody
+  #   gid: 65533
+  # authz option (EE-only) sets the authorization mode.
+  # authz:
+  #   type: rbac
 
   # oidc (EE-only) enables OpenID Connect Integration, which is only available if enterpriseEdition
   # is true. It allows users to use single sign-on with their organization’s identity provider.
@@ -229,7 +229,6 @@ determined:
     # resourceType: <secret/configMap>
     # certResourceName: <secret/configMap name>
 
-
   # checkpointStorage controls where checkpoints are stored. Supported types include `shared_fs`,
   # `gcs`, and `s3`.
   checkpointStorage:
@@ -237,7 +236,6 @@ determined:
     saveExperimentBest: 0
     saveTrialBest: 1
     saveTrialLatest: 1
-
 
     # Comment out if not using `shared_fs`. Users are strongly discouraged from using `shared_fs` for
     # storage beyond initial testing as most Kubernetes cluster nodes do not have a shared file
@@ -283,10 +281,10 @@ determined:
   ## For CPU-only clusters, use `slotType: cpu`, and make sure to set `slotResourceRequest` below.
   # slotType: cpu
   # slotResourceRequests:
-    ## Number of cpu units requested for compute slots. Note: since kubernetes may schedule some
-    ## system tasks on the nodes which take up some resources, 8-core node may not always fit
-    ## a `cpu: 8` task container.
-    # cpu: 7
+  ## Number of cpu units requested for compute slots. Note: since kubernetes may schedule some
+  ## system tasks on the nodes which take up some resources, 8-core node may not always fit
+  ## a `cpu: 8` task container.
+  # cpu: 7
 
   # Memory and CPU requirements for the master instance. Should be adjusted for scale.
   masterCpuRequest: "2"
@@ -308,7 +306,6 @@ determined:
     # https://docs:determined.ai/latest/topic-guides/custom-pod-specs.html for more details.
     # cpuPodSpec:
     # gpuPodSpec:
-
 
     # Configure default Docker images for all GPU tasks (experiments, notebooks, commands) and
     # CPU tasks (CPU notebooks, TensorBoards, zero-slot commands). If a Docker image is defined
@@ -343,31 +340,31 @@ determined:
 
   ## Configure how trial logs are stored.
   # logging:
-    ## The backend to use. Can be `default` to send logs to the master to store in the PostgreSQL
-    ## database or `elastic` to store logs in an Elasticsearch cluster (without going through the
-    ## master).
-    # type: default
+  ## The backend to use. Can be `default` to send logs to the master to store in the PostgreSQL
+  ## database or `elastic` to store logs in an Elasticsearch cluster (without going through the
+  ## master).
+  # type: default
 
-    ## The remaining options should be provided only for the `elastic` backend.
+  ## The remaining options should be provided only for the `elastic` backend.
 
-    ## The host and port to use to connect to the Elasticsearch cluster.
-    # host: <host>
-    # port: <port>
+  ## The host and port to use to connect to the Elasticsearch cluster.
+  # host: <host>
+  # port: <port>
 
-    ## Authentication and TLS options for making the connection to Elasticsearch.
-    # security:
-      # username: <username>
-      # password: <password>
-      # tls:
-        # enabled: true
-        # skipVerify: false
+  ## Authentication and TLS options for making the connection to Elasticsearch.
+  # security:
+  # username: <username>
+  # password: <password>
+  # tls:
+  # enabled: true
+  # skipVerify: false
 
-        ## The name to use when verifying the certificate, if different from the name used to connect.
-        # certificateName: <name>
+  ## The name to use when verifying the certificate, if different from the name used to connect.
+  # certificateName: <name>
 
-        ## This value must contain the contents of the certificate file, not a path. It may be set
-        ## directly or using `helm install --set-file logging.security.tls.certificate=<path>`.
-        # certificate: <certificate contents>
+  ## This value must contain the contents of the certificate file, not a path. It may be set
+  ## directly or using `helm install --set-file logging.security.tls.certificate=<path>`.
+  # certificate: <certificate contents>
 
   ## Configure the default Determined scheduler
   ## Currently supports "coscheduler" for gang scheduling and "preemption" for priority based
