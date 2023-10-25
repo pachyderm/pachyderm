@@ -39,7 +39,7 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 
 	// Get all pfs.commits.
 	gotAncestries := make(map[string]string)
-	iter, err := pfsdb.ListCommit(ctx, db, nil, false, false)
+	iter, err := pfsdb.ListCommit(ctx, db, nil)
 	require.NoError(t, err, "should be able to list commits from pfs.commits")
 	var gotCommits []v2_8_0.CommitInfo
 	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
