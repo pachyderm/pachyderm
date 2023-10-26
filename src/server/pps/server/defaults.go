@@ -307,7 +307,7 @@ func init() {
 // JSON-encoded ClusterDefaults) and user spec (a JSON-encoded
 // CreatePipelineRequest) by merging the user spec into the cluster defaults.
 // It returns the effective spec as both JSON and a CreatePipelineRequest.
-func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
+func makeEffectiveSpec(clusterDefaultsJSON, projectDefaultsJSON, userSpecJSON string) (string, *pps.CreatePipelineRequest, error) {
 	type wrapper struct {
 		CreatePipelineRequest json.RawMessage `json:"createPipelineRequest"`
 	}
@@ -315,13 +315,17 @@ func makeEffectiveSpec(clusterDefaultsJSON, userSpecJSON string) (string, *pps.C
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "could not merge cluster defaults %s into built-in defaults %s", clusterDefaultsJSON, builtInDefaultsJSON)
 	}
+	effectiveProjectDefaults, err := jsonMergePatch(effectiveClusterDefaults, projectDefaultsJSON, clusterDefaultsCanonicalizer)
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not merge project defaults %s into effective clutser defaults %s", projectDefaultsJSON, effectiveClusterDefaults)
+	}
 	userWrapper, err := json.Marshal(wrapper{CreatePipelineRequest: []byte(userSpecJSON)})
 	if err != nil {
 		return "", nil, errors.Wrapf(err, "could not marshal user spec %s", userSpecJSON)
 	}
-	wrappedSpecJSON, err := jsonMergePatch(effectiveClusterDefaults, string(userWrapper), clusterDefaultsCanonicalizer)
+	wrappedSpecJSON, err := jsonMergePatch(effectiveProjectDefaults, string(userWrapper), clusterDefaultsCanonicalizer)
 	if err != nil {
-		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into effective cluster defaults %s", string(userWrapper), effectiveClusterDefaults)
+		return "", nil, errors.Wrapf(err, "could not merge user wrapper %s into effective project defaults %s", string(userWrapper), effectiveProjectDefaults)
 	}
 	d := json.NewDecoder(strings.NewReader(wrappedSpecJSON))
 	var w map[string]any

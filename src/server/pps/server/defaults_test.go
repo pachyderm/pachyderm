@@ -2,6 +2,7 @@ package server_test
 
 import (
 	"bytes"
+	"context"
 	"html/template"
 	"testing"
 
@@ -120,6 +121,66 @@ func TestAPIServer_CreatePipelineV2_defaults(t *testing.T) {
 	var req pps.CreatePipelineRequest
 	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
 	require.Equal(t, int64(17), req.DatumTries, "cluster default is effective")
+	require.False(t, req.Autoscaling, "spec must override default")
+	require.NotNil(t, req.Transform)
+	require.Len(t, req.Transform.Cmd, 4)
+}
+
+func TestAPIServer_CreatePipelineV2_projectDefaults(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
+	})
+	require.NoError(t, err, "SetClusterDefaults must succeed")
+	type projectDefaultsSetter interface {
+		SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error)
+	}
+
+	_, err = env.PPSServer.(projectDefaultsSetter).SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: "default"},
+		ProjectDefaultsJson: `{"create_pipeline_request": {"datum_tries": 13}}`,
+	})
+	require.NoError(t, err, "SetProjectDefaults must succeed")
+
+	repo := "input"
+	pipeline := "pipeline"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	var pipelineTemplate = `{
+		"pipeline": {
+			"project": {
+				"name": "{{.ProjectName | js}}"
+			},
+			"name": "{{.PipelineName | js}}"
+		},
+		"transform": {
+			"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+		},
+		"input": {
+			"pfs": {
+				"project": "default",
+				"repo": "{{.RepoName | js}}",
+				"glob": "/*",
+				"name": "in"
+			}
+		},
+		"autoscaling": false
+	}`
+	tmpl, err := template.New("pipeline").Parse(pipelineTemplate)
+	require.NoError(t, err, "template must parse")
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, struct {
+		ProjectName, PipelineName, RepoName string
+	}{pfs.DefaultProjectName, pipeline, repo}), "template must execute")
+	resp, err := env.PachClient.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
+		CreatePipelineRequestJson: buf.String(),
+	})
+	require.NoError(t, err, "CreatePipelineV2 must succeed")
+	require.False(t, resp.EffectiveCreatePipelineRequestJson == "", "response includes effective JSON")
+	var req pps.CreatePipelineRequest
+	require.NoError(t, protojson.Unmarshal([]byte(resp.EffectiveCreatePipelineRequestJson), &req), "unmarshalling effective JSON must not error")
+	require.Equal(t, int64(13), req.DatumTries, "cluster default is effective")
 	require.False(t, req.Autoscaling, "spec must override default")
 	require.NotNil(t, req.Transform)
 	require.Len(t, req.Transform.Cmd, 4)
@@ -330,9 +391,9 @@ func TestAPIServer_GetProjectDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	_, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{})
-	require.YesError(t, err, "empty request must be an error")
+	require.NoError(t, err, "empty request must not be an error")
 	_, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{}})
-	require.YesError(t, err, "empty project must be an error")
+	require.NoError(t, err, "empty project must not be an error")
 	_, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "#<invalid project>"}})
 	require.YesError(t, err, "invalid project must be an error")
 	resp, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "default"}})
