@@ -99,12 +99,7 @@ func (i *ProjectIterator) Next(ctx context.Context, dst *ProjectWithID) error {
 	if err != nil {
 		return err
 	}
-	createdAt := timestamppb.New(project.CreatedAt)
-	projectInfo := &pfs.ProjectInfo{
-		Project:     project.Pb(),
-		Description: project.Description,
-		CreatedAt:   createdAt,
-	}
+	projectInfo := project.PbInfo()
 	dst.ID = project.ID
 	dst.ProjectInfo = projectInfo
 	dst.Revision = rev

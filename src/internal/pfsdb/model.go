@@ -42,6 +42,16 @@ func (project *Project) Pb() *pfs.Project {
 	}
 }
 
+func (project *Project) PbInfo() *pfs.ProjectInfo {
+	return &pfs.ProjectInfo{
+		Project: &pfs.Project{
+			Name: project.Name,
+		},
+		Description: project.Description,
+		CreatedAt:   timestamppb.New(project.CreatedAt),
+	}
+}
+
 func (project Project) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
 	return project.CreatedAtUpdatedAt
 }
