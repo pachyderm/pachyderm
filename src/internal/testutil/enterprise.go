@@ -37,20 +37,15 @@ func ActivateEnterprise(t testing.TB, c *client.APIClient, port ...string) {
 }
 
 func ActivateLicense(t testing.TB, c *client.APIClient, port string, expireTime ...time.Time) {
-	state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
-	require.NoError(t, err)
-	if state.State != enterprise.State_ACTIVE {
-		code := GetTestEnterpriseCode(t)
-		activateReq := &license.ActivateRequest{
-			ActivationCode: code,
-		}
-		if len(expireTime) != 0 {
-			activateReq.Expires = TSProtoOrDie(t, expireTime[0])
-		}
-
-		_, err := c.License.Activate(c.Ctx(), activateReq)
-		require.NoError(t, err)
+	code := GetTestEnterpriseCode(t)
+	activateReq := &license.ActivateRequest{
+		ActivationCode: code,
 	}
+	if len(expireTime) != 0 {
+		activateReq.Expires = TSProtoOrDie(t, expireTime[0])
+	}
+	_, err := c.License.Activate(c.Ctx(), activateReq)
+	require.NoError(t, err)
 	_, err = c.License.AddCluster(c.Ctx(),
 		&license.AddClusterRequest{
 			Id:               "localhost",
