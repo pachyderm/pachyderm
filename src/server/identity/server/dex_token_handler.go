@@ -24,18 +24,19 @@ type idToken struct {
 	Groups        []string `json:"groups"`
 }
 
-func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
+func (w *dexWeb) handleIDToken(next http.Handler) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 		srw := &saveResponseWriter{
 			rw: &rw,
 			b:  &bytes.Buffer{},
 		}
+		defer srw.flushHeader()
 		next.ServeHTTP(srw, r)
 		ps, err := w.provisioners(ctx)
 		if err != nil {
 			log.Error(ctx, "failed to collect user provisioners", zap.Error(err))
-			rw.WriteHeader(http.StatusInternalServerError)
+			srw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if len(ps) == 0 {
@@ -43,46 +44,45 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 		}
 		token, err := idTokenFromBytes(ctx, srw.b.Bytes())
 		if err != nil {
-			// TODO: this doesn't work
-			rw.WriteHeader(http.StatusInternalServerError)
+			srw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if token.Email == "" {
 			log.Error(ctx, "failed to find email claim in ID token", zap.Error(err))
-			rw.WriteHeader(http.StatusInternalServerError)
+			srw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		for _, p := range ps {
 			defer p.close()
-			u := &User{name: token.Email}
+			u := &user{name: token.Email}
 			if _, err := p.findUser(ctx, token.Email); err != nil {
 				if !errors.As(err, &errNotFound{}) {
 					log.Error(ctx, "failed to find user", zap.Error(err),
 						zap.String("user", token.Email))
-					rw.WriteHeader(http.StatusInternalServerError)
+					srw.WriteHeader(http.StatusInternalServerError)
 					return
 				}
-				if _, err := p.createUser(ctx, &User{name: token.Email}); err != nil {
+				if _, err := p.createUser(ctx, &user{name: token.Email}); err != nil {
 					log.Error(ctx, "failed to provision user", zap.Error(err),
 						zap.String("user", token.Email))
-					rw.WriteHeader(http.StatusInternalServerError)
+					srw.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 			}
-			var gs []*Group
+			var gs []*group
 			for _, grp := range token.Groups {
 				g, err := p.findGroup(ctx, grp)
 				if err != nil {
 					if !errors.As(err, &errNotFound{}) {
 						log.Error(ctx, "failed to find group", zap.Error(err),
 							zap.String("group", grp))
-						rw.WriteHeader(http.StatusInternalServerError)
+						srw.WriteHeader(http.StatusInternalServerError)
 						return
 					}
-					if _, err := p.createGroup(ctx, &Group{name: grp}); err != nil {
+					if _, err := p.createGroup(ctx, &group{name: grp}); err != nil {
 						log.Error(ctx, "failed to provision group", zap.Error(err),
 							zap.String("group", grp))
-						rw.WriteHeader(http.StatusInternalServerError)
+						srw.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 				}
@@ -92,7 +92,7 @@ func (w *dexWeb) interceptToken(next http.Handler) http.HandlerFunc {
 				log.Error(ctx, "failed to set user groups", zap.Error(err),
 					zap.String("user", token.Email),
 					zap.Any("groups", token.Groups))
-				rw.WriteHeader(http.StatusInternalServerError)
+				srw.WriteHeader(http.StatusInternalServerError)
 				return
 			}
 		}
@@ -123,8 +123,9 @@ func idTokenFromBytes(ctx context.Context, b []byte) (*idToken, error) {
 }
 
 type saveResponseWriter struct {
-	b  *bytes.Buffer
-	rw *http.ResponseWriter
+	b          *bytes.Buffer
+	rw         *http.ResponseWriter
+	statusCode int
 }
 
 func (sr *saveResponseWriter) Write(b []byte) (int, error) {
@@ -142,14 +143,18 @@ func (sr *saveResponseWriter) Header() http.Header {
 }
 
 func (sr *saveResponseWriter) WriteHeader(statusCode int) {
+	sr.statusCode = statusCode
+}
+
+func (sr *saveResponseWriter) flushHeader() {
 	w := *sr.rw
-	w.WriteHeader(statusCode)
+	w.WriteHeader(sr.statusCode)
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
 	var ps []provisioner
 	if w.env.Config.DeterminedURL != "" {
-		d, err := newDeterminedProvisioner(ctx, DeterminedConfig{
+		d, err := newDeterminedProvisioner(ctx, determinedConfig{
 			MasterURL: w.env.Config.DeterminedURL,
 			Username:  w.env.Config.DeterminedUsername,
 			Password:  w.env.Config.DeterminedPassword,

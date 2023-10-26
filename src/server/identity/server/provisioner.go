@@ -19,21 +19,21 @@ import (
 )
 
 type provisioner interface {
-	findUser(ctx context.Context, name string) (*User, error)
-	createUser(context.Context, *User) (*User, error)
-	findGroup(ctx context.Context, name string) (*Group, error)
-	createGroup(context.Context, *Group) (*Group, error)
-	setUserGroups(context.Context, *User, []*Group) error
+	findUser(ctx context.Context, name string) (*user, error)
+	createUser(context.Context, *user) (*user, error)
+	findGroup(ctx context.Context, name string) (*group, error)
+	createGroup(context.Context, *group) (*group, error)
+	setUserGroups(context.Context, *user, []*group) error
 	close() error
 }
 
-type User struct {
+type user struct {
 	id         int32
 	name       string
-	prevGroups []*Group
+	prevGroups []*group
 }
 
-type Group struct {
+type group struct {
 	id   int32
 	name string
 }
@@ -44,7 +44,7 @@ type determinedProvisioner struct {
 	token string
 }
 
-type DeterminedConfig struct {
+type determinedConfig struct {
 	MasterURL string
 	Username  string
 	Password  string
@@ -61,7 +61,7 @@ func withDetToken(ctx context.Context, token string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", token))
 }
 
-func newDeterminedProvisioner(ctx context.Context, config DeterminedConfig) (provisioner, error) {
+func newDeterminedProvisioner(ctx context.Context, config determinedConfig) (provisioner, error) {
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	if config.TLS {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
@@ -101,7 +101,7 @@ func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username,
 	return loginResp.Token, nil
 }
 
-func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*User, error) {
+func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*user, error) {
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.GetUserByUsername(ctx, &det.GetUserByUsernameRequest{Username: name})
 	if err != nil {
@@ -111,36 +111,36 @@ func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*Use
 	if err != nil {
 		return nil, errors.Wrapf(err, "get groups for determined user %q", name)
 	}
-	var prevGrps []*Group
+	var prevGrps []*group
 	for _, g := range gs.Groups {
-		prevGrps = append(prevGrps, &Group{
+		prevGrps = append(prevGrps, &group{
 			id:   g.Group.GetGroupId(),
 			name: g.Group.GetName(),
 		})
 	}
-	return &User{
+	return &user{
 		id:         u.User.GetId(),
 		name:       u.GetUser().GetUsername(),
 		prevGroups: prevGrps,
 	}, nil
 }
 
-func (d *determinedProvisioner) createUser(ctx context.Context, user *User) (*User, error) {
+func (d *determinedProvisioner) createUser(ctx context.Context, usr *user) (*user, error) {
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.PostUser(ctx, &det.PostUserRequest{User: &userv1.User{
-		Username:    user.name,
+		Username:    usr.name,
 		Active:      true,
 		Remote:      true,
 		Admin:       false,
-		DisplayName: user.name,
+		DisplayName: usr.name,
 	}})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to provision determiend user %v", user.name)
+		return nil, errors.Wrapf(err, "failed to provision determiend user %v", usr.name)
 	}
-	return &User{id: u.User.Id, name: u.User.Username}, nil
+	return &user{id: u.User.Id, name: u.User.Username}, nil
 }
 
-func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*Group, error) {
+func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*group, error) {
 	ctx = withDetToken(ctx, d.token)
 	g, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{Name: name})
 	if err != nil {
@@ -149,36 +149,36 @@ func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*Gr
 	if len(g.Groups) == 0 {
 		return nil, &errNotFound{}
 	}
-	return &Group{id: g.Groups[0].Group.GroupId, name: name}, nil
+	return &group{id: g.Groups[0].Group.GroupId, name: name}, nil
 }
 
-func (d *determinedProvisioner) createGroup(ctx context.Context, group *Group) (*Group, error) {
+func (d *determinedProvisioner) createGroup(ctx context.Context, grp *group) (*group, error) {
 	ctx = withDetToken(ctx, d.token)
-	g, err := d.dc.CreateGroup(ctx, &det.CreateGroupRequest{Name: group.name})
+	g, err := d.dc.CreateGroup(ctx, &det.CreateGroupRequest{Name: grp.name})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create determiend group %v", group.name)
+		return nil, errors.Wrapf(err, "failed to create determiend group %v", grp.name)
 	}
-	return &Group{id: g.Group.GroupId, name: g.Group.Name}, nil
+	return &group{id: g.Group.GroupId, name: g.Group.Name}, nil
 }
 
-func (d *determinedProvisioner) setUserGroups(ctx context.Context, user *User, groups []*Group) error {
+func (d *determinedProvisioner) setUserGroups(ctx context.Context, usr *user, groups []*group) error {
 	ctx = withDetToken(ctx, d.token)
 	gIds := make(map[int32]struct{})
 	for _, g := range groups {
 		gIds[g.id] = struct{}{}
 		if _, err := d.dc.UpdateGroup(ctx, &det.UpdateGroupRequest{
 			GroupId:  g.id,
-			AddUsers: []int32{user.id},
+			AddUsers: []int32{usr.id},
 		}); err != nil {
-			return errors.Wrapf(err, "set user group %q for user %q", g.name, user.name)
+			return errors.Wrapf(err, "set user group %q for user %q", g.name, usr.name)
 		}
 	}
-	for _, g := range user.prevGroups {
+	for _, g := range usr.prevGroups {
 		if _, ok := gIds[g.id]; !ok {
 			if _, err := d.dc.UpdateGroup(ctx, &det.UpdateGroupRequest{
-				RemoveUsers: []int32{user.id},
+				RemoveUsers: []int32{usr.id},
 			}); err != nil {
-				return errors.Wrapf(err, "remove determined user %q from group %q", user.name, g)
+				return errors.Wrapf(err, "remove determined user %q from group %q", usr.name, g)
 			}
 		}
 	}
