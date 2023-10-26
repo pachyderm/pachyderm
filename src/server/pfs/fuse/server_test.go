@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package fuse
 
 import (
@@ -647,7 +645,10 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 func TestHealth(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
-	_, err := get("health")
+	err := acquireTestLock(t)
+	require.NoError(t, err)
+	_, err = get("health")
+	releaseTestLock() // DNJ TODO - re-evaluate - we need to ensure the mount is not up from another test
 	require.YesError(t, err)
 
 	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
