@@ -44,8 +44,12 @@ func ActivateLicense(t testing.TB, c *client.APIClient, port string, expireTime 
 	if len(expireTime) != 0 {
 		activateReq.Expires = TSProtoOrDie(t, expireTime[0])
 	}
-	_, err := c.License.Activate(c.Ctx(), activateReq)
+	state, err := c.Enterprise.GetState(c.Ctx(), &enterprise.GetStateRequest{})
 	require.NoError(t, err)
+	if state.State != enterprise.State_ACTIVE {
+		_, err := c.License.Activate(c.Ctx(), activateReq)
+		require.NoError(t, err)
+	}
 	_, err = c.License.AddCluster(c.Ctx(),
 		&license.AddClusterRequest{
 			Id:               "localhost",
