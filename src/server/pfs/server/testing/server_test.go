@@ -5191,6 +5191,12 @@ func TestPFS(suite *testing.T) {
 			}
 			require.NoError(t, finishCommitSetAll(env.PachClient))
 		})
+		t.Run("Error", func(t *testing.T) {
+			c1 := createCommit(upstream1)
+			createCommit(upstream2)
+			require.NoError(t, env.PachClient.SquashCommitSet(c1.ID))
+			require.YesError(t, env.PachClient.FsckSquash())
+		})
 	})
 
 	suite.Run("CommitState", func(t *testing.T) {

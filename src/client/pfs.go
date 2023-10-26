@@ -844,5 +844,10 @@ func (c APIClient) FsckFastExit() error {
 }
 
 func (c APIClient) FsckSquash() error {
-	return c.Fsck(false, func(_ *pfs.FsckResponse) error { return nil }, WithSquash())
+	return c.Fsck(false, func(resp *pfs.FsckResponse) error {
+		if resp.Error != "" {
+			return errors.New(resp.Error)
+		}
+		return nil
+	}, WithSquash())
 }

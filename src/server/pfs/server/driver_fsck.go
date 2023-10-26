@@ -409,7 +409,7 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 	})
 }
 
-func (d *driver) fsckSquash(ctx context.Context) error {
+func (d *driver) fsckSquash(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
 	commitInfos := make(map[string]*pfs.CommitInfo)
 	ci := &pfs.CommitInfo{}
 	if err := d.commits.ReadOnly(ctx).List(ci, col.DefaultOptions(), func(key string) error {
@@ -468,7 +468,11 @@ func (d *driver) fsckSquash(ctx context.Context) error {
 				}
 				return err
 			}); err != nil {
-				return err
+				if err := cb(&pfs.FsckResponse{
+					Error: fmt.Sprintf("commit %v requires manual squash / drop", c),
+				}); err != nil {
+					return err
+				}
 			}
 			descendants = append(descendants, ci.ChildCommits...)
 		}
