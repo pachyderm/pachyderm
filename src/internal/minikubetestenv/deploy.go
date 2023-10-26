@@ -756,7 +756,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster { // haven't used this namespace yet
+	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster || !bytes.Equal(previousOptsHash, hashHelmOpts(t, *helmOpts)) { // haven't used this namespace yet
 		t.Log("New namespace acquired, doing a fresh Helm install")
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -766,13 +766,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return helm.InstallE(t, helmOpts, chartPath, namespace)
 				})
 		}
-	} else if !bytes.Equal(previousOptsHash, hashHelmOpts(t, *helmOpts)) { // we used this namespace, but it's different settings
-		t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
-		require.NoErrorWithinTRetry(t,
-			time.Minute,
-			func() error {
-				return helm.UpgradeE(t, helmOpts, chartPath, namespace)
-			})
+		// } else if !bytes.Equal(previousOptsHash, hashHelmOpts(t, *helmOpts)) { // we used this namespace, but it's different settings // DNJ TODO - delete
+		// 	t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
+		// 	require.NoErrorWithinTRetry(t,
+		// 		time.Minute,
+		// 		func() error {
+		// 			return helm.UpgradeE(t, helmOpts, chartPath, namespace)
+		// 		})
 	} else { // same hash, no need to change anything
 		t.Log("Previous helmOpts matched the previous cluster config, no changes made to cluster")
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)

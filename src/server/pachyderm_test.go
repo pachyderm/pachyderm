@@ -10057,7 +10057,7 @@ func TestKeepRepo(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
 
 	dataRepo := tu.UniqueString("TestKeepRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
