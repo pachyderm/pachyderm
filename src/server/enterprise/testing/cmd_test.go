@@ -36,7 +36,7 @@ func startEnterpriseCluster(ctx context.Context, t *testing.T) {
 	k := testutil.GetKubeClient(t)
 	minikubetestenv.PutNamespace(t, "enterprise")
 	minikubetestenv.LeaseNamespace(t, "enterprise")
-	_ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+	_, _ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		EnterpriseServer: true,
 		CleanupAfter:     false,
 		Enterprise:       false,

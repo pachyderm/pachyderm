@@ -28,16 +28,17 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:     auth.RootUser,
-		Enterprise:   true,
-		PortOffset:   portOffset,
-		Determined:   true,
-		CleanupAfter: true,
+		AuthUser:           auth.RootUser,
+		Enterprise:         true,
+		PortOffset:         portOffset,
+		Determined:         true,
+		UseLeftoverCluster: false,
+		CleanupAfter:       true,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	// Test Install
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
+	c, _ := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -82,18 +83,19 @@ func TestEnterpriseServerMember(t *testing.T) {
 	minikubetestenv.PutNamespace(t, "enterprise")
 	minikubetestenv.LeaseNamespace(t, "enterprise")
 	valueOverrides["pachd.replicas"] = "2"
-	ec := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
-		AuthUser:         auth.RootUser,
-		EnterpriseServer: true,
-		Enterprise:       true,
-		CleanupAfter:     true,
-		ValueOverrides:   valueOverrides,
+	ec, _ := minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
+		AuthUser:           auth.RootUser,
+		EnterpriseServer:   true,
+		Enterprise:         true,
+		CleanupAfter:       true,
+		UseLeftoverCluster: false,
+		ValueOverrides:     valueOverrides,
 	})
 	whoami, err := ec.AuthAPIClient.WhoAmI(ec.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
 	mockIDPLogin(t, ec)
-	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
+	c, _ := minikubetestenv.InstallRelease(t, context.Background(), ns, k, &minikubetestenv.DeployOpts{
 		AuthUser:         auth.RootUser,
 		EnterpriseMember: true,
 		Enterprise:       true,
