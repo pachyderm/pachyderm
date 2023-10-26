@@ -150,7 +150,7 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 	var ns string
 	timeout := time.Second * 300
 	startAssign := time.Now()
-	for idx = 1; idx <= *poolSize+1; idx++ {
+	for idx = 1; idx <= *poolSize+1; idx++ { //DNJ TODO -cleanup
 		if idx == *poolSize+1 {
 			if time.Since(startAssign) > timeout {
 				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
@@ -273,7 +273,7 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	// }
 
 	// If the cluster settings have changed, upgrade the cluster to make them take effect.
-	if !reflect.DeepEqual(mc.settings, as) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
+	if !reflect.DeepEqual(mc.settings, &acquireSettings{}) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
 		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
 		mc.client = UpgradeRelease(t,
 			context.Background(),
