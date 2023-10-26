@@ -383,7 +383,7 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 			for _, commitInfo := range commits {
 				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
 			}
-			iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, &pfs.Branch{Repo: repo.Repo})
+			iter, err := pfsdb.ListBranches(ctx, tx, &pfs.Branch{Repo: repo.Repo})
 			if err != nil {
 				return errors.Wrap(err, "delete repo info")
 			}

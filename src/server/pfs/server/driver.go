@@ -473,7 +473,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
 	// todo(fahad/albert): write delete: d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo))
-	branchIter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: ri.Repo},
+	branchIter, err := pfsdb.ListBranches(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: ri.Repo},
 		pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
@@ -1988,7 +1988,7 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 		order = pfsdb.SortOrderAsc
 	}
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, nil, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
+		iter, err := pfsdb.ListBranches(ctx, tx, nil, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
 			pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: order})
 		if err != nil {
 			return errors.Wrap(err, "list branch")
@@ -2024,7 +2024,7 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 	if reverse {
 		order = pfsdb.SortOrderAsc
 	}
-	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: repo}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
+	iter, err := pfsdb.ListBranches(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: repo}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
 		pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: order})
 	if err != nil {
 		return errors.Wrap(err, "list branch in transaction")

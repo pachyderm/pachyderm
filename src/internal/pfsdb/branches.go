@@ -146,6 +146,14 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	}, nil
 }
 
+func ListBranches(ctx context.Context, tx *pachsql.Tx, filter *pfs.Branch, orderBys ...OrderByBranchColumn) (*BranchIterator, error) {
+	iter, err := NewBranchIterator(ctx, tx, 0, 100, filter, orderBys...)
+	if err != nil {
+		return nil, errors.Wrap(err, "list branch")
+	}
+	return iter, nil
+}
+
 func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error {
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")

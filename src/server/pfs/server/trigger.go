@@ -21,8 +21,7 @@ import (
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{
-		Repo: commitInfo.Commit.Repo})
+	iter, err := pfsdb.ListBranches(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo})
 	if err != nil {
 		return errors.Wrap(err, "trigger commit")
 	}
