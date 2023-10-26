@@ -25,7 +25,7 @@ type (
 		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
 	}
 	ColumnName interface {
-		string | branchColumn | commitColumn
+		string | branchColumn | commitColumn | repoColumn
 	}
 )
 

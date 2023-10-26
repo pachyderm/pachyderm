@@ -367,8 +367,8 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 		if err != nil {
 			return errors.Wrap(err, "list repo iterator")
 		}
-		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
-			repoInfos[pfsdb.RepoKey(repoPair.RepoInfo.Repo)] = repoPair.RepoInfo
+		return errors.Wrap(stream.ForEach[pfsdb.RepoWithID](ctx, repoIter, func(repoWithID pfsdb.RepoWithID) error {
+			repoInfos[pfsdb.RepoKey(repoWithID.RepoInfo.Repo)] = repoWithID.RepoInfo
 			return nil
 		}), "for each repo")
 	}, dbutil.WithReadOnly()); err != nil {
