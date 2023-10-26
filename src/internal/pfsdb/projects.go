@@ -115,9 +115,9 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,created_at FROM core.projects"
+	query := "SELECT id,name,description,created_at FROM core.projects project\n"
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+		query += fmt.Sprintf("WHERE %s\n", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[projectColumn]
@@ -142,15 +142,6 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) 
 		return nil, errors.Wrap(err, "list project")
 	}
 	return iter, nil
-}
-
-func listProject(ctx context.Context, tx *pachsql.Tx, limit, offset int) ([]Project, error) {
-	var page []Project
-	if err := tx.SelectContext(ctx, &page, "SELECT name,description,created_at FROM core.projects ORDER BY id ASC LIMIT $1 OFFSET $2", limit, offset); err != nil {
-		return nil, errors.Wrap(err, "could not get project page")
-
-	}
-	return page, nil
 }
 
 // CreateProject creates an entry in the core.projects table.
