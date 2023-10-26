@@ -1384,7 +1384,7 @@ func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusS
 			pipelineInfo.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
 			time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
 			exceededTime := time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) - pipelineInfo.Details.MaximumExpectedUptime.AsDuration()
-			alerts = append(alerts, fmt.Sprintf("project/pipeline: Started running at %v, exceeded maximum uptime by %s", pipelineInfo.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
+			alerts = append(alerts, fmt.Sprintf("%s/%s: Started running at %v, exceeded maximum uptime by %s", pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
 			err := apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline.Name, Alerts: alerts})
 			if err != nil {
 				return errors.Wrap(err, "error sending check status response")
