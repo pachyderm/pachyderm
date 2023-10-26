@@ -18,7 +18,7 @@ import (
 
 func TestAPIServer_CreatePipelineV2_noDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	dr, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	require.NoError(t, err, "GetClusterDefaults must succeed")
@@ -77,7 +77,7 @@ func TestAPIServer_CreatePipelineV2_noDefaults(t *testing.T) {
 
 func TestAPIServer_CreatePipelineV2_defaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
@@ -188,7 +188,7 @@ func TestAPIServer_CreatePipelineV2_projectDefaults(t *testing.T) {
 
 func TestAPIServer_CreatePipelineV2_regenerate(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
@@ -248,7 +248,7 @@ func TestAPIServer_CreatePipelineV2_regenerate(t *testing.T) {
 
 func TestAPIServer_CreatePipelineV2_delete(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: "{}",
@@ -307,7 +307,7 @@ func TestAPIServer_CreatePipelineV2_delete(t *testing.T) {
 
 func TestAPIServer_CreatePipelineV2_zero_value(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "resource_requests": {"memory": "200Mi", "cpu": 0}}}`,
@@ -367,7 +367,7 @@ func TestAPIServer_CreatePipelineV2_reprocessSpec(t *testing.T) {
 		"bad reprocess spec":      {defaults: `{"create_pipeline_request": {"reprocessSpec": "#<not a reprocess spec>"}}`, wantErr: true},
 	}
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -389,7 +389,7 @@ func TestAPIServer_CreatePipelineV2_reprocessSpec(t *testing.T) {
 
 func TestAPIServer_GetProjectDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	_, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{})
 	require.NoError(t, err, "empty request must not be an error")
 	_, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{}})
