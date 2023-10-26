@@ -12,10 +12,13 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/sync/semaphore"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -24,13 +27,18 @@ import (
 
 const (
 	namespacePrefix = "test-cluster-"
+	leasePrefix     = "minikubetestenv-"
 )
 
 var (
-	clusterFactory      *ClusterFactory
+	clusterFactory *ClusterFactory = &ClusterFactory{
+		managedClusters:   map[string]*managedCluster{},
+		availableClusters: map[string]struct{}{},
+		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	}
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 3, "maximum size of managed pachyderm clusters")
-	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
+	poolSize            *int  = flag.Int("clusters.pool", 8, "maximum size of managed pachyderm clusters")
+	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
 	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
 )
@@ -41,6 +49,7 @@ type acquireSettings struct {
 	EnterpriseMember bool
 	CertPool         *x509.CertPool
 	ValueOverrides   map[string]string
+	UseNewCluster    bool
 }
 
 type Option func(*acquireSettings)
@@ -67,6 +76,9 @@ func WithValueOverrides(v map[string]string) Option {
 
 var EnterpriseMemberOption Option = func(as *acquireSettings) {
 	as.EnterpriseMember = true
+}
+var UseNewClusterOption Option = func(as *acquireSettings) {
+	as.UseNewCluster = true
 }
 
 type managedCluster struct {
@@ -98,7 +110,7 @@ func clusterIdx(t testing.TB, name string) int {
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 10),
-		UseLeftoverCluster: *useLeftoverClusters,
+		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
@@ -128,22 +140,53 @@ func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
 		}
 		return assigned, cf.managedClusters[assigned]
 	}
+	// DNJ TODO - lock namespace
 	return "", nil
 }
 
-func (cf *ClusterFactory) assignCluster() (string, int) {
-	cf.mu.Lock()
-	defer cf.mu.Unlock()
-	idx := len(cf.managedClusters) + 1
-	v := fmt.Sprintf("%s%v", namespacePrefix, idx)
-	cf.managedClusters[v] = nil // hold my place in line
-	return v, idx
+func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
+	kube := testutil.GetKubeClient(t)
+	var idx int
+	var ns string
+	timeout := time.Second * 300
+	startAssign := time.Now()
+	for idx = 1; idx <= *poolSize+1; idx++ {
+		if idx == *poolSize+1 {
+			if time.Since(startAssign) > timeout {
+				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
+			}
+			// DNJ TODO block until we can go, then restart the loop
+			time.Sleep(5 * time.Second)
+			idx = 0
+			continue
+		}
+		ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
+		_, err := kube.CoordinationV1().
+			Leases(ns).
+			Get(context.Background(), fmt.Sprintf("%s%v", leasePrefix, idx), v1.GetOptions{})
+		if k8serrors.IsNotFound(err) { // DNJ TODO this probably needs to PutNamespace here now - is that ok with tests?
+			PutNamespace(t, ns)
+			err = putLease(t, ns)
+			if k8serrors.IsAlreadyExists(err) { // if it already exists, but didn't before we were racing, so don't break to take the next namespaace
+				continue
+			}
+			require.NoError(t, err)
+			break
+		} else {
+			require.NoError(t, err)
+		}
+	}
+	// cf.mu.Lock() // DNJ TODSO -clean
+	// defer cf.mu.Unlock()
+	// idx := len(cf.managedClusters) + 1
+	// v := fmt.Sprintf("%s%v", namespacePrefix, idx)
+	cf.managedClusters[ns] = nil // hold my place in line
+	return ns, idx
 }
 
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
-	assigned, clusterIdx := cf.assignCluster()
+	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
-	PutNamespace(t, assigned)
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
@@ -159,17 +202,18 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 }
 
 // ClaimCluster returns an unused kubernetes namespace name that can be deployed. It is only responsible for
-// assigning clusters to test clients. Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
+// assigning clusters to test clients, creating the namespace, and reserving the lease on that namespace.
+// Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
-	assigned, clusterIdx := clusterFactory.assignCluster()
+	// setup.Do(func() {
+	// 	clusterFactory = &ClusterFactory{
+	// 		managedClusters:   map[string]*managedCluster{},
+	// 		availableClusters: map[string]struct{}{},
+	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	// 	}
+	// })
+	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1)) // DNJ TODO should semchanges be in helm mutex to prevent starting new cluster before semaphore decrements?
+	assigned, clusterIdx := clusterFactory.assignCluster(t)
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
 		clusterFactory.availableClusters[assigned] = struct{}{}
@@ -197,13 +241,13 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		t.Cleanup(localLock.Unlock)
 		return c, ""
 	}
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
+	// setup.Do(func() {
+	// 	clusterFactory = &ClusterFactory{
+	// 		managedClusters:   map[string]*managedCluster{},
+	// 		availableClusters: map[string]struct{}{},
+	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
+	// 	}
+	// })
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
@@ -223,10 +267,10 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	for _, o := range opts {
 		o(as)
 	}
-	assigned, mc := clusterFactory.acquireFreeCluster()
-	if assigned == "" {
-		assigned, mc = clusterFactory.acquireNewCluster(t, as)
-	}
+	// assigned, mc := clusterFactory.acquireFreeCluster() // DNJ TODO - anything we can do for perf so we don't always install?
+	// if assigned == "" {
+	assigned, mc := clusterFactory.acquireNewCluster(t, as)
+	// }
 
 	// If the cluster settings have changed, upgrade the cluster to make them take effect.
 	if !reflect.DeepEqual(mc.settings, as) {

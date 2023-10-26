@@ -23,7 +23,9 @@ import (
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
 	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
@@ -66,7 +68,10 @@ var (
 )
 
 type DeployOpts struct {
-	Version            string
+	Version string
+	// Necessarry to enable auth and activate enterprise.
+	// EnterpriseServer and EnterpriseMember can be used
+	// without this flag to test manual enterprise/auth activation.
 	Enterprise         bool
 	Console            bool
 	AuthUser           string
@@ -551,6 +556,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
+
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoError(t, backoff.Retry(func() error {
@@ -642,6 +648,7 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -657,7 +664,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
-	if opts.Enterprise || opts.EnterpriseServer {
+	if opts.Enterprise { // DNJ TODO - does this break other tests? || opts.EnterpriseServer
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {
@@ -741,6 +748,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	return pClient
 }
 
+// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
 func PutNamespace(t testing.TB, namespace string) {
 	kube := testutil.GetKubeClient(t)
 	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
@@ -751,8 +759,44 @@ func PutNamespace(t testing.TB, namespace string) {
 				},
 			},
 			metav1.CreateOptions{})
-		require.NoError(t, err)
+		if !k8serrors.IsAlreadyExists(err) { // if it already exists we still have the end result we want and idempotence
+			require.NoError(t, err)
+		}
 	}
+}
+
+// LeaseNamespace blocks until the namespace is no longer leased by someone else. It then creates a lease that is cleaned up at the end of the test.
+// Since PutNamespace doesn't modify existing namespaces, doing PutNamespace(t, ns) then LeaseNamespace(t, ns) is a safe way to wait for a custom
+// namespace to become available and get an exclusive lock on it.
+func LeaseNamespace(t testing.TB, namespace string) {
+	require.NoErrorWithinTRetry(t, time.Second*300, func() error {
+		return putLease(t, namespace)
+	})
+}
+
+func putLease(t testing.TB, namespace string) error {
+	kube := testutil.GetKubeClient(t)
+	var identity *string = new(string)
+	*identity = t.Name()
+	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
+	*leaseDuration = 600
+	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("minikubetestenv-%s", namespace),
+			Namespace: namespace,
+		},
+		Spec: coordination.LeaseSpec{
+			HolderIdentity:       identity,
+			LeaseDurationSeconds: leaseDuration,
+		},
+	}, metav1.CreateOptions{})
+	if err == nil {
+		t.Cleanup(func() { // DNJ TODO create heartbeat to remove if test canceled?
+			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			require.NoError(t, err)
+		})
+	}
+	return err
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
