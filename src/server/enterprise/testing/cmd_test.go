@@ -424,7 +424,7 @@ func TestRegisterDefaultArgs(t *testing.T) {
 func TestRegisterRollback(t *testing.T) {
 	ctx := context.Background()
 	startEnterpriseCluster(ctx, t)
-	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.EnterpriseMemberOption, minikubetestenv.UseNewClusterOption)
 	resetClusterState(ctx, t, c)
 	defer resetClusterState(ctx, t, c)
 	id := tu.UniqueString("cluster")

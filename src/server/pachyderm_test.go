@@ -4120,7 +4120,7 @@ func TestChainedPipelines(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
 
@@ -4200,7 +4200,7 @@ func TestChainedPipelinesNoDelay(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
 	aRepo := tu.UniqueString("A")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, aRepo))
 

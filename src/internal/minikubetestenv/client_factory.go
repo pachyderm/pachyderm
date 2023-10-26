@@ -49,6 +49,7 @@ type acquireSettings struct {
 	EnterpriseMember bool
 	CertPool         *x509.CertPool
 	ValueOverrides   map[string]string
+	UseNewCluster    bool
 }
 
 type Option func(*acquireSettings)
@@ -75,6 +76,9 @@ func WithValueOverrides(v map[string]string) Option {
 
 var EnterpriseMemberOption Option = func(as *acquireSettings) {
 	as.EnterpriseMember = true
+}
+var UseNewClusterOption Option = func(as *acquireSettings) {
+	as.UseNewCluster = true
 }
 
 type managedCluster struct {
@@ -106,7 +110,7 @@ func clusterIdx(t testing.TB, name string) int {
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 10),
-		UseLeftoverCluster: *useLeftoverClusters,
+		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
