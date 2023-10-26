@@ -647,8 +647,7 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
-// returns the client of pachd from the release and bool flag that is true if the release was freshly installed. False if an already installed pachd was reused
-func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) (*client.APIClient, bool) {
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
 
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -721,7 +720,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 	if err := f(t, helmOpts, chartPath, namespace); err != nil {
 		if opts.UseLeftoverCluster {
-			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool), false
+			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 		}
 		deleteRelease(t, context.Background(), namespace, kubeClient)
 		// When CircleCI was experiencing network slowness, downloading
@@ -746,7 +745,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	t.Cleanup(func() {
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
 	})
-	return pClient, true
+	return pClient
 }
 
 // Creates a Namespace if it doesn't exist. If it does exist, does nothing.
@@ -803,12 +802,11 @@ func putLease(t testing.TB, namespace string) error {
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	c, _ := putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
-	return c
+	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
-// returns an API Client corresponding to the deployment and a flag that is true if the release was newly installed, or false if and existing release is used
-func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) (client *client.APIClient, new bool) {
+// returns an API Client corresponding to the deployment
+func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
 	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
 }

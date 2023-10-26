@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -83,7 +84,6 @@ var UseNewClusterOption Option = func(as *acquireSettings) {
 type managedCluster struct {
 	client   *client.APIClient
 	settings *acquireSettings
-	new      bool
 }
 
 type ClusterFactory struct {
@@ -187,7 +187,7 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
-	c, new := InstallRelease(t,
+	c := InstallRelease(t,
 		context.Background(),
 		assigned,
 		kube,
@@ -196,7 +196,6 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 	mc := &managedCluster{
 		client:   c,
 		settings: as,
-		new:      new,
 	}
 	cf.assignClient(assigned, mc)
 	return assigned, mc
@@ -268,14 +267,13 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	for _, o := range opts {
 		o(as)
 	}
-
 	// assigned, mc := clusterFactory.acquireFreeCluster() // DNJ TODO - anything we can do for perf so we don't always install?
 	// if assigned == "" {
 	assigned, mc := clusterFactory.acquireNewCluster(t, as)
 	// }
 
 	// If the cluster settings have changed, upgrade the cluster to make them take effect.
-	if !mc.new { // DNJ TODO - fix - mc is no longer reflective of the current cluster
+	if !reflect.DeepEqual(mc.settings, as) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
 		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
 		mc.client = UpgradeRelease(t,
 			context.Background(),
