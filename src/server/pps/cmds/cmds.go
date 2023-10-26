@@ -1673,7 +1673,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
 	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
-	createDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Create project defaults.")
+	createDefaults.Flags().StringVar(&project, "project", project, "Create project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
@@ -1713,7 +1713,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
-	updateDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Update project defaults.")
+	updateDefaults.Flags().StringVar(&project, "project", project, "Update project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
