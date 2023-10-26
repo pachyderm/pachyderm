@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 func main() {
@@ -85,17 +84,16 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	}
 
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-	sem := semaphore.NewWeighted(int64(threadPool))
+
 	eg, _ := errgroup.WithContext(ctx)
+	eg.SetLimit(threadPool)
 	for pkg, tests := range testsForShard {
 		threadLocalPkg := pkg
 		threadLocalTests := tests
-		err = sem.Acquire(ctx, 1)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		eg.Go(func() error {
-			defer sem.Release(1)
 			return runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs)
 		})
 	}
@@ -161,7 +159,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
 
-	findTestArgs = append(findTestArgs, "--",
+	findTestArgs = append(findTestArgs, "--", "-failfast", // DNJ TODO remove fail fast
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()))
 	if len(gotestArgs) > 0 {
