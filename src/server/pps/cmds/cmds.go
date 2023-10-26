@@ -1690,7 +1690,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
 	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	deleteDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
-	deleteDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Delete project defaults.")
+	deleteDefaults.Flags().StringVar(&project, "project", project, "Delete project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
@@ -1713,7 +1713,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
-	updateDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Inspect project defaults.")
+	updateDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
