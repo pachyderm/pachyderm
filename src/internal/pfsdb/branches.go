@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -144,6 +145,29 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
 		tx:        tx,
 	}, nil
+}
+
+func ForEachBranch(ctx context.Context, tx *pachsql.Tx, filter *pfs.Branch, cb func(branchInfoWithID BranchInfoWithID) error, orderBys ...OrderByBranchColumn) error {
+	iter, err := NewBranchIterator(ctx, tx, 0, 100, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "for each branch")
+	}
+	if err := stream.ForEach[BranchInfoWithID](ctx, iter, cb); err != nil {
+		return errors.Wrap(err, "for each branch")
+	}
+	return nil
+}
+
+func ListBranches(ctx context.Context, tx *pachsql.Tx, filter *pfs.Branch, orderBys ...OrderByBranchColumn) ([]BranchInfoWithID, error) {
+	var branches []BranchInfoWithID
+	err := ForEachBranch(ctx, tx, filter, func(branchInfoWithID BranchInfoWithID) error {
+		branches = append(branches, branchInfoWithID)
+		return nil
+	}, orderBys...)
+	if err != nil {
+		return nil, errors.Wrap(err, "list branches")
+	}
+	return branches, nil
 }
 
 func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error {
