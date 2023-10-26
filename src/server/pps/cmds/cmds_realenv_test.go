@@ -118,7 +118,7 @@ func TestListDatumFromFile(t *testing.T) {
 		t.Skip("Skipping integration test in short mode")
 	}
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
 			Id:           "dev",
@@ -171,7 +171,7 @@ func TestListDatumFromFile(t *testing.T) {
 
 func TestInspectClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
 			Id:           "dev",
@@ -187,7 +187,7 @@ func TestInspectClusterDefaults(t *testing.T) {
 
 func TestCreateClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
 			Id:           "dev",
@@ -205,7 +205,7 @@ func TestCreateClusterDefaults(t *testing.T) {
 
 func TestDeleteClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
 			Id:           "dev",
@@ -225,7 +225,7 @@ func TestDeleteClusterDefaults(t *testing.T) {
 
 func TestUpdateClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	env.MockPachd.Admin.InspectCluster.Use(func(context.Context, *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
 		return &admin.ClusterInfo{
 			Id:           "dev",

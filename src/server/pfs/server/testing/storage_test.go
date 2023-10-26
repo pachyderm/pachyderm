@@ -28,6 +28,6 @@ func TestCheckStorage(t *testing.T) {
 }
 
 func newClient(ctx context.Context, t testing.TB) pfs.APIClient {
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	return env.PachClient.PfsAPIClient
 }
