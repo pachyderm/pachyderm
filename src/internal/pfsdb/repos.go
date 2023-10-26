@@ -68,112 +68,15 @@ func IsDuplicateKeyErr(err error) bool {
 	return targetErr.Code == "23505" // duplicate key SQLSTATE
 }
 
-// RepoPair is an (id, repoInfo) tuple returned by the repo iterator.
-type RepoPair struct {
+// RepoWithID is an (id, repoInfo) tuple returned by the repo iterator.
+type RepoWithID struct {
 	ID       RepoID
 	RepoInfo *pfs.RepoInfo
+	Revision int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether RepoIterator implements stream.Iterator.
-var _ stream.Iterator[RepoPair] = &RepoIterator{}
-
-// RepoIterator batches a page of Repo entries. Entries can be retrieved using iter.Next().
-type RepoIterator struct {
-	limit  int
-	offset int
-	repos  []Repo
-	index  int
-	tx     *pachsql.Tx
-	filter RepoListFilter
-}
-
-// Next advances the iterator by one row. It returns a stream.EOS when there are no more entries.
-func (iter *RepoIterator) Next(ctx context.Context, dst *RepoPair) error {
-	if dst == nil {
-		return errors.New("repo is nil, get next repo")
-	}
-	var err error
-	if iter.index >= len(iter.repos) {
-		iter.index = 0
-		iter.offset += iter.limit
-		iter.repos, err = listRepoPage(ctx, iter.tx, iter.limit, iter.offset, iter.filter)
-		if err != nil {
-			return errors.Wrap(err, "list repo page")
-		}
-		if len(iter.repos) == 0 {
-			return stream.EOS()
-		}
-	}
-	row := iter.repos[iter.index]
-	repo, err := row.PbInfo()
-	if err != nil {
-		return errors.Wrap(err, "getting repoInfo from repo row")
-	}
-	*dst = RepoPair{
-		RepoInfo: repo,
-		ID:       row.ID,
-	}
-	iter.index++
-	return nil
-}
-
-// RepoFields is used in the ListRepoFilter and defines specific field names for type safety.
-// This should hopefully prevent a library user from misconfiguring the filter.
-type RepoFields string
-
-var (
-	RepoTypes    = RepoFields("type")
-	RepoProjects = RepoFields("project_id")
-	RepoNames    = RepoFields("name")
-)
-
-// RepoListFilter is a filter for listing repos. It ANDs together separate keys, but ORs together the key values:
-// where repo.<key_1> IN (<key_1:value_1>, <key_2:value_2>, ...) AND repo.<key_2> IN (<key_2:value_1>,<key_2:value_2>,...)
-type RepoListFilter map[RepoFields][]string
-
-// ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
-func ListRepo(ctx context.Context, tx *pachsql.Tx, filter RepoListFilter) (*RepoIterator, error) {
-	limit := 100
-	page, err := listRepoPage(ctx, tx, limit, 0, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "list repos")
-	}
-	iter := &RepoIterator{
-		repos:  page,
-		limit:  limit,
-		tx:     tx,
-		filter: filter,
-	}
-	return iter, nil
-}
-
-func listRepoPage(ctx context.Context, tx *pachsql.Tx, limit, offset int, filter RepoListFilter) ([]Repo, error) {
-	var page []Repo
-	where := ""
-	conditions := make([]string, 0)
-	for key, vals := range filter {
-		if len(vals) == 0 {
-			continue
-		}
-		quotedVals := make([]string, 0)
-		for _, val := range vals {
-			quotedVals = append(quotedVals, fmt.Sprintf("'%s'", val))
-		}
-		if key == RepoProjects {
-			conditions = append(conditions, fmt.Sprintf("repo.%s IN (SELECT id FROM core.projects WHERE name IN (%s))", string(key), strings.Join(quotedVals, ",")))
-		} else {
-			conditions = append(conditions, fmt.Sprintf("repo.%s IN (%s)", string(key), strings.Join(quotedVals, ",")))
-		}
-	}
-	if len(conditions) > 0 {
-		where = "WHERE " + strings.Join(conditions, " AND ")
-	}
-	if err := tx.SelectContext(ctx, &page, fmt.Sprintf("%s %s GROUP BY repo.id, repo.project_id, project.name ORDER BY repo.id ASC LIMIT $1 OFFSET $2;",
-		getRepoAndBranches, where), limit, offset); err != nil {
-		return nil, errors.Wrap(err, "could not get repo page")
-	}
-	return page, nil
-}
+var _ stream.Iterator[RepoWithID] = &RepoIterator{}
 
 // DeleteRepo deletes an entry in the pfs.repos table.
 func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
@@ -268,4 +171,83 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) (RepoID
 		return 0, errors.Wrap(err, "upsert repo")
 	}
 	return repoID, nil
+}
+
+type repoColumn string
+
+const (
+	RepoColumnID        = repoColumn("repo.id")
+	RepoColumnCreatedAt = repoColumn("repo.created_at")
+	RepoColumnUpdatedAt = repoColumn("repo.updated_at")
+)
+
+type OrderByRepoColumn OrderByColumn[repoColumn]
+
+func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+	var conditions []string
+	var values []any
+	if filter != nil {
+		if filter.Project != nil && filter.Project.Name != "" {
+			conditions = append(conditions, "project.name = ?")
+			values = append(values, filter.Project.Name)
+		}
+		if filter.Name != "" {
+			conditions = append(conditions, "repo.name = ?")
+			values = append(values, filter.Name)
+		}
+		if filter.Type != "" {
+			conditions = append(conditions, "repo.type = ?")
+			values = append(values, filter.Type)
+		}
+	}
+	query := getRepoAndBranches
+	if len(conditions) > 0 {
+		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+	}
+	query += "\nGROUP BY repo.id, project.name, project.id\n"
+	var orderByGeneric []OrderByColumn[repoColumn]
+	if len(orderBys) == 0 {
+		orderByGeneric = []OrderByColumn[repoColumn]{{Column: RepoColumnID, Order: SortOrderAsc}}
+	} else {
+		for _, orderBy := range orderBys {
+			orderByGeneric = append(orderByGeneric, OrderByColumn[repoColumn](orderBy))
+		}
+	}
+	query = tx.Rebind(query + OrderByQuery[repoColumn](orderByGeneric...))
+	return &RepoIterator{
+		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize),
+		tx:        tx,
+	}, nil
+}
+
+// ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+	iter, err := NewRepoIterator(ctx, tx, 0, 100, filter, orderBys...)
+	if err != nil {
+		return nil, errors.Wrap(err, "list repo")
+	}
+	return iter, nil
+}
+
+type RepoIterator struct {
+	paginator pageIterator[Repo]
+	tx        *pachsql.Tx
+}
+
+func (i *RepoIterator) Next(ctx context.Context, dst *RepoWithID) error {
+	if dst == nil {
+		return errors.Errorf("dst RepoInfo cannot be nil")
+	}
+	repo, rev, err := i.paginator.next(ctx, i.tx)
+	if err != nil {
+		return err
+	}
+	repoInfo, err := repo.PbInfo()
+	if err != nil {
+		return err
+	}
+	dst.ID = repo.ID
+	dst.RepoInfo = repoInfo
+	dst.Revision = rev
+	return nil
 }
