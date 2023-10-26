@@ -26,8 +26,6 @@ a + .base,
   opacity: 0.4;
 }
 
-.base:not(:disabled):hover,
-.base:active,
-.base:focus {
+.base:not(:disabled):hover {
   color: var(--hover-purple);
 }

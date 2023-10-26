@@ -734,6 +734,12 @@ description: >-
 
       expect(
         screen.getByRole('definition', {
+          name: /commit message/i,
+        }),
+      ).toHaveTextContent('added mako');
+
+      expect(
+        screen.getByRole('definition', {
           name: /repo created/i,
         }),
       ).toHaveTextContent('Jul 24, 2023; 17:58');

@@ -6,6 +6,7 @@ import {BrandedEmptyIcon} from '@dash-frontend/components/BrandedIcon';
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Description from '@dash-frontend/components/Description';
 import EmptyState from '@dash-frontend/components/EmptyState/EmptyState';
+import ExpandableText from '@dash-frontend/components/ExpandableText';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
@@ -129,6 +130,18 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 }`}
               >
                 {commit ? getStandardDate(commit.started) : 'N/A'}
+              </Description>
+            )}
+            {(currentRepoLoading || commit) && commit?.description && (
+              <Description
+                loading={currentRepoLoading}
+                term={
+                  !globalId
+                    ? 'Most Recent Commit Message'
+                    : 'Global ID Commit Message'
+                }
+              >
+                <ExpandableText text={commit.description} />
               </Description>
             )}
             {(currentRepoLoading || commit) && (

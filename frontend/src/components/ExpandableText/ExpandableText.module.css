@@ -1,0 +1,14 @@
+.base {
+  line-break: auto;
+}
+
+.base.minimized {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+}
+
+.inlineButton {
+  display: inline-flex;
+  align-items: center;
+}
