@@ -1654,7 +1654,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		}),
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
-	inspectDefaults.Flags().StringVar(&project, "project", pfs.DefaultProjectName, "Inspect project defaults.")
+	inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
 
 	var pathname string
