@@ -472,6 +472,7 @@ message FsckRequest {
     // run zombie data detection against all pipelines
     bool zombie_all = 3;
   }
+  bool squash = 4;
 }
 
 message FsckResponse {

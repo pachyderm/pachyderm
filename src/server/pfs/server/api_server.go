@@ -668,6 +668,9 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *types.Empty) (respon
 // Fsckimplements the protobuf pfs.Fsck RPC
 func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer) (retErr error) {
 	ctx := fsckServer.Context()
+	if request.Squash {
+		return a.driver.fsckSquash(ctx)
+	}
 	if err := a.driver.fsck(ctx, request.Fix, func(resp *pfs.FsckResponse) error {
 		return errors.EnsureStack(fsckServer.Send(resp))
 	}); err != nil {
