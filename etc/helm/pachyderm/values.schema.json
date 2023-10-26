@@ -171,6 +171,9 @@
                         }
                     }
                 },
+                "createNonNamespacedObjects": {
+                    "type": "boolean"
+                },
                 "db": {
                     "type": "object",
                     "properties": {
@@ -200,6 +203,26 @@
                         }
                     }
                 },
+                "defaultImages": {
+                    "type": "object",
+                    "properties": {
+                        "cpuImage": {
+                            "type": "string"
+                        },
+                        "gpuImage": {
+                            "type": "string"
+                        },
+                        "kubeScheduler": {
+                            "type": "string"
+                        },
+                        "kubeSchedulerPreemption": {
+                            "type": "string"
+                        },
+                        "postgreSQL": {
+                            "type": "string"
+                        }
+                    }
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -210,6 +233,12 @@
                     "type": "string"
                 },
                 "imageRegistry": {
+                    "type": "string"
+                },
+                "logColor": {
+                    "type": "boolean"
+                },
+                "logLevel": {
                     "type": "string"
                 },
                 "masterCpuRequest": {
