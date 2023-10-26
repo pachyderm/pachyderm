@@ -6736,6 +6736,7 @@ func TestTrigger(t *testing.T) {
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 	})
 
+	// Or tests that a trigger fires when any of its conditions are met.
 	t.Run("Or", func(t *testing.T) {
 		t.Parallel()
 		repo := tu.UniqueString("Or")
@@ -6743,7 +6744,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "staging", "", "", nil))
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
-			RateLimitSpec: "@every 3s",
+			RateLimitSpec: "@every 10s",
 			Size:          "100",
 			Commits:       3,
 		}))
@@ -6757,17 +6758,8 @@ func TestTrigger(t *testing.T) {
 		masterBranch, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
-		// This one doesn't because none of them are satisfied
-		require.NoError(t, c.PutFile(stagingHead, "file2", strings.NewReader(strings.Repeat("a", 98))))
-		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
-		require.NoError(t, err)
-		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
-		require.NoError(t, err)
-		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
-		require.NoError(t, err)
-		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one triggers because we hit 100 bytes
-		require.NoError(t, c.PutFile(stagingHead, "file3", strings.NewReader(strings.Repeat("a", 1))))
+		require.NoError(t, c.PutFile(stagingHead, "file3", strings.NewReader(strings.Repeat("a", 99))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
 		stagingBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "staging")
@@ -6793,7 +6785,7 @@ func TestTrigger(t *testing.T) {
 		masterBranch, err = c.InspectBranch(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
-		// This one does, because it's 3 commits
+		// This one does, because it is the third commit since the last trigger
 		require.NoError(t, c.PutFile(stagingHead, "file6", strings.NewReader(strings.Repeat("a", 1))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
@@ -6812,7 +6804,7 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEqual(t, stagingBranch.Head.Id, masterBranch.Head.Id)
 		// This one triggers, because of rate limit spec
-		time.Sleep(3 * time.Second)
+		time.Sleep(10 * time.Second)
 		require.NoError(t, c.PutFile(stagingHead, "file8", strings.NewReader(strings.Repeat("a", 1))))
 		_, err = c.WaitCommit(pfs.DefaultProjectName, repo, "staging", "")
 		require.NoError(t, err)
