@@ -118,10 +118,10 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) ([]strin
 	testsOutputBytes, err := cmd.CombinedOutput()
 	testsOutput := string(testsOutputBytes)
 	if err != nil && !strings.Contains(testsOutput, tagsExcludeAllFilesErr) {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrapf(err, "Output from test list command: %s", testsOutput)
 	}
 	// Note that this includes k8s and non-k8s tests since tags are inclusive
-	testList := strings.Split(string(testsOutput), "\n")
+	testList := strings.Split(testsOutput, "\n")
 	var testNames = []string{}
 	for _, test := range testList {
 		if test != "" && !strings.HasPrefix(test, "Benchmark") &&
