@@ -82,7 +82,6 @@ def getMasterAddress(
         
         for svc in services["items"]:
             if target_service in svc["metadata"]["name"]:
-                #entrypoint = f"{svc['spec']['cluster_ip']}:{master_port}"
                 entrypoint = f"{svc['spec']['clusterIP']}:{master_port}"
                 checkPortAlive(entrypoint)
 
