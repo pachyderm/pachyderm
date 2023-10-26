@@ -158,8 +158,8 @@ func TestListRepos(t *testing.T) {
 		iter, err := pfsdb.ListRepo(ctx, tx, nil)
 		require.NoError(t, err, "should be able to list repos")
 		var i int
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			require.True(t, cmp.Equal(expectedInfos[i], repoPair.RepoInfo, cmp.Comparer(compareRepos)))
+		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+			require.True(t, cmp.Equal(expectedInfos[i], repoWithID.RepoInfo, cmp.Comparer(compareRepos)))
 			i++
 			return nil
 		}))
@@ -179,38 +179,21 @@ func TestListReposFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create repo")
 			}
 		}
-		filter := make(pfsdb.RepoListFilter)
-		filter[pfsdb.RepoNames] = []string{"repoA"}
+		filter := &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}}
 		iter, err := pfsdb.ListRepo(ctx, tx, filter)
-		i := 0
 		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over repos")
-			}
-			require.Equal(t, "repoA", repoPair.RepoInfo.Repo.Name)
-			i++
+		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+			require.Equal(t, "repoA", repoWithID.RepoInfo.Repo.Name)
+			require.Equal(t, "meta", repoWithID.RepoInfo.Repo.Type)
 			return nil
 		}))
-		require.Equal(t, 3, i)
-		i = 0
-		filter[pfsdb.RepoTypes] = []string{testRepoType, "meta"}
-		filter[pfsdb.RepoProjects] = []string{pfs.DefaultProjectName, "random"}
+		filter = &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}}
 		iter, err = pfsdb.ListRepo(ctx, tx, filter)
-		seen := make(map[string]bool)
 		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over repos")
-			}
-			require.Equal(t, "repoA", repoPair.RepoInfo.Repo.Name)
-			seen[repoPair.RepoInfo.Repo.Type] = true
-			i++
+		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+			require.Equal(t, "repoB", repoWithID.RepoInfo.Repo.Name)
+			require.Equal(t, "user", repoWithID.RepoInfo.Repo.Type)
 			return nil
 		}))
-		require.Equal(t, 2, i)
-		require.Equal(t, true, seen[testRepoType])
-		require.Equal(t, true, seen["meta"])
-		require.Equal(t, 2, len(seen))
 	})
 }

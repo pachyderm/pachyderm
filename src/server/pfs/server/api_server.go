@@ -100,7 +100,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 	if err != nil {
 		return nil, errors.Wrap(err, "list projects")
 	}
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
+	if err := stream.ForEach[pfsdb.RepoWithID](ctx, repoIter, func(repoPair pfsdb.RepoWithID) error {
 		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
