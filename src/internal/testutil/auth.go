@@ -48,6 +48,10 @@ func activateAuthHelper(tb testing.TB, client *client.APIClient, port ...string)
 	require.NoError(tb, err)
 	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
 	require.NoError(tb, err)
+	require.NoErrorWithinTRetry(tb, time.Second*60, func() error {
+		_, err = client.WhoAmI(client.Ctx(), &auth.WhoAmIRequest{})
+		return nil
+	}, "wait for auth to activate")
 }
 
 // ActivateAuthClient activates the auth service in the test cluster, if it isn't already enabled
