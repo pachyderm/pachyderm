@@ -32,7 +32,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -139,7 +138,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	}
 
 	// Check that the repo’s project exists; if not, return an error.
-	if _, err := coredb.GetProjectByName(ctx, txnCtx.SqlTx, repo.Project.Name); err != nil {
+	if _, err := pfsdb.GetProjectByName(ctx, txnCtx.SqlTx, repo.Project.Name); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
@@ -562,7 +561,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		return errors.Wrapf(err, "invalid project name")
 	}
 	if req.Update {
-		return errors.Wrapf(coredb.UpsertProject(ctx, txnCtx.SqlTx,
+		return errors.Wrapf(pfsdb.UpsertProject(ctx, txnCtx.SqlTx,
 			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}),
 			"failed to update project %s", req.Project.Name)
 	}
@@ -579,7 +578,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 	} else if !errors.Is(err, auth.ErrNotActivated) {
 		return errors.Wrap(err, "could not get caller's username")
 	}
-	if err := coredb.CreateProject(ctx, txnCtx.SqlTx, &pfs.ProjectInfo{
+	if err := pfsdb.CreateProject(ctx, txnCtx.SqlTx, &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
@@ -598,7 +597,7 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	var pi *pfs.ProjectInfo
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		pi, err = coredb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
+		pi, err = pfsdb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
 		if err != nil {
 			return err
 		}
@@ -762,11 +761,13 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
-	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
+	projIter, err := pfsdb.ListProject(ctx, txnCtx.SqlTx)
 	if err != nil {
 		return errors.Wrap(err, "could not list project")
 	}
-	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, cb), "list projects")
+	return errors.Wrap(stream.ForEach[pfsdb.ProjectWithID](ctx, projIter, func(project pfsdb.ProjectWithID) error {
+		return cb(project.ProjectInfo)
+	}), "list projects")
 }
 
 // TODO: delete all repos and pipelines within project
@@ -788,7 +789,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	if errs != nil && !force {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
-	if err := coredb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
+	if err := pfsdb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
 		return errors.Wrapf(err, "delete project %q", project)
 	}
 	if err := d.env.Auth.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {

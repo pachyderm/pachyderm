@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -205,7 +204,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		Repo: Repo{
 			Name: commitInfo.Commit.Repo.Name,
 			Type: commitInfo.Commit.Repo.Type,
-			Project: coredb.Project{
+			Project: Project{
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
@@ -506,7 +505,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		Repo: Repo{
 			Name: commitInfo.Commit.Repo.Name,
 			Type: commitInfo.Commit.Repo.Type,
-			Project: coredb.Project{
+			Project: Project{
 				Name: commitInfo.Commit.Repo.Project.Name,
 			},
 		},
