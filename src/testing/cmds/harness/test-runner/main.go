@@ -143,8 +143,8 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
 	findTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
-		"--rerun-fails",
-		"--rerun-fails-max-failures=1",
+		// "--rerun-fails",
+		// "--rerun-fails-max-failures=1", // DNJ TODO remove fail fast
 		"--format=testname",
 		"--debug",
 	}
