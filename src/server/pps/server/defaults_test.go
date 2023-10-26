@@ -248,7 +248,7 @@ func TestAPIServer_SetClusterDefaults_regenerate(t *testing.T) {
 
 func TestAPIServer_SetProjectDefaults_regenerate(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 8, "autoscaling": false}}`,
