@@ -32,9 +32,9 @@ spec:
         - --config=/etc/config/config.yaml
         name: {{ $schedulerType }}
         {{- if eq $schedulerType "preemption"}}
-        image: determinedai/kube-scheduler:0.17.0
+        image: "{{ .Values.determined.defaultImages.kubeSchedulerPreemption }}"
         {{- else }}
-        image: k8s.gcr.io/scheduler-plugins/kube-scheduler:v0.18.9
+        image: "{{ .Values.determined.defaultImages.kubeScheduler }}"
         {{- end}}
         imagePullPolicy: "Always"
         livenessProbe:
