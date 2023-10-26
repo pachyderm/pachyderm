@@ -195,7 +195,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		initJaeger(),
 
 		awaitDB(env.DB),
-		runMigrations(env.DB, env.EtcdClient),
+		runMigrations(env.DirectDB, env.EtcdClient),
 		awaitMigrations(env.DB),
 
 		// API Servers
