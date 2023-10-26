@@ -40,7 +40,7 @@ spec:
         {{- if .Values.determined.enterpriseEdition }}
         {{- if .Values.determined.oidc }}
         env:
-          - name: DETERMINED_OIDC_CLIENT_SECRET
+          - name: DET_OIDC_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
                 name: {{ default .Values.determined.oidc.clientSecretName "det-oidc-client-secret" }}

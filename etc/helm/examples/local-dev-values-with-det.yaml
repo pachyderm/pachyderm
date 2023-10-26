@@ -80,7 +80,7 @@ determined:
   enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
-  detVersion: 0.26.1
+  detVersion: 0.26.2
   masterPort: 8282
   oidc:
     enabled: true 
