@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -272,16 +273,16 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	// }
 
 	// If the cluster settings have changed, upgrade the cluster to make them take effect.
-	// if !reflect.DeepEqual(mc.settings, as) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
-	t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
-	mc.client = UpgradeRelease(t,
-		context.Background(),
-		assigned,
-		testutil.GetKubeClient(t),
-		deployOpts(clusterIdx(t, assigned), as),
-	)
-	mc.settings = as
-	// }
+	if !reflect.DeepEqual(mc.settings, as) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
+		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
+		mc.client = UpgradeRelease(t,
+			context.Background(),
+			assigned,
+			testutil.GetKubeClient(t),
+			deployOpts(clusterIdx(t, assigned), as),
+		)
+		mc.settings = as
+	}
 	deleteAll(t, mc.client)
 	return mc.client, assigned
 }
