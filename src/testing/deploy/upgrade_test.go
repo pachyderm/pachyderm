@@ -45,7 +45,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
 			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
-			preUpgrade(t, ctx, minikubetestenv.InstallRelease(t,
+			client, _ := minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
 				k,
@@ -55,7 +55,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					PortOffset:         portOffset,
 					UseLeftoverCluster: false,
 					ValueOverrides:     map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
-				}), from)
+				})
+			preUpgrade(t, ctx, client, from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
 				context.Background(),
