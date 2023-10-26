@@ -77,7 +77,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 	// Create role bindings for projects created before auth activation
 	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
 	if err != nil {
-		return nil, errors.Wrap(err, "list projects")
+		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	if err := stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
 		var principal string
@@ -89,25 +89,21 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		}
 		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
-			return errors.Wrap(err, "create role binding in transaction")
+			return errors.Wrap(err, "activate auth in transaction")
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "list projects")
+		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "list projects")
-	}
-	if err := stream.ForEach[pfsdb.RepoWithID](ctx, repoIter, func(repoPair pfsdb.RepoWithID) error {
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
+	if err = pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "list repos")
+		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }

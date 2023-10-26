@@ -291,12 +291,8 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
 		return d.env.Auth.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
 	}, 100)
-	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not list repos of all types")
-	}
 	var repos []*pfs.RepoInfo
-	if err := stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
 		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok && len(projectNames) > 0 {
 			return nil // project doesn't match filter.
 		}
@@ -400,8 +396,8 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		return false, err
 	}
 	var bis []*pfs.BranchInfo
-	for _, ri := range related {
-		bs, err := d.listRepoBranches(ctx, txnCtx, ri)
+	for _, repoInfoWithID := range related {
+		bs, err := d.listRepoBranches(ctx, txnCtx, repoInfoWithID.RepoInfo)
 		if err != nil {
 			return false, err
 		}
@@ -411,8 +407,8 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
 		return false, err
 	}
-	for _, ri := range related {
-		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
+	for _, repoInfoWithID := range related {
+		if err := d.deleteRepoInfo(ctx, txnCtx, repoInfoWithID.RepoInfo); err != nil {
 			return false, err
 		}
 	}
@@ -496,27 +492,23 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	return nil
 }
 
-func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
+func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]pfsdb.RepoInfoWithID, error) {
 	if repo.Type != pfs.UserRepoType {
 		ri, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 		if err != nil {
 			return nil, err
 		}
-		return []*pfs.RepoInfo{ri}, nil
+		return []pfsdb.RepoInfoWithID{{RepoInfo: ri}}, nil
 	}
-	var related []*pfs.RepoInfo
 	filter := &pfs.Repo{
 		Name:    repo.Name,
 		Project: repo.Project,
 	}
-	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
+	related, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(otherRepo pfsdb.RepoWithID) error {
-		related = append(related, otherRepo.RepoInfo)
-		return nil
-	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
+	if err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 	}
 	return related, nil

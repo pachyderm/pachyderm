@@ -363,14 +363,11 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	repoInfos := make(map[string]*pfs.RepoInfo)
 	referencedCommits := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		repoIter, err := pfsdb.ListRepo(ctx, tx, nil)
-		if err != nil {
-			return errors.Wrap(err, "list repo iterator")
-		}
-		return errors.Wrap(stream.ForEach[pfsdb.RepoWithID](ctx, repoIter, func(repoWithID pfsdb.RepoWithID) error {
-			repoInfos[pfsdb.RepoKey(repoWithID.RepoInfo.Repo)] = repoWithID.RepoInfo
+		err := pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
 			return nil
-		}), "for each repo")
+		})
+		return errors.Wrap(err, "list repo iterator")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "fsck: repos")
 	}
