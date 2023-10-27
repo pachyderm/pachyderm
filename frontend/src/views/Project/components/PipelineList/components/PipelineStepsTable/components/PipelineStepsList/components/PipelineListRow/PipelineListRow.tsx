@@ -64,20 +64,20 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
       openOnClick={checkRolesPermission}
     >
       <Table.DataCell>{pipeline?.name}</Table.DataCell>
-      <Table.DataCell>
+      <Table.DataCell width={180}>
         {getPipelineStateString(
           capitalize(pipeline?.nodeState || ''),
           readablePipelineState(pipeline?.state || ''),
         )}
       </Table.DataCell>
-      <Table.DataCell>
+      <Table.DataCell width={180}>
         {getPipelineStateString(
           capitalize(pipeline?.lastJobNodeState || ''),
           readableJobState(pipeline?.lastJobState || ''),
         )}
       </Table.DataCell>
-      <Table.DataCell>v:{pipeline?.version}</Table.DataCell>
-      <Table.DataCell>
+      <Table.DataCell width={90}>v:{pipeline?.version}</Table.DataCell>
+      <Table.DataCell width={210}>
         {pipeline?.createdAt ? getStandardDate(pipeline?.createdAt) : '-'}
       </Table.DataCell>
       <Table.DataCell>{pipeline?.description || '-'}</Table.DataCell>

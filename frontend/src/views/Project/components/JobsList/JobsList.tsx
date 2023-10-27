@@ -103,7 +103,7 @@ const JobsList: React.FC<JobsListProps> = ({
                     job.pipelineName,
                   )}
                 >
-                  <Table.DataCell width={6}>
+                  <Table.DataCell width={120}>
                     {job?.id.slice(0, 6)}...
                   </Table.DataCell>
                   <Table.DataCell>
@@ -113,19 +113,23 @@ const JobsList: React.FC<JobsListProps> = ({
                     {' v:'}
                     {job.pipelineVersion}
                   </Table.DataCell>
-                  <Table.DataCell>
+                  <Table.DataCell width={320}>
                     {`${job.dataTotal} Total`}
                     {getDatumStateBadges(job)}
                   </Table.DataCell>
-                  <Table.DataCell>
+                  <Table.DataCell width={210}>
                     {job?.startedAt ? getStandardDate(job?.startedAt) : '-'}
                   </Table.DataCell>
-                  <Table.DataCell>
+                  <Table.DataCell width={120}>
                     {getJobRuntime(job.startedAt, job.finishedAt)}
                   </Table.DataCell>
-                  <Table.DataCell>{job.downloadBytesDisplay}</Table.DataCell>
-                  <Table.DataCell>{job.uploadBytesDisplay}</Table.DataCell>
-                  <Table.DataCell>{job.restarts}</Table.DataCell>
+                  <Table.DataCell width={120}>
+                    {job.downloadBytesDisplay}
+                  </Table.DataCell>
+                  <Table.DataCell width={120}>
+                    {job.uploadBytesDisplay}
+                  </Table.DataCell>
+                  <Table.DataCell width={90}>{job.restarts}</Table.DataCell>
                 </Table.Row>
               ))}
             </Table.Body>

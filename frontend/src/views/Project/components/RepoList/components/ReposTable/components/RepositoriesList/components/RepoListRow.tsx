@@ -71,13 +71,15 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
       openOnClick={checkRolesPermission}
     >
       <Table.DataCell>{repo?.name}</Table.DataCell>
-      <Table.DataCell>{repo?.sizeDisplay || '-'}</Table.DataCell>
-      <Table.DataCell>
+      <Table.DataCell width={120}>{repo?.sizeDisplay || '-'}</Table.DataCell>
+      <Table.DataCell width={210}>
         {repo?.createdAt && repo?.createdAt > 0
           ? getStandardDate(repo?.createdAt)
           : '-'}
       </Table.DataCell>
-      <Table.DataCell>{getLastCommitTimestamp(repo)}</Table.DataCell>
+      <Table.DataCell width={240}>
+        {getLastCommitTimestamp(repo)}
+      </Table.DataCell>
       <Table.DataCell>{repo?.description}</Table.DataCell>
       {repo?.authInfo?.rolesList && (
         <Table.DataCell>

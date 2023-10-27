@@ -134,16 +134,16 @@ const RunsList: React.FC<RunsListProps> = ({
               overflowMenuItems={iconItems}
               dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}
             >
-              <Table.DataCell>
+              <Table.DataCell width={210}>
                 {jobSet?.createdAt ? getStandardDate(jobSet?.createdAt) : '-'}
               </Table.DataCell>
-              <Table.DataCell>
+              <Table.DataCell width={320}>
                 {`${jobSet?.jobs.length} Job${
                   (jobSet?.jobs.length || 0) > 1 ? 's' : ''
                 } Total`}
                 {getJobStateBadges(jobSet)}
               </Table.DataCell>
-              <Table.DataCell>
+              <Table.DataCell width={90}>
                 {getJobRuntime(jobSet.startedAt, jobSet.finishedAt)}
               </Table.DataCell>
               <Table.DataCell>{jobSet?.id}</Table.DataCell>

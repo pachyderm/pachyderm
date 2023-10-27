@@ -91,14 +91,16 @@ const CommitsList: React.FC<CommitsListProps> = ({
                     dropdownOnSelect={onOverflowMenuSelect(commit)}
                   >
                     <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
-                    <Table.DataCell>
+                    <Table.DataCell width={210}>
                       {getStandardDate(commit?.finished)}
                     </Table.DataCell>
-                    <Table.DataCell>{commit?.id}</Table.DataCell>
+                    <Table.DataCell width={330}>{commit?.id}</Table.DataCell>
                     <Table.DataCell>
                       {commit?.branch?.name || '-'}
                     </Table.DataCell>
-                    <Table.DataCell>{commit.sizeDisplay}</Table.DataCell>
+                    <Table.DataCell width={120}>
+                      {commit.sizeDisplay}
+                    </Table.DataCell>
                     <Table.DataCell>{commit.description}</Table.DataCell>
                   </Table.Row>
                 ))}
