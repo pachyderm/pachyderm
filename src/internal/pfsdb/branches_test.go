@@ -83,12 +83,12 @@ func createProject(t *testing.T, ctx context.Context, tx *pachsql.Tx, projectInf
 	require.NoError(t, pfsdb.UpsertProject(ctx, tx, projectInfo))
 }
 
-func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, repoInfo *pfs.RepoInfo) *pfsdb.RepoWithID {
+func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, repoInfo *pfs.RepoInfo) *pfsdb.RepoInfoWithID {
 	t.Helper()
 	createProject(t, ctx, tx, newProjectInfo(repoInfo.Repo.Project.Name))
 	id, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)
 	require.NoError(t, err)
-	return &pfsdb.RepoWithID{ID: id, RepoInfo: repoInfo}
+	return &pfsdb.RepoInfoWithID{ID: id, RepoInfo: repoInfo}
 }
 
 func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
