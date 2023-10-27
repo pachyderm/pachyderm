@@ -3996,7 +3996,6 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
 		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
-				fmt.Println("returning")
 				return nil
 			}
 			// if the old details are missing, synthesize them
