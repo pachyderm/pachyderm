@@ -56,8 +56,8 @@ const GlobalFilter: React.FC = () => {
         {dropdownOpen && (
           <div className={styles.dropdownBase}>
             <div className={styles.infoText}>
-              Filtering by Global ID will show you all the commits and jobs with
-              the same ID.{' '}
+              Enter a Global ID to filter pipelines and repos in the DAG by a
+              specific job or commit ID.{' '}
               <BrandedDocLink
                 pathWithoutDomain="concepts/advanced-concepts/globalid/"
                 className={styles.link}
