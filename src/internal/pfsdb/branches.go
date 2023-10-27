@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"strings"
 
 	"google.golang.org/grpc/codes"
