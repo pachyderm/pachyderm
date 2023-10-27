@@ -685,7 +685,7 @@ func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { /
 	require.NoError(t, err)
 	return optsHash.Sum(nil)
 }
-func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
 
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -758,7 +758,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster { // haven't used this namespace yet
+	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster && !mustUpgrade { // haven't used this namespace yet
 		t.Log("New namespace acquired, doing a fresh Helm install")
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -768,13 +768,12 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return helm.InstallE(t, helmOpts, chartPath, namespace)
 				})
 		}
-	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
 		t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
-		deleteRelease(t, context.Background(), namespace, kubeClient)
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
-				return helm.InstallE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
+				return helm.UpgradeE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
 			})
 	} else { // same hash, no need to change anything
 		t.Log("Previous helmOpts matched the previous cluster config, no changes made to cluster")
@@ -871,11 +870,11 @@ func putLease(t testing.TB, namespace string) error {
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, true, opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
 func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, false, opts)
 }
