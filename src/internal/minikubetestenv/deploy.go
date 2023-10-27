@@ -758,8 +758,15 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if (!bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster) && !mustUpgrade { // haven't used this namespace yet
-		t.Log("New namespace acquired, doing a fresh Helm install")
+	if mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+		t.Log("Test must upgrade cluster in place, upgrading cluster with new opts")
+		require.NoErrorWithinTRetry(t,
+			time.Minute,
+			func() error {
+				return helm.UpgradeE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
+			})
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster {
+		t.Log("New namespace acquired or helm options don't match, doing a fresh Helm install")
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 			require.NoErrorWithinTRetry(t,
@@ -768,13 +775,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return helm.InstallE(t, helmOpts, chartPath, namespace)
 				})
 		}
-	} else if mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
-		t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
-		require.NoErrorWithinTRetry(t,
-			time.Minute,
-			func() error {
-				return helm.UpgradeE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
-			})
 	} else { // same hash, no need to change anything
 		t.Log("Previous helmOpts matched the previous cluster config, no changes made to cluster")
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)

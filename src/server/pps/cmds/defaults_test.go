@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -60,7 +61,7 @@ func TestCreatePipeline_defaults(t *testing.T) {
 	}
 
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	out, err := tu.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
 		pachctl create defaults --cluster <<EOF
 		{
 			"create_pipeline_request": {
@@ -108,7 +109,8 @@ func TestCreatePipeline_defaults(t *testing.T) {
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
-	).Run())
+	).Output()
+	require.NoError(t, err, "running pachyderm command with output %v", string(out))
 }
 
 func TestCreatePipeline_regenerate(t *testing.T) {

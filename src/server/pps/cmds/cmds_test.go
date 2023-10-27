@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -529,7 +530,7 @@ func TestListPipelineFilter(t *testing.T) {
 		yes | pachctl delete all
 	`).Run())
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	out, err := tu.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
 		yes | pachctl delete all
 		pachctl create project myProject
 		pachctl create repo input
@@ -597,11 +598,12 @@ func TestListPipelineFilter(t *testing.T) {
 		pachctl list pipeline --all-projects | match {{.pipeline1}}
 		pachctl list pipeline --all-projects | match {{.pipeline2}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline1}}
-		pachctl list pipeline --state starting --state running | match {{.pipeline1}}
+		pachctl list pipeline --state starting --state running --state standby | match {{.pipeline1}}
 	`,
 		"pipeline1", pipeline1,
 		"pipeline2", pipeline2,
-	).Run())
+	).Output()
+	require.NoError(t, err, "failed pachctl command with output %v", string(out))
 }
 
 func TestInspectWaitJob(t *testing.T) {
