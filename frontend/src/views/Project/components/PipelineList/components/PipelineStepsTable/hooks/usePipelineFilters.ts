@@ -93,8 +93,7 @@ type usePipelineFiltersProps = {
 };
 
 const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
-  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
-    useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -104,15 +103,10 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const sortFilter = watch('sortBy');
   const jobStatusFilter = watch('jobStatus');
   const pipelineStatusFilter = watch('pipelineStatus');
-
-  useEffect(() => {
-    clearSearchParamsAndGo();
-    reset();
-  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
     updateSearchParamsAndGo({

@@ -14,8 +14,7 @@ type useRuntimesChartFiltersProps = {
 };
 
 const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {
-  const {searchParams, updateSearchParamsAndGo, getNewSearchParamsAndGo} =
-    useUrlQueryState();
+  const {searchParams, getNewSearchParamsAndGo} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -24,28 +23,24 @@ const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const jobIdFilters = watch('jobIds');
   const pipelineStepsFilters = watch('pipelineSteps');
 
   useEffect(() => {
     const {selectedPipelines, selectedJobs} = searchParams;
-    reset();
     getNewSearchParamsAndGo({
+      jobId: jobIdFilters,
+      pipelineStep: pipelineStepsFilters,
       selectedPipelines,
       selectedJobs,
     });
-    // We want to clear the form and viewstate on a fresh render,
-    // but NOT when viewState changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getNewSearchParamsAndGo, reset]);
-
-  useEffect(() => {
-    updateSearchParamsAndGo({
-      jobId: jobIdFilters,
-      pipelineStep: pipelineStepsFilters,
-    });
-  }, [jobIdFilters, pipelineStepsFilters, updateSearchParamsAndGo]);
+  }, [
+    jobIdFilters,
+    pipelineStepsFilters,
+    getNewSearchParamsAndGo,
+    searchParams,
+  ]);
 
   const multiselectFilters = [
     {

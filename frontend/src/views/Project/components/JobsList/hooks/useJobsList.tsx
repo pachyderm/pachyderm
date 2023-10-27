@@ -29,17 +29,24 @@ type DatumBadgeProps = {
 const useRunsList = () => {
   const {projectId} = useUrlState();
   const {getPathToJobLogs, getPathToDatumLogs} = useLogsNavigation();
-  const {getNewSearchParamsAndGo} = useUrlQueryState();
+  const {getUpdatedSearchParams} = useUrlQueryState();
   const browserHistory = useHistory();
 
   const globalIdRedirect = (runId: string) => {
-    getNewSearchParamsAndGo({
-      globalIdFilter: runId,
-    });
-    browserHistory.push(
-      lineageRoute({
-        projectId,
-      }),
+    const searchParams = getUpdatedSearchParams(
+      {
+        globalIdFilter: runId,
+      },
+      true,
+    );
+
+    return browserHistory.push(
+      `${lineageRoute(
+        {
+          projectId,
+        },
+        false,
+      )}?${searchParams}`,
     );
   };
 

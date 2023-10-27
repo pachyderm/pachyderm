@@ -26,8 +26,7 @@ type FormValues = {
 };
 
 const useCommitsListFilters = () => {
-  const {searchParams, updateSearchParamsAndGo, getNewSearchParamsAndGo} =
-    useUrlQueryState();
+  const {getNewSearchParamsAndGo, searchParams} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -35,26 +34,17 @@ const useCommitsListFilters = () => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const sortFilter = watch('sortBy');
   const reverseOrder = sortFilter === 'Created: Oldest';
 
   useEffect(() => {
     const {selectedRepos} = searchParams;
-    reset();
     getNewSearchParamsAndGo({
-      selectedRepos,
-    });
-    // We want to clear viewstate and form state on fresh renders
-    // but NOT on changes to searchParams
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getNewSearchParamsAndGo, reset, updateSearchParamsAndGo]);
-
-  useEffect(() => {
-    updateSearchParamsAndGo({
       sortBy: sortFilter,
+      selectedRepos: selectedRepos,
     });
-  }, [sortFilter, updateSearchParamsAndGo]);
+  }, [sortFilter, getNewSearchParamsAndGo, searchParams]);
 
   const staticFilterKeys = [sortFilter];
 

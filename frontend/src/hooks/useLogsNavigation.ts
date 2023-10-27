@@ -16,9 +16,12 @@ const useLogsNavigation = () => {
 
   const getPathToJobLogs = useCallback(
     (args: Parameters<typeof logsViewerJobRoute>[0]) => {
-      return `${logsViewerJobRoute(args, false)}?${getUpdatedSearchParams({
-        prevPath: pathname,
-      })}`;
+      return `${logsViewerJobRoute(args, false)}?${getUpdatedSearchParams(
+        {
+          prevPath: pathname,
+        },
+        true,
+      )}`;
     },
     [pathname, getUpdatedSearchParams],
   );
@@ -28,19 +31,25 @@ const useLogsNavigation = () => {
       args: Parameters<typeof logsViewerDatumRoute>[0],
       datumFilters: DatumFilter[],
     ) => {
-      return `${logsViewerDatumRoute(args, false)}?${getUpdatedSearchParams({
-        prevPath: pathname,
-        datumFilters,
-      })}`;
+      return `${logsViewerDatumRoute(args, false)}?${getUpdatedSearchParams(
+        {
+          prevPath: pathname,
+          datumFilters,
+        },
+        true,
+      )}`;
     },
     [pathname, getUpdatedSearchParams],
   );
 
   const getPathToLatestJobLogs = useCallback(
     (args: Parameters<typeof logsViewerLatestRoute>[0]) => {
-      return `${logsViewerLatestRoute(args, false)}?${getUpdatedSearchParams({
-        prevPath: pathname,
-      })}`;
+      return `${logsViewerLatestRoute(args, false)}?${getUpdatedSearchParams(
+        {
+          prevPath: pathname,
+        },
+        true,
+      )}`;
     },
     [pathname, getUpdatedSearchParams],
   );

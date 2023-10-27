@@ -40,6 +40,10 @@ describe('Pipelines', () => {
     cy.get('#GROUP_52faf83dd0fff4b0d510f5326e2bf66e8b5a2ed6').should(
       'not.exist',
     );
+
+    // table filters are kept on a back nav
+    cy.go('back');
+    cy.findAllByTestId('JobsList__row').should('have.length', 1);
   });
 
   it('should allow a user to create a pipeline', () => {

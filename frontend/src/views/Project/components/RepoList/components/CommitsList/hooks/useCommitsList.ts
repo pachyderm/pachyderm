@@ -14,7 +14,7 @@ export const COMMITS_DEFAULT_PAGE_SIZE = 15;
 
 const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
   const {projectId} = useUrlState();
-  const {getNewSearchParamsAndGo} = useUrlQueryState();
+  const {getUpdatedSearchParams} = useUrlQueryState();
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const browserHistory = useHistory();
   const {
@@ -52,13 +52,20 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
   }, [resetCursors, reverseOrder, setPage]);
 
   const globalIdRedirect = (runId: string) => {
-    getNewSearchParamsAndGo({
-      globalIdFilter: runId,
-    });
-    browserHistory.push(
-      lineageRoute({
-        projectId,
-      }),
+    const searchParams = getUpdatedSearchParams(
+      {
+        globalIdFilter: runId,
+      },
+      true,
+    );
+
+    return browserHistory.push(
+      `${lineageRoute(
+        {
+          projectId,
+        },
+        false,
+      )}?${searchParams}`,
     );
   };
 

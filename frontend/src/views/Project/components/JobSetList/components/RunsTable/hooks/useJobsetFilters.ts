@@ -60,8 +60,7 @@ type useJobSetsFiltersProps = {
 };
 
 const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
-  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
-    useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -70,14 +69,9 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const sortFilter = watch('sortBy');
   const jobsetStatusFilters = watch('jobsetStatus');
-
-  useEffect(() => {
-    clearSearchParamsAndGo();
-    reset();
-  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
     updateSearchParamsAndGo({

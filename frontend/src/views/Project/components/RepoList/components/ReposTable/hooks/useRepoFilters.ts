@@ -68,8 +68,7 @@ type useRepoFiltersProps = {
 };
 
 const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
-  const {searchParams, updateSearchParamsAndGo, clearSearchParamsAndGo} =
-    useUrlQueryState();
+  const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -77,13 +76,8 @@ const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const sortFilter = watch('sortBy');
-
-  useEffect(() => {
-    clearSearchParamsAndGo();
-    reset();
-  }, [clearSearchParamsAndGo, reset]);
 
   useEffect(() => {
     updateSearchParamsAndGo({

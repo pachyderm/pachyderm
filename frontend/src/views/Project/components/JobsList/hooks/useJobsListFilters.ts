@@ -60,8 +60,7 @@ type useJobsFiltersProps = {
 };
 
 const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
-  const {searchParams, updateSearchParamsAndGo, getNewSearchParamsAndGo} =
-    useUrlQueryState();
+  const {searchParams, getNewSearchParamsAndGo} = useUrlQueryState();
   const formCtx = useForm<FormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -73,7 +72,7 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
     },
   });
 
-  const {watch, reset} = formCtx;
+  const {watch} = formCtx;
   const sortFilter = watch('sortBy');
   const jobStatusFilters = watch('jobStatus');
   const jobIdFilters = watch('jobIds');
@@ -82,31 +81,23 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
 
   useEffect(() => {
     const {selectedPipelines, selectedJobs} = searchParams;
-    reset();
     getNewSearchParamsAndGo({
-      selectedPipelines,
-      selectedJobs,
-    });
-    // We want to clear the form and viewstate on a fresh render,
-    // but NOT when searchParams changes
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [getNewSearchParamsAndGo, reset, updateSearchParamsAndGo]);
-
-  useEffect(() => {
-    updateSearchParamsAndGo({
       sortBy: sortFilter,
       jobStatus: jobStatusFilters,
       jobId: jobIdFilters,
       pipelineStep: pipelineStepsFilters,
       pipelineVersion: pipelineVersionsFilters,
+      selectedPipelines,
+      selectedJobs,
     });
   }, [
+    getNewSearchParamsAndGo,
     jobIdFilters,
     jobStatusFilters,
     pipelineStepsFilters,
     pipelineVersionsFilters,
+    searchParams,
     sortFilter,
-    updateSearchParamsAndGo,
   ]);
 
   const multiselectFilters = [
