@@ -4454,10 +4454,10 @@ func TestStopJob(t *testing.T) {
 		jobInfo, err := c.InspectJob(project, pipelineName, commit1.Id, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("first job has the wrong state")
+			return errors.Errorf("first job has the wrong state %v expected %v", jobInfo.State, pps.JobState_JOB_RUNNING)
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	}, backoff.NewConstantBackOff(2*time.Second).For(90*time.Second)))
 
 	// Now stop the second job
 	err = c.StopJob(project, pipelineName, commit2.Id)
