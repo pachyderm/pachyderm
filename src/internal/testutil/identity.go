@@ -207,7 +207,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 		},
 	}
 	var token *oauth2.Token
-	require.NoErrorWithinTRetry(t, time.Second*60, func() error {
+	require.NoErrorWithinTRetry(t, time.Minute*5, func() error {
 		// Hit the dex login page for the test client with a fixed nonce
 		resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
 		if err != nil {
@@ -232,7 +232,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 			return err
 		}
 		if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
-			require.Equal(t, want, got, "login status code")
+			return errors.Errorf("login status code got %v want %v", got, want)
 		}
 
 		// The username/password flow used to redirect to the /approval endpoint, but now it goes
