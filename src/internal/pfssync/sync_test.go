@@ -21,7 +21,7 @@ import (
 
 func BenchmarkDownload(b *testing.B) {
 	ctx := pctx.TestContext(b)
-	env := realenv.NewRealEnv(ctx, b, dockertestenv.NewTestDBConfig(b))
+	env := realenv.NewRealEnv(ctx, b, dockertestenv.NewTestDBConfig(b).PachConfigOption)
 	repo := "repo"
 	require.NoError(b, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")

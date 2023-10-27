@@ -27,7 +27,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestEmptyTransaction", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -54,7 +54,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestInvalidatedTransaction", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -85,7 +85,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestFailedAppend", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -119,7 +119,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestDependency", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 		project := testutil.UniqueString("p-")
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -178,7 +178,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestCreateBranch", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -235,7 +235,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestDeleteAllTransactions", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		_, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -258,7 +258,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestMultiCommit", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		project := testutil.UniqueString("prj_")
 		err := env.PachClient.CreateProject(project)
@@ -303,7 +303,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestPropagateCommit", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
 		require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "B"))
@@ -389,7 +389,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestPropagateCommitRedux", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		txn, err := env.PachClient.StartTransaction()
 		require.NoError(t, err)
@@ -439,7 +439,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestBatchTransaction", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 		var branchInfos []*pfs.BranchInfo
 		var info *transaction.TransactionInfo
@@ -518,7 +518,7 @@ func TestTransactions(suite *testing.T) {
 	suite.Run("TestProjectlessBatch", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)
-		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 		_, err := env.PachClient.RunBatchInTransaction(func(builder *client.TransactionBuilder) error {
 			_, err := builder.PfsAPIClient.CreateRepo(builder.Ctx(), &pfs.CreateRepoRequest{
 				Repo: &pfs.Repo{

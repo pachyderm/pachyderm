@@ -247,17 +247,17 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoWithID) 
 	if err != nil {
 		return errors.Wrap(err, "manage branches")
 	}
-	if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, &pfs.Branch{
-			Repo: repoPair.RepoInfo.Repo})
-		if err != nil {
-			return errors.Wrap(err, "manage branches")
-		}
-		return stream.ForEach[pfsdb.BranchInfoWithID](cbCtx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-			return d.manageBranch(ctx, branchInfoWithID, cronTriggers)
-		})
+	var branches []pfsdb.BranchInfoWithID
+	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		branches, err = pfsdb.ListBranches(ctx, tx, &pfs.Branch{Repo: repoPair.RepoInfo.Repo})
+		return errors.Wrap(err, "manage branches")
 	}); err != nil {
 		return err
+	}
+	for _, branch := range branches {
+		if err := d.manageBranch(ctx, branch, cronTriggers); err != nil {
+			return errors.Wrap(err, "manage branches")
+		}
 	}
 	for {
 		event, ok := <-watcher.Watch()

@@ -25,7 +25,7 @@ import (
 func TestSetGetConfigBasic(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -58,7 +58,7 @@ func TestSetGetConfigBasic(t *testing.T) {
 func TestIssuerNotLocalhost(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -101,7 +101,7 @@ func TestIssuerNotLocalhost(t *testing.T) {
 func TestGetSetConfigAdminOnly(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -171,7 +171,7 @@ func TestGetSetConfigAdminOnly(t *testing.T) {
 func TestConfigRestartAuth(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -259,7 +259,7 @@ func TestConfigRestartAuth(t *testing.T) {
 func TestSetGetNilConfig(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
