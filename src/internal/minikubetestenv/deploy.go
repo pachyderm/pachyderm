@@ -758,7 +758,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster && !mustUpgrade { // haven't used this namespace yet
+	if (!bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster) && !mustUpgrade { // haven't used this namespace yet
 		t.Log("New namespace acquired, doing a fresh Helm install")
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -768,7 +768,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return helm.InstallE(t, helmOpts, chartPath, namespace)
 				})
 		}
-	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+	} else if mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
 		t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
