@@ -162,7 +162,7 @@ func TestLoginIDToken(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
+	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateAuthClient(t, c)
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 	// Configure OIDC login
