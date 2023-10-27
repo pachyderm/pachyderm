@@ -650,7 +650,7 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 }
 
 // deletes the existing configmap and writes the new hel opts to this one
-func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string, helmOpts helm.Options) {
+func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string, helmOpts *helm.Options, chartPath string) {
 	err := kubeClient.CoreV1().ConfigMaps(ns).Delete(ctx, helmOptsConfigMap, *metav1.NewDeleteOptions(0))
 	require.True(t, err == nil || k8serrors.IsNotFound(err), "deleting configMap error: %v", err)
 	_, err = kubeClient.CoreV1().ConfigMaps(ns).Create(ctx, &v1.ConfigMap{
@@ -659,7 +659,7 @@ func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Cli
 			Namespace: ns,
 		},
 		BinaryData: map[string][]byte{
-			"helmopts-hash": hashHelmOpts(t, helmOpts),
+			"helmopts-hash": hashOpts(t, helmOpts, chartPath),
 		},
 	}, metav1.CreateOptions{})
 	require.NoError(t, err, "creating helmOpts ConfigMap")
@@ -674,12 +674,14 @@ func getOptsConfigMapData(t testing.TB, ctx context.Context, kubeClient *kube.Cl
 	return configMap.BinaryData["helmopts-hash"]
 }
 
-func hashHelmOpts(t testing.TB, helmOpts helm.Options) []byte { // return string for consistency with configMap data
+func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { // return string for consistency with configMap data
 	// we don't need to deserialize, we just use this to check differences, so just save a hash
-	optsBytes, err := json.Marshal(helmOpts) // lists might be ordered differently, but there are not many list fields that we actively use that would be different in practice
+	helmBytes, err := json.Marshal(helmOpts) // lists might be ordered differently, but there are not many list fields that we actively use that would be different in practice
 	require.NoError(t, err)
 	optsHash := sha256.New()
-	_, err = optsHash.Write(optsBytes)
+	_, err = optsHash.Write(helmBytes)
+	require.NoError(t, err)
+	_, err = optsHash.Write([]byte(chartPath))
 	require.NoError(t, err)
 	return optsHash.Sum(nil)
 }
@@ -756,7 +758,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	helmOpts.ValuesFiles = opts.ValuesFiles
 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster || !bytes.Equal(previousOptsHash, hashHelmOpts(t, *helmOpts)) { // haven't used this namespace yet
+	if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster { // haven't used this namespace yet
 		t.Log("New namespace acquired, doing a fresh Helm install")
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -766,18 +768,19 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return helm.InstallE(t, helmOpts, chartPath, namespace)
 				})
 		}
-		// } else if !bytes.Equal(previousOptsHash, hashHelmOpts(t, *helmOpts)) { // we used this namespace, but it's different settings // DNJ TODO - delete
-		// 	t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
-		// 	require.NoErrorWithinTRetry(t,
-		// 		time.Minute,
-		// 		func() error {
-		// 			return helm.UpgradeE(t, helmOpts, chartPath, namespace)
-		// 		})
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+		t.Log("Previous helmOpts did not match, upgrading cluster with new opts")
+		deleteRelease(t, context.Background(), namespace, kubeClient)
+		require.NoErrorWithinTRetry(t,
+			time.Minute,
+			func() error {
+				return helm.InstallE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
+			})
 	} else { // same hash, no need to change anything
 		t.Log("Previous helmOpts matched the previous cluster config, no changes made to cluster")
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	}
-	createOptsConfigMap(t, ctx, kubeClient, namespace, *helmOpts)
+	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 	// if getPreviousHelmOpts==nil || !opts.UseLeftoverCluster -> install release new // DNJ TODO
 	// else if getPreviousHelmOpts not deepEqual helmOpts -> upgrade release
 	// else - we're good to go, return pachclient
