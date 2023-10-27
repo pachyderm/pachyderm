@@ -36,7 +36,7 @@ import (
 // auth on or off.
 
 func initPachClient(t testing.TB, auth bool) (*client.APIClient, string, string) {
-	c, ns := minikubetestenv.AcquireCluster(t)
+	c, ns := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
 	if !auth {
 		return c, "", ns
 	}
