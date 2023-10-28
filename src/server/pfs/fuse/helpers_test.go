@@ -14,7 +14,7 @@ import (
 
 func put(path string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost%s/%s", FuseServerPort, path), body)
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +24,7 @@ func put(path string, body io.Reader) (*http.Response, error) {
 
 func get(path string) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s/%s", FuseServerPort, path), nil)
 	if err != nil {
 		panic(err)
 	}
