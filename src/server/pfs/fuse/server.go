@@ -651,13 +651,17 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
 			return
 		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "spec produces zero datums; nothing to mount", http.StatusBadRequest)
+			return
+		}
 		func() {
 			mm.mu.Lock()
 			defer mm.mu.Unlock()
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(pctx.TODO(), "Mounting first datum", zap.String("datumID", di.Datum.Id))
+		log.Info(pctx.TODO(), "Mounting first datum")
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
