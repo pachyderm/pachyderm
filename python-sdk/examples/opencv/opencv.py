@@ -55,9 +55,21 @@ def main(client: Client):
         # Add some images from urls.
         # Alternatively, you could use `client.put_file_from_file` or
         # `client_put_file_bytes`.
-        client.pfs.put_file_from_url(commit=commit, path="/liberty.jpg", url="https://docs.pachyderm.com/images/opencv/liberty.jpg")
-        client.pfs.put_file_from_url(commit=commit, path="/kitten.jpg", url="https://docs.pachyderm.com/images/opencv/kitten.jpg")
-        client.pfs.put_file_from_url(commit=commit, path="/robot.jpg", url="https://docs.pachyderm.com/images/opencv/robot.jpg")
+        client.pfs.put_file_from_url(
+            commit=commit,
+            path="/liberty.jpg",
+            url="https://docs.pachyderm.com/images/opencv/liberty.jpg",
+        )
+        client.pfs.put_file_from_url(
+            commit=commit,
+            path="/kitten.jpg",
+            url="https://docs.pachyderm.com/images/opencv/kitten.jpg",
+        )
+        client.pfs.put_file_from_url(
+            commit=commit,
+            path="/robot.jpg",
+            url="https://docs.pachyderm.com/images/opencv/robot.jpg",
+        )
 
     # Wait for the commit (and its downstream commits) to finish
     commit.wait_all()
@@ -83,7 +95,7 @@ def clean(client: Client):
 
 if __name__ == "__main__":
     # Connects to a pachyderm cluster using the pachctl config file located
-    # at ~/.pachyderm/config.json. For other setups, you'll want one of the 
+    # at ~/.pachyderm/config.json. For other setups, you'll want one of the
     # alternatives:
     # 1) To connect to pachyderm when this script is running inside the
     #    cluster, use `Client.new_in_cluster()`.
