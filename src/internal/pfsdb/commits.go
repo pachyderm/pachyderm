@@ -521,9 +521,20 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		Error:          commitInfo.Error,
 	}
 	query := updateCommit
-	_, err := tx.NamedExecContext(ctx, query, update)
+	res, err := tx.NamedExecContext(ctx, query, update)
 	if err != nil {
 		return errors.Wrap(err, "exec update commitInfo")
+	}
+	rowsAffected, err := res.RowsAffected()
+	if err != nil {
+		return errors.Wrap(err, "rows affected")
+	}
+	if rowsAffected == 0 {
+		_, err := GetRepoByName(ctx, tx, commitInfo.Commit.Repo.Project.Name, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
+		if err != nil {
+			return err
+		}
+		return ErrCommitNotFound{RowID: id}
 	}
 	if !opt.SkipParent {
 		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE child=$1;", id)
@@ -659,6 +670,10 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE commit_id=$1", getCommit), id).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			_, err := GetRepoByName(ctx, tx, commit.Repo.Project.Name, commit.Repo.Name, commit.Repo.Type)
+			if err != nil {
+				return nil, err
+			}
 			return nil, ErrCommitNotFound{CommitID: id}
 		}
 		return nil, errors.Wrap(err, "scanning commit row")

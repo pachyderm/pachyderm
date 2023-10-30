@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 
@@ -74,6 +75,18 @@ func TestUpsertRepo(t *testing.T) {
 		getInfo, err := pfsdb.GetRepo(ctx, tx, id)
 		require.NoError(t, err)
 		require.True(t, cmp.Equal(expectedInfo, getInfo, cmp.Comparer(compareRepos)))
+	})
+}
+
+func TestGetRepoByNameMissingProject(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	repo := testRepo(testRepoName, testRepoType)
+	repo.Repo.Project.Name = "doesNotExist"
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		_, err := pfsdb.GetRepoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
+		require.True(t, errors.Is(err, pfsdb.ErrProjectNotFound{Name: repo.Repo.Project.Name}))
 	})
 }
 

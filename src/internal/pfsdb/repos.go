@@ -140,6 +140,10 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 		repoProject, repoName, repoType,
 	); err != nil {
 		if err == sql.ErrNoRows {
+			_, err := GetProjectByName(ctx, tx, repoProject)
+			if err != nil {
+				return nil, err
+			}
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")

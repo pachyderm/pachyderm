@@ -143,6 +143,25 @@ func TestCreateCommit(t *testing.T) {
 	})
 }
 
+func TestGetCommitRepoMissing(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := testRepo("doesNotExist", testRepoType)
+			commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Id: "1"}
+			commitInfo := &pfs.CommitInfo{
+				Commit:      commit,
+				Description: "fake commit",
+				Origin: &pfs.CommitOrigin{
+					Kind: pfs.OriginKind_USER,
+				},
+				Started: timestamppb.New(time.Now()),
+			}
+			_, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			require.True(t, errors.Is(err, pfsdb.ErrRepoNotFound{Project: repoInfo.Repo.Project.Name, Name: repoInfo.Repo.Name, Type: testRepoType}))
+		})
+	})
+}
+
 func TestGetCommit(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
@@ -364,6 +383,26 @@ func TestUpdateCommitWithParent(t *testing.T) {
 			getInfo, err := pfsdb.GetCommit(ctx, tx, id)
 			require.NoError(t, err, "should be able to get commit")
 			commitsMatch(t, getInfo, commitInfo)
+		})
+	})
+}
+
+func TestUpdateProjectMissing(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := testRepo("fakeRepo", testRepoType)
+			repoInfo.Repo.Project.Name = "doesNotExist"
+			commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Id: "1"}
+			commitInfo := &pfs.CommitInfo{
+				Commit:      commit,
+				Description: "fake commit",
+				Origin: &pfs.CommitOrigin{
+					Kind: pfs.OriginKind_USER,
+				},
+				Started: timestamppb.New(time.Now()),
+			}
+			err := pfsdb.UpdateCommit(ctx, tx, pfsdb.CommitID(1), commitInfo)
+			require.True(t, errors.Is(err, pfsdb.ErrProjectNotFound{Name: "doesNotExist"}))
 		})
 	})
 }
