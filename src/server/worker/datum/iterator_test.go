@@ -27,7 +27,7 @@ import (
 func TestIterators(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	taskDoer := createTaskDoer(t, env)
 	c := env.PachClient
 	pfsC := c.PfsAPIClient
@@ -323,7 +323,7 @@ func createTaskDoer(t *testing.T, env *realenv.RealEnv) task.Doer {
 func TestJoinTrailingSlash(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	pfsC := env.PachClient.PfsAPIClient
 	taskDoer := createTaskDoer(t, env)
 

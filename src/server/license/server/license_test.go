@@ -27,7 +27,7 @@ import (
 func TestActivate(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 
@@ -46,7 +46,7 @@ func TestActivate(t *testing.T) {
 func TestExpired(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -74,7 +74,7 @@ func TestExpired(t *testing.T) {
 func TestGetActivationCodeNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -89,7 +89,7 @@ func TestGetActivationCodeNotAdmin(t *testing.T) {
 func TestDeleteAll(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -125,7 +125,7 @@ func TestDeleteAll(t *testing.T) {
 func TestDeleteAllNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -139,7 +139,7 @@ func TestDeleteAllNotAdmin(t *testing.T) {
 func TestClusterCRUD(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -255,7 +255,7 @@ func TestClusterCRUD(t *testing.T) {
 func TestAddClusterAddressValidation(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -273,7 +273,7 @@ func TestAddClusterAddressValidation(t *testing.T) {
 func TestUpdateClusterAddressValidation(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateEnterprise(t, client, peerPort)
@@ -291,7 +291,7 @@ func TestUpdateClusterAddressValidation(t *testing.T) {
 func TestAddClusterNoLicense(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	_, err := client.License.AddCluster(client.Ctx(), &license.AddClusterRequest{
@@ -307,7 +307,7 @@ func TestAddClusterNoLicense(t *testing.T) {
 func TestClusterCRUDNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	client := env.PachClient
 	tu.ActivateAuthClient(t, client, peerPort)
@@ -341,7 +341,7 @@ func TestClusterCRUDNotAdmin(t *testing.T) {
 func TestHeartbeat(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -377,7 +377,7 @@ func TestHeartbeat(t *testing.T) {
 func TestHeartbeatWrongSecret(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	pachClient := env.PachClient
 	_, err := pachClient.License.Heartbeat(pachClient.Ctx(), &license.HeartbeatRequest{
 		Id:          "localhost",
@@ -391,7 +391,7 @@ func TestHeartbeatWrongSecret(t *testing.T) {
 func TestListUserClusters(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	client := env.PachClient
 	tu.ActivateAuthClient(t, client, peerPort)

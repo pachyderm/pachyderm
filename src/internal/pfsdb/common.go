@@ -21,11 +21,11 @@ const (
 
 type (
 	ModelType interface {
-		Repo | Commit | Branch
+		Repo | Commit | Branch | Project
 		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
 	}
 	ColumnName interface {
-		string | branchColumn | commitColumn
+		string | projectColumn | branchColumn | commitColumn | repoColumn
 	}
 )
 

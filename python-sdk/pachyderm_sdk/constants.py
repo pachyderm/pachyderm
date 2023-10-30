@@ -1,3 +1,4 @@
+from os import environ
 from pathlib import Path
 
 from . import __version__
@@ -16,6 +17,8 @@ WORKER_PORT_ENV = "PPS_WORKER_GRPC_PORT"
 # `~` used below to make docs look better.
 CONFIG_PATH_LOCAL = Path("~").joinpath(".pachyderm", "config.json")
 CONFIG_PATH_SPOUT = Path("/").joinpath("pachctl", "config.json")
+DEFAULT_CONFIG = environ.get(PACH_CONFIG_ENV, CONFIG_PATH_LOCAL)
+
 DOTENV_PATH_WORKER = Path("/pfs/.env")
 
 MAX_RECEIVE_MESSAGE_SIZE = 20 * 1024**2  # 20MB
