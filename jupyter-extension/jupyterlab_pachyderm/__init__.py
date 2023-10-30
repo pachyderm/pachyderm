@@ -35,7 +35,7 @@ def _load_jupyter_server_extension(server_app):
 
 # Configure Tornado resolver before any RPCs are sent and the
 # currently-configured resolver is initialized
-Resolver.configure(UnixSocketResolver, old_resolver=Resolver(), socket_path=PFS_SOCK_PATH)
+Resolver.configure(UnixSocketResolver, old_resolver=Resolver())
 
 # For backward compatibility with notebook server - useful for Binder/JupyterHub
 load_jupyter_server_extension = _load_jupyter_server_extension
