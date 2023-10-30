@@ -741,13 +741,9 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
-	projIter, err := pfsdb.ListProject(ctx, txnCtx.SqlTx)
-	if err != nil {
-		return errors.Wrap(err, "could not list project")
-	}
-	return errors.Wrap(stream.ForEach[pfsdb.ProjectWithID](ctx, projIter, func(project pfsdb.ProjectWithID) error {
+	return errors.Wrap(pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(project pfsdb.ProjectWithID) error {
 		return cb(project.ProjectInfo)
-	}), "list projects")
+	}), "list projects in transaction")
 }
 
 // TODO: delete all repos and pipelines within project

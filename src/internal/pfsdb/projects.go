@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"strings"
 	"time"
 
@@ -135,13 +136,26 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	}, nil
 }
 
-// ListProject returns a ProjectIterator that exposes a Next() function for retrieving *pfs.ProjectInfo references.
-func ListProject(ctx context.Context, tx *pachsql.Tx) (*ProjectIterator, error) {
+func ForEachProject(ctx context.Context, tx *pachsql.Tx, cb func(projectWithID ProjectWithID) error) error {
 	iter, err := NewProjectIterator(ctx, tx, 0, 100, nil)
 	if err != nil {
+		return errors.Wrap(err, "for each project")
+	}
+	if err = stream.ForEach[ProjectWithID](ctx, iter, cb); err != nil {
+		return errors.Wrap(err, "for each project")
+	}
+	return nil
+}
+
+func ListProject(ctx context.Context, tx *pachsql.Tx) ([]ProjectWithID, error) {
+	var projects []ProjectWithID
+	if err := ForEachProject(ctx, tx, func(projectWithID ProjectWithID) error {
+		projects = append(projects, projectWithID)
+		return nil
+	}); err != nil {
 		return nil, errors.Wrap(err, "list project")
 	}
-	return iter, nil
+	return projects, nil
 }
 
 // CreateProject creates an entry in the core.projects table.

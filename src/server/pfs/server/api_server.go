@@ -10,8 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -74,11 +72,7 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	projIter, err := pfsdb.ListProject(ctx, txnCtx.SqlTx)
-	if err != nil {
-		return nil, errors.Wrap(err, "activate auth in transaction")
-	}
-	if err := stream.ForEach[pfsdb.ProjectWithID](ctx, projIter, func(proj pfsdb.ProjectWithID) error {
+	if err := pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(proj pfsdb.ProjectWithID) error {
 		var principal string
 		var roleSlice []string
 		if proj.ProjectInfo.Project.Name == pfs.DefaultProjectName {
@@ -96,7 +90,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	if err = pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
 		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
