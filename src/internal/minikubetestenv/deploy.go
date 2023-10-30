@@ -776,7 +776,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				})
 		}
 	} else { // same hash, no need to change anything
-		t.Log("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
+		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	}
 	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
