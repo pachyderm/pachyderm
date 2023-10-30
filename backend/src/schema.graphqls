@@ -946,6 +946,12 @@ input FinishCommitArgs {
   projectId: String!
 }
 
+input RerunPipelineArgs {
+  projectId: String!
+  pipelineId: String!
+  reprocess: Boolean
+}
+
 input CreatePipelineV2Args {
   createPipelineRequestJson: String # a JSON-encoded CreatePipelineRequest
   dryRun: Boolean
@@ -992,7 +998,7 @@ type Mutation {
   deleteFiles(args: DeleteFilesArgs!): ID!
   startCommit(args: StartCommitArgs!): OpenCommit!
   finishCommit(args: FinishCommitArgs!): Boolean!
-
+  rerunPipeline(args: RerunPipelineArgs!): Boolean!
   # RBAC
   modifyRoles(args: ModifyRolesArgs!): Boolean!
 

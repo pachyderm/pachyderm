@@ -17,6 +17,8 @@ import {
 } from '@dash-frontend/views/Project/constants/projectPaths';
 import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
 
+import {RerunPipelineButton} from '../RerunPipelineModal';
+
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
 interface SidebarProps extends HTMLAttributes<HTMLDivElement> {
@@ -98,6 +100,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 <DeleteRepoButton />
               </Route>
               <Route path={LINEAGE_PIPELINE_PATH}>
+                <RerunPipelineButton />
                 <UpdatePipelineButton />
                 <DeletePipelineButton />
               </Route>

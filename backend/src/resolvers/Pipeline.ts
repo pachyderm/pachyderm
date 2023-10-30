@@ -13,6 +13,7 @@ interface PipelineResolver {
     createPipelineV2: MutationResolvers['createPipelineV2'];
     deletePipeline: MutationResolvers['deletePipeline'];
     setClusterDefaults: MutationResolvers['setClusterDefaults'];
+    rerunPipeline: MutationResolvers['rerunPipeline'];
   };
 }
 
@@ -119,6 +120,18 @@ const pipelineResolver: PipelineResolver = {
     },
     setClusterDefaults: async (_field, {args}, {pachClient}) => {
       return await pachClient.pps.setClusterDefaults(args);
+    },
+    rerunPipeline: async (
+      _field,
+      {args: {projectId, pipelineId, reprocess}},
+      {pachClient},
+    ) => {
+      await pachClient.pps.rerunPipeline({
+        projectId,
+        pipelineId,
+        reprocess: reprocess || false,
+      });
+      return true;
     },
   },
 };

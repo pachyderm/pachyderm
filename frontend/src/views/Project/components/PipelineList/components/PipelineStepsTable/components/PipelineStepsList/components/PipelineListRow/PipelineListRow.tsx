@@ -3,6 +3,7 @@ import capitalize from 'lodash/capitalize';
 import React from 'react';
 
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
+import RerunPipelineModal from '@dash-frontend/components/RerunPipelineModal';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {readableJobState} from '@dash-frontend/lib/jobs';
@@ -36,9 +37,11 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
     onOverflowMenuSelect,
     rolesModalOpen,
     closeRolesModal,
+    closeRerunPipelineModal,
+    rerunPipelineModalOpen,
     editRolesPermission,
     checkRolesPermission,
-  } = usePipelineListRow(pipeline?.name || '');
+  } = usePipelineListRow(pipeline?.name || '', pipeline?.type);
   const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
 
   const addSelection = (value: string) => {
@@ -88,7 +91,6 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
           ) || 'None'}
         </Table.DataCell>
       )}
-
       {pipelineRepoMap[pipeline?.id || '']?.authInfo?.rolesList &&
         rolesModalOpen && (
           <RepoRolesModal
@@ -99,6 +101,13 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
             readOnly={!editRolesPermission}
           />
         )}
+      {rerunPipelineModalOpen && (
+        <RerunPipelineModal
+          show={rerunPipelineModalOpen}
+          onHide={closeRerunPipelineModal}
+          pipelineId={pipeline?.name || ''}
+        />
+      )}
     </Table.Row>
   );
 };

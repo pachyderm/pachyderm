@@ -1,8 +1,10 @@
+import {Permission, PipelineType, mockPipelinesQuery} from '@graphqlTypes';
 import {
   render,
   waitForElementToBeRemoved,
   screen,
   within,
+  waitFor,
 } from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -13,6 +15,7 @@ import {
   mockEmptyGetAuthorize,
   mockTrueGetAuthorize,
   mockEmptyGetRoles,
+  buildPipeline,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -25,15 +28,15 @@ describe('Pipelines', () => {
     return <PipelineListComponent />;
   });
 
-  beforeAll(() => {
-    server.listen();
-    server.use(mockEmptyGetAuthorize());
-    server.use(mockRepos());
-    server.use(mockPipelines());
-  });
+  beforeAll(() => server.listen());
 
   beforeEach(() => {
     window.history.replaceState('', '', '/project/default/pipelines');
+
+    server.resetHandlers();
+    server.use(mockEmptyGetAuthorize());
+    server.use(mockRepos());
+    server.use(mockPipelines());
   });
 
   afterAll(() => server.close());
@@ -174,15 +177,47 @@ describe('Pipelines', () => {
     expect(screen.getByText('No matching results')).toBeInTheDocument();
   });
 
-  describe('with repo edit permission', () => {
-    beforeAll(() => {
-      server.use(mockTrueGetAuthorize());
+  it('should not allow users to open the rerun pipeline modal for a spout pipeline', async () => {
+    server.use(
+      mockPipelinesQuery((_req, res, ctx) => {
+        return res(
+          ctx.data({
+            pipelines: [
+              buildPipeline({
+                name: 'montage',
+                type: PipelineType.SPOUT,
+              }),
+            ],
+          }),
+        );
+      }),
+    );
+    render(<PipelineList />);
+
+    await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('menuitem', {
+          name: /rerun pipeline/i,
+        }),
+      ).toBeDisabled(),
+    );
+  });
+
+  describe('with permission', () => {
+    beforeEach(() => {
+      server.use(
+        mockTrueGetAuthorize([
+          Permission.REPO_MODIFY_BINDINGS,
+          Permission.REPO_WRITE,
+        ]),
+      );
       server.use(mockEmptyGetRoles());
     });
 
     it('should allow users to open the roles modal', async () => {
       render(<PipelineList />);
-      server.use(mockTrueGetAuthorize());
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
       await click(
@@ -199,6 +234,47 @@ describe('Pipelines', () => {
           name: 'Set Repo Level Roles: default/montage',
         }),
       ).toBeInTheDocument();
+    });
+
+    it('should allow users to open the rerun pipeline modal', async () => {
+      render(<PipelineList />);
+
+      await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+      await click(
+        await screen.findByRole('menuitem', {
+          name: /rerun pipeline/i,
+        }),
+      );
+
+      const modal = await screen.findByRole('dialog');
+      expect(modal).toBeInTheDocument();
+
+      expect(
+        within(modal).getByRole('heading', {
+          name: 'Rerun Pipeline: default/montage',
+        }),
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('without permission', () => {
+    beforeEach(() => {
+      server.use(mockEmptyGetRoles());
+    });
+
+    it('should not allow users to open the rerun pipeline modal', async () => {
+      server.use(mockTrueGetAuthorize([]));
+      render(<PipelineList />);
+
+      await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+
+      await waitFor(() =>
+        expect(
+          screen.getByRole('menuitem', {
+            name: /rerun pipeline/i,
+          }),
+        ).toBeDisabled(),
+      );
     });
   });
 });

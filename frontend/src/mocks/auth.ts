@@ -4,6 +4,7 @@ import {
   mockGetRolesQuery,
   mockAuthConfigQuery,
   mockExchangeCodeMutation,
+  Permission,
 } from '@graphqlTypes';
 
 export const mockEmptyGetAuthorize = () =>
@@ -34,12 +35,12 @@ export const mockFalseGetAuthorize = () =>
     );
   });
 
-export const mockTrueGetAuthorize = () =>
+export const mockTrueGetAuthorize = (permissionsList: Permission[] = []) =>
   mockGetAuthorizeQuery((_req, res, ctx) => {
     return res(
       ctx.data({
         getAuthorize: {
-          satisfiedList: [],
+          satisfiedList: permissionsList,
           missingList: [],
           authorized: true,
           principal: '',

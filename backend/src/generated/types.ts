@@ -555,6 +555,7 @@ export type Mutation = {
   finishCommit: Scalars['Boolean'];
   modifyRoles: Scalars['Boolean'];
   putFilesFromURLs: Array<Scalars['String']>;
+  rerunPipeline: Scalars['Boolean'];
   setClusterDefaults: SetClusterDefaultsResp;
   startCommit: OpenCommit;
   updateProject: Project;
@@ -610,6 +611,10 @@ export type MutationModifyRolesArgs = {
 
 export type MutationPutFilesFromUrLsArgs = {
   args: PutFilesFromUrLsArgs;
+};
+
+export type MutationRerunPipelineArgs = {
+  args: RerunPipelineArgs;
 };
 
 export type MutationSetClusterDefaultsArgs = {
@@ -1105,6 +1110,12 @@ export type ReposQueryArgs = {
   projectId: Scalars['String'];
 };
 
+export type RerunPipelineArgs = {
+  pipelineId: Scalars['String'];
+  projectId: Scalars['String'];
+  reprocess?: InputMaybe<Scalars['Boolean']>;
+};
+
 export type Resource = {
   name: Scalars['String'];
   type: ResourceType;
@@ -1486,6 +1497,7 @@ export type ResolversTypes = ResolversObject<{
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   ReposQueryArgs: ReposQueryArgs;
+  RerunPipelineArgs: RerunPipelineArgs;
   Resource: Resource;
   ResourceType: ResourceType;
   RolesList: ResolverTypeWrapper<RolesList>;
@@ -1608,6 +1620,7 @@ export type ResolversParentTypes = ResolversObject<{
   RepoInput: RepoInput;
   RepoQueryArgs: RepoQueryArgs;
   ReposQueryArgs: ReposQueryArgs;
+  RerunPipelineArgs: RerunPipelineArgs;
   Resource: Resource;
   RolesList: RolesList;
   SchedulingSpec: SchedulingSpec;
@@ -2164,6 +2177,12 @@ export type MutationResolvers<
     ParentType,
     ContextType,
     RequireFields<MutationPutFilesFromUrLsArgs, 'args'>
+  >;
+  rerunPipeline?: Resolver<
+    ResolversTypes['Boolean'],
+    ParentType,
+    ContextType,
+    RequireFields<MutationRerunPipelineArgs, 'args'>
   >;
   setClusterDefaults?: Resolver<
     ResolversTypes['SetClusterDefaultsResp'],
@@ -3337,6 +3356,15 @@ export type PutFilesFromUrLsMutationVariables = Exact<{
 export type PutFilesFromUrLsMutation = {
   __typename?: 'Mutation';
   putFilesFromURLs: Array<string>;
+};
+
+export type RerunPipelineMutationVariables = Exact<{
+  args: RerunPipelineArgs;
+}>;
+
+export type RerunPipelineMutation = {
+  __typename?: 'Mutation';
+  rerunPipeline: boolean;
 };
 
 export type SetClusterDefaultsMutationVariables = Exact<{
@@ -4778,6 +4806,29 @@ export const mockPutFilesFromUrLsMutation = (
 ) =>
   graphql.mutation<PutFilesFromUrLsMutation, PutFilesFromUrLsMutationVariables>(
     'putFilesFromURLs',
+    resolver,
+  );
+
+/**
+ * @param resolver a function that accepts a captured request and may return a mocked response.
+ * @see https://mswjs.io/docs/basics/response-resolver
+ * @example
+ * mockRerunPipelineMutation((req, res, ctx) => {
+ *   const { args } = req.variables;
+ *   return res(
+ *     ctx.data({ rerunPipeline })
+ *   )
+ * })
+ */
+export const mockRerunPipelineMutation = (
+  resolver: ResponseResolver<
+    GraphQLRequest<RerunPipelineMutationVariables>,
+    GraphQLContext<RerunPipelineMutation>,
+    any
+  >,
+) =>
+  graphql.mutation<RerunPipelineMutation, RerunPipelineMutationVariables>(
+    'rerunPipeline',
     resolver,
   );
 

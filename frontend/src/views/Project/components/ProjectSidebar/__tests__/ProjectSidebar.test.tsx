@@ -586,6 +586,25 @@ description: >-
       ).toBeInTheDocument();
     });
 
+    it('should allow users to open the rerun pipeline modal', async () => {
+      render(<Project />);
+
+      await click(
+        await screen.findByRole('button', {
+          name: /rerun pipeline/i,
+        }),
+      );
+
+      const modal = await screen.findByRole('dialog');
+      expect(modal).toBeInTheDocument();
+
+      expect(
+        within(modal).getByRole('heading', {
+          name: 'Rerun Pipeline: default/montage',
+        }),
+      ).toBeInTheDocument();
+    });
+
     it('should default to the info tab for a service pipeline', async () => {
       server.use(mockGetServicePipeline());
 

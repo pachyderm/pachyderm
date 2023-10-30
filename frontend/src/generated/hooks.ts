@@ -841,6 +841,54 @@ export type PutFilesFromUrLsMutationOptions = Apollo.BaseMutationOptions<
   Types.PutFilesFromUrLsMutation,
   Types.PutFilesFromUrLsMutationVariables
 >;
+export const RerunPipelineDocument = gql`
+  mutation rerunPipeline($args: RerunPipelineArgs!) {
+    rerunPipeline(args: $args)
+  }
+`;
+export type RerunPipelineMutationFn = Apollo.MutationFunction<
+  Types.RerunPipelineMutation,
+  Types.RerunPipelineMutationVariables
+>;
+
+/**
+ * __useRerunPipelineMutation__
+ *
+ * To run a mutation, you first call `useRerunPipelineMutation` within a React component and pass it any options that fit your needs.
+ * When your component renders, `useRerunPipelineMutation` returns a tuple that includes:
+ * - A mutate function that you can call at any time to execute the mutation
+ * - An object with fields that represent the current status of the mutation's execution
+ *
+ * @param baseOptions options that will be passed into the mutation, supported options are listed on: https://www.apollographql.com/docs/react/api/react-hooks/#options-2;
+ *
+ * @example
+ * const [rerunPipelineMutation, { data, loading, error }] = useRerunPipelineMutation({
+ *   variables: {
+ *      args: // value for 'args'
+ *   },
+ * });
+ */
+export function useRerunPipelineMutation(
+  baseOptions?: Apollo.MutationHookOptions<
+    Types.RerunPipelineMutation,
+    Types.RerunPipelineMutationVariables
+  >,
+) {
+  const options = {...defaultOptions, ...baseOptions};
+  return Apollo.useMutation<
+    Types.RerunPipelineMutation,
+    Types.RerunPipelineMutationVariables
+  >(RerunPipelineDocument, options);
+}
+export type RerunPipelineMutationHookResult = ReturnType<
+  typeof useRerunPipelineMutation
+>;
+export type RerunPipelineMutationResult =
+  Apollo.MutationResult<Types.RerunPipelineMutation>;
+export type RerunPipelineMutationOptions = Apollo.BaseMutationOptions<
+  Types.RerunPipelineMutation,
+  Types.RerunPipelineMutationVariables
+>;
 export const SetClusterDefaultsDocument = gql`
   mutation setClusterDefaults($args: SetClusterDefaultsArgs!) {
     setClusterDefaults(args: $args) {

@@ -166,6 +166,26 @@ describe('Datum Viewer', () => {
       ).toBeVisible();
       expect(await screen.findByText('2 s')).toBeVisible();
     });
+
+    it('should allow users to open the rerun pipeline modal', async () => {
+      render(<JobDatumViewer />);
+
+      const rightPanel = screen.getByTestId('SidePanel__right');
+      await click(
+        within(rightPanel).getByRole('button', {
+          name: /rerun pipeline/i,
+        }),
+      );
+
+      const modal = (await screen.findAllByRole('dialog'))[1];
+      expect(modal).toBeInTheDocument();
+
+      expect(
+        within(modal).getByRole('heading', {
+          name: 'Rerun Pipeline: default/montage',
+        }),
+      ).toBeInTheDocument();
+    });
   });
 
   describe('Spout Pipeline', () => {

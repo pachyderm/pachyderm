@@ -1,6 +1,7 @@
 import React from 'react';
 
 import InfoPanel from '@dash-frontend/components/InfoPanel/';
+import {RerunPipelineButton} from '@dash-frontend/components/RerunPipelineModal';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import PipelineInfo from '@dash-frontend/views/Project/components/ProjectSidebar/components/PipelineDetails/components/PipelineInfo';
@@ -31,7 +32,11 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
           {isServiceOrSpout && (
             <>
               <MiddleSection key={jobId} />
-              <FullPagePanelModal.RightPanel>
+              <FullPagePanelModal.RightPanel
+                headerContent={
+                  <RerunPipelineButton>Rerun Pipeline</RerunPipelineButton>
+                }
+              >
                 <PipelineInfo />
               </FullPagePanelModal.RightPanel>
             </>
@@ -41,7 +46,11 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
             <>
               <LeftPanel job={job} />
               <MiddleSection key={`${jobId}-${datumId}`} />
-              <FullPagePanelModal.RightPanel>
+              <FullPagePanelModal.RightPanel
+                headerContent={
+                  <RerunPipelineButton>Rerun Pipeline</RerunPipelineButton>
+                }
+              >
                 {datumId ? (
                   <DatumDetails className={styles.overflowYScroll} />
                 ) : (

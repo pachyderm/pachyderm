@@ -73,6 +73,7 @@ import {
   GetClusterDefaultsRequest,
   SetClusterDefaultsRequest,
   SetClusterDefaultsResponse,
+  RerunPipelineRequest,
 } from '../proto/pps/pps_pb';
 import streamToObjectArray from '../utils/streamToObjectArray';
 
@@ -719,6 +720,33 @@ const ppsServiceRpcHandler = ({
       const stream = client.listDatum(request, credentialMetadata);
 
       return streamToObjectArray<DatumInfo, DatumInfo.AsObject>(stream);
+    },
+    rerunPipeline: ({
+      projectId,
+      pipelineId,
+      reprocess = false,
+    }: {
+      projectId: string;
+      pipelineId: string;
+      reprocess?: boolean;
+    }) => {
+      const req = new RerunPipelineRequest();
+
+      req.setPipeline(
+        new Pipeline()
+          .setName(pipelineId)
+          .setProject(new Project().setName(projectId)),
+      );
+      reprocess && req.setReprocess(reprocess);
+
+      return new Promise<void>((resolve, reject) => {
+        client.rerunPipeline(req, credentialMetadata, (error) => {
+          if (error) {
+            return reject(error);
+          }
+          return resolve();
+        });
+      });
     },
   };
 };
