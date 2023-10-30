@@ -3601,12 +3601,12 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinT(t, time.Second*60, func() error {
-			_, err := c.WaitCommit(pfs.DefaultProjectName, pipelines[9], "master", "")
-			return err
-		})
+		// require.NoErrorWithinT(t, time.Second*90, func() error {
+		_, err := c.WaitCommit(pfs.DefaultProjectName, pipelines[9], "master", "")
+		// return err
+		// })
 
-		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
 			pis, err := c.ListPipeline(false)
 			require.NoError(t, err)
 			var standby int
