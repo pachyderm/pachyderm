@@ -67,13 +67,9 @@ func newPipelineStateDriver(
 // takes pc.ctx
 func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
 	// query pipelineInfo
-	var pi *pps.PipelineInfo
-	var err error
-	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && collection.IsErrNotFound(err) {
-		// if the pipeline info is not found, interpret the operation as a delete
-		return nil, nil, nil
-	} else if err != nil {
-		return nil, nil, err
+	pi, err := sd.tryLoadLatestPipelineInfo(ctx, pipeline)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "fetch pipeline state")
 	}
 	tracing.TagAnySpan(ctx,
 		"current-state", pi.State.String(),
