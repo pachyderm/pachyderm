@@ -25,7 +25,7 @@ func main() {
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
-	threadPool := flag.Int("threads", 2, "Number of packages to collect tests from concurrently.")
+	threadPool := flag.Int("threads", 1, "Number of packages to collect tests from concurrently.")
 	flag.Parse()
 	err := run(ctx, *tags, *fileName, *threadPool)
 	if err != nil {
