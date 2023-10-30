@@ -115,7 +115,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 			return errors.Errorf("lock file for test collection still exists")
 		}
 		return nil
-	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*10), func(err error, d time.Duration) error {
+	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*20), func(err error, d time.Duration) error {
 		log.Info(ctx, "retry waiting for tests to be collected.", zap.Error(err))
 		return nil
 	})
