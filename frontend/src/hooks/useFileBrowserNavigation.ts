@@ -7,27 +7,28 @@ import useUrlQueryState from './useUrlQueryState';
 
 const useFileBrowserNavigation = () => {
   const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
-  const {pathname} = useLocation();
+  const {pathname, search} = useLocation();
 
   const getPathToFileBrowser = useCallback(
-    (args: Parameters<typeof fileBrowserRoute>[0]) => {
+    (
+      args: Parameters<typeof fileBrowserRoute>[0],
+      clearSearchParams = false,
+    ) => {
       return `${fileBrowserRoute(args, false)}?${getUpdatedSearchParams(
         {
-          prevPath: pathname,
+          prevPath: `${pathname}${search}`,
         },
-        true,
+        clearSearchParams,
       )}`;
     },
-    [pathname, getUpdatedSearchParams],
+    [getUpdatedSearchParams, pathname, search],
   );
 
   const getPathFromFileBrowser = useCallback(
     (backupPath: string) => {
-      return `${searchParams.prevPath || backupPath}?${getUpdatedSearchParams({
-        prevPath: undefined,
-      })}`;
+      return searchParams.prevPath || backupPath;
     },
-    [getUpdatedSearchParams, searchParams],
+    [searchParams],
   );
 
   return {

@@ -103,7 +103,7 @@ describe('ProjectSidebar', () => {
         within(overviewTab).getByRole('link', {name: /inspect job/i}),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum',
+        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
       );
 
       expect(
@@ -190,7 +190,7 @@ describe('ProjectSidebar', () => {
 
       expect(screen.getByRole('link', {name: /inspect jobs/i})).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs',
+        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs?globalIdFilter=1dc67e479f03498badcc6180be4ee6ce&prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage%3FglobalIdFilter%3D1dc67e479f03498badcc6180be4ee6ce',
       );
 
       const overviewTab = await screen.findByRole('tabpanel', {
@@ -205,7 +205,7 @@ describe('ProjectSidebar', () => {
         within(overviewTab).getByRole('link', {name: /inspect job/i}),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs/datum',
+        '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs/datum?globalIdFilter=1dc67e479f03498badcc6180be4ee6ce&prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage%3FglobalIdFilter%3D1dc67e479f03498badcc6180be4ee6ce',
       );
     });
 
@@ -403,7 +403,7 @@ description: >-
       });
       expect(topLogsLink).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs',
+        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
       );
       expect(topLogsLink).toBeEnabled();
 
@@ -412,7 +412,7 @@ description: >-
       });
       expect(inspectLogsLink).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum',
+        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
       );
       expect(inspectLogsLink).toBeEnabled();
     });
@@ -424,7 +424,7 @@ description: >-
       const logsLink = await screen.findByRole('link', {name: '1 Success'});
       expect(logsLink).toHaveAttribute(
         'href',
-        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?datumFilters=SUCCESS',
+        '/lineage/default/pipelines/montage/jobs/5c1aa9bc87dd411ba5a1be0c80a3ebc2/logs/datum?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage&datumFilters=SUCCESS',
       );
     });
 
@@ -823,7 +823,7 @@ description: >-
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
       );
 
       expect(
@@ -832,7 +832,7 @@ description: >-
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
       );
 
       expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(0);

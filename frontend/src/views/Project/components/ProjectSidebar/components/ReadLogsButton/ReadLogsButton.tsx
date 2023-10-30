@@ -1,13 +1,10 @@
-import React, {useCallback} from 'react';
+import React from 'react';
 
 import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJob} from '@dash-frontend/hooks/useJob';
+import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {
-  logsViewerJobRoute,
-  logsViewerLatestRoute,
-} from '@dash-frontend/views/Project/utils/routes';
 import {Button, PipelineSVG} from '@pachyderm/components';
 
 interface ReadLogsButtonProps {
@@ -16,8 +13,9 @@ interface ReadLogsButtonProps {
 
 const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   const {projectId, pipelineId, jobId} = useUrlState();
-  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
+  const {searchParams} = useUrlQueryState();
   const {isServiceOrSpout} = useCurrentPipeline();
+  const {getPathToJobLogs, getPathToLatestJobLogs} = useLogsNavigation();
 
   const buttonText = !isServiceOrSpout ? 'Inspect Jobs' : 'Read Logs';
 
@@ -35,41 +33,24 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   let logsLink = '';
 
   if (isServiceOrSpout) {
-    logsLink = logsViewerLatestRoute(
-      {
-        projectId,
-        pipelineId: pipelineId,
-      },
-      false,
-    );
+    logsLink = getPathToLatestJobLogs({
+      projectId,
+      pipelineId: pipelineId,
+    });
   } else if (jobId || job?.id) {
-    logsLink = logsViewerJobRoute(
-      {
-        projectId,
-        jobId: jobId || job?.id || '',
-        pipelineId: pipelineId,
-      },
-      false,
-    );
+    logsLink = getPathToJobLogs({
+      projectId,
+      jobId: jobId || job?.id || '',
+      pipelineId: pipelineId,
+    });
   }
-  const addLogsQueryParams = useCallback(
-    (path: string) => {
-      return `${path}?${getUpdatedSearchParams(
-        {
-          datumFilters: [],
-        },
-        true,
-      )}`;
-    },
-    [getUpdatedSearchParams],
-  );
 
   return (
     <Button
       buttonType="secondary"
       disabled={!logsLink}
       IconSVG={!omitIcon ? PipelineSVG : undefined}
-      to={addLogsQueryParams(logsLink)}
+      to={logsLink}
       name={buttonText}
     >
       {buttonText}

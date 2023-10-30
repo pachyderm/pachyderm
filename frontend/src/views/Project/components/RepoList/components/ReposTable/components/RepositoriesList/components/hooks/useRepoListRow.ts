@@ -33,12 +33,15 @@ const useRepoListRow = (repoId: string) => {
 
   const inspectCommitRedirect = (commit: Commit | null | undefined) => {
     if (commit) {
-      const fileBrowserLink = getPathToFileBrowser({
-        projectId,
-        repoId: commit.repoName,
-        commitId: commit.id,
-        branchId: commit.branch?.name || 'default',
-      });
+      const fileBrowserLink = getPathToFileBrowser(
+        {
+          projectId,
+          repoId: commit.repoName,
+          commitId: commit.id,
+          branchId: commit.branch?.name || 'default',
+        },
+        true,
+      );
       browserHistory.push(fileBrowserLink);
     }
   };

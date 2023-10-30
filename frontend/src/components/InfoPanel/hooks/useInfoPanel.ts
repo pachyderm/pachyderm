@@ -2,6 +2,7 @@ import {DatumFilter} from '@graphqlTypes';
 import {useCallback, useMemo} from 'react';
 
 import {useJob} from '@dash-frontend/hooks/useJob';
+import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
@@ -9,10 +10,10 @@ import {
   formatDurationFromSeconds,
 } from '@dash-frontend/lib/dateTime';
 import {Input} from '@dash-frontend/lib/types';
-import {logsViewerDatumRoute} from '@dash-frontend/views/Project/utils/routes';
 
 const useInfoPanel = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
+  const {getPathToDatumLogs} = useLogsNavigation();
   const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
 
   const {job, loading: jobLoading} = useJob({
@@ -78,19 +79,19 @@ const useInfoPanel = () => {
 
   let logsDatumRoute = '';
   if ((job?.id || jobId) && pipelineId) {
-    logsDatumRoute = logsViewerDatumRoute(
+    logsDatumRoute = getPathToDatumLogs(
       {
         projectId,
         jobId: job?.id || jobId,
         pipelineId: pipelineId,
       },
-      false,
+      [],
     );
   }
 
   const addLogsQueryParams = useCallback(
     (path: string, filter: DatumFilter) => {
-      return `${path}?${getUpdatedSearchParams(
+      return `${path}&${getUpdatedSearchParams(
         {
           datumFilters: [filter],
         },

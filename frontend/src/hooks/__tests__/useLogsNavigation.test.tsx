@@ -112,8 +112,6 @@ describe('useLogsNavigation', () => {
     window.history.pushState('', '', path);
 
     render(<NavigationFromComponent backupPath={backPath} />);
-    expect(
-      screen.getByText('path from logs: /backupPath?'),
-    ).toBeInTheDocument();
+    expect(screen.getByText('path from logs: /backupPath')).toBeInTheDocument();
   });
 });

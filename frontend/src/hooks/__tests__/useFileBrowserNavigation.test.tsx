@@ -64,9 +64,7 @@ describe('useFileBrowserNavigation', () => {
 
     render(<NavigationFromComponent backupPath={backPath} />);
     expect(
-      screen.getByText(
-        'path from file browser: /project/projectA/repos/repoA?',
-      ),
+      screen.getByText('path from file browser: /project/projectA/repos/repoA'),
     ).toBeInTheDocument();
   });
 
@@ -78,7 +76,7 @@ describe('useFileBrowserNavigation', () => {
 
     render(<NavigationFromComponent backupPath={backPath} />);
     expect(
-      screen.getByText('path from file browser: /backupPath?'),
+      screen.getByText('path from file browser: /backupPath'),
     ).toBeInTheDocument();
   });
 });

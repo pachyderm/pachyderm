@@ -211,5 +211,9 @@ describe('Repos', () => {
     cy.findByText('Commit files for');
     cy.findByText('liberty.png');
     cy.findByText('Added');
+
+    // table filters are kept on close
+    cy.findByRole('button', {name: 'Close'}).click();
+    cy.findAllByTestId('CommitsList__row').should('have.length', 1);
   });
 });

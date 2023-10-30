@@ -12,55 +12,60 @@ import useUrlQueryState from './useUrlQueryState';
 
 const useLogsNavigation = () => {
   const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
-  const {pathname} = useLocation();
+  const {pathname, search} = useLocation();
 
   const getPathToJobLogs = useCallback(
-    (args: Parameters<typeof logsViewerJobRoute>[0]) => {
+    (
+      args: Parameters<typeof logsViewerJobRoute>[0],
+      clearSearchParams = false,
+    ) => {
       return `${logsViewerJobRoute(args, false)}?${getUpdatedSearchParams(
         {
-          prevPath: pathname,
+          prevPath: `${pathname}${search}`,
         },
-        true,
+        clearSearchParams,
       )}`;
     },
-    [pathname, getUpdatedSearchParams],
+    [getUpdatedSearchParams, pathname, search],
   );
 
   const getPathToDatumLogs = useCallback(
     (
       args: Parameters<typeof logsViewerDatumRoute>[0],
       datumFilters: DatumFilter[],
+      clearSearchParams = false,
     ) => {
       return `${logsViewerDatumRoute(args, false)}?${getUpdatedSearchParams(
         {
-          prevPath: pathname,
+          prevPath: `${pathname}${search}`,
           datumFilters,
         },
-        true,
+        clearSearchParams,
       )}`;
     },
-    [pathname, getUpdatedSearchParams],
+    [getUpdatedSearchParams, pathname, search],
   );
 
   const getPathToLatestJobLogs = useCallback(
-    (args: Parameters<typeof logsViewerLatestRoute>[0]) => {
+    (
+      args: Parameters<typeof logsViewerLatestRoute>[0],
+      clearSearchParams = false,
+    ) => {
       return `${logsViewerLatestRoute(args, false)}?${getUpdatedSearchParams(
         {
-          prevPath: pathname,
+          prevPath: `${pathname}${search}`,
         },
-        true,
+        clearSearchParams,
       )}`;
     },
-    [pathname, getUpdatedSearchParams],
+    [getUpdatedSearchParams, pathname, search],
   );
 
   const getPathFromLogs = useCallback(
     (backupPath: string) => {
-      return `${searchParams.prevPath || backupPath}?${getUpdatedSearchParams({
-        prevPath: undefined,
-      })}`;
+      return searchParams.prevPath || backupPath;
     },
-    [getUpdatedSearchParams, searchParams],
+    [searchParams],
   );
 
   return {
