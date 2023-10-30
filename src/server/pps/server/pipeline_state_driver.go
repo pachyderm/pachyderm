@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -69,10 +70,11 @@ func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (
 	// query pipelineInfo
 	var pi *pps.PipelineInfo
 	var err error
-	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && collection.IsErrNotFound(err) {
+	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && (collection.IsErrNotFound(err) || strings.Contains(err.Error(), "not found")) { // DNJ TODO - revert place holder for real fix
 		// if the pipeline info is not found, interpret the operation as a delete
 		return nil, nil, nil
 	} else if err != nil {
+		log.Info(ctx, "DNJ TODO err loading info ", zap.Error(err), zap.Bool("isNotFound", errors.Is(err, pfsserver.ErrBranchNotFound{})))
 		return nil, nil, err
 	}
 	tracing.TagAnySpan(ctx,

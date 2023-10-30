@@ -362,9 +362,11 @@ func testNamespaceInEndpoint(t *testing.T, c *client.APIClient, ns string) {
 
 	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
-	require.NoError(t, err)
+	var jobInfo *pps.JobInfo
+	require.NoErrorWithinT(t, time.Second*120, func() error {
+		jobInfo, err = c.WaitJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
+		return err
+	})
 	require.Equal(t, "JOB_SUCCESS", jobInfo.State.String())
 
 	// check S3_ENDPOINT variable
