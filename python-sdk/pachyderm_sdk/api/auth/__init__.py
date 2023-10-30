@@ -95,6 +95,9 @@ class Permission(betterproto.Enum):
     CLUSTER_SET_DEFAULTS = 302
     """CLUSTER_SET_DEFAULTS is part of PPS."""
 
+    PROJECT_SET_DEFAULTS = 303
+    """PROJECT_SET_DEFAULTS is part of PPS."""
+
     PROJECT_CREATE = 400
     PROJECT_DELETE = 401
     PROJECT_LIST_REPO = 402
