@@ -91,8 +91,9 @@ const LogsBody: React.FC<LogsBodyProps> = ({
       <EmptyState
         title={`No logs found for this ${isDatum ? 'datum' : 'job'}.`}
       >
-        If you haven&apos;t already, consider setting up a persistent log
-        aggregator like{' '}
+        Make sure you have access to all repositories that are inputs to this
+        pipeline. Also, if you haven&apos;t already, consider setting up a
+        persistent log aggregator like{' '}
         <BrandedDocLink pathWithoutDomain="deploy-manage/deploy/loki/">
           Loki
         </BrandedDocLink>
