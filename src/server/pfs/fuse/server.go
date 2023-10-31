@@ -1188,52 +1188,85 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	return nil
 }
 
-// Visit each entry in the Input spec and set default values if unassigned
-// Create a map from input to mount name for use in mounting datums
-// Return whether the input has a cron, group by, or join for later use to
-// determine whether to use GlobFile or ListDatum #ListDatumPagination
 func (mm *MountManager) processInput(datumInput *pps.Input) error {
 	if datumInput == nil {
 		return errors.New("datum input is not specified")
-		return true, errors.New("datum input is not specified")
 	}
+	if err := validateNames(make(map[string]bool), datumInput); err != nil {
+		return errors.Wrap(err, "invalid datum input")
+	}
+	return mm.parseInput(datumInput)
+}
 
+// Visit each entry in the Input spec and set default values if unassigned
+// Create a map from input to mount name(s) for use in mounting datums
+// Set whether the input is simple (i.e. not a group by or join) for later use to
+// determine whether to use GlobFile or ListDatum #ListDatumPagination
+func (mm *MountManager) parseInput(datumInput *pps.Input) error {
+	datumInputsToNames := map[string][]string{} // Maps PFS input to mount name(s)
 	simpleInput := true
 	datumInputToName := make(map[string]string)
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
-		if input.Pfs == nil {
-			if input.Cron != nil || input.Join != nil || input.Group != nil {
-				simpleInput = false
+		set := 0
+		if input.Cron != nil {
+			return errors.New("cron input type not supported in mounting datums")
+		}
+		if input.Join != nil {
+			simpleInput = false
+			set++
+		}
+		if input.Group != nil {
+			simpleInput = false
+			set++
+		}
+		if input.Cross != nil {
+			set++
+		}
+		if input.Union != nil {
+			set++
+		}
+		if input.Pfs != nil {
+			set++
+			switch {
+			case input.Pfs.Repo == "":
+				return errors.New("repo must be specified")
+			case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+				return errors.New("name must be specified for repo 'out'")
+			case len(input.Pfs.Glob) == 0:
+				return errors.New("glob must be specified")
+			case input.Pfs.S3:
+				return errors.New("s3 data not supported in mounting datums")
+			case input.Pfs.Commit != "":
+				return errors.New("commit cannot be specified")
 			}
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = pfs.DefaultProjectName
+			}
+			if input.Pfs.Branch == "" {
+				input.Pfs.Branch = "master"
+			}
+			if input.Pfs.Name == "" {
+				input.Pfs.Name = input.Pfs.Repo
+			}
+			// In the case a branch is created off another branch, listing datums returns files from
+			// the original branch a commit is on. We should index on that original branch instead.
+			bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+			if err != nil {
+				return err
+			}
+			pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
+			datumInputsToNames[pfsInput] = append(datumInputsToNames[pfsInput], input.Pfs.Name)
+		}
+		switch {
+		case set == 0:
+			return errors.New("no input set")
+		case set > 1:
+			return errors.New("multiple input types set")
+		default:
 			return nil
 		}
-
-		if input.Pfs.Project == "" {
-			input.Pfs.Project = pfs.DefaultProjectName
-		}
-		if input.Pfs.Commit != "" {
-			return errors.New("cannot specify commit in mounting datums Input")
-		}
-		if input.Pfs.Branch == "" {
-			input.Pfs.Branch = "master"
-		}
-		if input.Pfs.Name == "" {
-			input.Pfs.Name = input.Pfs.Project + "_" + input.Pfs.Repo
-			if input.Pfs.Branch != "master" {
-				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
-			}
-		}
-		// In the case a branch is created off another branch, listing datums returns files from
-		// the original branch a commit is on. We should index on that original branch instead.
-		bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
-		if err != nil {
-			return err
-		}
-		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		datumInputsToNames[pfsInput] = append(datumInputsToNames[pfsInput], input.Pfs.Name)
-		return nil
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "error parsing datum input")
 	}
 	func() {
 		mm.mu.Lock()
@@ -1351,6 +1384,7 @@ func (mm *MountManager) CreateDatums() error {
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 	mis := []*MountInfo{}
+	datumInputToNames := copyMap(mm.DatumInputToNames)
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
