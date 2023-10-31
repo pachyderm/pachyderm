@@ -193,9 +193,7 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrBranchNotFound{
-				ID: id,
-			}
+			return nil, ErrBranchNotFound{ID: id}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
@@ -207,6 +205,9 @@ func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, rep
 	row := &Branch{}
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		if err == sql.ErrNoRows {
+			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
+				return nil, err
+			}
 			errBranch := pfs.Branch{
 				Repo: &pfs.Repo{
 					Project: &pfs.Project{Name: project},

@@ -99,6 +99,24 @@ func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, c
 	return &pfsdb.CommitWithID{ID: commitID, CommitInfo: commitInfo}
 }
 
+func TestGetBranchByNameMissingRepo(t *testing.T) {
+	t.Parallel()
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := newRepoInfo(&pfs.Project{Name: "default"}, "repo1", pfs.UserRepoType)
+			branchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "master",
+				},
+			}
+			_, err := pfsdb.GetBranchInfoByName(ctx, tx, repoInfo.Repo.Project.Name, repoInfo.Repo.Name, repoInfo.Repo.Type, branchInfo.Branch.Name)
+			require.True(t, errors.Is(err, pfsdb.ErrRepoNotFound{Name: "repo1", Type: pfs.UserRepoType, Project: "default"}))
+		})
+	})
+
+}
+
 func TestBranchUpsert(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {

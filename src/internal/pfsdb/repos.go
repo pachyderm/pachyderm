@@ -90,6 +90,9 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
+		if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
+			return err
+		}
 		return ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
 	}
 	return nil
@@ -140,8 +143,7 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 		repoProject, repoName, repoType,
 	); err != nil {
 		if err == sql.ErrNoRows {
-			_, err := GetProjectByName(ctx, tx, repoProject)
-			if err != nil {
+			if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
 				return nil, err
 			}
 			return nil, ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}

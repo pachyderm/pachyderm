@@ -108,6 +108,17 @@ func TestDeleteRepo(t *testing.T) {
 	})
 }
 
+func TestDeleteRepoMissingProject(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	expectedInfo := testRepo(testRepoName, testRepoType)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		err := pfsdb.DeleteRepo(ctx, tx, "doesNotExist", expectedInfo.Repo.Name, expectedInfo.Repo.Type)
+		require.ErrorIs(t, err, pfsdb.ErrProjectNotFound{Name: "doesNotExist"})
+	})
+}
+
 func createCommitAndBranches(ctx context.Context, tx *pachsql.Tx, t *testing.T, repoInfo *pfs.RepoInfo) {
 	for _, branch := range repoInfo.Branches {
 		commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: nil, Id: random.String(32)}
