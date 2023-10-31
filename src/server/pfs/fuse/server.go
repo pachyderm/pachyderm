@@ -644,7 +644,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			return
 		}
 		if err := mm.processInput(pipelineReq.Input); err != nil {
-			http.Error(w, fmt.Sprintf("error converting datum inputs to mounts: %v", err), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error processing input: %v", err), http.StatusBadRequest)
 			return
 		}
 		if err := mm.GetDatums(); err != nil {
@@ -1192,9 +1192,6 @@ func (mm *MountManager) processInput(datumInput *pps.Input) error {
 	if datumInput == nil {
 		return errors.New("datum input is not specified")
 	}
-	if err := ppsutil.ValidateNames(datumInput); err != nil {
-		return errors.Wrap(err, "invalid datum input")
-	}
 	return mm.parseInput(datumInput)
 }
 
@@ -1267,6 +1264,10 @@ func (mm *MountManager) parseInput(datumInput *pps.Input) error {
 		}
 	}); err != nil {
 		return errors.Wrap(err, "error parsing datum input")
+	}
+	// ValidateNames requires input.Pfs.Name to be set so call after parsing input
+	if err := ppsutil.ValidateNames(datumInput); err != nil {
+		return errors.Wrap(err, "invalid names in datum input")
 	}
 	func() {
 		mm.mu.Lock()
