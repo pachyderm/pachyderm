@@ -80,6 +80,8 @@ def _get_file_model(
             format = "text"
         except UnicodeError:
             format = "base64"
+    elif format == "text":
+        decoded = value.decode(encoding="utf-8")
 
     if format == "text":
         model["format"] = "text"
@@ -155,19 +157,23 @@ class PFSManager(FileContentsManager):
             raise ValueError(f"attempted to unmount {name} which was not mounted.")
         del self._mounted[name]
 
-    def _get_name(self, path: Path) -> str:
+    def unmount_all(self):
+        self._mounted.clear()
+
+    def _get_name(self, path: str) -> str:
+        path = path.lstrip("/")
         if not path:
             return None
         return Path(path).parts[0]
 
-    def _get_path(self, path: Path) -> str:
+    def _get_path(self, path: str) -> str:
+        path = path.lstrip("/")
         if not path or len(Path(path).parts) == 1:
             return ""
         return str(Path(*Path(path).parts[1:]))
 
     # returns None for empty path, i.e. the top-level directory
     def _get_file_from_path(self, path: str) -> pfs.File:
-        path = path.lstrip("/")
         name = self._get_name(path)
         if not name:
             return None
@@ -216,8 +222,8 @@ class PFSManager(FileContentsManager):
         models = []
         for repo, branch in self._mounted.items():
             time = self._client.pfs.inspect_commit(
-                commit=pfs.Commit(branch=branch, repo=repo)
-            ).finished
+                commit=pfs.Commit(branch=branch, repo=branch.repo)
+            ).started
             models.append(
                 ContentModel(
                     name=repo,
@@ -252,6 +258,20 @@ class PFSManager(FileContentsManager):
             writable=False,
         )
 
+    def _get_empty_repo_model(self, name: str, content: bool):
+        repo = self._client.pfs.inspect_repo(repo=self._mounted[name].repo)
+        return ContentModel(
+            name=name,
+            path=name,
+            type="directory",
+            created=repo.created,
+            last_modified=repo.created,
+            content=[] if content else None,
+            mimetype=None,
+            format="json" if content else None,
+            writable=False,
+        )
+
     def get(self, path, content=True, type=None, format=None) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
@@ -266,7 +286,19 @@ class PFSManager(FileContentsManager):
             # show top-level dir
             return self._get_toplevel_model(content=content)
 
-        fileinfo = self._client.pfs.inspect_file(file=file)
+        try:
+            fileinfo = self._client.pfs.inspect_file(file=file)
+        except grpc.RpcError as err:
+            # handle getting empty repo root or repo with no commits
+            if (
+                err.code() == grpc.StatusCode.NOT_FOUND
+                or err.code() == grpc.StatusCode.UNKNOWN
+            ) and not self._get_path(path=path):
+                return self._get_empty_repo_model(
+                    name=self._get_name(path), content=content
+                )
+            else:
+                raise err
 
         model = _create_base_model(path=path, fileinfo=fileinfo, type=type)
 
@@ -326,10 +358,6 @@ class DatumManager(FileContentsManager):
         self._datum_index = 0
         self._mount_time = datetime.datetime.min
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
-        # TODO: expose the apis for mounting/cycling datums
-        input = {"input": {"pfs": {"repo": "test", "glob": "/file*"}}}
-        self.mount_datums(input_dict=input)
-        # self.next_datum()
         super().__init__(**kwargs)
 
     # TODO: don't ignore name in the input spec

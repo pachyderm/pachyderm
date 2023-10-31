@@ -209,18 +209,9 @@ def upload_environment(
 class PPSClient:
     """Client interface for the PPS extension backend."""
 
-    def __init__(self):
+    def __init__(self, client: Client):
         self.nbconvert = PythonExporter()
-        try:
-            self.client = Client().from_config()  # from local config file
-            get_logger().debug(
-                f"Created PPS client for {self.client.address} from local config file"
-            )
-        except FileNotFoundError:
-            self.client = Client()
-            get_logger().debug(
-                "Could not find config file, creating localhost PPS client"
-            )
+        self.client = client
 
     @staticmethod
     async def generate(path):

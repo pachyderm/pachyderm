@@ -1,6 +1,7 @@
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
+import json
 from pachyderm_sdk import Client
 import tornado
 import traceback
@@ -65,7 +66,8 @@ class ProjectsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            response = await self.mount_client.list_projects()
+            projects = self.settings["pachyderm_client"].pfs.list_project()
+            response = json.dumps([p.to_dict() for p in projects])
             get_logger().debug(f"Projects: {response}")
             self.finish(response)
         except Exception as e:
@@ -81,6 +83,15 @@ class MountHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
+            # TODO: move mount req/rsp handling out of mount-server
+            for m in body["mounts"]:
+                repo = m["repo"]
+                branch = m["branch"]
+                project = m["project"]
+                name = m["name"]
+                self.settings["pfs_contents_manager"].mount_repo(
+                    repo=repo, branch=branch, project=project, name=name
+                )
             response = await self.mount_client.mount(body)
             get_logger().debug(f"Mount: {response}")
             self.finish(response)
@@ -97,6 +108,9 @@ class UnmountHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
+            # TODO: move unmount req/rsp handling out of mount-server
+            for name in body["mounts"]:
+                self.settings["pfs_contents_manager"].unmount_repo(name=name)
             response = await self.mount_client.unmount(body)
             get_logger().debug(f"Unmount: {response}")
             self.finish(response)
@@ -130,6 +144,8 @@ class UnmountAllHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
+            # TODO: move req/rsp handling out of mount-server
+            self.settings["pfs_contents_manager"].unmount_all()
             response = await self.mount_client.unmount_all()
             get_logger().debug(f"Unmount all: {response}")
             self.finish(response)
@@ -146,6 +162,7 @@ class MountDatumsHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
+            self.settings["datum_contents_manager"].mount_datums(input_dict=body)
             response = await self.mount_client.mount_datums(body)
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
@@ -163,6 +180,7 @@ class DatumNextHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
+            self.settings["datum_contents_manager"].next_datum()
             response = await self.mount_client.next_datum()
             get_logger().debug(f"Next datum: {response}")
             self.finish(response)
@@ -178,6 +196,7 @@ class DatumPrevHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
+            self.settings["datum_contents_manager"].prev_datum()
             response = await self.mount_client.prev_datum()
             get_logger().debug(f"Prev datum: {response}")
             self.finish(response)
@@ -206,7 +225,7 @@ class DatumsHandler(BaseHandler):
 
 class PFSHandler(ContentsHandler):
     @property
-    def pfs_contents_manager(self) -> PFSContentsManager:
+    def pfs_contents_manager(self) -> PFSManager:
         return self.settings["pfs_contents_manager"]
 
     @tornado.web.authenticated
@@ -240,6 +259,42 @@ class PFSHandler(ContentsHandler):
         self._finish_model(model, location=False)
 
 
+class ViewDatumHandler(ContentsHandler):
+    @property
+    def datum_contents_manager(self) -> DatumManager:
+        return self.settings["datum_contents_manager"]
+
+    @tornado.web.authenticated
+    async def get(self, path):
+        """Copied from https://github.com/jupyter-server/jupyter_server/blob/29be9c6658d7ef04f9b124c54102f7334b610253/jupyter_server/services/contents/handlers.py#L86
+
+        Serves files rooted at PFS_MOUNT_DIR instead of the default content manager's root_dir
+        The reason for this is that we want the ability to serve the browser files rooted outside of the default root_dir without overriding it.
+        """
+        path = path or ""
+        type = self.get_query_argument("type", default=None)
+        if type not in {None, "directory", "file", "notebook"}:
+            raise tornado.web.HTTPError(400, "Type %r is invalid" % type)
+        format = self.get_query_argument("format", default=None)
+        if format not in {None, "text", "base64"}:
+            raise tornado.web.HTTPError(400, "Format %r is invalid" % format)
+        content = self.get_query_argument("content", default="1")
+        if content not in {"0", "1"}:
+            raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
+        content = int(content)
+
+        model = await ensure_async(
+            self.datum_contents_manager.get(
+                path=path,
+                type=type,
+                format=format,
+                content=content,
+            )
+        )
+        validate_model(model, expect_content=content)
+        self._finish_model(model, location=False)
+
+
 class ConfigHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
@@ -247,8 +302,22 @@ class ConfigHandler(BaseHandler):
             body = self.get_json_body()
             response = await self.mount_client.config(body)
             self.finish(response)
-            # reload pps client with new config
-            self.settings["pachyderm_pps_client"] = PPSClient()
+
+            # reload pachyderm_sdk clients with new config
+            try:
+                client = Client().from_config()
+                get_logger().debug(
+                    f"Created Pachyderm client for {client.address} from local config"
+                )
+            except FileNotFoundError:
+                client = Client()
+                get_logger().debug(
+                    "Could not find config file, creating localhost Pachyderm client"
+                )
+
+            self.settings["pfs_contents_manager"] = PFSManager(client=client)
+            self.settings["datum_contents_manager"] = DatumManager(client=client)
+            self.settings["pachyderm_pps_client"] = PPSClient(client=client)
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",
@@ -349,18 +418,25 @@ class PPSCreateHandler(BaseHandler):
 def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     get_logger().info(f"Using PFS_SOCK_PATH={PFS_SOCK_PATH}")
-    # web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-    # web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR, PFS_SOCK_PATH)
-    web_app.settings["pachyderm_pps_client"] = PPSClient()
 
-    client = Client(host="host.docker.internal", port=30650)
+    try:
+        client = Client().from_config()
+        get_logger().debug(
+            f"Created Pachyderm client for {client.address} from local config"
+        )
+    except FileNotFoundError:
+        client = Client()
+        get_logger().debug(
+            "Could not find config file, creating localhost Pachyderm client"
+        )
+
     web_app.settings["pachyderm_mount_client"] = MountServerClient(
-        mount_dir=PFS_MOUNT_DIR, sock_path=PFS_SOCK_PATH, pfs_client=client
+        mount_dir=PFS_MOUNT_DIR, sock_path=PFS_SOCK_PATH
     )
-
-    # uncomment below to use the pachyderm sdk based file manager
-    # web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
-    web_app.settings["pfs_contents_manager"] = DatumManager(client=client)
+    web_app.settings["pachyderm_client"] = client
+    web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+    web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
+    web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
         ("/repos", ReposHandler),
@@ -375,6 +451,7 @@ def setup_handlers(web_app):
         ("/datums/_prev", DatumPrevHandler),
         ("/datums", DatumsHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
+        (r"/view_datum%s" % path_regex, ViewDatumHandler),
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),

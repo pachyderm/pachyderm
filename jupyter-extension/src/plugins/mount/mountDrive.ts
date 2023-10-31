@@ -6,6 +6,7 @@ import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
 import {Paging} from './paging';
+import {MOUNT_BROWSER_PREFIX} from './mount';
 
 const MAX_NUM_CONTENTS_PAGE = 100;
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
@@ -29,16 +30,20 @@ export class MountDrive implements Contents.IDrive {
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
   private _cache: {key: string | null; contents: any};
+  private _path: string;
+  private _name_suffix: string;
   modelDBFactory?: ModelDB.IFactory | undefined;
 
-  constructor(registry: DocumentRegistry) {
+  constructor(registry: DocumentRegistry, path: string, name_suffix: string) {
     this._registry = registry;
     this._model = {page: 0, max_page: 0};
     this._cache = {key: null, contents: DEFAULT_CONTENT_MODEL};
+    this._path = path;
+    this._name_suffix = name_suffix;
   }
 
-  get name(): 'mount-browser' {
-    return 'mount-browser';
+  get name(): string {
+    return MOUNT_BROWSER_PREFIX + this._name_suffix;
   }
 
   get model(): Paging.IModel {
@@ -76,7 +81,7 @@ export class MountDrive implements Contents.IDrive {
     localPath: string,
     options?: Contents.IFetchOptions,
   ): Promise<Contents.IModel> {
-    const url = URLExt.join('pfs', localPath);
+    const url = URLExt.join(this._path, localPath);
 
     // Make a no-content request to determine the type of content being requested.
     // If the content type is not a directory, then we want to preserve our cache
@@ -85,7 +90,7 @@ export class MountDrive implements Contents.IDrive {
     try {
       shallowResponse = await this._get(url, {content: '0'});
     } catch (e) {
-      console.log('/pfs not found');
+      console.log(url + ' not found');
       return DEFAULT_CONTENT_MODEL;
     }
     const content = options?.content ? '1' : '0';
