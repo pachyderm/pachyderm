@@ -27,29 +27,36 @@ type idToken struct {
 func (w *dexWeb) handleIDToken(next http.Handler) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		srw := &saveResponseWriter{
-			rw: &rw,
+		bw := &bufferResponseWriter{
+			rw: rw,
 			b:  &bytes.Buffer{},
 		}
-		defer srw.flushHeader()
-		next.ServeHTTP(srw, r)
+		next.ServeHTTP(bw, r)
+		if bw.statusCode < 200 || bw.statusCode >= 300 {
+			log.Info(ctx, "ID token endpoint returned status code - skipping provisioning", zap.Int("statusCode", bw.statusCode))
+			if err := bw.flush(); err != nil {
+				log.Error(ctx, "failed to flush ID token results", zap.Error(err))
+			}
+			return
+		}
 		ps, err := w.provisioners(ctx)
 		if err != nil {
 			log.Error(ctx, "failed to collect user provisioners", zap.Error(err))
-			srw.WriteHeader(http.StatusInternalServerError)
+			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if len(ps) == 0 {
 			return
 		}
-		token, err := idTokenFromBytes(ctx, srw.b.Bytes())
+		token, err := idTokenFromBytes(ctx, bw.b.Bytes())
 		if err != nil {
-			srw.WriteHeader(http.StatusInternalServerError)
+			log.Error(ctx, "failed to extract ID token from bytes", zap.Error(err))
+			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		if token.Email == "" {
 			log.Error(ctx, "failed to find email claim in ID token", zap.Error(err))
-			srw.WriteHeader(http.StatusInternalServerError)
+			rw.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 		for _, p := range ps {
@@ -59,13 +66,13 @@ func (w *dexWeb) handleIDToken(next http.Handler) http.HandlerFunc {
 				if !errors.As(err, &errNotFound{}) {
 					log.Error(ctx, "failed to find user", zap.Error(err),
 						zap.String("user", token.Email))
-					srw.WriteHeader(http.StatusInternalServerError)
+					rw.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 				if _, err := p.createUser(ctx, &user{name: token.Email}); err != nil {
 					log.Error(ctx, "failed to provision user", zap.Error(err),
 						zap.String("user", token.Email))
-					srw.WriteHeader(http.StatusInternalServerError)
+					rw.WriteHeader(http.StatusInternalServerError)
 					return
 				}
 			}
@@ -76,13 +83,13 @@ func (w *dexWeb) handleIDToken(next http.Handler) http.HandlerFunc {
 					if !errors.As(err, &errNotFound{}) {
 						log.Error(ctx, "failed to find group", zap.Error(err),
 							zap.String("group", grp))
-						srw.WriteHeader(http.StatusInternalServerError)
+						rw.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 					if _, err := p.createGroup(ctx, &group{name: grp}); err != nil {
 						log.Error(ctx, "failed to provision group", zap.Error(err),
 							zap.String("group", grp))
-						srw.WriteHeader(http.StatusInternalServerError)
+						rw.WriteHeader(http.StatusInternalServerError)
 						return
 					}
 				}
@@ -92,9 +99,13 @@ func (w *dexWeb) handleIDToken(next http.Handler) http.HandlerFunc {
 				log.Error(ctx, "failed to set user groups", zap.Error(err),
 					zap.String("user", token.Email),
 					zap.Any("groups", token.Groups))
-				srw.WriteHeader(http.StatusInternalServerError)
+				rw.WriteHeader(http.StatusInternalServerError)
 				return
 			}
+		}
+		if err := bw.flush(); err != nil {
+			log.Error(ctx, "failed to flush ID token results", zap.Error(err))
+			return
 		}
 	}
 }
@@ -122,33 +133,28 @@ func idTokenFromBytes(ctx context.Context, b []byte) (*idToken, error) {
 	return token, nil
 }
 
-type saveResponseWriter struct {
+type bufferResponseWriter struct {
 	b          *bytes.Buffer
-	rw         *http.ResponseWriter
+	rw         http.ResponseWriter
 	statusCode int
 }
 
-func (sr *saveResponseWriter) Write(b []byte) (int, error) {
-	if _, err := sr.b.Write(b); err != nil {
-		return 0, errors.Wrap(err, "write bytes to save response writer buffer")
-	}
-	w := *sr.rw
-	i, err := w.Write(b)
-	return i, errors.Wrap(err, "write bytes to response writer")
+func (sr *bufferResponseWriter) Write(b []byte) (int, error) {
+	return sr.b.Write(b)
 }
 
-func (sr *saveResponseWriter) Header() http.Header {
-	w := *sr.rw
-	return w.Header()
+func (sr *bufferResponseWriter) Header() http.Header {
+	return sr.rw.Header()
 }
 
-func (sr *saveResponseWriter) WriteHeader(statusCode int) {
+func (sr *bufferResponseWriter) WriteHeader(statusCode int) {
 	sr.statusCode = statusCode
 }
 
-func (sr *saveResponseWriter) flushHeader() {
-	w := *sr.rw
-	w.WriteHeader(sr.statusCode)
+func (sr *bufferResponseWriter) flush() error {
+	sr.rw.WriteHeader(sr.statusCode)
+	_, err := sr.rw.Write(sr.b.Bytes())
+	return err
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {

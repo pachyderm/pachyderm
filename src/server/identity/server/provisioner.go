@@ -76,7 +76,6 @@ func newDeterminedProvisioner(ctx context.Context, config determinedConfig) (pro
 	if err != nil {
 		return nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
-	defer conn.Close()
 	dc := det.NewDeterminedClient(conn)
 	tok, err := mintDeterminedToken(ctx, dc, config.Username, config.Password)
 	if err != nil {
