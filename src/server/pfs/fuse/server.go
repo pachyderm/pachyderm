@@ -1192,7 +1192,7 @@ func (mm *MountManager) processInput(datumInput *pps.Input) error {
 	if datumInput == nil {
 		return errors.New("datum input is not specified")
 	}
-	if err := validateNames(make(map[string]bool), datumInput); err != nil {
+	if err := ppsutil.ValidateNames(datumInput); err != nil {
 		return errors.Wrap(err, "invalid datum input")
 	}
 	return mm.parseInput(datumInput)
