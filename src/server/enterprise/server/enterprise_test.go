@@ -30,7 +30,7 @@ import (
 const year = 365 * 24 * time.Hour
 
 func realEnvWithLicense(ctx context.Context, t *testing.T, expireTime ...time.Time) (*realenv.RealEnv, string) {
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	testutil.ActivateLicense(t, env.PachClient, peerPort, expireTime...)
 	_, err := env.PachClient.Enterprise.Activate(ctx,
@@ -184,7 +184,7 @@ func TestDoubleDeactivate(t *testing.T) {
 func TestGetActivationCodeNotAdmin(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	aliceClient := testutil.AuthenticatedPachClient(t, c, "robot:alice", peerPort)

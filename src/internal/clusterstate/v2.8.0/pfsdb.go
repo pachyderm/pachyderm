@@ -268,7 +268,7 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN error text,
 		ADD COLUMN size bigint,
 		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id);
+		ADD COLUMN branch_id bigint;
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits
