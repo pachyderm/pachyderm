@@ -1230,9 +1230,7 @@ func (mm *MountManager) processInput(datumInput *pps.Input) error {
 			return err
 		}
 		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		if _, ok := datumInputsToNames[pfsInput]; ok {
-			return errors.Errorf("duplicate pfs input %s", pfsInput)
-		}
+		datumInputsToNames[pfsInput] = append(datumInputsToNames[pfsInput], input.Pfs.Name)
 		return nil
 	}); err != nil {
 		return err
@@ -1359,8 +1357,11 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		mountsForRepo := datumInputToNames[client.NewBranch(project, repo, branch).String()]
-		name := mountsForRepo[0]
+		pfsInput := client.NewBranch(project, repo, branch).String()
+		if len(datumInputToNames[pfsInput]) == 0 {
+			panic("short on mount names even though should be a 1:1 mapping from PFS inputs in spec to Files in d.Data")
+		}
+		name := datumInputToNames[pfsInput][0]
 		mis = append(mis, &MountInfo{
 			Name:    name,
 			Project: project,
@@ -1370,6 +1371,7 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 			Path:    fi.File.Path,
 			Mode:    "ro",
 		})
+		datumInputToNames[pfsInput] = datumInputToNames[pfsInput][1:]
 	}
 	return mis
 }
