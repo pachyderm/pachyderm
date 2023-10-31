@@ -109,10 +109,10 @@ func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
 	return ret
 }
 
-func copyMap(datumInputsToMounts map[string][]string) map[string][]string {
-	datumInputsToMountsCopy := map[string][]string{}
-	for k, v := range datumInputsToMounts {
-		datumInputsToMountsCopy[k] = v
+func copyMap(names map[string][]string) map[string][]string {
+	namesCopy := map[string][]string{}
+	for k, v := range names {
+		namesCopy[k] = v
 	}
-	return datumInputsToMountsCopy
+	return namesCopy
 }
