@@ -119,7 +119,7 @@ func FuzzRPCs(f *testing.F) {
 		},
 	}))
 	ctx := pctx.Background("")
-	env := realenv.NewRealEnvWithIdentity(ctx, f, dockertestenv.NewTestDBConfig(f))
+	env := realenv.NewRealEnvWithIdentity(ctx, f, dockertestenv.NewTestDBConfig(f).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	tu.ActivateAuthClient(f, env.PachClient, peerPort)
 

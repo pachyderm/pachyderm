@@ -234,7 +234,7 @@ func TestWorkerDriver(t *testing.T) {
 	}
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	pachClient := env.PachClient
 
 	inputRepo := tu.UniqueString("testworkerdriverinput")
