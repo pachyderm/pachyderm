@@ -115,7 +115,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		}
 		err := json.Unmarshal(raw, testInfo)
 		if err != nil {
-			return nil, errors.EnsureStack(err)
+			return nil, errors.Wrapf(err, "parsing json: %s", string(raw))
 		}
 		log.Info(ctx, "Found", zap.Any("Test Info", testInfo))
 		if testInfo.Action == "output" {
