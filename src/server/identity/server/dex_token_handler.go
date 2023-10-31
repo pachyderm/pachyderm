@@ -140,7 +140,8 @@ type bufferResponseWriter struct {
 }
 
 func (sr *bufferResponseWriter) Write(b []byte) (int, error) {
-	return sr.b.Write(b)
+	i, err := sr.b.Write(b)
+	return i, errors.Wrap(err, "write to buffered response writer")
 }
 
 func (sr *bufferResponseWriter) Header() http.Header {
@@ -154,7 +155,7 @@ func (sr *bufferResponseWriter) WriteHeader(statusCode int) {
 func (sr *bufferResponseWriter) flush() error {
 	sr.rw.WriteHeader(sr.statusCode)
 	_, err := sr.rw.Write(sr.b.Bytes())
-	return err
+	return errors.Wrap(err, "buffered response writer flush writes")
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
