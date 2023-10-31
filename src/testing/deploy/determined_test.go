@@ -48,6 +48,37 @@ type DeterminedUserList struct {
 	Users *[]DeterminedUser `json:"users"`
 }
 
+func TestDeterminedUserSync(t *testing.T) {
+	t.Parallel()
+	ns, portOffset := minikubetestenv.ClaimCluster(t)
+	k := testutil.GetKubeClient(t)
+	opts := &minikubetestenv.DeployOpts{
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
+		PortOffset: portOffset,
+		Determined: true,
+	}
+	valueOverrides["pachd.replicas"] = "1"
+	opts.ValueOverrides = valueOverrides
+	minikubetestenv.PutNamespace(t, ns)
+	t.Logf("Determined installing in namespace %s", ns)
+	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
+	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	require.NoError(t, err)
+	require.Equal(t, auth.RootUser, whoami.Username)
+	c.SetAuthToken("")
+	// collect initial determined users list
+	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
+	authToken := determinedLogin(t, *detUrl, "admin", "")
+	previous := determinedGetUsers(t, *detUrl, authToken)
+	// login to pachyderm with mock user
+	mockIDPLogin(t, c)
+	// assert that after logging into pachyderm, a determined user is created
+	current := determinedGetUsers(t, *detUrl, authToken)
+	require.Equal(t, len(*previous.Users)+1, len(*current.Users), "the new pipeline has created an additional service user in Determined")
+
+}
+
 func TestDeterminedInstallAndIntegration(t *testing.T) {
 	t.Parallel()
 	valueOverrides := make(map[string]string)
@@ -72,9 +103,9 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	mockIDPLogin(t, c)
 	// log in and create a non-admin user with the kilgore email from pachyderm
 	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
-	// authToken := determinedLogin(t, *detUrl, "admin", "")
-	// detUser := determinedCreateUser(t, *detUrl, authToken)
-	// require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username, "The new user has the same name as dex user")
+	authToken := determinedLogin(t, *detUrl, "admin", "")
+	detUser := determinedCreateUser(t, *detUrl, authToken)
+	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username, "The new user has the same name as dex user")
 
 	repoName := "images"
 	pipelineName := "edges"
@@ -139,31 +170,31 @@ func determinedLogin(t testing.TB, detUrl url.URL, username string, password str
 	return authToken.Token
 }
 
-// func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *DeterminedUser {
-// 	userReq := DeterminedUserBody{
-// 		User: &DeterminedUser{
-// 			Username:    testutil.DexMockConnectorEmail,
-// 			Admin:       false,
-// 			Active:      true,
-// 			DisplayName: testutil.DexMockConnectorEmail,
-// 		},
-// 		Password: detNewUserPassword,
-// 		IsHashed: false,
-// 	}
-// 	userJson, err := json.Marshal(userReq)
-// 	require.NoError(t, err, "Marshal determined user json")
-// 	detUrl.Path = detUserPath
-// 	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson))
-// 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
-// 	require.NoError(t, err, "Creating Determined create user request")
+func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *DeterminedUser {
+	userReq := DeterminedUserBody{
+		User: &DeterminedUser{
+			Username:    testutil.DexMockConnectorEmail,
+			Admin:       false,
+			Active:      true,
+			DisplayName: testutil.DexMockConnectorEmail,
+		},
+		Password: detNewUserPassword,
+		IsHashed: false,
+	}
+	userJson, err := json.Marshal(userReq)
+	require.NoError(t, err, "Marshal determined user json")
+	detUrl.Path = detUserPath
+	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson))
+	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
+	require.NoError(t, err, "Creating Determined create user request")
 
-// 	body := doDeterminedRequest(t, req)
+	body := doDeterminedRequest(t, req)
 
-// 	userResponse := &DeterminedUserBody{}
-// 	err = json.Unmarshal(body, userResponse)
-// 	require.NoError(t, err, "Parsing Determined user create", string(body))
-// 	return userResponse.User
-// }
+	userResponse := &DeterminedUserBody{}
+	err = json.Unmarshal(body, userResponse)
+	require.NoError(t, err, "Parsing Determined user create", string(body))
+	return userResponse.User
+}
 
 func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
 	detUrl.Path = detUserPath
