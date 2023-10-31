@@ -44,6 +44,7 @@ const useLink = (link: Link, dagDirection: DagDirection) => {
     transferring: link.transferring,
     isCrossProject: link.isCrossProject,
     pathRef,
+    id: `${link.source.id}_${link.target.id}`,
   };
 };
 

@@ -12,11 +12,10 @@ type LinkProps = {
 };
 
 const Link: React.FC<LinkProps> = ({link, dagDirection}) => {
-  const {d, transferring, isCrossProject, pathRef} = useLink(
+  const {d, transferring, isCrossProject, pathRef, id} = useLink(
     link,
     dagDirection,
   );
-
   const classes = classNames(styles.link, {
     [styles.transferring]: transferring,
     [styles.crossProject]: isCrossProject,
@@ -24,7 +23,7 @@ const Link: React.FC<LinkProps> = ({link, dagDirection}) => {
 
   return (
     <g>
-      <path ref={pathRef} className={classes} d={d} id={link.id} fill="none" />
+      <path ref={pathRef} className={classes} d={d} id={id} fill="none" />
       {transferring && (
         <circle r={6} className={styles.circle}>
           <animateMotion dur="0.8s" repeatCount="indefinite" path={d} />
