@@ -127,7 +127,8 @@ type DatumState struct {
 	Datums            []*pps.DatumInfo
 	PaginationMarker  string
 	DatumInput        *pps.Input
-	DatumInputToName  map[string]string
+	SimpleInput       bool
+	DatumInputToNames map[string][]string
 	DatumIdx          int
 	AllDatumsReceived bool
 }
@@ -642,13 +643,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, fmt.Sprintf("error reading next CreatePipeline request: %v", err), http.StatusBadRequest)
 			return
 		}
-		var simpleInput bool
-		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
+		if err := mm.processInput(pipelineReq.Input); err != nil {
 			http.Error(w, fmt.Sprintf("error converting datum inputs to mounts: %v", err), http.StatusBadRequest)
 			return
 		}
-		if err := mm.GetDatums(simpleInput); err != nil {
-			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
+		if err := mm.GetDatums(); err != nil {
+			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusBadRequest)
 			return
 		}
 		func() {
@@ -1192,8 +1192,9 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 // Create a map from input to mount name for use in mounting datums
 // Return whether the input has a cron, group by, or join for later use to
 // determine whether to use GlobFile or ListDatum #ListDatumPagination
-func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
+func (mm *MountManager) processInput(datumInput *pps.Input) error {
 	if datumInput == nil {
+		return errors.New("datum input is not specified")
 		return true, errors.New("datum input is not specified")
 	}
 
@@ -1235,15 +1236,16 @@ func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
 		datumInputToName[pfsInput] = input.Pfs.Name
 		return nil
 	}); err != nil {
-		return true, err
+		return err
 	}
 	func() {
 		mm.mu.Lock()
 		defer mm.mu.Unlock()
 		mm.DatumInput = datumInput
-		mm.DatumInputToName = datumInputToName
+		mm.SimpleInput = simpleInput
+		mm.DatumInputToNames = datumInputsToNames
 	}()
-	return simpleInput, nil
+	return nil
 }
 
 func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
@@ -1272,11 +1274,11 @@ func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) (
 	}
 }
 
-func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
+func (mm *MountManager) GetDatums() (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	if simpleInput {
+	if mm.SimpleInput {
 		return mm.CreateDatums()
 	}
 	// If input spec has Join or Group, fall back to ListDatum
@@ -1402,6 +1404,7 @@ func (mm *MountManager) resetDatumState() {
 	mm.Datums = nil
 	mm.PaginationMarker = ""
 	mm.DatumInput = nil
+	mm.SimpleInput = false
 	mm.DatumIdx = -1
 	mm.DatumInputToName = nil
 	mm.AllDatumsReceived = false
