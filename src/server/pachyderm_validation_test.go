@@ -22,7 +22,7 @@ import (
 func TestInvalidCreatePipeline(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")
@@ -96,7 +96,7 @@ func TestInvalidCreatePipeline(t *testing.T) {
 func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 	pipelineName := tu.UniqueString("pipeline")
 	require.YesError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -117,7 +117,7 @@ func TestPipelineThatUseNonexistentInputs(t *testing.T) {
 func TestPipelineNamesThatContainUnderscoresAndHyphens(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	c := env.PachClient
 
 	projectName := tu.UniqueString("prj-")

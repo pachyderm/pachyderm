@@ -298,7 +298,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSuccess", func(t *testing.T) {
 		pi := defaultPipelineInfo()
 		ctx := pctx.TestContext(t)
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 		testJobSuccess(t, env, pi, []tarutil.File{
 			tarutil.NewMemFile("/file", []byte("foobar")),
 		})
@@ -309,7 +309,7 @@ func TestTransformPipeline(suite *testing.T) {
 		bucket, url := dockertestenv.NewTestBucket(ctx, t)
 		pi := defaultPipelineInfo()
 		pi.Details.Egress = &pps.Egress{URL: url}
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		files := []tarutil.File{
 			tarutil.NewMemFile("/file1", []byte("foo")),
@@ -336,7 +336,7 @@ func TestTransformPipeline(suite *testing.T) {
 		pi := defaultPipelineInfo()
 		pi.Details.Input.Pfs.Glob = "/"
 		pi.Details.Egress = &pps.Egress{URL: url}
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		testJobSuccess(t, env, pi, nil)
 	})
@@ -344,7 +344,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobFailedDatum", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		pi.Details.Transform.Cmd = []string{"bash", "-c", "(exit 1)"}
 		tarFiles := []tarutil.File{
@@ -361,7 +361,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobMultiDatum", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -373,7 +373,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerial", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),
@@ -416,7 +416,7 @@ func TestTransformPipeline(suite *testing.T) {
 	suite.Run("TestJobSerialDelete", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		pi := defaultPipelineInfo()
-		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t), pi)
+		env := setupPachAndWorker(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption, pi)
 
 		tarFiles := []tarutil.File{
 			tarutil.NewMemFile("/a", []byte("foobar")),

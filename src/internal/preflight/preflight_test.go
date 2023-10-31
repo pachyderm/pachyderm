@@ -12,7 +12,8 @@ import (
 
 func TestTestMigrations(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	opts := dockertestenv.NewTestDBOptions(t)
+	dbc := dockertestenv.NewTestDBConfig(t)
+	opts := dbc.Direct.DBOptions()
 	opts = append(opts, dbutil.WithQueryLog(true, "migrations"))
 	db := testutil.OpenDB(t, opts...)
 	if err := TestMigrations(ctx, db); err != nil {

@@ -3,9 +3,10 @@ package postgres_test
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
@@ -22,7 +23,7 @@ import (
 func TestWatchRepos(t *testing.T) {
 	ctx, cancel := context.WithCancel(pctx.TestContext(t))
 	defer cancel()
-	dbOpts := dockertestenv.NewTestDirectDBOptions(t)
+	dbOpts := dockertestenv.NewTestDBConfig(t).Direct.DBOptions()
 	db := testutil.OpenDB(t, dbOpts...)
 
 	// Apply migrations

@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
 	units "github.com/docker/go-units"
 	"google.golang.org/protobuf/proto"
 
@@ -21,16 +19,12 @@ import (
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{
-		Repo: commitInfo.Commit.Repo})
+	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+		branchInfos[branchInfoWithID.Branch.Key()] = branchInfoWithID.BranchInfo
+		return nil
+	})
 	if err != nil {
 		return errors.Wrap(err, "trigger commit")
-	}
-	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = proto.Clone(branchInfoWithID.BranchInfo).(*pfs.BranchInfo)
-		return nil
-	}); err != nil {
-		return err
 	}
 	// Recursively check / fire trigger chains.
 	newHeads := make(map[string]*pfs.CommitInfo)

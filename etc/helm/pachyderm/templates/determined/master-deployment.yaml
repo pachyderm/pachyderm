@@ -40,7 +40,7 @@ spec:
         {{- if .Values.determined.enterpriseEdition }}
         {{- if .Values.determined.oidc }}
         env:
-          - name: DETERMINED_OIDC_CLIENT_SECRET
+          - name: DET_OIDC_CLIENT_SECRET
             valueFrom:
               secretKeyRef:
                 name: {{ default .Values.determined.oidc.clientSecretName "det-oidc-client-secret" }}
@@ -61,7 +61,14 @@ spec:
           - name: database-cert
             mountPath: {{ include "determined.secretPath" . }}
             readOnly: true
-          {{ end }}
+          {{- end }}
+          # Additional volume mount for ca.crt or boundle to perform the ca cert injection
+          {{- if .Values.determined.externalCaCertSecretName }}
+          - name: etc-ssl-certs
+            mountPath: /etc/ssl/certs
+            readOnly: true
+          {{- end }}
+          # end - Additional volume mount
         resources:
           requests:
             {{- if .Values.determined.masterCpuRequest }}
@@ -80,19 +87,38 @@ spec:
             memory: {{ .Values.determined.masterMemLimit  | quote }}
             {{- end}}
           {{- end}}
+      # Init container to update ca.crt or ca bundle into the master image
+      {{- if .Values.determined.externalCaCertSecretName }}
+      initContainers:
+      - name: update-ca-certificates
+        command:
+          - sh
+          - -c
+          - update-ca-certificates --fresh
+        image: {{ .Values.determined.imageRegistry }}/{{ $image }}:{{ $tag }}
+        imagePullPolicy: "Always"
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+          - mountPath: /usr/local/share/ca-certificates/
+            name: usr-local-share-ca-certificates
+          - mountPath: /etc/ssl/certs
+            name: etc-ssl-certs
+      {{- end }}
+      # end - Init container
       {{- if .Values.determined.imagePullSecretName}}
       imagePullSecrets:
         - name: {{ .Values.determined.imagePullSecretName }}
       {{- end}}
       volumes:
         - name: master-config
-          configMap:
-            name: determined-master-config-{{ .Release.Name }}
+          secret:
+            secretName: determined-master-config-{{ .Release.Name }}
         {{- if .Values.determined.tlsSecret }}
         - name: tls-secret
           secret:
             secretName: {{ .Values.determined.tlsSecret }}
-        {{ end }}
+        {{- end }}
         {{- if .Values.determined.db.sslMode }}
         - name: database-cert
           {{- $resourceType := (required "A valid .Values.determined.db.resourceType entry required!" .Values.determined.db.resourceType | trim)}}
@@ -103,5 +129,15 @@ spec:
           secret:
             secretName: {{ required  "A valid Values.db.certResourceName entry is required!" .Values.determined.db.certResourceName }}
           {{- end }}
-        {{ end }}
+        {{- end }}
+        # Additional volumes for ca.crt or ca boundle injection
+        {{- if .Values.determined.externalCaCertSecretName }}
+        - name: usr-local-share-ca-certificates
+          secret:
+            defaultMode: 420
+            secretName: {{ .Values.determined.externalCaCertSecretName }}
+        - name: etc-ssl-certs
+          emptyDir: {}
+        {{- end }}
+        # end - Additional volumes 
 {{- end }}

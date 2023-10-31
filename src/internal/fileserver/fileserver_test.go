@@ -28,7 +28,7 @@ import (
 func TestDownload(t *testing.T) {
 	// Setup a PFS server.
 	rctx := pctx.TestContext(t)
-	e := realenv.NewRealEnvWithIdentity(rctx, t, dockertestenv.NewTestDBConfig(t))
+	e := realenv.NewRealEnvWithIdentity(rctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	// Fileserver for testing.
 	s := &fileserver.Server{
 		ClientFactory: func(ctx context.Context) *client.APIClient {

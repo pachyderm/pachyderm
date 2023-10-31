@@ -2205,11 +2205,17 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &emptypb.Empty{}, nil
 }
 
+// A defaultsGetter get cluster and project defaults.  It’s a layer of
+// indirection in order to permit implementation of a cache, in order to avoid a
+// database round trip for every getting.
 type defaultsGetter interface {
 	getClusterDefaults(context.Context) (string, error)
 	getProjectDefaults(context.Context, *pfs.Project) (string, error)
 }
 
+// makeEffectiveSpec makes an effective spec by merging the user spec with the
+// cluster & project defaults returned from the defaultsGetter.  It returns the
+// spec as both JSON and CreatePipelineRequest.
 func (a *apiServer) makeEffectiveSpec(ctx context.Context, dg defaultsGetter, userSpecJSON string) (effectiveSpecJSON string, effectiveSpec *pps.CreatePipelineRequest, err error) {
 	clusterDefaultsJSON, err := dg.getClusterDefaults(ctx)
 	if err != nil {
@@ -3811,6 +3817,8 @@ func unknownError(ctx context.Context, msg string, err error) error {
 	return s.Err()
 }
 
+// A cachedDefaultsGetter retrieves cluster and project defaults once from its
+// apiServer; after that, it returns cached versions.
 type cachedDefaultsGetter struct {
 	apiServer       *apiServer
 	clusterDefaults string
@@ -3844,8 +3852,10 @@ func (cdg *cachedDefaultsGetter) getProjectDefaults(ctx context.Context, project
 
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
-		cd  pps.ClusterDefaults
-		pp  map[*pps.Pipeline]*pps.CreatePipelineTransaction
+		cd pps.ClusterDefaults
+		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
+		// cdg is used to avoid refetching the cluster & project
+		// defaults for every pipeline in the cluster.
 		cdg = &cachedDefaultsGetter{
 			apiServer:       a,
 			clusterDefaults: req.GetClusterDefaultsJson(),
@@ -3986,7 +3996,6 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
 		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
-				fmt.Println("returning")
 				return nil
 			}
 			// if the old details are missing, synthesize them

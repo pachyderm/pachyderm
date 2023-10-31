@@ -23,7 +23,7 @@ spec:
       priorityClassName: determined-system-priority
       containers:
       - name: determined-db-{{ .Release.Name }}
-        image: postgres:10.14
+        image: {{ .Values.determined.defaultImages.postgreSQL | quote }}
         imagePullPolicy: "Always"
         resources:
           requests:
@@ -50,6 +50,8 @@ spec:
             value: {{ .Values.determined.db.user | quote }}
           - name: POSTGRES_PASSWORD
             value: {{ .Values.determined.db.password | quote }}
+          - name: PGPORT
+            value: {{ .Values.determined.db.port | quote }}
           - name: PGDATA
             value: /var/lib/postgresql/data/pgdata
         args: ["--max_connections=96", "--shared_buffers=512MB"]
