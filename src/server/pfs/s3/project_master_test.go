@@ -486,7 +486,7 @@ func TestProjectMasterDriver(t *testing.T) {
 	}
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	projectTestRunner(env.Context, t, env.PachClient, "master", s3.NewMasterDriver(), func(t *testing.T, pachClient *client.APIClient, minioClient *minio.Client) {
 		t.Run("ListBuckets", func(t *testing.T) {
 			projectMasterListBuckets(t, pachClient, minioClient)

@@ -2,7 +2,7 @@ FROM jupyter/scipy-notebook:lab-3.3.3
 # https://github.com/pachyderm/docker-stacks/pull/1/commits/fde4beb9ff1afb404f0e34828adc1f311f4bf2d7
 
 ENV PFS_MOUNT_DIR=/pfs
-ENV MOUNT_SERVER_LOG_DIR=/tmp/mount-server.log
+ENV MOUNT_SERVER_LOG_FILE=/tmp/mount-server.log
 
 # TODO: use ARG TARGETPLATFORM to support arm builds, downloading pachctl arm64
 # binary below (instead of ..._linux_amd64.tar.gz below). See:

@@ -3,10 +3,11 @@ package clusterstate
 import (
 	"context"
 	"database/sql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/jmoiron/sqlx"
@@ -200,8 +201,7 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 
 func Test_v2_7_0_ClusterState(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	db, _ := dockertestenv.NewEphemeralPostgresDB(ctx, t)
-	defer db.Close()
+	db := dockertestenv.NewTestDirectDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 
 	// Pre-migration

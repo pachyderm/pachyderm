@@ -2205,21 +2205,65 @@ func (a *apiServer) CreatePipeline(ctx context.Context, request *pps.CreatePipel
 	return &emptypb.Empty{}, nil
 }
 
-func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
+// A defaultsGetter get cluster and project defaults.  It’s a layer of
+// indirection in order to permit implementation of a cache, in order to avoid a
+// database round trip for every getting.
+type defaultsGetter interface {
+	getClusterDefaults(context.Context) (string, error)
+	getProjectDefaults(context.Context, *pfs.Project) (string, error)
+}
+
+// makeEffectiveSpec makes an effective spec by merging the user spec with the
+// cluster & project defaults returned from the defaultsGetter.  It returns the
+// spec as both JSON and CreatePipelineRequest.
+func (a *apiServer) makeEffectiveSpec(ctx context.Context, dg defaultsGetter, userSpecJSON string) (effectiveSpecJSON string, effectiveSpec *pps.CreatePipelineRequest, err error) {
+	clusterDefaultsJSON, err := dg.getClusterDefaults(ctx)
+	if err != nil {
+		return "", nil, errors.Wrap(err, "could not get cluster defaults")
+	}
+
+	var req pps.CreatePipelineRequest
+	if err := protojson.Unmarshal([]byte(userSpecJSON), &req); err != nil {
+		return "", nil, errors.Wrapf(err, "could not parse %s as Create Pipeline Request message", userSpecJSON)
+	}
+	projectDefaultsJSON, err := dg.getProjectDefaults(ctx, req.Pipeline.GetProject())
+	if err != nil {
+		return "", nil, errors.Wrapf(err, "could not get defaults for project %v", req.Pipeline.GetProject())
+	}
+	return makeEffectiveSpec(clusterDefaultsJSON, projectDefaultsJSON, userSpecJSON)
+}
+
+func (a *apiServer) getClusterDefaults(ctx context.Context) (string, error) {
 	clusterDefaultsResponse, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	if err != nil {
 		return "", status.Error(codes.Internal, "could not get cluster defaults")
 	}
 
-	defaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
-	if defaultsJSON == "" {
-		defaultsJSON = "{}"
+	clusterDefaultsJSON := clusterDefaultsResponse.GetClusterDefaultsJson()
+	if clusterDefaultsJSON == "" {
+		clusterDefaultsJSON = "{}"
 	}
-	effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(defaultsJSON, req.GetCreatePipelineRequestJson())
+	return clusterDefaultsJSON, nil
+}
+
+func (a *apiServer) getProjectDefaults(ctx context.Context, project *pfs.Project) (string, error) {
+	projectDefaultsResponse, err := a.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: project})
+	if err != nil {
+		return "", errors.Wrapf(err, "could not get defaults for project %v", project)
+	}
+
+	projectDefaultsJSON := projectDefaultsResponse.GetProjectDefaultsJson()
+	if projectDefaultsJSON == "" {
+		projectDefaultsJSON = "{}"
+	}
+	return projectDefaultsJSON, nil
+}
+
+func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV2Request) (wrappedJSON string, err error) {
+	effectiveSpecJSON, effectiveSpec, err := a.makeEffectiveSpec(ctx, a, req.GetCreatePipelineRequestJson())
 	if err != nil {
 		return "", badRequest(ctx, fmt.Sprintf("could not make effective spec: %v", err), []*errdetails.BadRequest_FieldViolation{
 			{Field: "create_pipeline_v2_request.create_pipeline_request_json", Description: effectiveSpecJSON},
-			{Field: "cluster defaults", Description: defaultsJSON},
 		})
 	}
 	effectiveSpec.Update = req.Update
@@ -3773,17 +3817,56 @@ func unknownError(ctx context.Context, msg string, err error) error {
 	return s.Err()
 }
 
+// A cachedDefaultsGetter retrieves cluster and project defaults once from its
+// apiServer; after that, it returns cached versions.
+type cachedDefaultsGetter struct {
+	apiServer       *apiServer
+	clusterDefaults string
+	projectDefaults map[string]string
+}
+
+func (cdg *cachedDefaultsGetter) getClusterDefaults(ctx context.Context) (string, error) {
+	if cdg.clusterDefaults == "" {
+		var err error
+		if cdg.clusterDefaults, err = cdg.apiServer.getClusterDefaults(ctx); err != nil {
+			return "", errors.Wrap(err, "could not get cluster defaults from apiServer")
+		}
+	}
+	return cdg.clusterDefaults, nil
+}
+
+func (cdg *cachedDefaultsGetter) getProjectDefaults(ctx context.Context, project *pfs.Project) (string, error) {
+	if cdg.projectDefaults == nil {
+		cdg.projectDefaults = make(map[string]string)
+	}
+	id := project.String()
+	if cdg.projectDefaults[id] == "" {
+		var err error
+		if cdg.projectDefaults[id], err = cdg.apiServer.getProjectDefaults(ctx, project); err != nil {
+			return "", errors.Wrap(err, "could not get project defaults from apiServer")
+		}
+
+	}
+	return cdg.projectDefaults[id], nil
+}
+
 func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error) {
 	var (
 		cd pps.ClusterDefaults
 		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
+		// cdg is used to avoid refetching the cluster & project
+		// defaults for every pipeline in the cluster.
+		cdg = &cachedDefaultsGetter{
+			apiServer:       a,
+			clusterDefaults: req.GetClusterDefaultsJson(),
+		}
 	)
 	if err := protojson.Unmarshal([]byte(req.GetClusterDefaultsJson()), &cd); err != nil {
 		return nil, badRequest(ctx, "invalid cluster defaults JSON", []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
 		})
 	}
-	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`)
+	_, _, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), `{}`, `{}`)
 	if err != nil {
 		return nil, badRequest(ctx, fmt.Sprintf("could not merge cluster defaults %s into built-in defaults %s", req.GetClusterDefaultsJson(), builtInDefaultsJSON), []*errdetails.BadRequest_FieldViolation{
 			{Field: "cluster_defaults_json", Description: err.Error()},
@@ -3812,7 +3895,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 			if pi.EffectiveSpecJson == "" {
 				pi.EffectiveSpecJson = pi.UserSpecJson
 			}
-			effectiveSpecJSON, effectiveSpec, err := makeEffectiveSpec(req.GetClusterDefaultsJson(), pi.UserSpecJson)
+			effectiveSpecJSON, effectiveSpec, err := a.makeEffectiveSpec(ctx, cdg, pi.UserSpecJson)
 			if err != nil {
 				return errors.Wrap(err, "could not create effective spec")
 			}
@@ -3860,23 +3943,115 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 
 func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error) {
 	var projectDefaults ppsdb.ProjectDefaultsWrapper
-	if req.Project == nil {
-		return nil, badRequest(ctx, "missing project", []*errdetails.BadRequest_FieldViolation{
-			{Field: "project", Description: "missing"},
-		})
-	} else if req.Project.Name == "" {
-		return nil, badRequest(ctx, "missing project name", []*errdetails.BadRequest_FieldViolation{
-			{Field: "project.name", Description: "empty"},
-		})
+	if req.Project == nil || req.Project.Name == "" {
+		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
 	}
-	if err := a.projectDefaults.ReadOnly(ctx).Get("", &projectDefaults); err != nil {
+	if err := a.projectDefaults.ReadOnly(ctx).Get(req.Project.String(), &projectDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read project defaults", err)
 		}
+
 		projectDefaults.Json = "{}"
 	}
 	return &pps.GetProjectDefaultsResponse{ProjectDefaultsJson: projectDefaults.Json}, nil
+}
+
+// SetProjectDefaults sets the defaults for a project.  If regenerate is true,
+// then the effective spec for each pipeline in the project will be regenerated
+// and if has changed it will be saved; if reprocess is true then regenerated
+// (and changed) pipelines will reprocess previously-processed datums.
+func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error) {
+	if req.Project == nil || req.Project.Name == "" {
+		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
+	}
+	var cdg = &cachedDefaultsGetter{
+		apiServer:       a,
+		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
+	}
+
+	var (
+		pp map[*pps.Pipeline]*pps.CreatePipelineTransaction
+	)
+	cResp, err := a.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
+	if err != nil {
+		return nil, unknownError(ctx, "could not get cluster defaults", err)
+	}
+	if _, _, err := makeEffectiveSpec(cResp.GetClusterDefaultsJson(), req.GetProjectDefaultsJson(), `{}`); err != nil {
+		return nil, badRequest(ctx, fmt.Sprintf("could not merge project defaults %s into cluster defaults %s", req.GetProjectDefaultsJson(), cResp.GetClusterDefaultsJson()), []*errdetails.BadRequest_FieldViolation{
+			{Field: "project_defaults_json", Description: err.Error()},
+		})
+	}
+
+	if req.Regenerate {
+		// Determine if the new defaults imply changes to any pipelines.
+		// To do this, each pipeline’s info is synthesized to a
+		// CreatePipelineRequest using the same logic already ultimately
+		// used by `pachctl edit pipeline`, then that is turned into
+		// JSON and merged with the new defaults.  The result of the
+		// merger is then unmarshalled into a CreatePipelineRequest and
+		// equality is checked with proto.Equal.
+		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
+				return nil
+			}
+			// if the old details are missing, synthesize them
+			if pi.UserSpecJson == "" {
+				spec := ppsutil.PipelineReqFromInfo(pi)
+				b, err := protojson.Marshal(spec)
+				if err != nil {
+					return errors.Wrap(err, "could not marshal spec to JSON")
+				}
+				pi.UserSpecJson = string(b)
+			}
+			if pi.EffectiveSpecJson == "" {
+				pi.EffectiveSpecJson = pi.UserSpecJson
+			}
+			effectiveSpecJSON, effectiveSpec, err := a.makeEffectiveSpec(ctx, cdg, pi.UserSpecJson)
+			if err != nil {
+				return errors.Wrap(err, "could not create effective spec")
+			}
+			var oldEffectiveSpec pps.CreatePipelineRequest
+			if err := protojson.Unmarshal([]byte(pi.EffectiveSpecJson), &oldEffectiveSpec); err != nil {
+				return errors.Wrap(err, "could not unmarshal old effective spec JSON")
+			}
+			if !proto.Equal(&oldEffectiveSpec, effectiveSpec) {
+				effectiveSpec.Update = true
+				effectiveSpec.Reprocess = req.Reprocess
+				pp[pi.GetPipeline()] = &pps.CreatePipelineTransaction{
+					CreatePipelineRequest: effectiveSpec,
+					EffectiveJson:         effectiveSpecJSON,
+					UserJson:              pi.UserSpecJson,
+				}
+			}
+			return nil
+		}); err != nil {
+			return nil, unknownError(ctx, "could not list pipelines", err)
+		}
+	}
+	var resp pps.SetProjectDefaultsResponse
+	for p := range pp {
+		resp.AffectedPipelines = append(resp.AffectedPipelines, p)
+	}
+	if req.DryRun {
+		return &resp, nil
+	}
+
+	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+			return err
+		}
+		for _, p := range pp {
+			if err := a.CreatePipelineInTransaction(ctx, txnCtx, p); err != nil {
+				return errors.Wrapf(err, "could not regenerate pipeline %v", p.CreatePipelineRequest.Pipeline)
+			}
+		}
+		return nil
+	}); err != nil {
+		return nil, unknownError(ctx, "could not write project defaults", err)
+	}
+	return &resp, nil
 }

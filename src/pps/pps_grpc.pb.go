@@ -59,6 +59,7 @@ const (
 	API_GetClusterDefaults_FullMethodName = "/pps_v2.API/GetClusterDefaults"
 	API_SetClusterDefaults_FullMethodName = "/pps_v2.API/SetClusterDefaults"
 	API_GetProjectDefaults_FullMethodName = "/pps_v2.API/GetProjectDefaults"
+	API_SetProjectDefaults_FullMethodName = "/pps_v2.API/SetProjectDefaults"
 )
 
 // APIClient is the client API for API service.
@@ -118,6 +119,8 @@ type APIClient interface {
 	SetClusterDefaults(ctx context.Context, in *SetClusterDefaultsRequest, opts ...grpc.CallOption) (*SetClusterDefaultsResponse, error)
 	// GetProjectDefaults returns the defaults for a particular project.
 	GetProjectDefaults(ctx context.Context, in *GetProjectDefaultsRequest, opts ...grpc.CallOption) (*GetProjectDefaultsResponse, error)
+	// SetProjectDefaults sets the defaults for a particular project.
+	SetProjectDefaults(ctx context.Context, in *SetProjectDefaultsRequest, opts ...grpc.CallOption) (*SetProjectDefaultsResponse, error)
 }
 
 type aPIClient struct {
@@ -700,6 +703,15 @@ func (c *aPIClient) GetProjectDefaults(ctx context.Context, in *GetProjectDefaul
 	return out, nil
 }
 
+func (c *aPIClient) SetProjectDefaults(ctx context.Context, in *SetProjectDefaultsRequest, opts ...grpc.CallOption) (*SetProjectDefaultsResponse, error) {
+	out := new(SetProjectDefaultsResponse)
+	err := c.cc.Invoke(ctx, API_SetProjectDefaults_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -757,6 +769,8 @@ type APIServer interface {
 	SetClusterDefaults(context.Context, *SetClusterDefaultsRequest) (*SetClusterDefaultsResponse, error)
 	// GetProjectDefaults returns the defaults for a particular project.
 	GetProjectDefaults(context.Context, *GetProjectDefaultsRequest) (*GetProjectDefaultsResponse, error)
+	// SetProjectDefaults sets the defaults for a particular project.
+	SetProjectDefaults(context.Context, *SetProjectDefaultsRequest) (*SetProjectDefaultsResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -877,6 +891,9 @@ func (UnimplementedAPIServer) SetClusterDefaults(context.Context, *SetClusterDef
 }
 func (UnimplementedAPIServer) GetProjectDefaults(context.Context, *GetProjectDefaultsRequest) (*GetProjectDefaultsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetProjectDefaults not implemented")
+}
+func (UnimplementedAPIServer) SetProjectDefaults(context.Context, *SetProjectDefaultsRequest) (*SetProjectDefaultsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetProjectDefaults not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -1605,6 +1622,24 @@ func _API_GetProjectDefaults_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_SetProjectDefaults_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetProjectDefaultsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SetProjectDefaults(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_SetProjectDefaults_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SetProjectDefaults(ctx, req.(*SetProjectDefaultsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1723,6 +1758,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetProjectDefaults",
 			Handler:    _API_GetProjectDefaults_Handler,
+		},
+		{
+			MethodName: "SetProjectDefaults",
+			Handler:    _API_SetProjectDefaults_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

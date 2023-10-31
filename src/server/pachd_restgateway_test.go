@@ -57,7 +57,7 @@ func TestRouting(t *testing.T) {
 			ctx := pctx.TestContext(t)
 
 			s, err := pachdhttp.New(ctx, 0, func(ctx context.Context) *client.APIClient {
-				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+				env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 				client := env.PachClient
 				return client
 			})

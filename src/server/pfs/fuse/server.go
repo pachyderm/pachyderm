@@ -45,14 +45,23 @@ import (
 // specify page size. #ListDatumPagination
 const NumDatumsPerPage = 0 // The number of datums requested per ListDatum call
 
+const FuseServerPort = ":9002"
+
 type ServerOptions struct {
+	// MountDir is the directory where the mount will be created (the most
+	// conventional and typically most useful value for this field is '/pfs',
+	// causing mount-server to lay out files in the same way as Pachyderm's worker
+	// binary. Code that correctly reads and writes data in this configuration can
+	// then be run inside a Pachyderm pipeline without modification).
 	MountDir string
 	// Unmount is a channel that will be closed when the filesystem has been
-	// unmounted. It can be nil in which case it's ignored.
+	// unmounted. It can be nil, in which case it's ignored.
 	Unmount chan struct{}
-	// True if allow-other option is to be specified
+	// AllowOther, if true, configures mount-server to give read and write
+	// permissions to "other" on the mount point ('chmod u+rw /pfs', effectively)
 	AllowOther bool
-	// Socket directory for Unix Domain Socket
+	// SockPath, if set, configures mount-server to serve over a Unix socket at
+	// the path it contains.
 	SockPath string
 }
 
@@ -621,7 +630,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		defer req.Body.Close()
 		pipelineReader, err := ppsutil.NewPipelineManifestReader(req.Body)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error creating pipelineReader from request: %v", err), http.StatusBadRequest)
 			return
 		}
 		// TODO(INT-1006): This is a bit of a hack: the body is a tagged
@@ -630,16 +639,20 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		pipelineReader.DisableValidation()
 		pipelineReq, err := pipelineReader.NextCreatePipelineRequest()
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error reading next CreatePipeline request: %v", err), http.StatusBadRequest)
 			return
 		}
 		var simpleInput bool
 		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error converting datum inputs to mounts: %v", err), http.StatusBadRequest)
 			return
 		}
 		if err := mm.GetDatums(simpleInput); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
+			return
+		}
+		if len(mm.Datums) == 0 {
+			http.Error(w, "spec produces zero datums; nothing to mount", http.StatusBadRequest)
 			return
 		}
 		func() {
@@ -652,7 +665,8 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:(%s): %v", mi.Project, mi.Repo, mi.Branch, strings.Join(mi.Paths, ","), err)
+				http.Error(w, errorMsg, http.StatusInternalServerError)
 				return
 			}
 		}
@@ -665,7 +679,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		}
 		marshalled, err := jsonMarshal(resp)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error marshalling response: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
@@ -820,7 +834,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		var cfgReq ConfigRequest
 		defer req.Body.Close()
 		if err := json.NewDecoder(req.Body).Decode(&cfgReq); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, fmt.Sprintf("error decoding request: %v", err), http.StatusBadRequest)
 			return
 		}
 		pachdAddress, err := grpcutil.ParsePachdAddress(cfgReq.PachdAddress)
@@ -831,7 +845,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if isNewCluster(mm, pachdAddress) {
 			newClient, err := getNewClient(cfgReq)
 			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("error creating new client: %v", err), http.StatusInternalServerError)
 				return
 			}
 			if mm.Client != nil {
@@ -841,19 +855,19 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			}
 			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
+				http.Error(w, fmt.Sprintf("error establishing mount with new pachd address: %v", err), http.StatusInternalServerError)
 				return
 			}
 		}
 
 		clusterStatus, err := getClusterStatus(mm.Client)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error retrieving cluster status: %v", err), http.StatusInternalServerError)
 			return
 		}
 		marshalled, err := jsonMarshal(clusterStatus)
 		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("error marshalling cluster status for response: %v", err), http.StatusInternalServerError)
 			return
 		}
 		w.Write(marshalled) //nolint:errcheck
@@ -964,7 +978,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		sockPath = sopts.SockPath
 		srv = &http.Server{Handler: router}
 	} else {
-		srv = &http.Server{Addr: ":9002", Handler: router}
+		srv = &http.Server{Addr: FuseServerPort, Handler: router}
 	}
 
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
@@ -1579,7 +1593,7 @@ func (m *MountStateMachine) transitionedTo(state, status string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("new state", state))
+	log.Info(pctx.TODO(), "state transition", zap.Any("state machine", m), zap.String("old state", m.State), zap.String("new state", state))
 	m.manager.root.setState(m.Name, state)
 	m.State = state
 	m.Status = status

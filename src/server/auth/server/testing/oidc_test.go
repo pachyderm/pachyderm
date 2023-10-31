@@ -23,7 +23,7 @@ import (
 func TestOIDCAuthCodeFlow(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -50,7 +50,7 @@ func TestOIDCAuthCodeFlow(t *testing.T) {
 func TestOIDCTrustedApp(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
@@ -77,7 +77,7 @@ func TestOIDCTrustedApp(t *testing.T) {
 func TestCannotAuthenticateWithExpiredLicense(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)

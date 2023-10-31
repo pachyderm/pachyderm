@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -92,7 +91,7 @@ func TestGetProject(t *testing.T) {
 	}))
 }
 
-func TestListProject(t *testing.T) {
+func TestForEachProject(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
@@ -107,13 +106,8 @@ func TestListProject(t *testing.T) {
 			expectedInfos[i] = createInfo
 			require.NoError(t, pfsdb.CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
-		iter, err := pfsdb.ListProject(cbCtx, tx)
-		require.NoError(t, err, "should be able to list projects")
 		i := 0
-		require.NoError(t, stream.ForEach[pfsdb.ProjectWithID](cbCtx, iter, func(proj pfsdb.ProjectWithID) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over projects")
-			}
+		require.NoError(t, pfsdb.ForEachProject(cbCtx, tx, func(proj pfsdb.ProjectWithID) error {
 			require.Equal(t, expectedInfos[i].Project.Name, proj.ProjectInfo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, proj.ProjectInfo.Description)
 			i++

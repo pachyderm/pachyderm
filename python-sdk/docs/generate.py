@@ -11,9 +11,7 @@ betterproto.PLACEHOLDER = None  # This cleans up docs for generated Message clas
 MODULE = "pachyderm_sdk"
 OUTPUT_DIR = Path(__file__).parent
 TEMPLATE_DIR = str(OUTPUT_DIR / "templates")
-CONFIG = {
-  "sort_identifiers": False
-}
+CONFIG = {"sort_identifiers": False}
 
 
 def main():
