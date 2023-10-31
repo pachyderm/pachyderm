@@ -459,6 +459,7 @@ func FindPipelineSpecCommitInTransaction(ctx context.Context, txnCtx *txncontext
 	commitInfo, err := pfsServer.InspectCommitInTransaction(ctx, txnCtx, &pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
 		if errors.As(err, &pfsserver.ErrCommitNotFound{}) || errors.As(err, &pfsserver.ErrRepoNotFound{}) || errors.As(err, &pfsserver.ErrBranchNotFound{}) {
+			// Propagate a PPS error so that callers who don't know about PFS domain can handle it explicitly.
 			return nil, errors.Join(err, ppsserver.ErrPipelineNotFound{Pipeline: pipeline})
 		}
 		return nil, errors.EnsureStack(err)

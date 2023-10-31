@@ -70,9 +70,6 @@ func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (
 	// query pipelineInfo
 	pi, err := sd.tryLoadLatestPipelineInfo(ctx, pipeline)
 	if err != nil {
-		if errors.As(err, &ppsserver.ErrPipelineNotFound{}) {
-			return nil, nil, nil
-		}
 		return nil, nil, errors.Wrap(err, "fetch pipeline state")
 	}
 	tracing.TagAnySpan(ctx,
@@ -224,7 +221,7 @@ func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline
 			return pi, ctx, nil
 		}
 	}
-	return nil, nil, nil
+	return nil, nil, ppsserver.ErrPipelineNotFound{Pipeline: pipeline}
 }
 
 func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
