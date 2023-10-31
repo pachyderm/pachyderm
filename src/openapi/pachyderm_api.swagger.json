@@ -4988,6 +4988,66 @@
         ]
       }
     },
+    "/pps_v2.API/GetProjectDefaults": {
+      "post": {
+        "summary": "GetProjectDefaults returns the defaults for a particular project.",
+        "operationId": "API_GetProjectDefaults",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pps_v2GetProjectDefaultsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2GetProjectDefaultsRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pps_v2.API/SetProjectDefaults": {
+      "post": {
+        "summary": "SetProjectDefaults sets the defaults for a particular project.",
+        "operationId": "API_SetProjectDefaults",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pps_v2SetProjectDefaultsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2SetProjectDefaultsRequest"
+            }
+          }
+        ]
+      }
+    },
     "/proxy.API/Listen": {
       "post": {
         "summary": "Listen streams database events.\nIt signals that it is internally set up by sending an initial empty ListenResponse.",
@@ -5948,6 +6008,7 @@
         "REPO_ADD_PIPELINE_WRITER",
         "PIPELINE_LIST_JOB",
         "CLUSTER_SET_DEFAULTS",
+        "PROJECT_SET_DEFAULTS",
         "PROJECT_CREATE",
         "PROJECT_DELETE",
         "PROJECT_LIST_REPO",
@@ -5955,7 +6016,7 @@
         "PROJECT_MODIFY_BINDINGS"
       ],
       "default": "PERMISSION_UNKNOWN",
-      "description": "- CLUSTER_CREATE_SECRET: TODO(actgardner): Make k8s secrets into nouns and add an Update RPC\n - CLUSTER_SET_DEFAULTS: CLUSTER_SET_DEFAULTS is part of PPS.",
+      "description": "- CLUSTER_CREATE_SECRET: TODO(actgardner): Make k8s secrets into nouns and add an Update RPC\n - CLUSTER_SET_DEFAULTS: CLUSTER_SET_DEFAULTS is part of PPS.\n - PROJECT_SET_DEFAULTS: PROJECT_SET_DEFAULTS is part of PPS.",
       "title": "Permission represents the ability to perform a given operation on a Resource"
     },
     "auth_v2Resource": {
@@ -9034,6 +9095,23 @@
         }
       }
     },
+    "pps_v2GetProjectDefaultsRequest": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pps_v2GetProjectDefaultsResponse": {
+      "type": "object",
+      "properties": {
+        "projectDefaultsJson": {
+          "type": "string",
+          "description": "A JSON-encoded ProjectDefaults message, this is the verbatim input passed\nto SetProjectDefaults."
+        }
+      }
+    },
     "pps_v2Input": {
       "type": "object",
       "properties": {
@@ -10103,6 +10181,40 @@
       }
     },
     "pps_v2SetClusterDefaultsResponse": {
+      "type": "object",
+      "properties": {
+        "affectedPipelines": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pps_v2Pipeline"
+          }
+        }
+      }
+    },
+    "pps_v2SetProjectDefaultsRequest": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        },
+        "regenerate": {
+          "type": "boolean"
+        },
+        "reprocess": {
+          "type": "boolean",
+          "title": "must be false if regenerate is false"
+        },
+        "dryRun": {
+          "type": "boolean"
+        },
+        "projectDefaultsJson": {
+          "type": "string",
+          "description": "A JSON-encoded ProjectDefaults message, this will be stored verbatim."
+        }
+      }
+    },
+    "pps_v2SetProjectDefaultsResponse": {
       "type": "object",
       "properties": {
         "affectedPipelines": {

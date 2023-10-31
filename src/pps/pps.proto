@@ -1034,4 +1034,7 @@ service API {
 
   // GetProjectDefaults returns the defaults for a particular project.
   rpc GetProjectDefaults(GetProjectDefaultsRequest) returns (GetProjectDefaultsResponse) {}
+
+  // SetProjectDefaults sets the defaults for a particular project.
+  rpc SetProjectDefaults(SetProjectDefaultsRequest) returns (SetProjectDefaultsResponse) {}
 }

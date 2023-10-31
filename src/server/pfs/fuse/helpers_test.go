@@ -14,7 +14,7 @@ import (
 
 func put(path string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost:9002/%s", path), body)
+	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost%s/%s", FuseServerPort, path), body)
 	if err != nil {
 		panic(err)
 	}
@@ -24,7 +24,7 @@ func put(path string, body io.Reader) (*http.Response, error) {
 
 func get(path string) (*http.Response, error) {
 	client := &http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:9002/%s", path), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s/%s", FuseServerPort, path), nil)
 	if err != nil {
 		panic(err)
 	}
@@ -52,9 +52,17 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 		require.ErrorIs(tb, mountErr, http.ErrServerClosed)
 	}()
 	defer func() {
-		// recover because panics leave the mount in a weird state that makes
-		// it hard to rerun the tests, mostly relevent when you're iterating on
-		// these tests, or the code they test.
+		// panic() leaves the mount in a weird state that makes it hard to rerun the
+		// tests (mostly relevent when you're iterating on these tests, or the code
+		// they test).
+		//
+		// N.B. (msteffen): AFAICT, recover() returns nil unless called in the
+		// _same_ goroutine as panic(). Go's HTTP server handles each request in a
+		// separate goroutine, so if panic() is called inside a handler, this call
+		// to recover() will return nil, and tb.Fatal() will not be called. In
+		// general, I don't know of a way to determine, at this location, whether
+		// the program is exiting due to a panic in another goro or exiting
+		// normally.
 		if r := recover(); r != nil {
 			tb.Fatal(r)
 		}

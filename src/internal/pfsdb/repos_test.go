@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -135,7 +134,7 @@ func TestGetRepo(t *testing.T) {
 	})
 }
 
-func TestListRepos(t *testing.T) {
+func TestForEachRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
@@ -155,10 +154,8 @@ func TestListRepos(t *testing.T) {
 			createCommitAndBranches(ctx, tx, t, createInfo)
 			expectedInfos[i] = createInfo
 		}
-		iter, err := pfsdb.ListRepo(ctx, tx, nil)
-		require.NoError(t, err, "should be able to list repos")
-		var i int
-		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+		i := 0
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.True(t, cmp.Equal(expectedInfos[i], repoWithID.RepoInfo, cmp.Comparer(compareRepos)))
 			i++
 			return nil
@@ -167,7 +164,7 @@ func TestListRepos(t *testing.T) {
 	})
 }
 
-func TestListReposFilter(t *testing.T) {
+func TestForEachRepoFilter(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
@@ -180,20 +177,16 @@ func TestListReposFilter(t *testing.T) {
 			}
 		}
 		filter := &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}}
-		iter, err := pfsdb.ListRepo(ctx, tx, filter)
-		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoA", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "meta", repoWithID.RepoInfo.Repo.Type)
 			return nil
-		}))
+		}), "should be able to call for each repo")
 		filter = &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}}
-		iter, err = pfsdb.ListRepo(ctx, tx, filter)
-		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoWithID](ctx, iter, func(repoWithID pfsdb.RepoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoB", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "user", repoWithID.RepoInfo.Repo.Type)
 			return nil
-		}))
+		}), "should be able to call for each repo")
 	})
 }

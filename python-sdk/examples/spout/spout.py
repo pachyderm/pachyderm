@@ -52,7 +52,7 @@ def main(client: Client):
 
 if __name__ == "__main__":
     # Connects to a pachyderm cluster using the pachctl config file located
-    # at ~/.pachyderm/config.json. For other setups, you'll want one of the 
+    # at ~/.pachyderm/config.json. For other setups, you'll want one of the
     # alternatives:
     # 1) To connect to pachyderm when this script is running inside the
     #    cluster, use `Client.new_in_cluster()`.

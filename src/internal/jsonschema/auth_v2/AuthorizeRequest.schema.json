@@ -76,6 +76,7 @@
                             "REPO_ADD_PIPELINE_WRITER",
                             "PIPELINE_LIST_JOB",
                             "CLUSTER_SET_DEFAULTS",
+                            "PROJECT_SET_DEFAULTS",
                             "PROJECT_CREATE",
                             "PROJECT_DELETE",
                             "PROJECT_LIST_REPO",

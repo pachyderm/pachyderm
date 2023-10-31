@@ -1684,6 +1684,7 @@ Permission represents the ability to perform a given operation on a Resource
 | REPO_ADD_PIPELINE_WRITER | 214 |  |
 | PIPELINE_LIST_JOB | 301 |  |
 | CLUSTER_SET_DEFAULTS | 302 | CLUSTER_SET_DEFAULTS is part of PPS. |
+| PROJECT_SET_DEFAULTS | 303 | PROJECT_SET_DEFAULTS is part of PPS. |
 | PROJECT_CREATE | 400 |  |
 | PROJECT_DELETE | 401 |  |
 | PROJECT_LIST_REPO | 402 |  |
@@ -8071,6 +8072,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | GetClusterDefaults | [GetClusterDefaultsRequest](#pps_v2-GetClusterDefaultsRequest) | [GetClusterDefaultsResponse](#pps_v2-GetClusterDefaultsResponse) | GetClusterDefaults returns the current cluster defaults. |
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
 | GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
+| SetProjectDefaults | [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest) | [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse) | SetProjectDefaults sets the defaults for a particular project. |
 
  
 

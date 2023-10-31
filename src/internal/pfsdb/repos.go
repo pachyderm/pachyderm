@@ -68,15 +68,15 @@ func IsDuplicateKeyErr(err error) bool {
 	return targetErr.Code == "23505" // duplicate key SQLSTATE
 }
 
-// RepoWithID is an (id, repoInfo) tuple returned by the repo iterator.
-type RepoWithID struct {
+// RepoInfoWithID is an (id, repoInfo) tuple returned by the repo iterator.
+type RepoInfoWithID struct {
 	ID       RepoID
 	RepoInfo *pfs.RepoInfo
 	Revision int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether RepoIterator implements stream.Iterator.
-var _ stream.Iterator[RepoWithID] = &RepoIterator{}
+var _ stream.Iterator[RepoInfoWithID] = &RepoIterator{}
 
 // DeleteRepo deletes an entry in the pfs.repos table.
 func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repoType string) error {
@@ -220,13 +220,26 @@ func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize ui
 	}, nil
 }
 
-// ListRepo returns a RepoIterator that exposes a Next() function for retrieving *pfs.RepoInfo references.
-func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
 	iter, err := NewRepoIterator(ctx, tx, 0, 100, filter, orderBys...)
 	if err != nil {
+		return errors.Wrap(err, "for each repo")
+	}
+	if err := stream.ForEach[RepoInfoWithID](ctx, iter, cb); err != nil {
+		return errors.Wrap(err, "for each repo")
+	}
+	return nil
+}
+
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
+	var repos []RepoInfoWithID
+	if err := ForEachRepo(ctx, tx, filter, func(repoWithID RepoInfoWithID) error {
+		repos = append(repos, repoWithID)
+		return nil
+	}, orderBys...); err != nil {
 		return nil, errors.Wrap(err, "list repo")
 	}
-	return iter, nil
+	return repos, nil
 }
 
 type RepoIterator struct {
@@ -234,7 +247,7 @@ type RepoIterator struct {
 	tx        *pachsql.Tx
 }
 
-func (i *RepoIterator) Next(ctx context.Context, dst *RepoWithID) error {
+func (i *RepoIterator) Next(ctx context.Context, dst *RepoInfoWithID) error {
 	if dst == nil {
 		return errors.Errorf("dst RepoInfo cannot be nil")
 	}
