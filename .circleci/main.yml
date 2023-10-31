@@ -1266,6 +1266,8 @@ jobs:
       - aws-cli/setup
       - pulumi/login
       - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: |
           pulumi plugin install resource eks
       - when:
