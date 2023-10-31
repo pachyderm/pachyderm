@@ -15,7 +15,7 @@ export const createEffectiveSpecDecorationMap = (
   userSpec?: Record<string, unknown>,
   createPipelineDefaults?: Record<string, unknown>,
 ): Record<string, unknown> => {
-  if (typeof userSpec === 'undefined') return {};
+  if (typeof userSpec !== 'object') return {};
 
   if (typeof createPipelineDefaults === 'undefined')
     createPipelineDefaults = {};
