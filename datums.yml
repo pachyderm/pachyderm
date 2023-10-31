@@ -1,0 +1,41 @@
+pipeline:
+  name: datum
+transform:
+  image: yuh
+  cmd: ["ls"]
+input:
+pfs:
+  project: WbT
+  repo: job_creation
+  branch: dev
+  glob: /*
+join:
+  - pfs:
+      repo: join
+      glob: /(*).txt
+      join_on: $1
+  - pfs:
+      repo: join2
+      glob: /*/(*).txt
+      join_on: $1
+
+  pfs:
+    repo: files
+    glob: /*
+cross:
+  - cross:
+    - pfs:
+        repo: repo1
+        glob: /*
+    - pfs:
+        repo: repo1
+        glob: /*/*
+  - cross:
+    - pfs:
+        repo: repo2
+        branch: dev
+        glob: /*
+    - pfs:
+        repo: repo2
+        branch: dev
+        glob: /*/*
