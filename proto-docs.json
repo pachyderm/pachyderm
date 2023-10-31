@@ -556,6 +556,11 @@
               "description": "CLUSTER_SET_DEFAULTS is part of PPS."
             },
             {
+              "name": "PROJECT_SET_DEFAULTS",
+              "number": "303",
+              "description": "PROJECT_SET_DEFAULTS is part of PPS."
+            },
+            {
               "name": "PROJECT_CREATE",
               "number": "400",
               "description": ""
@@ -20887,6 +20892,30 @@
               "responseType": "SetClusterDefaultsResponse",
               "responseLongType": "SetClusterDefaultsResponse",
               "responseFullType": "pps_v2.SetClusterDefaultsResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "GetProjectDefaults",
+              "description": "GetProjectDefaults returns the defaults for a particular project.",
+              "requestType": "GetProjectDefaultsRequest",
+              "requestLongType": "GetProjectDefaultsRequest",
+              "requestFullType": "pps_v2.GetProjectDefaultsRequest",
+              "requestStreaming": false,
+              "responseType": "GetProjectDefaultsResponse",
+              "responseLongType": "GetProjectDefaultsResponse",
+              "responseFullType": "pps_v2.GetProjectDefaultsResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "SetProjectDefaults",
+              "description": "SetProjectDefaults sets the defaults for a particular project.",
+              "requestType": "SetProjectDefaultsRequest",
+              "requestLongType": "SetProjectDefaultsRequest",
+              "requestFullType": "pps_v2.SetProjectDefaultsRequest",
+              "requestStreaming": false,
+              "responseType": "SetProjectDefaultsResponse",
+              "responseLongType": "SetProjectDefaultsResponse",
+              "responseFullType": "pps_v2.SetProjectDefaultsResponse",
               "responseStreaming": false
             }
           ]

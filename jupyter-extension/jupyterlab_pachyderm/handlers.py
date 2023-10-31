@@ -238,6 +238,8 @@ class ConfigHandler(BaseHandler):
             body = self.get_json_body()
             response = await self.mount_client.config(body)
             self.finish(response)
+            # reload pps client with new config
+            self.settings["pachyderm_pps_client"] = PPSClient()
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",

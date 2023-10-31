@@ -3,10 +3,11 @@ package pfsdb
 import (
 	"context"
 	"fmt"
+	"github.com/jmoiron/sqlx"
 	"strings"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 )
 
@@ -19,8 +20,13 @@ const (
 )
 
 type (
-	ModelType  interface{ Repo | Commit | Branch }
-	ColumnName interface{ string | branchColumn }
+	ModelType interface {
+		Repo | Commit | Branch | Project
+		GetCreatedAtUpdatedAt() CreatedAtUpdatedAt
+	}
+	ColumnName interface {
+		string | projectColumn | branchColumn | commitColumn | repoColumn
+	}
 )
 
 type OrderByColumn[T ColumnName] struct {
@@ -45,21 +51,24 @@ type pageIterator[T ModelType] struct {
 	limit, offset uint64
 	page          []T
 	pageIdx       int
+	lastTimestamp time.Time
+	revision      int64
 }
 
 func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
 	return pageIterator[T]{
-		query:  query,
-		values: values,
-		limit:  pageSize,
-		offset: startPage * pageSize,
+		query:    query,
+		values:   values,
+		revision: -1, // first revision should be 0 and we increment before returning.
+		limit:    pageSize,
+		offset:   startPage * pageSize,
 	}
 }
 
-func (i *pageIterator[T]) nextPage(ctx context.Context, tx *pachsql.Tx) (err error) {
+func (i *pageIterator[T]) nextPage(ctx context.Context, extCtx sqlx.ExtContext) (err error) {
 	var page []T
 	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
-	if err := tx.SelectContext(ctx, &page, query, i.values...); err != nil {
+	if err := sqlx.SelectContext(ctx, extCtx, &page, query, i.values...); err != nil {
 		return errors.Wrap(err, "getting page")
 	}
 	if len(page) == 0 {
@@ -75,13 +84,18 @@ func (i *pageIterator[T]) hasNext() bool {
 	return i.pageIdx < len(i.page)
 }
 
-func (i *pageIterator[T]) next(ctx context.Context, tx *pachsql.Tx) (*T, error) {
+func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T, int64, error) {
 	if !i.hasNext() {
-		if err := i.nextPage(ctx, tx); err != nil {
-			return nil, err
+		if err := i.nextPage(ctx, extCtx); err != nil {
+			return nil, 0, err
 		}
 	}
 	t := i.page[i.pageIdx]
+	createdAt := t.GetCreatedAtUpdatedAt().CreatedAt
+	if i.lastTimestamp.Before(createdAt) {
+		i.revision++
+		i.lastTimestamp = createdAt
+	}
 	i.pageIdx++
-	return &t, nil
+	return &t, i.revision, nil
 }

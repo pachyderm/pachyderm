@@ -63,8 +63,41 @@ global:
 
 determined:
   enabled: false
-  # The image registry to use. Defaults to the determinedai repository in DockerHub.
+  # The image registry to be used to pull the Master image.
+  # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
+  # HPE Machine Learning Development Environment (MLDE), Determined Enterprise Edition, uses the HPE MSC as the image registry
+  #imageRegistry: hub.myenterpriselicense.hpe.com/hpe-mlde/<SKU>
+  # ATTENTION
+  # Please also set:
+  #   - communicated product SKU,
+  #   - enterpriseEdition flag to true,
+  # and configure the imagePullSecretName to the HPE MSC credentials K8s Secret (e.g. mlde-hpe-registry)
+  #
+  # To get the HPE MSC credentials go to the myenterpriselicense.hpe.com website, and along with the information provided with your order
+  # create the HPE MSC credentials K8s Secret (e.g. mlde-hpe-registry) using the following command:
+  # kubectl create secret docker-registry mlde-hpe-registry  \
+  # --docker-server=hub.myenterpriselicense.hpe.com/hpe-mlde/<SKU> \
+  # --docker-username=<HPE MSC user name>  \
+  # --docker-password=<HPE MSC MLDE license key> \
+  # --docker-email=<HPE MSC user email> \
+  # -n <MLDE deployment K8s namespace, if any>
+
+  # Default images used during the deployment
+  defaultImages:
+    # PostgreSQL image
+    postgreSQL: "postgres:10.14"
+
+    # default Kube Scheduler image
+    kubeScheduler: "k8s.gcr.io/scheduler-plugins/kube-scheduler:v0.18.9"
+
+    # Kube Scheduler used when the K8s default scheduler is set to preemption
+    # when, defaultScheduler: preemption
+    kubeSchedulerPreemption: "determinedai/kube-scheduler:0.17.0"
+
+    # default images for CPU and GPU environments
+    cpuImage: "determinedai/environments:py-3.8-pytorch-1.12-tf-2.8-cpu-9d07809"
+    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-2b7e2a1"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
@@ -73,8 +106,30 @@ determined:
   # or private registry.
   imagePullSecretName: ""
 
+  # Logger Level in master.yaml - Four severity levels: debug, info, warn, error
+  logLevel: info
+  # Sets in master.yaml the output of Logger in color mode - Values: true (default), false
+  logColor: true
+
   # masterPort configures the port at which the Determined master listens for connections on.
   masterPort: 8080
+
+  # Enables the creation of non-namespaced objects - Default: true
+  # Non-namespaced object are cluster-wide resources, such as the PriorityClasses.
+  # In multiple installation on a single cluster (using different namespaces),
+  # this flag set to false avoids to recreate non-namespaced objects. In some cases (e.g., GitOps w/ArgoCD)
+  # creating existing cluster-wide resources could stop/hang automatic deployments.
+  #
+  # WARNING
+  # The first installation must run with the createNonNamespacedObjects flag set to true to ensure
+  # the non-namespaced objects are created.
+  createNonNamespacedObjects: true
+
+  # External ca.crt injection certificate/s secret name
+  # Command to create the ca cert secret:
+  #     kubectl create secret generic <external ca cert secret name, e.g., ext-ca-cert> --from-file=<ca.crt or ca bundle filename> -n <namespace>
+  #
+  # externalCaCertSecretName: <external ca cert secret name, e.g., ext-ca-cert>
 
   # When useNodePortForMaster is set to false (default), a LoadBalancer service is deployed to make
   # the Determined master reachable from outside the cluster. When useNodePortForMaster is set to
@@ -316,12 +371,6 @@ determined:
   ## scheduling with preemption
   # defaultScheduler: preemption
 
-  ## Configure settings about how Determined launches the Fluent Bit sidecar.
-  # fluent:
-  #   image: fluent/fluent-bit:1.6
-  #   uid: 0
-  #   gid: 0
-
   ## Configure the resource pools in the Determined cluster.
   resourcePools:
     - pool_name: default
@@ -340,7 +389,7 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.8.0-alpha.4"
+    tag: "2.8.0-alpha.5"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []

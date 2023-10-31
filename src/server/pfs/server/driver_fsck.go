@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsutil"
 
 	"google.golang.org/protobuf/proto"
@@ -364,32 +363,27 @@ func (d *driver) fsck(ctx context.Context, fix bool, cb func(*pfs.FsckResponse) 
 	repoInfos := make(map[string]*pfs.RepoInfo)
 	referencedCommits := make(map[string]*pfs.Commit)
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		repoIter, err := pfsdb.ListRepo(ctx, tx, nil)
-		if err != nil {
-			return errors.Wrap(err, "list repo iterator")
-		}
-		return errors.Wrap(stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
-			repoInfos[pfsdb.RepoKey(repoPair.RepoInfo.Repo)] = repoPair.RepoInfo
+		err := pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+			repoInfos[repoWithID.RepoInfo.Repo.Key()] = repoWithID.RepoInfo
 			return nil
-		}), "for each repo")
+		})
+		return errors.Wrap(err, "list repo iterator")
 	}, dbutil.WithReadOnly()); err != nil {
 		return errors.Wrap(err, "fsck: repos")
 	}
 	for _, repo := range repoInfos {
 		if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			commitInfo := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(tx).GetByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(repo.Repo), commitInfo, col.DefaultOptions(), func(string) error {
-				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = proto.Clone(commitInfo).(*pfs.CommitInfo)
-				return nil
-			}); err != nil {
+			commits, err := pfsdb.ListCommitTxByFilter(ctx, tx, &pfs.Commit{Repo: repo.Repo})
+			if err != nil {
 				return errors.Wrap(err, "get commits by commits repo index")
 			}
-			branchInfo := &pfs.BranchInfo{}
-			err := d.branches.ReadWrite(tx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(repo.Repo), branchInfo, col.DefaultOptions(), func(string) error {
-				branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+			for _, commitInfo := range commits {
+				commitInfos[pfsdb.CommitKey(commitInfo.Commit)] = commitInfo
+			}
+			return errors.Wrap(pfsdb.ForEachBranch(ctx, tx, &pfs.Branch{Repo: repo.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				branchInfos[pfsdb.BranchKey(branchInfoWithID.Branch)] = branchInfoWithID.BranchInfo
 				return nil
-			})
-			return errors.Wrap(err, "get commits by branch repo index")
+			}), "delete repo info")
 		}, dbutil.WithReadOnly()); err != nil {
 			return errors.Wrap(err, "for each repo")
 		}

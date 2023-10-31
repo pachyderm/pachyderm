@@ -8,7 +8,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -20,16 +19,19 @@ import (
 // the repo if they trigger on the change
 func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commitInfo *pfs.CommitInfo) error {
 	branchInfos := make(map[string]*pfs.BranchInfo)
-	branchInfo := &pfs.BranchInfo{}
-	if err := d.branches.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(commitInfo.Commit.Repo), branchInfo, col.DefaultOptions(), func(_ string) error {
-		branchInfos[pfsdb.BranchKey(branchInfo.Branch)] = proto.Clone(branchInfo).(*pfs.BranchInfo)
+	err := pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: commitInfo.Commit.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+		branchInfos[branchInfoWithID.Branch.Key()] = branchInfoWithID.BranchInfo
 		return nil
-	}); err != nil {
-		return err
+	})
+	if err != nil {
+		return errors.Wrap(err, "trigger commit")
 	}
 	// Recursively check / fire trigger chains.
 	newHeads := make(map[string]*pfs.CommitInfo)
-	newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	// the branch can be nil in the case where the commit's branch was deleted before the commit was finished in the backend.
+	if commitInfo.Commit.Branch != nil {
+		newHeads[pfsdb.BranchKey(commitInfo.Commit.Branch)] = commitInfo
+	}
 	var triggerBranch func(*pfs.BranchInfo) (*pfs.CommitInfo, error)
 	triggerBranch = func(bi *pfs.BranchInfo) (*pfs.CommitInfo, error) {
 		branchKey := pfsdb.BranchKey(bi.Branch)
@@ -44,7 +46,6 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 		// Recurse through the trigger chain, checking / firing earlier triggers first.
 		triggerBranchKey := pfsdb.BranchKey(bi.Branch.Repo.NewBranch(bi.Trigger.Branch))
 		triggerBranchInfo, ok := branchInfos[triggerBranchKey]
-		// TODO: We probably shouldn't allow the creation of a trigger on a nonexistent branch.
 		if !ok {
 			return nil, nil
 		}
@@ -56,9 +57,9 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Check if the trigger should fire based on the new head commit.
-		oldHead := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(bi.Head, oldHead); err != nil {
-			return nil, errors.EnsureStack(err)
+		oldHead, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, bi.Head)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
 		}
 		triggered, err := d.isTriggered(ctx, txnCtx, bi.Trigger, oldHead, newHead)
 		if err != nil {
@@ -68,17 +69,20 @@ func (d *driver) triggerCommit(ctx context.Context, txnCtx *txncontext.Transacti
 			return nil, nil
 		}
 		// Fire the trigger.
-		var trigBI pfs.BranchInfo
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, &trigBI, func() error {
-			trigBI.Head = newHead.Commit
-			return nil
-		}); err != nil {
-			return nil, errors.EnsureStack(err)
+		trigBI, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, bi.Branch.Repo.Project.Name, bi.Branch.Repo.Name,
+			bi.Branch.Repo.Type, bi.Branch.Name)
+		if err != nil {
+			return nil, errors.Wrap(err, "trigger commit")
 		}
-		if err := txnCtx.PropagateBranch(bi.Branch); err != nil {
+		trigBI.Head = newHead.Commit
+		_, err = pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, trigBI)
+		if err != nil {
 			return nil, err
 		}
 		newHeads[branchKey] = newHead
+		if err := txnCtx.PropagateBranch(trigBI.Branch); err != nil {
+			return nil, err
+		}
 		return newHead, nil
 	}
 	for _, bi := range branchInfos {

@@ -2,11 +2,11 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -25,20 +25,18 @@ func (d *driver) inspectCommitSetImmediateTx(ctx context.Context, txnCtx *txncon
 			return nil, err
 		}
 		for _, c := range cs {
-			ci := &pfs.CommitInfo{}
-			if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(c, ci); err != nil {
-				return nil, err
+			ci, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, c)
+			if err != nil {
+				return nil, errors.Wrap(err, "inspect commit set immediate")
 			}
 			cis = append(cis, ci)
 		}
 	}
-	ci := &pfs.CommitInfo{}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).GetByIndex(pfsdb.CommitsCommitSetIndex, commitSet.Id, ci, col.DefaultOptions(), func(string) error {
-		cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
-		return nil
-	}); err != nil {
-		return nil, err
+	commits, err := pfsdb.ListCommitTxByFilter(ctx, txnCtx.SqlTx, &pfs.Commit{Id: commitSet.Id})
+	if err != nil {
+		return nil, errors.Wrap(err, "inspect commit set immediate")
 	}
+	cis = append(cis, commits...)
 	return TopologicalSort(cis), nil
 }
 
@@ -126,13 +124,18 @@ func (d *driver) inspectCommitSet(ctx context.Context, commitset *pfs.CommitSet,
 }
 
 // TODO(provenance): performance concerns in inspecting each commit set
+// TODO(fahad/albert): change list commit set to query the pfsdb and return a list of all unique commit sets.
 func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb func(*pfs.CommitSetInfo) error) error {
 	// Track the commitsets we've already processed
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	commitInfo := &pfs.CommitInfo{}
-	err := d.commits.ReadOnly(ctx).List(commitInfo, col.DefaultOptions(), func(string) error {
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil)
+	if err != nil {
+		return errors.Wrap(err, "list commit set")
+	}
+	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+		commitInfo := commitWithID.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
 		}
@@ -152,7 +155,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 			Commits:   commitInfos,
 		})
 	})
-	return errors.EnsureStack(err)
+	return errors.Wrap(err, "list commit set")
 }
 
 // dropCommitSet is only implemented for commits with no children, so if any
@@ -236,10 +239,9 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 // 3. updating the ChildCommits pointers of deletedCommit.ParentCommit
 // 4. updating the ParentCommit pointer of deletedCommit.ChildCommits
 func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, ci *pfs.CommitInfo) error {
-	// make sure all children are finished, so we don't lose data
 	for _, child := range ci.ChildCommits {
-		var childInfo pfs.CommitInfo
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Get(child, &childInfo); err != nil {
+		childInfo, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, child)
+		if err != nil {
 			return errors.Wrapf(err, "error checking child commit state")
 		}
 		if childInfo.Finished == nil {
@@ -251,9 +253,7 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 			return errors.Errorf("cannot squash until child commit %s is finished%s", child, suffix)
 		}
 	}
-	if err := d.commits.ReadWrite(txnCtx.SqlTx).Delete(ci.Commit); err != nil {
-		return errors.EnsureStack(err)
-	}
+
 	// Delete the commit's filesets
 	if err := d.commitStore.DropFileSetsTx(txnCtx.SqlTx, ci.Commit); err != nil {
 		return errors.EnsureStack(err)
@@ -266,17 +266,19 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	for _, b := range repoInfo.Branches {
-		if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(b, branchInfo, func() error {
-			if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
-				if ci.ParentCommit == nil {
-					headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
-				} else {
-					branchInfo.Head = ci.ParentCommit
-				}
+		branchInfo, err = pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		if err != nil {
+			return errors.Wrapf(err, "delete commit: getting branch %s", b)
+		}
+		if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
+			if ci.ParentCommit == nil {
+				headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))
+			} else {
+				branchInfo.Head = ci.ParentCommit
 			}
-			return nil
-		}); err != nil {
-			return err
+		}
+		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
+			return errors.Wrapf(err, "delete commit: updating branch %s", branchInfo.Branch)
 		}
 	}
 	if len(headlessBranches) > 0 {
@@ -285,40 +287,15 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 			return err
 		}
 		for _, bi := range headlessBranches {
-			if err := d.branches.ReadWrite(txnCtx.SqlTx).Update(bi.Branch, bi, func() error {
-				bi.Head = repoCommit
-				return nil
-			}); err != nil {
-				return errors.Wrapf(err, "error updating branch %s", bi.Branch)
+			bi.Head = repoCommit.CommitInfo.Commit
+			if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, bi); err != nil {
+				return errors.Wrapf(err, "delete commit: updating branch %s", bi.Branch)
 			}
 		}
-
 	}
-	if ci.ParentCommit != nil {
-		parentInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(ci.ParentCommit, parentInfo, func() error {
-			var i int
-			for j, c := range parentInfo.ChildCommits {
-				if c.Id == ci.Commit.Id {
-					i = j
-					break
-				}
-			}
-			parentInfo.ChildCommits = append(parentInfo.ChildCommits[:i], parentInfo.ChildCommits[i+1:]...)
-			parentInfo.ChildCommits = append(parentInfo.ChildCommits, ci.ChildCommits...)
-			return nil
-		}); err != nil {
-			return errors.Wrapf(err, "error updating parent/child pointers")
-		}
-	}
-	for _, child := range ci.ChildCommits {
-		childInfo := &pfs.CommitInfo{}
-		if err := d.commits.ReadWrite(txnCtx.SqlTx).Update(child, childInfo, func() error {
-			childInfo.ParentCommit = ci.ParentCommit
-			return nil
-		}); err != nil {
-			return errors.Wrapf(err, "error updating parent/child pointers")
-		}
+	// delete commit.
+	if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, ci.Commit); err != nil {
+		return errors.EnsureStack(err)
 	}
 	return nil
 }

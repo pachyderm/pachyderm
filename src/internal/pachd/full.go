@@ -112,12 +112,12 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerDebugServer,
 		fb.registerProxyServer,
 		fb.initS3Server,
-		fb.initPachHTTPServer,
 		fb.initPrometheusServer,
 		fb.initPachwController,
 
 		fb.initTransaction,
 		fb.internallyListen,
+		fb.initPachHTTPServer,
 		fb.bootstrap,
 		fb.externallyListen,
 		fb.resumeHealth,
@@ -195,7 +195,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		initJaeger(),
 
 		awaitDB(env.DB),
-		runMigrations(env.DB, env.EtcdClient),
+		runMigrations(env.DirectDB, env.EtcdClient),
 		awaitMigrations(env.DB),
 
 		// API Servers

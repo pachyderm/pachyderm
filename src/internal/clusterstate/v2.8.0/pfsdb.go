@@ -268,7 +268,7 @@ func alterCommitsTable(ctx context.Context, tx *pachsql.Tx) error {
 		ADD COLUMN error text,
 		ADD COLUMN size bigint,
 		ADD COLUMN updated_at timestamptz DEFAULT CURRENT_TIMESTAMP,
-		ADD COLUMN branch_id bigint REFERENCES pfs.branches(id);
+		ADD COLUMN branch_id bigint;
 
 	CREATE TRIGGER set_updated_at
 		BEFORE UPDATE ON pfs.commits
@@ -307,6 +307,36 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	return nil
 }
 
+func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
+	query := `
+	CREATE FUNCTION pfs.notify_commits() RETURNS TRIGGER AS $$
+	DECLARE
+		row record;
+		payload text;
+	BEGIN
+		IF TG_OP = 'DELETE' THEN
+			row := OLD;
+		ELSE
+			row := NEW;
+		END IF;
+		payload := TG_OP || ' ' || row.int_id::text;
+		PERFORM pg_notify('pfs_commits', payload);
+		PERFORM pg_notify('pfs_commits_repo_' || row.repo_id::text, payload);
+		PERFORM pg_notify('pfs_commits_' || row.int_id::text, payload);
+		return row;
+	END;
+	$$ LANGUAGE plpgsql;
+	CREATE TRIGGER notify
+		AFTER INSERT OR UPDATE OR DELETE ON pfs.commits
+		FOR EACH ROW EXECUTE PROCEDURE pfs.notify_commits();
+	`
+	if _, err := tx.ExecContext(ctx, query); err != nil {
+		return errors.Wrap(err, "creating notify trigger on pfs.commits")
+	}
+	return nil
+
+}
+
 func migrateCommits(ctx context.Context, env migrations.Env) error {
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
@@ -315,6 +345,12 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 		return err
 	}
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
+		return err
+	}
+	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
+		return err
+	}
+	if err := createNotifyCommitsTrigger(ctx, env.Tx); err != nil {
 		return err
 	}
 	return nil

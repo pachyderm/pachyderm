@@ -930,12 +930,12 @@ jobs:
             npm run eslint:check
             python -m pip install -e '.[dev]'
 
-            tail -F /tmp/mount-server.log &
-
-            mkdir -p test-results
-
             # Run Python unit tests
-            pytest -v --ignore jupyterlab_pachyderm/tests/test_integrations.py --junitxml=test-results/junit.xml jupyterlab_pachyderm
+            mkdir -p test-results
+            pytest -v \
+              --ignore jupyterlab_pachyderm/tests/test_integrations.py \
+              --junitxml=test-results/junit.xml \
+              jupyterlab_pachyderm
 
             check-manifest -v
       - store_test_results:
@@ -963,15 +963,18 @@ jobs:
 
             nohup pachctl port-forward &
 
+            touch /tmp/mount-server.log # mount-server will truncate on startup
             tail -F /tmp/mount-server.log &
+            export MOUNT_SERVER_LOG_FILE=/tmp/mount-server.log \
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
 
             # Run integration tests
             mkdir -p test-results
-
-            pytest -v --junitxml=test-results/junit.xml jupyterlab_pachyderm/tests/test_integrations.py
+            pytest -v \
+              --junitxml=test-results/junit.xml \
+              jupyterlab_pachyderm/tests/test_integrations.py
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -1018,6 +1021,13 @@ jobs:
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
             CI=true CYPRESS_RECORD_KEY=$JUPYTERLAB_PACHYDERM_CYPRESS_RECORD_KEY npm run e2e
+      - when:
+          condition: on_fail
+          steps:
+            - store_artifacts:
+                path: cypress/videos/
+            - store_artifacts:
+                path: cypress/screenshots/
 
   jupyter-extension-frontend-test:
     resource_class: xlarge
@@ -1256,6 +1266,8 @@ jobs:
       - aws-cli/setup
       - pulumi/login
       - gcp-cli/initialize
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - run: |
           pulumi plugin install resource eks
       - when:

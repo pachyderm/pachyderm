@@ -7,12 +7,9 @@ import (
 	"io"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -75,39 +72,32 @@ func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthR
 
 func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	// Create role bindings for projects created before auth activation
-	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
-	if err != nil {
-		return nil, errors.Wrap(err, "list projects")
-	}
-	if err := stream.ForEach[*pfs.ProjectInfo](ctx, projIter, func(proj *pfs.ProjectInfo) error {
+	if err := pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(proj pfsdb.ProjectWithID) error {
 		var principal string
 		var roleSlice []string
-		if proj.Project.Name == pfs.DefaultProjectName {
+		if proj.ProjectInfo.Project.Name == pfs.DefaultProjectName {
 			// Grant all users ProjectWriter role for default project.
 			principal = auth.AllClusterUsersSubject
 			roleSlice = []string{auth.ProjectWriterRole}
 		}
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.Project.Name})
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, principal, roleSlice,
+			&auth.Resource{Type: auth.ResourceType_PROJECT, Name: proj.ProjectInfo.Project.Name})
 		if err != nil && !col.IsErrExists(err) {
-			return errors.Wrap(err, "create role binding in transaction")
+			return errors.Wrap(err, "activate auth in transaction")
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "list projects")
+		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	repoIter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "list projects")
-	}
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, repoIter, func(repoPair pfsdb.RepoPair) error {
-		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoPair.RepoInfo.Repo.AuthResource())
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
+		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
 		}
 		return nil
 	}); err != nil {
-		return nil, errors.Wrap(err, "list repos")
+		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	return &pfs.ActivateAuthResponse{}, nil
 }

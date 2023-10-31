@@ -371,7 +371,11 @@ func (b *builder) initS3Server(ctx context.Context) error {
 }
 
 func (b *builder) initPachHTTPServer(ctx context.Context) error {
-	b.daemon.pachhttp = http.New(b.env.Config().DownloadPort, b.env.GetPachClient)
+	var err error
+	b.daemon.pachhttp, err = http.New(ctx, b.env.Config().DownloadPort, b.env.GetPachClient)
+	if err != nil {
+		return errors.Wrap(err, "new http server")
+	}
 	return nil
 }
 
@@ -482,13 +486,13 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 	// > account for memory sources the Go runtime is unaware of.
 	//
 	// We pick 5%, since CGO_ENABLED=0 which reduces "unknown" sources of memory.
-	var target int64
+	var target float64
 	var source string
 	if v := config.K8sMemoryRequest; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes request"
 	} else if v := config.K8sMemoryLimit; v > 0 {
-		target = v - int64(0.05*float64(v))
+		target = v - 0.05*v
 		source = "kubernetes limit"
 	}
 	if target <= 0 {
@@ -496,8 +500,9 @@ func setupMemoryLimit(ctx context.Context, config pachconfig.GlobalConfiguration
 		return
 	}
 
-	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(target))), zap.String("setFrom", source))
-	debug.SetMemoryLimit(target)
+	actual := int64(math.Ceil(target))
+	log.Info(ctx, "memlimit: setting GOMEMLIMIT (95% of the k8s value)", zap.String("limit", humanize.IBytes(uint64(actual))), zap.String("setFrom", source))
+	debug.SetMemoryLimit(actual)
 }
 
 func (b *builder) newDebugServer() debugclient.DebugServer {

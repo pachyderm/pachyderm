@@ -1,6 +1,7 @@
 {{- if .Values.determined.enabled -}}
 {{- $systemClassExists := lookup "scheduling.k8s.io/v1" "PriorityClass" "" "determined-system-priority" }}
 {{- if not $systemClassExists }}
+{{- if .Values.determined.createNonNamespacedObjects }}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -10,9 +11,11 @@ preemptionPolicy: Never
 globalDefault: false
 description: "This priority class should be used for Determined system pods only."
 {{- end }}
+{{ end }}
 ---
 {{- $mediumClassExists := lookup "scheduling.k8s.io/v1" "PriorityClass" "" "determined-medium-priority" }}
 {{- if not $mediumClassExists }}
+{{- if .Values.determined.createNonNamespacedObjects }}
 apiVersion: scheduling.k8s.io/v1
 kind: PriorityClass
 metadata:
@@ -21,5 +24,6 @@ value: 50
 preemptionPolicy: Never
 globalDefault: false
 description: "This priority class should be used for medium priority Determined jobs."
+{{- end }}
 {{- end }}
 {{- end }}

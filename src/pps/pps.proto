@@ -1031,4 +1031,10 @@ service API {
 
   // SetClusterDefaults returns the current cluster defaults.
   rpc SetClusterDefaults(SetClusterDefaultsRequest) returns (SetClusterDefaultsResponse) {}
+
+  // GetProjectDefaults returns the defaults for a particular project.
+  rpc GetProjectDefaults(GetProjectDefaultsRequest) returns (GetProjectDefaultsResponse) {}
+
+  // SetProjectDefaults sets the defaults for a particular project.
+  rpc SetProjectDefaults(SetProjectDefaultsRequest) returns (SetProjectDefaultsResponse) {}
 }

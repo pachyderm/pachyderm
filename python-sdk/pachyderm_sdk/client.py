@@ -20,8 +20,8 @@ from .api.worker.extension import WorkerStub as _WorkerStub
 from .config import ConfigFile
 from .constants import (
     AUTH_TOKEN_ENV,
-    CONFIG_PATH_LOCAL,
     CONFIG_PATH_SPOUT,
+    DEFAULT_CONFIG,
     DEFAULT_HOST,
     DEFAULT_PORT,
     GRPC_CHANNEL_OPTIONS,
@@ -222,7 +222,7 @@ class Client:
         )
 
     @classmethod
-    def from_config(cls, config_file: Union[Path, str] = CONFIG_PATH_LOCAL) -> "Client":
+    def from_config(cls, config_file: Union[Path, str] = DEFAULT_CONFIG) -> "Client":
         """Creates a Pachyderm client from a config file.
 
         Parameters

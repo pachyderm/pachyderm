@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -14,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -95,11 +95,27 @@ func TestDeleteRepo(t *testing.T) {
 	})
 }
 
+func createCommitAndBranches(ctx context.Context, tx *pachsql.Tx, t *testing.T, repoInfo *pfs.RepoInfo) {
+	for _, branch := range repoInfo.Branches {
+		commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: nil, Id: random.String(32)}
+		commitInfo := &pfs.CommitInfo{Commit: commit,
+			Origin:  &pfs.CommitOrigin{Kind: pfs.OriginKind_USER},
+			Started: timestamppb.Now()}
+		_, err := pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		require.NoError(t, err, "should be able to create commit")
+		branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
+		_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to create branch")
+		commitInfo.Commit.Branch = branch
+		_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
+		require.NoError(t, err, "should be able to update commit")
+	}
+}
+
 func TestGetRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-	branchesCol := pfsdb.Branches(db, nil)
 	createInfo := testRepo(testRepoName, testRepoType)
 	createInfo.Branches = []*pfs.Branch{
 		{Repo: createInfo.Repo, Name: "master"},
@@ -107,13 +123,9 @@ func TestGetRepo(t *testing.T) {
 		{Repo: createInfo.Repo, Name: "b"},
 	}
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-		for _, branch := range createInfo.Branches {
-			commit := &pfs.Commit{Repo: createInfo.Repo, Branch: branch, Id: random.String(32)}
-			branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
-			require.NoError(t, branchesCol.ReadWrite(tx).Put(branch, branchInfo), "should be able to create branches")
-		}
 		repoID, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
 		require.NoError(t, err, "should be able to create repo")
+		createCommitAndBranches(ctx, tx, t, createInfo)
 		getInfo, err := pfsdb.GetRepo(ctx, tx, repoID)
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
@@ -122,36 +134,29 @@ func TestGetRepo(t *testing.T) {
 	})
 }
 
-func TestListRepos(t *testing.T) {
+func TestForEachRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
-	branchesCol := pfsdb.Branches(db, nil)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		size := 210
 		expectedInfos := make([]*pfs.RepoInfo, size)
 		for i := 0; i < size; i++ {
 			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "unknown")
+			id, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
+			require.NoError(t, err, "should be able to create repo")
+			require.Equal(t, pfsdb.RepoID(i+1), id, "id should be auto incremented")
 			createInfo.Branches = []*pfs.Branch{
 				{Repo: createInfo.Repo, Name: "master"},
 				{Repo: createInfo.Repo, Name: "a"},
 				{Repo: createInfo.Repo, Name: "b"},
 			}
+			createCommitAndBranches(ctx, tx, t, createInfo)
 			expectedInfos[i] = createInfo
-			for _, branch := range createInfo.Branches {
-				commit := &pfs.Commit{Repo: createInfo.Repo, Branch: branch, Id: random.String(32)}
-				branchInfo := &pfs.BranchInfo{Branch: branch, Head: commit}
-				require.NoError(t, branchesCol.ReadWrite(tx).Put(branch, branchInfo), "should be able to create branches")
-			}
-			id, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
-			require.NoError(t, err, "should be able to create repo")
-			require.Equal(t, pfsdb.RepoID(i+1), id, "id should be auto incremented")
 		}
-		iter, err := pfsdb.ListRepo(ctx, tx, nil)
-		require.NoError(t, err, "should be able to list repos")
-		var i int
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			require.True(t, cmp.Equal(expectedInfos[i], repoPair.RepoInfo, cmp.Comparer(compareRepos)))
+		i := 0
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+			require.True(t, cmp.Equal(expectedInfos[i], repoWithID.RepoInfo, cmp.Comparer(compareRepos)))
 			i++
 			return nil
 		}))
@@ -159,7 +164,7 @@ func TestListRepos(t *testing.T) {
 	})
 }
 
-func TestListReposFilter(t *testing.T) {
+func TestForEachRepoFilter(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
@@ -171,38 +176,17 @@ func TestListReposFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create repo")
 			}
 		}
-		filter := make(pfsdb.RepoListFilter)
-		filter[pfsdb.RepoNames] = []string{"repoA"}
-		iter, err := pfsdb.ListRepo(ctx, tx, filter)
-		i := 0
-		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over repos")
-			}
-			require.Equal(t, "repoA", repoPair.RepoInfo.Repo.Name)
-			i++
+		filter := &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}}
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+			require.Equal(t, "repoA", repoWithID.RepoInfo.Repo.Name)
+			require.Equal(t, "meta", repoWithID.RepoInfo.Repo.Type)
 			return nil
-		}))
-		require.Equal(t, 3, i)
-		i = 0
-		filter[pfsdb.RepoTypes] = []string{testRepoType, "meta"}
-		filter[pfsdb.RepoProjects] = []string{pfs.DefaultProjectName, "random"}
-		iter, err = pfsdb.ListRepo(ctx, tx, filter)
-		seen := make(map[string]bool)
-		require.NoError(t, err, "should be able to list repos")
-		require.NoError(t, stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over repos")
-			}
-			require.Equal(t, "repoA", repoPair.RepoInfo.Repo.Name)
-			seen[repoPair.RepoInfo.Repo.Type] = true
-			i++
+		}), "should be able to call for each repo")
+		filter = &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}}
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+			require.Equal(t, "repoB", repoWithID.RepoInfo.Repo.Name)
+			require.Equal(t, "user", repoWithID.RepoInfo.Repo.Type)
 			return nil
-		}))
-		require.Equal(t, 2, i)
-		require.Equal(t, true, seen[testRepoType])
-		require.Equal(t, true, seen["meta"])
-		require.Equal(t, 2, len(seen))
+		}), "should be able to call for each repo")
 	})
 }

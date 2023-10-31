@@ -32,7 +32,7 @@ import (
 
 func TestListDatum(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	ctx = env.Context
 	repo := "TestListDatum"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -124,7 +124,7 @@ func TestListDatum(t *testing.T) {
 
 func TestRenderTemplate(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	client := env.PachClient.PpsAPIClient
 	res, err := client.RenderTemplate(ctx, &pps.RenderTemplateRequest{
 		Args: map[string]string{
@@ -278,7 +278,7 @@ func TestParseLokiLine(t *testing.T) {
 
 func TestDeletePipelines(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	inputRepo := tu.UniqueString("repo")
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, inputRepo))
 	// pipeline1 is in default project and takes inputRepo as input
@@ -330,7 +330,7 @@ func TestDeletePipelines(t *testing.T) {
 
 func TestUpdatePipelineInputBranch(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	repo := "input"
 	pipeline := "pipeline"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
@@ -365,7 +365,7 @@ func TestUpdatePipelineInputBranch(t *testing.T) {
 
 func TestGetClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	resp, err := env.PPSServer.GetClusterDefaults(ctx, &pps.GetClusterDefaultsRequest{})
 	require.NoError(t, err, "GetClusterDefaults failed")
 	require.NotEqual(t, "", resp.ClusterDefaultsJson)
@@ -375,7 +375,7 @@ func TestGetClusterDefaults(t *testing.T) {
 
 func TestSetClusterDefaults(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	t.Run("BadJSON", func(t *testing.T) {
 		_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
@@ -567,6 +567,17 @@ func TestRerunPipeline(t *testing.T) {
 		CreatePipelineRequestJson: string(js),
 	})
 	require.NoError(t, err, "CreatePipelineV2 must succeed")
+
+	resp, err := c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{
+		Pipeline: &pps.Pipeline{
+			Project: &pfs.Project{
+				Name: pfs.DefaultProjectName,
+			},
+			Name: pipeline,
+		}})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	createdEffectiveSpecJSON := resp.EffectiveSpecJson
+
 	// wait for job to finish and get output commit data
 	jobs, err := c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
 	require.NoError(t, err)
@@ -587,6 +598,7 @@ func TestRerunPipeline(t *testing.T) {
 	require.NoError(t, err, "RerunPipeline must succeed")
 	r, err := c.PpsAPIClient.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Name: pipeline}})
 	require.NoError(t, err, "InspectPipeline must succeed")
+	require.Equal(t, createdEffectiveSpecJSON, r.EffectiveSpecJson)
 	require.Equal(t, r.Version, uint64(2), "pipeline version should = 2")
 	// wait for job to finish and get output commit data
 	jobs, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, 0, true)
@@ -642,7 +654,7 @@ func TestRerunPipeline(t *testing.T) {
 // to the same thing.
 func TestCreatePipelineMultipleNames(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "salt": "mysalt"}}`,
@@ -712,7 +724,7 @@ func TestCreatePipelineMultipleNames(t *testing.T) {
 // TestDefaultPropagation tests that changed defaults propagate to a pipeline.
 func TestDefaultPropagation(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true, "metadata": {"annotations": {"foo": "bar"}}}}`})
@@ -849,7 +861,7 @@ func unmarshalJSON(s string, v any) error {
 // true does not create a pipeline, but does return a correct effective spec.
 func TestCreatePipelineDryRun(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	_, err := env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,

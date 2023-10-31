@@ -574,6 +574,10 @@ func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLo
 	return nil, unsupportedError("GetLogs")
 }
 
+func (c *unsupportedPpsBuilderClient) GetProjectDefaults(_ context.Context, _ *pps_v2.GetProjectDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.GetProjectDefaultsResponse, error) {
+	return nil, unsupportedError("GetProjectDefaults")
+}
+
 func (c *unsupportedPpsBuilderClient) InspectDatum(_ context.Context, _ *pps_v2.InspectDatumRequest, opts ...grpc.CallOption) (*pps_v2.DatumInfo, error) {
 	return nil, unsupportedError("InspectDatum")
 }
@@ -652,6 +656,10 @@ func (c *unsupportedPpsBuilderClient) RunPipeline(_ context.Context, _ *pps_v2.R
 
 func (c *unsupportedPpsBuilderClient) SetClusterDefaults(_ context.Context, _ *pps_v2.SetClusterDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.SetClusterDefaultsResponse, error) {
 	return nil, unsupportedError("SetClusterDefaults")
+}
+
+func (c *unsupportedPpsBuilderClient) SetProjectDefaults(_ context.Context, _ *pps_v2.SetProjectDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.SetProjectDefaultsResponse, error) {
+	return nil, unsupportedError("SetProjectDefaults")
 }
 
 func (c *unsupportedPpsBuilderClient) StartPipeline(_ context.Context, _ *pps_v2.StartPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
