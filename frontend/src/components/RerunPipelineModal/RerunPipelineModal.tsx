@@ -55,18 +55,24 @@ const RerunPipelineModal: FunctionComponent<RerunPipelineModalProps> = ({
       }
     >
       <div className={styles.base}>
+        <div className={styles.explanation}>
+          Rerunning a pipeline will increment the version number of the
+          specification.
+        </div>
         <Form formContext={formCtx}>
           <RadioButton id="true" name="reprocess" value="true" small>
-            <RadioButton.Label>Process All Datums</RadioButton.Label>
+            <RadioButton.Label>Reprocess all datums</RadioButton.Label>
           </RadioButton>
           <CaptionTextSmall color="black" className={styles.description}>
-            Process all datums including previously successful datums.
+            All datums from the previous job will be reprocessed. This could
+            result in more processing than just reprocessing failed datums.
           </CaptionTextSmall>
           <RadioButton id="false" name="reprocess" value="false" small>
-            <RadioButton.Label>Process only Failed Datums</RadioButton.Label>
+            <RadioButton.Label>Reprocess only failed datums</RadioButton.Label>
           </RadioButton>
           <CaptionTextSmall color="black" className={styles.description}>
-            Process only the failed datums from the previous subjob.
+            Only process failed datums from the previous job, all others will
+            appear skipped.
           </CaptionTextSmall>
         </Form>
       </div>
