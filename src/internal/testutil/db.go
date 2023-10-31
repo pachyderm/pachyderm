@@ -3,7 +3,6 @@ package testutil
 import (
 	"crypto/rand"
 	"fmt"
-	"runtime"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
@@ -11,36 +10,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-const (
-	DefaultPostgresHost     = "127.0.0.1"
-	DefaultPostgresUser     = "pachyderm"
-	DefaultPostgresPassword = "correcthorsebatterystaple"
-	DefaultPostgresDatabase = "pachyderm"
-)
-
 // set this to false if you want to keep the database around
 var cleanup = true
-
-const postgresMaxConnections = 100
-
-// we want to divide the total number of connections we can have up among the
-// concurrently running tests
-var maxOpenConnsPerPool = (postgresMaxConnections - 1) / runtime.GOMAXPROCS(0)
-
-// NewTestDBOptions connects to postgres using opts, creates a database
-// with a unique name then returns options to connect to the new database
-// After t finishes, the database is dropped.
-func NewTestDBOptions(t testing.TB, opts []dbutil.Option) []dbutil.Option {
-	db := OpenDB(t, opts...)
-	dbName := GenerateEphemeralDBName(t)
-	CreateEphemeralDB(t, db, dbName)
-	opts2 := []dbutil.Option{
-		dbutil.WithMaxOpenConns(maxOpenConnsPerPool),
-	}
-	opts2 = append(opts2, opts...)
-	opts2 = append(opts2, dbutil.WithDBName(dbName))
-	return opts2
-}
 
 // OpenDB connects to a database using opts and returns it.
 // The database will be closed at the end of the test.
@@ -78,6 +49,7 @@ func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) {
 	t.Log("database", dbName, "successfully created")
 }
 
+// GenerateEphemeralDBName generates a random name suitable for use as a Postgres identifier
 func GenerateEphemeralDBName(t testing.TB) string {
 	buf := [8]byte{}
 	n, err := rand.Reader.Read(buf[:])

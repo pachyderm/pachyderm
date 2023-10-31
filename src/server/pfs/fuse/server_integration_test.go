@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -962,4 +963,9 @@ func TestMountDatumsNoGlobMatch(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
 	})
+}
+
+func TestMain(m *testing.M) {
+	log.InitPachctlLogger()
+	m.Run()
 }

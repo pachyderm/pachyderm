@@ -1627,10 +1627,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	var cluster bool
 	inspectDefaults := &cobra.Command{
-		Use:    "{{alias}} [--cluster | --project PROJECT]",
-		Short:  "Return defaults.",
-		Long:   "Return cluster or project defaults.",
-		Hidden: true,
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
+		Short: "Return defaults.",
+		Long:  "Return cluster or project defaults.",
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {

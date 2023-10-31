@@ -32,7 +32,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
-	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
@@ -139,7 +138,7 @@ func (d *driver) createRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	}
 
 	// Check that the repo’s project exists; if not, return an error.
-	if _, err := coredb.GetProjectByName(ctx, txnCtx.SqlTx, repo.Project.Name); err != nil {
+	if _, err := pfsdb.GetProjectByName(ctx, txnCtx.SqlTx, repo.Project.Name); err != nil {
 		return errors.Wrapf(err, "cannot find project %q", repo.Project)
 	}
 
@@ -271,16 +270,13 @@ func (d *driver) hasProjectAccess(
 }
 
 func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project) ([]*pfs.RepoInfo, error) {
-	projectNames := make([]string, 0)
+	projectNames := make(map[string]bool, 0)
 	for _, project := range projects {
-		projectNames = append(projectNames, project.GetName())
+		projectNames[project.GetName()] = true
 	}
-	filter := make(pfsdb.RepoListFilter)
-	if len(projects) != 0 {
-		filter[pfsdb.RepoProjects] = projectNames
-	}
+	filter := &pfs.Repo{}
 	if repoType != "" { // blank type means return all, otherwise return a specific type
-		filter[pfsdb.RepoTypes] = []string{repoType}
+		filter.Type = repoType
 	}
 	var authActive bool
 	if includeAuth {
@@ -294,32 +290,31 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
 		return d.env.Auth.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
 	}, 100)
-	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
-	if err != nil {
-		return nil, errors.Wrap(err, "could not list repos of all types")
-	}
 	var repos []*pfs.RepoInfo
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(repoPair pfsdb.RepoPair) error {
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok && len(projectNames) > 0 {
+			return nil // project doesn't match filter.
+		}
 		if authActive {
-			hasAccess, err := d.hasProjectAccess(txnCtx, repoPair.RepoInfo, checkProjectAccess)
+			hasAccess, err := d.hasProjectAccess(txnCtx, repoWithID.RepoInfo, checkProjectAccess)
 			if err != nil {
 				return errors.Wrap(err, "checking project access")
 			}
 			if !hasAccess {
 				return nil
 			}
-			permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoPair.RepoInfo.Repo)
+			permissions, roles, err := d.getPermissionsInTransaction(txnCtx, repoWithID.RepoInfo.Repo)
 			if err != nil {
-				return errors.Wrapf(err, "error getting access level for %q", repoPair.RepoInfo.Repo)
+				return errors.Wrapf(err, "error getting access level for %q", repoWithID.RepoInfo.Repo)
 			}
-			repoPair.RepoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
+			repoWithID.RepoInfo.AuthInfo = &pfs.AuthInfo{Permissions: permissions, Roles: roles}
 		}
-		size, err := d.repoSize(ctx, txnCtx, repoPair.RepoInfo)
+		size, err := d.repoSize(ctx, txnCtx, repoWithID.RepoInfo)
 		if err != nil {
-			return errors.Wrapf(err, "getting repo size for %q", repoPair.RepoInfo.Repo)
+			return errors.Wrapf(err, "getting repo size for %q", repoWithID.RepoInfo.Repo)
 		}
-		repoPair.RepoInfo.SizeBytesUpperBound = size
-		repos = append(repos, repoPair.RepoInfo)
+		repoWithID.RepoInfo.SizeBytesUpperBound = size
+		repos = append(repos, repoWithID.RepoInfo)
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "for each repo")
@@ -400,8 +395,8 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		return false, err
 	}
 	var bis []*pfs.BranchInfo
-	for _, ri := range related {
-		bs, err := d.listRepoBranches(ctx, txnCtx, ri)
+	for _, repoInfoWithID := range related {
+		bs, err := d.listRepoBranches(ctx, txnCtx, repoInfoWithID.RepoInfo)
 		if err != nil {
 			return false, err
 		}
@@ -411,8 +406,8 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 	if err := d.deleteBranches(ctx, txnCtx, bis, force); err != nil {
 		return false, err
 	}
-	for _, ri := range related {
-		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
+	for _, repoInfoWithID := range related {
+		if err := d.deleteRepoInfo(ctx, txnCtx, repoInfoWithID.RepoInfo); err != nil {
 			return false, err
 		}
 	}
@@ -472,30 +467,18 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// deleteBranch, we also do branches.DeleteAll(), this insulates us
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
-	// todo(fahad/albert): write delete: d.branches.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.BranchesRepoIndex, pfsdb.RepoKey(ri.Repo))
-	branchIter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: ri.Repo},
-		pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
+	err = pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: ri.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID)
+	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
 	}
-	if err := stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		if err := pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID); err != nil {
-			return errors.Wrap(err, "delete repo info")
-		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "delete repo info")
-	}
 	// Similarly with commits
-	// todo(fahad): write delete
 	for _, commitInfo := range commitInfos {
 		if err := pfsdb.DeleteCommit(ctx, txnCtx.SqlTx, commitInfo.Commit); err != nil {
 			return errors.Wrap(err, "delete repo info")
 		}
 	}
-	//if err := d.commits.ReadWrite(txnCtx.SqlTx).DeleteByIndex(pfsdb.CommitsRepoIndex, pfsdb.RepoKey(ri.Repo)); err != nil {
-	//	return errors.EnsureStack(err)
-	//}
 	if err := pfsdb.DeleteRepo(ctx, txnCtx.SqlTx, ri.Repo.Project.Name, ri.Repo.Name, ri.Repo.Type); err != nil && !pfsdb.IsErrRepoNotFound(err) {
 		return errors.Wrapf(err, "repos.Delete")
 	}
@@ -508,26 +491,23 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	return nil
 }
 
-func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]*pfs.RepoInfo, error) {
+func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo) ([]pfsdb.RepoInfoWithID, error) {
 	if repo.Type != pfs.UserRepoType {
 		ri, err := pfsdb.GetRepoByName(ctx, txnCtx.SqlTx, repo.Project.Name, repo.Name, repo.Type)
 		if err != nil {
 			return nil, err
 		}
-		return []*pfs.RepoInfo{ri}, nil
+		return []pfsdb.RepoInfoWithID{{RepoInfo: ri}}, nil
 	}
-	var related []*pfs.RepoInfo
-	filter := make(pfsdb.RepoListFilter)
-	filter[pfsdb.RepoNames] = []string{repo.Name}
-	filter[pfsdb.RepoProjects] = []string{repo.Project.Name}
-	iter, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
+	filter := &pfs.Repo{
+		Name:    repo.Name,
+		Project: repo.Project,
+	}
+	related, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
-	if err := stream.ForEach[pfsdb.RepoPair](ctx, iter, func(otherRepo pfsdb.RepoPair) error {
-		related = append(related, otherRepo.RepoInfo)
-		return nil
-	}); err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
+	if err != nil && !pfsdb.IsErrRepoNotFound(err) { // TODO(acohen4): !RepoNotFound may be unnecessary
 		return nil, errors.Wrapf(err, "error finding dependent repos for %q", repo.Name)
 	}
 	return related, nil
@@ -561,7 +541,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		return errors.Wrapf(err, "invalid project name")
 	}
 	if req.Update {
-		return errors.Wrapf(coredb.UpsertProject(ctx, txnCtx.SqlTx,
+		return errors.Wrapf(pfsdb.UpsertProject(ctx, txnCtx.SqlTx,
 			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}),
 			"failed to update project %s", req.Project.Name)
 	}
@@ -578,7 +558,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 	} else if !errors.Is(err, auth.ErrNotActivated) {
 		return errors.Wrap(err, "could not get caller's username")
 	}
-	if err := coredb.CreateProject(ctx, txnCtx.SqlTx, &pfs.ProjectInfo{
+	if err := pfsdb.CreateProject(ctx, txnCtx.SqlTx, &pfs.ProjectInfo{
 		Project:     req.Project,
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
@@ -597,7 +577,7 @@ func (d *driver) inspectProject(ctx context.Context, project *pfs.Project) (*pfs
 	var pi *pfs.ProjectInfo
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		var err error
-		pi, err = coredb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
+		pi, err = pfsdb.GetProjectByName(ctx, tx, pfsdb.ProjectKey(project))
 		if err != nil {
 			return err
 		}
@@ -761,11 +741,9 @@ func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) erro
 
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProjectInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, cb func(*pfs.ProjectInfo) error) error {
-	projIter, err := coredb.ListProject(ctx, txnCtx.SqlTx)
-	if err != nil {
-		return errors.Wrap(err, "could not list project")
-	}
-	return errors.Wrap(stream.ForEach[*pfs.ProjectInfo](ctx, projIter, cb), "list projects")
+	return errors.Wrap(pfsdb.ForEachProject(ctx, txnCtx.SqlTx, func(project pfsdb.ProjectWithID) error {
+		return cb(project.ProjectInfo)
+	}), "list projects in transaction")
 }
 
 // TODO: delete all repos and pipelines within project
@@ -787,7 +765,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 	if errs != nil && !force {
 		return status.Error(codes.FailedPrecondition, fmt.Sprintf("cannot delete project %s: %v", project.Name, errs))
 	}
-	if err := coredb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
+	if err := pfsdb.DeleteProject(ctx, txnCtx.SqlTx, pfsdb.ProjectKey(project)); err != nil {
 		return errors.Wrapf(err, "delete project %q", project)
 	}
 	if err := d.env.Auth.DeleteRoleBindingInTransaction(txnCtx, project.AuthResource()); err != nil {
@@ -1986,17 +1964,14 @@ func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.Bran
 	if reverse {
 		order = pfsdb.SortOrderAsc
 	}
+	orderBys := []pfsdb.OrderByBranchColumn{
+		{Column: pfsdb.BranchColumnCreatedAt, Order: order},
+		{Column: pfsdb.BranchColumnID, Order: order},
+	}
 	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		iter, err := pfsdb.NewBranchIterator(ctx, tx, 0, 100, nil, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
-			pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: order})
-		if err != nil {
-			return errors.Wrap(err, "list branch")
-		}
-		return stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-			return errors.Wrap(listCallback(branchInfoWithID), "list branch")
-		})
+		return pfsdb.ForEachBranch(ctx, tx, nil, listCallback, orderBys...)
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "list branches")
 	}
 	return sendBis()
 }
@@ -2023,14 +1998,13 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 	if reverse {
 		order = pfsdb.SortOrderAsc
 	}
-	iter, err := pfsdb.NewBranchIterator(ctx, txnCtx.SqlTx, 0, 100, &pfs.Branch{Repo: repo}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnCreatedAt, Order: order},
-		pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: order})
-	if err != nil {
-		return errors.Wrap(err, "list branch in transaction")
+	orderBys := []pfsdb.OrderByBranchColumn{
+		{Column: pfsdb.BranchColumnCreatedAt, Order: order},
+		{Column: pfsdb.BranchColumnID, Order: order},
 	}
-	return errors.Wrap(stream.ForEach[pfsdb.BranchInfoWithID](ctx, iter, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+	return errors.Wrap(pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
 		return cb(branchInfoWithID.BranchInfo)
-	}), "list branch in transaction")
+	}, orderBys...), "list branch in transaction")
 }
 
 func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
@@ -2090,18 +2064,6 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		branchID, err := pfsdb.GetBranchID(ctx, txnCtx.SqlTx, branch)
 		if err != nil {
 			return errors.Wrapf(err, "delete branch")
-		}
-		// we need to find all commits that reference this branch and update them so they no longer do that.
-		if err := pfsdb.UpdateCommitTxByFilter(ctx, txnCtx.SqlTx,
-			&pfs.Commit{
-				Branch: branch,
-				Repo:   branch.Repo,
-			},
-			func(commitWithID pfsdb.CommitWithID) error {
-				commitWithID.CommitInfo.Commit.Branch = nil
-				return nil
-			}); err != nil {
-			return errors.Wrap(err, "delete branch")
 		}
 		// place of deletion, we need to set the branch ID to nil so we can delete the branch.
 		if err := pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchID); err != nil {

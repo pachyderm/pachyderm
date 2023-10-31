@@ -6,11 +6,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 func TestGetTableInfo(suite *testing.T) {
@@ -22,7 +24,7 @@ func TestGetTableInfo(suite *testing.T) {
 	tcs := []testCase{
 		{
 			Name:  "Postgres",
-			NewDB: dockertestenv.NewEphemeralPostgresDB,
+			NewDB: newEphemeralPostgresDB,
 			Expected: &pachsql.TableInfo{
 				"pgx",
 				"test_table",
@@ -119,4 +121,9 @@ func TestGetTableInfo(suite *testing.T) {
 			require.Equal(t, tc.Expected, info)
 		})
 	}
+}
+
+func newEphemeralPostgresDB(ctx context.Context, t testing.TB) (*sqlx.DB, string) {
+	c := dockertestenv.NewTestDBConfig(t)
+	return testutil.OpenDB(t, c.Direct.DBOptions()...), c.Direct.DBName
 }
