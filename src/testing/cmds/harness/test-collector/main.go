@@ -110,7 +110,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	for scanner.Scan() {
 		testInfo := &testOutput{}
 		raw := scanner.Bytes()
-		if bytes.HasPrefix(raw, []byte("go:")) {
+		if !bytes.HasPrefix(raw, []byte("{")) {
 			continue // dependency download junk got shared
 		}
 		err := json.Unmarshal(raw, testInfo)
