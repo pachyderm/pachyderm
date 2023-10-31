@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -806,28 +807,6 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 	})
 }
 
-func TestMountDatumsSpecifyingCommit(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
-	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
-	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
-	require.NoError(t, err)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte(fmt.Sprintf(
-			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
-			pfs.DefaultProjectName, commitInfo.Commit.Id),
-		)
-		resp, err := put("datums/_mount", bytes.NewReader(input))
-		require.NoError(t, err)
-		require.Equal(t, 400, resp.StatusCode)
-	})
-}
-
 func TestMountDatumsPagination(t *testing.T) {
 	t.Skip("Include test when ListDatum pagination is efficient #ListDatumPagination")
 	c, _ := minikubetestenv.AcquireCluster(t)
@@ -947,7 +926,7 @@ func TestMountDatumsPagination(t *testing.T) {
 	})
 }
 
-func TestMountingDatumsDuplicateRepoNoAliasError(t *testing.T) {
+func simpleRepoFixture(t *testing.T) (*client.APIClient, string) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
 	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
@@ -957,19 +936,164 @@ func TestMountingDatumsDuplicateRepoNoAliasError(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
+	return c, commitInfo.Commit.Id
+}
 
+func bodyToString(body io.ReadCloser) string {
+	buf := new(bytes.Buffer)
+	buf.ReadFrom(body)
+	return buf.String()
+}
+
+func TestBadInputSpecNoRepo(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprint(
+			`{'input': {'pfs': {'glob': '/*'}}}`,
+		))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "repo must be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecDuplicateRepos(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
 	withServerMount(t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {
 				'cross': [
-					{'pfs': {'glob': '/', 'repo': 'repo1'}},
-					{'pfs': {'glob': '/*', 'repo': 'repo1'}}
+					{'pfs': {'glob': '/', 'repo': 'repo'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo'}}
 				]
 			}}`,
 		)
 		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "used more than once"))
+		resp.Body.Close()
+
+		input = []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo', 'name': 'alias'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo', 'name': 'alias'}}
+				]
+			}}`,
+		)
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "used more than once"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecSpecifyingCommit(t *testing.T) {
+	c, commitID := simpleRepoFixture(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
+			pfs.DefaultProjectName, commitID),
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "commit cannot be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecNoGlob(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprint(
+			`{'input': {'pfs': {'repo': 'repo'}}}`,
+		))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "glob must be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecInvalidTypes(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprint(
+			`{'input': {'cron': {'name': 'tick, 'spec': '@every 60s'}}}`,
+		))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "cron"))
+		resp.Body.Close()
+
+		input = []byte(fmt.Sprint(
+			`{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 's3': true}}}`,
+		))
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "s3"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecOutRepo(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "out"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "out", "master", "")
+	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprint(
+			`{'input': {'pfs': {'repo': 'out', 'glob': '/*'}}}`,
+		))
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "name must be specified for repo 'out'"))
+		resp.Body.Close()
+	})
+}
+
+func TestDuplicateReposWithAlias(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo', 'name': 'alias'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo'}}
+				]
+			}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		// require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 1, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		require.True(t, files[0].Name() != files[1].Name())
+		require.True(t, files[0].Name() == "alias" || files[1].Name() == "alias")
 	})
 }
 
