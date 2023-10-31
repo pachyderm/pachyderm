@@ -6,6 +6,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
 const Separator = string(filepath.Separator)
@@ -109,10 +110,83 @@ func crossDatums(datums [][]*pps.DatumInfo) []*pps.DatumInfo {
 	return ret
 }
 
-func getCopyOfMapping(datumInputsToMounts map[string][]string) map[string][]string {
+func copyMap(datumInputsToMounts map[string][]string) map[string][]string {
 	datumInputsToMountsCopy := map[string][]string{}
 	for k, v := range datumInputsToMounts {
 		datumInputsToMountsCopy[k] = v
 	}
 	return datumInputsToMountsCopy
+}
+
+// Copied from PPS api_server.go
+func validateNames(names map[string]bool, input *pps.Input) error {
+	switch {
+	case input == nil:
+		return nil // spouts can have nil input
+	case input.Pfs != nil:
+		if err := validateName(input.Pfs.Name); err != nil {
+			return err
+		}
+		if names[input.Pfs.Name] {
+			return errors.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
+		}
+		names[input.Pfs.Name] = true
+	case input.Cron != nil:
+		if err := validateName(input.Cron.Name); err != nil {
+			return err
+		}
+		if names[input.Cron.Name] {
+			return errors.Errorf(`name "%s" was used more than once`, input.Cron.Name)
+		}
+		names[input.Cron.Name] = true
+	case input.Union != nil:
+		for _, input := range input.Union {
+			namesCopy := make(map[string]bool)
+			merge(names, namesCopy)
+			if err := validateNames(namesCopy, input); err != nil {
+				return err
+			}
+			// we defer this because subinputs of a union input are allowed to
+			// have conflicting names but other inputs that are, for example,
+			// crossed with this union cannot conflict with any of the names it
+			// might present
+			defer merge(namesCopy, names)
+		}
+	case input.Cross != nil:
+		for _, input := range input.Cross {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	case input.Join != nil:
+		for _, input := range input.Join {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	case input.Group != nil:
+		for _, input := range input.Group {
+			if err := validateNames(names, input); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateName(name string) error {
+	if name == "" {
+		return errors.Errorf("input must specify a name")
+	}
+	switch name {
+	case common.OutputPrefix, common.EnvFileName:
+		return errors.Errorf("input cannot be named %v", name)
+	}
+	return nil
+}
+
+func merge(from, to map[string]bool) {
+	for s := range from {
+		to[s] = true
+	}
 }
