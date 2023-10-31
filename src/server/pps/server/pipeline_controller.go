@@ -23,7 +23,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing/extended"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -330,17 +329,16 @@ func (pc *pipelineController) step(timestamp time.Time) (isDelete bool, retErr e
 	// derive the latest pipelineInfo with a corresponding auth'd context
 	pi, ctx, err := pc.psDriver.FetchState(pc.ctx, pc.pipeline)
 	if err != nil {
-		if errors.As(err, &ppsserver.ErrPipelineNotFound{}) {
-			// Assume the pipeline is deleted if it is not found.
-			if err := pc.deletePipelineResources(); err != nil {
-				log.Error(pc.ctx, "error deleting pipelineController resources for pipeline", zap.Error(err))
-				return true, errors.Wrapf(err, "error deleting pipelineController resources for pipeline '%s'", pc.pipeline)
-			}
-			return true, nil
-		}
 		// if we fail to create a new step, there was an error querying the pipeline info, and there's nothing we can do
 		log.Error(pc.ctx, "failed to set up step data to handle event for pipeline", zap.Error(err))
 		return false, errors.Wrapf(err, "failing pipeline %q", pc.pipeline)
+	}
+	if pi == nil {
+		if err := pc.deletePipelineResources(); err != nil {
+			log.Error(pc.ctx, "error deleting pipelineController resources for pipeline", zap.Error(err))
+			return true, errors.Wrapf(err, "error deleting pipelineController resources for pipeline '%s'", pc.pipeline)
+		}
+		return true, nil
 	}
 	var stepErr stepError
 	// TODO(msteffen) should this fail the pipeline? (currently getRC will restart

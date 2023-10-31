@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
@@ -69,6 +70,9 @@ func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (
 	// query pipelineInfo
 	pi, err := sd.tryLoadLatestPipelineInfo(ctx, pipeline)
 	if err != nil {
+		if errors.As(err, &ppsserver.ErrPipelineNotFound{}) {
+			return nil, nil, nil
+		}
 		return nil, nil, errors.Wrap(err, "fetch pipeline state")
 	}
 	tracing.TagAnySpan(ctx,
