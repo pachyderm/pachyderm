@@ -783,6 +783,12 @@ func WithZombieCheckTarget(c *pfs.Commit) FsckOption {
 	}
 }
 
+func WithSquash() FsckOption {
+	return func(req *pfs.FsckRequest) {
+		req.Squash = true
+	}
+}
+
 // Fsck performs checks on pfs. Errors that are encountered will be passed
 // onError. These aren't errors in the traditional sense, in that they don't
 // prevent the completion of fsck. Errors that do prevent completion will be
@@ -835,4 +841,13 @@ func (c APIClient) FsckFastExit() error {
 			return errors.Errorf(resp.Error)
 		}
 	}
+}
+
+func (c APIClient) FsckSquash() error {
+	return c.Fsck(false, func(resp *pfs.FsckResponse) error {
+		if resp.Error != "" {
+			return errors.New(resp.Error)
+		}
+		return nil
+	}, WithSquash())
 }

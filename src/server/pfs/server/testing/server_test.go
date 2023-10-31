@@ -5130,6 +5130,75 @@ func TestPFS(suite *testing.T) {
 		})
 	})
 
+	suite.Run("FsckSquash", func(t *testing.T) {
+		t.Parallel()
+		ctx := pctx.TestContext(t)
+		env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t))
+		upstream1 := tu.UniqueString("upstream-1")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream1))
+		upstream2 := tu.UniqueString("upstream-2")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, upstream2))
+		downstream := tu.UniqueString("downstream")
+		require.NoError(t, env.PachClient.CreateProjectRepo(pfs.DefaultProjectName, downstream))
+		require.NoError(t, env.PachClient.CreateProjectBranch(pfs.DefaultProjectName, downstream, "master", "", "", []*pfs.Branch{
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream1, "master"),
+			client.NewProjectBranch(pfs.DefaultProjectName, upstream2, "master"),
+		}))
+		require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+		createCommit := func(repo string) *pfs.Commit {
+			commit, err := env.PachClient.StartProjectCommit(pfs.DefaultProjectName, repo, "master")
+			require.NoError(t, err)
+			require.NoError(t, env.PachClient.PutFile(commit, "file", strings.NewReader(tu.UniqueString("data"))))
+			require.NoError(t, finishCommitSet(env.PachClient, commit.ID))
+			return commit
+		}
+		t.Run("NoAffect", func(t *testing.T) {
+			c1 := createCommit(upstream1)
+			c2 := createCommit(upstream2)
+			require.NoError(t, env.PachClient.FsckSquash())
+			for _, c := range []*pfs.Commit{c1, c2} {
+				cis, err := env.PachClient.InspectCommitSet(c.ID)
+				require.NoError(t, err)
+				require.Equal(t, 3, len(cis))
+			}
+		})
+		t.Run("AffectOne", func(t *testing.T) {
+			c1 := createCommit(upstream1)
+			c2 := createCommit(upstream2)
+			createCommit(upstream1)
+			require.NoError(t, env.PachClient.SquashCommitSet(c1.ID))
+			require.NoError(t, env.PachClient.FsckSquash())
+			cis, err := env.PachClient.InspectCommitSet(c2.ID)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(cis))
+			require.Equal(t, upstream2, cis[0].Commit.Branch.Repo.Name)
+			require.NoError(t, finishCommitSetAll(env.PachClient))
+		})
+		t.Run("AffectMultiple", func(t *testing.T) {
+			c1 := createCommit(upstream1)
+			c2 := createCommit(upstream2)
+			c3 := createCommit(upstream1)
+			c4 := createCommit(upstream2)
+			createCommit(upstream1)
+			require.NoError(t, env.PachClient.SquashCommitSet(c1.ID))
+			require.NoError(t, env.PachClient.SquashCommitSet(c3.ID))
+			require.NoError(t, env.PachClient.FsckSquash())
+			for _, c := range []*pfs.Commit{c2, c4} {
+				cis, err := env.PachClient.InspectCommitSet(c.ID)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(cis))
+				require.Equal(t, upstream2, cis[0].Commit.Branch.Repo.Name)
+			}
+			require.NoError(t, finishCommitSetAll(env.PachClient))
+		})
+		t.Run("Error", func(t *testing.T) {
+			c1 := createCommit(upstream1)
+			createCommit(upstream2)
+			require.NoError(t, env.PachClient.SquashCommitSet(c1.ID))
+			require.YesError(t, env.PachClient.FsckSquash())
+		})
+	})
+
 	suite.Run("CommitState", func(t *testing.T) {
 		t.Parallel()
 		ctx := pctx.TestContext(t)

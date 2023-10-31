@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -19,7 +20,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
@@ -404,4 +407,133 @@ func (d *driver) detectZombie(ctx context.Context, outputCommit *pfs.Commit, cb 
 			})
 		}))
 	})
+}
+
+func (d *driver) fsckSquash(ctx context.Context, cb func(*pfs.FsckResponse) error) error {
+	commitInfos := make(map[string]*pfs.CommitInfo)
+	ci := &pfs.CommitInfo{}
+	if err := d.commits.ReadOnly(ctx).List(ci, col.DefaultOptions(), func(key string) error {
+		commitInfos[key] = proto.Clone(ci).(*pfs.CommitInfo)
+		return nil
+	}); err != nil {
+		return err
+	}
+	fileSets, err := d.getCommitFileSets(ctx)
+	if err != nil {
+		return err
+	}
+	for _, ci := range commitInfos {
+		if ci.Origin.Kind != pfs.OriginKind_ALIAS {
+			continue
+		}
+		md1, ok := fileSets[pfsdb.CommitKey(ci.Commit)]
+		if !ok {
+			log.Info(ctx, "file set missing for commit", log.Proto("commit", ci.Commit))
+			continue
+		}
+		// If the parent commit is nil, then the alias commit should be deleted.
+		// This can happen when the first commit to a branch is a real commit that was squashed.
+		if ci.ParentCommit != nil {
+			md2, ok := fileSets[pfsdb.CommitKey(ci.ParentCommit)]
+			if !ok {
+				log.Info(ctx, "file set missing for parent commit", log.Proto("commit", ci.ParentCommit))
+				continue
+			}
+			equal, err := equalFileSets(md1, md2)
+			if err != nil {
+				return err
+			}
+			if equal {
+				continue
+			}
+		}
+		// Delete descendant alias commits.
+		descendants := []*pfs.Commit{ci.Commit}
+		for len(descendants) > 0 {
+			c := descendants[0]
+			descendants = descendants[1:]
+			ci, ok := commitInfos[pfsdb.CommitKey(c)]
+			if !ok {
+				log.Error(ctx, "descendant commit info missing", log.Proto("commit", c))
+				continue
+			}
+			if ci.Origin.Kind != pfs.OriginKind_ALIAS {
+				continue
+			}
+			if err := d.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+				err := d.squashCommit(txnCtx, ci.Commit, true)
+				// The commit may have been deleted by a prior squash.
+				if pfsserver.IsCommitNotFoundErr(err) {
+					err = nil
+				}
+				return err
+			}); err != nil {
+				if err := cb(&pfs.FsckResponse{
+					Error: fmt.Sprintf("commit %v requires manual squash / drop", c),
+				}); err != nil {
+					return err
+				}
+			}
+			descendants = append(descendants, ci.ChildCommits...)
+		}
+	}
+	return nil
+}
+
+func (d *driver) getCommitFileSets(ctx context.Context) (map[string]*fileset.Metadata, error) {
+	fileSets := make(map[string]*fileset.Metadata)
+	rs, err := d.env.DB.QueryContext(ctx, "SELECT commit_id, metadata_pb FROM pfs.commit_totals JOIN storage.filesets ON fileset_id = id")
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	defer rs.Close()
+	for rs.Next() {
+		var id string
+		var data []byte
+		if err := rs.Scan(&id, &data); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		md := &fileset.Metadata{}
+		if err := proto.Unmarshal(data, md); err != nil {
+			return nil, errors.EnsureStack(err)
+		}
+		fileSets[id] = md
+	}
+	if err := rs.Err(); err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return fileSets, nil
+}
+
+func equalFileSets(md1, md2 *fileset.Metadata) (bool, error) {
+	if md1 == nil || md2 == nil {
+		// the semantics here are a little odd - if either commit doesn't have a fileset yet,
+		// we assume that they aren't different and are therefore the same.
+		return true, nil
+	}
+	if md1.GetPrimitive() != nil && md2.GetPrimitive() != nil {
+		ser1, err := proto.Marshal(md1.GetPrimitive())
+		if err != nil {
+			return false, errors.EnsureStack(err)
+		}
+		ser2, err := proto.Marshal(md2.GetPrimitive())
+		if err != nil {
+			return false, errors.EnsureStack(err)
+		}
+		return bytes.Equal(ser1, ser2), nil
+	}
+	if md1.GetComposite() != nil && md2.GetComposite() != nil {
+		comp1Layers := md1.GetComposite().Layers
+		comp2Layers := md2.GetComposite().Layers
+		if len(comp1Layers) != len(comp2Layers) {
+			return false, nil
+		}
+		for i, l := range comp1Layers {
+			if l != comp2Layers[i] {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+	return false, nil
 }

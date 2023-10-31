@@ -651,6 +651,7 @@ func (x *FsckRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddBool("fix", x.Fix)
 	enc.AddObject("zombie_target", x.GetZombieTarget())
 	enc.AddBool("zombie_all", x.GetZombieAll())
+	enc.AddBool("squash", x.Squash)
 	return nil
 }
 
