@@ -1072,15 +1072,27 @@ class RunCronRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class CheckStatusRequest(betterproto.Message):
+    """Request to check the status of pipelines within a project."""
+
     all: bool = betterproto.bool_field(1, group="context")
+    """boolean field indicating status of all project pipelines."""
+
     project: "_pfs__.Project" = betterproto.message_field(2, group="context")
+    """project field"""
 
 
 @dataclass(eq=False, repr=False)
 class CheckStatusResponse(betterproto.Message):
+    """Response for check status request. Provides alerts if any."""
+
     project: "_pfs__.Project" = betterproto.message_field(1)
+    """project field"""
+
     pipeline: "Pipeline" = betterproto.message_field(2)
+    """pipeline field"""
+
     alerts: List[str] = betterproto.string_field(3)
+    """alert indicators"""
 
 
 @dataclass(eq=False, repr=False)

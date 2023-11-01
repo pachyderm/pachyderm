@@ -25009,4 +25009,2230 @@
             {
               "name": "base_file_set_path_range",
               "description": "",
-             
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "base_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CrossTaskResult",
+          "longName": "CrossTaskResult",
+          "fullName": "datum.CrossTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "KeyTask",
+          "longName": "KeyTask",
+          "fullName": "datum.KeyTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "",
+              "label": "",
+              "type": "Type",
+              "longType": "KeyTask.Type",
+              "fullType": "datum.KeyTask.Type",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "KeyTaskResult",
+          "longName": "KeyTaskResult",
+          "fullName": "datum.KeyTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MergeTask",
+          "longName": "MergeTask",
+          "fullName": "datum.MergeTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_ids",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "",
+              "label": "",
+              "type": "Type",
+              "longType": "MergeTask.Type",
+              "fullType": "datum.MergeTask.Type",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MergeTaskResult",
+          "longName": "MergeTaskResult",
+          "fullName": "datum.MergeTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Meta",
+          "longName": "Meta",
+          "fullName": "datum.Meta",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "pps_v2.Job",
+              "fullType": "pps_v2.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "inputs",
+              "description": "",
+              "label": "repeated",
+              "type": "Input",
+              "longType": "common.Input",
+              "fullType": "common.Input",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "hash",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "state",
+              "description": "",
+              "label": "",
+              "type": "State",
+              "longType": "State",
+              "fullType": "datum.State",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "reason",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stats",
+              "description": "",
+              "label": "",
+              "type": "ProcessStats",
+              "longType": "pps_v2.ProcessStats",
+              "fullType": "pps_v2.ProcessStats",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "image_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PFSTask",
+          "longName": "PFSTask",
+          "fullName": "datum.PFSTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "input",
+              "description": "",
+              "label": "",
+              "type": "PFSInput",
+              "longType": "pps_v2.PFSInput",
+              "fullType": "pps_v2.PFSInput",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "base_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "auth_token",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PFSTaskResult",
+          "longName": "PFSTaskResult",
+          "fullName": "datum.PFSTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SetSpec",
+          "longName": "SetSpec",
+          "fullName": "datum.SetSpec",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "number",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Stats",
+          "longName": "Stats",
+          "fullName": "datum.Stats",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "process_stats",
+              "description": "",
+              "label": "",
+              "type": "ProcessStats",
+              "longType": "pps_v2.ProcessStats",
+              "fullType": "pps_v2.ProcessStats",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "processed",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "skipped",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "total",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "failed",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "recovered",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "failed_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": []
+    },
+    {
+      "name": "server/worker/pipeline/transform/transform.proto",
+      "description": "",
+      "package": "pachyderm.worker.pipeline.transform",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": false,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "CreateDatumSetsTask",
+          "longName": "CreateDatumSetsTask",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateDatumSetsTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "set_spec",
+              "description": "",
+              "label": "",
+              "type": "SetSpec",
+              "longType": "datum.SetSpec",
+              "fullType": "datum.SetSpec",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateDatumSetsTaskResult",
+          "longName": "CreateDatumSetsTaskResult",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateDatumSetsTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "datum_sets",
+              "description": "",
+              "label": "repeated",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateParallelDatumsTask",
+          "longName": "CreateParallelDatumsTask",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateParallelDatumsTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "pps_v2.Job",
+              "fullType": "pps_v2.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "salt",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "base_file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateParallelDatumsTaskResult",
+          "longName": "CreateParallelDatumsTaskResult",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateParallelDatumsTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stats",
+              "description": "",
+              "label": "",
+              "type": "Stats",
+              "longType": "datum.Stats",
+              "fullType": "datum.Stats",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateSerialDatumsTask",
+          "longName": "CreateSerialDatumsTask",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateSerialDatumsTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "pps_v2.Job",
+              "fullType": "pps_v2.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "salt",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "base_meta_commit",
+              "description": "",
+              "label": "",
+              "type": "Commit",
+              "longType": "pfs_v2.Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "no_skip",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateSerialDatumsTaskResult",
+          "longName": "CreateSerialDatumsTaskResult",
+          "fullName": "pachyderm.worker.pipeline.transform.CreateSerialDatumsTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "output_delete_file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "meta_delete_file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stats",
+              "description": "",
+              "label": "",
+              "type": "Stats",
+              "longType": "datum.Stats",
+              "fullType": "datum.Stats",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DatumSetTask",
+          "longName": "DatumSetTask",
+          "fullName": "pachyderm.worker.pipeline.transform.DatumSetTask",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "Job",
+              "longType": "pps_v2.Job",
+              "fullType": "pps_v2.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_range",
+              "description": "",
+              "label": "",
+              "type": "PathRange",
+              "longType": "pfs_v2.PathRange",
+              "fullType": "pfs_v2.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "output_commit",
+              "description": "",
+              "label": "",
+              "type": "Commit",
+              "longType": "pfs_v2.Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DatumSetTaskResult",
+          "longName": "DatumSetTaskResult",
+          "fullName": "pachyderm.worker.pipeline.transform.DatumSetTaskResult",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "output_file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "meta_file_set_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stats",
+              "description": "",
+              "label": "",
+              "type": "Stats",
+              "longType": "datum.Stats",
+              "fullType": "datum.Stats",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": []
+    },
+    {
+      "name": "task/task.proto",
+      "description": "",
+      "package": "taskapi",
+      "hasEnums": true,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": false,
+      "enums": [
+        {
+          "name": "State",
+          "longName": "State",
+          "fullName": "taskapi.State",
+          "description": "",
+          "values": [
+            {
+              "name": "UNKNOWN",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "RUNNING",
+              "number": "1",
+              "description": ""
+            },
+            {
+              "name": "SUCCESS",
+              "number": "2",
+              "description": ""
+            },
+            {
+              "name": "FAILURE",
+              "number": "3",
+              "description": ""
+            },
+            {
+              "name": "CLAIMED",
+              "number": "4",
+              "description": "not a real state used by task logic"
+            }
+          ]
+        }
+      ],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "Group",
+          "longName": "Group",
+          "fullName": "taskapi.Group",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "namespace",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "group",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ListTaskRequest",
+          "longName": "ListTaskRequest",
+          "fullName": "taskapi.ListTaskRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "group",
+              "description": "",
+              "label": "",
+              "type": "Group",
+              "longType": "Group",
+              "fullType": "taskapi.Group",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "TaskInfo",
+          "longName": "TaskInfo",
+          "fullName": "taskapi.TaskInfo",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "group",
+              "description": "",
+              "label": "",
+              "type": "Group",
+              "longType": "Group",
+              "fullType": "taskapi.Group",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "state",
+              "description": "",
+              "label": "",
+              "type": "State",
+              "longType": "State",
+              "fullType": "taskapi.State",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "reason",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "input_type",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "input_data",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": []
+    },
+    {
+      "name": "transaction/transaction.proto",
+      "description": "",
+      "package": "transaction_v2",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "BatchTransactionRequest",
+          "longName": "BatchTransactionRequest",
+          "fullName": "transaction_v2.BatchTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "requests",
+              "description": "",
+              "label": "repeated",
+              "type": "TransactionRequest",
+              "longType": "TransactionRequest",
+              "fullType": "transaction_v2.TransactionRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteAllRequest",
+          "longName": "DeleteAllRequest",
+          "fullName": "transaction_v2.DeleteAllRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "DeleteTransactionRequest",
+          "longName": "DeleteTransactionRequest",
+          "fullName": "transaction_v2.DeleteTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "transaction",
+              "description": "",
+              "label": "",
+              "type": "Transaction",
+              "longType": "Transaction",
+              "fullType": "transaction_v2.Transaction",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "FinishTransactionRequest",
+          "longName": "FinishTransactionRequest",
+          "fullName": "transaction_v2.FinishTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "transaction",
+              "description": "",
+              "label": "",
+              "type": "Transaction",
+              "longType": "Transaction",
+              "fullType": "transaction_v2.Transaction",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "InspectTransactionRequest",
+          "longName": "InspectTransactionRequest",
+          "fullName": "transaction_v2.InspectTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "transaction",
+              "description": "",
+              "label": "",
+              "type": "Transaction",
+              "longType": "Transaction",
+              "fullType": "transaction_v2.Transaction",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ListTransactionRequest",
+          "longName": "ListTransactionRequest",
+          "fullName": "transaction_v2.ListTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "StartTransactionRequest",
+          "longName": "StartTransactionRequest",
+          "fullName": "transaction_v2.StartTransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "Transaction",
+          "longName": "Transaction",
+          "fullName": "transaction_v2.Transaction",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TransactionInfo",
+          "longName": "TransactionInfo",
+          "fullName": "transaction_v2.TransactionInfo",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "transaction",
+              "description": "",
+              "label": "",
+              "type": "Transaction",
+              "longType": "Transaction",
+              "fullType": "transaction_v2.Transaction",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "requests",
+              "description": "",
+              "label": "repeated",
+              "type": "TransactionRequest",
+              "longType": "TransactionRequest",
+              "fullType": "transaction_v2.TransactionRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "responses",
+              "description": "",
+              "label": "repeated",
+              "type": "TransactionResponse",
+              "longType": "TransactionResponse",
+              "fullType": "transaction_v2.TransactionResponse",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "started",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "version",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TransactionInfos",
+          "longName": "TransactionInfos",
+          "fullName": "transaction_v2.TransactionInfos",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "transaction_info",
+              "description": "",
+              "label": "repeated",
+              "type": "TransactionInfo",
+              "longType": "TransactionInfo",
+              "fullType": "transaction_v2.TransactionInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TransactionRequest",
+          "longName": "TransactionRequest",
+          "fullName": "transaction_v2.TransactionRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "create_repo",
+              "description": "Exactly one of these fields should be set",
+              "label": "",
+              "type": "CreateRepoRequest",
+              "longType": "pfs_v2.CreateRepoRequest",
+              "fullType": "pfs_v2.CreateRepoRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "delete_repo",
+              "description": "",
+              "label": "",
+              "type": "DeleteRepoRequest",
+              "longType": "pfs_v2.DeleteRepoRequest",
+              "fullType": "pfs_v2.DeleteRepoRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "start_commit",
+              "description": "",
+              "label": "",
+              "type": "StartCommitRequest",
+              "longType": "pfs_v2.StartCommitRequest",
+              "fullType": "pfs_v2.StartCommitRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "finish_commit",
+              "description": "",
+              "label": "",
+              "type": "FinishCommitRequest",
+              "longType": "pfs_v2.FinishCommitRequest",
+              "fullType": "pfs_v2.FinishCommitRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "squash_commit_set",
+              "description": "",
+              "label": "",
+              "type": "SquashCommitSetRequest",
+              "longType": "pfs_v2.SquashCommitSetRequest",
+              "fullType": "pfs_v2.SquashCommitSetRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "create_branch",
+              "description": "",
+              "label": "",
+              "type": "CreateBranchRequest",
+              "longType": "pfs_v2.CreateBranchRequest",
+              "fullType": "pfs_v2.CreateBranchRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "delete_branch",
+              "description": "",
+              "label": "",
+              "type": "DeleteBranchRequest",
+              "longType": "pfs_v2.DeleteBranchRequest",
+              "fullType": "pfs_v2.DeleteBranchRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "update_job_state",
+              "description": "",
+              "label": "",
+              "type": "UpdateJobStateRequest",
+              "longType": "pps_v2.UpdateJobStateRequest",
+              "fullType": "pps_v2.UpdateJobStateRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "stop_job",
+              "description": "",
+              "label": "",
+              "type": "StopJobRequest",
+              "longType": "pps_v2.StopJobRequest",
+              "fullType": "pps_v2.StopJobRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "create_pipeline_v2",
+              "description": "",
+              "label": "",
+              "type": "CreatePipelineTransaction",
+              "longType": "pps_v2.CreatePipelineTransaction",
+              "fullType": "pps_v2.CreatePipelineTransaction",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TransactionResponse",
+          "longName": "TransactionResponse",
+          "fullName": "transaction_v2.TransactionResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit",
+              "description": "At most, one of these fields should be set (most responses are empty)\n\nOnly used for StartCommit - any way we can deterministically provide this before finishing the transaction?",
+              "label": "",
+              "type": "Commit",
+              "longType": "pfs_v2.Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "transaction_v2.API",
+          "description": "",
+          "methods": [
+            {
+              "name": "BatchTransaction",
+              "description": "Transaction rpcs",
+              "requestType": "BatchTransactionRequest",
+              "requestLongType": "BatchTransactionRequest",
+              "requestFullType": "transaction_v2.BatchTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "TransactionInfo",
+              "responseLongType": "TransactionInfo",
+              "responseFullType": "transaction_v2.TransactionInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "StartTransaction",
+              "description": "",
+              "requestType": "StartTransactionRequest",
+              "requestLongType": "StartTransactionRequest",
+              "requestFullType": "transaction_v2.StartTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "Transaction",
+              "responseLongType": "Transaction",
+              "responseFullType": "transaction_v2.Transaction",
+              "responseStreaming": false
+            },
+            {
+              "name": "InspectTransaction",
+              "description": "",
+              "requestType": "InspectTransactionRequest",
+              "requestLongType": "InspectTransactionRequest",
+              "requestFullType": "transaction_v2.InspectTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "TransactionInfo",
+              "responseLongType": "TransactionInfo",
+              "responseFullType": "transaction_v2.TransactionInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "DeleteTransaction",
+              "description": "",
+              "requestType": "DeleteTransactionRequest",
+              "requestLongType": "DeleteTransactionRequest",
+              "requestFullType": "transaction_v2.DeleteTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "Empty",
+              "responseLongType": ".google.protobuf.Empty",
+              "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ListTransaction",
+              "description": "",
+              "requestType": "ListTransactionRequest",
+              "requestLongType": "ListTransactionRequest",
+              "requestFullType": "transaction_v2.ListTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "TransactionInfos",
+              "responseLongType": "TransactionInfos",
+              "responseFullType": "transaction_v2.TransactionInfos",
+              "responseStreaming": false
+            },
+            {
+              "name": "FinishTransaction",
+              "description": "",
+              "requestType": "FinishTransactionRequest",
+              "requestLongType": "FinishTransactionRequest",
+              "requestFullType": "transaction_v2.FinishTransactionRequest",
+              "requestStreaming": false,
+              "responseType": "TransactionInfo",
+              "responseLongType": "TransactionInfo",
+              "responseFullType": "transaction_v2.TransactionInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "DeleteAll",
+              "description": "",
+              "requestType": "DeleteAllRequest",
+              "requestLongType": "DeleteAllRequest",
+              "requestFullType": "transaction_v2.DeleteAllRequest",
+              "requestStreaming": false,
+              "responseType": "Empty",
+              "responseLongType": ".google.protobuf.Empty",
+              "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "version/versionpb/version.proto",
+      "description": "",
+      "package": "versionpb_v2",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "Version",
+          "longName": "Version",
+          "fullName": "versionpb_v2.Version",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "major",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "minor",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "micro",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "additional",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "git_commit",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "git_tree_modified",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "build_date",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "go_version",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "platform",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "versionpb_v2.API",
+          "description": "",
+          "methods": [
+            {
+              "name": "GetVersion",
+              "description": "",
+              "requestType": "Empty",
+              "requestLongType": ".google.protobuf.Empty",
+              "requestFullType": "google.protobuf.Empty",
+              "requestStreaming": false,
+              "responseType": "Version",
+              "responseLongType": "Version",
+              "responseFullType": "versionpb_v2.Version",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "worker/worker.proto",
+      "description": "",
+      "package": "pachyderm.worker",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "CancelRequest",
+          "longName": "CancelRequest",
+          "fullName": "pachyderm.worker.CancelRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "job_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data_filters",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CancelResponse",
+          "longName": "CancelResponse",
+          "fullName": "pachyderm.worker.CancelResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "success",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "NextDatumRequest",
+          "longName": "NextDatumRequest",
+          "fullName": "pachyderm.worker.NextDatumRequest",
+          "description": "Error indicates that the processing of the current datum errored.\nDatum error semantics with datum batching enabled are similar to datum error\nsemantics without datum batching enabled in that the datum may be retried,\nrecovered, or result with a job failure.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "error",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "NextDatumResponse",
+          "longName": "NextDatumResponse",
+          "fullName": "pachyderm.worker.NextDatumResponse",
+          "description": "Env is a list of environment variables that should be set for the processing\nof the next datum.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "env",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "Worker",
+          "longName": "Worker",
+          "fullName": "pachyderm.worker.Worker",
+          "description": "",
+          "methods": [
+            {
+              "name": "Status",
+              "description": "",
+              "requestType": "Empty",
+              "requestLongType": ".google.protobuf.Empty",
+              "requestFullType": "google.protobuf.Empty",
+              "requestStreaming": false,
+              "responseType": "WorkerStatus",
+              "responseLongType": ".pps_v2.WorkerStatus",
+              "responseFullType": "pps_v2.WorkerStatus",
+              "responseStreaming": false
+            },
+            {
+              "name": "Cancel",
+              "description": "",
+              "requestType": "CancelRequest",
+              "requestLongType": "CancelRequest",
+              "requestFullType": "pachyderm.worker.CancelRequest",
+              "requestStreaming": false,
+              "responseType": "CancelResponse",
+              "responseLongType": "CancelResponse",
+              "responseFullType": "pachyderm.worker.CancelResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "NextDatum",
+              "description": "NextDatum should only be called by user code running in a pipeline with\ndatum batching enabled.\nNextDatum will signal to the worker code that the user code is ready to\nproceed to the next datum. This generally means setting up the next\ndatum's filesystem state and updating internal metadata similarly to datum\nprocessing in a normal pipeline.\nNextDatum is a synchronous operation, so user code should expect to block\non this until the next datum is set up for processing.\nUser code should generally be migratable to datum batching by wrapping it\nin a loop that calls next datum.",
+              "requestType": "NextDatumRequest",
+              "requestLongType": "NextDatumRequest",
+              "requestFullType": "pachyderm.worker.NextDatumRequest",
+              "requestStreaming": false,
+              "responseType": "NextDatumResponse",
+              "responseLongType": "NextDatumResponse",
+              "responseFullType": "pachyderm.worker.NextDatumResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scalarValueTypes": [
+    {
+      "protoType": "double",
+      "notes": "",
+      "cppType": "double",
+      "csType": "double",
+      "goType": "float64",
+      "javaType": "double",
+      "phpType": "float",
+      "pythonType": "float",
+      "rubyType": "Float"
+    },
+    {
+      "protoType": "float",
+      "notes": "",
+      "cppType": "float",
+      "csType": "float",
+      "goType": "float32",
+      "javaType": "float",
+      "phpType": "float",
+      "pythonType": "float",
+      "rubyType": "Float"
+    },
+    {
+      "protoType": "int32",
+      "notes": "Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint32 instead.",
+      "cppType": "int32",
+      "csType": "int",
+      "goType": "int32",
+      "javaType": "int",
+      "phpType": "integer",
+      "pythonType": "int",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "int64",
+      "notes": "Uses variable-length encoding. Inefficient for encoding negative numbers – if your field is likely to have negative values, use sint64 instead.",
+      "cppType": "int64",
+      "csType": "long",
+      "goType": "int64",
+      "javaType": "long",
+      "phpType": "integer/string",
+      "pythonType": "int/long",
+      "rubyType": "Bignum"
+    },
+    {
+      "protoType": "uint32",
+      "notes": "Uses variable-length encoding.",
+      "cppType": "uint32",
+      "csType": "uint",
+      "goType": "uint32",
+      "javaType": "int",
+      "phpType": "integer",
+      "pythonType": "int/long",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "uint64",
+      "notes": "Uses variable-length encoding.",
+      "cppType": "uint64",
+      "csType": "ulong",
+      "goType": "uint64",
+      "javaType": "long",
+      "phpType": "integer/string",
+      "pythonType": "int/long",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "sint32",
+      "notes": "Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int32s.",
+      "cppType": "int32",
+      "csType": "int",
+      "goType": "int32",
+      "javaType": "int",
+      "phpType": "integer",
+      "pythonType": "int",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "sint64",
+      "notes": "Uses variable-length encoding. Signed int value. These more efficiently encode negative numbers than regular int64s.",
+      "cppType": "int64",
+      "csType": "long",
+      "goType": "int64",
+      "javaType": "long",
+      "phpType": "integer/string",
+      "pythonType": "int/long",
+      "rubyType": "Bignum"
+    },
+    {
+      "protoType": "fixed32",
+      "notes": "Always four bytes. More efficient than uint32 if values are often greater than 2^28.",
+      "cppType": "uint32",
+      "csType": "uint",
+      "goType": "uint32",
+      "javaType": "int",
+      "phpType": "integer",
+      "pythonType": "int",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "fixed64",
+      "notes": "Always eight bytes. More efficient than uint64 if values are often greater than 2^56.",
+      "cppType": "uint64",
+      "csType": "ulong",
+      "goType": "uint64",
+      "javaType": "long",
+      "phpType": "integer/string",
+      "pythonType": "int/long",
+      "rubyType": "Bignum"
+    },
+    {
+      "protoType": "sfixed32",
+      "notes": "Always four bytes.",
+      "cppType": "int32",
+      "csType": "int",
+      "goType": "int32",
+      "javaType": "int",
+      "phpType": "integer",
+      "pythonType": "int",
+      "rubyType": "Bignum or Fixnum (as required)"
+    },
+    {
+      "protoType": "sfixed64",
+      "notes": "Always eight bytes.",
+      "cppType": "int64",
+      "csType": "long",
+      "goType": "int64",
+      "javaType": "long",
+      "phpType": "integer/string",
+      "pythonType": "int/long",
+      "rubyType": "Bignum"
+    },
+    {
+      "protoType": "bool",
+      "notes": "",
+      "cppType": "bool",
+      "csType": "bool",
+      "goType": "bool",
+      "javaType": "boolean",
+      "phpType": "boolean",
+      "pythonType": "boolean",
+      "rubyType": "TrueClass/FalseClass"
+    },
+    {
+      "protoType": "string",
+      "notes": "A string must always contain UTF-8 encoded or 7-bit ASCII text.",
+      "cppType": "string",
+      "csType": "string",
+      "goType": "string",
+      "javaType": "String",
+      "phpType": "string",
+      "pythonType": "str/unicode",
+      "rubyType": "String (UTF-8)"
+    },
+    {
+      "protoType": "bytes",
+      "notes": "May contain any arbitrary sequence of bytes.",
+      "cppType": "string",
+      "csType": "ByteString",
+      "goType": "[]byte",
+      "javaType": "ByteString",
+      "phpType": "string",
+      "pythonType": "str",
+      "rubyType": "String (ASCII-8BIT)"
+    }
+  ]
+}
