@@ -254,7 +254,7 @@ func TestDeleteCommitWithParent(t *testing.T) {
 			// confirm parent has no children.
 			_, err = pfsdb.GetCommitChildren(ctx, tx, parentID)
 			require.YesError(t, err, "should not be able to get any children.")
-			require.Equal(t, pfsdb.ErrChildCommitNotFound{ParentRowID: parentID}, err)
+			require.True(t, errors.As(err, &pfsdb.ErrChildCommitNotFound{ParentRowID: parentID}))
 		})
 	})
 }
