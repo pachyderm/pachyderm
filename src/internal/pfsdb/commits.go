@@ -99,11 +99,11 @@ type ErrCommitNotFound struct {
 	CommitID string
 }
 
-func (err ErrCommitNotFound) Error() string {
+func (err *ErrCommitNotFound) Error() string {
 	return fmt.Sprintf("commit (int_id=%d, commit_id=%s) not found", err.RowID, err.CommitID)
 }
 
-func (err ErrCommitNotFound) GRPCStatus() *status.Status {
+func (err *ErrCommitNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -117,11 +117,11 @@ func IsParentCommitNotFound(err error) bool {
 	return dbutil.IsNotNullViolation(err, "parent")
 }
 
-func (err ErrParentCommitNotFound) Error() string {
+func (err *ErrParentCommitNotFound) Error() string {
 	return fmt.Sprintf("parent commit of commit (int_id=%d, commit_id=%s) not found", err.ChildRowID, err.ChildCommitID)
 }
 
-func (err ErrParentCommitNotFound) GRPCStatus() *status.Status {
+func (err *ErrParentCommitNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -136,11 +136,11 @@ func IsChildCommitNotFound(err error) bool {
 	return dbutil.IsNotNullViolation(err, "child")
 }
 
-func (err ErrChildCommitNotFound) Error() string {
+func (err *ErrChildCommitNotFound) Error() string {
 	return fmt.Sprintf("parent commit of commit (int_id=%d, commit_key=%s) not found", err.ParentRowID, err.ParentCommitID)
 }
 
-func (err ErrChildCommitNotFound) GRPCStatus() *status.Status {
+func (err *ErrChildCommitNotFound) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -149,11 +149,11 @@ type ErrCommitMissingInfo struct {
 	Field string
 }
 
-func (err ErrCommitMissingInfo) Error() string {
+func (err *ErrCommitMissingInfo) Error() string {
 	return fmt.Sprintf("commitInfo.%s is missing/nil", err.Field)
 }
 
-func (err ErrCommitMissingInfo) GRPCStatus() *status.Status {
+func (err *ErrCommitMissingInfo) GRPCStatus() *status.Status {
 	return status.New(codes.FailedPrecondition, err.Error())
 }
 
@@ -163,11 +163,11 @@ type ErrCommitAlreadyExists struct {
 }
 
 // Error satisfies the error interface.
-func (err ErrCommitAlreadyExists) Error() string {
+func (err *ErrCommitAlreadyExists) Error() string {
 	return fmt.Sprintf("commit %s already exists", err.CommitID)
 }
 
-func (err ErrCommitAlreadyExists) GRPCStatus() *status.Status {
+func (err *ErrCommitAlreadyExists) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
@@ -226,7 +226,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
 	if row.Err() != nil {
 		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
-			return 0, ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
+			return 0, &ErrCommitAlreadyExists{CommitID: CommitKey(commitInfo.Commit)}
 		}
 		return 0, errors.Wrap(row.Err(), "exec create commitInfo")
 	}
@@ -258,7 +258,7 @@ func CreateCommitParent(ctx context.Context, tx *pachsql.Tx, parentCommit *pfs.C
 	_, err := tx.ExecContext(ctx, ancestryQuery, CommitKey(parentCommit), childCommit)
 	if err != nil {
 		if IsParentCommitNotFound(err) {
-			return ErrParentCommitNotFound{ChildRowID: childCommit}
+			return &ErrParentCommitNotFound{ChildRowID: childCommit}
 		}
 		return errors.Wrap(err, "putting commit parent")
 	}
@@ -286,7 +286,7 @@ func CreateCommitAncestries(ctx context.Context, tx *pachsql.Tx, parentCommit Co
 		params...)
 	if err != nil {
 		if IsChildCommitNotFound(err) {
-			return ErrChildCommitNotFound{ParentRowID: parentCommit}
+			return &ErrChildCommitNotFound{ParentRowID: parentCommit}
 		}
 		return errors.Wrap(err, "putting commit children")
 	}
@@ -314,7 +314,7 @@ func CreateCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit Comm
 		params...)
 	if err != nil {
 		if IsChildCommitNotFound(err) {
-			return ErrChildCommitNotFound{ParentRowID: parentCommit}
+			return &ErrChildCommitNotFound{ParentRowID: parentCommit}
 		}
 		return errors.Wrap(err, "putting commit children")
 	}
@@ -325,7 +325,7 @@ func CreateCommitChildren(ctx context.Context, tx *pachsql.Tx, parentCommit Comm
 // The caller is responsible for updating branchesg.
 func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error {
 	if commit == nil {
-		return ErrCommitMissingInfo{Field: "Commit"}
+		return &ErrCommitMissingInfo{Field: "Commit"}
 	}
 	id, err := GetCommitID(ctx, tx, commit)
 	if err != nil {
@@ -362,7 +362,7 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return ErrCommitNotFound{RowID: id}
+		return &ErrCommitNotFound{RowID: id}
 	}
 	return nil
 }
@@ -370,10 +370,10 @@ func DeleteCommit(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) error
 // GetCommitID returns the int_id of a commit in postgres.
 func GetCommitID(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (CommitID, error) {
 	if commit == nil {
-		return 0, ErrCommitMissingInfo{Field: "Commit"}
+		return 0, &ErrCommitMissingInfo{Field: "Commit"}
 	}
 	if commit.Repo == nil {
-		return 0, ErrCommitMissingInfo{Field: "Repo"}
+		return 0, &ErrCommitMissingInfo{Field: "Repo"}
 	}
 	row, err := getCommitRowByCommitKey(ctx, tx, commit)
 	if err != nil {
@@ -391,7 +391,7 @@ func GetCommit(ctx context.Context, tx *pachsql.Tx, id CommitID) (*pfs.CommitInf
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE int_id=$1", getCommit), id).StructScan(row)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrCommitNotFound{RowID: id}
+			return nil, &ErrCommitNotFound{RowID: id}
 		}
 		return nil, errors.Wrap(err, "scanning commit row")
 	}
@@ -454,7 +454,7 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 	rows, err := extCtx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.parent=$1", getChildCommit), parentCommit)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+			return nil, &ErrChildCommitNotFound{ParentRowID: parentCommit}
 		}
 		return nil, errors.Wrap(err, "getting commit children")
 	}
@@ -467,7 +467,7 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 		children = append(children, childCommitInfo.Commit)
 	}
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
-		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+		return nil, &ErrChildCommitNotFound{ParentRowID: parentCommit}
 	}
 	return children, nil
 }
@@ -477,7 +477,7 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
 	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
 	if err != nil {
-		if errors.Is(err, ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}) {
+		if errors.Is(err, &ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}) {
 			return CreateCommit(ctx, tx, commitInfo, opts...)
 		}
 		return 0, errors.Wrap(err, "upserting commit")
@@ -534,7 +534,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		if err != nil {
 			return err
 		}
-		return ErrCommitNotFound{RowID: id}
+		return &ErrCommitNotFound{RowID: id}
 	}
 	if !opt.SkipParent {
 		_, err = tx.ExecContext(ctx, "DELETE FROM pfs.commit_ancestry WHERE child=$1;", id)
@@ -566,13 +566,13 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 // if they are nil.
 func validateCommitInfo(commitInfo *pfs.CommitInfo) error {
 	if commitInfo.Commit == nil {
-		return ErrCommitMissingInfo{Field: "Commit"}
+		return &ErrCommitMissingInfo{Field: "Commit"}
 	}
 	if commitInfo.Commit.Repo == nil {
-		return ErrCommitMissingInfo{Field: "Repo"}
+		return &ErrCommitMissingInfo{Field: "Repo"}
 	}
 	if commitInfo.Origin == nil {
-		return ErrCommitMissingInfo{Field: "Origin"}
+		return &ErrCommitMissingInfo{Field: "Origin"}
 	}
 	if commitInfo.Details == nil { // stub in an empty details struct to avoid panics.
 		commitInfo.Details = &pfs.CommitInfo_Details{}
@@ -602,12 +602,12 @@ func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row
 
 func getCommitRelatives(ctx context.Context, extCtx sqlx.ExtContext, commitID CommitID) (*pfs.Commit, []*pfs.Commit, error) {
 	parentCommit, err := getCommitParent(ctx, extCtx, commitID)
-	if err != nil && !errors.Is(err, ErrParentCommitNotFound{ChildRowID: commitID}) {
+	if err != nil && !errors.Is(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
 	childCommits, err := getCommitChildren(ctx, extCtx, commitID)
-	if err != nil && !errors.Is(err, ErrChildCommitNotFound{ParentRowID: commitID}) {
+	if err != nil && !errors.Is(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}
@@ -618,7 +618,7 @@ func getCommitParentRow(ctx context.Context, extCtx sqlx.ExtContext, childCommit
 	row := &Commit{}
 	if err := sqlx.GetContext(ctx, extCtx, row, fmt.Sprintf("%s WHERE ancestry.child=$1", getParentCommit), childCommit); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrParentCommitNotFound{ChildRowID: childCommit}
+			return nil, &ErrParentCommitNotFound{ChildRowID: childCommit}
 		}
 		return nil, errors.Wrap(err, "scanning commit row for parent")
 	}
@@ -630,7 +630,7 @@ func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit Com
 	rows, err := tx.QueryxContext(ctx, fmt.Sprintf("%s WHERE ancestry.parent=$1", getChildCommit), parentCommit)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+			return nil, &ErrChildCommitNotFound{ParentRowID: parentCommit}
 		}
 		return nil, errors.Wrap(err, "getting commit children rows")
 	}
@@ -642,19 +642,19 @@ func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit Com
 		children = append(children, row)
 	}
 	if len(children) == 0 { // QueryxContext does not return an error when the query returns 0 rows.
-		return nil, ErrChildCommitNotFound{ParentRowID: parentCommit}
+		return nil, &ErrChildCommitNotFound{ParentRowID: parentCommit}
 	}
 	return children, nil
 }
 
 func getCommitRelativeRows(ctx context.Context, tx *pachsql.Tx, commitID CommitID) (*Commit, []*Commit, error) {
 	commitParentRows, err := getCommitParentRow(ctx, tx, commitID)
-	if err != nil && !errors.Is(err, ErrParentCommitNotFound{ChildRowID: commitID}) {
+	if err != nil && !errors.Is(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
 	commitChildrenRows, err := getCommitChildrenRows(ctx, tx, commitID)
-	if err != nil && !errors.Is(err, ErrChildCommitNotFound{ParentRowID: commitID}) {
+	if err != nil && !errors.Is(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}
@@ -664,7 +664,7 @@ func getCommitRelativeRows(ctx context.Context, tx *pachsql.Tx, commitID CommitI
 func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) (*Commit, error) {
 	row := &Commit{}
 	if commit == nil {
-		return nil, ErrCommitMissingInfo{Field: "Commit"}
+		return nil, &ErrCommitMissingInfo{Field: "Commit"}
 	}
 	id := CommitKey(commit)
 	err := tx.QueryRowxContext(ctx, fmt.Sprintf("%s WHERE commit_id=$1", getCommit), id).StructScan(row)
@@ -674,7 +674,7 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 			if err != nil {
 				return nil, err
 			}
-			return nil, ErrCommitNotFound{CommitID: id}
+			return nil, &ErrCommitNotFound{CommitID: id}
 		}
 		return nil, errors.Wrap(err, "scanning commit row")
 	}
