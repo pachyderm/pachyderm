@@ -43,8 +43,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsServer "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	ppsServer "github.com/pachyderm/pachyderm/v2/src/server/pps"
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/common"
 )
 
@@ -300,7 +300,7 @@ func UpdateJobState(pipelines col.PostgresReadWriteCollection, jobs col.ReadWrit
 	// Check if this is a new job
 	if jobInfo.State != pps.JobState_JOB_STATE_UNKNOWN {
 		if pps.IsTerminal(jobInfo.State) {
-			return ppsServer.ErrJobFinished{Job: jobInfo.Job}
+			return ppsserver.ErrJobFinished{Job: jobInfo.Job}
 		}
 	}
 
@@ -443,7 +443,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 	return pipelineInfo, nil
 }
 
-func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
+func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsserver.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
 	var commit *pfs.Commit
 	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
 		commit, err = FindPipelineSpecCommitInTransaction(ctx, txnCtx, pfsServer, pipeline, "")
@@ -456,15 +456,18 @@ func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsServer.APIServer, 
 
 // FindPipelineSpecCommitInTransaction finds the spec commit corresponding to the pipeline version present in the commit given
 // by startID. If startID is blank, find the current pipeline version
-func FindPipelineSpecCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pfsServer pfsServer.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
+func FindPipelineSpecCommitInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pfsServer pfsserver.APIServer, pipeline *pps.Pipeline, startID string) (*pfs.Commit, error) {
 	curr := (&pfs.Repo{
 		Project: pipeline.Project,
 		Name:    pipeline.Name,
 		Type:    pfs.SpecRepoType,
 	}).NewCommit("master", startID)
-	commitInfo, err := pfsServer.InspectCommitInTransaction(ctx, txnCtx,
-		&pfs.InspectCommitRequest{Commit: curr})
+	commitInfo, err := pfsServer.InspectCommitInTransaction(ctx, txnCtx, &pfs.InspectCommitRequest{Commit: curr})
 	if err != nil {
+		if errors.As(err, &pfsserver.ErrCommitNotFound{}) || errors.As(err, &pfsserver.ErrRepoNotFound{}) || errors.As(err, &pfsserver.ErrBranchNotFound{}) {
+			// Propagate a PPS error so that callers who don't know about PFS domain can handle it explicitly.
+			return nil, errors.Join(err, ppsserver.ErrPipelineNotFound{Pipeline: pipeline})
+		}
 		return nil, errors.EnsureStack(err)
 	}
 	return commitInfo.Commit, nil
@@ -513,7 +516,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		if len(versionMap) == 0 {
 			// pipeline didn't exist after all
-			return ppsServer.ErrPipelineNotFound{Pipeline: filter}
+			return ppsserver.ErrPipelineNotFound{Pipeline: filter}
 		}
 		return nil
 	}

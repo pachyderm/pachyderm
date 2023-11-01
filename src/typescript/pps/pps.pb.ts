@@ -854,4 +854,7 @@ export class API {
   static GetProjectDefaults(req: GetProjectDefaultsRequest, initReq?: fm.InitReq): Promise<GetProjectDefaultsResponse> {
     return fm.fetchReq<GetProjectDefaultsRequest, GetProjectDefaultsResponse>(`/pps_v2.API/GetProjectDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
+  static SetProjectDefaults(req: SetProjectDefaultsRequest, initReq?: fm.InitReq): Promise<SetProjectDefaultsResponse> {
+    return fm.fetchReq<SetProjectDefaultsRequest, SetProjectDefaultsResponse>(`/pps_v2.API/SetProjectDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
 }
