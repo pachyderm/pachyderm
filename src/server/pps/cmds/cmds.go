@@ -1679,11 +1679,16 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} [--cluster]",
 		Short: "Delete defaults.",
 		Long:  "Delete defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
 				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
 			}
-			return setProjectDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
 		}),
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
