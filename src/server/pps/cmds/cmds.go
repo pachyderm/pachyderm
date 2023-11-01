@@ -1664,25 +1664,32 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	var pathname string
 	var regenerate bool
 	createDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Set cluster defaults.",
-		Long:  "Set cluster defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
-				rc, err := fileIndicatorToReadCloser(pathname)
-				if err != nil {
-					return errors.Wrapf(err, "could not open path %q for reading", pathname)
-				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+		Long:  "Set cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			rc, err := fileIndicatorToReadCloser(pathname)
+			if err != nil {
+				return errors.Wrapf(err, "could not open path %q for reading", pathname)
 			}
-			return errors.New("--cluster must be specified")
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
+			}
+
 		}),
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
 	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
-	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
+	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually create defaults.")
+	createDefaults.Flags().StringVar(&project, "project", project, "Create project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
