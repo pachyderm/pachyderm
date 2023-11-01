@@ -1676,7 +1676,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Delete defaults.",
 		Long:  "Delete defaults.",
 		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
