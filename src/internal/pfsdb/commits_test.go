@@ -47,7 +47,7 @@ func TestCreateCommitWithMissingParent(t *testing.T) {
 			commitInfo.ParentCommit = parentInfo.Commit
 			_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "create commit should fail before creating parent")
-			require.True(t, errors.Is(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: 1}))
+			require.True(t, errors.As(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: 1}))
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
@@ -67,7 +67,7 @@ func TestCreateCommitWithMissingChild(t *testing.T) {
 			parentInfo.ChildCommits = append(parentInfo.ChildCommits, commitInfo.Commit)
 			_, err := pfsdb.CreateCommit(ctx, tx, parentInfo)
 			require.YesError(t, err, "create commit should fail before creating children")
-			require.True(t, errors.Is(err, &pfsdb.ErrChildCommitNotFound{ParentRowID: 1}))
+			require.True(t, errors.As(err, &pfsdb.ErrChildCommitNotFound{ParentRowID: 1}))
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			parentInfo := testCommit(ctx, t, tx, testRepoName)
@@ -120,17 +120,17 @@ func TestCreateCommit(t *testing.T) {
 			commitInfo.Commit.Repo = nil
 			_, err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit when repo is nil")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitMissingInfo{Field: "Repo"}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitMissingInfo{Field: "Repo"}))
 			commitInfo = testCommit(ctx, t, tx, testRepoName)
 			commitInfo.Origin = nil
 			_, err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit when origin is nil")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitMissingInfo{Field: "Origin"}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitMissingInfo{Field: "Origin"}))
 			commitInfo = testCommit(ctx, t, tx, testRepoName)
 			commitInfo.Commit = nil
 			_, err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit when commit is nil")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
 		})
 		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
@@ -138,7 +138,7 @@ func TestCreateCommit(t *testing.T) {
 			require.NoError(t, err, "should be able to create a commit")
 			_, err = pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.YesError(t, err, "should not be able to create commit again with same commit ID")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitAlreadyExists{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitAlreadyExists{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
 		})
 	})
 }
@@ -157,7 +157,7 @@ func TestGetCommitRepoMissing(t *testing.T) {
 				Started: timestamppb.New(time.Now()),
 			}
 			_, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
-			require.True(t, errors.Is(err, &pfsdb.ErrRepoNotFound{Project: repoInfo.Repo.Project.Name, Name: repoInfo.Repo.Name, Type: testRepoType}))
+			require.True(t, errors.As(err, &pfsdb.ErrRepoNotFound{Project: repoInfo.Repo.Project.Name, Name: repoInfo.Repo.Name, Type: testRepoType}))
 		})
 	})
 }
@@ -177,14 +177,14 @@ func TestGetCommit(t *testing.T) {
 			require.YesError(t, err, "should not be able to get commit with id=0")
 			_, err = pfsdb.GetCommit(ctx, tx, 3)
 			require.YesError(t, err, "should not be able to get non-existent commit")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitNotFound{RowID: 3}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitNotFound{RowID: 3}))
 			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.NoError(t, err, "should be able to get a commit by key")
 			commitsMatch(t, commitInfo, getInfo)
 			commitInfo.Commit = nil
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "should not be able to get commit when commit is nil.")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
 		})
 	})
 }
@@ -215,14 +215,14 @@ func TestDeleteCommitWithNoRelatives(t *testing.T) {
 			require.NoError(t, err, "should be able to delete commit")
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should no longer exist.")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "should not be able to double delete commit")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
 			commitInfo.Commit = nil
 			err = pfsdb.DeleteCommit(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "should not be able to delete commitInfo when commit is missing")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitMissingInfo{Field: "Commit"}))
 		})
 	})
 }
@@ -250,7 +250,7 @@ func TestDeleteCommitWithParent(t *testing.T) {
 			require.NoError(t, err, "should be able to delete commit")
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
 			// confirm parent has no children.
 			_, err = pfsdb.GetCommitChildren(ctx, tx, parentID)
 			require.YesError(t, err, "should not be able to get any children.")
@@ -290,14 +290,14 @@ func TestDeleteCommitWithChildren(t *testing.T) {
 			require.NoError(t, err, "should be able to delete commit")
 			_, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
 			require.YesError(t, err, "commit should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
+			require.True(t, errors.As(err, &pfsdb.ErrCommitNotFound{CommitID: pfsdb.CommitKey(commitInfo.Commit)}))
 			// confirm children has no parent.
 			_, err = pfsdb.GetCommitParent(ctx, tx, childID)
 			require.YesError(t, err, "parent of child 1 should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: childID}))
+			require.True(t, errors.As(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: childID}))
 			_, err = pfsdb.GetCommitParent(ctx, tx, childID2)
 			require.YesError(t, err, "parent of child 2 should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: childID2}))
+			require.True(t, errors.As(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: childID2}))
 		})
 	})
 }
@@ -402,7 +402,7 @@ func TestUpdateProjectMissing(t *testing.T) {
 				Started: timestamppb.New(time.Now()),
 			}
 			err := pfsdb.UpdateCommit(ctx, tx, pfsdb.CommitID(1), commitInfo)
-			require.True(t, errors.Is(err, &pfsdb.ErrProjectNotFound{Name: "doesNotExist"}))
+			require.True(t, errors.As(err, &pfsdb.ErrProjectNotFound{Name: "doesNotExist"}))
 		})
 	})
 }
@@ -423,7 +423,7 @@ func TestUpdateCommitRemoveParent(t *testing.T) {
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
 			_, err = pfsdb.GetCommitParent(ctx, tx, id)
 			require.YesError(t, err, "parent should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: id}))
+			require.True(t, errors.As(err, &pfsdb.ErrParentCommitNotFound{ChildRowID: id}))
 		})
 	})
 }
@@ -468,7 +468,7 @@ func TestUpdateCommitRemoveChild(t *testing.T) {
 			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, id, commitInfo), "should be able to update commit")
 			_, err = pfsdb.GetCommitChildren(ctx, tx, id)
 			require.YesError(t, err, "children should not exist")
-			require.True(t, errors.Is(err, &pfsdb.ErrChildCommitNotFound{ParentRowID: id}))
+			require.True(t, errors.As(err, &pfsdb.ErrChildCommitNotFound{ParentRowID: id}))
 		})
 	})
 }

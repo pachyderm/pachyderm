@@ -466,7 +466,7 @@ func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.
 			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
 		WHERE trigger.from_branch_id = $1
 	`, from); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.As(err, sql.ErrNoRows) {
 			// Branches don't need to have triggers
 			return nil, nil
 		}

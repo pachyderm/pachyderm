@@ -477,7 +477,7 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
 	existingCommit, err := getCommitRowByCommitKey(ctx, tx, commitInfo.Commit)
 	if err != nil {
-		if errors.Is(err, &ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}) {
+		if errors.As(err, &ErrCommitNotFound{CommitID: CommitKey(commitInfo.Commit)}) {
 			return CreateCommit(ctx, tx, commitInfo, opts...)
 		}
 		return 0, errors.Wrap(err, "upserting commit")
@@ -602,12 +602,12 @@ func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row
 
 func getCommitRelatives(ctx context.Context, extCtx sqlx.ExtContext, commitID CommitID) (*pfs.Commit, []*pfs.Commit, error) {
 	parentCommit, err := getCommitParent(ctx, extCtx, commitID)
-	if err != nil && !errors.Is(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
+	if err != nil && !errors.As(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
 	childCommits, err := getCommitChildren(ctx, extCtx, commitID)
-	if err != nil && !errors.Is(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
+	if err != nil && !errors.As(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}
@@ -649,12 +649,12 @@ func getCommitChildrenRows(ctx context.Context, tx *pachsql.Tx, parentCommit Com
 
 func getCommitRelativeRows(ctx context.Context, tx *pachsql.Tx, commitID CommitID) (*Commit, []*Commit, error) {
 	commitParentRows, err := getCommitParentRow(ctx, tx, commitID)
-	if err != nil && !errors.Is(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
+	if err != nil && !errors.As(err, &ErrParentCommitNotFound{ChildRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting parent commit")
 		// if parent is missing, assume commit is root of a repo.
 	}
 	commitChildrenRows, err := getCommitChildrenRows(ctx, tx, commitID)
-	if err != nil && !errors.Is(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
+	if err != nil && !errors.As(err, &ErrChildCommitNotFound{ParentRowID: commitID}) {
 		return nil, nil, errors.Wrap(err, "getting children commits")
 		// if children is missing, assume commit is HEAD of some branch.
 	}

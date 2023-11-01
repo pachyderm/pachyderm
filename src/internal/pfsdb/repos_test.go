@@ -86,7 +86,7 @@ func TestGetRepoByNameMissingProject(t *testing.T) {
 	repo.Repo.Project.Name = "doesNotExist"
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := pfsdb.GetRepoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
-		require.True(t, errors.Is(err, &pfsdb.ErrProjectNotFound{Name: repo.Repo.Project.Name}))
+		require.True(t, errors.As(err, &pfsdb.ErrProjectNotFound{Name: repo.Repo.Project.Name}))
 	})
 }
 

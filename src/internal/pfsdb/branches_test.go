@@ -111,7 +111,7 @@ func TestGetBranchByNameMissingRepo(t *testing.T) {
 				},
 			}
 			_, err := pfsdb.GetBranchInfoByName(ctx, tx, repoInfo.Repo.Project.Name, repoInfo.Repo.Name, repoInfo.Repo.Type, branchInfo.Branch.Name)
-			require.True(t, errors.Is(err, &pfsdb.ErrRepoNotFound{Name: "repo1", Type: pfs.UserRepoType, Project: "default"}))
+			require.True(t, errors.As(err, &pfsdb.ErrRepoNotFound{Name: "repo1", Type: pfs.UserRepoType, Project: "default"}))
 		})
 	})
 
@@ -371,7 +371,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
-			require.True(t, errors.Is(err, &pfsdb.ErrBranchNotFound{ID: branchBID}))
+			require.True(t, errors.As(err, &pfsdb.ErrBranchNotFound{ID: branchBID}))
 			// Verify that BranchA no longer has BranchB in its subvenance
 			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
 			branchAID, err := pfsdb.GetBranchID(ctx, tx, branchAInfo.Branch)
@@ -446,7 +446,7 @@ func TestBranchTrigger(t *testing.T) {
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
 			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
 			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
-			require.True(t, errors.Is(err, &pfsdb.ErrBranchNotFound{BranchKey: "project1/repo1.user@nonexistent"}))
+			require.True(t, errors.As(err, &pfsdb.ErrBranchNotFound{BranchKey: "project1/repo1.user@nonexistent"}))
 		})
 	})
 }
