@@ -1696,15 +1696,20 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Update defaults.",
 		Long:  "Update cluster or project defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			rc, err := fileIndicatorToReadCloser(pathname)
 			if err != nil {
 				return errors.Wrapf(err, "could not open path %q for reading", pathname)
 			}
-			if cluster {
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
 				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
 			}
-			return setProjectDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
 		}),
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
@@ -1763,7 +1768,7 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 }
 
 // setProjectDefaults sets the project defaults to the result of reading from r.  Reprocess implies regenerate.
-func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, project string, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
 	if reprocess {
 		regenerate = true
 	}
@@ -1777,6 +1782,7 @@ func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 		return errors.Wrapf(err, "invalid project defaults")
 	}
 	var req = &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: project},
 		ProjectDefaultsJson: js,
 		Regenerate:          regenerate,
 		Reprocess:           reprocess,
