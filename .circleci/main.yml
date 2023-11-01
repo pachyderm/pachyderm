@@ -191,12 +191,22 @@ jobs:
             num_buckets=$CIRCLE_NODE_TOTAL
             package="./src/server"
             test_tags="k8s"
+            echo bucket_num
+            echo $bucket_num
+            echo num_buckets
+            echo $num_buckets
 
             tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            echo ${tests[@]}
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
             total_tests="${#tests[@]}"
+
+            echo tests
+            echo ${tests[@]}
+            echo total_tests
+            echo $total_tests
 
             # Determine the offset and length of the sub-array of tests we want to run
             # The last bucket may have a few extra tests, to accommodate rounding
@@ -205,8 +215,11 @@ jobs:
               "start=bucket_size * (bucket_num-1)" \
               "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
 
-            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
+            echo bucket_size
+            echo $bucket_size
 
+            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
+            echo test_regex
             echo $test_regex
 
             gotestsum \
