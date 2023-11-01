@@ -134,11 +134,8 @@ func TestAPIServer_CreatePipelineV2_projectDefaults(t *testing.T) {
 		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 17, "autoscaling": true}}`,
 	})
 	require.NoError(t, err, "SetClusterDefaults must succeed")
-	type projectDefaultsSetter interface {
-		SetProjectDefaults(ctx context.Context, req *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error)
-	}
 
-	_, err = env.PPSServer.(projectDefaultsSetter).SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{
+	_, err = env.PPSServer.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{
 		Project:             &pfs.Project{Name: "default"},
 		ProjectDefaultsJson: `{"create_pipeline_request": {"datum_tries": 13}}`,
 	})
