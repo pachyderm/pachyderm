@@ -1656,7 +1656,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Set cluster defaults.",
-		Long:  "Set cluster defaults.",
+		Long:  "Set cluster or project defaults.",
 		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			rc, err := fileIndicatorToReadCloser(pathname)
 			if err != nil {
