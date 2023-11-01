@@ -1686,20 +1686,26 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Delete defaults.",
-		Long:  "Delete defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
+		Long:  "Delete cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
 				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
 			}
-			return errors.New("--cluster must be specified")
 		}),
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
 	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
 	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	deleteDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
+	deleteDefaults.Flags().StringVar(&project, "project", project, "Delete project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
