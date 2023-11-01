@@ -237,6 +237,17 @@ func TestAPIServer_SetClusterDefaults_regenerate(t *testing.T) {
 	require.False(t, req.Autoscaling, "spec must override default")
 	require.NotNil(t, req.Transform)
 	require.Len(t, req.Transform.Cmd, 4)
+
+	_, err = env.PPSServer.SetClusterDefaults(ctx, &pps.SetClusterDefaultsRequest{
+		ClusterDefaultsJson: `{"create_pipeline_request": {"datum_tries": 4, "autoscaling": true}}`,
+		Regenerate:          true,
+	})
+	require.NoError(t, err, "SetClusterDefaults failed")
+	ir, err := env.PPSServer.InspectPipeline(ctx, &pps.InspectPipelineRequest{Pipeline: &pps.Pipeline{Project: &pfs.Project{Name: pfs.DefaultProjectName}, Name: pipeline}, Details: true})
+	require.NoError(t, err, "InspectPipeline must succeed")
+	require.NoError(t, protojson.Unmarshal([]byte(ir.EffectiveSpecJson), &req), "unmarshalling effective spec JSON must not error")
+	require.Equal(t, int64(13), req.DatumTries, "project default is effective")
+	require.Equal(t, false, req.Autoscaling, "autoscaling is still false")
 }
 
 func TestAPIServer_SetProjectDefaults_regenerate(t *testing.T) {
