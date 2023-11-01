@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
+	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/proto"
@@ -67,13 +68,9 @@ func newPipelineStateDriver(
 // takes pc.ctx
 func (sd *stateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline) (*pps.PipelineInfo, context.Context, error) {
 	// query pipelineInfo
-	var pi *pps.PipelineInfo
-	var err error
-	if pi, err = sd.tryLoadLatestPipelineInfo(ctx, pipeline); err != nil && collection.IsErrNotFound(err) {
-		// if the pipeline info is not found, interpret the operation as a delete
-		return nil, nil, nil
-	} else if err != nil {
-		return nil, nil, err
+	pi, err := sd.tryLoadLatestPipelineInfo(ctx, pipeline)
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "fetch pipeline state")
 	}
 	tracing.TagAnySpan(ctx,
 		"current-state", pi.State.String(),
@@ -224,7 +221,7 @@ func (d *mockStateDriver) FetchState(ctx context.Context, pipeline *pps.Pipeline
 			return pi, ctx, nil
 		}
 	}
-	return nil, nil, nil
+	return nil, nil, ppsserver.ErrPipelineNotFound{Pipeline: pipeline}
 }
 
 func (d *mockStateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), error) {
