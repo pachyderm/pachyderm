@@ -99,3 +99,10 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 	i.pageIdx++
 	return &t, i.revision, nil
 }
+
+func IsNotFoundError(err error) bool {
+	return errors.As(err, &ErrRepoNotFound{}) ||
+		errors.As(err, &ErrProjectNotFound{}) ||
+		errors.As(err, &ErrCommitNotFound{}) ||
+		errors.As(err, &ErrBranchNotFound{})
+}
