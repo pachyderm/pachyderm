@@ -4,12 +4,14 @@
     "definitions": {
         "CheckStatusRequest": {
             "properties": {
-                "global": {
-                    "type": "boolean"
+                "all": {
+                    "type": "boolean",
+                    "description": "boolean field indicating status of all project pipelines."
                 },
                 "project": {
                     "$ref": "#/definitions/pfs_v2.Project",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "project field"
                 }
             },
             "additionalProperties": false,
@@ -17,7 +19,7 @@
             "oneOf": [
                 {
                     "required": [
-                        "global"
+                        "all"
                     ]
                 },
                 {
@@ -26,7 +28,8 @@
                     ]
                 }
             ],
-            "title": "Check Status Request"
+            "title": "Check Status Request",
+            "description": "Request to check the status of pipelines within a project."
         },
         "pfs_v2.Project": {
             "properties": {

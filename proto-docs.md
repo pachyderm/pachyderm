@@ -6289,13 +6289,13 @@ Job API
 <a name="pps_v2-CheckStatusRequest"></a>
 
 ### CheckStatusRequest
-
+Request to check the status of pipelines within a project.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| global | [bool](#bool) |  |  |
-| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
+| all | [bool](#bool) |  | boolean field indicating status of all project pipelines. |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | project field |
 
 
 
@@ -6305,14 +6305,14 @@ Job API
 <a name="pps_v2-CheckStatusResponse"></a>
 
 ### CheckStatusResponse
-
+Response for check status request. Provides alerts if any.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
-| pipeline | [string](#string) |  |  |
-| alerts | [string](#string) | repeated |  |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | project field |
+| pipeline | [Pipeline](#pps_v2-Pipeline) |  | pipeline field |
+| alerts | [string](#string) | repeated | alert indicators |
 
 
 
@@ -8093,7 +8093,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopPipeline | [StopPipelineRequest](#pps_v2-StopPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunPipeline | [RunPipelineRequest](#pps_v2-RunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunCron | [RunCronRequest](#pps_v2-RunCronRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
-| CheckStatus | [CheckStatusRequest](#pps_v2-CheckStatusRequest) | [CheckStatusResponse](#pps_v2-CheckStatusResponse) stream |  |
+| CheckStatus | [CheckStatusRequest](#pps_v2-CheckStatusRequest) | [CheckStatusResponse](#pps_v2-CheckStatusResponse) stream | Check Status returns the status of pipelines within a project. |
 | CreateSecret | [CreateSecretRequest](#pps_v2-CreateSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | DeleteSecret | [DeleteSecretRequest](#pps_v2-DeleteSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | ListSecret | [.google.protobuf.Empty](#google-protobuf-Empty) | [SecretInfos](#pps_v2-SecretInfos) |  |

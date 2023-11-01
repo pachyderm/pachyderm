@@ -9596,7 +9596,7 @@ func (m *CheckStatusRequest) validate(all bool) error {
 	var errors []error
 
 	switch v := m.Context.(type) {
-	case *CheckStatusRequest_Global:
+	case *CheckStatusRequest_All:
 		if v == nil {
 			err := CheckStatusRequestValidationError{
 				field:  "Context",
@@ -9607,7 +9607,7 @@ func (m *CheckStatusRequest) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
-		// no validation rules for Global
+		// no validation rules for All
 	case *CheckStatusRequest_Project:
 		if v == nil {
 			err := CheckStatusRequestValidationError{
@@ -9784,7 +9784,34 @@ func (m *CheckStatusResponse) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for Pipeline
+	if all {
+		switch v := interface{}(m.GetPipeline()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPipeline()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CheckStatusResponseValidationError{
+				field:  "Pipeline",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
 
 	if len(errors) > 0 {
 		return CheckStatusResponseMultiError(errors)

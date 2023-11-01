@@ -611,11 +611,11 @@ type BaseCheckStatusRequest = {
 }
 
 export type CheckStatusRequest = BaseCheckStatusRequest
-  & OneOf<{ global: boolean; project: Pfs_v2Pfs.Project }>
+  & OneOf<{ all: boolean; project: Pfs_v2Pfs.Project }>
 
 export type CheckStatusResponse = {
   project?: Pfs_v2Pfs.Project
-  pipeline?: string
+  pipeline?: Pipeline
   alerts?: string[]
 }
 

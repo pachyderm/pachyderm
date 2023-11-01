@@ -221,7 +221,8 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 			}
 		}
 		resultMessage = fmt.Sprintf("SetPipelineState moved pipeline %s from %s to %s", pipeline, pipelineInfo.State, to)
-		if to == pps.PipelineState_PIPELINE_RUNNING && pipelineInfo.Details.Autoscaling {
+		// PipelineState_PIPELINE_CRASHING is a special case, because it can be using resources up.
+		if to == pps.PipelineState_PIPELINE_RUNNING || to == pps.PipelineState_PIPELINE_CRASHING {
 			pipelineInfo.Details.WorkersStartedAt = timestamppb.Now()
 		} else {
 			pipelineInfo.Details.WorkersStartedAt = nil

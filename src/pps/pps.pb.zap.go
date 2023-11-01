@@ -989,7 +989,7 @@ func (x *CheckStatusRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddBool("global", x.GetGlobal())
+	enc.AddBool("all", x.GetAll())
 	enc.AddObject("project", x.GetProject())
 	return nil
 }
@@ -999,7 +999,7 @@ func (x *CheckStatusResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddObject("project", x.Project)
-	enc.AddString("pipeline", x.Pipeline)
+	enc.AddObject("pipeline", x.Pipeline)
 	alertsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Alerts {
 			enc.AppendString(v)

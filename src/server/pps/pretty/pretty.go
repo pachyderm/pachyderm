@@ -7,7 +7,6 @@ import (
 	"io"
 	"strings"
 	"text/template"
-	"time"
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
@@ -209,9 +208,7 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Details.Description)
 	}
-	zero := &timestamppb.Timestamp{}
-	if pipelineInfo.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
-		time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
+	if len(pps.GetAlerts(pipelineInfo)) > 0 {
 		fmt.Fprintf(w, "%s\t", "*")
 	}
 	fmt.Fprintln(w)

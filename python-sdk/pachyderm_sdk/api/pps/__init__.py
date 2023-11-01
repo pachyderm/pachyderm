@@ -1072,14 +1072,14 @@ class RunCronRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class CheckStatusRequest(betterproto.Message):
-    global_: bool = betterproto.bool_field(1, group="context")
+    all: bool = betterproto.bool_field(1, group="context")
     project: "_pfs__.Project" = betterproto.message_field(2, group="context")
 
 
 @dataclass(eq=False, repr=False)
 class CheckStatusResponse(betterproto.Message):
     project: "_pfs__.Project" = betterproto.message_field(1)
-    pipeline: str = betterproto.string_field(2)
+    pipeline: "Pipeline" = betterproto.message_field(2)
     alerts: List[str] = betterproto.string_field(3)
 
 
@@ -1846,10 +1846,10 @@ class ApiStub:
         return self.__rpc_run_cron(request)
 
     def check_status(
-        self, *, global_: bool = False, project: "_pfs__.Project" = None
+        self, *, all: bool = False, project: "_pfs__.Project" = None
     ) -> Iterator["CheckStatusResponse"]:
         request = CheckStatusRequest()
-        request.global_ = global_
+        request.all = all
         if project is not None:
             request.project = project
 
@@ -2294,7 +2294,7 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def check_status(
-        self, global_: bool, project: "_pfs__.Project", context: "grpc.ServicerContext"
+        self, all: bool, project: "_pfs__.Project", context: "grpc.ServicerContext"
     ) -> Iterator["CheckStatusResponse"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")

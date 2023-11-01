@@ -840,16 +840,23 @@ message RunCronRequest {
   Pipeline pipeline = 1 [(validate.rules).message.required = true];
 }
 
+// Request to check the status of pipelines within a project.
 message CheckStatusRequest {
   oneof context {
-      bool global = 1;
+      // boolean field indicating status of all project pipelines. 
+      bool all = 1;
+      // project field
       pfs_v2.Project project = 2;
    }
 }
 
+// Response for check status request. Provides alerts if any.
 message CheckStatusResponse {
+  // project field
   pfs_v2.Project project = 1;
-  string pipeline = 2;
+  // pipeline field
+  Pipeline pipeline = 2;
+  // alert indicators 
   repeated string alerts = 3;
 }
 
@@ -1008,6 +1015,7 @@ service API {
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
+  // Check Status returns the status of pipelines within a project.
   rpc CheckStatus(CheckStatusRequest) returns (stream CheckStatusResponse);
 
   rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}

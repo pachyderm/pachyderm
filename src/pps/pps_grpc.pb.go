@@ -89,6 +89,7 @@ type APIClient interface {
 	StopPipeline(ctx context.Context, in *StopPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RunPipeline(ctx context.Context, in *RunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RunCron(ctx context.Context, in *RunCronRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Check Status returns the status of pipelines within a project.
 	CheckStatus(ctx context.Context, in *CheckStatusRequest, opts ...grpc.CallOption) (API_CheckStatusClient, error)
 	CreateSecret(ctx context.Context, in *CreateSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	DeleteSecret(ctx context.Context, in *DeleteSecretRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -761,6 +762,7 @@ type APIServer interface {
 	StopPipeline(context.Context, *StopPipelineRequest) (*emptypb.Empty, error)
 	RunPipeline(context.Context, *RunPipelineRequest) (*emptypb.Empty, error)
 	RunCron(context.Context, *RunCronRequest) (*emptypb.Empty, error)
+	// Check Status returns the status of pipelines within a project.
 	CheckStatus(*CheckStatusRequest, API_CheckStatusServer) error
 	CreateSecret(context.Context, *CreateSecretRequest) (*emptypb.Empty, error)
 	DeleteSecret(context.Context, *DeleteSecretRequest) (*emptypb.Empty, error)

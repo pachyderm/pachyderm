@@ -1372,20 +1372,20 @@ func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusS
 	if err != nil {
 		return errors.Wrap(err, "error creating message filter function")
 	}
-	var alerts []string
+
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pipelineInfo *pps.PipelineInfo) error {
 		if ok, err := filterPipeline(ctx, pipelineInfo); err != nil {
 			return errors.Wrap(err, "error filtering pipeline")
 		} else if !ok {
 			return nil
 		}
-		zero := &timestamppb.Timestamp{}
-		if checkAccess(ctx, pipelineInfo.Pipeline) == nil &&
-			pipelineInfo.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
-			time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) > pipelineInfo.Details.MaximumExpectedUptime.AsDuration() {
-			exceededTime := time.Since(pipelineInfo.Details.WorkersStartedAt.AsTime()) - pipelineInfo.Details.MaximumExpectedUptime.AsDuration()
-			alerts = append(alerts, fmt.Sprintf("%s/%s: Started running at %v, exceeded maximum uptime by %s", pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, pipelineInfo.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
-			err := apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline.Name, Alerts: alerts})
+		if checkAccess(ctx, pipelineInfo.Pipeline) != nil {
+			log.Info(ctx, "not authorized to check status of pipeline", zap.String("pipeline", pipelineInfo.Pipeline.Name))
+			return nil
+		}
+		alerts := pps.GetAlerts(pipelineInfo)
+		if len(alerts) > 0 {
+			err := apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline, Alerts: alerts})
 			if err != nil {
 				return errors.Wrap(err, "error sending check status response")
 			}
@@ -1871,9 +1871,6 @@ func (a *apiServer) validatePipelineRequest(request *pps.CreatePipelineRequest) 
 	}
 	if request.Spout != nil && request.Autoscaling {
 		return errors.Errorf("autoscaling can't be used with spouts (spouts aren't triggered externally)")
-	}
-	if !request.Autoscaling && request.MaximumExpectedUptime != nil {
-		return errors.Errorf("maximum expected up time cannot be set when autoscaling pipelines is false")
 	}
 	var tolErrs error
 	for i, t := range request.GetTolerations() {

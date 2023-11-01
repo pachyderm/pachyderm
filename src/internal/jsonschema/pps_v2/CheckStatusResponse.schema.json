@@ -6,21 +6,26 @@
             "properties": {
                 "project": {
                     "$ref": "#/definitions/pfs_v2.Project",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "project field"
                 },
                 "pipeline": {
-                    "type": "string"
+                    "$ref": "#/definitions/pps_v2.Pipeline",
+                    "additionalProperties": false,
+                    "description": "pipeline field"
                 },
                 "alerts": {
                     "items": {
                         "type": "string"
                     },
-                    "type": "array"
+                    "type": "array",
+                    "description": "alert indicators"
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Check Status Response"
+            "title": "Check Status Response",
+            "description": "Response for check status request. Provides alerts if any."
         },
         "pfs_v2.Project": {
             "properties": {
@@ -31,6 +36,20 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Project"
+        },
+        "pps_v2.Pipeline": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline"
         }
     }
 }

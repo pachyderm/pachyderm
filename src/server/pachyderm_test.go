@@ -3195,7 +3195,7 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 	// Create a new job that should succeed (both output and stats commits should be finished normally).
 	flushJob(1)
 	time.Sleep(10 * time.Second)
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
 		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
 			c.Ctx(),
 			&pps.CheckStatusRequest{
@@ -3204,20 +3204,27 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 				},
 			},
 		)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		for {
 			res, err := checkStatusClient.Recv()
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					break
+					return nil
 				}
 			}
-			require.NoError(t, err)
-			require.NotNil(t, res)
-			require.Len(t, res.GetAlerts(), 1)
+			if err != nil {
+				return err
+			}
+			if res == nil {
+				return errors.Errorf("expected response, but got nil")
+			}
+			if len(res.GetAlerts()) != 1 {
+				return errors.Errorf("expected 1 alert, but got %d", len(res.GetAlerts()))
+			}
 		}
-		return nil
-	}, backoff.NewConstantBackOff(time.Millisecond*200)))
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
 
 	deletePipeline := func(project, pipeline string) {
 		require.NoError(t, c.DeletePipeline(project, pipeline, false))
@@ -3233,7 +3240,7 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 
 	deletePipeline(pfs.DefaultProjectName, pipeline)
 	time.Sleep(10 * time.Second)
-	require.NoError(t, backoff.Retry(func() error {
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
 		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
 			c.Ctx(),
 			&pps.CheckStatusRequest{
@@ -3242,18 +3249,23 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 				},
 			},
 		)
-		require.NoError(t, err)
+		if err != nil {
+			return err
+		}
 		for {
-			_, err := checkStatusClient.Recv()
-			//expect EOF as nothing should be returned
+			res, err := checkStatusClient.Recv()
+			// expect EOF as nothing should be returned
+			if res != nil {
+				return errors.Errorf("expected no response, but got: %v", res)
+			}
 			if err != nil {
 				if errors.Is(err, io.EOF) {
-					break
+					return nil // success
 				}
+				return err
 			}
 		}
-		return nil
-	}, backoff.NewConstantBackOff(time.Millisecond*200)))
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
 }
 
 func TestUpdateFailedPipeline(t *testing.T) {

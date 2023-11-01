@@ -4472,6 +4472,7 @@
     },
     "/pps_v2.API/CheckStatus": {
       "post": {
+        "summary": "Check Status returns the status of pipelines within a project.",
         "operationId": "API_CheckStatus",
         "responses": {
           "200": {
@@ -4499,6 +4500,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "Request to check the status of pipelines within a project.",
             "in": "body",
             "required": true,
             "schema": {
@@ -8655,30 +8657,37 @@
     "pps_v2CheckStatusRequest": {
       "type": "object",
       "properties": {
-        "global": {
-          "type": "boolean"
+        "all": {
+          "type": "boolean",
+          "description": "boolean field indicating status of all project pipelines."
         },
         "project": {
-          "$ref": "#/definitions/pfs_v2Project"
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
         }
-      }
+      },
+      "description": "Request to check the status of pipelines within a project."
     },
     "pps_v2CheckStatusResponse": {
       "type": "object",
       "properties": {
         "project": {
-          "$ref": "#/definitions/pfs_v2Project"
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
         },
         "pipeline": {
-          "type": "string"
+          "$ref": "#/definitions/pps_v2Pipeline",
+          "title": "pipeline field"
         },
         "alerts": {
           "type": "array",
           "items": {
             "type": "string"
-          }
+          },
+          "title": "alert indicators"
         }
-      }
+      },
+      "description": "Response for check status request. Provides alerts if any."
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
