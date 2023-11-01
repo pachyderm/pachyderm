@@ -7,6 +7,9 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,8 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -96,6 +97,7 @@ const (
 		JOIN pfs.commit_ancestry ancestry ON ancestry.parent = commit.int_id`
 	getChildCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.child = commit.int_id`
+	commitsPageSize = 1000
 )
 
 // ErrCommitNotFound is returned by GetCommit() when a commit is not found in postgres.
@@ -785,7 +787,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 // ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
 // It manages transactions on behalf of its user under the hood.
 func ListCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, orderBys ...OrderByCommitColumn) (*CommitIterator, error) {
-	return NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
+	return NewCommitsIterator(ctx, db, 0, commitsPageSize, filter, orderBys...)
 }
 
 func UpdateCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
@@ -812,7 +814,7 @@ func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 	if filter == nil {
 		return errors.Errorf("filter cannot be empty")
 	}
-	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
+	iter, err := NewCommitsIterator(ctx, tx, 0, commitsPageSize, filter, orderBys...)
 	if err != nil {
 		return errors.Wrap(err, "list commit tx by filter")
 	}
@@ -826,52 +828,58 @@ func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 
 // Watch commits
 type CommitEvent struct {
-	Event  postgres.Event
-	Commit CommitWithID
+	Event  *postgres.Event
+	Commit *CommitWithID
 }
 
-func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, cb func(CommitEvent) error) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
 	if err != nil {
 		return err
 	}
-	snapshot, err := ListCommit(ctx, db, nil)
+	defer watcher.Close()
+	snapshot, err := NewCommitsIterator(ctx, db, 0, commitsPageSize, nil, OrderByCommitColumn{Column: CommitColumnID, Order: SortOrderAsc})
 	if err != nil {
 		return err
 	}
-	return watchCommits(ctx, db, snapshot, watcher.Watch(), handleSnapshot, handleEvent)
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
 }
 
-func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoWithID RepoWithID, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
-	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoWithID.ID)), CommitsInRepoChannel(repoWithID.ID))
+func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, cb func(CommitEvent) error) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoID)), CommitsInRepoChannel(repoID))
 	if err != nil {
 		return err
 	}
-	snapshot, err := ListCommit(ctx, db, &pfs.Commit{Repo: repoWithID.RepoInfo.Repo})
-	if err != nil {
-		return err
-	}
-	return watchCommits(ctx, db, snapshot, watcher.Watch(), handleSnapshot, handleEvent)
+	defer watcher.Close()
+	// Optimized query for getting commits in a repo.
+	query := getCommit + ` WHERE repo_id = ?  ORDER BY commit.int_id ASC`
+	query = db.Rebind(query)
+	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
 }
 
-func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, cb func(CommitEvent) error) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
 	if err != nil {
 		return err
 	}
+	defer watcher.Close()
+	var commitWithID CommitWithID
 	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		commitInfo, err := GetCommit(ctx, tx, commitID)
 		if err != nil {
 			return errors.Wrap(err, "watch commit")
 		}
-		return handleSnapshot(CommitWithID{ID: commitID, CommitInfo: commitInfo})
+		commitWithID = CommitWithID{ID: commitID, CommitInfo: commitInfo}
+		return nil
 	}); err != nil {
 		return err
 	}
-	return watchCommits(ctx, db, nil /* snapshot */, watcher.Watch(), handleSnapshot, handleEvent)
+	snapshot := stream.NewSlice([]CommitWithID{commitWithID})
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
 }
 
-func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, handleSnapshot func(CommitWithID) error, handleEvent func(CommitEvent) error) error {
+func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, cb func(CommitEvent) error) error {
 	processEvent := func(event *postgres.Event) error {
 		if event == nil {
 			return nil
@@ -879,44 +887,43 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 		if event.Err != nil {
 			return event.Err
 		}
-		commitWithID := CommitWithID{ID: CommitID(event.Id)}
-		if event.Type != postgres.EventDelete {
-			if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-				var err error
-				commitWithID.CommitInfo, err = GetCommit(ctx, tx, CommitID(event.Id))
-				if err != nil {
-					return err
-				}
-				return nil
-			}); err != nil {
-				return err
-			}
-			return nil
+		if event.Type == postgres.EventDelete {
+			return cb(CommitEvent{Event: event})
 		}
-		commitEvent := CommitEvent{Event: *event, Commit: commitWithID}
-		return handleEvent(commitEvent)
-	}
-
-	// Handle snapshot
-	if snapshot != nil {
-		var firstEvent *postgres.Event
-		if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
-			if firstEvent == nil {
-				select {
-				case firstEvent = <-events:
-				default:
-				}
-			}
-			if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
-				return errutil.ErrBreak
-			}
-			if err := handleSnapshot(commitWith); err != nil {
+		commitEvent := CommitEvent{Event: event}
+		if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+			commitInfo, err := GetCommit(ctx, tx, CommitID(event.Id))
+			if err != nil {
 				return err
 			}
+			commitEvent.Commit = &CommitWithID{ID: CommitID(event.Id), CommitInfo: commitInfo}
 			return nil
 		}); err != nil {
 			return err
 		}
+		return cb(commitEvent)
+	}
+
+	// Handle snapshot
+	var firstEvent *postgres.Event
+	if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
+		if firstEvent == nil {
+			select {
+			case firstEvent = <-events:
+			default:
+			}
+		}
+		if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
+			return errutil.ErrBreak
+		}
+		if err := cb(CommitEvent{Commit: &commitWith}); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	if firstEvent != nil {
 		if err := processEvent(firstEvent); err != nil {
 			return err
 		}
@@ -932,7 +939,7 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 				return err
 			}
 		case <-ctx.Done():
-			return ctx.Err()
+			return errors.Wrap(ctx.Err(), "watcher cancelled")
 		}
 	}
 }

@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
@@ -364,46 +363,16 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 	}
 }
 
-func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoInfoWithID) error {
-	repoKey := repoPair.RepoInfo.Repo.Key()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "finishRepoCommits"),
-		pfsdb.CommitsInRepoChannel(repoPair.ID))
-	if err != nil {
-		return errors.Wrap(err, "new watcher")
-	}
-	defer watcher.Close()
-	// Get existing entries.
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: repoPair.RepoInfo.Repo})
-	if err != nil {
-		return errors.Wrap(err, "create list commits iterator")
-	}
-	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
-		return d.finishRepoCommit(ctx, repoPair, &commitWithID)
-	}); err != nil {
-		return errors.Wrap(err, "list commits")
-	}
-	for {
-		event, ok := <-watcher.Watch()
-		if !ok {
-			return errors.Errorf("watcher for repo %d %s closed channel", repoPair.ID, repoKey)
-		}
-		if event.Type == postgres.EventDelete {
-			continue
-		}
-		if event.Err != nil {
-			return event.Err
-		}
-		var commit *pfs.CommitInfo
-		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-			commit, err = pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(event.Id))
-			return err
-		}); err != nil {
-			return errors.Wrap(err, "getting commit from event")
-		}
-		if err := d.finishRepoCommit(ctx, repoPair, &pfsdb.CommitWithID{ID: pfsdb.CommitID(event.Id), CommitInfo: commit}); err != nil {
-			return errors.Wrap(err, "finishing repo commit")
-		}
-	}
+func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.RepoInfoWithID) error {
+	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repo.ID,
+		func(ce pfsdb.CommitEvent) error {
+			if ce.Event.Type == postgres.EventDelete {
+				// Skip deleted commits.
+				return nil
+			}
+			return d.finishRepoCommit(ctx, repo, ce.Commit)
+		},
+	)
 }
 
 func (d *driver) finishRepoCommit(ctx context.Context, repoPair pfsdb.RepoInfoWithID, commitWithID *pfsdb.CommitWithID) error {
