@@ -100,10 +100,10 @@ func TestDeleteRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type), "should be able to delete repo")
 		_, err = pfsdb.GetRepo(ctx, tx, id)
-		require.ErrorIs(t, err, &pfsdb.ErrRepoNotFound{ID: id})
-		require.ErrorIs(t,
-			pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type),
-			&pfsdb.ErrRepoNotFound{Project: expectedInfo.Repo.Project.Name, Name: testRepoName, Type: expectedInfo.Repo.Type},
+		require.True(t, errors.As(err, &pfsdb.ErrRepoNotFound{ID: id}))
+		require.True(t,
+			errors.As(pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type),
+				&pfsdb.ErrRepoNotFound{Project: expectedInfo.Repo.Project.Name, Name: testRepoName, Type: expectedInfo.Repo.Type}),
 		)
 	})
 }
@@ -115,7 +115,7 @@ func TestDeleteRepoMissingProject(t *testing.T) {
 	expectedInfo := testRepo(testRepoName, testRepoType)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		err := pfsdb.DeleteRepo(ctx, tx, "doesNotExist", expectedInfo.Repo.Name, expectedInfo.Repo.Type)
-		require.ErrorIs(t, err, &pfsdb.ErrProjectNotFound{Name: "doesNotExist"})
+		require.True(t, errors.As(err, &pfsdb.ErrProjectNotFound{Name: "doesNotExist"}))
 	})
 }
 
@@ -154,7 +154,7 @@ func TestGetRepo(t *testing.T) {
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
 		_, err = pfsdb.GetRepo(ctx, tx, 3)
-		require.ErrorIs(t, err, &pfsdb.ErrRepoNotFound{ID: 3})
+		require.True(t, errors.As(err, &pfsdb.ErrRepoNotFound{ID: 3}))
 	})
 }
 

@@ -228,7 +228,7 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
 			// The B -> C relationship causes a cycle, so need to update C first and remove the B <- C relationship.
 			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
-			require.ErrorIs(t, err, &pfsdb.ErrBranchProvCycle{From: branchBInfo.Branch.Key(), To: branchCInfo.Branch.Key()})
+			require.True(t, errors.As(err, &pfsdb.ErrBranchProvCycle{From: branchBInfo.Branch.Key(), To: branchCInfo.Branch.Key()}))
 			require.ErrorContains(t, err, "cycle detected")
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
 			require.NoError(t, err)
