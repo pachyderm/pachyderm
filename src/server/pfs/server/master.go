@@ -370,7 +370,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.RepoInfoWithI
 				// Skip deleted commits.
 				return nil
 			}
-			return d.finishRepoCommit(ctx, repo, ce.Commit)
+			return d.finishRepoCommit(ctx, repo, &ce.Commit)
 		},
 	)
 }

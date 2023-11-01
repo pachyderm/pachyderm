@@ -708,6 +708,7 @@ type commitColumn string
 var (
 	CommitColumnID        = commitColumn("commit.int_id")
 	CommitColumnSetID     = commitColumn("commit.commit_set_id")
+	CommitColumnRepoID    = commitColumn("commit.repo_id")
 	CommitColumnOrigin    = commitColumn("commit.origin")
 	CommitColumnCreatedAt = commitColumn("commit.created_at")
 	CommitColumnUpdatedAt = commitColumn("commit.updated_at")
@@ -828,8 +829,8 @@ func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 
 // Watch commits
 type CommitEvent struct {
-	Event  *postgres.Event
-	Commit *CommitWithID
+	Event  postgres.Event
+	Commit CommitWithID
 }
 
 func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, cb func(CommitEvent) error) error {
@@ -852,7 +853,7 @@ func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection
 	}
 	defer watcher.Close()
 	// Optimized query for getting commits in a repo.
-	query := getCommit + ` WHERE repo_id = ?  ORDER BY commit.int_id ASC`
+	query := getCommit + fmt.Sprintf(" WHERE %s = ?  ORDER BY %s ASC", CommitColumnRepoID, CommitColumnID)
 	query = db.Rebind(query)
 	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
 	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
@@ -880,7 +881,7 @@ func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.Postgr
 }
 
 func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, cb func(CommitEvent) error) error {
-	processEvent := func(event *postgres.Event) error {
+	handleDelta := func(event *postgres.Event) error {
 		if event == nil {
 			return nil
 		}
@@ -888,15 +889,15 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 			return event.Err
 		}
 		if event.Type == postgres.EventDelete {
-			return cb(CommitEvent{Event: event})
+			return cb(CommitEvent{Event: *event})
 		}
-		commitEvent := CommitEvent{Event: event}
+		commitEvent := CommitEvent{Event: *event}
 		if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 			commitInfo, err := GetCommit(ctx, tx, CommitID(event.Id))
 			if err != nil {
 				return err
 			}
-			commitEvent.Commit = &CommitWithID{ID: CommitID(event.Id), CommitInfo: commitInfo}
+			commitEvent.Commit = CommitWithID{ID: CommitID(event.Id), CommitInfo: commitInfo}
 			return nil
 		}); err != nil {
 			return err
@@ -916,7 +917,7 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 		if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
 			return errutil.ErrBreak
 		}
-		if err := cb(CommitEvent{Commit: &commitWith}); err != nil {
+		if err := cb(CommitEvent{Commit: commitWith}); err != nil {
 			return err
 		}
 		return nil
@@ -924,18 +925,18 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 		return err
 	}
 	if firstEvent != nil {
-		if err := processEvent(firstEvent); err != nil {
+		if err := handleDelta(firstEvent); err != nil {
 			return err
 		}
 	}
-	// Handle new events after snapshot
+	// Handle deltas
 	for {
 		select {
 		case event, ok := <-events:
 			if !ok {
 				return errors.Errorf("watcher closed")
 			}
-			if err := processEvent(event); err != nil {
+			if err := handleDelta(event); err != nil {
 				return err
 			}
 		case <-ctx.Done():

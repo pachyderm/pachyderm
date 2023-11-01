@@ -1088,14 +1088,14 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 				}
 			}
 		case pfs.CommitState_FINISHING, pfs.CommitState_FINISHED:
-			return d.inspectProcessingCommits(ctx, commitInfo)
+			return d.inspectProcessingCommits(ctx, commitInfo, wait)
 		}
 	}
 	return commitInfo, nil
 }
 
 // inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
-func (d *driver) inspectProcessingCommits(ctx context.Context, commitInfo *pfs.CommitInfo) (*pfs.CommitInfo, error) {
+func (d *driver) inspectProcessingCommits(ctx context.Context, commitInfo *pfs.CommitInfo, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 
 	var commitID pfsdb.CommitID
 	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
@@ -1116,15 +1116,19 @@ func (d *driver) inspectProcessingCommits(ctx context.Context, commitInfo *pfs.C
 		if ce.Event.Type == postgres.EventDelete {
 			return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
 		}
-		if ce.Commit.CommitInfo.Finishing != nil {
-			commitInfo = ce.Commit.CommitInfo
-			cancel(expectedErr)
-			return nil
-		}
-		if ce.Commit.CommitInfo.Finished != nil {
-			commitInfo = ce.Commit.CommitInfo
-			cancel(expectedErr)
-			return nil
+		switch wait {
+		case pfs.CommitState_FINISHING:
+			if ce.Commit.CommitInfo.Finishing != nil {
+				commitInfo = ce.Commit.CommitInfo
+				cancel(expectedErr)
+				return nil
+			}
+		case pfs.CommitState_FINISHED:
+			if ce.Commit.CommitInfo.Finished != nil {
+				commitInfo = ce.Commit.CommitInfo
+				cancel(expectedErr)
+				return nil
+			}
 		}
 		return nil
 	}); err != nil && !errors.Is(context.Cause(ctx), expectedErr) {
