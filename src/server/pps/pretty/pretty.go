@@ -193,9 +193,6 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Project.Name)
 	fmt.Fprintf(w, "%s\t", pipelineInfo.Pipeline.Name)
 	fmt.Fprintf(w, "%d\t", pipelineInfo.Version)
-	if len(pps.GetAlerts(pipelineInfo)) > 0 {
-		fmt.Fprintf(w, "%s\t", "*")
-	}
 	if pipelineInfo.Details == nil {
 		fmt.Fprint(w, "-\t") // INPUT
 		fmt.Fprint(w, "-\t") // CREATED
@@ -209,6 +206,11 @@ func PrintPipelineInfo(w io.Writer, pipelineInfo *ppsclient.PipelineInfo, fullTi
 			fmt.Fprintf(w, "%s\t", pretty.Ago(pipelineInfo.Details.CreatedAt))
 		}
 		fmt.Fprintf(w, "%s / %s\t", pipelineState(pipelineInfo.State), JobState(pipelineInfo.LastJobState))
+		if len(pps.GetAlerts(pipelineInfo)) > 0 {
+			fmt.Fprintf(w, "%s\t", "*")
+		} else {
+			fmt.Fprintf(w, "%s\t", "")
+		}
 		fmt.Fprintf(w, "%s\t", pipelineInfo.Details.Description)
 	}
 	fmt.Fprintln(w)
