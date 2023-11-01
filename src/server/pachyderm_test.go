@@ -3192,7 +3192,6 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 	}
-	// Create a new job that should succeed (both output and stats commits should be finished normally).
 	flushJob(1)
 	time.Sleep(10 * time.Second)
 	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
