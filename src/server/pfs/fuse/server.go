@@ -661,7 +661,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
-				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:(%s): %v", mi.Project, mi.Repo, mi.Branch, strings.Join(mi.Paths, ","), err)
+				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:%s: %v", mi.Project, mi.Repo, mi.Branch, mi.Path, err)
 				http.Error(w, errorMsg, http.StatusInternalServerError)
 				return
 			}
@@ -1202,7 +1202,6 @@ func (mm *MountManager) processInput(datumInput *pps.Input) error {
 func (mm *MountManager) parseInput(datumInput *pps.Input) error {
 	datumInputsToNames := map[string][]string{} // Maps PFS input to mount name(s)
 	simpleInput := true
-	datumInputToName := make(map[string]string)
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
 		set := 0
 		if input.Cron != nil {
@@ -1318,7 +1317,7 @@ func (mm *MountManager) GetDatums() (retErr error) {
 		return err
 	}
 	if len(datums) == 0 {
-		return errors.New("no datums to mount")
+		return errors.New("spec produces zero datums; nothing to mount")
 	}
 	func() {
 		mm.mu.Lock()
@@ -1372,7 +1371,7 @@ func (mm *MountManager) CreateDatums() error {
 
 	datums := datumsAtLevel[0][0]
 	if len(datums) == 0 {
-		return errors.New("no datums to mount")
+		return errors.New("spec produces zero datums; nothing to mount")
 	}
 	func() {
 		mm.mu.Lock()
@@ -1442,7 +1441,7 @@ func (mm *MountManager) resetDatumState() {
 	mm.DatumInput = nil
 	mm.SimpleInput = false
 	mm.DatumIdx = -1
-	mm.DatumInputToName = nil
+	mm.DatumInputToNames = nil
 	mm.AllDatumsReceived = false
 }
 

@@ -1123,6 +1123,8 @@ func TestMountDatumsNoGlobMatch(t *testing.T) {
 		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "spec produces zero datums; nothing to mount"))
+		resp.Body.Close()
 	})
 }
 
