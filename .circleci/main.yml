@@ -80,7 +80,7 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: 
+      - run:
           name: Collect tests to run
           command: GOMAXPROCS=8 GOMEMLIMIT=4000MiB go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
           background: true
@@ -215,7 +215,7 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
-      - run: 
+      - run:
           name: Collect tests to run
           command: GOMAXPROCS=8 GOMEMLIMIT=4000MiB go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
           background: true
@@ -252,7 +252,7 @@ jobs:
           name: Collect kube events
           command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
-      - run: 
+      - run:
           name: Snowflake build
           command: eval $(minikube -p minikube docker-env) && make docker-build-connectors # for snowflake tests
       - run:
