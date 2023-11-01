@@ -765,7 +765,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			func() error {
 				return helm.UpgradeE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
 			})
-	} else if !bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster {
+	} else if bytes.Equal(previousOptsHash, []byte{}) || !opts.UseLeftoverCluster {
 		t.Logf("New namespace acquired doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
