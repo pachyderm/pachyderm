@@ -1394,6 +1394,10 @@ func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
 		if len(datumInputToNames[pfsInput]) == 0 {
 			panic("short on mount names even though should be a 1:1 mapping from PFS inputs in spec to Files in d.Data")
 		}
+		// The user-specified aliased PFS input names in datumInputToNames[pfsInput]
+		// are in the same order as the files in d.Data. ListDatum returns files (in a
+		// datum) in the order in which the files' corresponding PFS inputs are ordered
+		// in the spec.
 		name := datumInputToNames[pfsInput][0]
 		mis = append(mis, &MountInfo{
 			Name:    name,
