@@ -7,7 +7,7 @@
 set -e
 
 # Extracts from stdin into ./pachyderm_sdk
-tar xf /dev/stdin
+tar xf /dev/stdin --warning=no-unknown-keyword
 
 # Writes HTML files to docs/pachyderm_sdk
 python docs/generate.py
