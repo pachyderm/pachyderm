@@ -8847,8 +8847,11 @@ func TestDropCommit(t *testing.T) {
 	require.NoError(t, err)
 	// Check that the downstream job was stopped.
 	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, pipeline, bi.Head.Id, false)
-	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	// The job may be deleted by the worker master before it spins down.
+	if !errutil.IsNotFoundError(err) {
+		require.NoError(t, err)
+		require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	}
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
