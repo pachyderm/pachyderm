@@ -57,26 +57,26 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
-// ErrBranchProvCycle is returned when a cycle is detected at branch creation time.
-type ErrBranchProvCycle struct {
+// BranchProvCycleError is returned when a cycle is detected at branch creation time.
+type BranchProvCycleError struct {
 	From, To string
 }
 
-func (err *ErrBranchProvCycle) Error() string {
+func (err *BranchProvCycleError) Error() string {
 	return fmt.Sprintf("cycle detected because %v is already in the subvenance of %v", err.To, err.From)
 }
 
-func (err *ErrBranchProvCycle) GRPCStatus() *status.Status {
+func (err *BranchProvCycleError) GRPCStatus() *status.Status {
 	return status.New(codes.Internal, err.Error())
 }
 
-// ErrBranchNotFound is returned when a branch is not found in postgres.
-type ErrBranchNotFound struct {
+// BranchNotFoundError is returned when a branch is not found in postgres.
+type BranchNotFoundError struct {
 	ID        BranchID
 	BranchKey string
 }
 
-func (err *ErrBranchNotFound) Error() string {
+func (err *BranchNotFoundError) Error() string {
 	if strings.Contains(err.BranchKey, pfs.UserRepoType) {
 		branchKeyWithoutUser := strings.Replace(err.BranchKey, "."+pfs.UserRepoType, "", 1)
 		return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, branchKeyWithoutUser)
@@ -84,7 +84,7 @@ func (err *ErrBranchNotFound) Error() string {
 	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
 }
 
-func (err *ErrBranchNotFound) GRPCStatus() *status.Status {
+func (err *BranchNotFoundError) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -193,7 +193,7 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &ErrBranchNotFound{ID: id}
+			return nil, &BranchNotFoundError{ID: id}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
@@ -216,7 +216,7 @@ func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, rep
 				},
 				Name: branch,
 			}
-			return nil, &ErrBranchNotFound{
+			return nil, &BranchNotFoundError{
 				BranchKey: errBranch.Key(),
 			}
 		}
@@ -241,7 +241,7 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 		branch.Name,
 	); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, &ErrBranchNotFound{BranchKey: branch.Key()}
+			return 0, &BranchNotFoundError{BranchKey: branch.Key()}
 		}
 		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
@@ -302,7 +302,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	for _, toBranch := range branchInfo.DirectProvenance {
 		if fullSubvSet[toBranch.Key()] {
-			return branchID, &ErrBranchProvCycle{From: branchInfo.Branch.Key(), To: toBranch.Key()}
+			return branchID, &BranchProvCycleError{From: branchInfo.Branch.Key(), To: toBranch.Key()}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {

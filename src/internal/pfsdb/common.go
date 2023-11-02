@@ -101,8 +101,8 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 }
 
 func IsNotFoundError(err error) bool {
-	return errors.As(err, &ErrRepoNotFound{}) ||
-		errors.As(err, &ErrProjectNotFound{}) ||
-		errors.As(err, &ErrCommitNotFound{}) ||
-		errors.As(err, &ErrBranchNotFound{})
+	return errors.As(err, &RepoNotFoundError{}) ||
+		errors.As(err, &ProjectNotFoundError{}) ||
+		errors.As(err, &CommitNotFoundError{}) ||
+		errors.As(err, &BranchNotFoundError{})
 }

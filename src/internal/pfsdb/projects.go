@@ -18,14 +18,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// ErrProjectNotFound is returned by GetProject() when a project is not found in postgres.
-type ErrProjectNotFound struct {
+// ProjectNotFoundError is returned by GetProject() when a project is not found in postgres.
+type ProjectNotFoundError struct {
 	Name string
 	ID   ProjectID
 }
 
 // Error satisfies the error interface.
-func (err *ErrProjectNotFound) Error() string {
+func (err *ProjectNotFoundError) Error() string {
 	if n := err.Name; n != "" {
 		return fmt.Sprintf("project %q not found", n)
 	}
@@ -35,22 +35,22 @@ func (err *ErrProjectNotFound) Error() string {
 	return "project not found"
 }
 
-func (err *ErrProjectNotFound) Is(other error) bool {
-	_, ok := other.(*ErrProjectNotFound)
+func (err *ProjectNotFoundError) Is(other error) bool {
+	_, ok := other.(*ProjectNotFoundError)
 	return ok
 }
 
-func (err *ErrProjectNotFound) GRPCStatus() *status.Status {
+func (err *ProjectNotFoundError) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
-// ErrProjectAlreadyExists is returned by CreateProject() when a project with the same name already exists in postgres.
-type ErrProjectAlreadyExists struct {
+// ProjectAlreadyExistsError is returned by CreateProject() when a project with the same name already exists in postgres.
+type ProjectAlreadyExistsError struct {
 	Name string
 }
 
 // Error satisfies the error interface.
-func (err *ErrProjectAlreadyExists) Error() string {
+func (err *ProjectAlreadyExistsError) Error() string {
 	if n := err.Name; n != "" {
 		return fmt.Sprintf("project %q already exists", n)
 	}
@@ -58,12 +58,12 @@ func (err *ErrProjectAlreadyExists) Error() string {
 	return "project already exists"
 }
 
-func (err *ErrProjectAlreadyExists) Is(other error) bool {
-	_, ok := other.(*ErrProjectAlreadyExists)
+func (err *ProjectAlreadyExistsError) Is(other error) bool {
+	_, ok := other.(*ProjectAlreadyExistsError)
 	return ok
 }
 
-func (err *ErrProjectAlreadyExists) GRPCStatus() *status.Status {
+func (err *ProjectAlreadyExistsError) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
@@ -163,7 +163,7 @@ func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
-		return &ErrProjectAlreadyExists{Name: project.Project.Name}
+		return &ProjectAlreadyExistsError{Name: project.Project.Name}
 	}
 	return errors.Wrap(err, "create project")
 }
@@ -179,7 +179,7 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 		return errors.Wrap(err, "could not get affected rows")
 	}
 	if rowsAffected == 0 {
-		return &ErrProjectNotFound{
+		return &ProjectNotFoundError{
 			Name: projectName,
 		}
 	}
@@ -204,9 +204,9 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
-				return nil, &ErrProjectNotFound{Name: name}
+				return nil, &ProjectNotFoundError{Name: name}
 			}
-			return nil, &ErrProjectNotFound{ID: whereVal.(ProjectID)}
+			return nil, &ProjectNotFoundError{ID: whereVal.(ProjectID)}
 		}
 		return nil, errors.Wrap(err, "scanning project row")
 	}

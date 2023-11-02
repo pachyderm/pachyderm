@@ -38,8 +38,8 @@ const (
 	noBranches = "{NULL}"
 )
 
-// ErrRepoNotFound is returned by GetRepo() when a repo is not found in postgres.
-type ErrRepoNotFound struct {
+// RepoNotFoundError is returned by GetRepo() when a repo is not found in postgres.
+type RepoNotFoundError struct {
 	Project string
 	Name    string
 	Type    string
@@ -47,16 +47,16 @@ type ErrRepoNotFound struct {
 }
 
 // Error satisfies the error interface.
-func (err *ErrRepoNotFound) Error() string {
+func (err *RepoNotFoundError) Error() string {
 	return fmt.Sprintf("repo (id=%d, project=%s, name=%s, type=%s) not found", err.ID, err.Project, err.Name, err.Type)
 }
 
-func (err *ErrRepoNotFound) GRPCStatus() *status.Status {
+func (err *RepoNotFoundError) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
 func IsErrRepoNotFound(err error) bool {
-	return errors.As(err, &ErrRepoNotFound{})
+	return errors.As(err, &RepoNotFoundError{})
 }
 
 func IsDuplicateKeyErr(err error) bool {
@@ -93,7 +93,7 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 		if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
 			return err
 		}
-		return &ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
+		return &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType}
 	}
 	return nil
 }
@@ -116,7 +116,7 @@ func GetRepo(ctx context.Context, tx *pachsql.Tx, id RepoID) (*pfs.RepoInfo, err
 	err := tx.GetContext(ctx, repo, fmt.Sprintf("%s WHERE repo.id=$1 GROUP BY repo.id, project.name, project.id;", getRepoAndBranches), id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, &ErrRepoNotFound{ID: id}
+			return nil, &RepoNotFoundError{ID: id}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}
@@ -146,7 +146,7 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 			if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
 				return nil, err
 			}
-			return nil, &ErrRepoNotFound{Project: repoProject, Name: repoName, Type: repoType}
+			return nil, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType}
 		}
 		return nil, errors.Wrap(err, "scanning repo row")
 	}

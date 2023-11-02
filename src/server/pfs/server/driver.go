@@ -560,7 +560,7 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		Description: req.Description,
 		CreatedAt:   timestamppb.Now(),
 	}); err != nil {
-		if errors.As(err, &pfsdb.ErrProjectAlreadyExists{}) {
+		if errors.As(err, &pfsdb.ProjectAlreadyExistsError{}) {
 			return errors.Join(err, pfsserver.ErrProjectExists{Project: req.Project})
 		}
 		return errors.Wrap(err, "could not create project")
@@ -812,7 +812,7 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 	}
 	commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
 	if err != nil {
-		if errors.As(err, &pfsdb.ErrCommitAlreadyExists{CommitID: newCommitInfo.Commit.Key()}) {
+		if errors.As(err, &pfsdb.CommitAlreadyExistsError{CommitID: newCommitInfo.Commit.Key()}) {
 			return 0, errors.Join(err, pfsserver.ErrInconsistentCommit{Commit: newCommitInfo.Commit})
 		}
 		return 0, errors.EnsureStack(err)

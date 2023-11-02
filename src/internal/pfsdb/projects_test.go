@@ -44,7 +44,7 @@ func TestCreateProject(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateProject(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create project again with same name")
-		require.True(t, (&pfsdb.ErrProjectAlreadyExists{testProj}).Is(err))
+		require.True(t, (&pfsdb.ProjectAlreadyExistsError{testProj}).Is(err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
@@ -62,7 +62,7 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name), "should be able to delete project")
 		_, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
 		require.YesError(t, err, "get project should not find row")
-		targetErr := &pfsdb.ErrProjectNotFound{Name: testProj}
+		targetErr := &pfsdb.ProjectNotFoundError{Name: testProj}
 		require.True(t, targetErr.Is(err))
 		err = pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name)
 		require.YesError(t, err, "double delete should be an error")
@@ -87,7 +87,7 @@ func TestGetProject(t *testing.T) {
 		require.Equal(t, createInfo.Description, getInfo.Description)
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
-		require.True(t, (&pfsdb.ErrProjectNotFound{ID: 3}).Is(err))
+		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))
 		return nil
 	}))
 }
