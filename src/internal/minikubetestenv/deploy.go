@@ -23,7 +23,6 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
-	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -84,7 +83,6 @@ type DeployOpts struct {
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
 	DisableLoki      bool
-	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
 	Determined       bool
@@ -94,21 +92,11 @@ type DeployOpts struct {
 	ValuesFiles      []string
 }
 
-type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
-
 func getLocalImage() string {
 	if sha := os.Getenv("TEST_IMAGE_SHA"); sha != "" {
 		return sha
 	}
 	return localImage
-}
-
-func helmLock(f helmPutE) helmPutE { // DNJ TODO - should not be needed
-	return func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		return f(t, options, chart, releaseName)
-	}
 }
 
 func helmChartLocalPath(t testing.TB) string {
@@ -780,21 +768,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	}
 	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
-	// if getPreviousHelmOpts==nil || !opts.UseLeftoverCluster -> install release new // DNJ TODO
-	// else if getPreviousHelmOpts not deepEqual helmOpts -> upgrade release
-	// else - we're good to go, return pachclient
-
-	// if err := f(t, helmOpts, chartPath, namespace); err != nil {
-	// 	if opts.UseLeftoverCluster {
-	// 		// DNJ TODO - return acquire settings?
-	// 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
-	// 	}
-	// 	deleteRelease(t, context.Background(), namespace, kubeClient)
-	// 	// When CircleCI was experiencing network slowness, downloading
-	// 	// the Helm chart would sometimes fail.  Retrying it was
-	// 	// successful.
-	// 	require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
-	// }
 
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
@@ -806,9 +779,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Determined {
 		waitForDetermined(t, ctx, kubeClient, namespace)
 	}
-	if opts.WaitSeconds > 0 {
-		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
-	}
+
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)

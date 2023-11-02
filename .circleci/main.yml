@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: large
-    parallelism: 4
+    parallelism: 5
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -176,7 +176,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: 2xlarge+
-    parallelism: 5
+    parallelism: 6
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -295,8 +295,8 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=3 \
-              -gotest-args="-parallel=3 -timeout=30m"
+              -threads=4 \
+              -gotest-args="-parallel=2 -timeout=30m"
       - run:
           name: Format code coverage
           when: always
