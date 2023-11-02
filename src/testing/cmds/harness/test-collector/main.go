@@ -45,7 +45,6 @@ func run(ctx context.Context, tags string, fileName string, threadPool int) erro
 	tagsArg := ""
 	var testIdsUntagged map[string][]string
 	if tags != "" {
-		log.Info(ctx, "Collecting untagged tests and packages for compare")
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
 		var err error
 		testIdsUntagged, err = testNames(ctx, "./...", "") // collect for set difference
@@ -53,18 +52,19 @@ func run(ctx context.Context, tags string, fileName string, threadPool int) erro
 			return errors.EnsureStack(err)
 		}
 	}
-	log.Info(ctx, "Collecting tests and packages")
 	testIdsTagged, err := testNames(ctx, "./...", tagsArg)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	var testIds map[string][]string
+
 	if tags != "" {
 		// set difference to get ONLY tagged tests
 		testIds = subtractTestSet(testIdsTagged, testIdsUntagged)
 	} else {
 		testIds = testIdsTagged
 	}
+	log.Info(ctx, "tests and packages collected", zap.Any("tests", testIds))
 	outputToFile(fileName, testIds)
 	return nil
 }
@@ -90,12 +90,6 @@ func subtractTestSet(testIdsTagged map[string][]string, testIdsUntagged map[stri
 func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[string][]string, error) {
 	findTestArgs := append([]string{"test", pkg, "-json", "-list=."}, addtlCmdArgs...)
 	cmd := exec.Command("go", findTestArgs...)
-	log.Info(ctx, "About to run command to find tests ", zap.String("command", cmd.String()))
-	// testsOutputBytes, err := cmd.CombinedOutput()
-	// testsOutput := string(testsOutputBytes)
-	// if err != nil && !strings.Contains(testsOutput, tagsExcludeAllFilesErr) {
-	// 	return nil, errors.Wrapf(err, "Output from test list command: %s", testsOutput)
-	// }
 	cmdReader, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -117,7 +111,6 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		if err != nil {
 			return nil, errors.Wrapf(err, "parsing json: %s", string(raw))
 		}
-		log.Info(ctx, "Found", zap.Any("Test Info", testInfo))
 		if testInfo.Action == "output" {
 			output := strings.Trim(testInfo.Output, "\n ")
 			if output != "" && !strings.HasPrefix(output, "Benchmark") &&
@@ -138,18 +131,6 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// Note that this includes k8s and non-k8s tests since tags are inclusive
-	// testList := strings.Split(testsOutput, "\n")
-	// var testNames = map[string][]string{}
-	// for _, test := range testList {
-	// 	if test != "" && !strings.HasPrefix(test, "Benchmark") &&
-	// 		!strings.HasPrefix(test, "ExampleAPIClient_") && // DNJ TODO should we be ignoring files or what here? ExampleChild() does currently run and would be missed
-	// 		!strings.HasPrefix(test, "? ") &&
-	// 		!strings.HasPrefix(test, "ok ") &&
-	// 		!strings.HasPrefix(test, "go: downloading") {
-	// 		testNames = append(testNames, strings.TrimSpace(test))
-	// 	}
-	// }
 	return testNames, nil
 }
 
