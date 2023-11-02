@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/DropCommitResponse",
+    "definitions": {
+        "DropCommitResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Drop Commit Response"
+        }
+    }
+}

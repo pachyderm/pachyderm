@@ -305,6 +305,20 @@ message ClearCommitRequest {
   Commit commit = 1;
 }
 
+message SquashCommitRequest {
+  Commit commit = 1;
+  bool recursive = 2;
+}
+
+message SquashCommitResponse {}
+
+message DropCommitRequest {
+  Commit commit = 1;
+  bool recursive = 2;
+}
+
+message DropCommitResponse {}
+
 message CreateBranchRequest {
   Commit head = 1;
   Branch branch = 2;
@@ -634,14 +648,20 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
+  // SquashCommit squashes the provided commit into its children. 
+  rpc SquashCommit(SquashCommitRequest) returns (SquashCommitResponse) {}
+  // DropCommit drops the provided commit.
+  rpc DropCommit(DropCommitRequest) returns (DropCommitResponse) {}
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
   // ListCommitSet returns info about all CommitSets.
   rpc ListCommitSet(ListCommitSetRequest) returns (stream CommitSetInfo) {}
   // SquashCommitSet squashes the commits of a CommitSet into their children.
+  // Deprecated: Use SquashCommit instead.
   rpc SquashCommitSet(SquashCommitSetRequest) returns (google.protobuf.Empty) {}
   // DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+  // Deprecated: Use DropCommit instead.
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
   // FindCommits searches for commits that reference a supplied file being modified in a branch.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {}
