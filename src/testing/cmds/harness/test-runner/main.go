@@ -143,8 +143,8 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
 	findTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
-		// "--rerun-fails",
-		// "--rerun-fails-max-failures=1", // DNJ TODO remove fail fast
+		"--rerun-fails",
+		"--rerun-fails-max-failures=1",
 		"--format=testname",
 		"--debug",
 	}
@@ -159,7 +159,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
 
-	findTestArgs = append(findTestArgs, "--", "-failfast", // DNJ TODO remove fail fast
+	findTestArgs = append(findTestArgs, "--",
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()))
 	if len(gotestArgs) > 0 {

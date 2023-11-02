@@ -10737,7 +10737,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
+	time.Sleep(2 * time.Second) // DNJ TODO - ticket to investigate prexisting flake
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
@@ -11177,7 +11177,29 @@ func TestDatumSetCache(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+func waitPachw(t testing.TB, c *client.APIClient, namespace string) {
+	t.Logf("Waiting to have pachw available")
+	kc := tu.GetKubeClient(t)
 
+	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
+		pods, err := kc.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
+			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
+				map[string]string{
+					"app":   "pachw",
+					"suite": "pachyderm"},
+			)),
+		})
+
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		podCount := len(pods.Items)
+		if podCount > 0 {
+			return nil
+		}
+		return errors.Errorf("Waiting for pachw")
+	}, 500*time.Millisecond)
+}
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(&pps.PipelineInfo{
@@ -11190,30 +11212,28 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
-	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
-		for {
-			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			replicas := int(scale.Spec.Replicas)
-			if replicas >= n {
-				enoughReplicas = true
-			}
-			if replicas > n {
-				if replicas > maxSeen {
-					maxSeen = replicas
-				}
-				tooManyReplicas = true
-			}
-			ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-			require.NoError(t, err)
-			if ci.Finished != nil {
-				return nil
-			}
-			time.Sleep(time.Second * 2)
+	require.NoErrorWithinTRetryConstant(t, 4*time.Minute, func() error {
+		scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
-	})
+		replicas := int(scale.Spec.Replicas)
+		if replicas >= n {
+			enoughReplicas = true
+		}
+		if replicas > n {
+			if replicas > maxSeen {
+				maxSeen = replicas
+			}
+			tooManyReplicas = true
+		}
+		ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		require.NoError(t, err)
+		if ci.Finished != nil {
+			return nil
+		}
+		return errors.Errorf("Commit not yet finished %v", ci.Commit.Id)
+	}, 2*time.Second)
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
 	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, n)
 }

@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: large
-    parallelism: 6
+    parallelism: 4
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -176,7 +176,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: xlarge
-    parallelism: 16
+    parallelism: 18
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
