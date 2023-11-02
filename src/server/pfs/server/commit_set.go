@@ -2,8 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -130,11 +128,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil)
-	if err != nil {
-		return errors.Wrap(err, "list commit set")
-	}
-	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+	err := pfsdb.ForEachCommit(ctx, d.env.DB, nil, func(commitWithID pfsdb.CommitWithID) error {
 		commitInfo := commitWithID.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil

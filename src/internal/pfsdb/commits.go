@@ -694,7 +694,7 @@ type CommitWithID struct {
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
 var _ stream.Iterator[CommitWithID] = &CommitIterator{}
 
-// commitColumn is used in the ListCommit filter and defines specific field names for type safety.
+// commitColumn is used in the ForEachCommit filter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
 type commitColumn string
 
@@ -777,44 +777,40 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	}, nil
 }
 
-// ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
-// It manages transactions on behalf of its user under the hood.
-func ListCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, orderBys ...OrderByCommitColumn) (*CommitIterator, error) {
-	return NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
+func ForEachCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	iter, err := NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "for each commit")
+	}
+	if err := stream.ForEach[CommitWithID](ctx, iter, cb); err != nil {
+		return errors.Wrap(err, "for each commit")
+	}
+	return nil
 }
 
-func UpdateCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
-	return errors.Wrap(listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
-		if err := cb(commitWithID); err != nil {
-			return err
-		}
-		return UpdateCommit(ctx, tx, commitWithID.ID, commitWithID.CommitInfo)
-	}, orderBys...), "update commits tx by filter")
+func ForEachCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	if filter == nil {
+		return errors.Errorf("filter cannot be empty")
+	}
+	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "for each commit tx by filter")
+	}
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
+		return cb(commitWithID)
+	}); err != nil {
+		return errors.Wrap(err, "for each commit tx by filter")
+	}
+	return nil
 }
 
 func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, orderBys ...OrderByCommitColumn) ([]*pfs.CommitInfo, error) {
 	var commits []*pfs.CommitInfo
-	if err := listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
+	if err := ForEachCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
 		commits = append(commits, commitWithID.CommitInfo)
 		return nil
 	}, orderBys...); err != nil {
 		return nil, errors.Wrap(err, "list commits tx by filter")
 	}
 	return commits, nil
-}
-
-func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
-	if filter == nil {
-		return errors.Errorf("filter cannot be empty")
-	}
-	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
-	if err != nil {
-		return errors.Wrap(err, "list commit tx by filter")
-	}
-	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
-		return cb(commitWithID)
-	}); err != nil {
-		return errors.Wrap(err, "list index")
-	}
-	return nil
 }
