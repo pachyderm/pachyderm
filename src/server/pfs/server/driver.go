@@ -2138,18 +2138,6 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		if err != nil {
 			return errors.Wrapf(err, "delete branch")
 		}
-		// we need to find all commits that reference this branch and update them so they no longer do that.
-		if err := pfsdb.UpdateCommitTxByFilter(ctx, txnCtx.SqlTx,
-			&pfs.Commit{
-				Branch: branch,
-				Repo:   branch.Repo,
-			},
-			func(commitWithID pfsdb.CommitWithID) error {
-				commitWithID.CommitInfo.Commit.Branch = nil
-				return nil
-			}); err != nil {
-			return errors.Wrap(err, "delete branch")
-		}
 		// place of deletion, we need to set the branch ID to nil so we can delete the branch.
 		if err := pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchID); err != nil {
 			return errors.Wrapf(err, "delete branch")
