@@ -175,8 +175,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: xlarge
-    parallelism: 18
+    resource_class: 2xlarge
+    parallelism: 9
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -295,7 +295,7 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=2 \
+              -threads=3 \
               -gotest-args="-parallel=2 -timeout=30m"
       - run:
           name: Format code coverage
