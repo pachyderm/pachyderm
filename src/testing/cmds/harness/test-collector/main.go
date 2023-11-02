@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -94,7 +95,10 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	cmd.Stderr = cmd.Stdout
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
 	scanner := bufio.NewScanner(cmdReader)
 	err = cmd.Start()
 	if err != nil {
@@ -127,6 +131,15 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		}
 
 	}
+	stderrBytes, err := io.ReadAll(stderr)
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	errorText := string(stderrBytes)
+	if errorText != "" {
+		log.Error(ctx, string(errorText))
+	}
+
 	err = cmd.Wait()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
