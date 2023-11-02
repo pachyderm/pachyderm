@@ -812,7 +812,7 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 	}
 	commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
 	if err != nil {
-		if errors.As(err, &pfsdb.CommitAlreadyExistsError{CommitID: newCommitInfo.Commit.Key()}) {
+		if errors.As(err, &pfsdb.CommitAlreadyExistsError{}) {
 			return 0, errors.Join(err, pfsserver.ErrInconsistentCommit{Commit: newCommitInfo.Commit})
 		}
 		return 0, errors.EnsureStack(err)

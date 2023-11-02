@@ -111,7 +111,7 @@ func TestGetBranchByNameMissingRepo(t *testing.T) {
 				},
 			}
 			_, err := pfsdb.GetBranchInfoByName(ctx, tx, repoInfo.Repo.Project.Name, repoInfo.Repo.Name, repoInfo.Repo.Type, branchInfo.Branch.Name)
-			require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{Name: "repo1", Type: pfs.UserRepoType, Project: "default"}))
+			require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 		})
 	})
 
@@ -228,7 +228,7 @@ func TestBranchProvenance(t *testing.T) {
 			branchCInfo.Subvenance = []*pfs.Branch{branchBInfo.Branch}
 			// The B -> C relationship causes a cycle, so need to update C first and remove the B <- C relationship.
 			_, err := pfsdb.UpsertBranch(ctx, tx, branchBInfo)
-			require.True(t, errors.As(err, &pfsdb.BranchProvCycleError{From: branchBInfo.Branch.Key(), To: branchCInfo.Branch.Key()}))
+			require.True(t, errors.As(err, &pfsdb.BranchProvCycleError{}))
 			require.ErrorContains(t, err, "cycle detected")
 			_, err = pfsdb.UpsertBranch(ctx, tx, branchCInfo)
 			require.NoError(t, err)
@@ -371,7 +371,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
-			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{ID: branchBID}))
+			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 			// Verify that BranchA no longer has BranchB in its subvenance
 			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
 			branchAID, err := pfsdb.GetBranchID(ctx, tx, branchAInfo.Branch)
@@ -446,7 +446,7 @@ func TestBranchTrigger(t *testing.T) {
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
 			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
 			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
-			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{BranchKey: "project1/repo1.user@nonexistent"}))
+			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 		})
 	})
 }

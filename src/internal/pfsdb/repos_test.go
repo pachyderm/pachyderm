@@ -86,7 +86,7 @@ func TestGetRepoByNameMissingProject(t *testing.T) {
 	repo.Repo.Project.Name = "doesNotExist"
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		_, err := pfsdb.GetRepoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
-		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{Name: repo.Repo.Project.Name}))
+		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
 	})
 }
 
@@ -100,7 +100,7 @@ func TestDeleteRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type), "should be able to delete repo")
 		_, err = pfsdb.GetRepo(ctx, tx, id)
-		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{ID: id}))
+		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 		require.True(t,
 			errors.As(pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type),
 				&pfsdb.RepoNotFoundError{Project: expectedInfo.Repo.Project.Name, Name: testRepoName, Type: expectedInfo.Repo.Type}),
@@ -115,7 +115,7 @@ func TestDeleteRepoMissingProject(t *testing.T) {
 	expectedInfo := testRepo(testRepoName, testRepoType)
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		err := pfsdb.DeleteRepo(ctx, tx, "doesNotExist", expectedInfo.Repo.Name, expectedInfo.Repo.Type)
-		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{Name: "doesNotExist"}))
+		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
 	})
 }
 
@@ -154,7 +154,7 @@ func TestGetRepo(t *testing.T) {
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
 		_, err = pfsdb.GetRepo(ctx, tx, 3)
-		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{ID: 3}))
+		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 	})
 }
 
