@@ -175,8 +175,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: 2xlarge
-    parallelism: 10
+    resource_class: 2xlarge+
+    parallelism: 5
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -217,7 +217,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run:
           name: Collect tests to run
-          command: GOMEMLIMIT=24000MiB go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
+          command: GOMAXPROCS=30 GOMEMLIMIT=24000MiB go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
@@ -290,13 +290,13 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMAXPROCS=4 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=3 \
-              -gotest-args="-parallel=2 -timeout=30m"
+              -gotest-args="-parallel=3 -timeout=30m"
       - run:
           name: Format code coverage
           when: always
