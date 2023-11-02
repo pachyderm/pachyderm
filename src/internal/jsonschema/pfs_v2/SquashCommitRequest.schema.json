@@ -9,7 +9,8 @@
                     "additionalProperties": false
                 },
                 "recursive": {
-                    "type": "boolean"
+                    "type": "boolean",
+                    "description": "Setting recursive to true indicates that the squash should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the squash will fail."
                 }
             },
             "additionalProperties": false,

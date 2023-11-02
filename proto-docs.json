@@ -10651,7 +10651,7 @@
             },
             {
               "name": "recursive",
-              "description": "",
+              "description": "Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the drop will fail.",
               "label": "",
               "type": "bool",
               "longType": "bool",
@@ -12565,7 +12565,7 @@
             },
             {
               "name": "recursive",
-              "description": "",
+              "description": "Setting recursive to true indicates that the squash should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the squash will fail.",
               "label": "",
               "type": "bool",
               "longType": "bool",

@@ -440,6 +440,11 @@ class ClearCommitRequest(betterproto.Message):
 class SquashCommitRequest(betterproto.Message):
     commit: "Commit" = betterproto.message_field(1)
     recursive: bool = betterproto.bool_field(2)
+    """
+    Setting recursive to true indicates that the squash should be applied
+    recursively to subvenant commits. If recursive is set to false and the
+    provided commit has subvenant commits, the squash will fail.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -451,6 +456,11 @@ class SquashCommitResponse(betterproto.Message):
 class DropCommitRequest(betterproto.Message):
     commit: "Commit" = betterproto.message_field(1)
     recursive: bool = betterproto.bool_field(2)
+    """
+    Setting recursive to true indicates that the drop should be applied
+    recursively to subvenant commits. If recursive is set to false and the
+    provided commit has subvenant commits, the drop will fail.
+    """
 
 
 @dataclass(eq=False, repr=False)

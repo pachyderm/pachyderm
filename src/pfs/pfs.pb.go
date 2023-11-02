@@ -2399,8 +2399,10 @@ type SquashCommitRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Commit    *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	Recursive bool    `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
+	// Setting recursive to true indicates that the squash should be applied recursively to subvenant commits.
+	// If recursive is set to false and the provided commit has subvenant commits, the squash will fail.
+	Recursive bool `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
 }
 
 func (x *SquashCommitRequest) Reset() {
@@ -2492,8 +2494,10 @@ type DropCommitRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Commit    *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
-	Recursive bool    `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
+	Commit *Commit `protobuf:"bytes,1,opt,name=commit,proto3" json:"commit,omitempty"`
+	// Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.
+	// If recursive is set to false and the provided commit has subvenant commits, the drop will fail.
+	Recursive bool `protobuf:"varint,2,opt,name=recursive,proto3" json:"recursive,omitempty"`
 }
 
 func (x *DropCommitRequest) Reset() {

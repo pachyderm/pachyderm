@@ -4829,7 +4829,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [Commit](#pfs_v2-Commit) |  |  |
-| recursive | [bool](#bool) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the drop should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the drop will fail. |
 
 
 
@@ -5587,7 +5587,7 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [Commit](#pfs_v2-Commit) |  |  |
-| recursive | [bool](#bool) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the squash should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the squash will fail. |
 
 
 
