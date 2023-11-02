@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/url"
+	"strings"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
@@ -51,10 +52,16 @@ type determinedConfig struct {
 	TLS       bool
 }
 
-type errNotFound struct{}
+type errNotFound struct {
+	err error
+}
 
 func (e errNotFound) Error() string {
-	return "not found"
+	return e.err.Error()
+}
+
+func (e errNotFound) Unwrap() error {
+	return e.err
 }
 
 func withDetToken(ctx context.Context, token string) context.Context {
@@ -104,11 +111,19 @@ func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*use
 	ctx = withDetToken(ctx, d.token)
 	u, err := d.dc.GetUserByUsername(ctx, &det.GetUserByUsernameRequest{Username: name})
 	if err != nil {
-		return nil, errors.Wrapf(err, "get determined user %q", name)
+		err = errors.Wrapf(err, "get determined user %q", name)
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errNotFound{err: err}
+		}
+		return nil, err
 	}
-	gs, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{UserId: u.User.GetId()})
+	gs, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{UserId: u.User.GetId(), Limit: 500})
 	if err != nil {
-		return nil, errors.Wrapf(err, "get groups for determined user %q", name)
+		err = errors.Wrapf(err, "get groups for determined user %q", name)
+		if strings.Contains(err.Error(), "not found") {
+			return nil, errNotFound{err: err}
+		}
+		return nil, err
 	}
 	var prevGrps []*group
 	for _, g := range gs.Groups {
@@ -141,9 +156,9 @@ func (d *determinedProvisioner) createUser(ctx context.Context, usr *user) (*use
 
 func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*group, error) {
 	ctx = withDetToken(ctx, d.token)
-	g, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{Name: name})
+	g, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{Name: name, Limit: 500})
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to find determiend group %v", name)
+		return nil, errNotFound{err: errors.Wrapf(err, "failed to find determiend group %v", name)}
 	}
 	if len(g.Groups) == 0 {
 		return nil, &errNotFound{}
