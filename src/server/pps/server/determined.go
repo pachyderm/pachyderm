@@ -134,7 +134,7 @@ func detUserGC(ctx context.Context, config detConfig, period time.Duration, pipG
 		log.Info(ctx, "Determined not configured. Skipping Determined user garbage collection.")
 		return
 	}
-	backoff.RetryUntilCancel(ctx, func() error {
+	err := backoff.RetryUntilCancel(ctx, func() error {
 		dc, detCtx, cf, err := detClientInCluster(ctx, config)
 		if err != nil {
 			return errors.Wrap(err, "setup in cluster determined client for garbage collection")
@@ -192,6 +192,7 @@ func detUserGC(ctx context.Context, config detConfig, period time.Duration, pipG
 			}
 		}
 	}, backoff.RetryEvery(5*time.Minute), nil)
+	log.Error(ctx, "determined user GC context cancelled", zap.Error(err))
 }
 
 func workspaceEditorRoleId(ctx context.Context, dc det.DeterminedClient) (int32, error) {

@@ -27,7 +27,7 @@ import (
 
 const (
 	detLoginPath       = "/api/v1/auth/login"
-	detUserPath        = "/api/v1/users?active=true"
+	detUserPath        = "/api/v1/users"
 	detWorkspacePath   = "/api/v1/workspaces"
 	detNewUserPassword = "test-password"
 )
@@ -167,6 +167,7 @@ func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *Deter
 
 func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
 	detUrl.Path = detUserPath
+	detUrl.Query().Add("active", "true")
 	req, err := http.NewRequest("GET", detUrl.String(), strings.NewReader("{}"))
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined get users request")
