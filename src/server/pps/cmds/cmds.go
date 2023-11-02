@@ -1627,84 +1627,112 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	var cluster bool
 	inspectDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Return defaults.",
-		Long:  "Return cluster defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Long:  "Return cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
 			if err != nil {
 				return err
 			}
 			defer client.Close()
-			if cluster {
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
 				resp, err := client.PpsAPIClient.GetClusterDefaults(client.Ctx(), &pps.GetClusterDefaultsRequest{})
 				if err != nil {
 					return errors.Wrap(err, "could not get cluster defaults")
 				}
 				fmt.Println(resp.ClusterDefaultsJson)
 				return nil
+			case flagSet.Changed("project"):
+				resp, err := client.PpsAPIClient.GetProjectDefaults(client.Ctx(), &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: project}})
+				if err != nil {
+					return errors.Wrap(err, "could not get project defaults")
+				}
+				fmt.Println(resp.ProjectDefaultsJson)
+				return nil
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
 			}
-			return errors.New("--cluster must be specified")
 		}),
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
-	//inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
+	inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
 
 	var pathname string
 	var regenerate bool
 	createDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Set cluster defaults.",
-		Long:  "Set cluster defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
-				rc, err := fileIndicatorToReadCloser(pathname)
-				if err != nil {
-					return errors.Wrapf(err, "could not open path %q for reading", pathname)
-				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+		Long:  "Set cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			rc, err := fileIndicatorToReadCloser(pathname)
+			if err != nil {
+				return errors.Wrapf(err, "could not open path %q for reading", pathname)
 			}
-			return errors.New("--cluster must be specified")
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
+			}
+
 		}),
 	}
 	createDefaults.Flags().BoolVar(&cluster, "cluster", false, "Create cluster defaults.")
 	createDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	createDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
-	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
+	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually create defaults.")
+	createDefaults.Flags().StringVar(&project, "project", project, "Create project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
 
 	deleteDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Delete defaults.",
-		Long:  "Delete defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
+		Long:  "Delete cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
 				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
 			}
-			return errors.New("--cluster must be specified")
 		}),
 	}
 	deleteDefaults.Flags().BoolVar(&cluster, "cluster", false, "Delete cluster defaults.")
 	deleteDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs deleted (i.e., empty) defaults.")
 	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	deleteDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
+	deleteDefaults.Flags().StringVar(&project, "project", project, "Delete project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
 
 	updateDefaults := &cobra.Command{
-		Use:   "{{alias}} [--cluster]",
+		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Update defaults.",
-		Long:  "Update defaults.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			if cluster {
-				rc, err := fileIndicatorToReadCloser(pathname)
-				if err != nil {
-					return errors.Wrapf(err, "could not open path %q for reading", pathname)
-				}
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+		Long:  "Update cluster or project defaults.",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			rc, err := fileIndicatorToReadCloser(pathname)
+			if err != nil {
+				return errors.Wrapf(err, "could not open path %q for reading", pathname)
 			}
-			return errors.New("--cluster must be specified")
+			flagSet := cmd.Flags()
+			switch {
+			case flagSet.Changed("cluster"):
+				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+			case flagSet.Changed("project"):
+				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+			default:
+				return errors.New("must pass either --cluster or --project PROJECT")
+			}
 		}),
 	}
 	updateDefaults.Flags().BoolVar(&cluster, "cluster", false, "Update cluster defaults.")
@@ -1712,6 +1740,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&regenerate, "regenerate", false, "Regenerate pipeline specs from new defaults.")
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
+	updateDefaults.Flags().StringVar(&project, "project", project, "Update project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
 
 	return commands
@@ -1747,6 +1776,51 @@ func setClusterDefaults(ctx context.Context, pachctlCfg *pachctl.Config, r io.Re
 	var resp *pps.SetClusterDefaultsResponse
 	if resp, err = client.PpsAPIClient.SetClusterDefaults(client.Ctx(), req); err != nil {
 		return errors.Wrap(err, "could not set cluster defaults")
+	}
+	if req.Regenerate {
+		if len(resp.AffectedPipelines) == 0 {
+			fmt.Println("no affected pipelines")
+			return nil
+		}
+		fmt.Println("affected pipelines:")
+		for _, p := range resp.AffectedPipelines {
+			fmt.Println("\t", p)
+		}
+	}
+	return nil
+}
+
+// setProjectDefaults sets the project defaults to the result of reading from r.  Reprocess implies regenerate.
+func setProjectDefaults(ctx context.Context, pachctlCfg *pachctl.Config, project string, r io.ReadCloser, regenerate, reprocess, dryRun bool) error {
+	if reprocess {
+		regenerate = true
+	}
+	js, err := ppsutil.ReadYAMLAsJSON(r)
+	if err != nil {
+		return errors.Wrap(err, "could not read input as YAML")
+	}
+	// validate that the provided defaults parse
+	var pd pps.ProjectDefaults
+	if err := protojson.Unmarshal([]byte(js), &pd); err != nil {
+		return errors.Wrapf(err, "invalid project defaults")
+	}
+	var req = &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: project},
+		ProjectDefaultsJson: js,
+		Regenerate:          regenerate,
+		Reprocess:           reprocess,
+		DryRun:              dryRun,
+	}
+
+	client, err := pachctlCfg.NewOnUserMachine(ctx, false)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	var resp *pps.SetProjectDefaultsResponse
+	if resp, err = client.PpsAPIClient.SetProjectDefaults(client.Ctx(), req); err != nil {
+		return errors.Wrap(err, "could not set project defaults")
 	}
 	if req.Regenerate {
 		if len(resp.AffectedPipelines) == 0 {
