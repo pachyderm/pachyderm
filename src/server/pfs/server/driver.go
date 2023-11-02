@@ -1656,6 +1656,79 @@ func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {
 	return errors.EnsureStack(d.commitStore.DropFileSets(ctx, commit))
 }
 
+func (d *driver) squashCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commit = commitInfo.Commit
+	commits, err := pfsdb.GetCommitSubvenance(ctx, txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commitInfos := []*pfs.CommitInfo{commitInfo}
+	for _, c := range commits {
+		ci, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, c)
+		if err != nil {
+			return err
+		}
+		commitInfos = append(commitInfos, ci)
+	}
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot squash commit (%v) with subvenance without recursive", commit)
+	}
+	for _, ci := range commitInfos {
+		if ci.Commit.Branch.Repo.Type == pfs.SpecRepoType && ci.Origin.Kind == pfs.OriginKind_USER {
+			return errors.Errorf("cannot squash commit %s because it updated a pipeline", ci.Commit)
+		}
+		if len(ci.ChildCommits) == 0 {
+			return &pfsserver.ErrSquashWithoutChildren{Commit: ci.Commit}
+		}
+	}
+	for _, ci := range commitInfos {
+		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
+			return err
+		}
+		txnCtx.StopJob(ci.Commit)
+	}
+	return nil
+}
+
+func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionContext, commit *pfs.Commit, recursive bool) error {
+	commitInfo, err := d.resolveCommit(ctx, txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commit = commitInfo.Commit
+	commits, err := pfsdb.GetCommitSubvenance(ctx, txnCtx.SqlTx, commit)
+	if err != nil {
+		return err
+	}
+	commitInfos := []*pfs.CommitInfo{commitInfo}
+	for _, c := range commits {
+		ci, err := pfsdb.GetCommitByCommitKey(ctx, txnCtx.SqlTx, c)
+		if err != nil {
+			return err
+		}
+		commitInfos = append(commitInfos, ci)
+	}
+	if len(commitInfos) > 1 && !recursive {
+		return errors.Errorf("cannot drop commit (%v) with subvenance without recursive", commit)
+	}
+	for _, ci := range commitInfos {
+		if len(ci.ChildCommits) > 0 {
+			return &pfsserver.ErrDropWithChildren{Commit: ci.Commit}
+		}
+	}
+	for _, ci := range commitInfos {
+		if err := d.deleteCommit(ctx, txnCtx, ci); err != nil {
+			return err
+		}
+		txnCtx.StopJob(ci.Commit)
+	}
+	return nil
+}
+
 // TODO(provenance): consider removing this functionality
 func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
 	newRepoCommits := make(map[string]*pfsdb.CommitWithID)
