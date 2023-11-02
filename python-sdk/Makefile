@@ -1,6 +1,6 @@
 
 docs:
-	docker build -t pachyderm_sdk_docs -f Dockerfile.docs-generation .
+	docker build -t pachyderm-sdk-docs -f Dockerfile.docs-generation .
 	rm -rf docs/pachyderm_sdk
 	tar cf - pachyderm_sdk | docker run -i pachyderm-sdk-docs | tar -xf -
 
