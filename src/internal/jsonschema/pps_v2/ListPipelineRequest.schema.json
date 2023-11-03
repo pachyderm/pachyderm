@@ -13,10 +13,6 @@
                     "type": "integer",
                     "description": "History indicates how many historical versions you want returned. Its semantics are: 0: Return the current version of the pipeline or pipelines. 1: Return the above and the next most recent version 2: etc.-1: Return all historical versions."
                 },
-                "details": {
-                    "type": "boolean",
-                    "description": "When true, return PipelineInfos with the details field, which requires loading the pipeline spec from PFS."
-                },
                 "jqFilter": {
                     "type": "string",
                     "description": "A jq program string for additional result filtering"

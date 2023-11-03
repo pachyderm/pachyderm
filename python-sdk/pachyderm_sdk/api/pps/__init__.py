@@ -982,12 +982,6 @@ class ListPipelineRequest(betterproto.Message):
     historical versions.
     """
 
-    details: bool = betterproto.bool_field(3)
-    """
-    When true, return PipelineInfos with the details field, which requires
-    loading the pipeline spec from PFS.
-    """
-
     jq_filter: str = betterproto.string_field(4)
     """A jq program string for additional result filtering"""
 
@@ -1721,7 +1715,6 @@ class ApiStub:
         *,
         pipeline: "Pipeline" = None,
         history: int = 0,
-        details: bool = False,
         jq_filter: str = "",
         commit_set: "_pfs__.CommitSet" = None,
         projects: Optional[List["_pfs__.Project"]] = None
@@ -1732,7 +1725,6 @@ class ApiStub:
         if pipeline is not None:
             request.pipeline = pipeline
         request.history = history
-        request.details = details
         request.jq_filter = jq_filter
         if commit_set is not None:
             request.commit_set = commit_set
@@ -2214,7 +2206,6 @@ class ApiBase:
         self,
         pipeline: "Pipeline",
         history: int,
-        details: bool,
         jq_filter: str,
         commit_set: "_pfs__.CommitSet",
         projects: Optional[List["_pfs__.Project"]],

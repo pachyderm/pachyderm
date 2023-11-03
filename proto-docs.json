@@ -17635,18 +17635,6 @@
               "defaultValue": ""
             },
             {
-              "name": "details",
-              "description": "When true, return PipelineInfos with the details field, which requires\nloading the pipeline spec from PFS.",
-              "label": "",
-              "type": "bool",
-              "longType": "bool",
-              "fullType": "bool",
-              "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
-              "defaultValue": ""
-            },
-            {
               "name": "jqFilter",
               "description": "A jq program string for additional result filtering",
               "label": "",

@@ -8398,8 +8398,6 @@ func (m *ListPipelineRequest) validate(all bool) error {
 
 	// no validation rules for History
 
-	// no validation rules for Details
-
 	// no validation rules for JqFilter
 
 	if all {
