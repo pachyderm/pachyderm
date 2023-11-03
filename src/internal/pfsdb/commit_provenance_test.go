@@ -226,7 +226,9 @@ func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Co
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
 	f(ctx, tx)
-	require.NoError(t, tx.Commit())
+	if err := tx.Commit(); err != nil {
+		t.Error(err)
+	}
 }
 
 func withFailedTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {

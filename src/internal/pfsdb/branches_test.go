@@ -409,7 +409,7 @@ func TestBranchTrigger(t *testing.T) {
 			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
 			require.NoError(t, err)
 		})
-		// Create the branch trigger that re-points master to staging.
+		// Create the branch trigger that points master to staging.
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			trigger := &pfs.Trigger{
 				Branch:        "staging",
@@ -419,34 +419,49 @@ func TestBranchTrigger(t *testing.T) {
 				Commits:       10,
 				All:           true,
 			}
-			require.NoError(t, pfsdb.UpsertBranchTrigger(ctx, tx, masterBranchID, stagingBranchID, trigger))
-			gotTrigger, err := pfsdb.GetBranchTrigger(ctx, tx, masterBranchID)
+			masterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
 			require.NoError(t, err)
-			require.Equal(t, trigger, gotTrigger)
-			// Also get the trigger from GetBranchInfo
-			gotMasterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			masterBranchInfo.Trigger = trigger
+			_, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			masterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Equal(t, trigger, masterBranchInfo.Trigger)
 			// Update the trigger through UpsertBranchTrigger
-			trigger.CronSpec = "0 * * * *"
-			trigger.All = false
-			require.NoError(t, pfsdb.UpsertBranchTrigger(ctx, tx, masterBranchID, stagingBranchID, trigger))
-			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			trigger = &pfs.Trigger{Branch: "staging", CronSpec: "0 * * * *", All: false}
+			masterBranchInfo.Trigger = trigger
+			_, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			require.Equal(t, trigger, gotMasterBranchInfo.Trigger)
+			masterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Equal(t, trigger, masterBranchInfo.Trigger)
 			// Delete branch trigger, and try to get it back via GetBranchInfo
-			require.NoError(t, pfsdb.DeleteBranchTrigger(ctx, tx, masterBranchID))
-			gotMasterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			masterBranchInfo.Trigger = nil
+			_, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			require.Nil(t, gotMasterBranchInfo.Trigger)
+			masterBranchInfo, err = pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			require.Nil(t, masterBranchInfo.Trigger)
 			// staging branch shouldn't get a trigger
-			gotStagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			stagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
 			require.NoError(t, err)
-			require.Nil(t, gotStagingBranchInfo.Trigger)
+			require.Nil(t, stagingBranchInfo.Trigger)
 			// Attempt to create trigger with nonexistent branch via UpsertBranch
-			gotMasterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
-			_, err = pfsdb.UpsertBranch(ctx, tx, gotMasterBranchInfo)
+			masterBranchInfo.Trigger = &pfs.Trigger{Branch: "nonexistent"}
+			_, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
+			// Recreate the trigger for downstream test cases.
+			masterBranchInfo.Trigger = &pfs.Trigger{Branch: "staging"}
+			_, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
+			require.NoError(t, err)
+		})
+		// Try to delete the staging branch, which should fail because master depends on it for triggering.
+		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, false /* force */), "violates foreign key constraint")
+		})
+		// Delete with force should work.
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, true /* force */))
 		})
 	})
 }
