@@ -2438,7 +2438,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
 		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
-			pipelineInfos, err := c.ListPipeline(false)
+			pipelineInfos, err := c.ListPipeline()
 			if err != nil {
 				return err
 			}
@@ -2823,7 +2823,7 @@ func TestDeleteAll(t *testing.T) {
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
-	pipelineInfos, err := c.ListPipeline(false)
+	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
 	jobInfos, err := c.ListJob(pfs.DefaultProjectName, "", nil, -1, true)
@@ -3607,7 +3607,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		})
 
 		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
-			pis, err := c.ListPipeline(false)
+			pis, err := c.ListPipeline()
 			require.NoError(t, err)
 			var standby int
 			for _, pi := range pis {
@@ -3635,7 +3635,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		})
 		eg.Go(func() error {
 			for !finished {
-				pis, err := c.ListPipeline(false)
+				pis, err := c.ListPipeline()
 				require.NoError(t, err)
 				var active int
 				for _, pi := range pis {
@@ -9525,23 +9525,23 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
-	pipelineInfos, err := c.ListPipeline(false)
+	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", -1)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", 1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", 1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName, -1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -11080,7 +11080,7 @@ func TestPipelineAncestry(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
 	}
 
-	infos, err := c.ListPipeline(true)
+	infos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(infos))
 	require.Equal(t, pipeline, infos[0].Pipeline.Name)
@@ -11095,19 +11095,19 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	// get all pipelines
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get all pipelines by asking for too many
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get only the later two pipelines
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
