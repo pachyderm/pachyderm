@@ -223,15 +223,15 @@ func addCommitWrapper(tx *pachsql.Tx, c *pfs.Commit) error {
 }
 
 func withTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	t.Helper()
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
 	f(ctx, tx)
-	if err := tx.Commit(); err != nil {
-		t.Error(err)
-	}
+	require.NoError(t, tx.Commit())
 }
 
 func withFailedTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(context.Context, *pachsql.Tx)) {
+	t.Helper()
 	tx, err := db.BeginTxx(ctx, nil)
 	require.NoError(t, err)
 	f(ctx, tx)
@@ -239,6 +239,7 @@ func withFailedTx(t *testing.T, ctx context.Context, db *pachsql.DB, f func(cont
 }
 
 func checkCommitsEqual(t *testing.T, expecteds, unsortedActuals []*pfs.Commit) {
+	t.Helper()
 	require.Equal(t, len(expecteds), len(unsortedActuals))
 	sort.Slice(unsortedActuals, func(i, j int) bool {
 		return pfsdb.CommitKey(unsortedActuals[i]) < pfsdb.CommitKey(unsortedActuals[j])
