@@ -200,27 +200,26 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	return fetchBranchInfoByBranch(ctx, tx, branch)
 }
 
-// GetBranchInfoByName returns a *pfs.BranchInfo by name
-func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
+// GetBranchInfoWithID returns a *pfs.BranchInfo by name
+func GetBranchInfoWithID(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch) (*BranchInfoWithID, error) {
+	if b == nil {
+		return nil, errors.Errorf("branch cannot be nil")
+	}
 	row := &Branch{}
-	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
+	if err := tx.GetContext(ctx, row, getBranchByNameQuery, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name); err != nil {
 		if err == sql.ErrNoRows {
-			errBranch := pfs.Branch{
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{Name: project},
-					Name:    repo,
-					Type:    repoType,
-				},
-				Name: branch,
+			if _, err := GetRepoByName(ctx, tx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type); err != nil {
+				return nil, errors.Join(err, &BranchNotFoundError{BranchKey: b.Key()})
 			}
-			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
-				return nil, errors.Join(err, &BranchNotFoundError{BranchKey: errBranch.Key()})
-			}
-			return nil, &BranchNotFoundError{BranchKey: errBranch.Key()}
+			return nil, &BranchNotFoundError{BranchKey: b.Key()}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return fetchBranchInfoByBranch(ctx, tx, row)
+	branchInfo, err := fetchBranchInfoByBranch(ctx, tx, row)
+	if err != nil {
+		return nil, err
+	}
+	return &BranchInfoWithID{ID: row.ID, BranchInfo: branchInfo}, nil
 }
 
 // GetBranchID returns the id of a branch given a set strings that uniquely identify a branch.
@@ -334,11 +333,17 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 }
 
 // DeleteBranch deletes a branch.
-func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`, id); err != nil {
+func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID, force bool) error {
+	deleteProvQuery := `DELETE FROM pfs.branch_provenance WHERE from_id = $1`
+	deleteTriggerQuery := `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1`
+	if force {
+		deleteProvQuery = `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`
+		deleteTriggerQuery = `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`
+	}
+	if _, err := tx.ExecContext(ctx, deleteProvQuery, id); err != nil {
 		return errors.Wrapf(err, "could not delete branch provenance for branch %d", id)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`, id); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteTriggerQuery, id); err != nil {
 		return errors.Wrapf(err, "could not delete branch trigger for branch %d", id)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {

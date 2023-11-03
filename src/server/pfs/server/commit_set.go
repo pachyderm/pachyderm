@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"google.golang.org/protobuf/proto"
@@ -266,10 +267,11 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	for _, b := range repoInfo.Branches {
-		branchInfo, err = pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		branchInfoWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
 		if err != nil {
 			return errors.Wrapf(err, "delete commit: getting branch %s", b)
 		}
+		branchInfo = branchInfoWithID.BranchInfo
 		if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
 			if ci.ParentCommit == nil {
 				headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))

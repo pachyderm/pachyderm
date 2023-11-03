@@ -110,7 +110,7 @@ func TestGetBranchByNameMissingRepo(t *testing.T) {
 					Name: "master",
 				},
 			}
-			_, err := pfsdb.GetBranchInfoByName(ctx, tx, repoInfo.Repo.Project.Name, repoInfo.Repo.Name, repoInfo.Repo.Type, branchInfo.Branch.Name)
+			_, err := pfsdb.GetBranchInfoWithID(ctx, tx, branchInfo.Branch)
 			require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 		})
 	})
@@ -135,9 +135,9 @@ func TestBranchUpsert(t *testing.T) {
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
 			require.NoError(t, err)
 			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
-			gotBranchByName, err := pfsdb.GetBranchInfoByName(ctx, tx, branchInfo.Branch.Repo.Project.Name, branchInfo.Branch.Repo.Name, branchInfo.Branch.Repo.Type, branchInfo.Branch.Name)
+			gotBranchByName, err := pfsdb.GetBranchInfoWithID(ctx, tx, branchInfo.Branch)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchByName, compareBranchOpts()...))
+			require.True(t, cmp.Equal(branchInfo, gotBranchByName.BranchInfo, compareBranchOpts()...))
 
 			// Update branch to point to second commit
 			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
@@ -369,7 +369,7 @@ func TestBranchDelete(t *testing.T) {
 			}
 			branchBID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID))
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID, false /* force */))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
 			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 			// Verify that BranchA no longer has BranchB in its subvenance
