@@ -7,7 +7,9 @@ from unittest.mock import patch, mock_open
 
 import pytest
 import tornado
+from pytest_jupyter.jupyter_server import jp_fetch
 
+from jupyterlab_pachyderm.filemanager import PFSContentsManager
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.pachyderm import MountInterface
 from jupyterlab_pachyderm.mount_server_client import write_token_to_config
@@ -603,6 +605,22 @@ async def test_get_projects(mock_client, jp_fetch):
     mock_client.list_projects.return_value = json.dumps(test_projects)
     resp = await jp_fetch(f"/{NAMESPACE}/{VERSION}/projects")
     assert json.loads(resp.body) == test_projects
+
+
+@patch(
+    target="jupyterlab_pachyderm.handlers.PFSHandler.pfs_contents_manager",
+    new=PFSContentsManager("/--fake-root-dir--")
+)
+async def test_get_no_content_error(jp_fetch):
+    """Test that the full path to the content is returned in the error message."""
+    # jp_fetch raises tornado.httpclient.HTTPClientError and not the expected tornado.web.HTTPError
+    # Use raise_on_error=False to be able to extract the error message from the response.
+    resp = await jp_fetch(f"{NAMESPACE}/{VERSION}/pfs/subdir", raise_error=False)
+    assert resp.code == 404
+
+    body = json.loads(resp.body)
+    message = body['message']
+    assert message.endswith("/--fake-root-dir--/subdir")
 
 
 async def test_write_token_to_config_no_context():
