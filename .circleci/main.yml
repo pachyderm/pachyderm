@@ -296,7 +296,7 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=3 \
-              -gotest-args="-parallel=4 -timeout=30m"
+              -gotest-args="-parallel=3 -timeout=30m"
       - run:
           name: Format code coverage
           when: always
@@ -2210,7 +2210,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=30 --memory=24g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --wait=all
           background: true
   wait-for-minikube:
     steps:
