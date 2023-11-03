@@ -1,0 +1,13 @@
+FROM python:3.11-slim
+
+ENV PIP_ROOT_USER_ACTION=ignore
+WORKDIR /home
+
+COPY pyproject.toml .
+RUN python3 -m pip install -q --upgrade pip \
+ && python3 -m pip install -q poetry==1.4.2 \
+ && poetry config virtualenvs.create false \
+ && poetry install
+
+COPY docs docs
+ENTRYPOINT ["./docs/entrypoint.sh"]
