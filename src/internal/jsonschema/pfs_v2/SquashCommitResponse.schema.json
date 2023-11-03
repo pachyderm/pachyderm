@@ -1,0 +1,11 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/SquashCommitResponse",
+    "definitions": {
+        "SquashCommitResponse": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Squash Commit Response"
+        }
+    }
+}

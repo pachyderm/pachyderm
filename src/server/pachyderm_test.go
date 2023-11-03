@@ -8811,72 +8811,47 @@ func TestCancelManyJobs(t *testing.T) {
 	}
 }
 
-// TestSquashCommitSetPropagation deletes an input commit and makes sure all
-// downstream commits are also deleted.
-// DAG in this test: repo -> pipeline[0] -> pipeline[1]
-func TestSquashCommitSetPropagation(t *testing.T) {
-	// TODO(2.0 optional): Implement put file split in V2.
-	t.Skip("Put file split not implemented in V2")
-	// 	if testing.Short() {
-	// 		t.Skip("Skipping integration tests in short mode")
-	// 	}
-
-	// 	c := tu.GetPachClient(t)
-	// 	require.NoError(t, c.DeleteAll())
-
-	// 	// Create an input repo
-	// 	repo := tu.UniqueString("TestSquashCommitSetPropagation")
-	// 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,repo))
-	// 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-	// 		strings.NewReader(tu.TestPGDump))
-	// 	require.NoError(t, err)
-
-	// 	// Create a pipeline that roughly validates the header
-	// 	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
-	// 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
-	// 		pipeline,
-	// 		"",
-	// 		[]string{"/bin/bash"},
-	// 		[]string{
-	// 			`ls /pfs/*/d/*`, // for debugging
-	// 			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
-	// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
-	// 		},
-	// 		&pps.ParallelismSpec{Constant: 1},
-	// 		client.NewProjectPFSInput(pfs.DefaultProjectName,repo, "/d/*"),
-	// 		"",
-	// 		false,
-	// 	))
-
-	// 	// wait for job to run & check that all rows were processed
-	// 	var jobCount int
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
-	// 			jobCount++
-	// 			require.Equal(t, 1, jobCount)
-	// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	// 			require.Equal(t, int64(5), jobInfo.DataProcessed)
-	// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
-	// 			return nil
-	// 		})
-
-	// 	// put empty dataset w/ new header
-	// 	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-	// 		strings.NewReader(tu.TestPGDumpNewHeader))
-	// 	require.NoError(t, err)
-
-	// 	// everything gets reprocessed (hashes all change even though the files
-	// 	// themselves weren't altered)
-	// 	jobCount = 0
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
-	// 			jobCount++
-	// 			require.Equal(t, 1, jobCount)
-	// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	// 			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
-	// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
-	// 			return nil
-	// 		})
+// TestDropCommit tests that dropping a source commit results with the downstream job being stopped.
+func TestDropCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+	ctx := pctx.TestContext(t)
+	// Create a source repo
+	repo := tu.UniqueString("TestDropCommit_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "f", strings.NewReader("")))
+	// Create a pipeline that creates jobs that sleep.
+	pipeline := tu.UniqueString("TestDropCommit")
+	require.NoError(t, c.CreatePipeline(
+		pfs.DefaultProjectName,
+		pipeline,
+		"",
+		[]string{"/bin/bash"},
+		[]string{"sleep 3600"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "*"),
+		"",
+		false,
+	))
+	bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	_, err = c.PfsAPIClient.DropCommit(ctx, &pfs.DropCommitRequest{
+		Commit:    bi.Head,
+		Recursive: true,
+	})
+	require.NoError(t, err)
+	// Check that the downstream job was stopped.
+	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, pipeline, bi.Head.Id, false)
+	// The job may be deleted by the worker master before it spins down.
+	if !errutil.IsNotFoundError(err) {
+		require.NoError(t, err)
+		require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	}
 }
 
 func TestDeleteSpecRepo(t *testing.T) {

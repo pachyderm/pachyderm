@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -186,7 +187,7 @@ func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.Transacti
 	}
 	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+	txnCtx.StopJobSet(commitset)
 	return nil
 }
 
@@ -217,7 +218,7 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 	}
 	// notify PPS that this commitset has been squashed so it can clean up any
 	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+	txnCtx.StopJobSet(commitset)
 	return nil
 }
 
