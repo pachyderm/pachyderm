@@ -35,8 +35,8 @@ fi
 
 pushd examples/opencv
     pachctl create repo images
-    pachctl create pipeline -f edges.json
-    pachctl create pipeline -f montage.json
+    pachctl create pipeline -f edges.pipeline.json
+    pachctl create pipeline -f montage.pipeline.json
     pachctl put file images@master -i images.txt
     pachctl put file images@master -i images2.txt
 
@@ -53,7 +53,7 @@ pachctl delete repo --all
 pushd examples/shuffle
     pachctl create repo fruits
     pachctl create repo pricing
-    pachctl create pipeline -f shuffle.json
+    pachctl create pipeline -f shuffle.pipeline.json
     pachctl put file fruits@master -f mango.jpeg
     pachctl put file fruits@master -f apple.jpeg
     pachctl put file pricing@master -f mango.json
@@ -95,9 +95,9 @@ pushd examples/word_count/
     popd
 
     pushd pipelines
-        pachctl create pipeline -f scraper.json
-        pachctl create pipeline -f map.json
-        pachctl create pipeline -f reduce.json
+        pachctl create pipeline -f scraper.pipeline.json
+        pachctl create pipeline -f map.pipeline.json
+        pachctl create pipeline -f reduce.pipeline.json
     popd
 
     pachctl wait commit "reduce@master"

@@ -2280,6 +2280,66 @@
         ]
       }
     },
+    "/pfs_v2.API/SquashCommit": {
+      "post": {
+        "summary": "SquashCommit squashes the provided commit into its children.",
+        "operationId": "API_SquashCommit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2SquashCommitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2SquashCommitRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/DropCommit": {
+      "post": {
+        "summary": "DropCommit drops the provided commit.",
+        "operationId": "API_DropCommit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2DropCommitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2DropCommitRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/InspectCommitSet": {
       "post": {
         "summary": "InspectCommitSet returns the info about a CommitSet.",
@@ -2360,7 +2420,7 @@
     },
     "/pfs_v2.API/SquashCommitSet": {
       "post": {
-        "summary": "SquashCommitSet squashes the commits of a CommitSet into their children.",
+        "summary": "SquashCommitSet squashes the commits of a CommitSet into their children.\nDeprecated: Use SquashCommit instead.",
         "operationId": "API_SquashCommitSet",
         "responses": {
           "200": {
@@ -2391,7 +2451,7 @@
     },
     "/pfs_v2.API/DropCommitSet": {
       "post": {
-        "summary": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.",
+        "summary": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.\nDeprecated: Use DropCommit instead.",
         "operationId": "API_DropCommitSet",
         "responses": {
           "200": {
@@ -7645,6 +7705,21 @@
         }
       }
     },
+    "pfs_v2DropCommitRequest": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the drop will fail."
+        }
+      }
+    },
+    "pfs_v2DropCommitResponse": {
+      "type": "object"
+    },
     "pfs_v2DropCommitSetRequest": {
       "type": "object",
       "properties": {
@@ -8216,6 +8291,21 @@
           }
         }
       }
+    },
+    "pfs_v2SquashCommitRequest": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Setting recursive to true indicates that the squash should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the squash will fail."
+        }
+      }
+    },
+    "pfs_v2SquashCommitResponse": {
+      "type": "object"
     },
     "pfs_v2SquashCommitSetRequest": {
       "type": "object",

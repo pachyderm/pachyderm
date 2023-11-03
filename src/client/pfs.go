@@ -726,6 +726,7 @@ func (c APIClient) WaitCommitSet(id string, cb func(*pfs.CommitInfo) error) (ret
 }
 
 // SquashCommitSet squashes the commits of a CommitSet into their children.
+// Deprecated: Use SquashCommit instead.
 func (c APIClient) SquashCommitSet(id string) error {
 	_, err := c.PfsAPIClient.SquashCommitSet(
 		c.Ctx(),
@@ -737,6 +738,7 @@ func (c APIClient) SquashCommitSet(id string) error {
 }
 
 // DropCommitSet drop the commits of a CommitSet and all data included in those commits.
+// Deprecated: Use DropCommit instead.
 func (c APIClient) DropCommitSet(id string) error {
 	_, err := c.PfsAPIClient.DropCommitSet(
 		c.Ctx(),

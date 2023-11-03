@@ -18,7 +18,3 @@ func Migrate(state migrations.State) migrations.State {
 			return setupPostgresCollections(ctx, env.Tx, ppsCollections()...)
 		})
 }
-
-func PostMigrate(state migrations.State) migrations.State {
-	return state.Apply("alter pfs.commits schema post data migration", alterCommitsTablePostDataMigration)
-}

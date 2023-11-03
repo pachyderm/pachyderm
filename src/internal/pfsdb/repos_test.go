@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"testing"
 
@@ -77,6 +78,18 @@ func TestUpsertRepo(t *testing.T) {
 	})
 }
 
+func TestGetRepoByNameMissingProject(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	repo := testRepo(testRepoName, testRepoType)
+	repo.Repo.Project.Name = "doesNotExist"
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		_, err := pfsdb.GetRepoByName(ctx, tx, repo.Repo.Project.Name, repo.Repo.Name, repo.Repo.Type)
+		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
+	})
+}
+
 func TestDeleteRepo(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
@@ -87,11 +100,22 @@ func TestDeleteRepo(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type), "should be able to delete repo")
 		_, err = pfsdb.GetRepo(ctx, tx, id)
-		require.ErrorIs(t, err, pfsdb.ErrRepoNotFound{ID: id})
-		require.ErrorIs(t,
-			pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type),
-			pfsdb.ErrRepoNotFound{Project: expectedInfo.Repo.Project.Name, Name: testRepoName, Type: expectedInfo.Repo.Type},
+		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
+		require.True(t,
+			errors.As(pfsdb.DeleteRepo(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type),
+				&pfsdb.RepoNotFoundError{Project: expectedInfo.Repo.Project.Name, Name: testRepoName, Type: expectedInfo.Repo.Type}),
 		)
+	})
+}
+
+func TestDeleteRepoMissingProject(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	expectedInfo := testRepo(testRepoName, testRepoType)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		err := pfsdb.DeleteRepo(ctx, tx, "doesNotExist", expectedInfo.Repo.Name, expectedInfo.Repo.Type)
+		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
 	})
 }
 
@@ -130,7 +154,7 @@ func TestGetRepo(t *testing.T) {
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
 		_, err = pfsdb.GetRepo(ctx, tx, 3)
-		require.ErrorIs(t, err, pfsdb.ErrRepoNotFound{ID: 3})
+		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 	})
 }
 

@@ -33,6 +33,8 @@ const (
 	API_InspectCommit_FullMethodName    = "/pfs_v2.API/InspectCommit"
 	API_ListCommit_FullMethodName       = "/pfs_v2.API/ListCommit"
 	API_SubscribeCommit_FullMethodName  = "/pfs_v2.API/SubscribeCommit"
+	API_SquashCommit_FullMethodName     = "/pfs_v2.API/SquashCommit"
+	API_DropCommit_FullMethodName       = "/pfs_v2.API/DropCommit"
 	API_InspectCommitSet_FullMethodName = "/pfs_v2.API/InspectCommitSet"
 	API_ListCommitSet_FullMethodName    = "/pfs_v2.API/ListCommitSet"
 	API_SquashCommitSet_FullMethodName  = "/pfs_v2.API/SquashCommitSet"
@@ -102,13 +104,19 @@ type APIClient interface {
 	ListCommit(ctx context.Context, in *ListCommitRequest, opts ...grpc.CallOption) (API_ListCommitClient, error)
 	// SubscribeCommit subscribes for new commits on a given branch.
 	SubscribeCommit(ctx context.Context, in *SubscribeCommitRequest, opts ...grpc.CallOption) (API_SubscribeCommitClient, error)
+	// SquashCommit squashes the provided commit into its children.
+	SquashCommit(ctx context.Context, in *SquashCommitRequest, opts ...grpc.CallOption) (*SquashCommitResponse, error)
+	// DropCommit drops the provided commit.
+	DropCommit(ctx context.Context, in *DropCommitRequest, opts ...grpc.CallOption) (*DropCommitResponse, error)
 	// InspectCommitSet returns the info about a CommitSet.
 	InspectCommitSet(ctx context.Context, in *InspectCommitSetRequest, opts ...grpc.CallOption) (API_InspectCommitSetClient, error)
 	// ListCommitSet returns info about all CommitSets.
 	ListCommitSet(ctx context.Context, in *ListCommitSetRequest, opts ...grpc.CallOption) (API_ListCommitSetClient, error)
 	// SquashCommitSet squashes the commits of a CommitSet into their children.
+	// Deprecated: Use SquashCommit instead.
 	SquashCommitSet(ctx context.Context, in *SquashCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+	// Deprecated: Use DropCommit instead.
 	DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// FindCommits searches for commits that reference a supplied file being modified in a branch.
 	FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (API_FindCommitsClient, error)
@@ -348,6 +356,24 @@ func (x *aPISubscribeCommitClient) Recv() (*CommitInfo, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (c *aPIClient) SquashCommit(ctx context.Context, in *SquashCommitRequest, opts ...grpc.CallOption) (*SquashCommitResponse, error) {
+	out := new(SquashCommitResponse)
+	err := c.cc.Invoke(ctx, API_SquashCommit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *aPIClient) DropCommit(ctx context.Context, in *DropCommitRequest, opts ...grpc.CallOption) (*DropCommitResponse, error) {
+	out := new(DropCommitResponse)
+	err := c.cc.Invoke(ctx, API_DropCommit_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *aPIClient) InspectCommitSet(ctx context.Context, in *InspectCommitSetRequest, opts ...grpc.CallOption) (API_InspectCommitSetClient, error) {
@@ -1054,13 +1080,19 @@ type APIServer interface {
 	ListCommit(*ListCommitRequest, API_ListCommitServer) error
 	// SubscribeCommit subscribes for new commits on a given branch.
 	SubscribeCommit(*SubscribeCommitRequest, API_SubscribeCommitServer) error
+	// SquashCommit squashes the provided commit into its children.
+	SquashCommit(context.Context, *SquashCommitRequest) (*SquashCommitResponse, error)
+	// DropCommit drops the provided commit.
+	DropCommit(context.Context, *DropCommitRequest) (*DropCommitResponse, error)
 	// InspectCommitSet returns the info about a CommitSet.
 	InspectCommitSet(*InspectCommitSetRequest, API_InspectCommitSetServer) error
 	// ListCommitSet returns info about all CommitSets.
 	ListCommitSet(*ListCommitSetRequest, API_ListCommitSetServer) error
 	// SquashCommitSet squashes the commits of a CommitSet into their children.
+	// Deprecated: Use SquashCommit instead.
 	SquashCommitSet(context.Context, *SquashCommitSetRequest) (*emptypb.Empty, error)
 	// DropCommitSet drops the commits of a CommitSet and all data included in the commits.
+	// Deprecated: Use DropCommit instead.
 	DropCommitSet(context.Context, *DropCommitSetRequest) (*emptypb.Empty, error)
 	// FindCommits searches for commits that reference a supplied file being modified in a branch.
 	FindCommits(*FindCommitsRequest, API_FindCommitsServer) error
@@ -1163,6 +1195,12 @@ func (UnimplementedAPIServer) ListCommit(*ListCommitRequest, API_ListCommitServe
 }
 func (UnimplementedAPIServer) SubscribeCommit(*SubscribeCommitRequest, API_SubscribeCommitServer) error {
 	return status.Errorf(codes.Unimplemented, "method SubscribeCommit not implemented")
+}
+func (UnimplementedAPIServer) SquashCommit(context.Context, *SquashCommitRequest) (*SquashCommitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SquashCommit not implemented")
+}
+func (UnimplementedAPIServer) DropCommit(context.Context, *DropCommitRequest) (*DropCommitResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method DropCommit not implemented")
 }
 func (UnimplementedAPIServer) InspectCommitSet(*InspectCommitSetRequest, API_InspectCommitSetServer) error {
 	return status.Errorf(codes.Unimplemented, "method InspectCommitSet not implemented")
@@ -1490,6 +1528,42 @@ type aPISubscribeCommitServer struct {
 
 func (x *aPISubscribeCommitServer) Send(m *CommitInfo) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _API_SquashCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SquashCommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).SquashCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_SquashCommit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).SquashCommit(ctx, req.(*SquashCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _API_DropCommit_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DropCommitRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).DropCommit(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_DropCommit_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).DropCommit(ctx, req.(*DropCommitRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _API_InspectCommitSet_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2233,6 +2307,14 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InspectCommit",
 			Handler:    _API_InspectCommit_Handler,
+		},
+		{
+			MethodName: "SquashCommit",
+			Handler:    _API_SquashCommit_Handler,
+		},
+		{
+			MethodName: "DropCommit",
+			Handler:    _API_DropCommit_Handler,
 		},
 		{
 			MethodName: "SquashCommitSet",
