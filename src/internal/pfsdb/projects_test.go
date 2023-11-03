@@ -17,7 +17,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
@@ -45,7 +44,7 @@ func TestCreateProject(t *testing.T) {
 	require.YesError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		err := pfsdb.CreateProject(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create project again with same name")
-		require.True(t, pfsdb.ErrProjectAlreadyExists{testProj}.Is(err))
+		require.True(t, (&pfsdb.ProjectAlreadyExistsError{testProj}).Is(err))
 		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
@@ -63,10 +62,11 @@ func TestDeleteProject(t *testing.T) {
 		require.NoError(t, pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name), "should be able to delete project")
 		_, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
 		require.YesError(t, err, "get project should not find row")
-		require.True(t, pfsdb.ErrProjectNotFound{Name: testProj}.Is(err))
+		targetErr := &pfsdb.ProjectNotFoundError{Name: testProj}
+		require.True(t, targetErr.Is(err))
 		err = pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name)
 		require.YesError(t, err, "double delete should be an error")
-		require.True(t, pfsdb.ErrProjectNotFound{Name: testProj}.Is(err))
+		require.True(t, targetErr.Is(err))
 		return nil
 	}))
 }
@@ -87,12 +87,12 @@ func TestGetProject(t *testing.T) {
 		require.Equal(t, createInfo.Description, getInfo.Description)
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
-		require.True(t, pfsdb.ErrProjectNotFound{ID: 3}.Is(err))
+		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))
 		return nil
 	}))
 }
 
-func TestListProject(t *testing.T) {
+func TestForEachProject(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
@@ -107,13 +107,8 @@ func TestListProject(t *testing.T) {
 			expectedInfos[i] = createInfo
 			require.NoError(t, pfsdb.CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
-		iter, err := pfsdb.ListProject(cbCtx, tx)
-		require.NoError(t, err, "should be able to list projects")
 		i := 0
-		require.NoError(t, stream.ForEach[pfsdb.ProjectWithID](cbCtx, iter, func(proj pfsdb.ProjectWithID) error {
-			if err != nil {
-				require.NoError(t, err, "should be able to iterate over projects")
-			}
+		require.NoError(t, pfsdb.ForEachProject(cbCtx, tx, func(proj pfsdb.ProjectWithID) error {
 			require.Equal(t, expectedInfos[i].Project.Name, proj.ProjectInfo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, proj.ProjectInfo.Description)
 			i++
