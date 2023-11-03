@@ -175,8 +175,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: 2xlarge+
-    parallelism: 6
+    resource_class: 2xlarge
+    parallelism: 9
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -290,7 +290,7 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=16000MiB go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
