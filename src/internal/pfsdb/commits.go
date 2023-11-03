@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -13,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"strings"
 )
 
 const (
@@ -470,6 +471,35 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 		return nil, &ChildCommitNotFoundError{ParentRowID: parentCommit}
 	}
 	return children, nil
+}
+
+func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
+	id, err := GetCommitID(ctx, tx, commit)
+	if err != nil {
+		return nil, err
+	}
+	var commitStrs []string
+	if err := tx.SelectContext(ctx, &commitStrs, `
+		WITH RECURSIVE subv(from_id, to_id) AS (
+		    SELECT from_id, to_id
+		    FROM pfs.commit_provenance
+		    WHERE to_id = $1
+		  UNION ALL
+		    SELECT cp.from_id, cp.to_id
+		    FROM subv s
+		    JOIN pfs.commit_provenance cp ON s.from_id = cp.to_id
+		)
+		SELECT DISTINCT commit_id
+		FROM subv s
+		JOIN pfs.commits c ON s.from_id = c.int_id
+	`, id); err != nil {
+		return nil, errors.Wrap(err, "could not get commit subvenance")
+	}
+	var commits []*pfs.Commit
+	for _, commitStr := range commitStrs {
+		commits = append(commits, ParseCommit(commitStr))
+	}
+	return commits, nil
 }
 
 // UpsertCommit will attempt to insert a commit and its ancestry relationships.

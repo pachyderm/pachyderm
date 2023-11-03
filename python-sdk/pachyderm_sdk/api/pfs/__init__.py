@@ -437,6 +437,38 @@ class ClearCommitRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class SquashCommitRequest(betterproto.Message):
+    commit: "Commit" = betterproto.message_field(1)
+    recursive: bool = betterproto.bool_field(2)
+    """
+    Setting recursive to true indicates that the squash should be applied
+    recursively to subvenant commits. If recursive is set to false and the
+    provided commit has subvenant commits, the squash will fail.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class SquashCommitResponse(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
+class DropCommitRequest(betterproto.Message):
+    commit: "Commit" = betterproto.message_field(1)
+    recursive: bool = betterproto.bool_field(2)
+    """
+    Setting recursive to true indicates that the drop should be applied
+    recursively to subvenant commits. If recursive is set to false and the
+    provided commit has subvenant commits, the drop will fail.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class DropCommitResponse(betterproto.Message):
+    pass
+
+
+@dataclass(eq=False, repr=False)
 class CreateBranchRequest(betterproto.Message):
     head: "Commit" = betterproto.message_field(1)
     branch: "Branch" = betterproto.message_field(2)
@@ -831,6 +863,16 @@ class ApiStub:
             request_serializer=SubscribeCommitRequest.SerializeToString,
             response_deserializer=CommitInfo.FromString,
         )
+        self.__rpc_squash_commit = channel.unary_unary(
+            "/pfs_v2.API/SquashCommit",
+            request_serializer=SquashCommitRequest.SerializeToString,
+            response_deserializer=SquashCommitResponse.FromString,
+        )
+        self.__rpc_drop_commit = channel.unary_unary(
+            "/pfs_v2.API/DropCommit",
+            request_serializer=DropCommitRequest.SerializeToString,
+            response_deserializer=DropCommitResponse.FromString,
+        )
         self.__rpc_inspect_commit_set = channel.unary_stream(
             "/pfs_v2.API/InspectCommitSet",
             request_serializer=InspectCommitSetRequest.SerializeToString,
@@ -1169,6 +1211,26 @@ class ApiStub:
 
         for response in self.__rpc_subscribe_commit(request):
             yield response
+
+    def squash_commit(
+        self, *, commit: "Commit" = None, recursive: bool = False
+    ) -> "SquashCommitResponse":
+        request = SquashCommitRequest()
+        if commit is not None:
+            request.commit = commit
+        request.recursive = recursive
+
+        return self.__rpc_squash_commit(request)
+
+    def drop_commit(
+        self, *, commit: "Commit" = None, recursive: bool = False
+    ) -> "DropCommitResponse":
+        request = DropCommitRequest()
+        if commit is not None:
+            request.commit = commit
+        request.recursive = recursive
+
+        return self.__rpc_drop_commit(request)
 
     def inspect_commit_set(
         self, *, commit_set: "CommitSet" = None, wait: bool = False
@@ -1695,6 +1757,20 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def squash_commit(
+        self, commit: "Commit", recursive: bool, context: "grpc.ServicerContext"
+    ) -> "SquashCommitResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def drop_commit(
+        self, commit: "Commit", recursive: bool, context: "grpc.ServicerContext"
+    ) -> "DropCommitResponse":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def inspect_commit_set(
         self, commit_set: "CommitSet", wait: bool, context: "grpc.ServicerContext"
     ) -> Iterator["CommitInfo"]:
@@ -2067,6 +2143,16 @@ class ApiBase:
                 self.subscribe_commit,
                 request_deserializer=SubscribeCommitRequest.FromString,
                 response_serializer=SubscribeCommitRequest.SerializeToString,
+            ),
+            "SquashCommit": grpc.unary_unary_rpc_method_handler(
+                self.squash_commit,
+                request_deserializer=SquashCommitRequest.FromString,
+                response_serializer=SquashCommitRequest.SerializeToString,
+            ),
+            "DropCommit": grpc.unary_unary_rpc_method_handler(
+                self.drop_commit,
+                request_deserializer=DropCommitRequest.FromString,
+                response_serializer=DropCommitRequest.SerializeToString,
             ),
             "InspectCommitSet": grpc.unary_stream_rpc_method_handler(
                 self.inspect_commit_set,
