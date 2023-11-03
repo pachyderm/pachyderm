@@ -2,6 +2,7 @@
 """Script to generate the documentation for the pachyderm_sdk package."""
 from pathlib import Path
 from shutil import rmtree
+from sys import stderr
 
 import betterproto
 import pdoc
@@ -15,6 +16,8 @@ CONFIG = {"sort_identifiers": False}
 
 
 def main():
+    # Write to stderr since the containerized workflow outputs to stdout.
+    print(f"Generating HTML documentation for module: {MODULE}", file=stderr)
     rmtree(OUTPUT_DIR / MODULE, ignore_errors=True)
     pdoc.tpl_lookup.directories.insert(0, TEMPLATE_DIR)
     module = pdoc.Module(MODULE, docfilter=None, skip_errors=False)
@@ -24,6 +27,7 @@ def main():
         html = m.html(**CONFIG)
 
         filepath = OUTPUT_DIR.joinpath(m.url())
+        print(f"Writing {filepath.relative_to(OUTPUT_DIR.parent)}", file=stderr)
         filepath.parent.mkdir(parents=True, exist_ok=True)
         filepath.write_text(html)
 

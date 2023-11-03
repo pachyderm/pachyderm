@@ -79,6 +79,11 @@ Generate python APIs from protobuf:
 ./generate-protos.sh
 ```
 
+Generate HTML documentation (writes to docs/pachyderm_sdk):
+```bash
+make docs
+```
+
 Running Tests:
 
 ```
