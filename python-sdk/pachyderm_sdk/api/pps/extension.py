@@ -54,7 +54,7 @@ class ApiStub(_GeneratedApiStub):
         """
         if history:
             response = self.list_pipeline(
-                pipeline=pipeline, history=history, details=details
+                pipeline=pipeline, history=history
             )
             try:
                 return next(response)
