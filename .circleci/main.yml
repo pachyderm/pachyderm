@@ -176,7 +176,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: 2xlarge+
-    parallelism: 8
+    parallelism: 6
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -290,13 +290,13 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=12000MiB go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=3 \
-              -gotest-args="-parallel=3 -timeout=30m"
+              -threads=5 \
+              -gotest-args="-parallel=2 -timeout=30m"
       - run:
           name: Format code coverage
           when: always
@@ -2210,7 +2210,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=28 --memory=24g --wait=all
           background: true
   wait-for-minikube:
     steps:
