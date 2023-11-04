@@ -36,7 +36,7 @@ var (
 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
 	}
 	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 9, "maximum size of managed pachyderm clusters")
+	poolSize            *int  = flag.Int("clusters.pool", 15, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
 	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
@@ -88,9 +88,9 @@ type managedCluster struct {
 type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
 	managedClusters   map[string]*managedCluster
-	availableClusters map[string]struct{}
-	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
-	sem               semaphore.Weighted // enforces max concurrency
+	availableClusters map[string]struct{} // DNJ TOD - remove probably
+	mu                sync.Mutex          // guards modifications to the ClusterFactory maps
+	sem               semaphore.Weighted  // enforces max concurrency
 }
 
 func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {

@@ -608,6 +608,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 	// update pipeline RC
 	return errors.EnsureStack(pc.iDriver.UpdateReplicationController(ctx, oldRC, func(rc *v1.ReplicationController) bool {
 		var curScale int32
+		log.Info(ctx, "DNJ TODO controller update", zap.Any("rc", rc.Name))
 		if rc.Spec.Replicas != nil && *rc.Spec.Replicas > 0 {
 			curScale = *rc.Spec.Replicas
 		}
@@ -624,12 +625,13 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.TaskNamespace(pi), "", func(info *task.TaskInfo) error {
 				switch info.State {
 				case task.State_CLAIMED, task.State_RUNNING:
+					log.Info(ctx, "DNJ TODO beginning found a task while counting for scale up", zap.Any("task info", info))
 					nTasks++
 				}
 				return nil
 			})
 			// Set parallelism
-			log.Debug(ctx, "beginning scale-up check", zap.Int32("currentTasks", nTasks), zap.Int32("currentScale", curScale))
+			log.Info(ctx, "DNJ TODO beginning scale-up check", zap.Int32("currentTasks", nTasks), zap.Int32("currentScale", curScale))
 			switch {
 			case err != nil || nTasks == 0:
 				log.Info(ctx, "tasks remaining not known, possibly still being calculated", zap.Error(err))
@@ -643,6 +645,7 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 				return maxScale
 			}
 		}()
+		log.Info(ctx, "DNJ TODO controller update scales", zap.Any("rc", rc.Name), zap.Any("targetscale", targetScale), zap.Any("maxScale", maxScale))
 		if targetScale < maxScale {
 			// schedule another step in scaleUpInterval, to check the tasks again
 			go func() {
@@ -660,11 +663,11 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}()
 		}
 		if curScale == targetScale {
-			log.Debug(ctx, "pipeline is at desired scale", zap.Int32("scale", curScale))
+			log.Info(ctx, "DNJ TODO pipeline is at desired scale", zap.Int32("scale", curScale))
 			return false // no changes necessary
 		}
 		// Update the # of replicas
-		log.Debug(ctx, "pipeline scaling", zap.Int32("currentScale", curScale), zap.Int32("targetScale", targetScale))
+		log.Info(ctx, "DNJ TODO pipeline scaling", zap.Int32("currentScale", curScale), zap.Int32("targetScale", targetScale))
 		rc.Spec.Replicas = &targetScale
 		return true
 	}))
