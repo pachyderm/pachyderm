@@ -674,7 +674,6 @@ func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { /
 	return optsHash.Sum(nil)
 }
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
-
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
