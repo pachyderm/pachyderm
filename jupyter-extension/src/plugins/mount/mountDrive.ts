@@ -85,8 +85,14 @@ export class MountDrive implements Contents.IDrive {
     try {
       shallowResponse = await this._get(url, {content: '0'});
     } catch (e) {
-      console.log('/pfs not found');
-      return DEFAULT_CONTENT_MODEL;
+      if (e instanceof ServerConnection.ResponseError) {
+        if (!localPath) {
+          console.warn('mount point does not exist:', e.message);
+          return DEFAULT_CONTENT_MODEL;
+        }
+        console.warn(e.message);
+      }
+      throw e;
     }
     const content = options?.content ? '1' : '0';
     if (content === '0') {
