@@ -49,5 +49,6 @@ sed -i "s/worker.Worker/pachyderm.worker.Worker/" ${OUTDIR}/worker/__init__.py
 # Clean up
 rm -rf api/log api/protoc api/validate
 find ${OUTDIR} -empty -type d -delete
+echo '"""Python bindings and API stubs for the Pachyderm public API."""' > api/__init__.py
 
 tar cf - ${OUTDIR}

@@ -2,5 +2,8 @@
 *
 
 # Allow specified files and directories.
-!entrypoint.sh
 !dist
+!docs/templates/*
+!docs/entrypoint.sh
+!docs/generate.py
+!pyproject.toml
