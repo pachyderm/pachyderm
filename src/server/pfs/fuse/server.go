@@ -124,9 +124,13 @@ type Response struct {
 }
 
 type DatumState struct {
-	Datums            []*pps.DatumInfo
-	PaginationMarker  string
-	DatumInput        *pps.Input
+	Datums           []*pps.DatumInfo
+	PaginationMarker string
+	DatumInput       *pps.Input
+	// SimpleInput tracks whether 'DatumInput' is simple (i.e. not a group by or
+	// join). This is set by 'parseInput', and later read by 'GetDatums' to
+	// decide whether to list datums using Pachyderm's 'GlobFile' or 'ListDatum'
+	// call
 	SimpleInput       bool
 	DatumInputToNames map[string][]string
 	DatumIdx          int
