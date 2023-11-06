@@ -1,8 +1,11 @@
 import json
 from pathlib import Path
 
-from .handlers import setup_handlers
+from tornado.netutil import Resolver
 
+from .env import PFS_SOCK_PATH
+from .handlers import setup_handlers
+from .mount_server_client import UnixSocketResolver
 
 HERE = Path(__file__).parent.resolve()
 
@@ -30,5 +33,10 @@ def _load_jupyter_server_extension(server_app):
     server_app.log.info("Registered Pachyderm extension at URL path /pachyderm")
 
 
+# Configure Tornado resolver before any RPCs are sent and the
+# currently-configured resolver is initialized
+Resolver.configure(UnixSocketResolver, old_resolver=Resolver())
+
 # For backward compatibility with notebook server - useful for Binder/JupyterHub
 load_jupyter_server_extension = _load_jupyter_server_extension
+

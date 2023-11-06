@@ -339,7 +339,7 @@ def setup_handlers(web_app):
     get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
     get_logger().info(f"Using PFS_SOCK_PATH={PFS_SOCK_PATH}")
     web_app.settings["pfs_contents_manager"] = PFSContentsManager(PFS_MOUNT_DIR)
-    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR, PFS_SOCK_PATH)
+    web_app.settings["pachyderm_mount_client"] = MountServerClient(PFS_MOUNT_DIR)
     web_app.settings["pachyderm_pps_client"] = PPSClient()
 
     _handlers = [

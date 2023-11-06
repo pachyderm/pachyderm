@@ -971,14 +971,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		w.Write(marshalled) //nolint:errcheck
 	})
 
-	// Using unix domain socket
-	var sockPath string
-	var srv *http.Server
-	if len(sopts.SockPath) > 0 {
-		sockPath = sopts.SockPath
-		srv = &http.Server{Handler: router}
-	} else {
-		srv = &http.Server{Addr: FuseServerPort, Handler: router}
+	srv := &http.Server{Handler: router}
+	if sopts.SockPath == "" {
+		srv.Addr = FuseServerPort
 	}
 
 	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
@@ -988,6 +983,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		signal.Notify(sigChan, signals.TerminationSignals...)
 		select {
 		case <-sigChan:
+			// TODO(msteffen): seems fragile...
 			os.Remove(sockPath)
 		case <-sopts.Unmount:
 		}
@@ -998,19 +994,21 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv.Shutdown(context.Background()) //nolint:errcheck
 	}()
 
-	var socket net.Listener
-	var err1 error
-	var err2 error
-	var err error
-	if len(sopts.SockPath) > 0 {
-		socket, err1 = net.Listen("unix", sockPath)
-		err2 = srv.Serve(socket)
-		err = errors.Join(err1, err2)
-	} else {
-		err = srv.ListenAndServe()
+	if sopts.SockPath == "" {
+		return errors.EnsureStack(srv.ListenAndServe())
 	}
 
-	return errors.EnsureStack(err)
+	// Serving over unix socket
+	socket, err := net.Listen("unix", sopts.SockPath)
+	if err != nil {
+		return errors.Wrapf(err, "could not listen to unix socket at %q", sopts.SockPath)
+	}
+	// // sopts.SockPath will exist until this process exits, per unix spec. See e.g.
+	// // https://stackoverflow.com/questions/34873151/how-can-i-delete-a-unix-domain-socket-file-when-i-exit-my-application
+	// if err := os.Remove(sopts.SockPath); err != nil {
+	// 	log.Error(pctx.Background(), "Error removing unix socket", zap.Error(err))
+	// }
+	return errors.EnsureStack(srv.Serve(socket))
 }
 
 func initialChecks(mm *MountManager, authCheck bool) (string, int) {
