@@ -295,8 +295,8 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=7 \
-              -gotest-args="-parallel=5 -timeout=30m"
+              -threads=4 \
+              -gotest-args="-parallel=6 -timeout=30m"
       - run:
           name: Format code coverage
           when: always
