@@ -2356,7 +2356,7 @@ commands:
           name: Store test results for overtime reports
           when: always
           shell: /bin/sh # ignore fails without pipefail
-          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
+          command: timeout 2m go run -v src/testing/cmds/go-test-results/collector/main.go || true
   install-poetry:
     steps:
       - run:
