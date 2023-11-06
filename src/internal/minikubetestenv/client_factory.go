@@ -108,7 +108,7 @@ func clusterIdx(t testing.TB, name string) int {
 
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16(clusterIdx * 10),
+		PortOffset:         uint16(clusterIdx * 100),
 		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
@@ -204,13 +204,6 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 // assigning clusters to test clients, creating the namespace, and reserving the lease on that namespace.
 // Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
-	// setup.Do(func() {
-	// 	clusterFactory = &ClusterFactory{
-	// 		managedClusters:   map[string]*managedCluster{},
-	// 		availableClusters: map[string]struct{}{},
-	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
-	// 	}
-	// })
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1)) // DNJ TODO should semchanges be in helm mutex to prevent starting new cluster before semaphore decrements?
 	assigned, clusterIdx := clusterFactory.assignCluster(t)
 	t.Cleanup(func() {
@@ -219,7 +212,7 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
-	portOffset := uint16(clusterIdx * 10)
+	portOffset := uint16(clusterIdx * 100)
 	return assigned, portOffset
 }
 
