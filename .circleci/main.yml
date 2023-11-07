@@ -91,12 +91,13 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=8 GOMEMLIMIT=8000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=2 \
-              -gotest-args="-parallel=6 -timeout=20m"
+              -gotestsum-args="--junitfile ${TEST_RESULTS}/gotestsum-report.xml --jsonfile ${TEST_RESULTS}/go-test-results.jsonl" \
+              -gotest-args="-parallel=6 -timeout=20m -cover -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
