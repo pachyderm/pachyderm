@@ -83,7 +83,6 @@ class TestUnitAuth:
     reason="auth activated for non-auth tests",
 )
 class TestUnitAuthNotActivated:
-
     @staticmethod
     def test_auth_error_raised(client: TestClient):
         """Test that AuthServiceNotActivated errors are raised as expected."""
