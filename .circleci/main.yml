@@ -96,19 +96,19 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=2 \
-              -gotestsum-args="--junitfile ${TEST_RESULTS}/gotestsum-report.xml --jsonfile ${TEST_RESULTS}/go-test-results.jsonl" \
+              -gotestsum-args="--junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml --jsonfile ${TEST_RESULTS}/go-test-results.jsonl" \
               -gotest-args="-parallel=6 -timeout=20m -cover -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
-          path: ${TEST_RESULTS}
+          path: "/tmp/test-results/"
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
-          path: ${TEST_RESULTS}/circle
+          path: "/tmp/test-results/circle"
       - codecov/upload:
-          file: ${TEST_RESULTS}/unit-coverage.txt
+          file: /tmp/test-results/unit-coverage.txt
       - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
