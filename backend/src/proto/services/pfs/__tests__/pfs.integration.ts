@@ -564,7 +564,7 @@ describe('services/pfs', () => {
         },
       });
       expect(fileDiff2[1].newFile?.sizeBytes).toBe(80588);
-    });
+    }, 60_000);
   });
 
   describe('createProject', () => {

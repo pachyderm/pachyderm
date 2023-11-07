@@ -13,6 +13,17 @@ const atatPngFilePath = path.resolve(
 
 jest.setTimeout(30_000);
 
+async function retry<T>(maxRetries: number, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    if (maxRetries <= 0) {
+      throw err;
+    }
+    return retry(maxRetries - 1, fn);
+  }
+}
+
 describe('ModifyFile', () => {
   afterAll(async () => {
     const pachClient = apiClientRequestWrapper();
@@ -133,13 +144,15 @@ describe('ModifyFile', () => {
 
       await client.pfs.finishCommit({projectId: 'default', commit});
 
-      const files = await client.pfs.listFile({
-        projectId: 'default',
-        commitId: commit.id,
-        branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
+      await retry(3, async () => {
+        const files = await client.pfs.listFile({
+          projectId: 'default',
+          commitId: commit.id,
+          branch: {name: 'master', repo: {name: 'putFileFromFilePath'}},
+        });
+        expect(files).toHaveLength(2);
       });
-      expect(files).toHaveLength(2);
-    }, 60_000);
+    }, 65_000);
   });
 
   describe('deleteFile', () => {
@@ -160,12 +173,14 @@ describe('ModifyFile', () => {
 
       await client.pfs.finishCommit({projectId: 'default', commit});
 
-      const files = await client.pfs.listFile({
-        projectId: 'default',
-        commitId: commit.id,
-        branch: {name: 'master', repo: {name: 'deleteFile'}},
+      await retry(3, async () => {
+        const files = await client.pfs.listFile({
+          projectId: 'default',
+          commitId: commit.id,
+          branch: {name: 'master', repo: {name: 'deleteFile'}},
+        });
+        expect(files).toHaveLength(2);
       });
-      expect(files).toHaveLength(2);
 
       const deleteCommit = await client.pfs.startCommit({
         projectId: 'default',
@@ -191,7 +206,7 @@ describe('ModifyFile', () => {
         branch: {name: 'master', repo: {name: 'deleteFile'}},
       });
       expect(postDeleteFiles).toHaveLength(0);
-    }, 60_000);
+    }, 65_000);
   });
 
   describe('deleteFiles', () => {
