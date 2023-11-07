@@ -389,7 +389,7 @@ func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	batcher := migrationutils.NewSimplePostgresBatcher(ctx, tx)
 	for i := uint64(0); i < totalPages; i++ {
-		log.Info(ctx, fmt.Sprintf("migrating commits %d out of %d", pageSize*i, math.Min(float64(count.Collections), float64(pageSize*totalPages)))
+		log.Info(ctx, fmt.Sprintf("migrating commits %d out of %d", pageSize*i, math.Min(float64(count.Collections), float64(pageSize*totalPages))))
 		var page []commitCollection
 		if err := tx.SelectContext(ctx, &page, fmt.Sprintf(`
 		SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
