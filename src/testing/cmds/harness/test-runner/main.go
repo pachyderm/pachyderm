@@ -141,7 +141,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 // run tests with `go test`. We run one package at a time so tests with the same name in different packages
 // like TestConfig or TestDebug don't run multiple times if they land on separate shards.
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
-	findTestArgs := []string{
+	runTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
 		"--rerun-fails-max-failures=1",
@@ -149,7 +149,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		"--debug",
 	}
 	if len(gotestsumArgs) > 0 {
-		findTestArgs = append(findTestArgs, gotestsumArgs...)
+		runTestArgs = append(runTestArgs, gotestsumArgs...)
 	}
 	testRegex := strings.Builder{}
 	for _, test := range testNames {
@@ -159,16 +159,16 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
 
-	findTestArgs = append(findTestArgs, "--",
+	runTestArgs = append(runTestArgs, "--",
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()))
 	if len(gotestArgs) > 0 {
-		findTestArgs = append(findTestArgs, gotestArgs...)
+		runTestArgs = append(runTestArgs, gotestArgs...)
 	}
 
-	cmd := exec.Command("gotestsum", findTestArgs...)
+	cmd := exec.Command("gotestsum", runTestArgs...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "CGO_ENABLED=0") // DNJ TODO - parameter - how to take form args?
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0 GOCOVERDIR=\"/tmp/test-results/\"") // DNJ TODO - parameter - how to take form args?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
 	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))

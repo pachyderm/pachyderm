@@ -291,13 +291,14 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMEMLIMIT=16000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=16000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=4 \
-              -gotest-args="-parallel=5 -timeout=30m"
+              -gotestsum-args="--junitfile ${TEST_RESULTS}/circle/gotestsum-report.xml --jsonfile ${TEST_RESULTS}/go-test-results.jsonl" \
+              -gotest-args="-parallel=5 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
