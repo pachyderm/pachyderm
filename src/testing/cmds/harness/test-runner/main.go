@@ -158,10 +158,14 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		}
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
-
+	resultsFolder := os.Getenv("TEST_RESULTS")
+	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2"), "/", "-")
 	runTestArgs = append(runTestArgs, "--",
 		fmt.Sprintf("-tags=%s", tags),
-		fmt.Sprintf("-run=%s", testRegex.String()))
+		fmt.Sprintf("-run=%s", testRegex.String()),
+		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
+		fmt.Sprintf("--jsonfile=%s/go-test-results-%s.jsonl", resultsFolder, pkgShort),
+	)
 	if len(gotestArgs) > 0 {
 		runTestArgs = append(runTestArgs, gotestArgs...)
 	}
