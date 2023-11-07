@@ -141,12 +141,16 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 // run tests with `go test`. We run one package at a time so tests with the same name in different packages
 // like TestConfig or TestDebug don't run multiple times if they land on separate shards.
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
+	resultsFolder := os.Getenv("TEST_RESULTS")
+	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2"), "/", "-")
 	runTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
 		"--rerun-fails-max-failures=1",
 		"--format=testname",
 		"--debug",
+		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
+		fmt.Sprintf("--jsonfile=%s/go-test-results-%s.jsonl", resultsFolder, pkgShort),
 	}
 	if len(gotestsumArgs) > 0 {
 		runTestArgs = append(runTestArgs, gotestsumArgs...)
@@ -158,13 +162,9 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		}
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
-	resultsFolder := os.Getenv("TEST_RESULTS")
-	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2"), "/", "-")
 	runTestArgs = append(runTestArgs, "--",
 		fmt.Sprintf("-tags=%s", tags),
 		fmt.Sprintf("-run=%s", testRegex.String()),
-		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
-		fmt.Sprintf("--jsonfile=%s/go-test-results-%s.jsonl", resultsFolder, pkgShort),
 	)
 	if len(gotestArgs) > 0 {
 		runTestArgs = append(runTestArgs, gotestArgs...)
