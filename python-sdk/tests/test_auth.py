@@ -4,6 +4,7 @@ from tests.fixtures import *
 
 from pachyderm_sdk.api import auth
 from pachyderm_sdk.constants import AUTH_TOKEN_ENV
+from pachyderm_sdk.errors import AuthServiceNotActivated
 
 
 @pytest.mark.skipif(
@@ -75,3 +76,16 @@ class TestUnitAuth:
         auth_client.auth.modify_members(group=group, remove=[username])
         assert auth_client.auth.get_groups().groups == []
         assert auth_client.auth.get_users(group=group).usernames == []
+
+
+@pytest.mark.skipif(
+    bool(os.environ.get(AUTH_TOKEN_ENV)),
+    reason="auth activated for non-auth tests",
+)
+class TestUnitAuthNotActivated:
+
+    @staticmethod
+    def test_auth_error_raised(client: TestClient):
+        """Test that AuthServiceNotActivated errors are raised as expected."""
+        with pytest.raises(AuthServiceNotActivated):
+            client.auth.who_am_i()
