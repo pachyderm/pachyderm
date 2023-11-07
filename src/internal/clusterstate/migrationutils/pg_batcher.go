@@ -183,3 +183,47 @@ func (pb *postgresBatcher) execute(ctx context.Context) error {
 func (pb *postgresBatcher) Finish(ctx context.Context) error {
 	return pb.execute(ctx)
 }
+
+type SimplePostgresBatcher struct {
+	ctx   context.Context
+	tx    *pachsql.Tx
+	stmts []string
+	max   int
+	num   int
+}
+
+func NewSimplePostgresBatcher(ctx context.Context, tx *pachsql.Tx) *SimplePostgresBatcher {
+	return &SimplePostgresBatcher{
+		ctx: ctx,
+		tx:  tx,
+		max: 100,
+	}
+}
+
+func (pb *SimplePostgresBatcher) Add(stmt string) error {
+	pb.stmts = append(pb.stmts, stmt)
+	if len(pb.stmts) < pb.max {
+		return nil
+	}
+	return pb.execute()
+}
+
+func (pb *SimplePostgresBatcher) execute() error {
+	if len(pb.stmts) == 0 {
+		return nil
+	}
+	log.Info(pb.ctx, "executing postgres statement batch",
+		zap.String("number", strconv.Itoa(pb.num)),
+		zap.String("size", strconv.Itoa(len(pb.stmts))),
+	)
+	pb.num++
+	if _, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";")); err != nil {
+		return errors.EnsureStack(err)
+	}
+	pb.stmts = nil
+	return nil
+}
+
+func (pb *SimplePostgresBatcher) Close() error {
+	return pb.execute()
+}
