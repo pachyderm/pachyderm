@@ -87,7 +87,7 @@
     "@graphql-tools/graphql-file-loader": "^7.3.5",
     "@graphql-tools/load": "^7.5.3",
     "@sentry/cli": "2.21.2",
-    "@storybook/addon-actions": "^7.0.8",
+    "@storybook/addon-actions": "^7.5.3",
     "@storybook/addon-controls": "^7.0.8",
     "@storybook/addon-essentials": "^7.5.0",
     "@storybook/addon-links": "^7.0.8",
