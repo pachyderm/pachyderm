@@ -12,11 +12,7 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import (
-    PFS_MOUNT_DIR,
-    MOUNT_SERVER_LOG_FILE,
-    PACH_CONFIG
-)
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR, MOUNT_SERVER_LOG_FILE, PACH_CONFIG
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -61,7 +57,8 @@ def dev_server():
         # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
         # The args after os.environ should be no-ops, but they're here in case
         # env.py changes (mount-server should use jupyterlab-pach's defaults).
-        env=dict(os.environ,
+        env=dict(
+            os.environ,
             PACH_CONFIG=PACH_CONFIG,
             PFS_MOUNT_DIR=PFS_MOUNT_DIR,
             MOUNT_SERVER_LOG_FILE=MOUNT_SERVER_LOG_FILE,
@@ -145,7 +142,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
             "branch",
             "project",
             "commit",
-            "paths",
+            "path",
             "mode",
             "state",
             "status",
@@ -265,7 +262,9 @@ def test_unmount(pachyderm_resources, dev_server):
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
-@pytest.mark.skip(reason="test flakes due to 'missing chunk' error that hasn't been diagnosed")
+@pytest.mark.skip(
+    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
+)
 def test_mount_datums(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
     input_spec = {
