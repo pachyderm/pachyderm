@@ -1,6 +1,6 @@
 .base {
   max-height: 15.25rem;
-  overflow-y: scroll;
+  overflow-y: auto;
 }
 
 .tableCell {
