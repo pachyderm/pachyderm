@@ -1,17 +1,15 @@
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join, ensure_async
+import asyncio
+import grpc
 import json
 from pachyderm_sdk import Client
 import tornado
 import traceback
 
-from .env import PFS_MOUNT_DIR, PFS_SOCK_PATH
-from .filemanager import PFSContentsManager
 from .log import get_logger
-from .pachyderm import MountInterface
 from .pfs_manager import PFSManager, DatumManager
-from .mount_server_client import MountServerClient
 from .pps_client import PPSClient
 
 
@@ -22,36 +20,28 @@ VERSION = "v2"
 
 class BaseHandler(APIHandler):
     @property
-    def mount_client(self) -> MountInterface:
-        return self.settings["pachyderm_mount_client"]
+    def client(self) -> Client:
+        return self.settings["pachyderm_client"]
+
+    @property
+    def pfs_manager(self) -> PFSManager:
+        return self.settings["pfs_contents_manager"]
+
+    @property
+    def datum_manager(self) -> DatumManager:
+        return self.settings["datum_contents_manager"]
 
     @property
     def pps_client(self) -> PPSClient:
         return self.settings["pachyderm_pps_client"]
 
 
-class ReposHandler(BaseHandler):
-    # The following decorator should be present on all verb methods (head, get, post,
-    # patch, put, delete, options) to ensure only authorized user can request the
-    # Jupyter server
-    @tornado.web.authenticated
-    async def get(self):
-        try:
-            response = await self.mount_client.list_repos()
-            get_logger().debug(f"Repos: {response}")
-            self.finish(response)
-        except Exception as e:
-            get_logger().error("Error listing repos.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500), reason=f"Error listing repos: {e}."
-            )
-
-
 class MountsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            response = await self.mount_client.list_mounts()
+            mounts = self.pfs_manager.list_mounts()
+            response = json.dumps(mounts)
             get_logger().debug(f"Mounts: {response}")
             self.finish(response)
         except Exception as e:
@@ -66,7 +56,7 @@ class ProjectsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            projects = self.settings["pachyderm_client"].pfs.list_project()
+            projects = self.client.pfs.list_project()
             response = json.dumps([p.to_dict() for p in projects])
             get_logger().debug(f"Projects: {response}")
             self.finish(response)
@@ -83,16 +73,15 @@ class MountHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            # TODO: move mount req/rsp handling out of mount-server
             for m in body["mounts"]:
                 repo = m["repo"]
                 branch = m["branch"]
                 project = m["project"]
                 name = m["name"]
-                self.settings["pfs_contents_manager"].mount_repo(
+                self.pfs_manager.mount_repo(
                     repo=repo, branch=branch, project=project, name=name
                 )
-            response = await self.mount_client.mount(body)
+            response = self.pfs_manager.list_mounts()
             get_logger().debug(f"Mount: {response}")
             self.finish(response)
         except Exception as e:
@@ -108,10 +97,9 @@ class UnmountHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            # TODO: move unmount req/rsp handling out of mount-server
             for name in body["mounts"]:
-                self.settings["pfs_contents_manager"].unmount_repo(name=name)
-            response = await self.mount_client.unmount(body)
+                self.pfs_manager.unmount_repo(name=name)
+            response = self.pfs_manager.list_mounts()
             get_logger().debug(f"Unmount: {response}")
             self.finish(response)
         except Exception as e:
@@ -122,31 +110,15 @@ class UnmountHandler(BaseHandler):
             )
 
 
-class CommitHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def post(self):
-        try:
-            body = self.get_json_body()
-            response = await self.mount_client.commit(body)
-            get_logger().debug(f"Commit: {response}")
-            self.finish(response)
-        except Exception as e:
-            get_logger().error(f"Error committing {body}.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error committing {body}: {e}.",
-            )
-
-
+# probably not needed anymore
 class UnmountAllHandler(BaseHandler):
     """Unmounts all repos"""
 
     @tornado.web.authenticated
     async def put(self):
         try:
-            # TODO: move req/rsp handling out of mount-server
-            self.settings["pfs_contents_manager"].unmount_all()
-            response = await self.mount_client.unmount_all()
+            self.pfs_manager.unmount_all()
+            response = self.pfs_manager.list_mounts()
             get_logger().debug(f"Unmount all: {response}")
             self.finish(response)
         except Exception as e:
@@ -162,8 +134,8 @@ class MountDatumsHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            self.settings["datum_contents_manager"].mount_datums(input_dict=body)
-            response = await self.mount_client.mount_datums(body)
+            self.datum_manager.mount_datums(input_dict=body)
+            response = self.datum_manager.datum_state()
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
         except Exception as e:
@@ -180,8 +152,8 @@ class DatumNextHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.settings["datum_contents_manager"].next_datum()
-            response = await self.mount_client.next_datum()
+            self.datum_manager.next_datum()
+            response = self.datum_manager.datum_state()
             get_logger().debug(f"Next datum: {response}")
             self.finish(response)
         except Exception as e:
@@ -196,8 +168,8 @@ class DatumPrevHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.settings["datum_contents_manager"].prev_datum()
-            response = await self.mount_client.prev_datum()
+            self.datum_manager.prev_datum()
+            response = self.datum_manager.datum_state()
             get_logger().debug(f"Prev datum: {response}")
             self.finish(response)
         except Exception as e:
@@ -212,7 +184,7 @@ class DatumsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            response = await self.mount_client.get_datums()
+            response = self.datum_manager.current_datum()
             get_logger().debug(f"Datums info: {response}")
             self.finish(response)
         except Exception as e:
@@ -225,7 +197,7 @@ class DatumsHandler(BaseHandler):
 
 class PFSHandler(ContentsHandler):
     @property
-    def pfs_contents_manager(self) -> PFSManager:
+    def pfs_manager(self) -> PFSManager:
         return self.settings["pfs_contents_manager"]
 
     @tornado.web.authenticated
@@ -248,7 +220,7 @@ class PFSHandler(ContentsHandler):
         content = int(content)
 
         model = await ensure_async(
-            self.pfs_contents_manager.get(
+            self.pfs_manager.get(
                 path=path,
                 type=type,
                 format=format,
@@ -261,7 +233,7 @@ class PFSHandler(ContentsHandler):
 
 class ViewDatumHandler(ContentsHandler):
     @property
-    def datum_contents_manager(self) -> DatumManager:
+    def datum_manager(self) -> DatumManager:
         return self.settings["datum_contents_manager"]
 
     @tornado.web.authenticated
@@ -284,7 +256,7 @@ class ViewDatumHandler(ContentsHandler):
         content = int(content)
 
         model = await ensure_async(
-            self.datum_contents_manager.get(
+            self.datum_manager.get(
                 path=path,
                 type=type,
                 format=format,
@@ -295,29 +267,47 @@ class ViewDatumHandler(ContentsHandler):
         self._finish_model(model, location=False)
 
 
+# TODO: see about writing to/from config file
 class ConfigHandler(BaseHandler):
+    def config_response(self) -> bytes:
+        if not self.client:
+            return json.dumps({"cluster_status": "INVALID"})
+
+        try:
+            self.client.auth.who_am_i()
+            cluster_status = "AUTH_ENABLED"
+        except grpc.RpcError as err:
+            if err.code() == grpc.StatusCode.UNAUTHENTICATED:
+                cluster_status = "AUTH_ENABLED"
+            elif (
+                err.code() == grpc.StatusCode.UNIMPLEMENTED
+                and "the auth service is not activated" in err.details()
+            ):
+                cluster_status = "AUTH_DISABLED"
+            else:
+                cluster_status = "INVALID"
+        except ConnectionError:
+            cluster_status = "INVALID"
+
+        return json.dumps(
+            {"cluster_status": cluster_status, "pachd_address": self.client.address}
+        )
+
     @tornado.web.authenticated
     async def put(self):
         try:
             body = self.get_json_body()
-            response = await self.mount_client.config(body)
+            address: str = body["pachd_address"]
+
+            if address.removeprefix("grpc://") != self.client.address:
+                client = Client().from_pachd_address(pachd_address=address)
+                self.settings["pachyderm_client"] = client
+                self.settings["pfs_contents_manager"] = PFSManager(client=client)
+                self.settings["datum_contents_manager"] = DatumManager(client=client)
+                self.settings["pachyderm_pps_client"] = PPSClient(client=client)
+
+            response = self.config_response()
             self.finish(response)
-
-            # reload pachyderm_sdk clients with new config
-            try:
-                client = Client().from_config()
-                get_logger().debug(
-                    f"Created Pachyderm client for {client.address} from local config"
-                )
-            except FileNotFoundError:
-                client = Client()
-                get_logger().debug(
-                    "Could not find config file, creating localhost Pachyderm client"
-                )
-
-            self.settings["pfs_contents_manager"] = PFSManager(client=client)
-            self.settings["datum_contents_manager"] = DatumManager(client=client)
-            self.settings["pachyderm_pps_client"] = PPSClient(client=client)
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",
@@ -331,7 +321,7 @@ class ConfigHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         try:
-            response = await self.mount_client.config()
+            response = self.config_response()
             self.finish(response)
         except Exception as e:
             get_logger().error("Error getting config.", exc_info=True)
@@ -341,10 +331,19 @@ class ConfigHandler(BaseHandler):
 
 
 class AuthLoginHandler(BaseHandler):
+    async def get_token(self, oidc_state: str):
+        token = self.client.auth.authenticate(oidc_state=oidc_state).pach_token
+        self.settings["pachyderm_client"].auth_token = token
+        self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
+        self.settings["datum_contents_manager"] = DatumManager(client=self.client)
+        self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
+
     @tornado.web.authenticated
     async def put(self):
         try:
-            response = await self.mount_client.auth_login()
+            oidc_response = self.client.auth.get_oidc_login()
+            asyncio.create_task(self.get_token(oidc_response.state))
+            response = oidc_response.to_json()
             self.finish(response)
         except Exception as e:
             get_logger().error("Error logging in to auth.", exc_info=True)
@@ -357,7 +356,10 @@ class AuthLogoutHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            await self.mount_client.auth_logout()
+            self.client.auth_token = None
+            self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
+            self.settings["datum_contents_manager"] = DatumManager(client=self.client)
+            self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
             self.finish()
         except Exception as e:
             get_logger().error("Error logging out of auth.", exc_info=True)
@@ -369,15 +371,8 @@ class AuthLogoutHandler(BaseHandler):
 class HealthHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
-        try:
-            response = await self.mount_client.health()
-            get_logger().debug(f"Health: {response}")
-            self.finish(response)
-        except Exception:
-            get_logger().error("Mount server not running.")
-            raise tornado.web.HTTPError(
-                status_code=500, reason=f"Mount server not running."
-            )
+        response = {"status": "running"}
+        self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -416,9 +411,6 @@ class PPSCreateHandler(BaseHandler):
 
 
 def setup_handlers(web_app):
-    get_logger().info(f"Using PFS_MOUNT_DIR={PFS_MOUNT_DIR}")
-    get_logger().info(f"Using PFS_SOCK_PATH={PFS_SOCK_PATH}")
-
     try:
         client = Client().from_config()
         get_logger().debug(
@@ -430,21 +422,16 @@ def setup_handlers(web_app):
             "Could not find config file, creating localhost Pachyderm client"
         )
 
-    web_app.settings["pachyderm_mount_client"] = MountServerClient(
-        mount_dir=PFS_MOUNT_DIR, sock_path=PFS_SOCK_PATH
-    )
     web_app.settings["pachyderm_client"] = client
     web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
     web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
     web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
-        ("/repos", ReposHandler),
         ("/mounts", MountsHandler),
         ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),
         ("/_unmount", UnmountHandler),
-        ("/_commit", CommitHandler),
         ("/_unmount_all", UnmountAllHandler),
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
@@ -455,7 +442,6 @@ def setup_handlers(web_app):
         ("/config", ConfigHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
-        ("/health", HealthHandler),
         (r"/pps/_create%s" % path_regex, PPSCreateHandler),
     ]
 

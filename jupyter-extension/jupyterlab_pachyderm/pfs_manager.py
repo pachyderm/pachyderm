@@ -3,7 +3,7 @@ import grpc
 from jupyter_server.services.contents.filemanager import FileContentsManager
 import mimetypes
 from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs, pps
+from pachyderm_sdk.api import pfs, pps, auth
 import os
 from pathlib import Path
 from tornado import web
@@ -129,6 +129,18 @@ class PFSManager(FileContentsManager):
     #    this is to get around the edge case where you have a repo that is
     #    the prefix of another repo plus a branch name
 
+    class Mount(typing.TypedDict):
+        name: str
+        repo: str
+        project: str
+        branch: str
+
+    class Repo(typing.TypedDict):
+        repo: str
+        project: str
+        authorization: str
+        branches: typing.List[str]
+
     # maintain a dict/list of repos we have "mounted"
     def __init__(self, client: Client, **kwargs):
         self._client = client
@@ -159,6 +171,49 @@ class PFSManager(FileContentsManager):
 
     def unmount_all(self):
         self._mounted.clear()
+
+    def _get_auth_str(self, auth_info: pfs.AuthInfo) -> str:
+        if not auth_info:
+            return "off"
+        if auth.Permission.REPO_WRITE in auth_info.permissions:
+            return "write"
+        if (
+            auth.Permission.REPO_READ in auth_info.permissions
+            and auth.Permission.REPO_LIST_COMMIT in auth_info.permissions
+            and auth.Permission.REPO_LIST_BRANCH in auth_info.permissions
+            and auth.Permission.REPO_LIST_FILE in auth_info.permissions
+        ):
+            return "read"
+        return "none"
+
+    def list_mounts(self) -> dict:
+        mounted: list[self.Mount] = []
+        unmounted: list[self.Repo] = []
+        repo_info = {r.repo.name: r for r in self._client.pfs.list_repo()}
+
+        for (name, branch) in self._mounted.items():
+            mounted.append(
+                self.Mount(
+                    name=name,
+                    repo=branch.repo.name,
+                    project=branch.repo.project.name,
+                    branch=branch.name,
+                )
+            )
+            del repo_info[branch.repo.name]
+
+        for repo in repo_info.values():
+            repo: pfs.RepoInfo
+            unmounted.append(
+                self.Repo(
+                    repo=repo.repo.name,
+                    project=repo.repo.project.name,
+                    authorization=self._get_auth_str(repo.auth_info),
+                    branches=[b.name for b in repo.branches],
+                )
+            )
+
+        return {"mounted": mounted, "unmounted": unmounted}
 
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
@@ -347,6 +402,18 @@ class DatumManager(FileContentsManager):
         mounted as well.
     """
 
+    class DatumState(typing.TypedDict):
+        id: str
+        idx: int
+        num_datums: int
+        all_datums_received: bool
+
+    class CurrentDatum(typing.TypedDict):
+        num_datums: int
+        input: dict
+        idx: int
+        all_datums_received: bool
+
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
     # currently unsupported stuff (unclear if needed or not):
     #  - crossing repo with itself
@@ -357,6 +424,11 @@ class DatumManager(FileContentsManager):
         self._dirs = set()
         self._datum_index = 0
         self._mount_time = datetime.datetime.min
+        self._input = None
+        try:
+            shutil.rmtree(f"{self._FILEINFO_DIR}")
+        except FileNotFoundError:
+            pass
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
         super().__init__(**kwargs)
 
@@ -369,6 +441,7 @@ class DatumManager(FileContentsManager):
     # mapping to track which files within a datum belong to which name.
     def mount_datums(self, input_dict: dict):
         input = pps.Input().from_dict(input_dict["input"])
+        self.input = input
         self._datum_list = list(self._client.pps.list_datum(input=input))
         self._datum_index = 0
         self._mount_time = datetime.datetime.now()
@@ -385,6 +458,22 @@ class DatumManager(FileContentsManager):
             self._datum_index = len(self._datum_list)
         self._datum_index = self._datum_index - 1
         self._update_mount()
+
+    def datum_state(self) -> dict:
+        return self.DatumState(
+            id=self._datum_list[self._datum_index].datum.id,
+            idx=self._datum_index,
+            num_datums=len(self._datum_list),
+            all_datums_received=True,
+        )
+
+    def current_datum(self) -> dict:
+        return self.CurrentDatum(
+            num_datums=len(self._datum_list),
+            input=self._input,
+            idx=self._datum_index,
+            all_datums_received=True,
+        )
 
     def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
         project = fileinfo.file.commit.repo.project.name
