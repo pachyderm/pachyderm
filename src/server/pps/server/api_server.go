@@ -3895,6 +3895,11 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	if req.Project == nil || req.Project.Name == "" {
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+
+	if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, req.Project, auth.Permission_PROJECT_SET_DEFAULTS); err != nil {
+		return nil, errors.Wrapf(err, "not allowed")
+	}
+
 	var cdg = &cachedDefaultsGetter{
 		apiServer:       a,
 		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
