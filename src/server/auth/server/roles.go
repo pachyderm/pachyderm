@@ -219,6 +219,7 @@ func init() {
 		Permissions: combinePermissions(repoOwnerRole.Permissions, projectWriterRole.Permissions, []auth.Permission{
 			auth.Permission_PROJECT_DELETE,
 			auth.Permission_PROJECT_MODIFY_BINDINGS,
+			auth.Permission_PROJECT_SET_DEFAULTS,
 		}),
 	})
 
