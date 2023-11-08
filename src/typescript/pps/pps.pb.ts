@@ -559,6 +559,7 @@ export type InspectPipelineRequest = {
 export type ListPipelineRequest = {
   pipeline?: Pipeline
   history?: string
+  details?: boolean
   jqFilter?: string
   commitSet?: Pfs_v2Pfs.CommitSet
   projects?: Pfs_v2Pfs.Project[]

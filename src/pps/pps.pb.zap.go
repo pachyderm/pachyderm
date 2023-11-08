@@ -885,6 +885,7 @@ func (x *ListPipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	}
 	enc.AddObject("pipeline", x.Pipeline)
 	enc.AddInt64("history", x.History)
+	enc.AddBool("details", x.Details)
 	enc.AddString("jqFilter", x.JqFilter)
 	enc.AddObject("commit_set", x.CommitSet)
 	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {

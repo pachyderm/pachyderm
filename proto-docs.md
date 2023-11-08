@@ -7104,6 +7104,7 @@ all of the filtered attributes.
 | ----- | ---- | ----- | ----------- |
 | pipeline | [Pipeline](#pps_v2-Pipeline) |  | If non-nil, only return info about a single pipeline, this is redundant with InspectPipeline unless history is non-zero. |
 | history | [int64](#int64) |  | History indicates how many historical versions you want returned. Its semantics are: 0: Return the current version of the pipeline or pipelines. 1: Return the above and the next most recent version 2: etc. -1: Return all historical versions. |
+| details | [bool](#bool) |  | **Deprecated.** Deprecated: Details are always returned. |
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |

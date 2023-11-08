@@ -17635,6 +17635,21 @@
               "defaultValue": ""
             },
             {
+              "name": "details",
+              "description": "Deprecated: Details are always returned.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "deprecated": true
+              }
+            },
+            {
               "name": "jqFilter",
               "description": "A jq program string for additional result filtering",
               "label": "",
