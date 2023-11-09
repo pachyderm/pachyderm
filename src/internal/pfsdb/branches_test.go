@@ -323,6 +323,7 @@ func TestBranchIterator(t *testing.T) {
 func TestBranchDelete(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		var branchAInfo, branchBInfo, branchCInfo *pfs.BranchInfo
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Setup dependencies
 			repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, "A", pfs.UserRepoType)
@@ -333,21 +334,21 @@ func TestBranchDelete(t *testing.T) {
 				createCreateInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
-			branchAInfo := &pfs.BranchInfo{
+			branchAInfo = &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
 					Name: "branchA",
 				},
 				Head: commitAInfo.Commit,
 			}
-			branchBInfo := &pfs.BranchInfo{
+			branchBInfo = &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
 					Name: "branchB",
 				},
 				Head: commitBInfo.Commit,
 			}
-			branchCInfo := &pfs.BranchInfo{
+			branchCInfo = &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
 					Name: "branchC",
@@ -367,10 +368,20 @@ func TestBranchDelete(t *testing.T) {
 				_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 				require.NoError(t, err)
 			}
-			branchBID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
+			_, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchBID, false /* force */))
-			_, err = pfsdb.GetBranchInfo(ctx, tx, branchBID)
+		})
+		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			// Delete branch should fail because there exists branches that depend on it.
+			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
+			require.NoError(t, err)
+			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, branchID, false /* force */), "violates foreign key constraint")
+		})
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
+			require.NoError(t, err)
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchID, true /* force */))
+			_, err = pfsdb.GetBranchInfo(ctx, tx, branchID)
 			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 			// Verify that BranchA no longer has BranchB in its subvenance
 			branchAInfo.Subvenance = []*pfs.Branch{branchCInfo.Branch}
