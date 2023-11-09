@@ -4,15 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/migrationutils"
 	"strings"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/migrationutils"
 	v2_7_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.7.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
@@ -340,15 +342,18 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 func migrateCommits(ctx context.Context, env migrations.Env) error {
+	log.Info(ctx, "updating database schema for commit tables")
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
 	}
+	log.Info(ctx, "migrating commits")
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
 		return err
 	}
+	log.Info(ctx, "finalizing database schema for commit tables")
 	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
 		return err
 	}
@@ -380,11 +385,12 @@ func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	pageSize := uint64(1000)
 	totalPages := count.Collections / pageSize
-	if pageSize%count.Collections > 0 {
+	if count.Collections%pageSize > 0 {
 		totalPages++
 	}
 	batcher := migrationutils.NewSimplePostgresBatcher(tx)
 	for i := uint64(0); i < totalPages; i++ {
+		log.Info(ctx, "migrating commits", zap.Uint64("current", i*pageSize), zap.Uint64("total", count.Collections))
 		var page []commitCollection
 		if err := tx.SelectContext(ctx, &page, fmt.Sprintf(`
 		SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
