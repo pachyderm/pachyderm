@@ -2,9 +2,11 @@ package migrationutils
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -184,46 +186,88 @@ func (pb *postgresBatcher) Finish(ctx context.Context) error {
 	return pb.execute(ctx)
 }
 
+// SimplePostgresBatcher is an alternative batcher that buffers statements 'stmts' terminated by
+// semicolons until it hits the max number of statements. The statements are then executed in one
+// round-trip query to postgres.
 type SimplePostgresBatcher struct {
-	ctx   context.Context
 	tx    *pachsql.Tx
 	stmts []string
 	max   int
 	num   int
 }
 
-func NewSimplePostgresBatcher(ctx context.Context, tx *pachsql.Tx) *SimplePostgresBatcher {
+func NewSimplePostgresBatcher(tx *pachsql.Tx) *SimplePostgresBatcher {
 	return &SimplePostgresBatcher{
-		ctx: ctx,
 		tx:  tx,
 		max: 100,
 	}
 }
 
-func (pb *SimplePostgresBatcher) Add(stmt string) error {
+// Add inserts a statement to the SimplePostgresBatcher's internal buffer. If the number
+// of statements exceeds the maximum after adding, the batcher executes the statements.
+// SimplePostgresBatcher doesn't support buffering arguments, the arguments are sanitized then
+// their values are inlined. stmt should only use '%s' or '%v' for formatting due to arguments
+// being converted to strings when inlined.
+func (pb *SimplePostgresBatcher) Add(ctx context.Context, stmt string, args ...interface{}) error {
+	var sanitizedArgs []interface{}
+	if strings.Contains(stmt, "'") || strings.Contains(stmt, "\"") {
+		return fmt.Errorf("stmt should not contain quotes")
+	}
+	for _, arg := range args {
+		switch argType := arg.(type) {
+		case nil:
+			sanitizedArgs = append(sanitizedArgs, "null")
+		case uint64:
+			sanitizedArgs = append(sanitizedArgs, strconv.FormatUint(argType, 10))
+		case int64:
+			sanitizedArgs = append(sanitizedArgs, strconv.FormatInt(argType, 10))
+		case float64:
+			sanitizedArgs = append(sanitizedArgs, strconv.FormatFloat(argType, 'f', -1, 64))
+		case bool:
+			sanitizedArgs = append(sanitizedArgs, strconv.FormatBool(argType))
+		case []byte:
+			sanitizedArgs = append(sanitizedArgs, quoteBytes(argType))
+		case string:
+			sanitizedArgs = append(sanitizedArgs, quoteString(argType))
+		case time.Time:
+			sanitizedArgs = append(sanitizedArgs, quoteString(argType.Format(time.RFC3339)))
+		default:
+			return fmt.Errorf("invalid arg type: %T", arg)
+		}
+	}
+	stmt = fmt.Sprintf(stmt, sanitizedArgs...)
 	pb.stmts = append(pb.stmts, stmt)
 	if len(pb.stmts) < pb.max {
 		return nil
 	}
-	return pb.execute()
+	return pb.execute(ctx)
 }
 
-func (pb *SimplePostgresBatcher) execute() error {
+func (pb *SimplePostgresBatcher) execute(ctx context.Context) error {
 	if len(pb.stmts) == 0 {
 		return nil
 	}
-	log.Info(pb.ctx, "executing postgres statement batch",
+	log.Info(ctx, "executing postgres statement batch",
 		zap.String("number", strconv.Itoa(pb.num)),
 		zap.String("size", strconv.Itoa(len(pb.stmts))),
 	)
 	pb.num++
-	if _, err := pb.tx.ExecContext(pb.ctx, strings.Join(pb.stmts, ";")); err != nil {
+	if _, err := pb.tx.ExecContext(ctx, strings.Join(pb.stmts, ";")); err != nil {
 		return errors.EnsureStack(err)
 	}
 	pb.stmts = nil
 	return nil
 }
 
-func (pb *SimplePostgresBatcher) Close() error {
-	return pb.execute()
+// Close triggers the SimplePostgresBatcher to execute any remaining buffered statements.
+func (pb *SimplePostgresBatcher) Close(ctx context.Context) error {
+	return pb.execute(ctx)
+}
+
+func quoteString(str string) string {
+	return "'" + strings.ReplaceAll(str, "'", "''") + "'"
+}
+
+func quoteBytes(buf []byte) string {
+	return `'\x` + hex.EncodeToString(buf) + "'"
 }
