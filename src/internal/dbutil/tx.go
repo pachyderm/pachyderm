@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgconn"
-	"github.com/jackc/pgx/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
@@ -153,7 +152,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 		}
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
-		if errutil.IsDatabaseDisconnect(err) || errors.Is(err, pgx.ErrTxCommitRollback) {
+		if errutil.IsDatabaseDisconnect(err) {
 			log.Info(ctx, "retrying transaction following retryable error", zap.Error(err))
 			return nil
 		}
