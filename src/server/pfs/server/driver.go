@@ -35,7 +35,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -440,11 +439,7 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 // all of the repo's branches are deleted using d.deleteBranches()
 func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
 	var nonCtxCommitInfos []*pfs.CommitInfo
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: ri.Repo})
-	if err != nil {
-		return errors.Wrap(err, "delete repo info")
-	}
-	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+	if err := pfsdb.ForEachCommit(ctx, d.env.DB, &pfs.Commit{Repo: ri.Repo}, func(commitWithID pfsdb.CommitWithID) error {
 		nonCtxCommitInfos = append(nonCtxCommitInfos, commitWithID.CommitInfo)
 		return nil
 	}); err != nil {
@@ -1493,18 +1488,14 @@ func (d *driver) listCommit(
 			filter = &pfs.Commit{Repo: repo}
 		}
 		// driver.listCommit should return more recent commits by default, which is the
-		// opposite behavior of pfsdb.ListCommit.
+		// opposite behavior of pfsdb.ForEachCommit.
 		order := pfsdb.SortOrderDesc
 		if reverse {
 			order = pfsdb.SortOrderAsc
 		}
-		iter, err := pfsdb.ListCommit(ctx, d.env.DB, filter, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: order})
-		if err != nil {
-			return errors.Wrap(err, "list commit")
-		}
-		if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+		if err := pfsdb.ForEachCommit(ctx, d.env.DB, filter, func(commitWithID pfsdb.CommitWithID) error {
 			return listCallback(commitWithID.CommitInfo, commitWithID.Revision)
-		}); err != nil {
+		}, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: order}); err != nil {
 			return errors.Wrap(err, "list commit")
 		}
 		// Call sendCis one last time to send whatever's pending in 'cis'
@@ -1582,11 +1573,7 @@ func (d *driver) subscribeCommit(
 	}
 	defer watcher.Close()
 	// Get existing entries.
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: repo})
-	if err != nil {
-		return errors.Wrap(err, "create list commits iterator")
-	}
-	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+	if err := pfsdb.ForEachCommit(ctx, d.env.DB, &pfs.Commit{Repo: repo}, func(commitWithID pfsdb.CommitWithID) error {
 		return d.subscribeCommitHelper(ctx, branch, from, state, commitWithID.CommitInfo, all, originKind, seen, cb)
 	}); err != nil {
 		return errors.Wrap(err, "list commits")
