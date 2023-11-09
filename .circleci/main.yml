@@ -296,7 +296,7 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=4 \
-              -gotest-args="-parallel=5 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
+              -gotest-args="-parallel=5 -timeout=30m -cover -coverprofile=${TEST_RESULTS}/cover.out -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
