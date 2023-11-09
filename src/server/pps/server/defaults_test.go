@@ -407,6 +407,12 @@ func TestAPIServer_GetProjectDefaults(t *testing.T) {
 	resp, err := env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "default"}})
 	require.NoError(t, err, "default project must have defaults")
 	require.Equal(t, resp.ProjectDefaultsJson, "{}", "default project defaults must be empty")
+
+	_, err = env.PFSServer.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "foo"}})
+	require.NoError(t, err, "must be possible to create new project")
+	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "foo"}})
+	require.NoError(t, err, "new project must have defaults")
+	require.Equal(t, resp.ProjectDefaultsJson, "{}", "new project defaults must be empty")
 }
 
 func TestAPIServer_SetProjectDefaults(t *testing.T) {
@@ -435,6 +441,17 @@ func TestAPIServer_SetProjectDefaults(t *testing.T) {
 	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{})
 	require.NoError(t, err, "must get project defaults")
 	require.Equal(t, resp.ProjectDefaultsJson, `{"createPipelineRequest":{"datum_tries": "24"}}`)
+
+	_, err = env.PFSServer.CreateProject(ctx, &pfs.CreateProjectRequest{Project: &pfs.Project{Name: "foo"}})
+	require.NoError(t, err, "must be possible to create new project")
+	_, err = env.PPSServer.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: "foo"},
+		ProjectDefaultsJson: `{"createPipelineRequest":{}}`,
+	})
+	require.NoError(t, err, "must be possible to set defaults for new project")
+	resp, err = env.PPSServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: &pfs.Project{Name: "foo"}})
+	require.NoError(t, err, "must get new project defaults")
+	require.Equal(t, resp.ProjectDefaultsJson, `{"createPipelineRequest":{}}`)
 }
 
 func TestAPIServer_SetProjectDefaults_regenerate(t *testing.T) {
