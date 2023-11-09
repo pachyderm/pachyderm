@@ -402,7 +402,7 @@ func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
 			return err
 		}
 	}
-	if err := batcher.Close(ctx); err != nil {
+	if err := batcher.Flush(ctx); err != nil {
 		return err
 	}
 	return nil

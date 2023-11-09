@@ -259,8 +259,8 @@ func (pb *SimplePostgresBatcher) execute(ctx context.Context) error {
 	return nil
 }
 
-// Close triggers the SimplePostgresBatcher to execute any remaining buffered statements.
-func (pb *SimplePostgresBatcher) Close(ctx context.Context) error {
+// Flush triggers the SimplePostgresBatcher to execute any remaining buffered statements.
+func (pb *SimplePostgresBatcher) Flush(ctx context.Context) error {
 	return pb.execute(ctx)
 }
 
