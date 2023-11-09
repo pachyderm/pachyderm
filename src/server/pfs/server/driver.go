@@ -2074,9 +2074,6 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 		}
 		return errors.Wrapf(err, "get branch %q", branch.Key())
 	}
-	if branchInfoWithID == nil {
-		return errors.Errorf("got nil branch from retrieving %q", branch.Key())
-	}
 	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
 }
 

@@ -56,24 +56,24 @@ func (p *Project) String() string {
 }
 
 func (p *Project) Key() string {
-	return p.Name
+	return p.GetName()
 }
 
 func (r *Repo) String() string {
-	if r.Type == UserRepoType {
-		if projectName := r.Project.String(); projectName != "" {
-			return projectName + "/" + r.Name
+	if r.GetType() == UserRepoType {
+		if projectName := r.GetProject().String(); projectName != "" {
+			return projectName + "/" + r.GetName()
 		}
-		return r.Name
+		return r.GetName()
 	}
-	if projectName := r.Project.String(); projectName != "" {
-		return projectName + "/" + r.Name + "." + r.Type
+	if projectName := r.GetProject().String(); projectName != "" {
+		return projectName + "/" + r.GetName() + "." + r.GetType()
 	}
-	return r.Name + "." + r.Type
+	return r.GetName() + "." + r.GetType()
 }
 
 func (r *Repo) Key() string {
-	return r.Project.Key() + "/" + r.Name + "." + r.Type
+	return r.GetProject().Key() + "/" + r.GetName() + "." + r.GetType()
 }
 
 func (r *Repo) NewBranch(name string) *Branch {
@@ -127,7 +127,7 @@ func (b *Branch) String() string {
 }
 
 func (b *Branch) Key() string {
-	return b.Repo.Key() + "@" + b.Name
+	return b.GetRepo().Key() + "@" + b.Name
 }
 
 // ValidateName returns an error if the project is nil or its name is an invalid

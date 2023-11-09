@@ -355,7 +355,7 @@ message ListBranchRequest {
 }
 
 message DeleteBranchRequest {
-  Branch branch = 1;
+  Branch branch = 1 [(validate.rules).message.required = true];
   bool force = 2;
 }
 
