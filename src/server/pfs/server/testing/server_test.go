@@ -3197,7 +3197,6 @@ func TestBranch2(t *testing.T) {
 
 	// delete the last branch
 	lastBranch := expectedBranches[len(expectedBranches)-1]
-	require.YesError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, lastBranch, false))
 	require.NoError(t, env.PachClient.DeleteBranch(project, repo, lastBranch, false))
 	branchInfos, err = env.PachClient.ListBranch(project, repo)
 	require.NoError(t, err)
