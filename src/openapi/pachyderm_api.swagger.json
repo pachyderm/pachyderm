@@ -9644,7 +9644,7 @@
         },
         "details": {
           "type": "boolean",
-          "description": "When true, return PipelineInfos with the details field, which requires\nloading the pipeline spec from PFS."
+          "description": "Deprecated: Details are always returned."
         },
         "jqFilter": {
           "type": "string",

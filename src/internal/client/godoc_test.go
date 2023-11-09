@@ -454,7 +454,7 @@ func ExampleAPIClient_CreatePipeline() {
 		panic(err)
 	}
 
-	pipelines, err := c.ListPipeline(true)
+	pipelines, err := c.ListPipeline()
 	if err != nil {
 		panic(err)
 	}
