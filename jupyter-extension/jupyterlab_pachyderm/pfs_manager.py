@@ -141,13 +141,10 @@ class PFSManager(FileContentsManager):
         authorization: str
         branches: typing.List[str]
 
-    # maintain a dict/list of repos we have "mounted"
     def __init__(self, client: Client, **kwargs):
         self._client = client
+        # maintain a dict/list of repos we have "mounted"
         self._mounted = dict()
-        # until we add a way to mount in the UI, you will need to add code to mount
-        # self.mount_repo(repo="test", branch="master")
-        # self.mount_repo(repo="test_testing", branch="master")
         super().__init__(**kwargs)
 
     def mount_repo(
@@ -203,7 +200,6 @@ class PFSManager(FileContentsManager):
             del repo_info[branch.repo.name]
 
         for repo in repo_info.values():
-            repo: pfs.RepoInfo
             unmounted.append(
                 self.Repo(
                     repo=repo.repo.name,
