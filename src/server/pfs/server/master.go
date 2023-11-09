@@ -25,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
@@ -373,11 +372,7 @@ func (d *driver) finishRepoCommits(ctx context.Context, repoPair pfsdb.RepoInfoW
 	}
 	defer watcher.Close()
 	// Get existing entries.
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: repoPair.RepoInfo.Repo})
-	if err != nil {
-		return errors.Wrap(err, "create list commits iterator")
-	}
-	if err := stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+	if err := pfsdb.ForEachCommit(ctx, d.env.DB, &pfs.Commit{Repo: repoPair.RepoInfo.Repo}, func(commitWithID pfsdb.CommitWithID) error {
 		return d.finishRepoCommit(ctx, repoPair, &commitWithID)
 	}); err != nil {
 		return errors.Wrap(err, "list commits")

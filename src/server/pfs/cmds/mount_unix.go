@@ -38,7 +38,7 @@ func parseRepoOpts(project string, args []string) (map[string]*fuse.RepoOptions,
 			return nil, err
 		}
 		opts.Name = file.Commit.Branch.Repo.Name
-		opts.Files = []*pfs.File{file}
+		opts.File = file
 		if len(fileAndFlag) > 1 {
 			for _, c := range fileAndFlag[1] {
 				if c != 'w' && c != 'r' {
@@ -49,10 +49,10 @@ func parseRepoOpts(project string, args []string) (map[string]*fuse.RepoOptions,
 				opts.Write = true
 			}
 		}
-		if opts.Files[0].Commit.Branch.Name == "" {
-			opts.Files[0].Commit.Branch.Name = "master"
+		if opts.File.Commit.Branch.Name == "" {
+			opts.File.Commit.Branch.Name = "master"
 		}
-		result[opts.Files[0].Commit.Branch.Repo.Name] = opts
+		result[opts.File.Commit.Branch.Repo.Name] = opts
 	}
 	return result, nil
 }
