@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 	"strings"
 	"time"
 
@@ -338,15 +340,18 @@ func createNotifyCommitsTrigger(ctx context.Context, tx *pachsql.Tx) error {
 }
 
 func migrateCommits(ctx context.Context, env migrations.Env) error {
+	log.Info(ctx, "updating database schema for commit tables")
 	if err := alterCommitsTable(ctx, env.Tx); err != nil {
 		return err
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
 	}
+	log.Info(ctx, "migrating commits")
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
 		return err
 	}
+	log.Info(ctx, "finalizing database schema for commit tables")
 	if err := alterCommitsTablePostDataMigration(ctx, env); err != nil {
 		return err
 	}
@@ -378,10 +383,11 @@ func migrateCommitsFromCollections(ctx context.Context, tx *pachsql.Tx) error {
 	}
 	pageSize := uint64(1000)
 	totalPages := count.Collections / pageSize
-	if pageSize%count.Collections > 0 {
+	if count.Collections%pageSize > 0 {
 		totalPages++
 	}
 	for i := uint64(0); i < totalPages; i++ {
+		log.Info(ctx, "migrating commits", zap.Uint64("current", i*pageSize), zap.Uint64("total", count.Collections))
 		var page []commitCollection
 		if err := tx.SelectContext(ctx, &page, fmt.Sprintf(`
 		SELECT commit.int_id, col.key, col.proto, col.updatedat, col.createdat
