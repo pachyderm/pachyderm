@@ -297,7 +297,8 @@ func createCommitAncestryTable(ctx context.Context, tx *pachsql.Tx) error {
 	CREATE TABLE pfs.commit_ancestry (
 		parent bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
 		child bigint REFERENCES pfs.commits(int_id) ON DELETE CASCADE,
-		PRIMARY KEY (parent, child)
+		PRIMARY KEY (parent, child),
+		CHECK (parent <> child)
 	);
 	CREATE INDEX ON pfs.commit_ancestry (child, parent);
 	`
@@ -549,7 +550,8 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			rate_limit_spec text,
 			size text,
 			num_commits bigint,
-			all_conditions bool
+			all_conditions bool,
+			CHECK (from_branch_id <> to_branch_id)
 		);
 		CREATE INDEX ON pfs.branch_triggers (to_branch_id);
 	`); err != nil {
