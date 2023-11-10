@@ -424,7 +424,7 @@ func migratePage(ctx context.Context, page []commitCollection, batcher *migratio
 			continue
 		}
 		if err := migrateRelatives(ctx, commit.IntID, ancestry, batcher); err != nil {
-			return errors.Wrap(err, fmt.Sprintf("migrating commit relatives: commit int id: %s, ancestry %+v",
+			return errors.Wrap(err, fmt.Sprintf("migrating commit relatives: commit int id: %v, ancestry %+v",
 				commit.IntID, ancestry))
 		}
 	}
@@ -444,16 +444,16 @@ func migrateCommit(ctx context.Context, commit *Commit, batcher *migrationutils.
 			start_time=$9,`
 
 	if commit.FinishedTime.Valid {
-		query += fmt.Sprintf("\nfinished_time='%s',", commit.FinishedTime.Time.Format(time.RFC3339))
+		query += fmt.Sprintf("\nfinished_time='%v',", commit.FinishedTime.Time.Format(time.RFC3339))
 	}
 	if commit.FinishedTime.Valid {
-		query += fmt.Sprintf("\nfinishing_time='%s',", commit.FinishingTime.Time.Format(time.RFC3339))
+		query += fmt.Sprintf("\nfinishing_time='%v',", commit.FinishingTime.Time.Format(time.RFC3339))
 	}
 	if commit.CompactingTime.Valid {
-		query += fmt.Sprintf("\ncompacting_time_s=%s,", commit.CompactingTime.Int64)
+		query += fmt.Sprintf("\ncompacting_time_s=%v,", commit.CompactingTime.Int64)
 	}
 	if commit.ValidatingTime.Valid {
-		query += fmt.Sprintf("\nvalidating_time_s=%s,", commit.ValidatingTime.Int64)
+		query += fmt.Sprintf("\nvalidating_time_s=%v,", commit.ValidatingTime.Int64)
 	}
 
 	query += `

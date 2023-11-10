@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"strconv"
 	"strings"
 	"time"
@@ -37,7 +38,7 @@ func (q *Query) Sanitize(args ...any) (string, error) {
 		case int:
 			argIdx := part - 1
 			if argIdx >= len(args) {
-				return "", fmt.Errorf("insufficient arguments")
+				return "", errors.New("insufficient arguments")
 			}
 			arg := args[argIdx]
 			switch arg := arg.(type) {
@@ -58,18 +59,18 @@ func (q *Query) Sanitize(args ...any) (string, error) {
 			case time.Time:
 				str = arg.Truncate(time.Microsecond).Format("'2006-01-02 15:04:05.999999999Z07:00:00'")
 			default:
-				return "", fmt.Errorf("invalid arg type: %T", arg)
+				return "", errors.New(fmt.Sprintf("invalid arg type: %T", arg))
 			}
 			argUse[argIdx] = true
 		default:
-			return "", fmt.Errorf("invalid Part type: %T", part)
+			return "", errors.New(fmt.Sprintf("invalid Part type: %T", part))
 		}
 		buf.WriteString(str)
 	}
 
 	for i, used := range argUse {
 		if !used {
-			return "", fmt.Errorf("unused argument: %d", i)
+			return "", errors.New(fmt.Sprintf("unused argument: %d", i))
 		}
 	}
 	return buf.String(), nil

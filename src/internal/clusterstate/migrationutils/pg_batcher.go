@@ -213,7 +213,7 @@ func (pb *SimplePostgresBatcher) Add(ctx context.Context, stmt string, args ...i
 	}
 	sanitizedQuery, err := query.Sanitize(args...)
 	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("sanitizing query: args: %v", append(args)))
+		return errors.Wrap(err, fmt.Sprintf("sanitizing query: args: %v", args))
 	}
 	pb.stmts = append(pb.stmts, sanitizedQuery)
 	if len(pb.stmts) < pb.max {
