@@ -4,11 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"go.uber.org/zap"
 	"strconv"
 	"strings"
-	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -206,37 +204,19 @@ func NewSimplePostgresBatcher(tx *pachsql.Tx) *SimplePostgresBatcher {
 // Add inserts a statement to the SimplePostgresBatcher's internal buffer. If the number
 // of statements exceeds the maximum after adding, the batcher executes the statements.
 // SimplePostgresBatcher doesn't support buffering arguments, the arguments are sanitized then
-// their values are inlined. stmt should only use '%s' or '%v' for formatting due to arguments
-// being converted to strings when inlined.
+// their values are inlined.
+//
+// Add does not support SqlNull<X> structs like SqlNullString.
 func (pb *SimplePostgresBatcher) Add(ctx context.Context, stmt string, args ...interface{}) error {
-	var sanitizedArgs []interface{}
-	if strings.Contains(stmt, "'") || strings.Contains(stmt, "\"") {
-		return fmt.Errorf("stmt should not contain quotes")
+	query, err := NewQuery(stmt)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("creating batch query: %s", stmt))
 	}
-	for _, arg := range args {
-		switch argType := arg.(type) {
-		case nil:
-			sanitizedArgs = append(sanitizedArgs, "null")
-		case uint64:
-			sanitizedArgs = append(sanitizedArgs, strconv.FormatUint(argType, 10))
-		case int64:
-			sanitizedArgs = append(sanitizedArgs, strconv.FormatInt(argType, 10))
-		case float64:
-			sanitizedArgs = append(sanitizedArgs, strconv.FormatFloat(argType, 'f', -1, 64))
-		case bool:
-			sanitizedArgs = append(sanitizedArgs, strconv.FormatBool(argType))
-		case []byte:
-			sanitizedArgs = append(sanitizedArgs, quoteBytes(argType))
-		case string:
-			sanitizedArgs = append(sanitizedArgs, quoteString(argType))
-		case time.Time:
-			sanitizedArgs = append(sanitizedArgs, quoteString(argType.Format(time.RFC3339)))
-		default:
-			return fmt.Errorf("invalid arg type: %T", arg)
-		}
+	sanitizedQuery, err := query.Sanitize(args...)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("sanitizing query: args: %v", append(args)))
 	}
-	stmt = fmt.Sprintf(stmt, sanitizedArgs...)
-	pb.stmts = append(pb.stmts, stmt)
+	pb.stmts = append(pb.stmts, sanitizedQuery)
 	if len(pb.stmts) < pb.max {
 		return nil
 	}

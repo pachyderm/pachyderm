@@ -417,44 +417,37 @@ func migratePage(ctx context.Context, page []commitCollection, batcher *migratio
 		if !commit.StartTime.Valid {
 			return errors.Errorf("commit %s has a nil start time", commit.IntID)
 		}
-		migrateCommitQuery, migrateCommitArgs := migrateCommit(commit)
-		err = batcher.Add(ctx, migrateCommitQuery, migrateCommitArgs...)
-		if err != nil {
-			return errors.Wrap(err, "batching commit migration query")
+		if err := migrateCommit(ctx, commit, batcher); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("migrating commit: commit int id %v", commit.IntID))
 		}
 		if ancestry.ParentCommit == "" && ancestry.ChildCommits == nil {
 			continue
 		}
-		migrateRelativesQuery, migrateRelativesArgs := migrateRelatives(commit.IntID, ancestry)
-		err = batcher.Add(ctx, migrateRelativesQuery, migrateRelativesArgs...)
-		if err != nil {
-			return errors.Wrap(err, "batching commit ancestry query")
+		if err := migrateRelatives(ctx, commit.IntID, ancestry, batcher); err != nil {
+			return errors.Wrap(err, fmt.Sprintf("migrating commit relatives: commit int id: %s, ancestry %+v",
+				commit.IntID, ancestry))
 		}
 	}
 	return nil
 }
 
-func migrateCommit(commit *Commit) (string, []interface{}) {
-	args := []interface{}{
-		commit.RepoName, commit.RepoType, commit.ProjectName, commit.CommitID, commit.CommitSetID,
-		commit.BranchName.String, commit.Description, commit.Origin, commit.StartTime.Time, commit.Size,
-		commit.Error, commit.IntID,
-	}
-	query := `WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=%s AND type=%s 
-                                                AND project_id=(SELECT id from core.projects WHERE name=%s))
+func migrateCommit(ctx context.Context, commit *Commit, batcher *migrationutils.SimplePostgresBatcher) error {
+	query := `WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=$1 AND type=$2 
+                                                AND project_id=(SELECT id from core.projects WHERE name= $3))
 		UPDATE pfs.commits SET 
-			commit_id=%s, 
-			commit_set_id=%s,
+			commit_id=$4, 
+			commit_set_id=$5,
 		    repo_id=(SELECT id from repo_row_id), 
-		    branch_id=(SELECT id from pfs.branches WHERE name=%s AND repo_id=(SELECT id from repo_row_id)), 
-			description=%s, 
-			origin=%s, 
-			start_time=%s,`
+		    branch_id=(SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)), 
+			description=$7, 
+			origin=$8, 
+			start_time=$9,`
+
 	if commit.FinishedTime.Valid {
-		query += fmt.Sprintf("\nfinished_time=%s,", commit.FinishedTime.Time.Format(time.RFC3339))
+		query += fmt.Sprintf("\nfinished_time='%s',", commit.FinishedTime.Time.Format(time.RFC3339))
 	}
 	if commit.FinishedTime.Valid {
-		query += fmt.Sprintf("\nfinishing_time=%s,", commit.FinishingTime.Time.Format(time.RFC3339))
+		query += fmt.Sprintf("\nfinishing_time='%s',", commit.FinishingTime.Time.Format(time.RFC3339))
 	}
 	if commit.CompactingTime.Valid {
 		query += fmt.Sprintf("\ncompacting_time_s=%s,", commit.CompactingTime.Int64)
@@ -462,10 +455,17 @@ func migrateCommit(commit *Commit) (string, []interface{}) {
 	if commit.ValidatingTime.Valid {
 		query += fmt.Sprintf("\nvalidating_time_s=%s,", commit.ValidatingTime.Int64)
 	}
-	return query + `
-			size=%s, 
-			error=%s 
-		WHERE int_id=%s;`, args
+
+	query += `
+			size=$10, 
+			error=$11 
+		WHERE int_id=$12;`
+	if !commit.StartTime.Valid {
+		return errors.Errorf("commit %s has a nil start time", commit.IntID)
+	}
+	return batcher.Add(ctx, query, commit.RepoName, commit.RepoType, commit.ProjectName, commit.CommitID,
+		commit.CommitSetID, commit.BranchName.String, commit.Description, commit.Origin, commit.StartTime.Time,
+		commit.Size, commit.Error, commit.IntID)
 }
 
 func protoToCommit(col commitCollection) (*Commit, *CommitAncestry, error) {
@@ -523,26 +523,28 @@ func InfoToCommit(commitInfo *pfs.CommitInfo, id uint64, createdAt, updatedAt ti
 	}
 }
 
-func migrateRelatives(id uint64, commitAncestry *CommitAncestry) (string, []interface{}) {
-	var args []interface{}
+func migrateRelatives(ctx context.Context, id uint64, commitAncestry *CommitAncestry, batcher *migrationutils.SimplePostgresBatcher) error {
 	ancestryQueryTemplate := `
 		INSERT INTO pfs.commit_ancestry
 		(parent, child)
 		VALUES %s
 		ON CONFLICT DO NOTHING;
 		`
-	valuesTemplate := `(%s, (SELECT int_id FROM pfs.commits WHERE commit_id=%s))`
+	valuesTemplate := `($1, (SELECT int_id FROM pfs.commits WHERE commit_id=$%d))`
+	params := []any{id}
+	queryVarNum := 2
 	values := make([]string, 0)
 	for _, child := range commitAncestry.ChildCommits {
-		values = append(values, valuesTemplate)
-		args = append(args, id, child)
+		values = append(values, fmt.Sprintf(valuesTemplate, queryVarNum))
+		params = append(params, child)
+		queryVarNum++
 	}
 	if commitAncestry.ParentCommit != "" {
-		values = append(values, `((SELECT int_id FROM pfs.commits WHERE commit_id=%s), %s)`)
-		args = append(args, commitAncestry.ParentCommit, id)
+		values = append(values, fmt.Sprintf(`((SELECT int_id FROM pfs.commits WHERE commit_id=$%d), $1)`, queryVarNum))
+		params = append(params, commitAncestry.ParentCommit)
 	}
 	query := fmt.Sprintf(ancestryQueryTemplate, strings.Join(values, ","))
-	return query, args
+	return batcher.Add(ctx, query, params...)
 }
 
 func migrateBranches(ctx context.Context, env migrations.Env) error {
