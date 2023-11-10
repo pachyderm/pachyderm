@@ -2,7 +2,6 @@ package migrationutils
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
 	"go.uber.org/zap"
 	"strconv"
@@ -242,12 +241,4 @@ func (pb *SimplePostgresBatcher) execute(ctx context.Context) error {
 // Flush triggers the SimplePostgresBatcher to execute any remaining buffered statements.
 func (pb *SimplePostgresBatcher) Flush(ctx context.Context) error {
 	return pb.execute(ctx)
-}
-
-func quoteString(str string) string {
-	return "'" + strings.ReplaceAll(str, "'", "''") + "'"
-}
-
-func quoteBytes(buf []byte) string {
-	return `'\x` + hex.EncodeToString(buf) + "'"
 }
