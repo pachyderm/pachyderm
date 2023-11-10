@@ -109,7 +109,7 @@ type taskFunc func(ctx context.Context, dfs DumpFS) error
 
 func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetDumpV2TemplateRequest) (*debug.GetDumpV2TemplateResponse, error) {
 	var ps []*debug.Pipeline
-	pis, err := s.env.GetPachClient(ctx).ListPipeline(false)
+	pis, err := s.env.GetPachClient(ctx).ListPipeline()
 	if err != nil {
 		return nil, errors.Wrap(err, "list pipelines")
 	}
@@ -1135,7 +1135,7 @@ func (s *debugServer) collectPipeline(ctx context.Context, dfs DumpFS, p *pps.Pi
 	defer end(log.Errorp(&retErr))
 	var errs error
 	if err := dfs.Write(filepath.Join(p.Project.Name, p.Name, "spec.json"), func(w io.Writer) error {
-		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListPipelineHistory(p.Project.Name, p.Name, -1, true)
+		fullPipelineInfos, err := s.env.GetPachClient(ctx).ListPipelineHistory(p.Project.Name, p.Name, -1)
 		if err != nil {
 			return err
 		}

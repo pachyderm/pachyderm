@@ -497,7 +497,7 @@ This resets the cluster to its initial state.`,
 			for _, ri := range repoInfos {
 				repos = append(repos, red(ri.Repo.Name))
 			}
-			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{Details: false})
+			c, err := client.PpsAPIClient.ListPipeline(client.Ctx(), &pps.ListPipelineRequest{})
 			if err != nil {
 				return errors.EnsureStack(err)
 			}

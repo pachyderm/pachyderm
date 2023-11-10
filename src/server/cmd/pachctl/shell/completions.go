@@ -227,7 +227,7 @@ func FilesystemCompletion(_, text string, maxCompletions int64) ([]prompt.Sugges
 // PipelineCompletion completes pipeline parameters of the form <pipeline>
 func PipelineCompletion(_, _ string, maxCompletions int64) ([]prompt.Suggest, CacheFunc) {
 	c := getPachClient()
-	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{Details: true})
+	client, err := c.PpsAPIClient.ListPipeline(c.Ctx(), &pps.ListPipelineRequest{})
 	if err != nil {
 		return nil, CacheNone
 	}

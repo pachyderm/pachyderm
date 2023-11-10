@@ -541,7 +541,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.Equal(t, "", infoAfter.AuthToken)
 
 	// ListPipeline without details should list all repos
-	pipelineInfos, err := aliceClient.ListPipeline(false)
+	pipelineInfos, err := aliceClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -550,7 +550,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// Users can access a spec commit even if they can't list the repo itself,
 	// so the details should be populated for every repo
-	pipelineInfos, err = aliceClient.ListPipeline(true)
+	pipelineInfos, err = aliceClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -558,7 +558,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		require.NotNil(t, pipelineInfo.Details)
 	}
 
-	pipelineInfos, err = bobClient.ListPipeline(true)
+	pipelineInfos, err = bobClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -1918,7 +1918,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeletePipeline(pfs.DefaultProjectName, pipeline, false))
-	pis, err := aliceClient.ListPipeline(false)
+	pis, err := aliceClient.ListPipeline()
 	require.NoError(t, err)
 	for _, pi := range pis {
 		if pi.Pipeline.Name == pipeline {

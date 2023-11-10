@@ -3810,7 +3810,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			// if the old details are missing, synthesize them
 			if pi.UserSpecJson == "" {
 				spec := ppsutil.PipelineReqFromInfo(pi)
@@ -3927,7 +3927,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
 				return nil
 			}
