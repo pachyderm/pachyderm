@@ -1138,7 +1138,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				History:   history,
 				CommitSet: &pfs.CommitSet{Id: commit},
 				JqFilter:  filter,
-				Details:   true,
 				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
@@ -1213,7 +1212,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			request := &pps.ListPipelineRequest{
 				History:   0,
 				JqFilter:  "",
-				Details:   true,
 				CommitSet: &pfs.CommitSet{Id: commitSet},
 				Projects:  []*pfs.Project{{Name: project}},
 			}
