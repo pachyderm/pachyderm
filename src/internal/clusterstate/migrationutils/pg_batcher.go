@@ -3,10 +3,9 @@ package migrationutils
 import (
 	"context"
 	"fmt"
+	"go.uber.org/zap"
 	"strconv"
 	"strings"
-
-	"go.uber.org/zap"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -181,5 +180,65 @@ func (pb *postgresBatcher) execute(ctx context.Context) error {
 
 // Finish is called at the end to ensure that the final batch is sent.
 func (pb *postgresBatcher) Finish(ctx context.Context) error {
+	return pb.execute(ctx)
+}
+
+// SimplePostgresBatcher is an alternative batcher that buffers statements 'stmts' terminated by
+// semicolons until it hits the max number of statements. The statements are then executed in one
+// round-trip query to postgres.
+type SimplePostgresBatcher struct {
+	tx    *pachsql.Tx
+	stmts []string
+	max   int
+	num   int
+}
+
+func NewSimplePostgresBatcher(tx *pachsql.Tx) *SimplePostgresBatcher {
+	return &SimplePostgresBatcher{
+		tx:  tx,
+		max: 100,
+	}
+}
+
+// Add inserts a statement to the SimplePostgresBatcher's internal buffer. If the number
+// of statements exceeds the maximum after adding, the batcher executes the statements.
+// SimplePostgresBatcher doesn't support buffering arguments, the arguments are sanitized then
+// their values are inlined.
+//
+// Add does not support SqlNull<X> structs like SqlNullString.
+func (pb *SimplePostgresBatcher) Add(ctx context.Context, stmt string, args ...interface{}) error {
+	query, err := NewQuery(stmt)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("creating batch query: %s", stmt))
+	}
+	sanitizedQuery, err := query.Sanitize(args...)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("sanitizing query: args: %v", args))
+	}
+	pb.stmts = append(pb.stmts, sanitizedQuery)
+	if len(pb.stmts) < pb.max {
+		return nil
+	}
+	return pb.execute(ctx)
+}
+
+func (pb *SimplePostgresBatcher) execute(ctx context.Context) error {
+	if len(pb.stmts) == 0 {
+		return nil
+	}
+	log.Info(ctx, "executing postgres statement batch",
+		zap.String("number", strconv.Itoa(pb.num)),
+		zap.String("size", strconv.Itoa(len(pb.stmts))),
+	)
+	pb.num++
+	if _, err := pb.tx.ExecContext(ctx, strings.Join(pb.stmts, ";")); err != nil {
+		return errors.EnsureStack(err)
+	}
+	pb.stmts = nil
+	return nil
+}
+
+// Flush triggers the SimplePostgresBatcher to execute any remaining buffered statements.
+func (pb *SimplePostgresBatcher) Flush(ctx context.Context) error {
 	return pb.execute(ctx)
 }
