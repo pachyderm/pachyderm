@@ -9,8 +9,6 @@ import pytest
 import tornado
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.pachyderm import MountInterface
-from jupyterlab_pachyderm.mount_server_client import write_token_to_config
 
 from . import TEST_NOTEBOOK
 
