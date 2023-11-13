@@ -460,7 +460,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
 	err = pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: ri.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID)
+		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, false)
 	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
@@ -796,14 +796,14 @@ func (d *driver) addCommit(ctx context.Context, txnCtx *txncontext.TransactionCo
 		return 0, err
 	}
 	for _, prov := range directProvenance {
-		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, prov.Repo.Project.Name, prov.Repo.Name, prov.Repo.Type, prov.Name)
+		b, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, prov)
 		if err != nil {
 			if pfsdb.IsNotFoundError(err) {
 				return 0, errors.Join(err, pfsserver.ErrBranchNotFound{Branch: prov})
 			}
 			return 0, errors.Wrap(err, "add commit")
 		}
-		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, branchInfo.Head)
+		newCommitInfo.DirectProvenance = append(newCommitInfo.DirectProvenance, b.BranchInfo.Head)
 	}
 	commitID, err := pfsdb.CreateCommit(ctx, txnCtx.SqlTx, newCommitInfo)
 	if err != nil {
@@ -857,13 +857,16 @@ func (d *driver) startCommit(
 	updateCommitBranchField := false
 	// update 'branch' (which must always be set) and set parent.ID (if 'parent'
 	// was not set)
-	branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+	b, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
 	if err != nil {
 		if !pfsdb.IsNotFoundError(err) {
 			return nil, errors.Wrap(err, "start commit")
 		}
-		branchInfo = &pfs.BranchInfo{}
 		updateCommitBranchField = true // the branch field on the commit will have to be updated after the branch is created.
+	}
+	branchInfo := &pfs.BranchInfo{}
+	if b != nil && b.BranchInfo != nil {
+		branchInfo = b.BranchInfo
 	}
 	if branchInfo.Branch == nil {
 		// New branch
@@ -935,7 +938,7 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
-			branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+			branchInfo, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
 			if err != nil {
 				return 0, errors.Wrap(err, "repo size")
 			}
@@ -979,18 +982,19 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 	var propagatedBranches []*pfs.BranchInfo
 	seen := make(map[string]*pfs.BranchInfo)
 	for _, b := range branches {
-		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		biWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
 		if err != nil {
 			return errors.Wrapf(err, "propagate branches: get branch %q", pfsdb.BranchKey(b))
 		}
-		for _, subvenantB := range bi.Subvenance {
+		for _, subvenantB := range biWithID.Subvenance {
 			if _, ok := seen[pfsdb.BranchKey(subvenantB)]; !ok {
-				subvenantBi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, subvenantB.Repo.Project.Name, subvenantB.Repo.Name, subvenantB.Repo.Type, subvenantB.Name)
+				subvenantBiWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, subvenantB)
 				if err != nil {
 					return errors.Wrapf(err, "propagate branches: get subvenant branch %q", pfsdb.BranchKey(subvenantB))
 				}
-				seen[pfsdb.BranchKey(subvenantB)] = subvenantBi
-				propagatedBranches = append(propagatedBranches, subvenantBi)
+				branchInfo := subvenantBiWithID.BranchInfo
+				seen[pfsdb.BranchKey(subvenantB)] = branchInfo
+				propagatedBranches = append(propagatedBranches, branchInfo)
 			}
 		}
 	}
@@ -1026,7 +1030,7 @@ func (d *driver) propagateBranches(ctx context.Context, txnCtx *txncontext.Trans
 			if pbi, ok := seen[pfsdb.BranchKey(b)]; ok {
 				provCommit = client.NewCommit(pbi.Branch.Repo.Project.Name, pbi.Branch.Repo.Name, pbi.Branch.Name, txnCtx.CommitSetID)
 			} else {
-				provBranchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+				provBranchInfo, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
 				if err != nil {
 					return errors.Wrapf(err, "get provenant branch %q", pfsdb.BranchKey(b))
 				}
@@ -1240,7 +1244,7 @@ func (d *driver) resolveCommitWithID(ctx context.Context, sqlTx *pachsql.Tx, use
 	}
 	// If commit.ID is unspecified, get it from the branch head
 	if commit.Id == "" {
-		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, sqlTx, commit.Branch.Repo.Project.Name, commit.Branch.Repo.Name, commit.Branch.Repo.Type, commit.Branch.Name)
+		branchInfo, err := pfsdb.GetBranchInfoWithID(ctx, sqlTx, commit.Branch)
 		if err != nil {
 			if pfsdb.IsNotFoundError(err) {
 				return nil, errors.Join(err, pfsserver.ErrBranchNotFound{Branch: commit.Branch})
@@ -1716,43 +1720,39 @@ func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionC
 	return nil
 }
 
+// fillNewBranches helps create the upstream branches on which a branch is provenant, if they don't exist.
 // TODO(provenance): consider removing this functionality
 func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
+	branch.Repo.EnsureProject()
 	newRepoCommits := make(map[string]*pfsdb.CommitWithID)
 	for _, p := range provenance {
-		if branch.Repo.Project == nil {
-			branch.Repo.Project = &pfs.Project{Name: "default"}
-		}
-		branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, p.Repo.Project.Name, p.Repo.Name, p.Repo.Type, p.Name)
+		biWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, p)
 		if err != nil && !pfsdb.IsNotFoundError(err) {
-			return errors.Wrap(err, "fill new branches")
+			return errors.Wrap(err, "get branch info")
+		}
+		if biWithID != nil {
+			// Skip because the branch already exists.
+			continue
 		}
 		var updateHead *pfsdb.CommitWithID
-		if branchInfo == nil {
-			branchInfo = &pfs.BranchInfo{}
-			branchInfo.Branch = p
-			var head *pfsdb.CommitWithID
-			var ok bool
-			if head, ok = newRepoCommits[pfsdb.RepoKey(branchInfo.Branch.Repo)]; !ok {
-				var err error
-				head, err = d.makeEmptyCommit(ctx, txnCtx, branchInfo.Branch, nil, nil)
-				if err != nil {
-					return err
-				}
-				updateHead = head
-				newRepoCommits[pfsdb.RepoKey(branchInfo.Branch.Repo)] = head
+		head, ok := newRepoCommits[p.Repo.Key()]
+		if !ok {
+			head, err = d.makeEmptyCommit(ctx, txnCtx, p, nil, nil)
+			if err != nil {
+				return errors.Wrap(err, "create empty commit")
 			}
-			branchInfo.Head = head.CommitInfo.Commit
+			updateHead = head
+			newRepoCommits[p.Repo.Key()] = head
 		}
+		branchInfo := &pfs.BranchInfo{Branch: p, Head: head.CommitInfo.Commit}
 		if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, branchInfo); err != nil {
-			return errors.Wrap(err, "fill new branches")
+			return errors.Wrap(err, "upsert branch")
 		}
-		// now that the branch exists, add the branch_id to the head commit.
+		// Now that the branch exists, add the branch_id to the head commit.
 		if updateHead != nil {
 			if err := pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, updateHead.ID, updateHead.CommitInfo); err != nil {
-				return errors.Wrap(err, "fill new branches")
+				return errors.Wrap(err, "update commit")
 			}
-			updateHead = nil
 		}
 	}
 	return nil
@@ -1766,12 +1766,12 @@ func (d *driver) validateDAGStructure(ctx context.Context, txnCtx *txncontext.Tr
 		if bi, ok := cache[pfsdb.BranchKey(b)]; ok {
 			return bi, nil
 		}
-		bi, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		biWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
 		if err != nil {
 			return nil, errors.Wrapf(err, "get branch info")
 		}
-		cache[pfsdb.BranchKey(b)] = bi
-		return bi, nil
+		cache[pfsdb.BranchKey(b)] = biWithID.BranchInfo
+		return biWithID.BranchInfo, nil
 	}
 	for _, b := range bs {
 		dagBranches := make(map[string]*pfs.BranchInfo)
@@ -1884,12 +1884,13 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	// retrieve the current version of this branch and set its head if specified
 	var oldProvenance []*pfs.Branch
 	propagate := false
-	branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
-	if err != nil {
-		if !pfsdb.IsNotFoundError(err) {
-			return errors.Wrap(err, "create branch")
-		}
-		branchInfo = &pfs.BranchInfo{}
+	biWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
+	if err != nil && !pfsdb.IsNotFoundError(err) {
+		return errors.Wrap(err, "create branch")
+	}
+	branchInfo := &pfs.BranchInfo{}
+	if biWithID != nil {
+		branchInfo = biWithID.BranchInfo
 	}
 	branchInfo.Branch = branch
 	oldProvenance = branchInfo.DirectProvenance
@@ -1973,11 +1974,11 @@ func (d *driver) inspectBranchInTransaction(ctx context.Context, txnCtx *txncont
 		}
 	}
 
-	result, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+	result, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
 	if err != nil {
 		return nil, errors.Wrap(err, "inspect branch in transaction")
 	}
-	return result, nil
+	return result.BranchInfo, nil
 }
 
 func (d *driver) listBranch(ctx context.Context, reverse bool, cb func(*pfs.BranchInfo) error) error {
@@ -2063,70 +2064,17 @@ func (d *driver) listBranchInTransaction(ctx context.Context, txnCtx *txncontext
 }
 
 func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, force bool) error {
-	// Validate arguments
-	if branch == nil {
-		return errors.New("branch cannot be nil")
-	}
-	if branch.Repo == nil {
-		return errors.New("branch repo cannot be nil")
-	}
-	branch.Repo.EnsureProject()
 	if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Repo, auth.Permission_REPO_DELETE_BRANCH); err != nil {
 		return errors.EnsureStack(err)
 	}
-	// make sure repo exists.
-	if _, err := pfsdb.GetRepoID(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type); err != nil {
-		if !pfsdb.IsErrRepoNotFound(err) || !force {
-			return errors.Wrapf(err, "repo %q does not exist", pfsdb.RepoKey(branch.Repo))
-		}
-	}
-	branchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, branch.Repo.Project.Name, branch.Repo.Name, branch.Repo.Type, branch.Name)
+	branchInfoWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
 	if err != nil {
-		if !pfsdb.IsNotFoundError(err) {
-			return errors.Wrapf(err, "get branch %q", branch.Key())
+		if errors.As(err, new(*pfsdb.BranchNotFoundError)) {
+			return nil
 		}
+		return errors.Wrapf(err, "get branch %q", branch.Key())
 	}
-	if branchInfo != nil && branchInfo.Branch != nil {
-		if !force {
-			if len(branchInfo.Subvenance) > 0 {
-				return errors.Errorf("branch %s has %v as subvenance, deleting it would break those branches", branch.Name, branchInfo.Subvenance)
-			}
-		}
-		// For provenant branches, remove this branch from subvenance
-		for _, provBranch := range branchInfo.Provenance {
-			provBranchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, provBranch.Repo.Project.Name, provBranch.Repo.Name,
-				provBranch.Repo.Type, provBranch.Name)
-			if err != nil && !pfsdb.IsNotFoundError(err) {
-				return errors.Wrap(err, "delete branch")
-			}
-			del(&provBranchInfo.Subvenance, branch)
-			if _, err := pfsdb.UpsertBranch(ctx, txnCtx.SqlTx, provBranchInfo); err != nil {
-				return errors.Wrap(err, "delete branch")
-			}
-		}
-		// For subvenant branches, recalculate provenance
-		for _, subvBranch := range branchInfo.Subvenance {
-			subvBranchInfo, err := pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, subvBranch.Repo.Project.Name, subvBranch.Repo.Name,
-				subvBranch.Repo.Type, subvBranch.Name)
-			if err != nil && !pfsdb.IsNotFoundError(err) {
-				return errors.Wrap(err, "delete branch")
-			}
-			del(&subvBranchInfo.DirectProvenance, branch)
-			if err := d.createBranch(ctx, txnCtx, subvBranch, nil, subvBranchInfo.DirectProvenance, nil); err != nil {
-				return err
-			}
-		}
-		branchID, err := pfsdb.GetBranchID(ctx, txnCtx.SqlTx, branch)
-		if err != nil {
-			return errors.Wrapf(err, "delete branch")
-		}
-		// place of deletion, we need to set the branch ID to nil so we can delete the branch.
-		if err := pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchID); err != nil {
-			return errors.Wrapf(err, "delete branch")
-		}
-	}
-	txnCtx.DeleteBranch(branch)
-	return nil
+	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
@@ -2219,19 +2167,6 @@ func (b *branchSet) add(branch *pfs.Branch) {
 
 func add(bs *[]*pfs.Branch, branch *pfs.Branch) {
 	(*branchSet)(bs).add(branch)
-}
-
-func (b *branchSet) del(branch *pfs.Branch) {
-	i, ok := b.search(branch)
-	if ok {
-		copy((*b)[i:], (*b)[i+1:])
-		(*b)[len((*b))-1] = nil
-		*b = (*b)[:len((*b))-1]
-	}
-}
-
-func del(bs *[]*pfs.Branch, branch *pfs.Branch) {
-	(*branchSet)(bs).del(branch)
 }
 
 func (b *branchSet) has(branch *pfs.Branch) bool {

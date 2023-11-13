@@ -6257,6 +6257,17 @@ func (m *DeleteBranchRequest) validate(all bool) error {
 
 	var errors []error
 
+	if m.GetBranch() == nil {
+		err := DeleteBranchRequestValidationError{
+			field:  "Branch",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
 	if all {
 		switch v := interface{}(m.GetBranch()).(type) {
 		case interface{ ValidateAll() error }:
