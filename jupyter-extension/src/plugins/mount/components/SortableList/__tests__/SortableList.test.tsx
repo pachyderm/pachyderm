@@ -259,7 +259,7 @@ describe('sortable list components', () => {
       ],
     });
   });
-/* TODO: tests must be updated for the new FUSE-less impl
+  /* TODO: tests must be updated for the new FUSE-less impl
   it('should display state and status of mounted brach', async () => {
     const items: Mount[] = [
       {

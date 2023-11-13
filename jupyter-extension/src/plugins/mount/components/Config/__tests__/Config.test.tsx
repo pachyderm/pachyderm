@@ -124,7 +124,7 @@ describe('config screen', () => {
         );
       });
     });
-/* TODO: tests must be updated for the new FUSE-less impl
+    /* TODO: tests must be updated for the new FUSE-less impl
     it('should allow user to logout', async () => {
       const authConfig: AuthConfig = {
         cluster_status: 'AUTH_ENABLED',
