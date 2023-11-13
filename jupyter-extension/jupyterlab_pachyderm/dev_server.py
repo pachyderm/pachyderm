@@ -23,9 +23,5 @@ if __name__ == "__main__":
     app.settings["identity_provider"] = TestIdentityProvider()
     app.settings["disable_check_xsrf"] = True
 
-    # Increase the timeout on the MountServerClient
-    app.settings["pachyderm_mount_client"].client.configure(
-        None,defaults=dict(connect_timeout=20, request_timeout=60))
-
     app.listen(8888)
     tornado.ioloop.IOLoop.current().start()

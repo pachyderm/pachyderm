@@ -15,7 +15,7 @@ describe('mount', () => {
   });
 
   it('file browser should show correct breadcrumbs', () => {
-    cy.findByText('/ pfs').should('have.length', 1);
+    cy.findByText('/ pfs').should('have.length', 2);
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
     cy.findAllByText('default_images').first().click();

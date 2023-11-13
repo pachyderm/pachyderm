@@ -1,9 +1,6 @@
-import {Circle, CircleColor} from '../../../../utils/components/Circle/Circle';
-import {capitalize} from 'lodash';
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {requestAPI} from '../../../../handler';
-import {mountState, Mount, ListMountsResponse} from '../../types';
-import {infoIcon} from '../../../../utils/icons';
+import {Mount, ListMountsResponse} from '../../types';
 
 type ListMountProps = {
   item: Mount;

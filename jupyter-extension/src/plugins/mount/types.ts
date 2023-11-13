@@ -1,16 +1,6 @@
 import {Contents} from '@jupyterlab/services';
 import {SplitPanel} from '@lumino/widgets';
-import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
-
-export type mountState =
-  | 'unmounting'
-  | 'mounted'
-  | 'mounting'
-  | 'error'
-  | 'gone'
-  | 'discovering'
-  | 'unmounted'
-  | '';
+import {JSONObject} from '@lumino/coreutils';
 
 export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
 

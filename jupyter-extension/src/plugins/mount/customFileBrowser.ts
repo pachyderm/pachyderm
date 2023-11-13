@@ -20,16 +20,19 @@ const createCustomFileBrowser = (
   manager: IDocumentManager,
   factory: IFileBrowserFactory,
   path: string,
-  name_suffix: string
+  name_suffix: string,
 ): FileBrowser => {
   const drive = new MountDrive(app.docRegistry, path, name_suffix);
   manager.services.contents.addDrive(drive);
 
-  const browser = factory.createFileBrowser('jupyterlab-pachyderm-browser-' + name_suffix, {
-    driveName: drive.name,
-    state: null,
-    refreshInterval: 10000,
-  });
+  const browser = factory.createFileBrowser(
+    'jupyterlab-pachyderm-browser-' + name_suffix,
+    {
+      driveName: drive.name,
+      state: null,
+      refreshInterval: 10000,
+    },
+  );
 
   const filenameSearcher = browser.node
     .getElementsByClassName('jp-FileBrowser-filterBox')

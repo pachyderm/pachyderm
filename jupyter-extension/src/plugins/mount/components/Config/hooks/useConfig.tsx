@@ -116,7 +116,7 @@ export const useConfig = (
     setTimeout(() => {
       setLoading(false);
     }, 2000);
-    await refresh()
+    await refresh();
   };
 
   const callLogout = async () => {

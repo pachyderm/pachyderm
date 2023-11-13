@@ -271,8 +271,20 @@ export class MountPlugin implements IMountPlugin {
     );
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
 
-    this._pfsBrowser = createCustomFileBrowser(app, manager, factory, 'pfs', 'pfs');
-    this._datumBrowser = createCustomFileBrowser(app, manager, factory, 'view_datum', 'datum');
+    this._pfsBrowser = createCustomFileBrowser(
+      app,
+      manager,
+      factory,
+      'pfs',
+      'pfs',
+    );
+    this._datumBrowser = createCustomFileBrowser(
+      app,
+      manager,
+      factory,
+      'view_datum',
+      'datum',
+    );
     this._poller.mountedSignal.connect(this.verifyBrowserPath);
     this._poller.mountedSignal.connect(this.refresh);
     this._poller.unmountedSignal.connect(this.refresh);
@@ -430,7 +442,7 @@ export class MountPlugin implements IMountPlugin {
     this._app.commands.execute('filebrowser:open-path', {
       path: DATUM_MOUNT_BROWSER_NAME + path,
     });
-  }
+  };
 
   refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
     await this._pfsBrowser.model.refresh();
@@ -548,7 +560,7 @@ export class MountPlugin implements IMountPlugin {
       this._pfsBrowser.setHidden(true);
       this._datumBrowser.setHidden(false);
       this.saveMountedReposList();
-    } else {      
+    } else {
       this._datum.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
@@ -609,7 +621,7 @@ export class MountPlugin implements IMountPlugin {
       this._unmountedList.setHidden(false);
       this._pfsBrowser.setHidden(false);
     }
-    this._datumBrowser.setHidden(true)
+    this._datumBrowser.setHidden(true);
     this._datum.setHidden(true);
     this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);

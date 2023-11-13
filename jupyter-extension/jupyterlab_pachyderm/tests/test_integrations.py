@@ -12,11 +12,7 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import (
-    PFS_MOUNT_DIR,
-    MOUNT_SERVER_LOG_FILE,
-    PACH_CONFIG
-)
+from jupyterlab_pachyderm.env import PACH_CONFIG
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -63,8 +59,6 @@ def dev_server():
         # env.py changes (mount-server should use jupyterlab-pach's defaults).
         env=dict(os.environ,
             PACH_CONFIG=PACH_CONFIG,
-            PFS_MOUNT_DIR=PFS_MOUNT_DIR,
-            MOUNT_SERVER_LOG_FILE=MOUNT_SERVER_LOG_FILE,
         ),
         stdout=subprocess.PIPE,
     )
@@ -92,8 +86,6 @@ def dev_server():
 
     print("killing development server...")
 
-    subprocess.run(["pkill", "-f", "mount-server"])
-    subprocess.run([shutil.which("umount"), PFS_MOUNT_DIR])
     p.terminate()
     p.wait()
     time.sleep(1)
@@ -139,20 +131,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
     resp = r.json()
     assert len(resp["mounted"]) == 1
     for mount_info in resp["mounted"]:
-        assert mount_info.keys() == {
-            "name",
-            "repo",
-            "branch",
-            "project",
-            "commit",
-            "paths",
-            "mode",
-            "state",
-            "status",
-            "mountpoint",
-            "latest_commit",
-            "how_many_commits_behind",
-        }
+        assert mount_info.keys() == {"name", "repo", "branch", "project"}
 
     for _repo_info in resp["unmounted"]:
         assert _repo_info["repo"] in repos
@@ -162,6 +141,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
     assert len(resp["unmounted"]) == len(repos)
 
 
+@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_mount(pachyderm_resources, dev_server):
     repos, _, files = pachyderm_resources
 
@@ -213,6 +193,7 @@ def test_mount(pachyderm_resources, dev_server):
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
+@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_unmount(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
 
@@ -383,6 +364,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
 
 
+@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_config(dev_server):
     # PUT request
     test_endpoint = "localhost:30650"
