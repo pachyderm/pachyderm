@@ -28,7 +28,7 @@ def jp_server_config():
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
+#@patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
 async def test_list_repos(mock_client, jp_fetch):
     mock_client.list_repos.return_value = json.dumps({
         "repo1": {
@@ -60,7 +60,7 @@ async def test_list_repos(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.ReposHandler.mount_client", spec=MountInterface)
 async def test_list_repos_error(mock_client, jp_fetch):
     status_code = 500
     mock_client.list_repos.side_effect = ErrorWithCode(status_code)
@@ -74,7 +74,7 @@ async def test_list_repos_error(mock_client, jp_fetch):
 
 @pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.MountsHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.MountsHandler.mount_client", spec=MountInterface)
 async def test_list_mounts(mock_client, jp_fetch):
     mock_client.list_mounts.return_value = json.dumps({
         "mounted":{
@@ -134,7 +134,7 @@ async def test_list_mounts(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.MountsHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.MountsHandler.mount_client", spec=MountInterface)
 async def test_list_mounts_error(mock_client, jp_fetch):
     status_code = 500
     mock_client.list_mounts.side_effect = ErrorWithCode(status_code)
@@ -148,7 +148,7 @@ async def test_list_mounts_error(mock_client, jp_fetch):
 
 @pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.MountHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.MountHandler.mount_client", spec=MountInterface)
 async def test_mount(mock_client, jp_fetch):
     body = {
         "mounts": [
@@ -244,7 +244,7 @@ async def test_mount(mock_client, jp_fetch):
 
 @pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.UnmountHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.UnmountHandler.mount_client", spec=MountInterface)
 async def test_unmount(mock_client, jp_fetch):
     body = {
         "mounts": ["mount1"]
@@ -323,7 +323,7 @@ async def test_unmount(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.UnmountAllHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.UnmountAllHandler.mount_client", spec=MountInterface)
 async def test_unmount_all(mock_client, jp_fetch):
     mock_client.unmount_all.return_value = json.dumps({
         "mounted":{},
@@ -376,9 +376,9 @@ async def test_unmount_all(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.MountDatumsHandler.mount_client", spec=MountInterface
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.MountDatumsHandler.mount_client", spec=MountInterface
+# )
 async def test_mount_datums(mock_client, jp_fetch):
     body = {"input": {"pfs": {"repo": "images", "branch": "dev", "glob": "/*"}}}
     mock_client.mount_datums.return_value = json.dumps(
@@ -404,9 +404,9 @@ async def test_mount_datums(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.DatumNextHandler.mount_client", spec=MountInterface
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.DatumNextHandler.mount_client", spec=MountInterface
+# )
 async def test_next_datum(mock_client, jp_fetch):
     mock_client.next_datum.return_value = json.dumps(
         {
@@ -432,9 +432,9 @@ async def test_next_datum(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.DatumPrevHandler.mount_client", spec=MountInterface
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.DatumPrevHandler.mount_client", spec=MountInterface
+# )
 async def test_prev_datum(mock_client, jp_fetch):
     mock_client.prev_datum.return_value = json.dumps(
         {
@@ -460,7 +460,7 @@ async def test_prev_datum(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.DatumsHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.DatumsHandler.mount_client", spec=MountInterface)
 async def test_get_datums(mock_client, jp_fetch):
     mock_client.get_datums.return_value = json.dumps(
         {
@@ -482,10 +482,10 @@ async def test_get_datums(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.ConfigHandler.mount_client",
-    spec=MountInterface,
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.ConfigHandler.mount_client",
+#     spec=MountInterface,
+# )
 async def test_config(mock_client, jp_fetch):
     mock_client.config.return_value = json.dumps({
         "cluster_status": "AUTH_ENABLED",
@@ -514,10 +514,10 @@ async def test_config(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.AuthLoginHandler.mount_client",
-    spec=MountInterface,
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.AuthLoginHandler.mount_client",
+#     spec=MountInterface,
+# )
 async def test_auth_login(mock_client, jp_fetch):
     mock_client.auth_login.return_value = json.dumps({
         "auth_url": "http://some-dex-url"
@@ -535,10 +535,10 @@ async def test_auth_login(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.AuthLogoutHandler.mount_client",
-    spec=MountInterface,
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.AuthLogoutHandler.mount_client",
+#     spec=MountInterface,
+# )
 async def test_auth_logout(mock_client, jp_fetch):
     await jp_fetch(
         f"/{NAMESPACE}/{VERSION}/auth/_logout",
@@ -550,7 +550,7 @@ async def test_auth_logout(mock_client, jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch("jupyterlab_pachyderm.handlers.HealthHandler.mount_client", spec=MountInterface)
+# @patch("jupyterlab_pachyderm.handlers.HealthHandler.mount_client", spec=MountInterface)
 async def test_health(mock_client, jp_fetch):
     mock_client.health.return_value = json.dumps({"status": "running"})
     r = await jp_fetch(f"/{NAMESPACE}/{VERSION}/health")
@@ -567,10 +567,10 @@ async def test_pps_get(jp_fetch):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
-@patch(
-    "jupyterlab_pachyderm.handlers.ProjectsHandler.mount_client",
-    spec=MountInterface,
-)
+# @patch(
+#     "jupyterlab_pachyderm.handlers.ProjectsHandler.mount_client",
+#     spec=MountInterface,
+# )
 async def test_get_projects(mock_client, jp_fetch):
     test_projects = [
         {
@@ -586,99 +586,3 @@ async def test_get_projects(mock_client, jp_fetch):
     mock_client.list_projects.return_value = json.dumps(test_projects)
     resp = await jp_fetch(f"/{NAMESPACE}/{VERSION}/projects")
     assert json.loads(resp.body) == test_projects
-
-
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
-async def test_write_token_to_config_no_context():
-    timestamp = time.time_ns()
-    test_config_path = f"/tmp/pach_test_config_{timestamp}.json"
-
-    # test non-existent context
-    # we expect the entire context to be copied
-    test_mount_server_config_str = """{
-  "user_id": "test_user",
-  "v2": {
-    "active_context": "mount-server",
-    "contexts": {
-      "mount-server": {
-        "session_token": "foo",
-        "cluster_deployment_id": "bar",
-        "project": "default"
-      }
-    },
-    "metrics": true
-  }
-}
-"""
-    test_config_str = """{
-  "user_id": "test_user",
-  "v2": {
-    "active_context": "default",
-    "contexts": {
-      "default": {
-      }
-    },
-    "metrics": true
-  }
-}
-"""
-    with open(test_config_path, 'w') as f:
-        f.write(test_config_str)
-    write_token_to_config(test_config_path, test_mount_server_config_str)
-    test_json = json.loads(test_mount_server_config_str)
-    with open(test_config_path) as f:
-        test_file_json = json.load(f)
-    assert(test_json['v2']['contexts']['mount-server'] ==
-           test_file_json['v2']['contexts']['mount-server'])
-    assert(test_json['v2']['active_context'] ==
-           test_file_json['v2']['active_context'])
-
-
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
-async def test_write_token_to_config_existing_context():
-    timestamp = time.time_ns()
-    test_config_path = f"/tmp/pach_test_config_{timestamp}.json"
-
-    # test pre-existing context
-    # we expect the token to get copied and nothing else
-    # additionally, we expect the active context to change
-    test_mount_server_config_str = """{
-  "user_id": "test_user",
-  "v2": {
-    "active_context": "mount-server",
-    "contexts": {
-      "mount-server": {
-        "session_token": "foo",
-        "cluster_deployment_id": "bar",
-        "project": "default"
-      }
-    },
-    "metrics": true
-  }
-}
-"""
-    test_config_str = """{
-  "user_id": "test_user",
-  "v2": {
-    "active_context": "default",
-    "contexts": {
-      "mount-server": {
-        "cluster_deployment_id": "foo"
-      }
-    },
-    "metrics": true
-  }
-}
-"""
-    with open(test_config_path, 'w') as f:
-        f.write(test_config_str)
-    write_token_to_config(test_config_path, test_mount_server_config_str)
-    test_json = json.loads(test_mount_server_config_str)
-    with open(test_config_path) as f:
-        test_file_json = json.load(f)
-    assert(test_json['v2']['contexts']['mount-server']['session_token'] ==
-           test_file_json['v2']['contexts']['mount-server']['session_token'])
-    assert(test_json['v2']['contexts']['mount-server']['cluster_deployment_id'] !=
-           test_file_json['v2']['contexts']['mount-server']['cluster_deployment_id'])
-    assert(test_json['v2']['active_context'] ==
-           test_file_json['v2']['active_context'])
