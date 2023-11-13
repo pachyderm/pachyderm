@@ -59,5 +59,5 @@ describe('switching between repo and datum mode', () => {
       .invoke('prop', 'value')
       .should('contain', 'a');
   });
-});
 */
+});
