@@ -175,10 +175,10 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOCOVERDIR=\"/tmp/test-results/\"") // DNJ TODO - parameter - how to take form args?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
+	_, copyErr := io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	_, err = io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
-	return errors.EnsureStack(err)
+	return errors.EnsureStack(copyErr)
 
 }

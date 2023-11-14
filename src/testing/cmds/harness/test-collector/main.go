@@ -96,7 +96,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		return nil, errors.EnsureStack(err)
 	}
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMAXPROCS=14")
+	cmd.Env = append(cmd.Env, "GOMAXPROCS=16")
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
