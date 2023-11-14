@@ -562,7 +562,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 	if rowsAffected == 0 {
 		_, err := GetRepoByName(ctx, tx, commitInfo.Commit.Repo.Project.Name, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
 		if err != nil {
-			return errors.Join(err, &CommitNotFoundError{RowID: id})
+			return errors.Wrapf(err, "get repo for update commit with row id %v", id)
 		}
 		return &CommitNotFoundError{RowID: id}
 	}
@@ -702,7 +702,7 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 		if err == sql.ErrNoRows {
 			_, err := GetRepoByName(ctx, tx, commit.Repo.Project.Name, commit.Repo.Name, commit.Repo.Type)
 			if err != nil {
-				return nil, errors.Join(err, &CommitNotFoundError{CommitID: id})
+				return nil, errors.Wrapf(err, "get repo for scan commit row with commit id %v", id)
 			}
 			return nil, &CommitNotFoundError{CommitID: id}
 		}
