@@ -12,11 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
-const (
-	lockFileName = "fusemountlock"
-	lockWaitTime = 120 * time.Second
-)
-
 func put(path string, body io.Reader) (*http.Response, error) {
 	client := &http.Client{}
 	req, err := http.NewRequest(http.MethodPut, fmt.Sprintf("http://localhost%s/%s", FuseServerPort, path), body)
