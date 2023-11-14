@@ -3601,10 +3601,10 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		// require.NoErrorWithinT(t, time.Second*90, func() error {
-		_, err := c.WaitCommit(pfs.DefaultProjectName, pipelines[9], "master", "")
-		// return err
-		// })
+		require.NoErrorWithinT(t, time.Second*90, func() error {
+			_, err := c.WaitCommit(pfs.DefaultProjectName, pipelines[9], "master", "")
+			return err
+		})
 
 		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
 			pis, err := c.ListPipeline(false)
@@ -11177,29 +11177,7 @@ func TestDatumSetCache(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
-func waitPachw(t testing.TB, c *client.APIClient, namespace string) {
-	t.Logf("Waiting to have pachw available")
-	kc := tu.GetKubeClient(t)
 
-	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
-		pods, err := kc.CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-			LabelSelector: metav1.FormatLabelSelector(metav1.SetAsLabelSelector(
-				map[string]string{
-					"app":   "pachw",
-					"suite": "pachyderm"},
-			)),
-		})
-
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
-		podCount := len(pods.Items)
-		if podCount > 0 {
-			return nil
-		}
-		return errors.Errorf("Waiting for pachw")
-	}, 500*time.Millisecond)
-}
 func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline string, n int) {
 	kc := tu.GetKubeClient(t)
 	rcName := ppsutil.PipelineRcName(&pps.PipelineInfo{

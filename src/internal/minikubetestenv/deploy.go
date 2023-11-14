@@ -750,7 +750,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
-				return helm.UpgradeE(t, helmOpts, chartPath, namespace) // DNJ TODO - can this be upgrade for speed? - need to delete pvcs and secrets?
+				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster {
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
@@ -759,7 +759,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			require.NoErrorWithinTRetry(t,
 				time.Minute,
 				func() error {
-					return helm.InstallE(t, helmOpts, chartPath, namespace)
+					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}
 	} else { // same hash, no need to change anything
@@ -834,7 +834,7 @@ func putLease(t testing.TB, namespace string) error {
 			require.NoError(t, err)
 		})
 	}
-	return err
+	return errors.EnsureStack(err)
 }
 
 // Deploy pachyderm using a `helm upgrade ...`

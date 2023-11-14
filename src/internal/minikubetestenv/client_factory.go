@@ -7,8 +7,6 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"strconv"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -35,7 +33,6 @@ var (
 		availableClusters: map[string]struct{}{},
 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
 	}
-	setup               sync.Once
 	poolSize            *int  = flag.Int("clusters.pool", 15, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
 	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
@@ -99,13 +96,6 @@ func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 	cf.managedClusters[assigned] = mc
 }
 
-func clusterIdx(t testing.TB, name string) int {
-	s := strings.Split(name, "-")
-	r, err := strconv.Atoi(s[len(s)-1])
-	require.NoError(t, err)
-	return r
-}
-
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 150),
@@ -125,22 +115,6 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 	c.SetAuthToken(testutil.RootToken)
 	require.NoError(t, c.DeleteAll())
 	c.SetAuthToken(tok)
-}
-
-func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
-	cf.mu.Lock()
-	defer cf.mu.Unlock()
-	if len(cf.availableClusters) > 0 {
-		var assigned string
-		for ns := range cf.availableClusters {
-			assigned = ns
-			delete(cf.availableClusters, ns)
-			break
-		}
-		return assigned, cf.managedClusters[assigned]
-	}
-	// DNJ TODO - lock namespace
-	return "", nil
 }
 
 func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
@@ -175,15 +149,11 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 			require.NoError(t, err)
 		}
 	}
-	// cf.mu.Lock() // DNJ TODSO -clean
-	// defer cf.mu.Unlock()
-	// idx := len(cf.managedClusters) + 1
-	// v := fmt.Sprintf("%s%v", namespacePrefix, idx)
 	cf.managedClusters[ns] = nil // hold my place in line
 	return ns, idx
 }
 
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
+func (cf *ClusterFactory) acquireInstalledCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
 	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
 	c := InstallRelease(t,
@@ -233,13 +203,6 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		t.Cleanup(localLock.Unlock)
 		return c, ""
 	}
-	// setup.Do(func() {
-	// 	clusterFactory = &ClusterFactory{
-	// 		managedClusters:   map[string]*managedCluster{},
-	// 		availableClusters: map[string]struct{}{},
-	// 		sem:               *semaphore.NewWeighted(int64(*poolSize)),
-	// 	}
-	// })
 
 	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
 	var assigned string
@@ -259,22 +222,8 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	for _, o := range opts {
 		o(as)
 	}
-	// assigned, mc := clusterFactory.acquireFreeCluster() // DNJ TODO - anything we can do for perf so we don't always install?
-	// if assigned == "" {
-	assigned, mc := clusterFactory.acquireNewCluster(t, as)
-	// }
 
-	// If the cluster settings have changed, upgrade the cluster to make them take effect.
-	// if !reflect.DeepEqual(mc.settings, &acquireSettings{}) { // DNJ TODO - fix - mc is no longer reflective of the current cluster
-	// 	t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
-	// 	mc.client = UpgradeRelease(t,
-	// 		context.Background(),
-	// 		assigned,
-	// 		testutil.GetKubeClient(t),
-	// 		deployOpts(clusterIdx(t, assigned), as),
-	// 	)
-	// 	mc.settings = as
-	// }
+	assigned, mc := clusterFactory.acquireInstalledCluster(t, as)
 	deleteAll(t, mc.client)
 	return mc.client, assigned
 }

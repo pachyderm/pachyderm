@@ -66,8 +66,8 @@ func run(ctx context.Context, tags string, fileName string, threadPool int) erro
 		testIds = testIdsTagged
 	}
 	log.Info(ctx, "tests and packages collected", zap.Any("tests", testIds))
-	outputToFile(fileName, testIds)
-	return nil
+	err = outputToFile(fileName, testIds)
+	return err
 }
 
 func subtractTestSet(testIdsTagged map[string][]string, testIdsUntagged map[string][]string) map[string][]string {
@@ -154,17 +154,17 @@ func outputToFile(fileName string, pkgTests map[string][]string) error {
 	lockFileName := fmt.Sprintf("lock-%s", fileName) // DNJ TODO share lock file name
 	lockF, err := os.Create(lockFileName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	err = lockF.Close()
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer os.Remove(lockFileName)
 
 	f, err := os.Create(fileName)
 	if err != nil {
-		return err
+		return errors.EnsureStack(err)
 	}
 	defer f.Close()
 	w := bufio.NewWriter(f)
@@ -172,10 +172,9 @@ func outputToFile(fileName string, pkgTests map[string][]string) error {
 		for _, test := range tests {
 			_, err := w.WriteString(fmt.Sprintf("%s,%s\n", pkg, test))
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 		}
 	}
-	err = w.Flush()
-	return err
+	return errors.EnsureStack(w.Flush())
 }

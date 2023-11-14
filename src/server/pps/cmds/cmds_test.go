@@ -302,7 +302,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
 	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
-		return tu.PachctlBashCmdCtx(ctx, t, c, `
+		return errors.EnsureStack(tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl wait commit data@master
 
 		# make sure that there is a not-run job
@@ -311,7 +311,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		# make sure the results have the full pipeline info, including version
 		pachctl list pipeline \
 			| match "unrunnable"
-		`, "pipeline", pipeline2).Run()
+		`, "pipeline", pipeline2).Run())
 	}, 1*time.Second)
 }
 

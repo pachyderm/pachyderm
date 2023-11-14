@@ -211,13 +211,13 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 		// Hit the dex login page for the test client with a fixed nonce
 		resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		// Dex login redirects to the provider page, which will generate it's own state
 		resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		// Because we've only configured username/password login, there's a redirect
@@ -229,7 +229,7 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 
 		resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 		if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
 			return errors.Errorf("login status code got %v want %v", got, want)
@@ -239,11 +239,11 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 		// right to our redirect.
 		codeURL, err := url.Parse(resp.Header.Get("Location"))
 		if err != nil {
-			return err
+			return errors.EnsureStack(err)
 		}
 
 		token, err = oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
-		return err
+		return errors.EnsureStack(err)
 	}, "OIDC token exchange for trusted app")
 
 	return token.Extra("id_token").(string)

@@ -94,7 +94,7 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 			return errors.EnsureStack(err)
 		}
 		eg.Go(func() error {
-			return runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs)
+			return errors.EnsureStack(runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs))
 		})
 	}
 	err = eg.Wait()
@@ -109,7 +109,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	lockFileName := fmt.Sprintf("lock-%s", fileName)
 	err := backoff.RetryNotify(func() error {
 		if _, err := os.Stat(fileName); err != nil {
-			return err // couldn't read file, so retry until it can
+			return errors.EnsureStack(err) // couldn't read file, so retry until it can
 		}
 		if _, err := os.Stat(lockFileName); err == nil {
 			return errors.Errorf("lock file for test collection still exists")
@@ -175,9 +175,10 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOCOVERDIR=\"/tmp/test-results/\"") // DNJ TODO - parameter - how to take form args?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
-	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return nil
+	_, err = io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
+	return errors.EnsureStack(err)
+
 }

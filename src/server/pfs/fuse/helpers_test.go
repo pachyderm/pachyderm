@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"testing"
 	"time"
 
@@ -41,8 +40,6 @@ func get(path string) (*http.Response, error) {
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
 func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
-	acquireTestLock(tb)
-	defer releaseTestLock()
 	dir := tb.TempDir()
 	if sopts == nil {
 		sopts = &ServerOptions{
@@ -82,31 +79,4 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 	// Gotta give the fuse mount time to come up.
 	time.Sleep(2 * time.Second)
 	f(dir)
-}
-
-func acquireTestLock(tb testing.TB) error { // DNJ TODO revisit - is this a terrible idea?
-	require.NoErrorWithinTRetryConstant(tb, lockWaitTime, func() error {
-		info, err := os.Stat(lockFileName)
-		if err != nil {
-			if errors.Is(err, os.ErrNotExist) {
-				lockfile, err := os.Create(lockFileName)
-				if err != nil {
-					return err
-				}
-				return lockfile.Close()
-			}
-			return err
-		}
-		fileLifetime := time.Since(info.ModTime())
-		if fileLifetime > lockWaitTime { // force the lock, we waited long enough to risk it
-			return os.Remove(lockFileName)
-		}
-		return errors.Errorf("awaiting file lock. lock held for %s", fileLifetime.String())
-	}, time.Second)
-	return nil
-
-}
-
-func releaseTestLock() error {
-	return os.Remove(lockFileName)
 }
