@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"google.golang.org/protobuf/proto"
 
@@ -130,11 +129,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil)
-	if err != nil {
-		return errors.Wrap(err, "list commit set")
-	}
-	err = stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(commitWithID pfsdb.CommitWithID) error {
+	err := pfsdb.ForEachCommit(ctx, d.env.DB, nil, func(commitWithID pfsdb.CommitWithID) error {
 		commitInfo := commitWithID.CommitInfo
 		if project != nil && commitInfo.Commit.AccessRepo().Project.Name != project.Name {
 			return nil
@@ -192,7 +187,7 @@ func (d *driver) dropCommitSet(ctx context.Context, txnCtx *txncontext.Transacti
 	}
 	// notify PPS that this commitset has been dropped so it can clean up any
 	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+	txnCtx.StopJobSet(commitset)
 	return nil
 }
 
@@ -223,7 +218,7 @@ func (d *driver) squashCommitSet(ctx context.Context, txnCtx *txncontext.Transac
 	}
 	// notify PPS that this commitset has been squashed so it can clean up any
 	// jobs associated with it at the end of the transaction
-	txnCtx.StopJobs(commitset)
+	txnCtx.StopJobSet(commitset)
 	return nil
 }
 
@@ -266,10 +261,11 @@ func (d *driver) deleteCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfo := &pfs.BranchInfo{}
 	for _, b := range repoInfo.Branches {
-		branchInfo, err = pfsdb.GetBranchInfoByName(ctx, txnCtx.SqlTx, b.Repo.Project.Name, b.Repo.Name, b.Repo.Type, b.Name)
+		branchInfoWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, b)
 		if err != nil {
 			return errors.Wrapf(err, "delete commit: getting branch %s", b)
 		}
+		branchInfo = branchInfoWithID.BranchInfo
 		if pfsdb.CommitKey(branchInfo.Head) == pfsdb.CommitKey(ci.Commit) {
 			if ci.ParentCommit == nil {
 				headlessBranches = append(headlessBranches, proto.Clone(branchInfo).(*pfs.BranchInfo))

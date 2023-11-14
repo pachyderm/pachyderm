@@ -89,6 +89,35 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 	return err
 }
 
+func finishCommitSet(pachClient *client.APIClient, id string) error {
+	cis, err := pachClient.InspectCommitSet(id)
+	if err != nil {
+		return err
+	}
+	for _, ci := range cis {
+		branch := ci.Commit.Branch
+		if err := pachClient.FinishCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+			if !pfsserver.IsCommitFinishedErr(err) {
+				return err
+			}
+		}
+		if _, err := pachClient.WaitCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func finishCommitSetAll(pachClient *client.APIClient) error {
+	listCommitSetClient, err := pachClient.PfsAPIClient.ListCommitSet(pachClient.Ctx(), &pfs.ListCommitSetRequest{Project: &pfs.Project{Name: pfs.DefaultProjectName}})
+	if err != nil {
+		return err
+	}
+	return grpcutil.ForEach[*pfs.CommitSetInfo](listCommitSetClient, func(csi *pfs.CommitSetInfo) error {
+		return finishCommitSet(pachClient, csi.CommitSet.Id)
+	})
+}
+
 func assertMasterHeads(t *testing.T, c *client.APIClient, repoToCommitIDs map[string]string) {
 	for repo, id := range repoToCommitIDs {
 		info, err := c.InspectCommit(pfs.DefaultProjectName, repo, "master", "")
@@ -3168,7 +3197,6 @@ func TestBranch2(t *testing.T) {
 
 	// delete the last branch
 	lastBranch := expectedBranches[len(expectedBranches)-1]
-	require.YesError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, lastBranch, false))
 	require.NoError(t, env.PachClient.DeleteBranch(project, repo, lastBranch, false))
 	branchInfos, err = env.PachClient.ListBranch(project, repo)
 	require.NoError(t, err)
@@ -5366,6 +5394,116 @@ func TestSquashCommitSetMultiLevelChildrenComplex(t *testing.T) {
 	require.Equal(t, gInfo.Commit.Id, masterInfo.Head.Id)
 }
 
+func TestSquashAndDropCommit(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	// Create three repos where one is provenant on the other two.
+	upstream1 := tu.UniqueString("upstream-1")
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, upstream1))
+	upstream2 := tu.UniqueString("upstream-2")
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, upstream2))
+	downstream := tu.UniqueString("downstream")
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, downstream))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, downstream, "master", "", "", []*pfs.Branch{
+		client.NewBranch(pfs.DefaultProjectName, upstream1, "master"),
+		client.NewBranch(pfs.DefaultProjectName, upstream2, "master"),
+	}))
+	require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, downstream, "master", ""))
+	createCommit := func() *pfs.Commit {
+		commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, upstream1, "master")
+		require.NoError(t, err)
+		require.NoError(t, finishCommitSet(env.PachClient, commit.Id))
+		return commit
+	}
+	t.Run("Error", func(t *testing.T) {
+		c1 := createCommit()
+		c2 := createCommit()
+		// Check that the first commit cannot be dropped.
+		_, err := env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+			Commit:    c1,
+			Recursive: true,
+		})
+		require.YesError(t, err)
+		// Check that the second commit cannot be squashed.
+		_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+			Commit:    c2,
+			Recursive: true,
+		})
+		require.YesError(t, err)
+		// Check that squash and drop error without recursive.
+		_, err = env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{Commit: c1})
+		require.YesError(t, err)
+		_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{Commit: c2})
+		require.YesError(t, err)
+	})
+	// squashThenDrop squashes the first commit then drops the second commit.
+	// It also checks that the first commit cannot be dropped and that the second commit cannot be squashed.
+	squashThenDrop := func(c1, c2 *pfs.Commit) {
+		// Squash the first commit.
+		_, err := env.PachClient.SquashCommit(ctx, &pfs.SquashCommitRequest{
+			Commit:    c1,
+			Recursive: true,
+		})
+		require.NoError(t, err)
+		// Drop the second commit.
+		_, err = env.PachClient.DropCommit(ctx, &pfs.DropCommitRequest{
+			Commit:    c2,
+			Recursive: true,
+		})
+		require.NoError(t, err)
+		// Finish commits created after the drop.
+		require.NoError(t, finishCommitSetAll(env.PachClient))
+	}
+	t.Run("Simple", func(t *testing.T) {
+		c1 := createCommit()
+		c2 := createCommit()
+		squashThenDrop(c1, c2)
+		// Check that both commit sets are deleted.
+		for _, c := range []*pfs.Commit{c1, c2} {
+			_, err := env.PachClient.InspectCommitSet(c.Id)
+			require.True(t, pfsserver.IsCommitSetNotFoundErr(err))
+		}
+	})
+	t.Run("Downstream", func(t *testing.T) {
+		c1 := createCommit()
+		c2 := createCommit()
+		dc1 := client.NewCommit(pfs.DefaultProjectName, downstream, "master", c1.Id)
+		dc2 := client.NewCommit(pfs.DefaultProjectName, downstream, "master", c2.Id)
+		squashThenDrop(dc1, dc2)
+		// Check that only the downstream commits were affected.
+		for _, c := range []*pfs.Commit{dc1, dc2} {
+			cis, err := env.PachClient.InspectCommitSet(c.Id)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(cis))
+			for _, ci := range cis {
+				require.NotEqual(t, downstream, ci.Commit.Branch.Repo.Name)
+			}
+		}
+	})
+	t.Run("Complex", func(t *testing.T) {
+		// Create two more downstream repos, each provenant on the original downstream repo.
+		for _, repoName := range []string{
+			tu.UniqueString("downstream-1"),
+			tu.UniqueString("downstream-2"),
+		} {
+			require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repoName))
+			require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repoName, "master", "", "", []*pfs.Branch{
+				client.NewBranch(pfs.DefaultProjectName, downstream, "master"),
+			}))
+			require.NoError(t, finishProjectCommit(env.PachClient, pfs.DefaultProjectName, repoName, "master", ""))
+		}
+		c1 := createCommit()
+		c2 := createCommit()
+		squashThenDrop(c1, c2)
+		// Check that both commit sets are deleted.
+		for _, c := range []*pfs.Commit{c1, c2} {
+			_, err := env.PachClient.InspectCommitSet(c.Id)
+			require.True(t, pfsserver.IsCommitSetNotFoundErr(err))
+		}
+	})
+}
+
 func TestCommitState(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
@@ -6287,10 +6425,10 @@ OpLoop:
 			branch := inputBranches[i]
 			err = env.PachClient.DeleteBranch(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, false)
 			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
-			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
-			if err != nil && !strings.Contains(err.Error(), "break") {
+			if err != nil && !strings.Contains(err.Error(), `delete on table "branches" violates foreign key constraint "branch_provenance_to_id_fkey" on table "branch_provenance`) {
 				require.NoError(t, err)
 			}
+			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
 		case commit:
 			if len(inputBranches) == 0 {
 				continue OpLoop

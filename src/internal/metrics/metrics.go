@@ -274,7 +274,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		pachClient.SetAuthToken(resp.Token)
 	}
 	// Pipeline info
-	infos, err := pachClient.ListPipeline(true)
+	infos, err := pachClient.ListPipeline()
 	if err != nil {
 		log.Error(ctx, "Error getting pipeline metrics", zap.Error(err))
 	} else {

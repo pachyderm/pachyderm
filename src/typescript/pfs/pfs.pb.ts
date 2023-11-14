@@ -264,6 +264,22 @@ export type ClearCommitRequest = {
   commit?: Commit
 }
 
+export type SquashCommitRequest = {
+  commit?: Commit
+  recursive?: boolean
+}
+
+export type SquashCommitResponse = {
+}
+
+export type DropCommitRequest = {
+  commit?: Commit
+  recursive?: boolean
+}
+
+export type DropCommitResponse = {
+}
+
 export type CreateBranchRequest = {
   head?: Commit
   branch?: Branch
@@ -555,6 +571,12 @@ export class API {
   }
   static SubscribeCommit(req: SubscribeCommitRequest, entityNotifier?: fm.NotifyStreamEntityArrival<CommitInfo>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<SubscribeCommitRequest, CommitInfo>(`/pfs_v2.API/SubscribeCommit`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static SquashCommit(req: SquashCommitRequest, initReq?: fm.InitReq): Promise<SquashCommitResponse> {
+    return fm.fetchReq<SquashCommitRequest, SquashCommitResponse>(`/pfs_v2.API/SquashCommit`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static DropCommit(req: DropCommitRequest, initReq?: fm.InitReq): Promise<DropCommitResponse> {
+    return fm.fetchReq<DropCommitRequest, DropCommitResponse>(`/pfs_v2.API/DropCommit`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static InspectCommitSet(req: InspectCommitSetRequest, entityNotifier?: fm.NotifyStreamEntityArrival<CommitInfo>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<InspectCommitSetRequest, CommitInfo>(`/pfs_v2.API/InspectCommitSet`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

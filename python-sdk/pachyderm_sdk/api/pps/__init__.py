@@ -986,10 +986,7 @@ class ListPipelineRequest(betterproto.Message):
     """
 
     details: bool = betterproto.bool_field(3)
-    """
-    When true, return PipelineInfos with the details field, which requires
-    loading the pipeline spec from PFS.
-    """
+    """Deprecated: Details are always returned."""
 
     jq_filter: str = betterproto.string_field(4)
     """A jq program string for additional result filtering"""
@@ -1001,6 +998,13 @@ class ListPipelineRequest(betterproto.Message):
     """
     Projects to filter on. Empty list means no filter, so return all pipelines.
     """
+
+    def __post_init__(self) -> None:
+        super().__post_init__()
+        if self.is_set("details"):
+            warnings.warn(
+                "ListPipelineRequest.details is deprecated", DeprecationWarning
+            )
 
 
 @dataclass(eq=False, repr=False)

@@ -57,26 +57,26 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
-// ErrBranchProvCycle is returned when a cycle is detected at branch creation time.
-type ErrBranchProvCycle struct {
+// BranchProvCycleError is returned when a cycle is detected at branch creation time.
+type BranchProvCycleError struct {
 	From, To string
 }
 
-func (err ErrBranchProvCycle) Error() string {
+func (err *BranchProvCycleError) Error() string {
 	return fmt.Sprintf("cycle detected because %v is already in the subvenance of %v", err.To, err.From)
 }
 
-func (err ErrBranchProvCycle) GRPCStatus() *status.Status {
+func (err *BranchProvCycleError) GRPCStatus() *status.Status {
 	return status.New(codes.Internal, err.Error())
 }
 
-// ErrBranchNotFound is returned when a branch is not found in postgres.
-type ErrBranchNotFound struct {
+// BranchNotFoundError is returned when a branch is not found in postgres.
+type BranchNotFoundError struct {
 	ID        BranchID
 	BranchKey string
 }
 
-func (err ErrBranchNotFound) Error() string {
+func (err *BranchNotFoundError) Error() string {
 	if strings.Contains(err.BranchKey, pfs.UserRepoType) {
 		branchKeyWithoutUser := strings.Replace(err.BranchKey, "."+pfs.UserRepoType, "", 1)
 		return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, branchKeyWithoutUser)
@@ -84,7 +84,7 @@ func (err ErrBranchNotFound) Error() string {
 	return fmt.Sprintf("branch (id=%d, branch=%s) not found", err.ID, err.BranchKey)
 }
 
-func (err ErrBranchNotFound) GRPCStatus() *status.Status {
+func (err *BranchNotFoundError) GRPCStatus() *status.Status {
 	return status.New(codes.NotFound, err.Error())
 }
 
@@ -193,35 +193,37 @@ func GetBranchInfo(ctx context.Context, tx *pachsql.Tx, id BranchID) (*pfs.Branc
 	branch := &Branch{}
 	if err := tx.GetContext(ctx, branch, getBranchByIDQuery, id); err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrBranchNotFound{
-				ID: id,
-			}
+			return nil, &BranchNotFoundError{ID: id}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
 	return fetchBranchInfoByBranch(ctx, tx, branch)
 }
 
-// GetBranchInfoByName returns a *pfs.BranchInfo by name
-func GetBranchInfoByName(ctx context.Context, tx *pachsql.Tx, project, repo, repoType, branch string) (*pfs.BranchInfo, error) {
+// GetBranchInfoWithID returns a *pfs.BranchInfo by name
+func GetBranchInfoWithID(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch) (*BranchInfoWithID, error) {
+	if b == nil {
+		return nil, errors.Errorf("branch cannot be nil")
+	}
 	row := &Branch{}
+	project := b.GetRepo().GetProject().GetName()
+	repo := b.GetRepo().GetName()
+	repoType := b.GetRepo().GetType()
+	branch := b.GetName()
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		if err == sql.ErrNoRows {
-			errBranch := pfs.Branch{
-				Repo: &pfs.Repo{
-					Project: &pfs.Project{Name: project},
-					Name:    repo,
-					Type:    repoType,
-				},
-				Name: branch,
+			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
+				return nil, errors.Join(err, &BranchNotFoundError{BranchKey: b.Key()})
 			}
-			return nil, ErrBranchNotFound{
-				BranchKey: errBranch.Key(),
-			}
+			return nil, &BranchNotFoundError{BranchKey: b.Key()}
 		}
 		return nil, errors.Wrap(err, "could not get branch")
 	}
-	return fetchBranchInfoByBranch(ctx, tx, row)
+	branchInfo, err := fetchBranchInfoByBranch(ctx, tx, row)
+	if err != nil {
+		return nil, err
+	}
+	return &BranchInfoWithID{ID: row.ID, BranchInfo: branchInfo}, nil
 }
 
 // GetBranchID returns the id of a branch given a set strings that uniquely identify a branch.
@@ -240,7 +242,7 @@ func GetBranchID(ctx context.Context, tx *pachsql.Tx, branch *pfs.Branch) (Branc
 		branch.Name,
 	); err != nil {
 		if err == sql.ErrNoRows {
-			return 0, ErrBranchNotFound{BranchKey: branch.Key()}
+			return 0, &BranchNotFoundError{BranchKey: branch.Key()}
 		}
 		return 0, errors.Wrapf(err, "could not get id for branch %s", branch.Key())
 	}
@@ -301,7 +303,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	}
 	for _, toBranch := range branchInfo.DirectProvenance {
 		if fullSubvSet[toBranch.Key()] {
-			return branchID, ErrBranchProvCycle{From: branchInfo.Branch.Key(), To: toBranch.Key()}
+			return branchID, &BranchProvCycleError{From: branchInfo.Branch.Key(), To: toBranch.Key()}
 		}
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1`, branchID); err != nil {
@@ -335,11 +337,17 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 }
 
 // DeleteBranch deletes a branch.
-func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID) error {
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`, id); err != nil {
+func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID, force bool) error {
+	deleteProvQuery := `DELETE FROM pfs.branch_provenance WHERE from_id = $1`
+	deleteTriggerQuery := `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1`
+	if force {
+		deleteProvQuery = `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`
+		deleteTriggerQuery = `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`
+	}
+	if _, err := tx.ExecContext(ctx, deleteProvQuery, id); err != nil {
 		return errors.Wrapf(err, "could not delete branch provenance for branch %d", id)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`, id); err != nil {
+	if _, err := tx.ExecContext(ctx, deleteTriggerQuery, id); err != nil {
 		return errors.Wrapf(err, "could not delete branch trigger for branch %d", id)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {
@@ -465,7 +473,7 @@ func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.
 			JOIN pfs.branches branch ON trigger.to_branch_id = branch.id
 		WHERE trigger.from_branch_id = $1
 	`, from); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
+		if errors.As(err, sql.ErrNoRows) {
 			// Branches don't need to have triggers
 			return nil, nil
 		}

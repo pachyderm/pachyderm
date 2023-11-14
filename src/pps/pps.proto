@@ -779,9 +779,8 @@ message ListPipelineRequest {
   //-1: Return all historical versions.
   int64 history = 2;
 
-  // When true, return PipelineInfos with the details field, which requires
-  // loading the pipeline spec from PFS.
-  bool details = 3;
+  // Deprecated: Details are always returned.
+  bool details = 3 [deprecated = true];
 
   // A jq program string for additional result filtering
   string jqFilter = 4;

@@ -133,80 +133,8 @@ type apiServer struct {
 	projectDefaults col.PostgresCollection
 }
 
-func merge(from, to map[string]bool) {
-	for s := range from {
-		to[s] = true
-	}
-}
-
-func validateNames(names map[string]bool, input *pps.Input) error {
-	switch {
-	case input == nil:
-		return nil // spouts can have nil input
-	case input.Pfs != nil:
-		if err := validateName(input.Pfs.Name); err != nil {
-			return err
-		}
-		if names[input.Pfs.Name] {
-			return errors.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
-		}
-		names[input.Pfs.Name] = true
-	case input.Cron != nil:
-		if err := validateName(input.Cron.Name); err != nil {
-			return err
-		}
-		if names[input.Cron.Name] {
-			return errors.Errorf(`name "%s" was used more than once`, input.Cron.Name)
-		}
-		names[input.Cron.Name] = true
-	case input.Union != nil:
-		for _, input := range input.Union {
-			namesCopy := make(map[string]bool)
-			merge(names, namesCopy)
-			if err := validateNames(namesCopy, input); err != nil {
-				return err
-			}
-			// we defer this because subinputs of a union input are allowed to
-			// have conflicting names but other inputs that are, for example,
-			// crossed with this union cannot conflict with any of the names it
-			// might present
-			defer merge(namesCopy, names)
-		}
-	case input.Cross != nil:
-		for _, input := range input.Cross {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	case input.Join != nil:
-		for _, input := range input.Join {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	case input.Group != nil:
-		for _, input := range input.Group {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validateName(name string) error {
-	if name == "" {
-		return errors.Errorf("input must specify a name")
-	}
-	switch name {
-	case common.OutputPrefix, common.EnvFileName:
-		return errors.Errorf("input cannot be named %v", name)
-	}
-	return nil
-}
-
 func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
-	if err := validateNames(make(map[string]bool), input); err != nil {
+	if err := ppsutil.ValidateNames(input); err != nil {
 		return err
 	}
 	return pps.VisitInput(input, func(input *pps.Input) error {
@@ -3940,7 +3868,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			// if the old details are missing, synthesize them
 			if pi.UserSpecJson == "" {
 				spec := ppsutil.PipelineReqFromInfo(pi)
@@ -4025,6 +3953,11 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	if req.Project == nil || req.Project.Name == "" {
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+
+	if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, req.Project, auth.Permission_PROJECT_SET_DEFAULTS); err != nil {
+		return nil, errors.Wrapf(err, "not allowed")
+	}
+
 	var cdg = &cachedDefaultsGetter{
 		apiServer:       a,
 		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
@@ -4052,7 +3985,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
 				return nil
 			}

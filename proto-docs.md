@@ -299,6 +299,8 @@
     - [DeleteReposResponse](#pfs_v2-DeleteReposResponse)
     - [DiffFileRequest](#pfs_v2-DiffFileRequest)
     - [DiffFileResponse](#pfs_v2-DiffFileResponse)
+    - [DropCommitRequest](#pfs_v2-DropCommitRequest)
+    - [DropCommitResponse](#pfs_v2-DropCommitResponse)
     - [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest)
     - [EgressRequest](#pfs_v2-EgressRequest)
     - [EgressResponse](#pfs_v2-EgressResponse)
@@ -344,6 +346,8 @@
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
     - [ShardFileSetRequest](#pfs_v2-ShardFileSetRequest)
     - [ShardFileSetResponse](#pfs_v2-ShardFileSetResponse)
+    - [SquashCommitRequest](#pfs_v2-SquashCommitRequest)
+    - [SquashCommitResponse](#pfs_v2-SquashCommitResponse)
     - [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest)
     - [StartCommitRequest](#pfs_v2-StartCommitRequest)
     - [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest)
@@ -4819,6 +4823,32 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-DropCommitRequest"></a>
+
+### DropCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [Commit](#pfs_v2-Commit) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the drop should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the drop will fail. |
+
+
+
+
+
+
+<a name="pfs_v2-DropCommitResponse"></a>
+
+### DropCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-DropCommitSetRequest"></a>
 
 ### DropCommitSetRequest
@@ -5551,6 +5581,32 @@ Details are only provided when explicitly requested
 
 
 
+<a name="pfs_v2-SquashCommitRequest"></a>
+
+### SquashCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [Commit](#pfs_v2-Commit) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the squash should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the squash will fail. |
+
+
+
+
+
+
+<a name="pfs_v2-SquashCommitResponse"></a>
+
+### SquashCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-SquashCommitSetRequest"></a>
 
 ### SquashCommitSetRequest
@@ -5738,10 +5794,12 @@ These are the different places where a commit may be originated from
 | InspectCommit | [InspectCommitRequest](#pfs_v2-InspectCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) | InspectCommit returns the info about a commit. |
 | ListCommit | [ListCommitRequest](#pfs_v2-ListCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | ListCommit returns info about all commits. |
 | SubscribeCommit | [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | SubscribeCommit subscribes for new commits on a given branch. |
+| SquashCommit | [SquashCommitRequest](#pfs_v2-SquashCommitRequest) | [SquashCommitResponse](#pfs_v2-SquashCommitResponse) | SquashCommit squashes the provided commit into its children. |
+| DropCommit | [DropCommitRequest](#pfs_v2-DropCommitRequest) | [DropCommitResponse](#pfs_v2-DropCommitResponse) | DropCommit drops the provided commit. |
 | InspectCommitSet | [InspectCommitSetRequest](#pfs_v2-InspectCommitSetRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | InspectCommitSet returns the info about a CommitSet. |
 | ListCommitSet | [ListCommitSetRequest](#pfs_v2-ListCommitSetRequest) | [CommitSetInfo](#pfs_v2-CommitSetInfo) stream | ListCommitSet returns info about all CommitSets. |
-| SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. |
-| DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. |
+| SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. Deprecated: Use SquashCommit instead. |
+| DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. Deprecated: Use DropCommit instead. |
 | FindCommits | [FindCommitsRequest](#pfs_v2-FindCommitsRequest) | [FindCommitsResponse](#pfs_v2-FindCommitsResponse) stream | FindCommits searches for commits that reference a supplied file being modified in a branch. |
 | CreateBranch | [CreateBranchRequest](#pfs_v2-CreateBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | CreateBranch creates a new branch. |
 | InspectBranch | [InspectBranchRequest](#pfs_v2-InspectBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) | InspectBranch returns info about a branch. |
@@ -7083,7 +7141,7 @@ all of the filtered attributes.
 | ----- | ---- | ----- | ----------- |
 | pipeline | [Pipeline](#pps_v2-Pipeline) |  | If non-nil, only return info about a single pipeline, this is redundant with InspectPipeline unless history is non-zero. |
 | history | [int64](#int64) |  | History indicates how many historical versions you want returned. Its semantics are: 0: Return the current version of the pipeline or pipelines. 1: Return the above and the next most recent version 2: etc. -1: Return all historical versions. |
-| details | [bool](#bool) |  | When true, return PipelineInfos with the details field, which requires loading the pipeline spec from PFS. |
+| details | [bool](#bool) |  | **Deprecated.** Deprecated: Details are always returned. |
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |

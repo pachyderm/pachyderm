@@ -1194,7 +1194,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				History:   history,
 				CommitSet: &pfs.CommitSet{Id: commit},
 				JqFilter:  filter,
-				Details:   true,
 				Projects:  projectsFilter,
 			}
 			if pipeline != "" {
@@ -1269,7 +1268,6 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			request := &pps.ListPipelineRequest{
 				History:   0,
 				JqFilter:  "",
-				Details:   true,
 				CommitSet: &pfs.CommitSet{Id: commitSet},
 				Projects:  []*pfs.Project{{Name: project}},
 			}
@@ -1681,6 +1679,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	rerunPipeline.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing project")
 	commands = append(commands, cmdutil.CreateAlias(rerunPipeline, "rerun pipeline"))
 
+	defaultsDocs := &cobra.Command{
+		Short: "Docs for defaults.",
+		Long:  `Defaults provide default values for certain requests, e.g. when creating a pipeline.`,
+	}
+	commands = append(commands, cmdutil.CreateDocsAliases(defaultsDocs, "defaults", " defaults", "default"))
+
 	var cluster bool
 	inspectDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
@@ -1715,7 +1719,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	}
 	inspectDefaults.Flags().BoolVar(&cluster, "cluster", false, "Inspect cluster defaults.")
 	inspectDefaults.Flags().StringVar(&project, "project", project, "Inspect project defaults.")
-	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults"))
+	commands = append(commands, cmdutil.CreateAliases(inspectDefaults, "inspect defaults", "default"))
 
 	var pathname string
 	var regenerate bool
@@ -1746,7 +1750,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	createDefaults.Flags().StringVarP(&pathname, "file", "f", "-", "A JSON file containing cluster defaults.  \"-\" reads from stdin (the default behavior.)")
 	createDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually create defaults.")
 	createDefaults.Flags().StringVar(&project, "project", project, "Create project defaults.")
-	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults"))
+	commands = append(commands, cmdutil.CreateAliases(createDefaults, "create defaults", "default"))
 
 	deleteDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
@@ -1769,7 +1773,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	deleteDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate")
 	deleteDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually delete defaults.")
 	deleteDefaults.Flags().StringVar(&project, "project", project, "Delete project defaults.")
-	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults"))
+	commands = append(commands, cmdutil.CreateAliases(deleteDefaults, "delete defaults", "default"))
 
 	updateDefaults := &cobra.Command{
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
@@ -1797,7 +1801,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().BoolVar(&reprocess, "reprocess", false, "Reprocess regenerated pipelines.  Implies --regenerate.")
 	updateDefaults.Flags().BoolVar(&dryRun, "dry-run", false, "Do not actually update defaults.")
 	updateDefaults.Flags().StringVar(&project, "project", project, "Update project defaults.")
-	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults"))
+	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults", "default"))
 
 	return commands
 }
