@@ -10,7 +10,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
 func TestGetTableInfo(suite *testing.T) {
@@ -73,34 +72,6 @@ func TestGetTableInfo(suite *testing.T) {
 					{"c_numeric_float_null", "DECIMAL", true},
 					{"c_varchar_null", "VARCHAR", true},
 					{"c_time_null", "TIMESTAMP", true},
-				},
-			},
-		},
-		{
-			Name:  "Snowflake",
-			NewDB: testsnowflake.NewEphemeralSnowflakeDB,
-			Expected: &pachsql.TableInfo{
-				"snowflake",
-				"test_table",
-				"public",
-				[]pachsql.ColumnInfo{
-					{"C_ID", "NUMBER", false},
-					{"C_SMALLINT", "NUMBER", false},
-					{"C_INT", "NUMBER", false},
-					{"C_BIGINT", "NUMBER", false},
-					{"C_FLOAT", "FLOAT", false},
-					{"C_NUMERIC_INT", "NUMBER", false},
-					{"C_NUMERIC_FLOAT", "NUMBER", false},
-					{"C_VARCHAR", "TEXT", false},
-					{"C_TIME", "TIMESTAMP_NTZ", false},
-					{"C_SMALLINT_NULL", "NUMBER", true},
-					{"C_INT_NULL", "NUMBER", true},
-					{"C_BIGINT_NULL", "NUMBER", true},
-					{"C_FLOAT_NULL", "FLOAT", true},
-					{"C_NUMERIC_INT_NULL", "NUMBER", true},
-					{"C_NUMERIC_FLOAT_NULL", "NUMBER", true},
-					{"C_VARCHAR_NULL", "TEXT", true},
-					{"C_TIME_NULL", "TIMESTAMP_NTZ", true},
 				},
 			},
 		},

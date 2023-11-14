@@ -59,9 +59,6 @@ case "${BUCKET}" in
     pachctl config set active-enterprise-context enterprise
     make test-enterprise-integration
     ;;
-  CONNECTORS)
-    make test-connectors
-    ;;
   *)
     echo "Unknown bucket"
     exit 1

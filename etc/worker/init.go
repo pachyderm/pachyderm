@@ -46,7 +46,7 @@ func cp(src, dst string) error {
 
 func main() {
 	// Copy over pachyderm binaries.
-	for _, bin := range []string{"worker", "pachctl", "pachtf"} {
+	for _, bin := range []string{"worker", "pachctl"} {
 		src, dst := fmt.Sprintf("/app/%s", bin), fmt.Sprintf("/pach-bin/%s", bin)
 		if err := cp(src, dst); err != nil {
 			panic(err)
