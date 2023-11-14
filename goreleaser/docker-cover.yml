@@ -6,7 +6,7 @@ builds:
       binary: pachd
       flags:
           - -cover
-          - -covermode=atomic 
+          - -covermode=atomic
           - -coverpkg=github.com/pachyderm/pachyderm/v2/...
       env:
           - CGO_ENABLED=0
@@ -24,9 +24,9 @@ builds:
       main: ./src/server/cmd/worker
       binary: worker
       flags:
-        - -cover
-        - -covermode=atomic 
-        - -coverpkg=github.com/pachyderm/pachyderm/v2/...
+          - -cover
+          - -covermode=atomic
+          - -coverpkg=github.com/pachyderm/pachyderm/v2/...
       env:
           - CGO_ENABLED=0
       ldflags:
@@ -73,21 +73,6 @@ builds:
     - id: mount-server
       main: ./src/server/cmd/mount-server
       binary: mount-server
-      env:
-          - CGO_ENABLED=0
-      ldflags:
-          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
-            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
-      goos:
-          - linux
-      goarch:
-          - amd64
-          - arm64
-      gcflags:
-          - "all=-trimpath={{.Env.PWD}}"
-    - id: pachtf
-      main: ./src/server/cmd/pachtf
-      binary: pachtf
       env:
           - CGO_ENABLED=0
       ldflags:
@@ -173,7 +158,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: amd64
       skip_push: false
@@ -245,7 +229,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: arm64
       skip_push: false
