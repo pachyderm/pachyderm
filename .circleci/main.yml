@@ -1706,7 +1706,6 @@ workflows:
                 - ENTERPRISE
                 - S3_AUTH
                 - EXAMPLES
-                - CONNECTORS
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
