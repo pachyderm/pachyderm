@@ -11,18 +11,12 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	"github.com/jmoiron/sqlx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	sf "github.com/snowflakedb/gosnowflake"
 	"go.uber.org/zap"
 )
 
 const (
-	ProtocolPostgres  = "postgres"
-	ProtocolMySQL     = "mysql"
-	ProtocolSnowflake = "snowflake"
-)
-
-const (
-	SnowflakeComputingDomain = ".snowflakecomputing.com"
+	ProtocolPostgres = "postgres"
+	ProtocolMySQL    = "mysql"
 )
 
 const (
@@ -74,9 +68,6 @@ func OpenURL(u URL, password string) (*DB, error) {
 			l.Println("enabled global mysql logger")
 			mysql.SetLogger(l) //nolint:errcheck
 		})
-	case ProtocolSnowflake:
-		driver = "snowflake"
-		dsn, err = snowflakeDSN(u, password)
 	default:
 		return nil, errors.Errorf("database protocol %q not supported", u.Protocol)
 	}
@@ -143,49 +134,6 @@ func mySQLDSN(u URL, password string) (string, error) {
 		AllowNativePasswords: true,
 	}
 	return config.FormatDSN(), nil
-}
-
-func snowflakeDSN(u URL, password string) (string, error) {
-	// The Snowflake driver supports the following syntaxes:
-	// * username[:password]@<account_identifier>/dbname/schemaname[?param1=value&...&paramN=valueN]
-	// * username[:password]@<account_identifier>/dbname[?param1=value&...&paramN=valueN]
-	// * username[:password]@hostname:port/dbname/schemaname?account=<account_identifier>[&param1=value&...&paramN=valueN]
-
-	// A Snowflake account_identifier uniquely identifies a Snowflake account.
-	// account_identifer can be embedded in the hostname, e.g. <account_identifier>.snowflakecomputing.com
-	// however, the "snowflakecomputing.com" can be left out
-	// example: jsmith@my_organization-my_account/mydb/testschema?warehouse=mywh
-	// in this case, the account_identifier is my_organization-my_account
-	params := make(map[string]*string, len(u.Params))
-	for k, v := range u.Params {
-		v := v
-		params[k] = &v
-	}
-	var account, host string
-	if u.Port == 0 {
-		// note sf.DSN will automatically set port to 443
-		account = strings.TrimSuffix(u.Host, SnowflakeComputingDomain)
-	} else if u.Host != "" && params["account"] != nil {
-		host = u.Host
-		account = *params["account"]
-		delete(params, "account")
-	}
-
-	cfg := &sf.Config{
-		Account:  account,
-		User:     u.User,
-		Password: password,
-		Database: u.Database,
-		Schema:   u.Schema,
-		Host:     host,
-		Port:     int(u.Port),
-		Params:   params,
-	}
-	dsn, err := sf.DSN(cfg)
-	if err != nil {
-		return "", errors.EnsureStack(err)
-	}
-	return dsn, nil
 }
 
 func copyParams(x map[string]string) map[string]string {

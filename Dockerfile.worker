@@ -15,6 +15,5 @@ ADD --chown=1000:1000 https://github.com/Yelp/dumb-init/releases/download/v1.2.5
 COPY worker .
 COPY worker_init init
 COPY pachctl .
-COPY pachtf .
 
 USER 1000
