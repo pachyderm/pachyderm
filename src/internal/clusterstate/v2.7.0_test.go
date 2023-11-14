@@ -162,11 +162,11 @@ func setupTestData(t *testing.T, ctx context.Context, db *sqlx.DB) {
 	branches := map[string]*pfs.BranchInfo{
 		"images@master":       {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "master"}, Head: commits["images@a91f6f92b145435396af700be4bb5533"].Commit, Trigger: &pfs.Trigger{Branch: "staging", All: true, RateLimitSpec: "my_rate_limit_spec", Size: "1", Commits: 1, CronSpec: "my_cron_spec"}},
 		"images@staging":      {Branch: &pfs.Branch{Repo: repos["images"].Repo, Name: "staging"}, Head: commits["images@98606143463b4105924d9f9d0bed873d"].Commit},
-		"edges@master":        {Branch: &pfs.Branch{Repo: repos["edges"].Repo, Name: "master"}, Head: commits["edges@a91f6f92b145435396af700be4bb5533"].Commit},
+		"edges@master":        {Branch: &pfs.Branch{Repo: repos["edges"].Repo, Name: "master"}, Head: commits["edges@a91f6f92b145435396af700be4bb5533"].Commit, Trigger: &pfs.Trigger{Branch: "doesnotexist", Commits: 1}},
 		"edges.spec@master":   {Branch: &pfs.Branch{Repo: repos["edges.spec"].Repo, Name: "master"}, Head: commits["edges.spec@12439bfdb10b4408aa7797efda44be24"].Commit},
 		"edges.meta@master":   {Branch: &pfs.Branch{Repo: repos["edges.meta"].Repo, Name: "master"}, Head: commits["edges.meta@a91f6f92b145435396af700be4bb5533"].Commit},
 		"montage@master":      {Branch: &pfs.Branch{Repo: repos["montage"].Repo, Name: "master"}, Head: commits["montage@a91f6f92b145435396af700be4bb5533"].Commit},
-		"montage.spec@master": {Branch: &pfs.Branch{Repo: repos["montage.spec"].Repo, Name: "master"}, Head: commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit},
+		"montage.spec@master": {Branch: &pfs.Branch{Repo: repos["montage.spec"].Repo, Name: "master"}, Head: commits["montage.spec@1062b21221174d7984e1a7ece488e1ca"].Commit, Trigger: &pfs.Trigger{Branch: "doesnotexist", CronSpec: "my_cron_spec"}},
 		"montage.meta@master": {Branch: &pfs.Branch{Repo: repos["montage.meta"].Repo, Name: "master"}, Head: commits["montage.meta@a91f6f92b145435396af700be4bb5533"].Commit},
 	}
 	branches["edges@master"].DirectProvenance = []*pfs.Branch{
