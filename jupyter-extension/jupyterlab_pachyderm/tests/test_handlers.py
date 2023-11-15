@@ -74,7 +74,6 @@ async def test_list_repos_error(mock_client, jp_fetch):
 
 
 @pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.skipif(sys.version_info < (3, 7), reason="requires python3.7 or higher")
 # @patch("jupyterlab_pachyderm.handlers.MountsHandler.mount_client", spec=MountInterface)
 async def test_list_mounts(mock_client, jp_fetch):

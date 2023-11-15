@@ -1,6 +1,6 @@
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
-from jupyter_server.utils import url_path_join, ensure_async
+from jupyter_server.utils import url_path_join
 import asyncio
 import grpc
 import json
@@ -219,13 +219,11 @@ class PFSHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
 
-        model = await ensure_async(
-            self.pfs_manager.get(
-                path=path,
-                type=type,
-                format=format,
-                content=content,
-            )
+        model = self.pfs_manager.get(
+            path=path,
+            type=type,
+            format=format,
+            content=content,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -255,13 +253,11 @@ class ViewDatumHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
 
-        model = await ensure_async(
-            self.datum_manager.get(
-                path=path,
-                type=type,
-                format=format,
-                content=content,
-            )
+        model = self.datum_manager.get(
+            path=path,
+            type=type,
+            format=format,
+            content=content,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -269,25 +265,29 @@ class ViewDatumHandler(ContentsHandler):
 
 # TODO: see about writing to/from config file
 class ConfigHandler(BaseHandler):
+    CLUSTER_AUTH_ENABLED = "AUTH_ENABLED"
+    CLUSTER_AUTH_DISABLED = "AUTH_DISABLED"
+    CLUSTER_INVALID = "INVALID"
+
     def config_response(self) -> bytes:
         if not self.client:
             return json.dumps({"cluster_status": "INVALID"})
 
         try:
             self.client.auth.who_am_i()
-            cluster_status = "AUTH_ENABLED"
+            cluster_status = self.CLUSTER_AUTH_ENABLED
         except grpc.RpcError as err:
             if err.code() == grpc.StatusCode.UNAUTHENTICATED:
-                cluster_status = "AUTH_ENABLED"
+                cluster_status = self.CLUSTER_AUTH_ENABLED
             elif (
                 err.code() == grpc.StatusCode.UNIMPLEMENTED
                 and "the auth service is not activated" in err.details()
             ):
-                cluster_status = "AUTH_DISABLED"
+                cluster_status = self.CLUSTER_AUTH_DISABLED
             else:
-                cluster_status = "INVALID"
+                cluster_status = self.CLUSTER_INVALID
         except ConnectionError:
-            cluster_status = "INVALID"
+            cluster_status = self.CLUSTER_INVALID
 
         return json.dumps(
             {"cluster_status": cluster_status, "pachd_address": self.client.address}
@@ -297,10 +297,11 @@ class ConfigHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            address: str = body["pachd_address"]
+            address = body["pachd_address"]            
+            cas = bytes(body["server_cas"], 'utf-8') if "server_cas" in body else None
 
-            if address.removeprefix("grpc://") != self.client.address:
-                client = Client().from_pachd_address(pachd_address=address)
+            if address.removeprefix("grpc://") != self.client.address or cas:
+                client = Client().from_pachd_address(pachd_address=address, root_certs=cas)
                 self.settings["pachyderm_client"] = client
                 self.settings["pfs_contents_manager"] = PFSManager(client=client)
                 self.settings["datum_contents_manager"] = DatumManager(client=client)

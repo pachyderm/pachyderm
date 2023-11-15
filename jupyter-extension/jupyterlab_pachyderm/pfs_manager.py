@@ -437,7 +437,7 @@ class DatumManager(FileContentsManager):
     # mapping to track which files within a datum belong to which name.
     def mount_datums(self, input_dict: dict):
         input = pps.Input().from_dict(input_dict["input"])
-        self.input = input
+        self._input = input
         self._datum_list = list(self._client.pps.list_datum(input=input))
         self._datum_index = 0
         self._mount_time = datetime.datetime.now()
