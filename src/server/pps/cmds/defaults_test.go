@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -82,6 +84,18 @@ func TestCreatePipeline_defaults(t *testing.T) {
 EOF`)
 	require.NoError(t, err, "must create cluster defaults: %v", output)
 
+	output, err = p.RunCommand(ctx, `pachctl create defaults --project default <<EOF
+{
+	"create_pipeline_request": {
+		"resource_limits": {
+			"disk": "200Mi",
+			"cpu": .250
+		}
+	}
+}
+EOF`)
+	require.NoError(t, err, "must create project defaults")
+
 	output, err = p.RunCommand(ctx, `pachctl create repo input`)
 	require.NoError(t, err, "must create input repo: %v", output)
 
@@ -105,6 +119,9 @@ EOF`)
 		"cpu": null,
 		"disk": "187Mi"
 	},
+	"resource_limits": {
+		"cpu": null
+	},
 	"autoscaling": false
 }
 EOF`)
@@ -117,6 +134,14 @@ EOF`)
 	output, err = p.RunCommand(ctx, `pachctl inspect pipeline pipeline --raw | jq -j .details.resource_requests.memory`)
 	require.NoError(t, err, "must inspect pipeline: %v", output)
 	require.Equal(t, "null", output, "must have empty memory request")
+
+	output, err = p.RunCommand(ctx, `pachctl inspect pipeline pipeline --raw | jq -j .details.resource_limits.disk`)
+	require.NoError(t, err, "must inspect pipeline: %v", output)
+	require.Equal(t, "200Mi", output, "must have default disk limit")
+
+	output, err = p.RunCommand(ctx, `pachctl inspect pipeline pipeline --raw | jq -j .details.resource_limits.memory`)
+	require.NoError(t, err, "must inspect pipeline: %v", output)
+	require.Equal(t, "null", output, "must override cpu limit")
 
 	// the raw format currently marshals to snake_case
 	output, err = p.RunCommand(ctx, `pachctl inspect pipeline pipeline --raw | jq -j .details.datum_tries`)
@@ -387,4 +412,27 @@ func TestCreatePipeline_leading_zero(t *testing.T) {
 		"RepoName", "input",
 		"PipelineName", "pipeline",
 	).Run())
+}
+
+func TestSetProjectDefaults(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	cluster, _ := minikubetestenv.AcquireCluster(t)
+	ctx := pctx.TestContext(t)
+	p, err := testutil.NewPachctl(ctx, cluster, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	require.NoError(t, err, "must create Pachyderm client")
+	output, err := p.RunCommand(ctx, `pachctl create defaults --project default <<EOF
+{"createPipelineRequest":{"datum_tries": "37"}}
+EOF`)
+	require.NoError(t, err, "must create defaults")
+	require.Equal(t, "", output, "defaults creation is silent")
+
+	output, err = p.RunCommand(ctx, `pachctl inspect defaults --project default`)
+	require.NoError(t, err, "must inspect defaults")
+	var defaults pps.ProjectDefaults
+	require.NoError(t, protojson.Unmarshal([]byte(output), &defaults))
+	require.NotNil(t, defaults.CreatePipelineRequest, "project defaults contain Create Pipeline Request")
+	require.Equal(t, int64(37), defaults.CreatePipelineRequest.DatumTries, "project defaults contain Create Pipeline Request")
 }
