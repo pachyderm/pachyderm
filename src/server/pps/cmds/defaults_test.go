@@ -83,6 +83,7 @@ func TestCreatePipeline_defaults(t *testing.T) {
 }
 EOF`)
 	require.NoError(t, err, "must create cluster defaults: %v", output)
+	require.Equal(t, "", output, "setting cluster defaults is silent")
 
 	output, err = p.RunCommand(ctx, `pachctl create defaults --project default <<EOF
 {
@@ -95,9 +96,11 @@ EOF`)
 }
 EOF`)
 	require.NoError(t, err, "must create project defaults")
+	require.Equal(t, "", output, "setting project defaults is silent")
 
 	output, err = p.RunCommand(ctx, `pachctl create repo input`)
 	require.NoError(t, err, "must create input repo: %v", output)
+	require.Equal(t, "", output, "repo creation is silent")
 
 	output, err = p.RunCommand(ctx, `pachctl create pipeline <<EOF
 {
