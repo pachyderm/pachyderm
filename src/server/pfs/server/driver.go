@@ -319,11 +319,11 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	return repos, nil
 }
 
-func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*pfs.Repo, error) {
+func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project, force bool) ([]*pfs.Repo, error) {
 	var deleted []*pfs.Repo
 	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
 		var err error
-		deleted, err = d.deleteReposInTransaction(ctx, txnCtx, projects)
+		deleted, err = d.deleteReposInTransaction(ctx, txnCtx, projects, force)
 		return err
 	}); err != nil {
 		return nil, errors.Wrap(err, "delete repos")
@@ -331,12 +331,12 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project) ([]*p
 	return deleted, nil
 }
 
-func (d *driver) deleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, projects []*pfs.Project) ([]*pfs.Repo, error) {
+func (d *driver) deleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, projects []*pfs.Project, force bool) ([]*pfs.Repo, error) {
 	repos, err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "", projects)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
-	return d.deleteReposHelper(ctx, txnCtx, repos, false)
+	return d.deleteReposHelper(ctx, txnCtx, repos, force)
 }
 
 func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.TransactionContext, ris []*pfs.RepoInfo, force bool) ([]*pfs.Repo, error) {
@@ -367,7 +367,7 @@ func (d *driver) deleteReposHelper(ctx context.Context, txnCtx *txncontext.Trans
 		return nil, err
 	}
 	for _, ri := range ris {
-		if err := d.deleteRepoInfo(ctx, txnCtx, ri); err != nil {
+		if err := d.deleteRepoInfo(ctx, txnCtx, ri, force); err != nil {
 			return nil, err
 		}
 		deleted = append(deleted, ri.Repo)
@@ -404,7 +404,7 @@ func (d *driver) deleteRepo(ctx context.Context, txnCtx *txncontext.TransactionC
 		return false, err
 	}
 	for _, repoInfoWithID := range related {
-		if err := d.deleteRepoInfo(ctx, txnCtx, repoInfoWithID.RepoInfo); err != nil {
+		if err := d.deleteRepoInfo(ctx, txnCtx, repoInfoWithID.RepoInfo, force); err != nil {
 			return false, err
 		}
 	}
@@ -438,7 +438,7 @@ func (d *driver) listRepoBranches(ctx context.Context, txnCtx *txncontext.Transa
 
 // before this method is called, a caller should make sure this repo can be deleted with d.canDeleteRepo() and that
 // all of the repo's branches are deleted using d.deleteBranches()
-func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo) error {
+func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.TransactionContext, ri *pfs.RepoInfo, force bool) error {
 	var nonCtxCommitInfos []*pfs.CommitInfo
 	iter, err := pfsdb.ListCommit(ctx, d.env.DB, &pfs.Commit{Repo: ri.Repo})
 	if err != nil {
@@ -465,7 +465,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
 	err = pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: ri.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, false)
+		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
 	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
@@ -2092,11 +2092,11 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 
 func (d *driver) deleteAll(ctx context.Context) error {
 	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-		if _, err := d.deleteReposInTransaction(ctx, txnCtx, nil); err != nil {
+		if _, err := d.deleteReposInTransaction(ctx, txnCtx, nil /* projects */, true /* force */); err != nil {
 			return errors.Wrap(err, "could not delete all repos")
 		}
 		if err := d.listProjectInTransaction(ctx, txnCtx, func(pi *pfs.ProjectInfo) error {
-			return errors.Wrapf(d.deleteProject(ctx, txnCtx, pi.Project, true), "delete project %q", pi.Project.String())
+			return errors.Wrapf(d.deleteProject(ctx, txnCtx, pi.Project, true /* force */), "delete project %q", pi.Project.String())
 		}); err != nil {
 			return err
 		} // now that the cluster is empty, recreate the default project
