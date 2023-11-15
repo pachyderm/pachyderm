@@ -600,6 +600,8 @@ class PipelineInfoDetails(betterproto.Message):
     tolerations: List["Toleration"] = betterproto.message_field(34)
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
     determined: "Determined" = betterproto.message_field(36)
+    maximum_expected_uptime: timedelta = betterproto.message_field(37)
+    workers_started_at: datetime = betterproto.message_field(38)
 
 
 @dataclass(eq=False, repr=False)
@@ -941,6 +943,7 @@ class CreatePipelineRequest(betterproto.Message):
     sidecar_resource_requests: "ResourceSpec" = betterproto.message_field(35)
     dry_run: bool = betterproto.bool_field(37)
     determined: "Determined" = betterproto.message_field(38)
+    maximum_expected_uptime: timedelta = betterproto.message_field(39)
 
 
 @dataclass(eq=False, repr=False)
@@ -1069,6 +1072,31 @@ class RunPipelineRequest(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class RunCronRequest(betterproto.Message):
     pipeline: "Pipeline" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class CheckStatusRequest(betterproto.Message):
+    """Request to check the status of pipelines within a project."""
+
+    all: bool = betterproto.bool_field(1, group="context")
+    """boolean field indicating status of all project pipelines."""
+
+    project: "_pfs__.Project" = betterproto.message_field(2, group="context")
+    """project field"""
+
+
+@dataclass(eq=False, repr=False)
+class CheckStatusResponse(betterproto.Message):
+    """Response for check status request. Provides alerts if any."""
+
+    project: "_pfs__.Project" = betterproto.message_field(1)
+    """project field"""
+
+    pipeline: "Pipeline" = betterproto.message_field(2)
+    """pipeline field"""
+
+    alerts: List[str] = betterproto.string_field(3)
+    """alert indicators"""
 
 
 @dataclass(eq=False, repr=False)
@@ -1343,6 +1371,11 @@ class ApiStub:
             "/pps_v2.API/RunCron",
             request_serializer=RunCronRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_check_status = channel.unary_stream(
+            "/pps_v2.API/CheckStatus",
+            request_serializer=CheckStatusRequest.SerializeToString,
+            response_deserializer=CheckStatusResponse.FromString,
         )
         self.__rpc_create_secret = channel.unary_unary(
             "/pps_v2.API/CreateSecret",
@@ -1634,7 +1667,8 @@ class ApiStub:
         tolerations: Optional[List["Toleration"]] = None,
         sidecar_resource_requests: "ResourceSpec" = None,
         dry_run: bool = False,
-        determined: "Determined" = None
+        determined: "Determined" = None,
+        maximum_expected_uptime: timedelta = None
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1691,6 +1725,8 @@ class ApiStub:
         request.dry_run = dry_run
         if determined is not None:
             request.determined = determined
+        if maximum_expected_uptime is not None:
+            request.maximum_expected_uptime = maximum_expected_uptime
 
         return self.__rpc_create_pipeline(request)
 
@@ -1829,6 +1865,17 @@ class ApiStub:
             request.pipeline = pipeline
 
         return self.__rpc_run_cron(request)
+
+    def check_status(
+        self, *, all: bool = False, project: "_pfs__.Project" = None
+    ) -> Iterator["CheckStatusResponse"]:
+        request = CheckStatusRequest()
+        request.all = all
+        if project is not None:
+            request.project = project
+
+        for response in self.__rpc_check_status(request):
+            yield response
 
     def create_secret(
         self, *, file: bytes = b""
@@ -2189,6 +2236,7 @@ class ApiBase:
         sidecar_resource_requests: "ResourceSpec",
         dry_run: bool,
         determined: "Determined",
+        maximum_expected_uptime: timedelta,
         context: "grpc.ServicerContext",
     ) -> "betterproto_lib_google_protobuf.Empty":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2281,6 +2329,13 @@ class ApiBase:
     def run_cron(
         self, pipeline: "Pipeline", context: "grpc.ServicerContext"
     ) -> "betterproto_lib_google_protobuf.Empty":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def check_status(
+        self, all: bool, project: "_pfs__.Project", context: "grpc.ServicerContext"
+    ) -> Iterator["CheckStatusResponse"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -2555,6 +2610,11 @@ class ApiBase:
                 self.run_cron,
                 request_deserializer=RunCronRequest.FromString,
                 response_serializer=RunCronRequest.SerializeToString,
+            ),
+            "CheckStatus": grpc.unary_stream_rpc_method_handler(
+                self.check_status,
+                request_deserializer=CheckStatusRequest.FromString,
+                response_serializer=CheckStatusRequest.SerializeToString,
             ),
             "CreateSecret": grpc.unary_unary_rpc_method_handler(
                 self.create_secret,

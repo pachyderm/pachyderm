@@ -211,6 +211,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/StartPipeline":    authDisabledOr(authenticated),
 	"/pps_v2.API/StopPipeline":     authDisabledOr(authenticated),
 	"/pps_v2.API/RunPipeline":      authDisabledOr(authenticated),
+	"/pps_v2.API/CheckStatus":      authDisabledOr(authenticated),
 	"/pps_v2.API/RunCron":          authDisabledOr(authenticated),
 	"/pps_v2.API/GetLogs":          authDisabledOr(authenticated),
 	"/pps_v2.API/GarbageCollect":   authDisabledOr(authenticated),

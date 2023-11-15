@@ -7907,6 +7907,35 @@ func (m *CreatePipelineRequest) validate(all bool) error {
 		}
 	}
 
+	if all {
+		switch v := interface{}(m.GetMaximumExpectedUptime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CreatePipelineRequestValidationError{
+					field:  "MaximumExpectedUptime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CreatePipelineRequestValidationError{
+					field:  "MaximumExpectedUptime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaximumExpectedUptime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CreatePipelineRequestValidationError{
+				field:  "MaximumExpectedUptime",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return CreatePipelineRequestMultiError(errors)
 	}
@@ -9543,6 +9572,326 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = RunCronRequestValidationError{}
+
+// Validate checks the field values on CheckStatusRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CheckStatusRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CheckStatusRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CheckStatusRequestMultiError, or nil if none found.
+func (m *CheckStatusRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CheckStatusRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Context.(type) {
+	case *CheckStatusRequest_All:
+		if v == nil {
+			err := CheckStatusRequestValidationError{
+				field:  "Context",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		// no validation rules for All
+	case *CheckStatusRequest_Project:
+		if v == nil {
+			err := CheckStatusRequestValidationError{
+				field:  "Context",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetProject()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CheckStatusRequestValidationError{
+						field:  "Project",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CheckStatusRequestValidationError{
+						field:  "Project",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CheckStatusRequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return CheckStatusRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// CheckStatusRequestMultiError is an error wrapping multiple validation errors
+// returned by CheckStatusRequest.ValidateAll() if the designated constraints
+// aren't met.
+type CheckStatusRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CheckStatusRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CheckStatusRequestMultiError) AllErrors() []error { return m }
+
+// CheckStatusRequestValidationError is the validation error returned by
+// CheckStatusRequest.Validate if the designated constraints aren't met.
+type CheckStatusRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CheckStatusRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CheckStatusRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CheckStatusRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CheckStatusRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CheckStatusRequestValidationError) ErrorName() string {
+	return "CheckStatusRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CheckStatusRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCheckStatusRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CheckStatusRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CheckStatusRequestValidationError{}
+
+// Validate checks the field values on CheckStatusResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *CheckStatusResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on CheckStatusResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// CheckStatusResponseMultiError, or nil if none found.
+func (m *CheckStatusResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *CheckStatusResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CheckStatusResponseValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetPipeline()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, CheckStatusResponseValidationError{
+					field:  "Pipeline",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPipeline()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return CheckStatusResponseValidationError{
+				field:  "Pipeline",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return CheckStatusResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// CheckStatusResponseMultiError is an error wrapping multiple validation
+// errors returned by CheckStatusResponse.ValidateAll() if the designated
+// constraints aren't met.
+type CheckStatusResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m CheckStatusResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m CheckStatusResponseMultiError) AllErrors() []error { return m }
+
+// CheckStatusResponseValidationError is the validation error returned by
+// CheckStatusResponse.Validate if the designated constraints aren't met.
+type CheckStatusResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e CheckStatusResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e CheckStatusResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e CheckStatusResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e CheckStatusResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e CheckStatusResponseValidationError) ErrorName() string {
+	return "CheckStatusResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e CheckStatusResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sCheckStatusResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = CheckStatusResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = CheckStatusResponseValidationError{}
 
 // Validate checks the field values on CreateSecretRequest with the rules
 // defined in the proto definition for this message. If any rules are
@@ -13729,6 +14078,64 @@ func (m *PipelineInfo_Details) validate(all bool) error {
 		if err := v.Validate(); err != nil {
 			return PipelineInfo_DetailsValidationError{
 				field:  "Determined",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetMaximumExpectedUptime()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PipelineInfo_DetailsValidationError{
+					field:  "MaximumExpectedUptime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PipelineInfo_DetailsValidationError{
+					field:  "MaximumExpectedUptime",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetMaximumExpectedUptime()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PipelineInfo_DetailsValidationError{
+				field:  "MaximumExpectedUptime",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if all {
+		switch v := interface{}(m.GetWorkersStartedAt()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, PipelineInfo_DetailsValidationError{
+					field:  "WorkersStartedAt",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, PipelineInfo_DetailsValidationError{
+					field:  "WorkersStartedAt",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetWorkersStartedAt()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return PipelineInfo_DetailsValidationError{
+				field:  "WorkersStartedAt",
 				reason: "embedded message failed validation",
 				cause:  err,
 			}
