@@ -10323,7 +10323,15 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "force",
@@ -17636,7 +17644,7 @@
             },
             {
               "name": "details",
-              "description": "When true, return PipelineInfos with the details field, which requires\nloading the pipeline spec from PFS.",
+              "description": "Deprecated: Details are always returned.",
               "label": "",
               "type": "bool",
               "longType": "bool",
@@ -17644,7 +17652,10 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "deprecated": true
+              }
             },
             {
               "name": "jqFilter",

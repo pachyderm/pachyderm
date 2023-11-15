@@ -76,6 +76,6 @@ def _check_errors(grpc_future: grpc.Future, request: Message):
         auth_codes = (grpc.StatusCode.UNIMPLEMENTED, grpc.StatusCode.UNAUTHENTICATED)
         auth_not_activated = "the auth service is not activated" in details
         if code in auth_codes and auth_not_activated:
-            return AuthServiceNotActivated(details)
+            raise AuthServiceNotActivated(details)
 
         raise error

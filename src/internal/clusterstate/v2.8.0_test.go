@@ -5,11 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
-	"github.com/google/go-cmp/cmp"
 
 	v2_8_0 "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -39,10 +37,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 
 	// Get all pfs.commits.
 	gotAncestries := make(map[string]string)
-	iter, err := pfsdb.ListCommit(ctx, db, nil)
-	require.NoError(t, err, "should be able to list commits from pfs.commits")
 	var gotCommits []v2_8_0.CommitInfo
-	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
+	err = pfsdb.ForEachCommit(ctx, db, nil, func(CommitWithID pfsdb.CommitWithID) error {
 		commit := v2_8_0.InfoToCommit(CommitWithID.CommitInfo, uint64(CommitWithID.ID), time.Time{}, time.Time{})
 		ancestry := v2_8_0.InfoToCommitAncestry(CommitWithID.CommitInfo)
 		if ancestry.ParentCommit != "" {
@@ -53,7 +49,8 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 		}
 		gotCommits = append(gotCommits, commit.CommitInfo)
 		return nil
-	}))
+	})
+	require.NoError(t, err, "should be able to iterate through commits in pfs.commits")
 
 	// compare collections commits to pfs.commits.
 	require.Equal(t, len(expectedCommits), len(gotCommits), "all rows should have been migrated")

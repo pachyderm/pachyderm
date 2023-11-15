@@ -77,21 +77,6 @@ builds:
           - arm64
       gcflags:
           - "all=-trimpath={{.Env.PWD}}"
-    - id: pachtf
-      main: ./src/server/cmd/pachtf
-      binary: pachtf
-      env:
-          - CGO_ENABLED=0
-      ldflags:
-          - -X {{ .Env.CLIENT_ADDITIONAL_VERSION }} -X
-            "github.com/pachyderm/pachyderm/v2/src/version.AppVersion={{ .Env.VERSION }}"
-      goos:
-          - linux
-      goarch:
-          - amd64
-          - arm64
-      gcflags:
-          - "all=-trimpath={{.Env.PWD}}"
 
 archives:
     - format: binary
@@ -176,7 +161,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: amd64
       skip_push: false
@@ -255,7 +239,6 @@ dockers:
           - pachctl
           - worker_init
           - worker
-          - pachtf
       goos: linux
       goarch: arm64
       skip_push: false

@@ -950,13 +950,13 @@ func (c APIClient) InspectProjectPipeline(projectName, pipelineName string, deta
 	return pipelineInfo, grpcutil.ScrubGRPC(err)
 }
 
-// ListPipeline returns info about all pipelines.
+// ListPipeline returns info about all pipelines.  The details argument is ignored.
 func (c APIClient) ListPipeline(details bool) ([]*pps.PipelineInfo, error) {
 	ctx, cf := pctx.WithCancel(c.Ctx())
 	defer cf()
 	client, err := c.PpsAPIClient.ListPipeline(
 		ctx,
-		&pps.ListPipelineRequest{Details: details},
+		&pps.ListPipelineRequest{},
 	)
 	if err != nil {
 		return nil, grpcutil.ScrubGRPC(err)
@@ -989,11 +989,13 @@ func (c APIClient) ListPipelineHistory(pipelineName string, history int64, detai
 // pipelines.
 //
 // `history` specifies how many historical revisions to return:
-
+//
 // - 0: Return the current version of the pipeline or pipelines.
 // - 1: Return the above and the next most recent version
 // - 2: etc.
 // - -1: Return all historical versions.
+//
+// The `details` argument is ignored.
 func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, history int64, details bool) ([]*pps.PipelineInfo, error) {
 	var pipeline *pps.Pipeline
 	if pipelineName != "" {
@@ -1006,7 +1008,6 @@ func (c APIClient) ListProjectPipelineHistory(projectName, pipelineName string, 
 		&pps.ListPipelineRequest{
 			Pipeline: pipeline,
 			History:  history,
-			Details:  details,
 		},
 	)
 	if err != nil {
