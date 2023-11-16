@@ -64,8 +64,7 @@ class Client:
         Parameters
         ----------
         host : str, optional
-            The pachd host. Default is 'localhost', which is used with
-            ``pachctl port-forward``.
+            The pachd host. Default is 'localhost'.
         port : int, optional
             The port to connect to. Default is 30650.
         auth_token : str, optional
