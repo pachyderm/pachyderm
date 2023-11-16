@@ -67,9 +67,9 @@ func Test_v2_8_0_ClusterState(t *testing.T) {
 	// Get all existing data from collections.
 	// Note that we convert the proto object to a model that conforms better to our new relational schema,
 	// but the value is from the collections tables not the new relational tables.
-	expectedRepos, err := v2_8_0.ListReposFromCollection(ctx, db)
+	expectedRepos, err := v2_8_0.ListReposFromCollection(ctx, db, true)
 	require.NoError(t, err)
-	expectedBranches, expectedEdges, expectedTriggers, err := v2_8_0.ListBranchesEdgesTriggersFromCollections(ctx, db)
+	expectedBranches, expectedEdges, expectedTriggers, err := v2_8_0.ListBranchesEdgesTriggersFromCollections(ctx, db, true)
 	require.NoError(t, err)
 
 	// Verify Repos
