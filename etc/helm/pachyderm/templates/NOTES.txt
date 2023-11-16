@@ -4,10 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 */ -}}
 
 {{- if and (not .Values.ingress.enabled) (not .Values.pachd.externalService.enabled) (not .Values.proxy.enabled) (eq .Values.proxy.service.type "ClusterIP") -}}
-To connect to your new pachyderm instance, run:
-pachctl config import-kube local --overwrite
-pachctl config set active-context local
-pachctl port-forward
+WARNING: Your Pachyderm instance will not be usable until you expose Pachyderm to the network.
 {{- end -}}
 
 {{ if not .Values.oidc.upstreamIDPs }}

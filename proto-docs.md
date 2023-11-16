@@ -3125,9 +3125,9 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 | server_cas | [string](#string) |  | Trusted root certificates (overrides installed certificates), formatted as base64-encoded PEM. |
 | session_token | [string](#string) |  | A secret token identifying the current pachctl user within their pachyderm cluster. This is included in all RPCs sent by pachctl, and used to determine if pachctl actions are authorized. |
 | active_transaction | [string](#string) |  | The currently active transaction for batching together pachctl commands. This can be set or cleared via many of the `pachctl * transaction` commands. This is the ID of the transaction object stored in the pachyderm etcd. |
-| cluster_name | [string](#string) |  | The k8s cluster name - used to construct a k8s context. |
-| auth_info | [string](#string) |  | The k8s auth info - used to construct a k8s context. |
-| namespace | [string](#string) |  | The k8s namespace - used to construct a k8s context. |
+| cluster_name | [string](#string) |  | **Deprecated.** The k8s cluster name - used to construct a k8s context. |
+| auth_info | [string](#string) |  | **Deprecated.** The k8s auth info - used to construct a k8s context. |
+| namespace | [string](#string) |  | **Deprecated.** The k8s namespace - used to construct a k8s context. |
 | port_forwarders | [Context.PortForwardersEntry](#config_v2-Context-PortForwardersEntry) | repeated | **Deprecated.** A mapping of service -&gt; port number, when port forwarding is running for this context. |
 | cluster_deployment_id | [string](#string) |  | A unique ID for the cluster deployment. At client initialization time, we ensure this is the same as what the cluster reports back, to prevent us from connecting to the wrong cluster. |
 | enterprise_server | [bool](#bool) |  | A boolean that records whether the context points at an enterprise server. If false, the context points at a stand-alone pachd. |

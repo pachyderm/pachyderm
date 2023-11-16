@@ -73,13 +73,13 @@ message Context {
     string active_transaction = 5;
 
     // The k8s cluster name - used to construct a k8s context.
-    string cluster_name = 6;
+    string cluster_name = 6 [deprecated = true];
 
     // The k8s auth info - used to construct a k8s context.
-    string auth_info = 7;
+    string auth_info = 7 [deprecated = true];
 
     // The k8s namespace - used to construct a k8s context.
-    string namespace = 8;
+    string namespace = 8 [deprecated = true];
 
     // A mapping of service -> port number, when port forwarding is
     // running for this context.
