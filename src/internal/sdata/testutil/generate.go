@@ -14,10 +14,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 )
 
-var SupportedDBSpecs = []DBSpec{postgreSQLSpec{}, mySQLSpec{}, snowflakeSpec{}}
+var SupportedDBSpecs = []DBSpec{postgreSQLSpec{}, mySQLSpec{}}
 
 type setIDer interface {
 	SetID(int16)
@@ -63,31 +62,6 @@ func (s mySQLSpec) Schema() string { return s.dbName }
 
 func (s mySQLSpec) TestRow() setIDer {
 	return &pachsql.TestRow{}
-}
-
-type snowflakeSpec struct{}
-
-func (s snowflakeSpec) String() string { return "Snowflake" }
-
-func (s snowflakeSpec) Create(ctx context.Context, t *testing.T) (*sqlx.DB, string, string) {
-	const tableName = "test_table"
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
-	return db, dbName, tableName
-}
-
-func (s snowflakeSpec) Schema() string { return "public" }
-
-func (s snowflakeSpec) TestRow() setIDer {
-	return &snowflakeRow{}
-}
-
-type snowflakeRow struct {
-	pachsql.TestRow
-	Variant interface{} `column:"c_variant" dtype:"VARIANT" constraint:"NULL"`
-}
-
-func (row *snowflakeRow) SetID(id int16) {
-	row.TestRow.SetID(id)
 }
 
 func AddFuzzFuncs(fz *fuzz.Fuzzer) {
@@ -138,35 +112,7 @@ func AddFuzzFuncs(fz *fuzz.Fuzzer) {
 func GenerateTestData(db *pachsql.DB, tableName string, n int, row setIDer) error {
 	fz := fuzz.New()
 	AddFuzzFuncs(fz)
-	var insertStatement string
-	if db.DriverName() == "snowflake" {
-		var process func(reflect.Type, int) []string
-		process = func(t reflect.Type, acc int) []string {
-			var asClauses []string
-			if t.Kind() == reflect.Ptr {
-				return process(t.Elem(), acc)
-			}
-			for i := 0; i < t.NumField(); i++ {
-				var asClause string
-				f := t.Field(i)
-				if f.Anonymous && f.Type.Kind() == reflect.Struct {
-					asClauses = append(asClauses, process(f.Type, acc+len(asClauses))...)
-					continue
-				}
-				if f.Type.Kind() == reflect.Interface && f.Type.NumMethod() == 0 {
-					asClause = fmt.Sprintf(`to_variant(COLUMN%d) as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
-				} else {
-					asClause = fmt.Sprintf(`COLUMN%d as %s`, acc+len(asClauses)+1, f.Tag.Get("column"))
-				}
-				asClauses = append(asClauses, asClause)
-			}
-			return asClauses
-		}
-		insertStatement = fmt.Sprintf(`INSERT INTO %s SELECT %s FROM VALUES %s`, tableName, strings.Join(process(reflect.TypeOf(row), 0), ","), formatValues(row, db))
-	} else {
-		insertStatement = fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
-
-	}
+	insertStatement := fmt.Sprintf("INSERT INTO %s %s VALUES %s", tableName, formatColumns(row), formatValues(row, db))
 	for i := 0; i < n; i++ {
 		fz.Fuzz(row)
 		row.SetID(int16(i))

@@ -160,6 +160,8 @@ func (m *Metrics) validate(all bool) error {
 
 	// no validation rules for EnterpriseFailures
 
+	// no validation rules for PipelineWithAlerts
+
 	if len(errors) > 0 {
 		return MetricsMultiError(errors)
 	}

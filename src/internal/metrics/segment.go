@@ -73,6 +73,7 @@ func reportClusterMetricsToSegment(client *analytics.Client, metrics *Metrics) {
 			"MaxParallelism":      metrics.MaxParallelism,
 			"MinParallelism":      metrics.MinParallelism,
 			"NumParallelism":      metrics.NumParallelism,
+			"PipelineWithAlerts":  metrics.PipelineWithAlerts,
 		},
 	})
 }

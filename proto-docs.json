@@ -6788,6 +6788,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "pipeline_with_alerts",
+              "description": "pipelines with alerts indicator",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         }
@@ -14951,6 +14963,90 @@
           ]
         },
         {
+          "name": "CheckStatusRequest",
+          "longName": "CheckStatusRequest",
+          "fullName": "pps_v2.CheckStatusRequest",
+          "description": "Request to check the status of pipelines within a project.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "all",
+              "description": "boolean field indicating status of all project pipelines.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            },
+            {
+              "name": "project",
+              "description": "project field",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CheckStatusResponse",
+          "longName": "CheckStatusResponse",
+          "fullName": "pps_v2.CheckStatusResponse",
+          "description": "Response for check status request. Provides alerts if any.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "project field",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "pipeline field",
+              "label": "",
+              "type": "Pipeline",
+              "longType": "Pipeline",
+              "fullType": "pps_v2.Pipeline",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "alerts",
+              "description": "alert indicators",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ClusterDefaults",
           "longName": "ClusterDefaults",
           "fullName": "pps_v2.ClusterDefaults",
@@ -15363,6 +15459,18 @@
               "type": "Determined",
               "longType": "Determined",
               "fullType": "pps_v2.Determined",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -18828,6 +18936,30 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "workers_started_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -20830,6 +20962,18 @@
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
               "responseStreaming": false
+            },
+            {
+              "name": "CheckStatus",
+              "description": "Check Status returns the status of pipelines within a project.",
+              "requestType": "CheckStatusRequest",
+              "requestLongType": "CheckStatusRequest",
+              "requestFullType": "pps_v2.CheckStatusRequest",
+              "requestStreaming": false,
+              "responseType": "CheckStatusResponse",
+              "responseLongType": "CheckStatusResponse",
+              "responseFullType": "pps_v2.CheckStatusResponse",
+              "responseStreaming": true
             },
             {
               "name": "CreateSecret",

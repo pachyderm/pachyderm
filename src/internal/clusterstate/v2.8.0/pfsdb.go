@@ -169,7 +169,9 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 	}
 	for trigger, fromBranchID := range triggerToBranchID {
 		if _, ok := keyToBranch[trigger.Branch]; !ok {
-			return nil, nil, nil, errors.Errorf("branch not found: %s", trigger.Branch)
+			// We explicitly ignore triggering branches that don't exist because pfs.branch_triggers enforce foreign key constraints.
+			log.Info(ctx, "Skipping branch trigger because branch does not exist", zap.Object("trigger", trigger))
+			continue
 		}
 		bt := BranchTrigger{
 			FromBranchID:  fromBranchID,
