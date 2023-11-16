@@ -83,7 +83,7 @@ message Context {
 
     // A mapping of service -> port number, when port forwarding is
     // running for this context.
-    map<string, uint32> port_forwarders = 9;
+    map<string, uint32> port_forwarders = 9 [deprecated = true];
 
     // A unique ID for the cluster deployment. At client initialization time,
     // we ensure this is the same as what the cluster reports back, to prevent

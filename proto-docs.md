@@ -3128,7 +3128,7 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 | cluster_name | [string](#string) |  | The k8s cluster name - used to construct a k8s context. |
 | auth_info | [string](#string) |  | The k8s auth info - used to construct a k8s context. |
 | namespace | [string](#string) |  | The k8s namespace - used to construct a k8s context. |
-| port_forwarders | [Context.PortForwardersEntry](#config_v2-Context-PortForwardersEntry) | repeated | A mapping of service -&gt; port number, when port forwarding is running for this context. |
+| port_forwarders | [Context.PortForwardersEntry](#config_v2-Context-PortForwardersEntry) | repeated | **Deprecated.** A mapping of service -&gt; port number, when port forwarding is running for this context. |
 | cluster_deployment_id | [string](#string) |  | A unique ID for the cluster deployment. At client initialization time, we ensure this is the same as what the cluster reports back, to prevent us from connecting to the wrong cluster. |
 | enterprise_server | [bool](#bool) |  | A boolean that records whether the context points at an enterprise server. If false, the context points at a stand-alone pachd. |
 | project | [string](#string) |  | The current project. |

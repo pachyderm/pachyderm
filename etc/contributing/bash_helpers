@@ -4,14 +4,6 @@
 #
 # source $GOPATH/src/github.com/pachyderm/pachyderm/etc/contributing/bash_helpers
 
-function portforwarding() {
-         ps -ef | grep "docker/machine" | grep -v grep | cut -f 4 -d " " | while read -r pid
-         do
-                kill $pid
-         done
-         docker-machine ssh dev -fTNL 8080:localhost:8080 -L 30650:localhost:30650
-}
-
 function init_docker_machine() {
     eval "$(docker-machine env dev)"
 }

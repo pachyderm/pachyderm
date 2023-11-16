@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/signal"
 	"runtime/debug"
 	"sort"
 	"strings"
@@ -25,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	admincmds "github.com/pachyderm/pachyderm/v2/src/server/admin/cmds"
@@ -415,7 +413,7 @@ func PachctlCmd() (*cobra.Command, error) {
 			if err != nil {
 				buf := bytes.NewBufferString("")
 				errWriter := ansiterm.NewTabWriter(buf, 20, 1, 3, ' ', 0)
-				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n\nplease make sure pachd is up (`kubectl get all`) and portforwarding is enabled\n", pachClient.GetAddress(), status.Convert(err).Message())
+				fmt.Fprintf(errWriter, "pachd\t(version unknown) : error connecting to pachd server at address (%v): %v\n", pachClient.GetAddress(), status.Convert(err).Message())
 				errWriter.Flush()
 				return errors.New(buf.String())
 			}
@@ -527,150 +525,6 @@ This resets the cluster to its initial state.`,
 		}),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(deleteAll, "delete all"))
-
-	var port uint16
-	var remotePort uint16
-	var oidcPort uint16
-	var remoteOidcPort uint16
-	var s3gatewayPort uint16
-	var remoteS3gatewayPort uint16
-	var dexPort uint16
-	var remoteDexPort uint16
-	var consolePort uint16
-	var remoteConsolePort uint16
-	var namespace string
-	portForward := &cobra.Command{
-		Short: "Forward a port on the local machine to pachd. This command blocks.",
-		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			// TODO(ys): remove the `--namespace` flag here eventually
-			if namespace != "" {
-				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
-			}
-
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-			contextName, context, err := cfg.ActiveContext(true)
-			if err != nil {
-				return err
-			}
-			if context.PortForwarders != nil && len(context.PortForwarders) > 0 {
-				fmt.Println("Port forwarding appears to already be running for this context. Running multiple forwarders may not work correctly.")
-				if ok, err := cmdutil.InteractiveConfirm(); err != nil {
-					return err
-				} else if !ok {
-					return nil
-				}
-			}
-
-			fw, err := client.NewPortForwarder(context, namespace)
-			if err != nil {
-				return err
-			}
-			defer fw.Close()
-
-			context.PortForwarders = map[string]uint32{}
-			successCount := 0
-
-			fmt.Println("Forwarding the pachd (Pachyderm daemon) port...")
-			port, err := fw.RunForPachd(port, remotePort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["pachd"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the OIDC callback port...")
-			port, err = fw.RunForPachd(oidcPort, remoteOidcPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["oidc-acs"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the s3gateway port...")
-			port, err = fw.RunForPachd(s3gatewayPort, remoteS3gatewayPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["s3g"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the identity service port...")
-			port, err = fw.RunForPachd(dexPort, remoteDexPort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["dex"] = uint32(port)
-				successCount++
-			}
-
-			fmt.Println("Forwarding the console service port...")
-			port, err = fw.RunForConsole(consolePort, remoteConsolePort)
-			if err != nil {
-				fmt.Printf("port forwarding failed: %v\n", err)
-			} else {
-				fmt.Printf("listening on port %d\n", port)
-				context.PortForwarders["console"] = uint32(port)
-				successCount++
-			}
-
-			if successCount == 0 {
-				return errors.New("failed to start port forwarders")
-			}
-
-			if err = cfg.Write(); err != nil {
-				return err
-			}
-
-			defer func() {
-				// reload config in case changes have happened since the
-				// config was last read
-				cfg, err := config.Read(true, false)
-				if err != nil {
-					fmt.Fprintf(os.Stderr, "failed to read config file: %v\n", err)
-					return
-				}
-				context, ok := cfg.V2.Contexts[contextName]
-				if ok {
-					context.PortForwarders = nil
-					if err := cfg.Write(); err != nil {
-						fmt.Fprintf(os.Stderr, "failed to write config file: %v\n", err)
-					}
-				}
-			}()
-
-			fmt.Println("CTRL-C to exit")
-			ch := make(chan os.Signal, 1)
-			// Handle Control-C, closing the terminal window, and pkill (and friends)
-			// cleanly.
-			signal.Notify(ch, signals.TerminationSignals...)
-			<-ch
-
-			return nil
-		}),
-	}
-	portForward.Flags().Uint16VarP(&port, "port", "p", 30650, "The local port to bind pachd to.")
-	portForward.Flags().Uint16Var(&remotePort, "remote-port", 1650, "The remote port that pachd is bound to in the cluster.")
-	portForward.Flags().Uint16Var(&oidcPort, "oidc-port", 30657, "The local port to bind pachd's OIDC callback to.")
-	portForward.Flags().Uint16Var(&remoteOidcPort, "remote-oidc-port", 1657, "The remote port that OIDC callback is bound to in the cluster.")
-	portForward.Flags().Uint16VarP(&s3gatewayPort, "s3gateway-port", "s", 30600, "The local port to bind the s3gateway to.")
-	portForward.Flags().Uint16Var(&remoteS3gatewayPort, "remote-s3gateway-port", 1600, "The remote port that the s3 gateway is bound to.")
-	portForward.Flags().Uint16Var(&dexPort, "dex-port", 30658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&remoteDexPort, "remote-dex-port", 1658, "The local port to bind the identity service to.")
-	portForward.Flags().Uint16Var(&consolePort, "console-port", 4000, "The local port to bind the console service to.")
-	portForward.Flags().Uint16Var(&remoteConsolePort, "remote-console-port", 4000, "The remote port to bind the console  service to.")
-	portForward.Flags().StringVar(&namespace, "namespace", "", "Kubernetes namespace Pachyderm is deployed in.")
-	subcommands = append(subcommands, cmdutil.CreateAlias(portForward, "port-forward"))
 
 	var install bool
 	var installPathBash string

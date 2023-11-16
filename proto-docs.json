@@ -6065,7 +6065,10 @@
               "ismap": true,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "deprecated": true
+              }
             },
             {
               "name": "cluster_deployment_id",
