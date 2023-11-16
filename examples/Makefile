@@ -48,7 +48,7 @@ GATK_GERMLINE_FILES	=	gatk/GATK_Germline/data/ref/ref.dict \
 iris-base:
 	$(PACHCTL) create repo training
 	$(PACHCTL) create repo attributes
-	$(PACHCTL) create pipeline -f ml/iris/$(IRIS_FLAVOR)_train.json 
+	$(PACHCTL) create pipeline -f ml/iris/$(IRIS_FLAVOR)_train.json
 	$(PACHCTL) create pipeline -f ml/iris/$(IRIS_FLAVOR)_infer.json
 
 iris: iris-base
@@ -86,7 +86,7 @@ ml/object-detection/frozen_inference_graph.pb:
 # a separate images repo will be created for object-detection.
 OBJECT_MODEL_PIPELINE = $(PACHCTL) create pipeline -f ml/object-detection/model.json
 OBJECT_DETECT_PIPELINE = $(PACHCTL) create pipeline -f ml/object-detection/detect.json
-object-detection-base: 
+object-detection-base:
 	@$(OBJECT_IMAGES)
 	$(PACHCTL) create repo training
 	@$(OBJECT_MODEL_PIPELINE)
@@ -117,7 +117,7 @@ housing-prices-2:
 
 housing-prices-delete:
 		$(PACHCTL) delete pipeline regression
-		$(PACHCTL) delete repo housing_data 
+		$(PACHCTL) delete repo housing_data
 
 hyperparameter-common:
 	$(PACHCTL) create repo raw_data
@@ -129,7 +129,7 @@ hyperparameter-base: hyperparameter-common
 	$(PACHCTL) create pipeline -f ml/hyperparameter/test.json
 	$(PACHCTL) create pipeline -f ml/hyperparameter/select.json
 
-hyperparameter-data: 
+hyperparameter-data:
 	$(PACHCTL) start transaction
 	$(PACHCTL) start commit raw_data@master
 	$(PACHCTL) start commit parameters@master
@@ -150,12 +150,12 @@ hyperparameter-delete:
 	-$(PACHCTL) delete repo parameters
 	-$(PACHCTL) delete repo raw_data
 
-$(GATK_GERMLINE_FILES): 
+$(GATK_GERMLINE_FILES):
 	mkdir -p gatk/GATK_Germline
 	wget -p https://s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip --directory-prefix=/tmp
 	unzip -o /tmp/s3-us-west-1.amazonaws.com/pachyderm.io/Examples_Data_Repo/GATK_Germline.zip  data/ref/ref.dict data/ref/ref.fasta data/ref/ref.fasta.fai data/ref/refSDF/* data/bams/*  -d gatk/GATK_Germline
 
-gatk-base: 
+gatk-base:
 	$(PACHCTL) create repo reference
 	$(PACHCTL) create repo samples
 	$(PACHCTL) create pipeline -f gatk/likelihoods.json
@@ -214,4 +214,3 @@ minikube:echo hi
 		$(ECHO) -en "\e[G\e[K$${WHEEL:0:1} waiting for pachyderm to start..."; \
 		sleep 1; \
 	done
-	pachctl port-forward &

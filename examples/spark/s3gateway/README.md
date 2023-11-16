@@ -1,9 +1,10 @@
 # Writing to Pachyderm from Spark using the S3 Gateway
 
-In Pachyderm 2.3.2+, Pachyderm's S3 Gateway has been made compatible with Spark's s3a adapter.
-This means that you can write to a Pachyderm repo from a distributed Spark cluster.
+In Pachyderm 2.3.2+, Pachyderm's S3 Gateway has been made compatible with Spark's s3a adapter. This
+means that you can write to a Pachyderm repo from a distributed Spark cluster.
 
-⚠️ TODO: 2.3.2 hasn't been released with this fix yet. For now you can use custom pachd image `pachyderm/pachd:18e1a0dc425fa5df8a68148d85074795666ab640` (based on Pachyderm 2.3.x) to test it!
+⚠️ TODO: 2.3.2 hasn't been released with this fix yet. For now you can use custom pachd image
+`pachyderm/pachd:18e1a0dc425fa5df8a68148d85074795666ab640` (based on Pachyderm 2.3.x) to test it!
 
 You can connect Spark to Pachyderm's S3 gateway with, for example, options like the following:
 
@@ -26,8 +27,11 @@ conf.set("spark.hadoop.fs.s3a.change.detection.version.required", 'false')
 
 We need to disable change detection, otherwise Etag issues will cause the Spark job to hang.
 
-You need to ensure you open a commit for the duration of the Spark job, otherwise you will see errors.
-This is because Spark's s3a driver writes temporary files with the same names as directories. This works in S3, but not in Pachyderm when closing commits: in this case you get a "file / directory path collision" error on the commits that the S3 gateway generates. Holding a commit open throughout the Spark job allows it to complete without errors.
+You need to ensure you open a commit for the duration of the Spark job, otherwise you will see
+errors. This is because Spark's s3a driver writes temporary files with the same names as
+directories. This works in S3, but not in Pachyderm when closing commits: in this case you get a
+"file / directory path collision" error on the commits that the S3 gateway generates. Holding a
+commit open throughout the Spark job allows it to complete without errors.
 
 You can hold a commit open during a job with `python_pachyderm`.
 
@@ -38,11 +42,14 @@ with client.commit("spark-s3g-demo", "master") as commit:
     print(f"Closing {commit}")
 ```
 
-⚠️ Don't use pachyderm repo names with an underscore (`_`) in them, s3a fails to connect to these, giving the mysterious error `bucket is null/empty`, hyphens however (`-`) work fine!
+⚠️ Don't use pachyderm repo names with an underscore (`_`) in them, s3a fails to connect to these,
+giving the mysterious error `bucket is null/empty`, hyphens however (`-`) work fine!
 
-Another issue is that the Java S3 driver assumes that ETags are generated as MD5 hashes. Pachyderm doesn't do that, so we have to disable integrity checking on writes.
+Another issue is that the Java S3 driver assumes that ETags are generated as MD5 hashes. Pachyderm
+doesn't do that, so we have to disable integrity checking on writes.
 
 You can do that with:
+
 ```python
 sc = SparkContext(conf=conf)
 sc.setLogLevel("DEBUG")
@@ -51,24 +58,30 @@ sc.setSystemProperty("com.amazonaws.services.s3.disablePutObjectMD5Validation", 
 
 # Complete example
 
-Putting this all together, we get the following example of writing to Pachyderm from pyspark.
-Start by creating the repo and the branch:
+Putting this all together, we get the following example of writing to Pachyderm from pyspark. Start
+by creating the repo and the branch:
+
 ```
 pachctl create repo spark-s3g-demo
 pachctl create branch spark-s3g-demo@master
 ```
 
 Install the dependencies, Java:
+
 ```
 sudo apt install openjdk-11-jdk openjdk-11-jre
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
 ```
+
 PySpark and Python-Pachyderm:
+
 ```
 pip3 install pyspark==3.3.0
 pip3 install python-pachyderm==7.3.2
 ```
+
 Some jars:
+
 ```
 wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.3/hadoop-aws-3.3.3.jar
 wget https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.264/aws-java-sdk-bundle-1.12.264.jar
@@ -120,9 +133,8 @@ with client.commit(repo, branch) as commit:
     print(f"Closing {commit}")
 ```
 
-If necessary (and if you are usuing `localhost` in your endpoint), you may need to run `pachctl port-forward` in another terminal to forward the 30600 port to your Pachyderm instance.
-
 And run it with:
+
 ```
 spark-submit --jars 'hadoop-aws-3.3.3.jar,aws-java-sdk-bundle-1.12.264.jar' spark.py 2>&1 |tee -a spark-log.txt
 ```
