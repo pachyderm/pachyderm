@@ -120,9 +120,6 @@ docker-build-kafka:
 docker-build-spout-test:
 	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
-docker-build-connectors:
-	docker build -t pachyderm/snowflake:local -f src/integrations/connectors/snowflake/Dockerfile .
-
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
 
@@ -330,9 +327,6 @@ test-worker: launch-stats test-worker-helper
 test-worker-helper:
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 -tags=k8s ./src/server/worker/ -timeout $(TIMEOUT) $(TESTFLAGS)
-
-test-connectors: docker-build-connectors
-	go test -v -count=1 -tags=k8s ./src/integrations/connectors/... -timeout $(TIMEOUT) -clusters.reuse $(CLUSTERS_REUSE) $(TESTFLAGS)
 
 clean: clean-launch clean-launch-kube
 

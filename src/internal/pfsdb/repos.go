@@ -91,7 +91,10 @@ func DeleteRepo(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, repo
 	}
 	if rowsAffected == 0 {
 		if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
-			return errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
+			if errors.As(err, new(*ProjectNotFoundError)) {
+				return errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
+			}
+			return errors.Wrapf(err, "could not get project %v for delete repo", repoProject)
 		}
 		return &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType}
 	}
@@ -144,7 +147,10 @@ func getRepoByName(ctx context.Context, tx *pachsql.Tx, repoProject, repoName, r
 	); err != nil {
 		if err == sql.ErrNoRows {
 			if _, err := GetProjectByName(ctx, tx, repoProject); err != nil {
-				return nil, errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
+				if errors.As(err, new(*ProjectNotFoundError)) {
+					return nil, errors.Join(err, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType})
+				}
+				return nil, errors.Wrapf(err, "could not get project for get repo", repoProject)
 			}
 			return nil, &RepoNotFoundError{Project: repoProject, Name: repoName, Type: repoType}
 		}

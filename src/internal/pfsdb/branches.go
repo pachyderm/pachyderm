@@ -213,7 +213,10 @@ func GetBranchInfoWithID(ctx context.Context, tx *pachsql.Tx, b *pfs.Branch) (*B
 	if err := tx.GetContext(ctx, row, getBranchByNameQuery, project, repo, repoType, branch); err != nil {
 		if err == sql.ErrNoRows {
 			if _, err := GetRepoByName(ctx, tx, project, repo, repoType); err != nil {
-				return nil, errors.Join(err, &BranchNotFoundError{BranchKey: b.Key()})
+				if errors.As(err, new(*RepoNotFoundError)) {
+					return nil, errors.Join(err, &BranchNotFoundError{BranchKey: b.Key()})
+				}
+				return nil, errors.Wrapf(err, "get repo for branch info %v", b.Key())
 			}
 			return nil, &BranchNotFoundError{BranchKey: b.Key()}
 		}

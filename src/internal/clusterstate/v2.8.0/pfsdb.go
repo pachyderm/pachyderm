@@ -160,7 +160,9 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 	}
 	for trigger, fromBranchID := range triggerToBranchID {
 		if _, ok := keyToBranch[trigger.Branch]; !ok {
-			return nil, nil, nil, errors.Errorf("branch not found: %s", trigger.Branch)
+			// We explicitly ignore triggering branches that don't exist because pfs.branch_triggers enforce foreign key constraints.
+			log.Info(ctx, "Skipping branch trigger because branch does not exist", zap.Object("trigger", trigger))
+			continue
 		}
 		bt := BranchTrigger{
 			FromBranchID:  fromBranchID,
@@ -228,6 +230,9 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 	tx := env.Tx
 	if err := createReposTable(ctx, tx); err != nil {
 		return errors.Wrap(err, "creating pfs.repos table")
+	}
+	if err := env.LockTables(ctx, "collections.repos", "pfs.repos"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on repos tables")
 	}
 	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.repos(name, type, project_id, description, created_at, updated_at) VALUES ($1, $2, (select id from core.projects where name=$3), $4, $5, $6)`)
 	if err != nil {
@@ -347,6 +352,9 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
+	}
+	if err := env.LockTables(ctx, "collections.commits", "pfs.commits", "pfs.commit_ancestry"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on commits tables")
 	}
 	log.Info(ctx, "migrating commits")
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
@@ -584,6 +592,10 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		CREATE INDEX ON pfs.branch_triggers (to_branch_id);
 	`); err != nil {
 		return errors.Wrap(err, "creating branch triggers table")
+	}
+
+	if err := env.LockTables(ctx, "collections.branches", "pfs.branches", "pfs.branch_provenance", "pfs.branch_triggers"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on branches tables")
 	}
 
 	insertBranchStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branches(name, head, repo_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`)
