@@ -57,6 +57,9 @@ const (
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
 
+// Ensures BranchIterator implements the Iterator interface.
+var _ stream.Iterator[BranchInfoWithID] = &BranchIterator{}
+
 // BranchProvCycleError is returned when a cycle is detected at branch creation time.
 type BranchProvCycleError struct {
 	From, To string
@@ -97,6 +100,7 @@ type BranchIterator struct {
 	paginator pageIterator[Branch]
 	tx        *pachsql.Tx
 }
+
 type BranchInfoWithID struct {
 	ID       BranchID
 	Revision int64
