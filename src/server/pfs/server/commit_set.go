@@ -155,7 +155,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 			CommitSet: client.NewCommitSet(commitInfo.Commit.Id),
 			Commits:   commitInfos,
 		})
-	})
+	}, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: pfsdb.SortOrderDesc})
 	return errors.Wrap(err, "list commit set")
 }
 
