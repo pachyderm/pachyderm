@@ -131,7 +131,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 	seen := map[string]struct{}{}
 	// Return commitsets by the newest commit in each set (which can be at a different
 	// timestamp due to triggers or deferred processing)
-	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil)
+	iter, err := pfsdb.ListCommit(ctx, d.env.DB, nil, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: pfsdb.SortOrderDesc})
 	if err != nil {
 		return errors.Wrap(err, "list commit set")
 	}
@@ -155,7 +155,7 @@ func (d *driver) listCommitSet(ctx context.Context, project *pfs.Project, cb fun
 			CommitSet: client.NewCommitSet(commitInfo.Commit.Id),
 			Commits:   commitInfos,
 		})
-	}, pfsdb.OrderByCommitColumn{Column: pfsdb.CommitColumnID, Order: pfsdb.SortOrderDesc})
+	})
 	return errors.Wrap(err, "list commit set")
 }
 
