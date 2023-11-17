@@ -77,6 +77,45 @@ describe('lib/getFileDetails', () => {
     expect.assertions(numExtensions);
   });
 
+  it('should return the correct file details regardless of extension case', () => {
+    const mov = FILE_EXTENSION_MAP['.mov'];
+    const dockerfile = FILE_EXTENSION_MAP['dockerfile'];
+
+    expect(mov).toMatchObject({
+      renderer: 'video',
+      icon: 'video',
+      supportsPreview: true,
+      supportsViewSource: false,
+    });
+    expect(dockerfile).toMatchObject({
+      renderer: 'code',
+      language: 'docker',
+      icon: 'document',
+      supportsPreview: true,
+      supportsViewSource: false,
+    });
+    expect(getFileDetails('/path/to/file.MOV')).toBe(mov);
+    expect(getFileDetails('/path/to/file.mov')).toBe(mov);
+    expect(getFileDetails('/path/to/file.Mov')).toBe(mov);
+    expect(getFileDetails('/path/to/dockerfile')).toBe(dockerfile);
+    expect(getFileDetails('/path/to/Dockerfile')).toBe(dockerfile);
+    expect(getFileDetails('/path/to/DoCkErFiLe')).toBe(dockerfile);
+  });
+
+  it('should have only lower case extensions', () => {
+    const numExtensions = Object.keys(FILE_EXTENSION_MAP).length;
+
+    Object.keys(FILE_TYPE_MAP).forEach((subtype) => {
+      const fileDetails = FILE_TYPE_MAP[subtype];
+
+      fileDetails.extensions.forEach((extension) => {
+        expect(extension).toEqual(extension.toLowerCase());
+      });
+    });
+
+    expect.assertions(numExtensions);
+  });
+
   it('should parse a file path', () => {
     expect(parseFilePath('README.md')).toMatchObject({
       base: 'README.md',

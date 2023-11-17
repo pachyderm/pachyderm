@@ -276,7 +276,7 @@ export const FILE_TYPE_MAP = Object.freeze<FileTypeMap>({
     icon: 'document',
     supportsPreview: true,
     supportsViewSource: false,
-    extensions: ['Dockerfile'],
+    extensions: ['dockerfile'],
   },
 
   css: {
@@ -434,7 +434,7 @@ export const FILE_EXTENSION_MAP = Object.freeze<FileExtensionMap>(
     const fileType = FILE_TYPE_MAP[type];
 
     fileType.extensions.forEach((extension) => {
-      extensionMap[extension] = fileType;
+      extensionMap[extension.toLowerCase()] = fileType;
     });
 
     return extensionMap;
@@ -447,7 +447,7 @@ export const parseFilePath = (filePath: string) => {
 
 export const getFileDetails = (filePath: string) => {
   const parsedPath = parsePath(filePath);
-  const extension = parsedPath.ext || parsedPath.name;
+  const extension = (parsedPath.ext || parsedPath.name).toLowerCase();
 
   return FILE_EXTENSION_MAP[extension] || FILE_TYPE_MAP.unknown;
 };
