@@ -317,73 +317,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	shell.RegisterCompletionFunc(setContext, contextCompletion)
 	commands = append(commands, cmdutil.CreateAlias(setContext, "config set context"))
 
-	var kubeContextName, namespace string
-	var enterprise bool
-	contextFromKube := &cobra.Command{
-		Use:   "{{alias}} <context>",
-		Short: "Import a Kubernetes context as a Pachyderm context, and set the active Pachyderm context.",
-		Long:  "This command imports a Kubernetes context as a Pachyderm context. By default the current kubernetes context is used.",
-		Example: "\t- {{alias}} foo" +
-			"\t- {{alias}} foo --overwrite",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			name := args[0]
-
-			cfg, err := config.Read(false, false)
-			if err != nil {
-				return err
-			}
-
-			if !overwrite {
-				if _, ok := cfg.V2.Contexts[name]; ok {
-					return errors.Errorf("context '%s' already exists, use `--overwrite` if you wish to replace it", args[0])
-				}
-			}
-
-			var context config.Context
-			kubeConfig, err := config.RawKubeConfig()
-			if err != nil {
-				return err
-			}
-
-			if kubeContextName == "" {
-				kubeContextName = kubeConfig.CurrentContext
-			}
-
-			kubeContext := kubeConfig.Contexts[kubeContextName]
-			if kubeContext == nil {
-				return errors.Errorf("kubernetes context does not exist: %s", kubeContextName)
-			}
-
-			if namespace == "" {
-				namespace = kubeContext.Namespace
-			}
-
-			context = config.Context{
-				Source:           config.ContextSource_IMPORTED,
-				ClusterName:      kubeContext.Cluster,
-				AuthInfo:         kubeContext.AuthInfo,
-				Namespace:        namespace,
-				EnterpriseServer: enterprise,
-			}
-
-			if enterprise {
-				cfg.V2.ActiveEnterpriseContext = name
-			} else {
-				cfg.V2.ActiveContext = name
-			}
-			cfg.V2.Contexts[name] = &context
-			return cfg.Write()
-		}),
-	}
-	contextFromKube.Flags().BoolVarP(&overwrite, "overwrite", "o", false, "Overwrite a context if it already exists.")
-	contextFromKube.Flags().BoolVarP(&enterprise, "enterprise", "e", false, "Configure an enterprise server context.")
-	contextFromKube.Flags().StringVarP(&kubeContextName, "kubernetes", "k", "", "Specify the kubernetes context's values to import.")
-	contextFromKube.Flags().StringVarP(&namespace, "namespace", "n", "", "Specify a namespace where Pachyderm is deployed.")
-	commands = append(commands, cmdutil.CreateAlias(contextFromKube, "config import-kube"))
-
 	var pachdAddress string
-	var clusterName string
-	var authInfo string
 	var serverCAs string
 	var project string
 	var removeClusterDeploymentID bool
@@ -394,10 +328,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command updates an existing context config from a given name (or the currently-active context, if no name is given).",
 		Example: "\t- {{alias}} foo" +
 			"\t- {{alias}} foo --pachd-address localhost:30650" +
-			"\t- {{alias}} foo --cluster-name my-cluster" +
-			"\t- {{alias}} foo --auth-info my-auth-info" +
 			"\t- {{alias}} foo --server-cas /path/to/ca.crt" +
-			"\t- {{alias}} foo --namespace my-namespace" +
 			"\t- {{alias}} foo --project my-project" +
 			"\t- {{alias}} foo --remove-cluster-deployment-id",
 		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
@@ -439,17 +370,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					context.PachdAddress = parsedPachdAddress.Qualified()
 				}
 			}
-			if updateContext.Flags().Changed("cluster-name") {
-				context.ClusterName = clusterName
-			}
-			if updateContext.Flags().Changed("auth-info") {
-				context.AuthInfo = authInfo
-			}
 			if updateContext.Flags().Changed("server-cas") {
 				context.ServerCas = serverCAs
-			}
-			if updateContext.Flags().Changed("namespace") {
-				context.Namespace = namespace
 			}
 			if updateContext.Flags().Changed("project") {
 				context.Project = project
@@ -462,10 +384,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		}),
 	}
 	updateContext.Flags().StringVar(&pachdAddress, "pachd-address", "", "Set a new name pachd address.")
-	updateContext.Flags().StringVar(&clusterName, "cluster-name", "", "Set a new cluster name.")
-	updateContext.Flags().StringVar(&authInfo, "auth-info", "", "Set a new k8s auth info.")
 	updateContext.Flags().StringVar(&serverCAs, "server-cas", "", "Set new trusted CA certs.")
-	updateContext.Flags().StringVar(&namespace, "namespace", "", "Set a new namespace.")
 	updateContext.Flags().StringVar(&project, "project", "", "Set a new project.")
 	updateContext.Flags().BoolVar(&removeClusterDeploymentID, "remove-cluster-deployment-id", false, "Remove the cluster deployment ID field, which will be repopulated on the next 'pachctl' call using this context.")
 	shell.RegisterCompletionFunc(updateContext, contextCompletion)

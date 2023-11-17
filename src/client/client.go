@@ -133,8 +133,6 @@ type APIClient struct {
 	// The context used in requests, can be set with WithCtx
 	ctx context.Context
 
-	portForwarder *PortForwarder
-
 	// The client context name this client was created from, if it was created by
 	// NewOnUserMachine
 	clientContextName string
@@ -465,27 +463,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 	return nil, options, nil
 }
 
-func portForwarder(context *config.Context) (*PortForwarder, uint16, error) {
-	fw, err := NewPortForwarder(context, "")
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to initialize port forwarder")
-	}
-
-	var port uint16
-	if context.EnterpriseServer {
-		port, err = fw.RunForEnterpriseServer(0, 1650)
-	} else {
-		port, err = fw.RunForPachd(0, 1650)
-	}
-
-	if err != nil {
-		return nil, 0, err
-	}
-	log.Debug(pctx.TODO(), "Implicit port forwarder listening", zap.Uint16("port", port))
-
-	return fw, port, nil
-}
-
 // NewForTest constructs a new APIClient for tests.
 // TODO(actgardner): this should probably live in testutils and accept a testing.TB
 func NewForTest() (*APIClient, error) {
@@ -598,29 +575,8 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 		return nil, err
 	}
 
-	var fw *PortForwarder
-	if pachdAddress == nil && context.PortForwarders != nil {
-		pachdLocalPort, ok := context.PortForwarders["pachd"]
-		if ok {
-			log.Debug(pctx.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
-			pachdAddress = &grpcutil.PachdAddress{
-				Secured: false,
-				Host:    "localhost",
-				Port:    uint16(pachdLocalPort),
-			}
-		}
-	}
 	if pachdAddress == nil {
-		var pachdLocalPort uint16
-		fw, pachdLocalPort, err = portForwarder(context)
-		if err != nil {
-			return nil, err
-		}
-		pachdAddress = &grpcutil.PachdAddress{
-			Secured: false,
-			Host:    "localhost",
-			Port:    pachdLocalPort,
-		}
+		return nil, errors.New("no pachd address is configured")
 	}
 
 	client, err := NewFromPachdAddress(pachdAddress, append(options, cfgOptions...)...)
@@ -675,13 +631,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 			}
 		}
 	}
-
-	// Add port forwarding. This will set it to nil if port forwarding is
-	// disabled, or an address is explicitly set.
-	client.portForwarder = fw
-
 	client.clientContextName = contextName
-
 	return client, nil
 }
 
@@ -755,11 +705,6 @@ func (c *APIClient) Close() error {
 	if err := c.clientConn.Close(); err != nil {
 		return err
 	}
-
-	if c.portForwarder != nil {
-		c.portForwarder.Close()
-	}
-
 	return nil
 }
 

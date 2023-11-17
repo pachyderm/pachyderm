@@ -5,18 +5,18 @@ set -euxo pipefail
 go version
 
 if [ "$PACHD_VERSION" == "latest" ]
-then 
+then
     if [ -z "$PACHD_LATEST_VERSION" ]
-    then 
+    then
         pachctl_tag=$(git tag --sort=taggerdate | tail -1) # the latest tag should be the nightly
         image_tag=$(git rev-parse origin/master)
     else
         pachctl_tag="$PACHD_LATEST_VERSION"
-        image_tag="${pachctl_tag//v/}" 
+        image_tag="${pachctl_tag//v/}"
     fi
 else
-    pachctl_tag=$PACHD_VERSION 
-    image_tag="${pachctl_tag//v/}" 
+    pachctl_tag=$PACHD_VERSION
+    image_tag="${pachctl_tag//v/}"
 fi
 
 
@@ -35,10 +35,9 @@ helm install pachyderm etc/helm/pachyderm \
     --set pachd.image.tag="$image_tag"
 kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
 
-pachctl config import-kube perftest
+pachctl connect grpc://$(minikube ip):30650
 echo "$ENT_ACT_CODE" | pachctl license activate
 pachctl version
-nohup pachctl port-forward &
 
 git checkout "$branch"
 

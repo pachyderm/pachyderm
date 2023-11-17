@@ -66,7 +66,6 @@ minikube:
 	    sleep 1; \
 	done; \
 	echo
-	pachctl port-forward &
 
 .PHONY: \
 	echo \
