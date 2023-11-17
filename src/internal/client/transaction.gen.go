@@ -538,6 +538,10 @@ func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.
 	return nil, unsupportedError("ActivateAuth")
 }
 
+func (c *unsupportedPpsBuilderClient) CheckStatus(_ context.Context, _ *pps_v2.CheckStatusRequest, opts ...grpc.CallOption) (pps_v2.API_CheckStatusClient, error) {
+	return nil, unsupportedError("CheckStatus")
+}
+
 func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("CreatePipeline")
 }

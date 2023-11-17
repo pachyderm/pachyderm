@@ -543,6 +543,8 @@ func (x *PipelineInfo_Details) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	enc.AddArray("tolerations", zapcore.ArrayMarshalerFunc(tolerationsArrMarshaller))
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
 	enc.AddObject("determined", x.Determined)
+	protoextensions.AddDuration(enc, "maximum_expected_uptime", x.MaximumExpectedUptime)
+	protoextensions.AddTimestamp(enc, "workers_started_at", x.WorkersStartedAt)
 	return nil
 }
 
@@ -848,6 +850,7 @@ func (x *CreatePipelineRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	enc.AddObject("sidecar_resource_requests", x.SidecarResourceRequests)
 	enc.AddBool("dry_run", x.DryRun)
 	enc.AddObject("determined", x.Determined)
+	protoextensions.AddDuration(enc, "maximum_expected_uptime", x.MaximumExpectedUptime)
 	return nil
 }
 
@@ -979,6 +982,31 @@ func (x *RunCronRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("pipeline", x.Pipeline)
+	return nil
+}
+
+func (x *CheckStatusRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddBool("all", x.GetAll())
+	enc.AddObject("project", x.GetProject())
+	return nil
+}
+
+func (x *CheckStatusResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddObject("pipeline", x.Pipeline)
+	alertsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Alerts {
+			enc.AppendString(v)
+		}
+		return nil
+	}
+	enc.AddArray("alerts", zapcore.ArrayMarshalerFunc(alertsArrMarshaller))
 	return nil
 }
 

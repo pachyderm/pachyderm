@@ -896,6 +896,15 @@
                 "determined": {
                     "$ref": "#/definitions/pps_v2.Determined",
                     "additionalProperties": false
+                },
+                "maximumExpectedUptime": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "format": "regex"
+                },
+                "workersStartedAt": {
+                    "type": "string",
+                    "format": "date-time"
                 }
             },
             "additionalProperties": false,

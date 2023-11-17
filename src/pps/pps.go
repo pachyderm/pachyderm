@@ -2,8 +2,10 @@ package pps
 
 import (
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func (j *Job) String() string {
@@ -19,6 +21,17 @@ func (p *Pipeline) String() string {
 		return pipelineName
 	}
 	return projectName + "/" + pipelineName
+}
+
+func GetAlerts(pi *PipelineInfo) []string {
+	var alerts []string
+	zero := &timestamppb.Timestamp{}
+	if pi.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
+		time.Since(pi.Details.WorkersStartedAt.AsTime()) > pi.Details.MaximumExpectedUptime.AsDuration() {
+		exceededTime := time.Since(pi.Details.WorkersStartedAt.AsTime()) - pi.Details.MaximumExpectedUptime.AsDuration()
+		alerts = append(alerts, fmt.Sprintf("%s/%s: Started running at %v, exceeded maximum uptime by %s", pi.Pipeline.Project.GetName(), pi.Pipeline.Name, pi.Details.WorkersStartedAt.AsTime(), exceededTime.String()))
+	}
+	return alerts
 }
 
 // The following are zap fields for log lines that can be parsed into a LogMessage.  The field name

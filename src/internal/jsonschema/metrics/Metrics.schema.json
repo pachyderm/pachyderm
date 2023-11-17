@@ -207,6 +207,10 @@
                 "enterpriseFailures": {
                     "type": "integer",
                     "description": "Number of times a command has failed due to an enterprise check"
+                },
+                "pipelineWithAlerts": {
+                    "type": "boolean",
+                    "description": "pipelines with alerts indicator"
                 }
             },
             "additionalProperties": false,
