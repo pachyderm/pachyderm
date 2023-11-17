@@ -57,13 +57,14 @@ def dev_server():
         # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
         # The args after os.environ should be no-ops, but they're here in case
         # env.py changes (mount-server should use jupyterlab-pach's defaults).
-        env=dict(os.environ,
+        env=dict(
+            os.environ,
             PACH_CONFIG=PACH_CONFIG,
         ),
         stdout=subprocess.PIPE,
     )
     # Give time for python test server to start
-    time.sleep(3)
+    time.sleep(10)
 
     r = requests.put(
         f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
@@ -93,35 +94,14 @@ def dev_server():
     if not running:
         raise RuntimeError("mount server is having issues starting up")
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
-def test_list_repos(pachyderm_resources, dev_server):
-    repos, branches, _ = pachyderm_resources
 
-    r = requests.get(f"{BASE_URL}/repos")
-
-    assert r.status_code == 200, r.text
-    for repo_info in r.json():
-        assert repo_info.keys() == {"authorization", "branches", "repo", "project"}
-        assert repo_info["repo"] in repos
-        for _branch in repo_info["branches"]:
-            assert _branch in branches
-
-
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_list_mounts(pachyderm_resources, dev_server):
     repos, branches, _ = pachyderm_resources
 
     r = requests.put(
         f"{BASE_URL}/_mount",
         data=json.dumps(
-            {
-                "mounts": [
-                    {
-                        "name": "mount1",
-                        "repo": repos[0],
-                    }
-                ]
-            }
+            {"mounts": [{"name": "mount1", "repo": repos[0], "branch": "master"}]}
         ),
     )
     assert r.status_code == 200, r.text
@@ -142,7 +122,6 @@ def test_list_mounts(pachyderm_resources, dev_server):
     assert len(resp["unmounted"]) == len(repos)
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_mount(pachyderm_resources, dev_server):
     repos, _, files = pachyderm_resources
 
@@ -153,21 +132,18 @@ def test_mount(pachyderm_resources, dev_server):
                 "repo": repos[0],
                 "branch": "master",
                 "project": DEFAULT_PROJECT,
-                "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
                 "project": DEFAULT_PROJECT,
-                "mode": "ro",
             },
             {
                 "name": repos[1],
                 "repo": repos[1],
                 "branch": "master",
                 "project": DEFAULT_PROJECT,
-                "mode": "ro",
             },
         ]
     }
@@ -176,14 +152,16 @@ def test_mount(pachyderm_resources, dev_server):
 
     resp = r.json()
     assert len(resp["mounted"]) == 3
-    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
-    for mount_info in resp["mounted"]:
-        assert sorted(
-            list(os.walk(os.path.join(PFS_MOUNT_DIR, mount_info["name"])))[0][2]
-        ) == sorted(files)
-    assert len(resp["unmounted"]) == 3
-    assert len(resp["unmounted"][0]["branches"]) == 2
+    mounted_names = [mount["name"] for mount in resp["mounted"]]
+    assert len(resp["unmounted"]) == 2
+    assert len(resp["unmounted"][0]["branches"]) == 1
     assert len(resp["unmounted"][1]["branches"]) == 2
+
+    r = requests.get(f"{BASE_URL}/pfs")
+    assert r.status_code == 200, r.text
+    resp = r.json()
+    assert len(resp["content"]) == 3
+    assert sorted([c["name"] for c in resp["content"]]) == sorted(mounted_names)
 
     r = requests.put(
         f"{BASE_URL}/_unmount_all",
@@ -191,7 +169,10 @@ def test_mount(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
     assert r.json()["mounted"] == []
     assert len(r.json()["unmounted"]) == 3
-    assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
+
+    r = requests.get(f"{BASE_URL}/pfs")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 0
 
 
 @pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
@@ -247,7 +228,9 @@ def test_unmount(pachyderm_resources, dev_server):
     assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
 
 
-@pytest.mark.skip(reason="test flakes due to 'missing chunk' error that hasn't been diagnosed")
+@pytest.mark.skip(
+    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
+)
 def test_mount_datums(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
     input_spec = {

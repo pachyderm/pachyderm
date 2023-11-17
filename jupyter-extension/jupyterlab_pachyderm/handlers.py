@@ -76,8 +76,8 @@ class MountHandler(BaseHandler):
             for m in body["mounts"]:
                 repo = m["repo"]
                 branch = m["branch"]
-                project = m["project"]
-                name = m["name"]
+                project = m["project"] if "project" in m else "default"
+                name = m["name"] if "name" in m else None
                 self.pfs_manager.mount_repo(
                     repo=repo, branch=branch, project=project, name=name
                 )
@@ -297,11 +297,13 @@ class ConfigHandler(BaseHandler):
     async def put(self):
         try:
             body = self.get_json_body()
-            address = body["pachd_address"]            
-            cas = bytes(body["server_cas"], 'utf-8') if "server_cas" in body else None
+            address = body["pachd_address"]
+            cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
             if address.removeprefix("grpc://") != self.client.address or cas:
-                client = Client().from_pachd_address(pachd_address=address, root_certs=cas)
+                client = Client().from_pachd_address(
+                    pachd_address=address, root_certs=cas
+                )
                 self.settings["pachyderm_client"] = client
                 self.settings["pfs_contents_manager"] = PFSManager(client=client)
                 self.settings["datum_contents_manager"] = DatumManager(client=client)

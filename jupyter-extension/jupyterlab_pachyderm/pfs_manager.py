@@ -185,8 +185,15 @@ class PFSManager(FileContentsManager):
 
     def list_mounts(self) -> dict:
         mounted: list[self.Mount] = []
-        unmounted: list[self.Repo] = []
-        repo_info = {r.repo.name: r for r in self._client.pfs.list_repo()}
+        repo_info = {
+            r.repo.name: self.Repo(
+                repo=r.repo.name,
+                project=r.repo.project.name,
+                authorization=self._get_auth_str(r.auth_info),
+                branches=[b.name for b in r.branches],
+            )
+            for r in self._client.pfs.list_repo()
+        }
 
         for (name, branch) in self._mounted.items():
             mounted.append(
@@ -197,17 +204,11 @@ class PFSManager(FileContentsManager):
                     branch=branch.name,
                 )
             )
-            del repo_info[branch.repo.name]
+            repo_info[branch.repo.name]["branches"].remove(branch.name)
+            if len(repo_info[branch.repo.name]["branches"]) == 0:
+                del repo_info[branch.repo.name]
 
-        for repo in repo_info.values():
-            unmounted.append(
-                self.Repo(
-                    repo=repo.repo.name,
-                    project=repo.repo.project.name,
-                    authorization=self._get_auth_str(repo.auth_info),
-                    branches=[b.name for b in repo.branches],
-                )
-            )
+        unmounted = [r for r in repo_info.values()]
 
         return {"mounted": mounted, "unmounted": unmounted}
 
