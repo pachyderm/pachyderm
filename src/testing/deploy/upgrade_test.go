@@ -50,10 +50,11 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					Version:        from,
-					DisableLoki:    true,
-					PortOffset:     portOffset,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					Version:            from,
+					DisableLoki:        true,
+					PortOffset:         portOffset,
+					UseLeftoverCluster: false,
+					ValueOverrides:     map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -62,6 +63,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				k,
 				&minikubetestenv.DeployOpts{
 					PortOffset:     portOffset,
+					CleanupAfter:   true,
 					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("postUpgrade done")

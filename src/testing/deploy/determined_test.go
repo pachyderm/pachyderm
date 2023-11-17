@@ -52,10 +52,11 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:   auth.RootUser,
-		Enterprise: true,
-		PortOffset: portOffset,
-		Determined: true,
+		AuthUser:     auth.RootUser,
+		Enterprise:   true,
+		PortOffset:   portOffset,
+		Determined:   true,
+		CleanupAfter: true,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides

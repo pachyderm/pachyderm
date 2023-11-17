@@ -19,7 +19,6 @@ import (
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 )
 
 func main() {
@@ -85,18 +84,17 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	}
 
 	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-	sem := semaphore.NewWeighted(int64(threadPool))
+
 	eg, _ := errgroup.WithContext(ctx)
+	eg.SetLimit(threadPool)
 	for pkg, tests := range testsForShard {
 		threadLocalPkg := pkg
 		threadLocalTests := tests
-		err = sem.Acquire(ctx, 1)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 		eg.Go(func() error {
-			defer sem.Release(1)
-			return runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs)
+			return errors.EnsureStack(runTest(threadLocalPkg, threadLocalTests, tags, gotestsumArgs, gotestArgs))
 		})
 	}
 	err = eg.Wait()
@@ -111,13 +109,13 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	lockFileName := fmt.Sprintf("lock-%s", fileName)
 	err := backoff.RetryNotify(func() error {
 		if _, err := os.Stat(fileName); err != nil {
-			return err // couldn't read file, so retry until it can
+			return errors.EnsureStack(err) // couldn't read file, so retry until it can
 		}
 		if _, err := os.Stat(lockFileName); err == nil {
 			return errors.Errorf("lock file for test collection still exists")
 		}
 		return nil
-	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*10), func(err error, d time.Duration) error {
+	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*20), func(err error, d time.Duration) error {
 		log.Info(ctx, "retry waiting for tests to be collected.", zap.Error(err))
 		return nil
 	})
@@ -143,15 +141,19 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 // run tests with `go test`. We run one package at a time so tests with the same name in different packages
 // like TestConfig or TestDebug don't run multiple times if they land on separate shards.
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
-	findTestArgs := []string{
+	resultsFolder := os.Getenv("TEST_RESULTS")
+	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2"), "/", "-")
+	runTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
 		"--rerun-fails-max-failures=1",
 		"--format=testname",
 		"--debug",
+		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
+		fmt.Sprintf("--jsonfile=%s/go-test-results-%s.jsonl", resultsFolder, pkgShort),
 	}
 	if len(gotestsumArgs) > 0 {
-		findTestArgs = append(findTestArgs, gotestsumArgs...)
+		runTestArgs = append(runTestArgs, gotestsumArgs...)
 	}
 	testRegex := strings.Builder{}
 	for _, test := range testNames {
@@ -160,22 +162,23 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		}
 		testRegex.WriteString(fmt.Sprintf("^%s$", test))
 	}
-
-	findTestArgs = append(findTestArgs, "--",
+	runTestArgs = append(runTestArgs, "--",
 		fmt.Sprintf("-tags=%s", tags),
-		fmt.Sprintf("-run=%s", testRegex.String()))
+		fmt.Sprintf("-run=%s", testRegex.String()),
+	)
 	if len(gotestArgs) > 0 {
-		findTestArgs = append(findTestArgs, gotestArgs...)
+		runTestArgs = append(runTestArgs, gotestArgs...)
 	}
 
-	cmd := exec.Command("gotestsum", findTestArgs...)
+	cmd := exec.Command("gotestsum", runTestArgs...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "CGO_ENABLED=0") // DNJ TODO - parameter - how to take form args?
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOCOVERDIR=\"/tmp/test-results/\"") // DNJ TODO - parameter - how to take form args?
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
-	io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
+	_, copyErr := io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return nil
+	return errors.EnsureStack(copyErr)
+
 }

@@ -69,7 +69,7 @@ jobs:
     machine:
       image: << pipeline.parameters.machine_image >>
     resource_class: large
-    parallelism: 6
+    parallelism: 5
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -80,9 +80,9 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: 
+      - run:
           name: Collect tests to run
-          command: GOMAXPROCS=4 GOMEMLIMIT=4000MiB go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
           background: true
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
@@ -91,23 +91,23 @@ jobs:
       - run:
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=8 GOMEMLIMIT=8000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=2 \
-              -gotest-args="-parallel=6 -timeout=20m"
+              -gotest-args="-parallel=6 -timeout=20m -cover -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
-          path: ${TEST_RESULTS}
+          path: "/tmp/test-results/"
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
-          path: ${TEST_RESULTS}/circle
+          path: "/tmp/test-results/circle"
       - codecov/upload:
-          file: ${TEST_RESULTS}/unit-coverage.txt
+          file: /tmp/test-results/unit-coverage.txt
       - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
@@ -175,8 +175,8 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    resource_class: xlarge
-    parallelism: 16
+    resource_class: 2xlarge
+    parallelism: 9
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -215,9 +215,9 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
-      - run: 
+      - run:
           name: Collect tests to run
-          command: GOMAXPROCS=4 GOMEMLIMIT=8000MiB go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
+          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
@@ -252,7 +252,7 @@ jobs:
           name: Collect kube events
           command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
-      - run: 
+      - run:
           name: Snowflake build
           command: eval $(minikube -p minikube docker-env) && make docker-build-connectors # for snowflake tests
       - run:
@@ -290,13 +290,13 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMAXPROCS=4 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=16000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=2 \
-              -gotest-args="-parallel=2 -timeout=30m"
+              -threads=5 \
+              -gotest-args="-parallel=5 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
@@ -2210,7 +2210,7 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=6 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:

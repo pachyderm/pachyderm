@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"flag"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
-	terraTest "github.com/gruntwork-io/terratest/modules/testing"
 	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +54,7 @@ const (
 	determinedRegistry       = "registry-1.docker.io/determinedai"
 	determinedRegistrySecret = "detregcred"
 	determinedLoginSecret    = "detlogin"
+	helmOptsConfigMap        = "testhelmopts"
 )
 
 var (
@@ -82,7 +83,6 @@ type DeployOpts struct {
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
 	DisableLoki      bool
-	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
 	Determined       bool
@@ -92,21 +92,11 @@ type DeployOpts struct {
 	ValuesFiles      []string
 }
 
-type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
-
 func getLocalImage() string {
 	if sha := os.Getenv("TEST_IMAGE_SHA"); sha != "" {
 		return sha
 	}
 	return localImage
-}
-
-func helmLock(f helmPutE) helmPutE {
-	return func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		return f(t, options, chart, releaseName)
-	}
 }
 
 func helmChartLocalPath(t testing.TB) string {
@@ -647,8 +637,43 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
-func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
+// deletes the existing configmap and writes the new hel opts to this one
+func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string, helmOpts *helm.Options, chartPath string) {
+	err := kubeClient.CoreV1().ConfigMaps(ns).Delete(ctx, helmOptsConfigMap, *metav1.NewDeleteOptions(0))
+	require.True(t, err == nil || k8serrors.IsNotFound(err), "deleting configMap error: %v", err)
+	_, err = kubeClient.CoreV1().ConfigMaps(ns).Create(ctx, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmOptsConfigMap,
+			Namespace: ns,
+		},
+		BinaryData: map[string][]byte{
+			"helmopts-hash": hashOpts(t, helmOpts, chartPath),
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "creating helmOpts ConfigMap")
+}
 
+func getOptsConfigMapData(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) []byte {
+	configMap, err := kubeClient.CoreV1().ConfigMaps(ns).Get(ctx, helmOptsConfigMap, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []byte{}
+	}
+	require.NoError(t, err, "getting helmOpts ConfigMap")
+	return configMap.BinaryData["helmopts-hash"]
+}
+
+func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { // return string for consistency with configMap data
+	// we don't need to deserialize, we just use this to check differences, so just save a hash
+	helmBytes, err := json.Marshal(helmOpts) // lists might be ordered differently, but there are not many list fields that we actively use that would be different in practice
+	require.NoError(t, err)
+	optsHash := sha256.New()
+	_, err = optsHash.Write(helmBytes)
+	require.NoError(t, err)
+	_, err = optsHash.Write([]byte(chartPath))
+	require.NoError(t, err)
+	return optsHash.Sum(nil)
+}
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -718,16 +743,31 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		pachAddress.Secured = true
 	}
 	helmOpts.ValuesFiles = opts.ValuesFiles
-	if err := f(t, helmOpts, chartPath, namespace); err != nil {
-		if opts.UseLeftoverCluster {
-			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+
+	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
+	if mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
+		require.NoErrorWithinTRetry(t,
+			time.Minute,
+			func() error {
+				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
+			})
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster {
+		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
+		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
+			deleteRelease(t, context.Background(), namespace, kubeClient)
+			require.NoErrorWithinTRetry(t,
+				time.Minute,
+				func() error {
+					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
+				})
 		}
-		deleteRelease(t, context.Background(), namespace, kubeClient)
-		// When CircleCI was experiencing network slowness, downloading
-		// the Helm chart would sometimes fail.  Retrying it was
-		// successful.
-		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
+	} else { // same hash, no need to change anything
+		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
+		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	}
+	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
+
 	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 
 	if !opts.DisableLoki {
@@ -738,9 +778,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	if opts.Determined {
 		waitForDetermined(t, ctx, kubeClient, namespace)
 	}
-	if opts.WaitSeconds > 0 {
-		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
-	}
+
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
@@ -796,17 +834,17 @@ func putLease(t testing.TB, namespace string) error {
 			require.NoError(t, err)
 		})
 	}
-	return err
+	return errors.EnsureStack(err)
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, true, opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
 func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, false, opts)
 }
