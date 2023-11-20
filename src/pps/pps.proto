@@ -471,6 +471,8 @@ message PipelineInfo {
     repeated Toleration tolerations = 34;
     ResourceSpec sidecar_resource_requests = 35;
     Determined determined = 36;
+    google.protobuf.Duration maximum_expected_uptime = 37;
+    google.protobuf.Timestamp workers_started_at = 38;
   }
   Details details = 12;
   reserved "details_json";
@@ -744,6 +746,7 @@ message CreatePipelineRequest {
   reserved "details_json";
   bool dry_run = 37 [(protoc.gen.jsonschema.field_options).ignore = true];
   Determined determined = 38;
+  google.protobuf.Duration maximum_expected_uptime = 39;
 }
 
 message CreatePipelineV2Request {
@@ -776,9 +779,8 @@ message ListPipelineRequest {
   //-1: Return all historical versions.
   int64 history = 2;
 
-  // When true, return PipelineInfos with the details field, which requires
-  // loading the pipeline spec from PFS.
-  bool details = 3;
+  // Deprecated: Details are always returned.
+  bool details = 3 [deprecated = true];
 
   // A jq program string for additional result filtering
   string jqFilter = 4;
@@ -835,6 +837,26 @@ message RunPipelineRequest {
 
 message RunCronRequest {
   Pipeline pipeline = 1 [(validate.rules).message.required = true];
+}
+
+// Request to check the status of pipelines within a project.
+message CheckStatusRequest {
+  oneof context {
+      // boolean field indicating status of all project pipelines. 
+      bool all = 1;
+      // project field
+      pfs_v2.Project project = 2;
+   }
+}
+
+// Response for check status request. Provides alerts if any.
+message CheckStatusResponse {
+  // project field
+  pfs_v2.Project project = 1;
+  // pipeline field
+  Pipeline pipeline = 2;
+  // alert indicators 
+  repeated string alerts = 3;
 }
 
 message CreateSecretRequest {
@@ -992,6 +1014,8 @@ service API {
   rpc StopPipeline(StopPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunPipeline(RunPipelineRequest) returns (google.protobuf.Empty) {}
   rpc RunCron(RunCronRequest) returns (google.protobuf.Empty) {}
+  // Check Status returns the status of pipelines within a project.
+  rpc CheckStatus(CheckStatusRequest) returns (stream CheckStatusResponse);
 
   rpc CreateSecret(CreateSecretRequest) returns (google.protobuf.Empty) {}
   rpc DeleteSecret(DeleteSecretRequest) returns (google.protobuf.Empty) {}

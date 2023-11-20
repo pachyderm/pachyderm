@@ -56,4 +56,5 @@ export type Metrics = {
   minParallelism?: string
   numParallelism?: string
   enterpriseFailures?: string
+  pipelineWithAlerts?: boolean
 }

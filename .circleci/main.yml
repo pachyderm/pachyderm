@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.21.3"
+    default: "1.21.4"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -1706,7 +1706,6 @@ workflows:
                 - ENTERPRISE
                 - S3_AUTH
                 - EXAMPLES
-                - CONNECTORS
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
@@ -2356,7 +2355,7 @@ commands:
           name: Store test results for overtime reports
           when: always
           shell: /bin/sh # ignore fails without pipefail
-          command: go run -v src/testing/cmds/go-test-results/collector/main.go || true
+          command: timeout 2m go run -v src/testing/cmds/go-test-results/collector/main.go || true
   install-poetry:
     steps:
       - run:

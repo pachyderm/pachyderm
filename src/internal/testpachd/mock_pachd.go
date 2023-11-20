@@ -971,6 +971,8 @@ type inspectCommitFunc func(context.Context, *pfs.InspectCommitRequest) (*pfs.Co
 type listCommitFunc func(*pfs.ListCommitRequest, pfs.API_ListCommitServer) error
 type squashCommitSetFunc func(context.Context, *pfs.SquashCommitSetRequest) (*emptypb.Empty, error)
 type dropCommitSetFunc func(context.Context, *pfs.DropCommitSetRequest) (*emptypb.Empty, error)
+type squashCommitFunc func(context.Context, *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error)
+type dropCommitFunc func(context.Context, *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error)
 type inspectCommitSetFunc func(*pfs.InspectCommitSetRequest, pfs.API_InspectCommitSetServer) error
 type listCommitSetFunc func(*pfs.ListCommitSetRequest, pfs.API_ListCommitSetServer) error
 type FindCommitsFunc func(*pfs.FindCommitsRequest, pfs.API_FindCommitsServer) error
@@ -1019,6 +1021,8 @@ type mockInspectCommit struct{ handler inspectCommitFunc }
 type mockListCommit struct{ handler listCommitFunc }
 type mockSquashCommitSet struct{ handler squashCommitSetFunc }
 type mockDropCommitSet struct{ handler dropCommitSetFunc }
+type mockSquashCommit struct{ handler squashCommitFunc }
+type mockDropCommit struct{ handler dropCommitFunc }
 type mockInspectCommitSet struct{ handler inspectCommitSetFunc }
 type mockListCommitSet struct{ handler listCommitSetFunc }
 type mockFindCommits struct{ handler FindCommitsFunc }
@@ -1069,6 +1073,8 @@ func (mock *mockSubscribeCommit) Use(cb subscribeCommitFunc)   { mock.handler = 
 func (mock *mockClearCommit) Use(cb clearCommitFunc)           { mock.handler = cb }
 func (mock *mockSquashCommitSet) Use(cb squashCommitSetFunc)   { mock.handler = cb }
 func (mock *mockDropCommitSet) Use(cb dropCommitSetFunc)       { mock.handler = cb }
+func (mock *mockSquashCommit) Use(cb squashCommitFunc)         { mock.handler = cb }
+func (mock *mockDropCommit) Use(cb dropCommitFunc)             { mock.handler = cb }
 func (mock *mockInspectCommitSet) Use(cb inspectCommitSetFunc) { mock.handler = cb }
 func (mock *mockListCommitSet) Use(cb listCommitSetFunc)       { mock.handler = cb }
 func (mock *mockFindCommits) Use(cb FindCommitsFunc)           { mock.handler = cb }
@@ -1124,6 +1130,8 @@ type mockPFSServer struct {
 	ClearCommit      mockClearCommit
 	SquashCommitSet  mockSquashCommitSet
 	DropCommitSet    mockDropCommitSet
+	SquashCommit     mockSquashCommit
+	DropCommit       mockDropCommit
 	InspectCommitSet mockInspectCommitSet
 	ListCommitSet    mockListCommitSet
 	FindCommits      mockFindCommits
@@ -1232,6 +1240,18 @@ func (api *pfsServerAPI) DropCommitSet(ctx context.Context, req *pfs.DropCommitS
 		return api.mock.DropCommitSet.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.DropCommitSet")
+}
+func (api *pfsServerAPI) SquashCommit(ctx context.Context, req *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error) {
+	if api.mock.SquashCommit.handler != nil {
+		return api.mock.SquashCommit.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.SquashCommit")
+}
+func (api *pfsServerAPI) DropCommit(ctx context.Context, req *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error) {
+	if api.mock.DropCommit.handler != nil {
+		return api.mock.DropCommit.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.DropCommit")
 }
 func (api *pfsServerAPI) InspectCommitSet(req *pfs.InspectCommitSetRequest, serv pfs.API_InspectCommitSetServer) error {
 	if api.mock.InspectCommitSet.handler != nil {
@@ -1469,6 +1489,7 @@ type startPipelineFunc func(context.Context, *pps.StartPipelineRequest) (*emptyp
 type stopPipelineFunc func(context.Context, *pps.StopPipelineRequest) (*emptypb.Empty, error)
 type runPipelineFunc func(context.Context, *pps.RunPipelineRequest) (*emptypb.Empty, error)
 type runCronFunc func(context.Context, *pps.RunCronRequest) (*emptypb.Empty, error)
+type checkStatus func(*pps.CheckStatusRequest, pps.API_CheckStatusServer) error
 type createSecretFunc func(context.Context, *pps.CreateSecretRequest) (*emptypb.Empty, error)
 type deleteSecretFunc func(context.Context, *pps.DeleteSecretRequest) (*emptypb.Empty, error)
 type inspectSecretFunc func(context.Context, *pps.InspectSecretRequest) (*pps.SecretInfo, error)
@@ -1510,6 +1531,7 @@ type mockStartPipeline struct{ handler startPipelineFunc }
 type mockStopPipeline struct{ handler stopPipelineFunc }
 type mockRunPipeline struct{ handler runPipelineFunc }
 type mockRunCron struct{ handler runCronFunc }
+type mockCheckStatus struct{ handler checkStatus }
 type mockCreateSecret struct{ handler createSecretFunc }
 type mockDeleteSecret struct{ handler deleteSecretFunc }
 type mockInspectSecret struct{ handler inspectSecretFunc }
@@ -1553,6 +1575,7 @@ func (mock *mockStartPipeline) Use(cb startPipelineFunc)                 { mock.
 func (mock *mockStopPipeline) Use(cb stopPipelineFunc)                   { mock.handler = cb }
 func (mock *mockRunPipeline) Use(cb runPipelineFunc)                     { mock.handler = cb }
 func (mock *mockRunCron) Use(cb runCronFunc)                             { mock.handler = cb }
+func (mock *mockCheckStatus) Use(cb checkStatus)                         { mock.handler = cb }
 func (mock *mockCreateSecret) Use(cb createSecretFunc)                   { mock.handler = cb }
 func (mock *mockDeleteSecret) Use(cb deleteSecretFunc)                   { mock.handler = cb }
 func (mock *mockInspectSecret) Use(cb inspectSecretFunc)                 { mock.handler = cb }
@@ -1603,6 +1626,7 @@ type mockPPSServer struct {
 	StopPipeline                 mockStopPipeline
 	RunPipeline                  mockRunPipeline
 	RunCron                      mockRunCron
+	CheckStatus                  mockCheckStatus
 	CreateSecret                 mockCreateSecret
 	DeleteSecret                 mockDeleteSecret
 	InspectSecret                mockInspectSecret
@@ -1756,6 +1780,12 @@ func (api *ppsServerAPI) RunCron(ctx context.Context, req *pps.RunCronRequest) (
 		return api.mock.RunCron.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.RunCron")
+}
+func (api *ppsServerAPI) CheckStatus(req *pps.CheckStatusRequest, serv pps.API_CheckStatusServer) error {
+	if api.mock.CheckStatus.handler != nil {
+		return api.mock.CheckStatus.handler(req, serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.CheckStatus")
 }
 func (api *ppsServerAPI) CreateSecret(ctx context.Context, req *pps.CreateSecretRequest) (*emptypb.Empty, error) {
 	if api.mock.CreateSecret.handler != nil {

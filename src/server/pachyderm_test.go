@@ -51,14 +51,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -2438,7 +2436,7 @@ func TestDeletePipeline(t *testing.T) {
 		time.Sleep(10 * time.Second)
 		// Wait for the pipeline to start running
 		require.NoErrorWithinTRetry(t, 90*time.Second, func() error {
-			pipelineInfos, err := c.ListPipeline(false)
+			pipelineInfos, err := c.ListPipeline()
 			if err != nil {
 				return err
 			}
@@ -2823,7 +2821,7 @@ func TestDeleteAll(t *testing.T) {
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
-	pipelineInfos, err := c.ListPipeline(false)
+	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(pipelineInfos))
 	jobInfos, err := c.ListJob(pfs.DefaultProjectName, "", nil, -1, true)
@@ -3153,6 +3151,118 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	createPipeline()
 	// Create a new job that should succeed (should not get blocked on an unfinished stats commit).
 	flushJob(numCommits)
+}
+
+func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+	dataRepo := tu.UniqueString("TestPipelineCheckStatusExceededExpectedDuration_data")
+	c = tu.AuthenticatedPachClient(t, c, "pachtest")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	pipeline := tu.UniqueString("pipeline")
+	createPipeline := func() {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"sleep infinity"},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Autoscaling:           true,
+				Input:                 client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Update:                true,
+				MaximumExpectedUptime: durationpb.New(time.Millisecond * 1),
+			})
+		require.NoError(t, err)
+	}
+	createPipeline()
+	flushJob := func(commitNum int) {
+		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	}
+	flushJob(1)
+	time.Sleep(10 * time.Second)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for {
+			res, err := checkStatusClient.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+			}
+			if err != nil {
+				return err
+			}
+			if res == nil {
+				return errors.Errorf("expected response, but got nil")
+			}
+			if len(res.GetAlerts()) != 1 {
+				return errors.Errorf("expected 1 alert, but got %d", len(res.GetAlerts()))
+			}
+		}
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
+
+	deletePipeline := func(project, pipeline string) {
+		require.NoError(t, c.DeletePipeline(project, pipeline, false))
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := c.InspectPipeline(project, pipeline, false)
+			if err == nil {
+				return errors.Errorf("expected pipeline to be missing, but it's still present")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+	}
+
+	deletePipeline(pfs.DefaultProjectName, pipeline)
+	time.Sleep(10 * time.Second)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for {
+			res, err := checkStatusClient.Recv()
+			// expect EOF as nothing should be returned
+			if res != nil {
+				return errors.Errorf("expected no response, but got: %v", res)
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil // success
+				}
+				return err
+			}
+		}
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
 }
 
 func TestUpdateFailedPipeline(t *testing.T) {
@@ -3607,7 +3717,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		})
 
 		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
-			pis, err := c.ListPipeline(false)
+			pis, err := c.ListPipeline()
 			require.NoError(t, err)
 			var standby int
 			for _, pi := range pis {
@@ -3635,7 +3745,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		})
 		eg.Go(func() error {
 			for !finished {
-				pis, err := c.ListPipeline(false)
+				pis, err := c.ListPipeline()
 				require.NoError(t, err)
 				var active int
 				for _, pi := range pis {
@@ -8811,72 +8921,47 @@ func TestCancelManyJobs(t *testing.T) {
 	}
 }
 
-// TestSquashCommitSetPropagation deletes an input commit and makes sure all
-// downstream commits are also deleted.
-// DAG in this test: repo -> pipeline[0] -> pipeline[1]
-func TestSquashCommitSetPropagation(t *testing.T) {
-	// TODO(2.0 optional): Implement put file split in V2.
-	t.Skip("Put file split not implemented in V2")
-	// 	if testing.Short() {
-	// 		t.Skip("Skipping integration tests in short mode")
-	// 	}
-
-	// 	c := tu.GetPachClient(t)
-	// 	require.NoError(t, c.DeleteAll())
-
-	// 	// Create an input repo
-	// 	repo := tu.UniqueString("TestSquashCommitSetPropagation")
-	// 	require.NoError(t, c.CreateProjectRepo(pfs.DefaultProjectName,repo))
-	// 	_, err := c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-	// 		strings.NewReader(tu.TestPGDump))
-	// 	require.NoError(t, err)
-
-	// 	// Create a pipeline that roughly validates the header
-	// 	pipeline := tu.UniqueString("TestSplitFileReprocessPL")
-	// 	require.NoError(t, c.CreateProjectPipeline(pfs.DefaultProjectName,
-	// 		pipeline,
-	// 		"",
-	// 		[]string{"/bin/bash"},
-	// 		[]string{
-	// 			`ls /pfs/*/d/*`, // for debugging
-	// 			`cars_tables="$(grep "CREATE TABLE public.cars" /pfs/*/d/* | sort -u  | wc -l)"`,
-	// 			`(( cars_tables == 1 )) && exit 0 || exit 1`,
-	// 		},
-	// 		&pps.ParallelismSpec{Constant: 1},
-	// 		client.NewProjectPFSInput(pfs.DefaultProjectName,repo, "/d/*"),
-	// 		"",
-	// 		false,
-	// 	))
-
-	// 	// wait for job to run & check that all rows were processed
-	// 	var jobCount int
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
-	// 			jobCount++
-	// 			require.Equal(t, 1, jobCount)
-	// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	// 			require.Equal(t, int64(5), jobInfo.DataProcessed)
-	// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
-	// 			return nil
-	// 		})
-
-	// 	// put empty dataset w/ new header
-	// 	_, err = c.PutFileSplit(repo, "master", "d", pfs.Delimiter_SQL, 0, 0, 0, false,
-	// 		strings.NewReader(tu.TestPGDumpNewHeader))
-	// 	require.NoError(t, err)
-
-	// 	// everything gets reprocessed (hashes all change even though the files
-	// 	// themselves weren't altered)
-	// 	jobCount = 0
-	// 	c.FlushJob([]*pfs.Commit{client.NewProjectCommit(pfs.DefaultProjectName,repo, "master")}, nil,
-	// 		func(jobInfo *pps.JobInfo) error {
-	// 			jobCount++
-	// 			require.Equal(t, 1, jobCount)
-	// 			require.Equal(t, pps.JobState_JOB_SUCCESS, jobInfo.State)
-	// 			require.Equal(t, int64(5), jobInfo.DataProcessed) // added 3 new rows
-	// 			require.Equal(t, int64(0), jobInfo.DataSkipped)
-	// 			return nil
-	// 		})
+// TestDropCommit tests that dropping a source commit results with the downstream job being stopped.
+func TestDropCommit(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	c = c.WithDefaultTransformUser("1000")
+	ctx := pctx.TestContext(t)
+	// Create a source repo
+	repo := tu.UniqueString("TestDropCommit_data")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
+	require.NoError(t, c.PutFile(masterCommit, "f", strings.NewReader("")))
+	// Create a pipeline that creates jobs that sleep.
+	pipeline := tu.UniqueString("TestDropCommit")
+	require.NoError(t, c.CreatePipeline(
+		pfs.DefaultProjectName,
+		pipeline,
+		"",
+		[]string{"/bin/bash"},
+		[]string{"sleep 3600"},
+		&pps.ParallelismSpec{Constant: 1},
+		client.NewPFSInput(pfs.DefaultProjectName, repo, "*"),
+		"",
+		false,
+	))
+	bi, err := c.InspectBranch(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	_, err = c.PfsAPIClient.DropCommit(ctx, &pfs.DropCommitRequest{
+		Commit:    bi.Head,
+		Recursive: true,
+	})
+	require.NoError(t, err)
+	// Check that the downstream job was stopped.
+	jobInfo, err := c.InspectJob(pfs.DefaultProjectName, pipeline, bi.Head.Id, false)
+	// The job may be deleted by the worker master before it spins down.
+	if !errutil.IsNotFoundError(err) {
+		require.NoError(t, err)
+		require.Equal(t, pps.JobState_JOB_KILLED, jobInfo.State)
+	}
 }
 
 func TestDeleteSpecRepo(t *testing.T) {
@@ -9395,9 +9480,9 @@ func TestListPipelineAtCommit(t *testing.T) {
 	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
 	require.NoError(t, err)
 	expected := []map[string]uint64{
-		{pipeline1: 1},
-		{pipeline1: 1, pipeline2: 1},
 		{pipeline1: 2, pipeline2: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 1},
 	}
 	i := 0
 	require.NoError(t, grpcutil.ForEach[*pfs.CommitSetInfo](commitSets, func(csi *pfs.CommitSetInfo) error {
@@ -9550,23 +9635,23 @@ func TestPipelineHistory(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 5, len(jis))
 
-	pipelineInfos, err := c.ListPipeline(false)
+	pipelineInfos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", -1)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", 1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, "", 1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName, -1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(pipelineInfos))
 
-	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1, false)
+	pipelineInfos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipelineName2, -1)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(pipelineInfos))
 }
@@ -11105,7 +11190,7 @@ func TestPipelineAncestry(t *testing.T) {
 		require.Equal(t, fmt.Sprintf("user:%d", i), info.Details.Transform.User)
 	}
 
-	infos, err := c.ListPipeline(true)
+	infos, err := c.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(infos))
 	require.Equal(t, pipeline, infos[0].Pipeline.Name)
@@ -11120,19 +11205,19 @@ func TestPipelineAncestry(t *testing.T) {
 	}
 
 	// get all pipelines
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, -1)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get all pipelines by asking for too many
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 3)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(infos))
 	checkInfos(infos)
 
 	// get only the later two pipelines
-	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1, true)
+	infos, err = c.ListPipelineHistory(pfs.DefaultProjectName, pipeline, 1)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(infos))
 	checkInfos(infos)
@@ -11401,106 +11486,6 @@ func TestValidationFailure(t *testing.T) {
 	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
-}
-
-// TestPPSEgressToSnowflake tests basic Egress functionality via PPS mechanism,
-// and how it handles inserting the same primary key twice.
-func TestPPSEgressToSnowflake(t *testing.T) {
-	// setup
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	// create input repo with CSV
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
-
-	// create output database, and destination table
-	ctx := pctx.TestContext(t)
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
-	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
-		A  string `column:"A" dtype:"VARCHAR(100)"`
-	}{}))
-
-	// create K8s secrets
-	b := []byte(fmt.Sprintf(`
-	{
-		"apiVersion": "v1",
-		"kind": "Secret",
-		"stringData": {
-			"PACHYDERM_SQL_PASSWORD": "%s"
-		},
-		"metadata": {
-			"name": "egress-secret",
-			"creationTimestamp": null
-		}
-	}`, os.Getenv("SNOWSQL_PWD")))
-	require.NoError(t, c.CreateSecret(b))
-
-	// create a pipeline with egress
-	pipeline := tu.UniqueString("egress")
-	dsn, err := testsnowflake.DSN()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.PpsAPIClient.CreatePipeline(
-		c.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: &pps.Transform{
-				Image: tu.DefaultTransformImage,
-				Cmd:   []string{"bash"},
-				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
-			},
-			Input: &pps.Input{Pfs: &pps.PFSInput{
-				Repo: repo,
-				Glob: "/",
-				Name: "in",
-			}},
-			Egress: &pps.Egress{
-				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
-					Url: fmt.Sprintf("%s/%s", dsn, dbName),
-					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
-					},
-					Secret: &pfs.SQLDatabaseEgress_Secret{
-						Name: "egress-secret",
-						Key:  "PACHYDERM_SQL_PASSWORD",
-					},
-				},
-				},
-			},
-		},
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	// Initial load
-	master := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.InspectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
-	require.NoError(t, err)
-	// query db for results
-	var count, expected int
-	expected = 2
-	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
-	require.Equal(t, expected, count)
-
-	// Add a new row, and test whether primary key conflicts
-	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
-	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.InspectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
-	require.NoError(t, err)
-	// query db for results
-	expected = 3
-	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
-	require.Equal(t, expected, count)
 }
 
 func TestMissingSecretFailure(t *testing.T) {

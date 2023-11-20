@@ -362,6 +362,10 @@ func (c *unsupportedPfsBuilderClient) DiffFile(_ context.Context, _ *pfs_v2.Diff
 	return nil, unsupportedError("DiffFile")
 }
 
+func (c *unsupportedPfsBuilderClient) DropCommit(_ context.Context, _ *pfs_v2.DropCommitRequest, opts ...grpc.CallOption) (*pfs_v2.DropCommitResponse, error) {
+	return nil, unsupportedError("DropCommit")
+}
+
 func (c *unsupportedPfsBuilderClient) DropCommitSet(_ context.Context, _ *pfs_v2.DropCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("DropCommitSet")
 }
@@ -470,6 +474,10 @@ func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("ShardFileSet")
 }
 
+func (c *unsupportedPfsBuilderClient) SquashCommit(_ context.Context, _ *pfs_v2.SquashCommitRequest, opts ...grpc.CallOption) (*pfs_v2.SquashCommitResponse, error) {
+	return nil, unsupportedError("SquashCommit")
+}
+
 func (c *unsupportedPfsBuilderClient) SquashCommitSet(_ context.Context, _ *pfs_v2.SquashCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("SquashCommitSet")
 }
@@ -528,6 +536,10 @@ type unsupportedPpsBuilderClient struct{}
 
 func (c *unsupportedPpsBuilderClient) ActivateAuth(_ context.Context, _ *pps_v2.ActivateAuthRequest, opts ...grpc.CallOption) (*pps_v2.ActivateAuthResponse, error) {
 	return nil, unsupportedError("ActivateAuth")
+}
+
+func (c *unsupportedPpsBuilderClient) CheckStatus(_ context.Context, _ *pps_v2.CheckStatusRequest, opts ...grpc.CallOption) (pps_v2.API_CheckStatusClient, error) {
+	return nil, unsupportedError("CheckStatus")
 }
 
 func (c *unsupportedPpsBuilderClient) CreatePipeline(_ context.Context, _ *pps_v2.CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {

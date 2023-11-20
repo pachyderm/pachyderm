@@ -223,9 +223,9 @@ func (a *apiServer) DeleteRepos(ctx context.Context, request *pfs.DeleteReposReq
 	var repos []*pfs.Repo
 	switch {
 	case request.All:
-		repos, err = a.driver.deleteRepos(ctx, nil)
+		repos, err = a.driver.deleteRepos(ctx, nil, request.Force)
 	case len(request.Projects) > 0:
-		repos, err = a.driver.deleteRepos(ctx, request.Projects)
+		repos, err = a.driver.deleteRepos(ctx, request.Projects, request.Force)
 	}
 	if err != nil {
 		return nil, err
@@ -291,6 +291,24 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 	return a.driver.listCommit(respServer.Context(), request.Repo, request.To, request.From, request.StartedTime, request.Number, request.Reverse, request.All, request.OriginKind, func(ci *pfs.CommitInfo) error {
 		return errors.EnsureStack(respServer.Send(ci))
 	})
+}
+
+func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.squashCommit(ctx, txnCtx, request.Commit, request.Recursive)
+	}); err != nil {
+		return nil, err
+	}
+	return &pfs.SquashCommitResponse{}, nil
+}
+
+func (a *apiServer) DropCommit(ctx context.Context, request *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error) {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.driver.dropCommit(ctx, txnCtx, request.Commit, request.Recursive)
+	}); err != nil {
+		return nil, err
+	}
+	return &pfs.DropCommitResponse{}, nil
 }
 
 // InspectCommitSetInTransaction performs the same job as InspectCommitSet

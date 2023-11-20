@@ -99,13 +99,13 @@ type DatumsResponse struct {
 }
 
 type MountInfo struct {
-	Name    string   `json:"name"`
-	Project string   `json:"project"`
-	Repo    string   `json:"repo"`
-	Branch  string   `json:"branch"`
-	Commit  string   `json:"commit"` // "" for no commit (commit as noun)
-	Paths   []string `json:"paths"`
-	Mode    string   `json:"mode"` // "ro", "rw"
+	Name    string `json:"name"`
+	Project string `json:"project"`
+	Repo    string `json:"repo"`
+	Branch  string `json:"branch"`
+	Commit  string `json:"commit"` // "" for no commit (commit as noun)
+	Path    string `json:"path"`
+	Mode    string `json:"mode"` // "ro", "rw"
 }
 
 type Request struct {
@@ -124,12 +124,17 @@ type Response struct {
 }
 
 type DatumState struct {
-	Datums              []*pps.DatumInfo
-	PaginationMarker    string
-	DatumInput          *pps.Input
-	DatumInputsToMounts map[string][]string
-	DatumIdx            int
-	AllDatumsReceived   bool
+	Datums           []*pps.DatumInfo
+	PaginationMarker string
+	DatumInput       *pps.Input
+	// SimpleInput tracks whether 'DatumInput' is simple (i.e. not a group by or
+	// join). This is set by 'parseInput', and later read by 'GetDatums' to
+	// decide whether to list datums using Pachyderm's 'GlobFile' or 'ListDatum'
+	// call
+	SimpleInput       bool
+	DatumInputToNames map[string][]string
+	DatumIdx          int
+	AllDatumsReceived bool
 }
 
 type MountManager struct {
@@ -642,17 +647,12 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			http.Error(w, fmt.Sprintf("error reading next CreatePipeline request: %v", err), http.StatusBadRequest)
 			return
 		}
-		var simpleInput bool
-		if simpleInput, err = mm.processInput(pipelineReq.Input); err != nil {
-			http.Error(w, fmt.Sprintf("error converting datum inputs to mounts: %v", err), http.StatusBadRequest)
+		if err := mm.processInput(pipelineReq.Input); err != nil {
+			http.Error(w, fmt.Sprintf("error processing input: %v", err), http.StatusBadRequest)
 			return
 		}
-		if err := mm.GetDatums(simpleInput); err != nil {
-			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusInternalServerError)
-			return
-		}
-		if len(mm.Datums) == 0 {
-			http.Error(w, "spec produces zero datums; nothing to mount", http.StatusBadRequest)
+		if err := mm.GetDatums(); err != nil {
+			http.Error(w, fmt.Sprintf("error listing spec's datums: %v", err), http.StatusBadRequest)
 			return
 		}
 		func() {
@@ -665,7 +665,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
-				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:(%s): %v", mi.Project, mi.Repo, mi.Branch, strings.Join(mi.Paths, ","), err)
+				errorMsg := fmt.Sprintf("error mounting %s/%s@%s:%s: %v", mi.Project, mi.Repo, mi.Branch, mi.Path, err)
 				http.Error(w, errorMsg, http.StatusInternalServerError)
 				return
 			}
@@ -1164,9 +1164,6 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 		if mi.Repo == "" {
 			return errors.Wrapf(errors.New("no repo specified"), "mount request %+v", mi)
 		}
-		if len(mi.Paths) == 0 {
-			mi.Paths = []string{"/"}
-		}
 		// In read-only mode, a commit or branch must exist to mount. In read-write mode, it
 		// is not necessary for the branch to exist, as it will be created.
 		if mi.Mode == "" || mi.Mode == "ro" {
@@ -1195,65 +1192,94 @@ func (mm *MountManager) verifyMountRequest(mis []*MountInfo) error {
 	return nil
 }
 
+func (mm *MountManager) processInput(datumInput *pps.Input) error {
+	if datumInput == nil {
+		return errors.New("datum input is not specified")
+	}
+	return mm.parseInput(datumInput)
+}
+
 // Visit each entry in the Input spec and set default values if unassigned
 // Create a map from input to mount name(s) for use in mounting datums
-// Return whether the input has a cron, group by, or join for later use to
+// Set whether the input is simple (i.e. not a group by or join) for later use to
 // determine whether to use GlobFile or ListDatum #ListDatumPagination
-func (mm *MountManager) processInput(datumInput *pps.Input) (bool, error) {
-	if datumInput == nil {
-		return true, errors.New("datum input is not specified")
-	}
-
-	datumInputsToMounts := map[string][]string{} // Maps input to mount name(s)
+func (mm *MountManager) parseInput(datumInput *pps.Input) error {
+	datumInputsToNames := map[string][]string{} // Maps PFS input to mount name(s)
 	simpleInput := true
 	if err := pps.VisitInput(datumInput, func(input *pps.Input) error {
-		if input.Pfs == nil {
-			if input.Cron != nil || input.Join != nil || input.Group != nil {
-				simpleInput = false
+		set := 0
+		if input.Cron != nil {
+			return errors.New("cron input type not supported in mounting datums")
+		}
+		if input.Join != nil {
+			simpleInput = false
+			set++
+		}
+		if input.Group != nil {
+			simpleInput = false
+			set++
+		}
+		if input.Cross != nil {
+			set++
+		}
+		if input.Union != nil {
+			set++
+		}
+		if input.Pfs != nil {
+			set++
+			switch {
+			case input.Pfs.Repo == "":
+				return errors.New("repo must be specified")
+			case input.Pfs.Repo == "out" && input.Pfs.Name == "":
+				return errors.New("name must be specified for repo 'out'")
+			case len(input.Pfs.Glob) == 0:
+				return errors.New("glob must be specified")
+			case input.Pfs.S3:
+				return errors.New("s3 data not supported in mounting datums")
+			case input.Pfs.Commit != "":
+				return errors.New("commit cannot be specified")
 			}
+			if input.Pfs.Project == "" {
+				input.Pfs.Project = pfs.DefaultProjectName
+			}
+			if input.Pfs.Branch == "" {
+				input.Pfs.Branch = "master"
+			}
+			if input.Pfs.Name == "" {
+				input.Pfs.Name = input.Pfs.Repo
+			}
+			// In the case a branch is created off another branch, listing datums returns files from
+			// the original branch a commit is on. We should index on that original branch instead.
+			bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
+			if err != nil {
+				return err
+			}
+			pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
+			datumInputsToNames[pfsInput] = append(datumInputsToNames[pfsInput], input.Pfs.Name)
+		}
+		switch {
+		case set == 0:
+			return errors.New("no input set")
+		case set > 1:
+			return errors.New("multiple input types set")
+		default:
 			return nil
 		}
-
-		if input.Pfs.Project == "" {
-			input.Pfs.Project = pfs.DefaultProjectName
-		}
-		if input.Pfs.Commit != "" {
-			return errors.New("cannot specify commit in mounting datums Input")
-		}
-		if input.Pfs.Branch == "" {
-			input.Pfs.Branch = "master"
-		}
-		if input.Pfs.Name == "" {
-			input.Pfs.Name = input.Pfs.Project + "_" + input.Pfs.Repo
-			if input.Pfs.Branch != "master" {
-				input.Pfs.Name = input.Pfs.Name + "_" + input.Pfs.Branch
-			}
-		}
-		// In the case a branch is created off another branch, listing datums returns files from
-		// the original branch a commit is on. We should index on that original branch instead.
-		bi, err := mm.Client.InspectBranch(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch)
-		if err != nil {
-			return err
-		}
-		pfsInput := client.NewBranch(input.Pfs.Project, input.Pfs.Repo, bi.Head.Branch.Name).String()
-		// In the case where a cross is done on the same repo, we will need to map FileInfo's from
-		// the same repo to different user-specified mount names.
-		if mountNames, ok := datumInputsToMounts[pfsInput]; ok {
-			datumInputsToMounts[pfsInput] = append(mountNames, input.Pfs.Name)
-		} else {
-			datumInputsToMounts[pfsInput] = []string{input.Pfs.Name}
-		}
-		return nil
 	}); err != nil {
-		return true, err
+		return errors.Wrap(err, "error parsing datum input")
+	}
+	// ValidateNames requires input.Pfs.Name to be set so call after parsing input
+	if err := ppsutil.ValidateNames(datumInput); err != nil {
+		return errors.Wrap(err, "invalid names in datum input")
 	}
 	func() {
 		mm.mu.Lock()
 		defer mm.mu.Unlock()
 		mm.DatumInput = datumInput
-		mm.DatumInputsToMounts = datumInputsToMounts
+		mm.SimpleInput = simpleInput
+		mm.DatumInputToNames = datumInputsToNames
 	}()
-	return simpleInput, nil
+	return nil
 }
 
 func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) ([]*pps.DatumInfo, error) {
@@ -1282,11 +1308,11 @@ func (mm *MountManager) GetNextXDatums(numDatums int, paginationMarker string) (
 	}
 }
 
-func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
+func (mm *MountManager) GetDatums() (retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
-	if simpleInput {
+	if mm.SimpleInput {
 		return mm.CreateDatums()
 	}
 	// If input spec has Join or Group, fall back to ListDatum
@@ -1295,7 +1321,7 @@ func (mm *MountManager) GetDatums(simpleInput bool) (retErr error) {
 		return err
 	}
 	if len(datums) == 0 {
-		return errors.New("no datums to mount")
+		return errors.New("spec produces zero datums; nothing to mount")
 	}
 	func() {
 		mm.mu.Lock()
@@ -1349,7 +1375,7 @@ func (mm *MountManager) CreateDatums() error {
 
 	datums := datumsAtLevel[0][0]
 	if len(datums) == 0 {
-		return errors.New("no datums to mount")
+		return errors.New("spec produces zero datums; nothing to mount")
 	}
 	func() {
 		mm.mu.Lock()
@@ -1361,37 +1387,32 @@ func (mm *MountManager) CreateDatums() error {
 }
 
 func (mm *MountManager) datumToMounts(d *pps.DatumInfo) []*MountInfo {
-	datumInputsToMounts := getCopyOfMapping(mm.DatumInputsToMounts)
-	mountToMi := map[string]*MountInfo{}
+	mis := []*MountInfo{}
+	datumInputToNames := copyMap(mm.DatumInputToNames)
 	for _, fi := range d.Data {
 		project := fi.File.Commit.Branch.Repo.GetProject().GetName()
 		repo := fi.File.Commit.Branch.Repo.Name
 		branch := fi.File.Commit.Branch.Name
 		commit := fi.File.Commit.Id
-		mountsForRepo := datumInputsToMounts[client.NewBranch(project, repo, branch).String()]
-		name := mountsForRepo[0]
-
-		// Could have multiple files to mount from same repo
-		if mi, ok := mountToMi[name]; ok {
-			mi.Paths = append(mi.Paths, fi.File.Path)
-		} else {
-			mountToMi[name] = &MountInfo{
-				Name:    name,
-				Project: project,
-				Repo:    repo,
-				Branch:  branch,
-				Commit:  commit,
-				Paths:   []string{fi.File.Path},
-				Mode:    "ro",
-			}
+		pfsInput := client.NewBranch(project, repo, branch).String()
+		if len(datumInputToNames[pfsInput]) == 0 {
+			panic("short on mount names even though should be a 1:1 mapping from PFS inputs in spec to Files in d.Data")
 		}
-
-		// Cycle to next mount name for that repo
-		datumInputsToMounts[client.NewBranch(project, repo, branch).String()] = mountsForRepo[1:]
-	}
-	mis := []*MountInfo{}
-	for _, mi := range mountToMi {
-		mis = append(mis, mi)
+		// The user-specified aliased PFS input names in datumInputToNames[pfsInput]
+		// are in the same order as the files in d.Data. ListDatum returns files (in a
+		// datum) in the order in which the files' corresponding PFS inputs are ordered
+		// in the spec.
+		name := datumInputToNames[pfsInput][0]
+		mis = append(mis, &MountInfo{
+			Name:    name,
+			Project: project,
+			Repo:    repo,
+			Branch:  branch,
+			Commit:  commit,
+			Path:    fi.File.Path,
+			Mode:    "ro",
+		})
+		datumInputToNames[pfsInput] = datumInputToNames[pfsInput][1:]
 	}
 	return mis
 }
@@ -1426,8 +1447,9 @@ func (mm *MountManager) resetDatumState() {
 	mm.Datums = nil
 	mm.PaginationMarker = ""
 	mm.DatumInput = nil
+	mm.SimpleInput = false
 	mm.DatumIdx = -1
-	mm.DatumInputsToMounts = nil
+	mm.DatumInputToNames = nil
 	mm.AllDatumsReceived = false
 }
 
@@ -1448,7 +1470,7 @@ func createLocalOutDir(mm *MountManager) {
 	// info is necessary.
 	mm.root.repoOpts["out"] = &RepoOptions{
 		Name:  "out",
-		Files: []*pfs.File{client.NewFile("", "out", "", "", "")},
+		File:  client.NewFile("", "out", "", "", ""),
 		Write: true,
 	}
 }
@@ -1670,7 +1692,7 @@ func unmountedState(m *MountStateMachine) StateFn {
 			m.Repo = req.Repo
 			m.Branch = req.Branch
 			m.Commit = req.Commit
-			m.Paths = req.Paths
+			m.Path = req.Path
 			m.Mode = req.Mode
 			return mountingState
 		case "commit":
@@ -1702,15 +1724,11 @@ func mountingState(m *MountStateMachine) StateFn {
 	m.transitionedTo("mounting", "")
 	// TODO: refactor this so we're not reaching into another struct's lock
 	func() {
-		files := []*pfs.File{}
-		for _, path := range m.Paths {
-			files = append(files, client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, path))
-		}
 		m.manager.mu.Lock()
 		defer m.manager.mu.Unlock()
 		m.manager.root.repoOpts[m.Name] = &RepoOptions{
 			Name:  m.Name,
-			Files: files,
+			File:  client.NewFile(m.Project, m.Repo, m.Branch, m.Commit, m.Path),
 			Write: m.Mode == "rw",
 		}
 		m.manager.root.branches[m.Name] = m.Branch
@@ -1928,8 +1946,8 @@ func (mm *MountManager) mfc(name string) (*client.ModifyFileClient, error) {
 	if !ok {
 		return nil, errors.Errorf("could not get fuse repo options for mount %s", name)
 	}
-	projectName := opts.Files[0].Commit.Branch.Repo.Project.GetName()
-	repoName := opts.Files[0].Commit.Branch.Repo.Name
+	projectName := opts.File.Commit.Branch.Repo.Project.GetName()
+	repoName := opts.File.Commit.Branch.Repo.Name
 	mfc, err := mm.Client.NewModifyFileClient(client.NewCommit(projectName, repoName, mm.root.branch(name), ""))
 	if err != nil {
 		return nil, err

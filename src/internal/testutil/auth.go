@@ -154,7 +154,7 @@ func CommitCnt(t *testing.T, c *client.APIClient, repo *pfs.Repo) int {
 // ListPipeline in the specified project.
 func PipelineNames(t *testing.T, c *client.APIClient, project string) []string {
 	t.Helper()
-	ps, err := c.ListPipeline(false)
+	ps, err := c.ListPipeline()
 	require.NoError(t, err)
 	var result []string
 	if project == "" {

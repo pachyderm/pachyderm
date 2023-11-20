@@ -299,6 +299,8 @@
     - [DeleteReposResponse](#pfs_v2-DeleteReposResponse)
     - [DiffFileRequest](#pfs_v2-DiffFileRequest)
     - [DiffFileResponse](#pfs_v2-DiffFileResponse)
+    - [DropCommitRequest](#pfs_v2-DropCommitRequest)
+    - [DropCommitResponse](#pfs_v2-DropCommitResponse)
     - [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest)
     - [EgressRequest](#pfs_v2-EgressRequest)
     - [EgressResponse](#pfs_v2-EgressResponse)
@@ -344,6 +346,8 @@
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
     - [ShardFileSetRequest](#pfs_v2-ShardFileSetRequest)
     - [ShardFileSetResponse](#pfs_v2-ShardFileSetResponse)
+    - [SquashCommitRequest](#pfs_v2-SquashCommitRequest)
+    - [SquashCommitResponse](#pfs_v2-SquashCommitResponse)
     - [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest)
     - [StartCommitRequest](#pfs_v2-StartCommitRequest)
     - [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest)
@@ -394,6 +398,8 @@
     - [ActivateAuthResponse](#pps_v2-ActivateAuthResponse)
     - [Aggregate](#pps_v2-Aggregate)
     - [AggregateProcessStats](#pps_v2-AggregateProcessStats)
+    - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
+    - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
@@ -3240,6 +3246,7 @@ ConfigV2 specifies v2 of the pachyderm config (June 2019 - present)
 | min_parallelism | [uint64](#uint64) |  | Min parallelism set |
 | num_parallelism | [uint64](#uint64) |  | Number of pipelines with parallelism set |
 | enterprise_failures | [int64](#int64) |  | Number of times a command has failed due to an enterprise check |
+| pipeline_with_alerts | [bool](#bool) |  | pipelines with alerts indicator |
 
 
 
@@ -4816,6 +4823,32 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-DropCommitRequest"></a>
+
+### DropCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [Commit](#pfs_v2-Commit) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the drop should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the drop will fail. |
+
+
+
+
+
+
+<a name="pfs_v2-DropCommitResponse"></a>
+
+### DropCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-DropCommitSetRequest"></a>
 
 ### DropCommitSetRequest
@@ -5548,6 +5581,32 @@ Details are only provided when explicitly requested
 
 
 
+<a name="pfs_v2-SquashCommitRequest"></a>
+
+### SquashCommitRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| commit | [Commit](#pfs_v2-Commit) |  |  |
+| recursive | [bool](#bool) |  | Setting recursive to true indicates that the squash should be applied recursively to subvenant commits. If recursive is set to false and the provided commit has subvenant commits, the squash will fail. |
+
+
+
+
+
+
+<a name="pfs_v2-SquashCommitResponse"></a>
+
+### SquashCommitResponse
+
+
+
+
+
+
+
 <a name="pfs_v2-SquashCommitSetRequest"></a>
 
 ### SquashCommitSetRequest
@@ -5735,10 +5794,12 @@ These are the different places where a commit may be originated from
 | InspectCommit | [InspectCommitRequest](#pfs_v2-InspectCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) | InspectCommit returns the info about a commit. |
 | ListCommit | [ListCommitRequest](#pfs_v2-ListCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | ListCommit returns info about all commits. |
 | SubscribeCommit | [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | SubscribeCommit subscribes for new commits on a given branch. |
+| SquashCommit | [SquashCommitRequest](#pfs_v2-SquashCommitRequest) | [SquashCommitResponse](#pfs_v2-SquashCommitResponse) | SquashCommit squashes the provided commit into its children. |
+| DropCommit | [DropCommitRequest](#pfs_v2-DropCommitRequest) | [DropCommitResponse](#pfs_v2-DropCommitResponse) | DropCommit drops the provided commit. |
 | InspectCommitSet | [InspectCommitSetRequest](#pfs_v2-InspectCommitSetRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | InspectCommitSet returns the info about a CommitSet. |
 | ListCommitSet | [ListCommitSetRequest](#pfs_v2-ListCommitSetRequest) | [CommitSetInfo](#pfs_v2-CommitSetInfo) stream | ListCommitSet returns info about all CommitSets. |
-| SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. |
-| DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. |
+| SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. Deprecated: Use SquashCommit instead. |
+| DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. Deprecated: Use DropCommit instead. |
 | FindCommits | [FindCommitsRequest](#pfs_v2-FindCommitsRequest) | [FindCommitsResponse](#pfs_v2-FindCommitsResponse) stream | FindCommits searches for commits that reference a supplied file being modified in a branch. |
 | CreateBranch | [CreateBranchRequest](#pfs_v2-CreateBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | CreateBranch creates a new branch. |
 | InspectBranch | [InspectBranchRequest](#pfs_v2-InspectBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) | InspectBranch returns info about a branch. |
@@ -6284,6 +6345,39 @@ Job API
 
 
 
+<a name="pps_v2-CheckStatusRequest"></a>
+
+### CheckStatusRequest
+Request to check the status of pipelines within a project.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| all | [bool](#bool) |  | boolean field indicating status of all project pipelines. |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | project field |
+
+
+
+
+
+
+<a name="pps_v2-CheckStatusResponse"></a>
+
+### CheckStatusResponse
+Response for check status request. Provides alerts if any.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | project field |
+| pipeline | [Pipeline](#pps_v2-Pipeline) |  | pipeline field |
+| alerts | [string](#string) | repeated | alert indicators |
+
+
+
+
+
+
 <a name="pps_v2-ClusterDefaults"></a>
 
 ### ClusterDefaults
@@ -6339,6 +6433,7 @@ Job API
 | sidecar_resource_requests | [ResourceSpec](#pps_v2-ResourceSpec) |  |  |
 | dry_run | [bool](#bool) |  |  |
 | determined | [Determined](#pps_v2-Determined) |  |  |
+| maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 
 
 
@@ -7046,7 +7141,7 @@ all of the filtered attributes.
 | ----- | ---- | ----- | ----------- |
 | pipeline | [Pipeline](#pps_v2-Pipeline) |  | If non-nil, only return info about a single pipeline, this is redundant with InspectPipeline unless history is non-zero. |
 | history | [int64](#int64) |  | History indicates how many historical versions you want returned. Its semantics are: 0: Return the current version of the pipeline or pipelines. 1: Return the above and the next most recent version 2: etc. -1: Return all historical versions. |
-| details | [bool](#bool) |  | When true, return PipelineInfos with the details field, which requires loading the pipeline spec from PFS. |
+| details | [bool](#bool) |  | **Deprecated.** Deprecated: Details are always returned. |
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |
@@ -7293,6 +7388,8 @@ potentially expensive operations.
 | tolerations | [Toleration](#pps_v2-Toleration) | repeated |  |
 | sidecar_resource_requests | [ResourceSpec](#pps_v2-ResourceSpec) |  |  |
 | determined | [Determined](#pps_v2-Determined) |  |  |
+| maximum_expected_uptime | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+| workers_started_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 
 
 
@@ -8055,6 +8152,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopPipeline | [StopPipelineRequest](#pps_v2-StopPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunPipeline | [RunPipelineRequest](#pps_v2-RunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RunCron | [RunCronRequest](#pps_v2-RunCronRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
+| CheckStatus | [CheckStatusRequest](#pps_v2-CheckStatusRequest) | [CheckStatusResponse](#pps_v2-CheckStatusResponse) stream | Check Status returns the status of pipelines within a project. |
 | CreateSecret | [CreateSecretRequest](#pps_v2-CreateSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | DeleteSecret | [DeleteSecretRequest](#pps_v2-DeleteSecretRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | ListSecret | [.google.protobuf.Empty](#google-protobuf-Empty) | [SecretInfos](#pps_v2-SecretInfos) |  |

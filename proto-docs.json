@@ -6788,6 +6788,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "pipeline_with_alerts",
+              "description": "pipelines with alerts indicator",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         }
@@ -10323,7 +10335,15 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "force",
@@ -10626,6 +10646,53 @@
               "defaultValue": ""
             }
           ]
+        },
+        {
+          "name": "DropCommitRequest",
+          "longName": "DropCommitRequest",
+          "fullName": "pfs_v2.DropCommitRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit",
+              "description": "",
+              "label": "",
+              "type": "Commit",
+              "longType": "Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "recursive",
+              "description": "Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the drop will fail.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DropCommitResponse",
+          "longName": "DropCommitResponse",
+          "fullName": "pfs_v2.DropCommitResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
         },
         {
           "name": "DropCommitSetRequest",
@@ -12495,6 +12562,53 @@
           ]
         },
         {
+          "name": "SquashCommitRequest",
+          "longName": "SquashCommitRequest",
+          "fullName": "pfs_v2.SquashCommitRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "commit",
+              "description": "",
+              "label": "",
+              "type": "Commit",
+              "longType": "Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "recursive",
+              "description": "Setting recursive to true indicates that the squash should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the squash will fail.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "SquashCommitResponse",
+          "longName": "SquashCommitResponse",
+          "fullName": "pfs_v2.SquashCommitResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "SquashCommitSetRequest",
           "longName": "SquashCommitSetRequest",
           "fullName": "pfs_v2.SquashCommitSetRequest",
@@ -12935,6 +13049,30 @@
               "responseStreaming": true
             },
             {
+              "name": "SquashCommit",
+              "description": "SquashCommit squashes the provided commit into its children.",
+              "requestType": "SquashCommitRequest",
+              "requestLongType": "SquashCommitRequest",
+              "requestFullType": "pfs_v2.SquashCommitRequest",
+              "requestStreaming": false,
+              "responseType": "SquashCommitResponse",
+              "responseLongType": "SquashCommitResponse",
+              "responseFullType": "pfs_v2.SquashCommitResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "DropCommit",
+              "description": "DropCommit drops the provided commit.",
+              "requestType": "DropCommitRequest",
+              "requestLongType": "DropCommitRequest",
+              "requestFullType": "pfs_v2.DropCommitRequest",
+              "requestStreaming": false,
+              "responseType": "DropCommitResponse",
+              "responseLongType": "DropCommitResponse",
+              "responseFullType": "pfs_v2.DropCommitResponse",
+              "responseStreaming": false
+            },
+            {
               "name": "InspectCommitSet",
               "description": "InspectCommitSet returns the info about a CommitSet.",
               "requestType": "InspectCommitSetRequest",
@@ -12960,7 +13098,7 @@
             },
             {
               "name": "SquashCommitSet",
-              "description": "SquashCommitSet squashes the commits of a CommitSet into their children.",
+              "description": "SquashCommitSet squashes the commits of a CommitSet into their children.\nDeprecated: Use SquashCommit instead.",
               "requestType": "SquashCommitSetRequest",
               "requestLongType": "SquashCommitSetRequest",
               "requestFullType": "pfs_v2.SquashCommitSetRequest",
@@ -12972,7 +13110,7 @@
             },
             {
               "name": "DropCommitSet",
-              "description": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.",
+              "description": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.\nDeprecated: Use DropCommit instead.",
               "requestType": "DropCommitSetRequest",
               "requestLongType": "DropCommitSetRequest",
               "requestFullType": "pfs_v2.DropCommitSetRequest",
@@ -14825,6 +14963,90 @@
           ]
         },
         {
+          "name": "CheckStatusRequest",
+          "longName": "CheckStatusRequest",
+          "fullName": "pps_v2.CheckStatusRequest",
+          "description": "Request to check the status of pipelines within a project.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "all",
+              "description": "boolean field indicating status of all project pipelines.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            },
+            {
+              "name": "project",
+              "description": "project field",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "context",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CheckStatusResponse",
+          "longName": "CheckStatusResponse",
+          "fullName": "pps_v2.CheckStatusResponse",
+          "description": "Response for check status request. Provides alerts if any.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "project field",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "pipeline field",
+              "label": "",
+              "type": "Pipeline",
+              "longType": "Pipeline",
+              "fullType": "pps_v2.Pipeline",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "alerts",
+              "description": "alert indicators",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ClusterDefaults",
           "longName": "ClusterDefaults",
           "fullName": "pps_v2.ClusterDefaults",
@@ -15237,6 +15459,18 @@
               "type": "Determined",
               "longType": "Determined",
               "fullType": "pps_v2.Determined",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -17518,7 +17752,7 @@
             },
             {
               "name": "details",
-              "description": "When true, return PipelineInfos with the details field, which requires\nloading the pipeline spec from PFS.",
+              "description": "Deprecated: Details are always returned.",
               "label": "",
               "type": "bool",
               "longType": "bool",
@@ -17526,7 +17760,10 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "deprecated": true
+              }
             },
             {
               "name": "jqFilter",
@@ -18695,6 +18932,30 @@
               "type": "Determined",
               "longType": "Determined",
               "fullType": "pps_v2.Determined",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "maximum_expected_uptime",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "workers_started_at",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -20701,6 +20962,18 @@
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
               "responseStreaming": false
+            },
+            {
+              "name": "CheckStatus",
+              "description": "Check Status returns the status of pipelines within a project.",
+              "requestType": "CheckStatusRequest",
+              "requestLongType": "CheckStatusRequest",
+              "requestFullType": "pps_v2.CheckStatusRequest",
+              "requestStreaming": false,
+              "responseType": "CheckStatusResponse",
+              "responseLongType": "CheckStatusResponse",
+              "responseFullType": "pps_v2.CheckStatusResponse",
+              "responseStreaming": true
             },
             {
               "name": "CreateSecret",
