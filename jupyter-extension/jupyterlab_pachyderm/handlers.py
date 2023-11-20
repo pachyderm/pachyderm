@@ -84,6 +84,11 @@ class MountHandler(BaseHandler):
             response = self.pfs_manager.list_mounts()
             get_logger().debug(f"Mount: {response}")
             self.finish(response)
+        except ValueError as e:
+            get_logger().debug(f"Bad mount request {body}: {e}")
+            raise tornado.web.HTTPError(
+                status_code=400, reason=f"Bad mount request: {e}"
+            )
         except Exception as e:
             get_logger().error(f"Error mounting {body}.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -102,6 +107,11 @@ class UnmountHandler(BaseHandler):
             response = self.pfs_manager.list_mounts()
             get_logger().debug(f"Unmount: {response}")
             self.finish(response)
+        except ValueError as e:
+            get_logger().debug(f"Bad unmount request {body}: {e}")
+            raise tornado.web.HTTPError(
+                status_code=400, reason=f"Bad unmount request: {e}"
+            )
         except Exception as e:
             get_logger().error(f"Error unmounting {body}.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -110,7 +120,7 @@ class UnmountHandler(BaseHandler):
             )
 
 
-# probably not needed anymore
+# only used in tests now
 class UnmountAllHandler(BaseHandler):
     """Unmounts all repos"""
 

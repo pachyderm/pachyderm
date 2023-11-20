@@ -163,6 +163,9 @@ def test_mount(pachyderm_resources, dev_server):
     assert len(resp["content"]) == 3
     assert sorted([c["name"] for c in resp["content"]]) == sorted(mounted_names)
 
+    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    assert r.status_code == 400, r.text
+
     r = requests.put(
         f"{BASE_URL}/_unmount_all",
     )
@@ -175,7 +178,6 @@ def test_mount(pachyderm_resources, dev_server):
     assert len(r.json()["content"]) == 0
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_unmount(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
 
@@ -186,27 +188,27 @@ def test_unmount(pachyderm_resources, dev_server):
                 "repo": repos[0],
                 "branch": "master",
                 "project": DEFAULT_PROJECT,
-                "mode": "ro",
             },
             {
                 "name": repos[0] + "_dev",
                 "repo": repos[0],
                 "branch": "dev",
                 "project": DEFAULT_PROJECT,
-                "mode": "ro",
             },
         ]
     }
     r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
     assert r.status_code == 200, r.text
-    assert sorted(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]) == sorted(
-        files
-    )
-    assert sorted(
-        list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0] + "_dev")))[0][2]
-    ) == sorted(files)
     assert len(r.json()["mounted"]) == 2
-    assert len(r.json()["unmounted"]) == 3
+    assert len(r.json()["unmounted"]) == 2
+
+    r = requests.get(f"{BASE_URL}/pfs/{repos[0]}")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+    r = requests.get(f"{BASE_URL}/pfs/{repos[0]}_dev")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
     r = requests.put(
         f"{BASE_URL}/_unmount",
@@ -215,7 +217,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
     assert len(r.json()["mounted"]) == 1
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][0]["branches"]) == 2
+    assert len(r.json()["unmounted"][0]["branches"]) == 1
 
     r = requests.put(
         f"{BASE_URL}/_unmount",
@@ -225,12 +227,18 @@ def test_unmount(pachyderm_resources, dev_server):
     assert len(r.json()["mounted"]) == 0
     assert len(r.json()["unmounted"]) == 3
     assert len(r.json()["unmounted"][0]["branches"]) == 2
-    assert list(os.walk(PFS_MOUNT_DIR)) == [(PFS_MOUNT_DIR, [], [])]
+
+    r = requests.get(f"{BASE_URL}/pfs")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 0
+
+    r = requests.put(
+        f"{BASE_URL}/_unmount",
+        data=json.dumps({"mounts": [repos[0]]}),
+    )
+    assert r.status_code == 400, r.text
 
 
-@pytest.mark.skip(
-    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
-)
 def test_mount_datums(pachyderm_resources, dev_server):
     repos, branches, files = pachyderm_resources
     input_spec = {
@@ -264,82 +272,65 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
     assert r.json()["all_datums_received"] == True
-    list(os.walk(os.path.join(PFS_MOUNT_DIR, "out")))  # makes "out" dir appear
-    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 4
     datum0_id = r.json()["id"]
 
-    assert sorted(
-        list(
-            os.walk(
-                os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0]]))
-            )
-        )[0][2]
-    ) == sorted(files)
-    assert (
-        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
-        in list(os.walk(PFS_MOUNT_DIR))[0][1]
-    )
-    assert (
-        len(
-            list(
-                os.walk(
-                    os.path.join(
-                        PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2]])
-                    )
-                )
-            )[0][2]
-        )
-        == 1
-    )
+    r = requests.get(f"{BASE_URL}/view_datum")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 3
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
 
     r = requests.put(f"{BASE_URL}/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
-    # TODO: uncomment this and below line when we transition fully to using ListDatum when getting datums. #ListDatumPagination
-    # assert r.json()["id"] != datum0_id
+    assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] == True
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
 
     r = requests.put(f"{BASE_URL}/datums/_prev")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
-    # assert r.json()["id"] == datum0_id
+    assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] == True
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
+
+    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
 
     r = requests.get(f"{BASE_URL}/datums")
     assert r.status_code == 200, r.text
-    assert r.json()["input"] == {
-        "cross": [
-            {
-                "pfs": {
-                    "repo": repos[0],
-                    "name": "".join([DEFAULT_PROJECT, "_", repos[0]]),
-                    "glob": "/",
-                    "project": DEFAULT_PROJECT,
-                    "branch": "master",
-                }
-            },
-            {
-                "pfs": {
-                    "repo": repos[1],
-                    "name": "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"]),
-                    "branch": "dev",
-                    "glob": "/*",
-                    "project": DEFAULT_PROJECT,
-                }
-            },
-            {
-                "pfs": {
-                    "repo": repos[2],
-                    "name": "".join([DEFAULT_PROJECT, "_", repos[2]]),
-                    "glob": "/*",
-                    "project": DEFAULT_PROJECT,
-                    "branch": "master",
-                }
-            },
-        ]
-    }
+    assert json.loads(r.json()["input"]) == input_spec["input"]
     assert r.json()["num_datums"] == 4
     assert r.json()["idx"] == 0
     assert r.json()["all_datums_received"] == True

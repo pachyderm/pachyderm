@@ -162,7 +162,7 @@ class PFSManager(FileContentsManager):
         self._mounted[name] = mounted_branch
 
     def unmount_repo(self, name: str):
-        if not self._mounted[name]:
+        if not name in self._mounted:
             raise ValueError(f"attempted to unmount {name} which was not mounted.")
         del self._mounted[name]
 
@@ -407,7 +407,7 @@ class DatumManager(FileContentsManager):
 
     class CurrentDatum(typing.TypedDict):
         num_datums: int
-        input: dict
+        input: str
         idx: int
         all_datums_received: bool
 
@@ -467,7 +467,7 @@ class DatumManager(FileContentsManager):
     def current_datum(self) -> dict:
         return self.CurrentDatum(
             num_datums=len(self._datum_list),
-            input=self._input,
+            input=self._input.to_json() if self._input else None,
             idx=self._datum_index,
             all_datums_received=True,
         )
