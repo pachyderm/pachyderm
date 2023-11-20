@@ -13,7 +13,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
@@ -952,17 +951,17 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 	}
 
 	// Handle snapshot
-	var firstEvent *postgres.Event
+	// var firstEvent *postgres.Event
 	if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
-		if firstEvent == nil {
-			select {
-			case firstEvent = <-events:
-			default:
-			}
-		}
-		if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
-			return errutil.ErrBreak
-		}
+		// if firstEvent == nil {
+		// 	select {
+		// 	case firstEvent = <-events:
+		// 	default:
+		// 	}
+		// }
+		// if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
+		// 	return errutil.ErrBreak
+		// }
 		if err := cb(CommitEvent{Commit: commitWith}); err != nil {
 			return err
 		}
@@ -970,11 +969,11 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 	}); err != nil {
 		return err
 	}
-	if firstEvent != nil {
-		if err := handleDelta(firstEvent); err != nil {
-			return err
-		}
-	}
+	// if firstEvent != nil {
+	// 	if err := handleDelta(firstEvent); err != nil {
+	// 		return err
+	// 	}
+	// }
 	// Handle deltas
 	for {
 		select {
