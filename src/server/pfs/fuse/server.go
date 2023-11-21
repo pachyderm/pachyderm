@@ -413,8 +413,8 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
-	log.Info(pctx.TODO(), "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
+func Server(ctx context.Context, sopts *ServerOptions, existingClient *client.APIClient) error {
+	log.Info(ctx, "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
 
 	// This variable points to the MountManager for each connected cluster.
 	// Updated when the config is updated.
@@ -425,7 +425,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		if err != nil {
 			return err
 		}
-		log.Info(pctx.TODO(), "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
+		log.Info(ctx, "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
 	}
 	router := mux.NewRouter()
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
@@ -661,7 +661,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(pctx.TODO(), "Mounting first datum")
+		log.Info(ctx, "Mounting first datum")
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -853,7 +853,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 				<-mm.Cleanup
 				mm.Client.Close()
 			}
-			log.Info(pctx.TODO(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
+			log.Info(ctx, "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
 				http.Error(w, fmt.Sprintf("error establishing mount with new pachd address: %v", err), http.StatusInternalServerError)
 				return
@@ -981,8 +981,9 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 		srv = &http.Server{Addr: FuseServerPort, Handler: router}
 	}
 
-	log.AddLoggerToHTTPServer(pctx.TODO(), "http", srv)
+	log.AddLoggerToHTTPServer(ctx, "http", srv)
 
+	// TODO(CORE-2053): refactor to use signal.NotifyContext
 	go func() {
 		sigChan := make(chan os.Signal, 1)
 		signal.Notify(sigChan, signals.TerminationSignals...)
@@ -995,7 +996,7 @@ func Server(sopts *ServerOptions, existingClient *client.APIClient) error {
 			close(mm.opts.getUnmount())
 			<-mm.Cleanup
 		}
-		srv.Shutdown(context.Background()) //nolint:errcheck
+		srv.Shutdown(ctx) //nolint:errcheck
 	}()
 
 	var socket net.Listener
