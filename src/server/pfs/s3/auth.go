@@ -41,7 +41,7 @@ func (c *controller) SecretKey(r *http.Request, accessKey string, region *string
 func (c *controller) CustomAuth(r *http.Request) (bool, error) {
 	log.Debug(r.Context(), "CustomAuth")
 	pc := c.clientFactory(r.Context())
-	active, err := pc.IsAuthActive()
+	active, err := pc.IsAuthActive(pc.AddMetadata(r.Context()))
 	if err != nil {
 		return false, errors.Wrapf(err, "could not check whether auth is active")
 	}

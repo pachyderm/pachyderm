@@ -154,6 +154,16 @@ type MountManager struct {
 	Cleanup  chan struct{}
 }
 
+func (mm *MountManager) metadataMiddleware(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if mm.Client == nil {
+			http.Error(w, "not connected to a cluster", http.StatusNotFound)
+			return
+		}
+		handler.ServeHTTP(w, req.WithContext(mm.Client.AddMetadata(req.Context())))
+	})
+}
+
 func (mm *MountManager) ListByRepos() (ListRepoResponse, error) {
 	// fetch list of available repos & branches from pachyderm, and overlay that
 	// with their mount states
@@ -428,8 +438,9 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		log.Info(ctx, "Connected to existing client", zap.String("address", existingClient.GetAddress().Qualified()))
 	}
 	router := mux.NewRouter()
+	router.Use(mm.metadataMiddleware)
 	router.Methods("GET").Path("/repos").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -448,7 +459,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/projects").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -468,7 +479,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/mounts").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -487,7 +498,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -529,7 +540,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_unmount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -566,7 +577,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_commit").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -597,7 +608,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/_unmount_all").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -621,7 +632,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/datums/_mount").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -685,7 +696,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/datums/_prev").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -731,7 +742,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/datums/_next").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -783,7 +794,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/datums").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -806,7 +817,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(marshalled) //nolint:errcheck
 	})
 	router.Methods("GET").Path("/config").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, false)
+		errMsg, webCode := initialChecks(req.Context(), mm, false)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -815,7 +826,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		mm.configMu.RLock()
 		defer mm.configMu.RUnlock()
 
-		clusterStatus, err := getClusterStatus(mm.Client)
+		clusterStatus, err := getClusterStatus(req.Context(), mm.Client)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -860,7 +871,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 			}
 		}
 
-		clusterStatus, err := getClusterStatus(mm.Client)
+		clusterStatus, err := getClusterStatus(req.Context(), mm.Client)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("error retrieving cluster status: %v", err), http.StatusInternalServerError)
 			return
@@ -876,13 +887,13 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 	// /auth/_login gets the OIDC login, which the user should be redirected to for login. Following this,
 	// /auth/_login_token should be called to retrieve the session token so that the caller may use it as well.
 	router.Methods("PUT").Path("/auth/_login").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, false)
+		errMsg, webCode := initialChecks(req.Context(), mm, false)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
 		}
 
-		authActive, _ := mm.Client.IsAuthActive()
+		authActive, _ := mm.Client.IsAuthActive(ctx)
 		if !authActive {
 			http.Error(w, "auth isn't activated on the cluster", http.StatusInternalServerError)
 			return
@@ -936,7 +947,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 		w.Write(json) //nolint:errcheck
 	})
 	router.Methods("PUT").Path("/auth/_logout").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		errMsg, webCode := initialChecks(mm, true)
+		errMsg, webCode := initialChecks(req.Context(), mm, true)
 		if errMsg != "" {
 			http.Error(w, errMsg, webCode)
 			return
@@ -1014,29 +1025,29 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 	return errors.EnsureStack(err)
 }
 
-func initialChecks(mm *MountManager, authCheck bool) (string, int) {
+func initialChecks(ctx context.Context, mm *MountManager, authCheck bool) (string, int) {
 	if mm.Client == nil {
 		return "not connected to a cluster", http.StatusNotFound
 	}
-	if authCheck && isAuthOnAndUserUnauthenticated(mm.Client) {
+	if authCheck && isAuthOnAndUserUnauthenticated(ctx, mm.Client) {
 		return "user unauthenticated", http.StatusUnauthorized
 	}
 	return "", 0
 }
 
-func isAuthOnAndUserUnauthenticated(c *client.APIClient) bool {
-	active, _ := c.IsAuthActive()
+func isAuthOnAndUserUnauthenticated(ctx context.Context, c *client.APIClient) bool {
+	active, _ := c.IsAuthActive(ctx)
 	if !active {
 		return false
 	}
-	_, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	_, err := c.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	return err != nil
 }
 
-func getClusterStatus(c *client.APIClient) (map[string]string, error) {
+func getClusterStatus(ctx context.Context, c *client.APIClient) (map[string]string, error) {
 	clusterStatus := "INVALID"
 	if err := c.Health(); err == nil {
-		authActive, err := c.IsAuthActive()
+		authActive, err := c.IsAuthActive(ctx)
 		if err != nil {
 			return nil, err
 		}
