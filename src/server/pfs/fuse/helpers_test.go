@@ -69,7 +69,7 @@ func withServerMount(ctx context.Context, tb testing.TB, c *client.APIClient, so
 		}
 	}()
 	go func() {
-		mountErr = Server(ctx, sopts, c)
+		mountErr = Serve(ctx, sopts, c)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.

@@ -35,9 +35,9 @@ func MountServerCmd() *cobra.Command {
 			pfscmds.PrintWarning()
 			c, err := client.NewOnUserMachine(cmd.Context(), "user", client.WithDialTimeout(5*time.Second))
 			if err != nil {
-				return fuse.Server(cmd.Context(), serverOpts, nil)
+				return fuse.Serve(cmd.Context(), serverOpts, nil)
 			}
-			return fuse.Server(cmd.Context(), serverOpts, c)
+			return fuse.Serve(cmd.Context(), serverOpts, c)
 		}),
 	}
 	rootCmd.Flags().StringVar(&mountDir, "mount-dir", "/pfs", "Target directory for mounts e.g /pfs")

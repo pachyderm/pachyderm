@@ -413,7 +413,7 @@ func (mm *MountManager) FinishAll() (retErr error) {
 	return retErr
 }
 
-func Server(ctx context.Context, sopts *ServerOptions, existingClient *client.APIClient) error {
+func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.APIClient) error {
 	log.Info(ctx, "Dynamically mounting pfs", zap.String("mountDir", sopts.MountDir))
 
 	// This variable points to the MountManager for each connected cluster.
