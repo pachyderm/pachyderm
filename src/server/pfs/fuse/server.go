@@ -672,7 +672,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 			mm.DatumIdx = 0
 		}()
 		di := mm.Datums[mm.DatumIdx]
-		log.Info(ctx, "Mounting first datum")
+		log.Info(req.Context(), "Mounting first datum")
 		mis := mm.datumToMounts(di)
 		for _, mi := range mis {
 			if _, err := mm.MountRepo(mi); err != nil {
@@ -864,7 +864,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 				<-mm.Cleanup
 				mm.Client.Close()
 			}
-			log.Info(ctx, "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
+			log.Info(req.Context(), "Updating pachd_address", zap.String("address", pachdAddress.Qualified()))
 			if mm, err = CreateMount(newClient, sopts.MountDir, sopts.AllowOther); err != nil {
 				http.Error(w, fmt.Sprintf("error establishing mount with new pachd address: %v", err), http.StatusInternalServerError)
 				return
@@ -893,7 +893,7 @@ func Serve(ctx context.Context, sopts *ServerOptions, existingClient *client.API
 			return
 		}
 
-		authActive, _ := mm.Client.IsAuthActive(ctx)
+		authActive, _ := mm.Client.IsAuthActive(req.Context())
 		if !authActive {
 			http.Error(w, "auth isn't activated on the cluster", http.StatusInternalServerError)
 			return
