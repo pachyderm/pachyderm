@@ -36,7 +36,6 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
@@ -1106,26 +1105,28 @@ func (d *driver) inspectProcessingCommits(ctx context.Context, commitInfo *pfs.C
 	expectedErr := errors.New("commit is in the right state")
 	ctx, cancel := context.WithCancelCause(ctx)
 	defer cancel(nil)
-	if err := pfsdb.WatchCommit(ctx, d.env.DB, d.env.Listener, commitID, func(ce pfsdb.CommitEvent) error {
-		if ce.Event.Type == postgres.EventDelete {
+	if err := pfsdb.WatchCommit(ctx, d.env.DB, d.env.Listener, commitID,
+		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
+			switch wait {
+			case pfs.CommitState_FINISHING:
+				if ci.Finishing != nil {
+					commitInfo = ci
+					cancel(expectedErr)
+					return nil
+				}
+			case pfs.CommitState_FINISHED:
+				if ci.Finished != nil {
+					commitInfo = ci
+					cancel(expectedErr)
+					return nil
+				}
+			}
+			return nil
+		},
+		func(id pfsdb.CommitID) error {
 			return pfsserver.ErrCommitDeleted{Commit: commitInfo.Commit}
-		}
-		switch wait {
-		case pfs.CommitState_FINISHING:
-			if ce.Commit.CommitInfo.Finishing != nil {
-				commitInfo = ce.Commit.CommitInfo
-				cancel(expectedErr)
-				return nil
-			}
-		case pfs.CommitState_FINISHED:
-			if ce.Commit.CommitInfo.Finished != nil {
-				commitInfo = ce.Commit.CommitInfo
-				cancel(expectedErr)
-				return nil
-			}
-		}
-		return nil
-	}); err != nil && !errors.Is(context.Cause(ctx), expectedErr) {
+		},
+	); err != nil && !errors.Is(context.Cause(ctx), expectedErr) {
 		return nil, errors.Wrap(err, "inspect finishing or finished commit")
 	}
 	return commitInfo, nil
@@ -1510,43 +1511,34 @@ func (d *driver) subscribeCommit(
 	}); err != nil {
 		return err
 	}
-	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repoID, func(ce pfsdb.CommitEvent) error {
-		return d.subscribeCommitHelper(ctx, branch, from, state, ce.Commit.CommitInfo, all, originKind, seen, cb)
-	})
-}
-
-func (d *driver) subscribeCommitHelper(
-	ctx context.Context,
-	branch string,
-	from *pfs.Commit,
-	state pfs.CommitState,
-	commitInfo *pfs.CommitInfo,
-	all bool,
-	originKind pfs.OriginKind,
-	seen map[string]bool,
-	cb func(*pfs.CommitInfo) error,
-) error {
-	// if branch is provided, make sure the commit was created on that branch
-	if branch != "" && commitInfo.Commit.Branch.Name != branch {
-		return nil
-	}
-	// If the origin of the commit doesn't match what we're interested in, skip it
-	if !passesCommitOriginFilter(commitInfo, all, originKind) {
-		return nil
-	}
-	// We don't want to include the `from` commit itself
-	if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
-		// Wait for the commit to enter the right state
-		commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
-		if err != nil {
-			return err
-		}
-		if err := cb(commitInfo); err != nil {
-			return err
-		}
-		seen[commitInfo.Commit.Id] = true
-	}
-	return nil
+	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repoID,
+		func(id pfsdb.CommitID, commitInfo *pfs.CommitInfo) error { // onUpsert
+			// if branch is provided, make sure the commit was created on that branch
+			if branch != "" && commitInfo.Commit.Branch.Name != branch {
+				return nil
+			}
+			// If the origin of the commit doesn't match what we're interested in, skip it
+			if !passesCommitOriginFilter(commitInfo, all, originKind) {
+				return nil
+			}
+			// We don't want to include the `from` commit itself
+			if !(seen[commitInfo.Commit.Id] || (from != nil && from.Id == commitInfo.Commit.Id)) {
+				// Wait for the commit to enter the right state
+				commitInfo, err := d.inspectCommit(ctx, proto.Clone(commitInfo.Commit).(*pfs.Commit), state)
+				if err != nil {
+					return err
+				}
+				if err := cb(commitInfo); err != nil {
+					return err
+				}
+				seen[commitInfo.Commit.Id] = true
+			}
+			return nil
+		},
+		func(id pfsdb.CommitID) error { // onDelete
+			return nil
+		},
+	)
 }
 
 func (d *driver) clearCommit(ctx context.Context, commit *pfs.Commit) error {

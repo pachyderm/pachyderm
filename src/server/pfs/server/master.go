@@ -365,12 +365,12 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 
 func (d *driver) finishRepoCommits(ctx context.Context, repo pfsdb.RepoInfoWithID) error {
 	return pfsdb.WatchCommitsInRepo(ctx, d.env.DB, d.env.Listener, repo.ID,
-		func(ce pfsdb.CommitEvent) error {
-			if ce.Event.Type == postgres.EventDelete {
-				// Skip deleted commits.
-				return nil
-			}
-			return d.finishRepoCommit(ctx, repo, &ce.Commit)
+		func(id pfsdb.CommitID, ci *pfs.CommitInfo) error {
+			return d.finishRepoCommit(ctx, repo, &pfsdb.CommitWithID{ID: id, CommitInfo: ci})
+		},
+		func(_ pfsdb.CommitID) error {
+			// Don't finish commits that are deleted.
+			return nil
 		},
 	)
 }

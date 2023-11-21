@@ -878,7 +878,10 @@ type CommitEvent struct {
 	Commit CommitWithID
 }
 
-func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, cb func(CommitEvent) error) error {
+type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
+type commitDeleteHandler func(id CommitID) error
+
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
 	if err != nil {
 		return err
@@ -888,10 +891,10 @@ func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.Postg
 	if err != nil {
 		return err
 	}
-	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
-func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, cb func(CommitEvent) error) error {
+func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoID)), CommitsInRepoChannel(repoID))
 	if err != nil {
 		return err
@@ -901,10 +904,10 @@ func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection
 	query := getCommit + fmt.Sprintf(" WHERE %s = ?  ORDER BY %s ASC", CommitColumnRepoID, CommitColumnID)
 	query = db.Rebind(query)
 	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
-	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
-func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, cb func(CommitEvent) error) error {
+func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
 	if err != nil {
 		return err
@@ -922,67 +925,47 @@ func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.Postgr
 		return err
 	}
 	snapshot := stream.NewSlice([]CommitWithID{commitWithID})
-	return watchCommits(ctx, db, snapshot, watcher.Watch(), cb)
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
-func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, cb func(CommitEvent) error) error {
-	handleDelta := func(event *postgres.Event) error {
-		if event == nil {
-			return nil
-		}
-		if event.Err != nil {
-			return event.Err
-		}
-		if event.Type == postgres.EventDelete {
-			return cb(CommitEvent{Event: *event})
-		}
-		commitEvent := CommitEvent{Event: *event}
-		if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-			commitInfo, err := GetCommit(ctx, tx, CommitID(event.Id))
-			if err != nil {
-				return err
-			}
-			commitEvent.Commit = CommitWithID{ID: CommitID(event.Id), CommitInfo: commitInfo}
-			return nil
-		}); err != nil {
-			return err
-		}
-		return cb(commitEvent)
-	}
-
+func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	// Handle snapshot
-	// var firstEvent *postgres.Event
 	if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
-		// if firstEvent == nil {
-		// 	select {
-		// 	case firstEvent = <-events:
-		// 	default:
-		// 	}
-		// }
-		// if firstEvent != nil && CommitID(firstEvent.Id) <= commitWith.ID {
-		// 	return errutil.ErrBreak
-		// }
-		if err := cb(CommitEvent{Commit: commitWith}); err != nil {
-			return err
-		}
-		return nil
+		return onUpsert(commitWith.ID, commitWith.CommitInfo)
 	}); err != nil {
 		return err
 	}
-	// if firstEvent != nil {
-	// 	if err := handleDelta(firstEvent); err != nil {
-	// 		return err
-	// 	}
-	// }
-	// Handle deltas
+	// Handle delta
 	for {
 		select {
 		case event, ok := <-events:
 			if !ok {
 				return errors.Errorf("watcher closed")
 			}
-			if err := handleDelta(event); err != nil {
-				return err
+			if event.Err != nil {
+				return event.Err
+			}
+			id := CommitID(event.Id)
+			switch event.Type {
+			case postgres.EventDelete:
+				if err := onDelete(id); err != nil {
+					return err
+				}
+			case postgres.EventInsert, postgres.EventUpdate:
+				var commitInfo *pfs.CommitInfo
+				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+					var err error
+					commitInfo, err = GetCommit(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				if err := onUpsert(id, commitInfo); err != nil {
+					return err
+				}
 			}
 		case <-ctx.Done():
 			return errors.Wrap(ctx.Err(), "watcher cancelled")
