@@ -162,7 +162,7 @@ class PFSManager(FileContentsManager):
         self._mounted[name] = mounted_branch
 
     def unmount_repo(self, name: str):
-        if not name in self._mounted:
+        if name not in self._mounted:
             raise ValueError(f"attempted to unmount {name} which was not mounted.")
         del self._mounted[name]
 
