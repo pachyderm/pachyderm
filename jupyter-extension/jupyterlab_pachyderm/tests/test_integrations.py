@@ -33,7 +33,7 @@ def pachyderm_resources():
     branches = ["master", "dev"]
     files = ["file1", "file2"]
 
-    client = Client()
+    client = Client.from_config()
     client.pfs.delete_all()
 
     for repo in repos:
@@ -64,11 +64,7 @@ def dev_server():
         stdout=subprocess.PIPE,
     )
     # Give time for python test server to start
-    time.sleep(10)
-
-    r = requests.put(
-        f"{BASE_URL}/config", data=json.dumps({"pachd_address": "localhost:30650"})
-    )
+    time.sleep(3)
 
     # Give time for mount server to start
     running = False

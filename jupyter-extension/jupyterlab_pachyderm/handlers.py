@@ -4,7 +4,7 @@ from jupyter_server.utils import url_path_join
 import asyncio
 import grpc
 import json
-from pachyderm_sdk import Client
+from pachyderm_sdk import Client, errors
 import tornado
 import traceback
 
@@ -281,7 +281,7 @@ class ConfigHandler(BaseHandler):
 
     def config_response(self) -> bytes:
         if not self.client:
-            return json.dumps({"cluster_status": "INVALID"})
+            return json.dumps({"cluster_status": self.CLUSTER_INVALID})
 
         try:
             self.client.auth.who_am_i()
@@ -296,6 +296,8 @@ class ConfigHandler(BaseHandler):
                 cluster_status = self.CLUSTER_AUTH_DISABLED
             else:
                 cluster_status = self.CLUSTER_INVALID
+        except errors.AuthServiceNotActivated:
+            cluster_status = self.CLUSTER_AUTH_DISABLED
         except ConnectionError:
             cluster_status = self.CLUSTER_INVALID
 
