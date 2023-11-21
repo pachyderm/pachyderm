@@ -872,12 +872,7 @@ func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 	return commits, nil
 }
 
-// Watch commits
-type CommitEvent struct {
-	Event  postgres.Event
-	Commit CommitWithID
-}
-
+// Helper functions for watching commits.
 type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
 type commitDeleteHandler func(id CommitID) error
 
