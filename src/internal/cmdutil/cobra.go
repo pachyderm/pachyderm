@@ -46,19 +46,27 @@ func RunFixedArgsCmd(numArgs int, run func(*cobra.Command, []string) error) func
 	}
 }
 
-// RunBoundedArgs wraps a function in a function
-// that checks its argument count is within a range.
-func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
+// RunBoundedArgsCmd wraps a function in a function that checks its argument
+// count is within a range.
+func RunBoundedArgsCmd(min int, max int, run func(*cobra.Command, []string) error) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if len(args) < min || len(args) > max {
 			fmt.Fprintf(cmd.OutOrStderr(), "expected %d to %d arguments, got %d\n\n", min, max, len(args))
 			cmd.Usage()
 			os.Exit(1)
 		}
-		if err := run(args); err != nil {
+		if err := run(cmd, args); err != nil {
 			ErrorAndExitf("%v", err)
 		}
 	}
+}
+
+// RunBoundedArgs wraps a function in a function that checks its argument count
+// is within a range.
+func RunBoundedArgs(min int, max int, run func([]string) error) func(*cobra.Command, []string) {
+	return RunBoundedArgsCmd(min, max, func(_ *cobra.Command, args []string) error {
+		return run(args)
+	})
 }
 
 // RunMinimumArgs wraps a function in a function
