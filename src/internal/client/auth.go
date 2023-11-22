@@ -1,14 +1,16 @@
 package client
 
 import (
+	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 )
 
 // IsAuthActive returns whether auth is activated on the cluster
-func (c APIClient) IsAuthActive() (bool, error) {
-	_, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
+func (c APIClient) IsAuthActive(ctx context.Context) (bool, error) {
+	_, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	switch {
