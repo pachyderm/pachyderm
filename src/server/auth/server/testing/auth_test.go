@@ -2279,7 +2279,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
 
 	// wait until alice shows up in admin list
-	resp, err := aliceClient.GetClusterRoleBinding()
+	resp, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
 
@@ -2505,7 +2505,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, adminClient.ModifyClusterRoleBinding(alice, []string{auth.RepoOwnerRole}))
 
 	// wait until alice shows up in admin list
-	resp, err := aliceClient.GetClusterRoleBinding()
+	resp, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
 

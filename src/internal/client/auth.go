@@ -27,8 +27,8 @@ func (c APIClient) IsAuthActive(ctx context.Context) (bool, error) {
 	}
 }
 
-func (c APIClient) GetClusterRoleBinding() (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBinding(c.Ctx(), &auth.GetRoleBindingRequest{
+func (c APIClient) GetClusterRoleBinding(ctx context.Context) (*auth.RoleBinding, error) {
+	resp, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 	})
 	if err != nil {
