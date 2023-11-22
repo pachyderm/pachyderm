@@ -876,6 +876,7 @@ func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
 type commitDeleteHandler func(id CommitID) error
 
+// WatchCommits creates a watcher and watches the pfs.commits table for changes.
 func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
 	if err != nil {
@@ -889,6 +890,7 @@ func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.Postg
 	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
+// WatchCommitsInRepo creates a watcher and watches for commits in a repo.
 func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoID)), CommitsInRepoChannel(repoID))
 	if err != nil {
@@ -902,6 +904,7 @@ func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection
 	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 
+// WatchCommit creates a watcher and watches for changes to a single commit.
 func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
 	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
 	if err != nil {
