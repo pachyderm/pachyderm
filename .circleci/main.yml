@@ -178,6 +178,13 @@ jobs:
           name: Install prom # Make Launch stats
           command: kubectl apply --filename etc/kubernetes-prometheus -R
       - run:
+          name: produce list of tests
+          command: |
+            package="./src/server"
+            test_tags="k8s"
+
+            go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark' > tests.txt
+      - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
@@ -187,27 +194,20 @@ jobs:
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
 
-            bucket_num=$CIRCLE_NODE_INDEX
-            num_buckets=$CIRCLE_NODE_TOTAL
             package="./src/server"
             test_tags="k8s"
 
-            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
+            tests=( $(cat tests.txt | circleci tests split --split-by=timings --timings-type=testname) )
+
+            echo "${tests}"
+
             # Add anchors for the regex so we don't run collateral tests
             tests=( "${tests[@]/#/^}" )
             tests=( "${tests[@]/%/\$\$}" )
-            total_tests="${#tests[@]}"
 
-            # Determine the offset and length of the sub-array of tests we want to run
-            # The last bucket may have a few extra tests, to accommodate rounding
-            # errors from bucketing:
-            let "bucket_size=total_tests/num_buckets" \
-              "start=bucket_size * (bucket_num-1)" \
-              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
+            test_regex="$(IFS=\|; echo "${tests[*]}")"
 
-            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
-
-            echo $test_regex
+            echo ${test_regex}
 
             gotestsum \
               --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
