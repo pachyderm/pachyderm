@@ -335,7 +335,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
+@pytest.mark.skip(reason="we should implement writing to config file before re-enabling")
 def test_config(dev_server):
     # PUT request
     test_endpoint = "localhost:30650"
@@ -365,7 +365,7 @@ def test_config(dev_server):
 
 @pytest.fixture(params=[True, False])
 def simple_pachyderm_env(request):
-    client = Client()
+    client = Client().from_config()
     suffix = str(randint(100000, 999999))
 
     if request.param:
@@ -425,7 +425,6 @@ def notebook_path(simple_pachyderm_env) -> Path:
         notebook_path.unlink()
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     client, repo, pipeline = simple_pachyderm_env
     with client.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
@@ -443,14 +442,12 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     )
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 def test_pps_validation_errors(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
     assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_reuse_pipeline_name_different_project(
     dev_server, simple_pachyderm_env, notebook_path
@@ -488,7 +485,6 @@ def test_pps_reuse_pipeline_name_different_project(
             new_notebook.unlink()
 
 
-@pytest.mark.skip(reason="test needs to be updated for new FUSE-less impl")
 @pytest.mark.parametrize("simple_pachyderm_env", [False], indirect=True)
 def test_pps_update_default_project_pipeline(
     dev_server, simple_pachyderm_env, notebook_path
