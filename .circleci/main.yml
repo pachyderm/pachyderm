@@ -89,9 +89,10 @@ jobs:
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
       - run:
+          name: Run Go Unit Tests
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=8 GOMEMLIMIT=8000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=7 GOMEMLIMIT=8000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
@@ -223,7 +224,7 @@ jobs:
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - wait-for-docker
-      - start-minikube
+      - start-minikube-2xlarge
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -253,9 +254,6 @@ jobs:
           command: kubectl get events -o wide --watch --all-namespaces | ts '%Y-%m-%dT%H:%M:%S'
           background: true
       - run:
-          name: Snowflake build
-          command: eval $(minikube -p minikube docker-env) && make docker-build-connectors # for snowflake tests
-      - run:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
       - run:
@@ -266,6 +264,7 @@ jobs:
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
           no_output_timeout: 30m
+          name: Run Go Integration Tests
           command: |-
             PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
             export PROM_PORT
@@ -503,7 +502,7 @@ jobs:
           background: true
       - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -527,7 +526,7 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  deploy-tests: # DNJ TOD - run only arm64 now that integration test runs these
+  deploy-tests: # run only arm64 now that integration test runs these
     parameters:
       num_executors:
         type: integer
@@ -537,7 +536,7 @@ jobs:
         default: large
       arch:
         type: string
-        default: amd64
+        default: arm64
     resource_class: << parameters.resource_class >>
     parallelism: << parameters.num_executors >>
     machine:
@@ -578,7 +577,7 @@ jobs:
           background: true
       - run: mkdir -p "${TEST_RESULTS}"
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -1436,7 +1435,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - attach_workspace:
           at: ./
       - run:
@@ -1541,7 +1540,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - wait-for-minikube
       - attach_workspace:
           at: ./
@@ -1738,11 +1737,6 @@ workflows:
   deploy-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
-      - deploy-tests:
-          name: amd64 deploy tests
-          resource_class: xlarge # amd64
-          arch: amd64
-          num_executors: 4
       - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
@@ -2206,11 +2200,17 @@ commands:
               fi
               sleep 1
             done
-  start-minikube:
+  start-minikube-2xlarge:
     steps:
       - run:
           name: Start minikube
           command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
+          background: true
+  start-minikube-large:
+    steps:
+      - run:
+          name: Start minikube
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:

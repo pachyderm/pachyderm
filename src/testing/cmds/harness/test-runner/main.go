@@ -142,7 +142,7 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 // like TestConfig or TestDebug don't run multiple times if they land on separate shards.
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
 	resultsFolder := os.Getenv("TEST_RESULTS")
-	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2"), "/", "-")
+	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2/"), "/", "-")
 	runTestArgs := []string{
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
@@ -150,7 +150,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		"--format=testname",
 		"--debug",
 		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
-		fmt.Sprintf("--jsonfile=%s/go-test-results-%s.jsonl", resultsFolder, pkgShort),
+		fmt.Sprintf("--jsonfile=%s/%s-go-test-results.jsonl", resultsFolder, pkgShort),
 	}
 	if len(gotestsumArgs) > 0 {
 		runTestArgs = append(runTestArgs, gotestsumArgs...)

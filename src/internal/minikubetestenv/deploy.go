@@ -43,6 +43,7 @@ const (
 	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
+	leasePrefix            = "minikubetestenv-"
 )
 
 const (
@@ -183,6 +184,7 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 			"loki-stack.promtail.initContainer[0].command[1]":                 "-c",
 			"loki-stack.promtail.initContainer[0].command[2]":                 "sysctl -w fs.inotify.max_user_instances=8000",
 			"loki-stack.promtail.initContainer[0].securityContext.privileged": "true",
+			"loki-stack.persistence.size":                                     "5Gi",
 		},
 	}
 }
@@ -203,6 +205,8 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultSidecarMemoryRequest":   "64M",
 			"pachd.defaultSidecarStorageRequest":  "100Mi",
 			"console.enabled":                     "false",
+			"postgresql.persistence.size":         "5Gi",
+			"etcd.storageSize":                    "5Gi",
 		},
 	}
 }
@@ -539,6 +543,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 }
 
 func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset) {
+	t.Logf("Deleting release in namespace %v", namespace)
 	options := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 	}
@@ -547,6 +552,7 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
 
+	require.NoError(t, kubeClient.CoreV1().ConfigMaps(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoError(t, backoff.Retry(func() error {
@@ -558,10 +564,15 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if err != nil {
 			return errors.Wrap(err, "error on loki pvc list")
 		}
-		if len(pachPvcs.Items) == 0 && len(lokiPvcs.Items) == 0 {
+		// Determined pvcs are removed by the helm uninstall, but we should still wait for them because of Determined's preemption policy
+		detPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=determined-db-%s", namespace)})
+		if err != nil {
+			return errors.Wrap(err, "error on det pvc list")
+		}
+		if len(pachPvcs.Items) == 0 && len(lokiPvcs.Items) == 0 && len(detPvcs.Items) == 0 {
 			return nil
 		}
-		return errors.Errorf("pvcs have yet to be deleted. pvcs left: %d", len(pachPvcs.Items)+len(lokiPvcs.Items))
+		return errors.Errorf("pvcs have yet to be deleted. Namespace: %s PVCs left - pach: %d loki: %d det: %d", namespace, len(pachPvcs.Items), len(lokiPvcs.Items), len(detPvcs.Items))
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
@@ -645,6 +656,7 @@ func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Cli
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      helmOptsConfigMap,
 			Namespace: ns,
+			Labels:    map[string]string{"suite": "pachyderm"},
 		},
 		BinaryData: map[string][]byte{
 			"helmopts-hash": hashOpts(t, helmOpts, chartPath),
@@ -752,7 +764,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			func() error {
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
-	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster {
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster { // DNJ TODO or no pachd exists for safety?
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
@@ -765,6 +777,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	} else { // same hash, no need to change anything
 		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
 		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
+		// DNJ TODO missing code coverage and cleanupafter
 	}
 	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
@@ -803,13 +816,50 @@ func PutNamespace(t testing.TB, namespace string) {
 	}
 }
 
-// LeaseNamespace blocks until the namespace is no longer leased by someone else. It then creates a lease that is cleaned up at the end of the test.
-// Since PutNamespace doesn't modify existing namespaces, doing PutNamespace(t, ns) then LeaseNamespace(t, ns) is a safe way to wait for a custom
-// namespace to become available and get an exclusive lock on it.
-func LeaseNamespace(t testing.TB, namespace string) {
-	require.NoErrorWithinTRetry(t, time.Second*300, func() error {
-		return putLease(t, namespace)
-	})
+// LeaseNamespace attempts to lock a namespace for exclusive use by a test. It creates a k8s lease that is cleaned up at the end of the test.
+// Calling LeaseNamespace will create the namespace if it doesn't exist. It returns true if Lease was acquired, false if not.
+// To block until a namespace lock can be acquired, retry for the desired amount of time. LeaseNamespace will force-acquire
+// the namespace lock after the the lease duration has passed.
+func LeaseNamespace(t testing.TB, namespace string) bool {
+	kube := testutil.GetKubeClient(t)
+	lease, err := kube.CoordinationV1().
+		Leases(namespace).
+		Get(context.Background(), fmt.Sprintf("%s%s", leasePrefix, namespace), metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) { // DNJ TODO this probably needs to PutNamespace here now - is that ok with tests?
+		PutNamespace(t, namespace)
+		err = putLease(t, namespace)
+		if k8serrors.IsAlreadyExists(err) {
+			// if it already exists, but didn't before then we are racing another process.
+			// Just try to take the next namespace since there are many available.
+			return false
+		}
+		require.NoError(t, err)
+		return true
+	} else {
+		require.NoError(t, err)
+		timeSinceRenewal := time.Since(lease.Spec.RenewTime.Time)
+		maxLeaseTime := time.Duration(*lease.Spec.LeaseDurationSeconds) * time.Second
+		if timeSinceRenewal > maxLeaseTime {
+			t.Logf("Lease expired. Force acquiring lock on namespace %v.", namespace)
+			err := kube.CoordinationV1().
+				Leases(namespace).
+				Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			if k8serrors.IsNotFound(err) {
+				return false // someone else deleted it first and so is likely in the process of leasing this namespace, move on
+			}
+			require.NoError(t, err)
+			PutNamespace(t, namespace)
+			err = putLease(t, namespace)
+			if k8serrors.IsAlreadyExists(err) {
+				// if it already exists, we deleted it, but another runner snuck in and
+				// created it somehow. Let them have it and go to the next open namespace.
+				return false
+			}
+			require.NoError(t, err)
+			return true
+		}
+		return false // lease exists and is not expired, can't take it
+	}
 }
 
 func putLease(t testing.TB, namespace string) error {
@@ -818,14 +868,17 @@ func putLease(t testing.TB, namespace string) error {
 	*identity = t.Name()
 	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
 	*leaseDuration = 600
+	acquireTime := metav1.NewMicroTime(time.Now())
 	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("minikubetestenv-%s", namespace),
+			Name:      fmt.Sprintf("%s%s", leasePrefix, namespace),
 			Namespace: namespace,
 		},
 		Spec: coordination.LeaseSpec{
 			HolderIdentity:       identity,
 			LeaseDurationSeconds: leaseDuration,
+			AcquireTime:          &acquireTime,
+			RenewTime:            &acquireTime,
 		},
 	}, metav1.CreateOptions{})
 	if err == nil {

@@ -22,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/exp/maps"
 )
 
 const (
@@ -49,19 +50,21 @@ type DeterminedUserList struct {
 
 func TestDeterminedInstallAndIntegration(t *testing.T) {
 	t.Parallel()
+	valueOverrides := make(map[string]string)
+	maps.Copy(valueOverrides, globalValueOverrides)
 	ns, portOffset := minikubetestenv.ClaimCluster(t)
 	k := testutil.GetKubeClient(t)
 	opts := &minikubetestenv.DeployOpts{
-		AuthUser:     auth.RootUser,
-		Enterprise:   true,
-		PortOffset:   portOffset,
-		Determined:   true,
-		CleanupAfter: true,
+		AuthUser:   auth.RootUser,
+		Enterprise: true,
+		PortOffset: portOffset,
+		Determined: true,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	t.Logf("Determined installing in namespace %s", ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
+
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -171,7 +174,7 @@ func doDeterminedRequest(t testing.TB, req *http.Request) []byte {
 	hc.Timeout = 15 * time.Second
 	var resp *http.Response
 	var err error
-	require.NoErrorWithinTRetryConstant(t, 3*time.Minute, func() error {
+	require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 		resp, err = hc.Do(req)
 		return errors.EnsureStack(err)
 	}, 10*time.Second, "Attempting to make determined request")

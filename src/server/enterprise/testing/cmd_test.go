@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -34,8 +36,12 @@ func startEnterpriseCluster(ctx context.Context, t *testing.T) {
 		"enterpriseServer.service.type": "NodePort",
 	}
 	k := testutil.GetKubeClient(t)
-	minikubetestenv.PutNamespace(t, "enterprise")
-	minikubetestenv.LeaseNamespace(t, "enterprise")
+	require.NoErrorWithinTRetryConstant(t, 300*time.Second, func() error {
+		if !minikubetestenv.LeaseNamespace(t, "enterprise") {
+			return errors.Errorf("Could not acquire Namespace lock on Enterprise namespace for command test.")
+		}
+		return nil
+	}, 5*time.Second)
 	_ = minikubetestenv.InstallRelease(t, context.Background(), "enterprise", k, &minikubetestenv.DeployOpts{
 		EnterpriseServer: true,
 		CleanupAfter:     false,

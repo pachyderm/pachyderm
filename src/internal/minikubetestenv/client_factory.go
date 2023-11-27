@@ -12,10 +12,8 @@ import (
 	"time"
 
 	"golang.org/x/sync/semaphore"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -24,7 +22,6 @@ import (
 
 const (
 	namespacePrefix = "test-cluster-"
-	leasePrefix     = "minikubetestenv-"
 )
 
 var (
@@ -118,38 +115,26 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 }
 
 func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
-	kube := testutil.GetKubeClient(t)
 	var idx int
 	var ns string
 	timeout := time.Second * 300
 	startAssign := time.Now()
 	for idx = 1; idx <= *poolSize+1; idx++ { //DNJ TODO -cleanup
-		if idx == *poolSize+1 {
+		if idx == *poolSize+1 { // We exhausted allowed namespaces, wait and then try again to see if one is available
 			if time.Since(startAssign) > timeout {
 				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
 			}
 			// DNJ TODO block until we can go, then restart the loop
 			time.Sleep(5 * time.Second)
-			idx = 0
+			idx = 0 // restarting loop
 			continue
 		}
 		ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
-		_, err := kube.CoordinationV1().
-			Leases(ns).
-			Get(context.Background(), fmt.Sprintf("%s%v", leasePrefix, idx), v1.GetOptions{})
-		if k8serrors.IsNotFound(err) { // DNJ TODO this probably needs to PutNamespace here now - is that ok with tests?
-			PutNamespace(t, ns)
-			err = putLease(t, ns)
-			if k8serrors.IsAlreadyExists(err) { // if it already exists, but didn't before we were racing, so don't break to take the next namespaace
-				continue
-			}
-			require.NoError(t, err)
+		if ok := LeaseNamespace(t, ns); ok {
 			break
-		} else {
-			require.NoError(t, err)
 		}
 	}
-	cf.managedClusters[ns] = nil // hold my place in line
+	cf.managedClusters[ns] = nil // DNJ TODO - needed? hold my place in line
 	return ns, idx
 }
 
