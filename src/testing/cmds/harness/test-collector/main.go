@@ -32,9 +32,10 @@ func main() {
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
+	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
 	threadPool := flag.Int("threads", 2, "Number of packages to collect tests from concurrently.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName, *threadPool)
+	err := run(ctx, *tags, *fileName, *pkg, *threadPool)
 	if err != nil {
 		log.Error(ctx, "Error during tests splitting", zap.Error(err))
 		os.Exit(1)
@@ -42,18 +43,18 @@ func main() {
 	os.Exit(0)
 }
 
-func run(ctx context.Context, tags string, fileName string, threadPool int) error {
+func run(ctx context.Context, tags string, fileName string, pkg string, threadPool int) error {
 	tagsArg := ""
 	var testIdsUntagged map[string][]string
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
 		var err error
-		testIdsUntagged, err = testNames(ctx, "./...", "") // collect for set difference
+		testIdsUntagged, err = testNames(ctx, pkg, "") // collect for set difference
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
-	testIdsTagged, err := testNames(ctx, "./...", tagsArg)
+	testIdsTagged, err := testNames(ctx, pkg, tagsArg)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -96,7 +97,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		return nil, errors.EnsureStack(err)
 	}
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMAXPROCS=16")
+	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // DNJ TODO - leave or parameter or remove?
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
