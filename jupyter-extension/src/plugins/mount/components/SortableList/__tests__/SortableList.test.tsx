@@ -163,14 +163,6 @@ describe('sortable list components', () => {
         repo: 'images',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: '',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -212,14 +204,6 @@ describe('sortable list components', () => {
         repo: 'images',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: '',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -275,7 +259,7 @@ describe('sortable list components', () => {
       ],
     });
   });
-
+  /* TODO: tests must be updated for the new FUSE-less impl
   it('should display state and status of mounted brach', async () => {
     const items: Mount[] = [
       {
@@ -283,14 +267,6 @@ describe('sortable list components', () => {
         repo: 'edges',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'error',
-        status: 'error mounting branch',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -318,42 +294,18 @@ describe('sortable list components', () => {
         repo: '1',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'error',
-        status: 'error mounting branch',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
       {
         name: '2',
         repo: '2',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'unmounting',
-        status: '',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
       {
         name: '3',
         repo: '3',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounting',
-        status: '',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
     ];
     const {getAllByTestId} = render(
@@ -379,14 +331,6 @@ describe('sortable list components', () => {
         repo: 'edges',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: 'all is well, la la la',
-        mountpoint: null,
-        how_many_commits_behind: 0,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -412,14 +356,6 @@ describe('sortable list components', () => {
         repo: 'edges',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: 'all is well, la la la',
-        mountpoint: null,
-        how_many_commits_behind: 1,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -445,14 +381,6 @@ describe('sortable list components', () => {
         repo: 'edges',
         project: 'default',
         branch: 'master',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: 'all is well, la la la',
-        mountpoint: null,
-        how_many_commits_behind: 2,
-        latest_commit: 'a1b2c3',
       },
     ];
 
@@ -470,7 +398,7 @@ describe('sortable list components', () => {
     const commitBehindnessText = getByTestId('ListItem__commitBehindness');
     expect(commitBehindnessText.textContent).toContain('2 commits behind');
   });
-
+*/
   it('should grey out mount button for selected branches in dropdown that are already mounted', async () => {
     const mountedItems: Mount[] = [
       {
@@ -478,14 +406,6 @@ describe('sortable list components', () => {
         repo: 'edges',
         project: 'default',
         branch: 'mounted_branch',
-        commit: 'a1b2c3',
-        glob: null,
-        mode: null,
-        state: 'mounted',
-        status: 'all is well, la la la',
-        mountpoint: null,
-        how_many_commits_behind: 2,
-        latest_commit: 'a1b2c3',
       },
     ];
 

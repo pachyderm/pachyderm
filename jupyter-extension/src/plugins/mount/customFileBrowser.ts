@@ -12,22 +12,27 @@ import {CommandRegistry} from '@lumino/commands';
 import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
-import {MOUNT_BROWSER_NAME} from './mount';
+import {MOUNT_BROWSER_PREFIX} from './mount';
 import {Paging} from './paging';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
   manager: IDocumentManager,
   factory: IFileBrowserFactory,
+  path: string,
+  name_suffix: string,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry);
+  const drive = new MountDrive(app.docRegistry, path, name_suffix);
   manager.services.contents.addDrive(drive);
 
-  const browser = factory.createFileBrowser('jupyterlab-pachyderm-browser', {
-    driveName: drive.name,
-    state: null,
-    refreshInterval: 10000,
-  });
+  const browser = factory.createFileBrowser(
+    'jupyterlab-pachyderm-browser-' + name_suffix,
+    {
+      driveName: drive.name,
+      state: null,
+      refreshInterval: 10000,
+    },
+  );
 
   const filenameSearcher = browser.node
     .getElementsByClassName('jp-FileBrowser-filterBox')
@@ -80,7 +85,7 @@ const createCustomFileBrowser = (
         execute: () => {
           each(browser.selectedItems(), (item) => {
             Clipboard.copyToSystem(
-              item.path.replace(MOUNT_BROWSER_NAME, '/pfs/'),
+              item.path.replace(MOUNT_BROWSER_PREFIX + name_suffix, '/pfs/'),
             );
           });
         },

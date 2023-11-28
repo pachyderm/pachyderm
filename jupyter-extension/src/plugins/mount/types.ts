@@ -25,14 +25,6 @@ export type Mount = {
   repo: string;
   project: string;
   branch: string;
-  commit: string;
-  glob: string | null;
-  mode: string | null;
-  state: mountState;
-  status: string;
-  mountpoint: string | null;
-  how_many_commits_behind: number;
-  latest_commit: string;
 };
 
 export type Repo = {
