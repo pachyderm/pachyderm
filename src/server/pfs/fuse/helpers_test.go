@@ -1,6 +1,7 @@
 package fuse
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,7 +35,7 @@ func get(path string) (*http.Response, error) {
 
 // TODO: pass reference to the MountManager object to the test func, so that the
 // test can call MountBranch, UnmountBranch etc directly for convenience
-func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
+func withServerMount(ctx context.Context, tb testing.TB, c *client.APIClient, sopts *ServerOptions, f func(mountPoint string)) {
 	dir := tb.TempDir()
 	if sopts == nil {
 		sopts = &ServerOptions{
@@ -68,7 +69,7 @@ func withServerMount(tb testing.TB, c *client.APIClient, sopts *ServerOptions, f
 		}
 	}()
 	go func() {
-		mountErr = Server(sopts, c)
+		mountErr = Serve(ctx, sopts, c)
 		close(unmounted)
 	}()
 	// Gotta give the fuse mount time to come up.
