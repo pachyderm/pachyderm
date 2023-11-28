@@ -44,6 +44,7 @@ const (
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
 	leasePrefix            = "minikubetestenv-"
+	defaultLeaseDuration   = 30
 )
 
 const (
@@ -564,7 +565,10 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if err != nil {
 			return errors.Wrap(err, "error on loki pvc list")
 		}
-		// Determined pvcs are removed by the helm uninstall, but we should still wait for them because of Determined's preemption policy
+		// All Determined pvcs are removed by the helm uninstall, but
+		// we should still wait for them because if they are deleted
+		// by the storage provisioner just when a new cluster starts it
+		// can prevent the new pvc from being created.
 		detPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=determined-db-%s", namespace)})
 		if err != nil {
 			return errors.Wrap(err, "error on det pvc list")
@@ -863,11 +867,12 @@ func LeaseNamespace(t testing.TB, namespace string) bool {
 }
 
 func putLease(t testing.TB, namespace string) error {
+	t.Logf("Creating lease on namespace %s for test %v", namespace, t.Name())
 	kube := testutil.GetKubeClient(t)
 	var identity *string = new(string)
 	*identity = t.Name()
 	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
-	*leaseDuration = 600
+	*leaseDuration = defaultLeaseDuration
 	acquireTime := metav1.NewMicroTime(time.Now())
 	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -882,12 +887,51 @@ func putLease(t testing.TB, namespace string) error {
 		},
 	}, metav1.CreateOptions{})
 	if err == nil {
-		t.Cleanup(func() { // DNJ TODO create heartbeat to remove if test canceled?
+		leaseCtx, leaseCancel := pctx.WithCancel(pctx.Background("minikube test lease renewer"))
+		go leaseRenewer(t, leaseCtx, kube, lease, time.Duration(defaultLeaseDuration/2)*time.Second)
+		t.Cleanup(func() {
+			leaseCancel()
 			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
 			require.NoError(t, err)
 		})
 	}
 	return errors.EnsureStack(err)
+}
+
+// renews the lease every interval fo continued use, cancellled with the context
+func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initialLease *coordination.Lease, interval time.Duration) {
+	latestLease := initialLease
+	for {
+		select {
+		case <-time.After(interval):
+			t.Logf("Renewing lease on namespace %s for test %v", latestLease.GetNamespace(), t.Name())
+			err := backoff.Retry(func() error {
+				renewTime := metav1.NewMicroTime(time.Now())
+				var err error
+				latestLease, err = kube.CoordinationV1().Leases(latestLease.GetNamespace()).Update(ctx, &coordination.Lease{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            latestLease.GetName(),
+						Namespace:       latestLease.GetNamespace(),
+						ResourceVersion: latestLease.GetResourceVersion(),
+					},
+					Spec: coordination.LeaseSpec{
+						HolderIdentity:       latestLease.Spec.HolderIdentity,
+						LeaseDurationSeconds: latestLease.Spec.LeaseDurationSeconds,
+						AcquireTime:          latestLease.Spec.AcquireTime,
+						RenewTime:            &renewTime,
+					},
+				}, metav1.UpdateOptions{})
+				return err
+			}, backoff.RetryEvery(time.Millisecond*200).For(time.Second))
+			if k8serrors.IsNotFound(err) {
+				return // doesn't exist, so probably manually deleted or test is over. Let it go and give up the lease.
+			}
+			require.NoError(t, err, "Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
+		case <-ctx.Done():
+			t.Logf("Releasing lease on namespace %s for test %v", latestLease.Namespace, t.Name())
+			return
+		}
+	}
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
