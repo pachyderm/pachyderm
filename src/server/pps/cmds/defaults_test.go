@@ -438,4 +438,7 @@ EOF`)
 	require.NoError(t, protojson.Unmarshal([]byte(output), &defaults))
 	require.NotNil(t, defaults.CreatePipelineRequest, "project defaults contain Create Pipeline Request")
 	require.Equal(t, int64(37), defaults.CreatePipelineRequest.DatumTries, "project defaults contain Create Pipeline Request")
+
+	_, err = p.RunCommand(ctx, `echo '#<invalid>' | pachctl create defaults --project default`)
+	require.YesError(t, err, "invalid defaults must error")
 }
