@@ -553,7 +553,7 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if pachdAddress == nil && context.PortForwarders != nil {
 		pachdLocalPort, ok := context.PortForwarders["pachd"]
 		if ok {
-			log.Debug(pctx.TODO(), "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
+			log.Debug(ctx, "Connecting to explicitly port forwarded pachd instance", zap.Uint32("port", pachdLocalPort))
 			pachdAddress = &grpcutil.PachdAddress{
 				Secured: false,
 				Host:    "localhost",
@@ -628,16 +628,16 @@ func newOnUserMachine(ctx context.Context, cfg *config.Config, context *config.C
 	if os.Getenv("PACHYDERM_IGNORE_VERSION_SKEW") == "" {
 		// Let people that Know What They're Doing disable the version warnings.
 		if !clusterInfo.GetWarningsOk() {
-			log.Error(pctx.TODO(), "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
+			log.Error(ctx, "WARNING: The pachyderm server you're connected to is too old to validate compatibility with this client; please downgrade pachctl or upgrade pachd for the best experience.")
 		} else {
 			for _, w := range clusterInfo.GetWarnings() {
-				log.Error(pctx.TODO(), w)
+				log.Error(ctx, w)
 			}
 		}
 	}
 	if os.Getenv("PACHYDERM_IGNORE_PAUSED_MODE") == "" {
 		if clusterInfo.GetPaused() {
-			log.Info(pctx.TODO(), "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
+			log.Info(ctx, "NOTE: This pachd instance is currently paused, which prevents many commands from working.")
 		}
 	}
 	if context.ClusterDeploymentId != clusterInfo.DeploymentId {
