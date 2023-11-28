@@ -23,7 +23,7 @@
     "@grpc/grpc-js": "1.8.18",
     "@rudderstack/rudder-sdk-node": "1.1.4",
     "@sentry/node": "7.64.0",
-    "@sentry/tracing": "7.64.0",
+    "@sentry/tracing": "7.83.0",
     "@types/google-protobuf": "^3.15.6",
     "@types/node": "^18.11.10",
     "apollo-server-errors": "3.3.1",
