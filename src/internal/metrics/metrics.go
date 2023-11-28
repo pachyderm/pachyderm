@@ -19,6 +19,7 @@ import (
 	"go.uber.org/zap"
 
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	kube "k8s.io/client-go/kubernetes"
 )
@@ -273,7 +274,7 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 		pachClient.SetAuthToken(resp.Token)
 	}
 	// Pipeline info
-	infos, err := pachClient.ListPipeline(true)
+	infos, err := pachClient.ListPipeline()
 	if err != nil {
 		log.Error(ctx, "Error getting pipeline metrics", zap.Error(err))
 	} else {
@@ -365,6 +366,11 @@ func (r *Reporter) internalMetrics(metrics *Metrics) {
 				if details.TfJob != nil {
 					metrics.CfgTfjob++
 				}
+			}
+			zero := &timestamppb.Timestamp{}
+			if pi.Details.WorkersStartedAt.AsTime() != zero.AsTime() &&
+				time.Since(pi.Details.WorkersStartedAt.AsTime()) > pi.Details.MaximumExpectedUptime.AsDuration() {
+				metrics.PipelineWithAlerts = true
 			}
 		}
 	}

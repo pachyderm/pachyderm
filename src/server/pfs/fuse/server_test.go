@@ -32,7 +32,7 @@ func TestBasicServerSameNames(t *testing.T) {
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -85,7 +85,7 @@ func TestBasicServerNonMasterBranch(t *testing.T) {
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -132,7 +132,7 @@ func TestBasicServerDifferingNames(t *testing.T) {
 	require.NoError(t, err)
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -184,7 +184,7 @@ func TestUnmountAll(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -236,7 +236,7 @@ func TestMultipleMount(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -308,7 +308,7 @@ func TestMountNonexistentRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -331,7 +331,7 @@ func TestRwMountNonexistentBranch(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -373,7 +373,7 @@ func TestRwUnmountCreatesCommit(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -430,7 +430,7 @@ func TestRwCommitCreatesCommit(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -489,7 +489,7 @@ func TestRwCommitTwiceCreatesTwoCommits(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -569,7 +569,7 @@ func TestRwCommitUnmountCreatesTwoCommits(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -650,7 +650,7 @@ func TestHealth(t *testing.T) {
 	_, err := get("health")
 	require.YesError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		resp, err := get("health")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
@@ -667,7 +667,7 @@ func TestAuthLoginLogout(t *testing.T) {
 	require.NoError(t, tu.ConfigureOIDCProvider(t, c, true))
 	c = tu.UnauthenticatedPachClient(t, c)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(ctx, t, c, nil, func(mountPoint string) {
 		authResp, err := put("auth/_login", nil)
 		require.NoError(t, err)
 		require.Equal(t, 200, authResp.StatusCode)
@@ -716,7 +716,7 @@ func TestRepoAccess(t *testing.T) {
 	err := aliceClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, aliceClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, aliceClient, nil, func(mountPoint string) {
 		resp, err := get("repos")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
@@ -726,7 +726,7 @@ func TestRepoAccess(t *testing.T) {
 		require.Equal(t, "write", (*reposResp)[0].Authorization)
 	})
 
-	withServerMount(t, bobClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, bobClient, nil, func(mountPoint string) {
 		resp, err := get("repos")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
@@ -757,19 +757,19 @@ func TestUnauthenticatedCode(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	c := env.PachClient
 	tu.ActivateAuthClient(t, c, peerPort)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(ctx, t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)
 	})
 
 	c = tu.UnauthenticatedPachClient(t, c)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(ctx, t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 401, resp.StatusCode)
 	})
 
 	c = tu.AuthenticateClient(t, c, "test")
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(ctx, t, c, nil, func(mountPoint string) {
 		resp, _ := get("repos")
 		require.Equal(t, 200, resp.StatusCode)
 	})
@@ -788,7 +788,7 @@ func TestDeletingMountedRepo(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -860,7 +860,7 @@ func TestMountWithProjects(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "dir/file1", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -986,7 +986,7 @@ func TestProjects(t *testing.T) {
 	emptyProjectName := tu.UniqueString("p2")
 	require.NoError(t, env.PachClient.CreateProject(emptyProjectName))
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		type Project struct {
 			Name string `json:"name"`
 		}
@@ -1029,7 +1029,7 @@ func TestMountingCommit(t *testing.T) {
 	err = env.PachClient.PutFile(commit, "file2", strings.NewReader("foo"))
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -1085,7 +1085,7 @@ func TestMountingCommitRWMode(t *testing.T) {
 	commitInfo2, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
 	require.NoError(t, err)
 
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
+	withServerMount(ctx, t, env.PachClient, nil, func(mountPoint string) {
 		mr := MountRequest{
 			Mounts: []*MountInfo{
 				{
@@ -1139,67 +1139,4 @@ func TestCrossDatumsHelper(t *testing.T) {
 	for _, datum := range result {
 		require.Equal(t, 3, len(datum.Data))
 	}
-}
-
-func TestMountingMultipleFiles(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "repo"))
-
-	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
-	err := env.PachClient.PutFile(commit, "dir/sdir/showfile1", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "dir/sdir/hidefile2", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "show/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "show/file2", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "hide/file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-	err = env.PachClient.PutFile(commit, "hide/file2", strings.NewReader("foo"))
-	require.NoError(t, err)
-	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
-	require.NoError(t, err)
-
-	withServerMount(t, env.PachClient, nil, func(mountPoint string) {
-		mr := MountRequest{
-			Mounts: []*MountInfo{
-				{
-					Name:   "repo",
-					Repo:   "repo",
-					Commit: commitInfo.Commit.Id,
-					Mode:   "ro",
-					Paths:  []string{"show", "dir/sdir/showfile1"},
-				},
-			},
-		}
-
-		b := new(bytes.Buffer)
-		require.NoError(t, json.NewEncoder(b).Encode(mr))
-		resp, err := put("_mount", b)
-		require.NoError(t, err)
-		require.Equal(t, 200, resp.StatusCode)
-
-		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
-		require.NoError(t, err)
-		require.Equal(t, 2, len(files))
-		require.Equal(t, "dir", filepath.Base(files[0].Name()))
-		require.Equal(t, "show", filepath.Base(files[1].Name()))
-
-		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
-		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		require.Equal(t, "sdir", filepath.Base(files[0].Name()))
-		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir", "sdir"))
-		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		require.Equal(t, "showfile1", filepath.Base(files[0].Name()))
-
-		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "show"))
-		require.NoError(t, err)
-		require.Equal(t, 2, len(files))
-		require.Equal(t, "file1", filepath.Base(files[0].Name()))
-		require.Equal(t, "file2", filepath.Base(files[1].Name()))
-	})
 }

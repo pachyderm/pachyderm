@@ -64,5 +64,6 @@ func (x *Metrics) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddUint64("min_parallelism", x.MinParallelism)
 	enc.AddUint64("num_parallelism", x.NumParallelism)
 	enc.AddInt64("enterprise_failures", x.EnterpriseFailures)
+	enc.AddBool("pipeline_with_alerts", x.PipelineWithAlerts)
 	return nil
 }

@@ -2280,6 +2280,66 @@
         ]
       }
     },
+    "/pfs_v2.API/SquashCommit": {
+      "post": {
+        "summary": "SquashCommit squashes the provided commit into its children.",
+        "operationId": "API_SquashCommit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2SquashCommitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2SquashCommitRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/DropCommit": {
+      "post": {
+        "summary": "DropCommit drops the provided commit.",
+        "operationId": "API_DropCommit",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2DropCommitResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2DropCommitRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/InspectCommitSet": {
       "post": {
         "summary": "InspectCommitSet returns the info about a CommitSet.",
@@ -2360,7 +2420,7 @@
     },
     "/pfs_v2.API/SquashCommitSet": {
       "post": {
-        "summary": "SquashCommitSet squashes the commits of a CommitSet into their children.",
+        "summary": "SquashCommitSet squashes the commits of a CommitSet into their children.\nDeprecated: Use SquashCommit instead.",
         "operationId": "API_SquashCommitSet",
         "responses": {
           "200": {
@@ -2391,7 +2451,7 @@
     },
     "/pfs_v2.API/DropCommitSet": {
       "post": {
-        "summary": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.",
+        "summary": "DropCommitSet drops the commits of a CommitSet and all data included in the commits.\nDeprecated: Use DropCommit instead.",
         "operationId": "API_DropCommitSet",
         "responses": {
           "200": {
@@ -4465,6 +4525,46 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pps_v2RunCronRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pps_v2.API/CheckStatus": {
+      "post": {
+        "summary": "Check Status returns the status of pipelines within a project.",
+        "operationId": "API_CheckStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2CheckStatusResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2CheckStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request to check the status of pipelines within a project.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CheckStatusRequest"
             }
           }
         ]
@@ -7645,6 +7745,21 @@
         }
       }
     },
+    "pfs_v2DropCommitRequest": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the drop will fail."
+        }
+      }
+    },
+    "pfs_v2DropCommitResponse": {
+      "type": "object"
+    },
     "pfs_v2DropCommitSetRequest": {
       "type": "object",
       "properties": {
@@ -8217,6 +8332,21 @@
         }
       }
     },
+    "pfs_v2SquashCommitRequest": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "recursive": {
+          "type": "boolean",
+          "description": "Setting recursive to true indicates that the squash should be applied recursively to subvenant commits.\nIf recursive is set to false and the provided commit has subvenant commits, the squash will fail."
+        }
+      }
+    },
+    "pfs_v2SquashCommitResponse": {
+      "type": "object"
+    },
     "pfs_v2SquashCommitSetRequest": {
       "type": "object",
       "properties": {
@@ -8645,6 +8775,41 @@
     "pps_v2ActivateAuthResponse": {
       "type": "object"
     },
+    "pps_v2CheckStatusRequest": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "description": "boolean field indicating status of all project pipelines."
+        },
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
+        }
+      },
+      "description": "Request to check the status of pipelines within a project."
+    },
+    "pps_v2CheckStatusResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
+        },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2Pipeline",
+          "title": "pipeline field"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "alert indicators"
+        }
+      },
+      "description": "Response for check status request. Provides alerts if any."
+    },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
       "properties": {
@@ -8753,6 +8918,9 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
         }
       }
     },
@@ -9554,7 +9722,7 @@
         },
         "details": {
           "type": "boolean",
-          "description": "When true, return PipelineInfos with the details field, which requires\nloading the pipeline spec from PFS."
+          "description": "Deprecated: Details are always returned."
         },
         "jqFilter": {
           "type": "string",
@@ -9894,6 +10062,13 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
+        },
+        "workersStartedAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

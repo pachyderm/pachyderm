@@ -541,7 +541,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 	require.Equal(t, "", infoAfter.AuthToken)
 
 	// ListPipeline without details should list all repos
-	pipelineInfos, err := aliceClient.ListPipeline(false)
+	pipelineInfos, err := aliceClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -550,7 +550,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 	// Users can access a spec commit even if they can't list the repo itself,
 	// so the details should be populated for every repo
-	pipelineInfos, err = aliceClient.ListPipeline(true)
+	pipelineInfos, err = aliceClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -558,7 +558,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 		require.NotNil(t, pipelineInfo.Details)
 	}
 
-	pipelineInfos, err = bobClient.ListPipeline(true)
+	pipelineInfos, err = bobClient.ListPipeline()
 	require.NoError(t, err)
 	require.Equal(t, 2, len(pipelineInfos))
 	for _, pipelineInfo := range pipelineInfos {
@@ -1918,7 +1918,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 	// Attempt to delete the pipeline--must succeed
 	require.NoError(t, aliceClient.DeletePipeline(pfs.DefaultProjectName, pipeline, false))
-	pis, err := aliceClient.ListPipeline(false)
+	pis, err := aliceClient.ListPipeline()
 	require.NoError(t, err)
 	for _, pi := range pis {
 		if pi.Pipeline.Name == pipeline {
@@ -2939,4 +2939,25 @@ func TestListProjectWithAuth(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSetProjectDefaults(t *testing.T) {
+	t.Parallel()
+	c := envWithAuth(t).PachClient
+
+	admin := tu.AuthenticateClient(t, c, auth.RootUser)
+	_, alice := tu.RandomRobot(t, c, "alice")
+	adminProject := tu.UniqueString("adminProject")
+	require.NoError(t, admin.CreateProject(adminProject))
+	aliceProject := tu.UniqueString("aliceProject")
+	require.NoError(t, alice.CreateProject(aliceProject))
+	ctx := c.Ctx()
+	_, err := admin.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: adminProject}, ProjectDefaultsJson: `{}`})
+	require.NoError(t, err, "admin must be able to set own project’s defaults")
+	_, err = admin.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: aliceProject}, ProjectDefaultsJson: `{}`})
+	require.NoError(t, err, "admin must be able to set others’ projects’ defaults")
+	_, err = alice.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: adminProject}, ProjectDefaultsJson: `{}`})
+	require.NoError(t, err, "user must not be able to set others’ projects’ defaults")
+	_, err = alice.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{Project: &pfs.Project{Name: aliceProject}, ProjectDefaultsJson: `{}`})
+	require.NoError(t, err, "user must be able to set own projects’ defaults")
 }

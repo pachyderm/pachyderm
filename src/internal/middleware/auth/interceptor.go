@@ -143,10 +143,12 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ListCommit":       authDisabledOr(authenticated),
 	"/pfs_v2.API/SubscribeCommit":  authDisabledOr(authenticated),
 	"/pfs_v2.API/ClearCommit":      authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommit":     authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/DropCommit":       authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
 	"/pfs_v2.API/InspectCommitSet": authDisabledOr(authenticated),
 	"/pfs_v2.API/ListCommitSet":    authDisabledOr(authenticated),
-	"/pfs_v2.API/SquashCommitSet":  authDisabledOr(authenticated),
-	"/pfs_v2.API/DropCommitSet":    authDisabledOr(authenticated),
+	"/pfs_v2.API/SquashCommitSet":  authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
+	"/pfs_v2.API/DropCommitSet":    authDisabledOr(clusterPermissions(auth.Permission_REPO_DELETE_COMMIT)),
 	"/pfs_v2.API/CreateBranch":     authDisabledOr(authenticated),
 	"/pfs_v2.API/InspectBranch":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ListBranch":       authDisabledOr(authenticated),
@@ -209,6 +211,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/StartPipeline":    authDisabledOr(authenticated),
 	"/pps_v2.API/StopPipeline":     authDisabledOr(authenticated),
 	"/pps_v2.API/RunPipeline":      authDisabledOr(authenticated),
+	"/pps_v2.API/CheckStatus":      authDisabledOr(authenticated),
 	"/pps_v2.API/RunCron":          authDisabledOr(authenticated),
 	"/pps_v2.API/GetLogs":          authDisabledOr(authenticated),
 	"/pps_v2.API/GarbageCollect":   authDisabledOr(authenticated),
@@ -230,7 +233,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/GetClusterDefaults": authDisabledOr(authenticated),
 	"/pps_v2.API/SetClusterDefaults": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SET_DEFAULTS)),
 	"/pps_v2.API/GetProjectDefaults": authDisabledOr(authenticated),
-	"/pps_v2.API/SetProjectDefaults": authDisabledOr(clusterPermissions(auth.Permission_PROJECT_SET_DEFAULTS)),
+	"/pps_v2.API/SetProjectDefaults": authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

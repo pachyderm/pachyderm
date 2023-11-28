@@ -15,6 +15,8 @@ import (
 
 	"github.com/itchyny/gojq"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
@@ -95,7 +97,11 @@ const (
 )
 
 var (
-	suite = "pachyderm"
+	suite                = "pachyderm"
+	pipelineLastOkMetric = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "pipeline_last_ok_at",
+		Help: "The last time a pipeline was running within the expected time, as a Unix timestamp.",
+	}, []string{"pipeline", "project"})
 )
 
 // apiServer implements the public interface of the Pachyderm Pipeline System,
@@ -127,80 +133,8 @@ type apiServer struct {
 	projectDefaults col.PostgresCollection
 }
 
-func merge(from, to map[string]bool) {
-	for s := range from {
-		to[s] = true
-	}
-}
-
-func validateNames(names map[string]bool, input *pps.Input) error {
-	switch {
-	case input == nil:
-		return nil // spouts can have nil input
-	case input.Pfs != nil:
-		if err := validateName(input.Pfs.Name); err != nil {
-			return err
-		}
-		if names[input.Pfs.Name] {
-			return errors.Errorf(`name "%s" was used more than once`, input.Pfs.Name)
-		}
-		names[input.Pfs.Name] = true
-	case input.Cron != nil:
-		if err := validateName(input.Cron.Name); err != nil {
-			return err
-		}
-		if names[input.Cron.Name] {
-			return errors.Errorf(`name "%s" was used more than once`, input.Cron.Name)
-		}
-		names[input.Cron.Name] = true
-	case input.Union != nil:
-		for _, input := range input.Union {
-			namesCopy := make(map[string]bool)
-			merge(names, namesCopy)
-			if err := validateNames(namesCopy, input); err != nil {
-				return err
-			}
-			// we defer this because subinputs of a union input are allowed to
-			// have conflicting names but other inputs that are, for example,
-			// crossed with this union cannot conflict with any of the names it
-			// might present
-			defer merge(namesCopy, names)
-		}
-	case input.Cross != nil:
-		for _, input := range input.Cross {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	case input.Join != nil:
-		for _, input := range input.Join {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	case input.Group != nil:
-		for _, input := range input.Group {
-			if err := validateNames(names, input); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func validateName(name string) error {
-	if name == "" {
-		return errors.Errorf("input must specify a name")
-	}
-	switch name {
-	case common.OutputPrefix, common.EnvFileName:
-		return errors.Errorf("input cannot be named %v", name)
-	}
-	return nil
-}
-
 func (a *apiServer) validateInput(pipeline *pps.Pipeline, input *pps.Input) error {
-	if err := validateNames(make(map[string]bool), input); err != nil {
+	if err := ppsutil.ValidateNames(input); err != nil {
 		return err
 	}
 	return pps.VisitInput(input, func(input *pps.Input) error {
@@ -1344,6 +1278,56 @@ func (a *apiServer) QueryLoki(request *pps.LokiRequest, apiQueryLokiServer pps.A
 	})
 }
 
+func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusServer pps.API_CheckStatusServer) (retErr error) {
+	ctx := apiCheckStatusServer.Context()
+	checkProjectAccess := miscutil.CacheFunc(func(project string) error {
+		return a.env.AuthServer.CheckProjectIsAuthorized(ctx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
+	}, 100)
+	checkAccess := func(ctx context.Context, pipeline *pps.Pipeline) error {
+		if err := checkProjectAccess(pipeline.Project.GetName()); err != nil {
+			if !errors.As(err, &auth.ErrNotAuthorized{}) {
+				return err
+			}
+			return a.env.AuthServer.CheckRepoIsAuthorized(ctx, &pfs.Repo{Name: pipeline.Name, Type: pfs.UserRepoType, Project: pipeline.Project}, auth.Permission_REPO_READ)
+		}
+		return nil
+	}
+	project := []*pfs.Project{}
+	if request.GetProject().GetName() != "" {
+		project = append(project, request.GetProject())
+	}
+	filterPipeline, err := newMessageFilterFunc("", project)
+	if err != nil {
+		return errors.Wrap(err, "error creating message filter function")
+	}
+
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pipelineInfo *pps.PipelineInfo) error {
+		if ok, err := filterPipeline(ctx, pipelineInfo); err != nil {
+			return errors.Wrap(err, "error filtering pipeline")
+		} else if !ok {
+			return nil
+		}
+		if checkAccess(ctx, pipelineInfo.Pipeline) != nil {
+			log.Info(ctx, "not authorized to check status of pipeline", zap.String("pipeline", pipelineInfo.Pipeline.Name))
+			return nil
+		}
+		alerts := pps.GetAlerts(pipelineInfo)
+		if len(alerts) > 0 {
+			err := apiCheckStatusServer.Send(&pps.CheckStatusResponse{Project: request.GetProject(), Pipeline: pipelineInfo.Pipeline, Alerts: alerts})
+			if err != nil {
+				return errors.Wrap(err, "error sending check status response")
+			}
+			lastOk := pipelineInfo.Details.WorkersStartedAt.AsTime().Add(pipelineInfo.Details.MaximumExpectedUptime.AsDuration())
+			pipelineLastOkMetric.WithLabelValues(pipelineInfo.Pipeline.Name, pipelineInfo.Pipeline.Project.GetName()).Set(float64(lastOk.Unix()))
+		}
+		pipelineLastOkMetric.WithLabelValues(pipelineInfo.Pipeline.Name, pipelineInfo.Pipeline.Project.GetName()).SetToCurrentTime()
+		return nil
+	}); err != nil {
+		return errors.EnsureStack(err)
+	}
+	return nil
+}
+
 func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.API_GetLogsServer) (retErr error) {
 	ctx := apiGetLogsServer.Context()
 
@@ -2400,6 +2384,7 @@ func (a *apiServer) initializePipelineInfo(txn *pps.CreatePipelineTransaction, o
 			Autoscaling:             request.Autoscaling,
 			Tolerations:             request.Tolerations,
 			Determined:              request.Determined,
+			MaximumExpectedUptime:   request.MaximumExpectedUptime,
 		},
 		UserSpecJson:      txn.UserJson,
 		EffectiveSpecJson: txn.EffectiveJson,
@@ -3715,6 +3700,7 @@ func ensurePipelineProject(p *pps.Pipeline) {
 
 // newMessageFilterFunc returns a function that filters out messages that don't satisify either jq filter or projects filter.
 func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
+	log.Info(context.Background(), "length of projects is: ", zap.Int("projects_length", len(projects)))
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true
@@ -3882,7 +3868,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			// if the old details are missing, synthesize them
 			if pi.UserSpecJson == "" {
 				spec := ppsutil.PipelineReqFromInfo(pi)
@@ -3967,6 +3953,11 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	if req.Project == nil || req.Project.Name == "" {
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+
+	if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, req.Project, auth.Permission_PROJECT_SET_DEFAULTS); err != nil {
+		return nil, errors.Wrapf(err, "not allowed")
+	}
+
 	var cdg = &cachedDefaultsGetter{
 		apiServer:       a,
 		projectDefaults: map[string]string{req.GetProject().String(): req.GetProjectDefaultsJson()},
@@ -3994,7 +3985,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		// merger is then unmarshalled into a CreatePipelineRequest and
 		// equality is checked with proto.Equal.
 		pp = make(map[*pps.Pipeline]*pps.CreatePipelineTransaction)
-		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{Details: true}, func(pi *pps.PipelineInfo) error {
+		if err := a.listPipeline(ctx, &pps.ListPipelineRequest{}, func(pi *pps.PipelineInfo) error {
 			if !proto.Equal(pi.GetPipeline().GetProject(), req.GetProject()) {
 				return nil
 			}

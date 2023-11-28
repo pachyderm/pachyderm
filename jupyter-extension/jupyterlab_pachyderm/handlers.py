@@ -227,7 +227,7 @@ class PFSHandler(ContentsHandler):
         content = self.get_query_argument("content", default="1")
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
-        content = int(content)
+        content = bool(int(content))
 
         model = self.pfs_manager.get(
             path=path,

@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -13,13 +14,15 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // TODO: Uncomment all checks below for datum ID when we transition fully to using ListDatum
@@ -33,7 +36,7 @@ func TestConfig(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		type Config struct {
 			ClusterStatus string `json:"cluster_status"`
 			PachdAddress  string `json:"pachd_address"`
@@ -95,7 +98,7 @@ func TestMountDatum(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/'}}}`,
 			pfs.DefaultProjectName),
@@ -111,10 +114,10 @@ func TestMountDatum(t *testing.T) {
 		require.Equal(t, 1, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo", "dir"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo", "dir"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -137,7 +140,7 @@ func TestMountDatum(t *testing.T) {
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
@@ -161,7 +164,7 @@ func TestMountDatumGlobFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file*'}}}`,
 			pfs.DefaultProjectName),
@@ -176,7 +179,7 @@ func TestMountDatumGlobFile(t *testing.T) {
 		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 3, mdr.NumDatums)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, true, strings.HasPrefix(files[0].Name(), "file"))
@@ -208,7 +211,7 @@ func TestCrossDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'cross': [
@@ -229,10 +232,10 @@ func TestCrossDatum(t *testing.T) {
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 2, len(files))
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo2_dev"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo2"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -241,20 +244,20 @@ func TestCrossDatum(t *testing.T) {
 				'cross': [
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m2'}}
 						]
 					},
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m2'}}
 						]
 					},
 					{
 						'cross': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m3'}},
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m3'}}
 						]
 					}
 				]
@@ -271,6 +274,10 @@ func TestCrossDatum(t *testing.T) {
 		// require.NotEqual(t, "", mdr.Id)
 		require.Equal(t, 16, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		files, err = os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 6, len(files))
 	})
 }
 
@@ -299,7 +306,7 @@ func TestUnionDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'union': [
@@ -325,14 +332,14 @@ func TestUnionDatum(t *testing.T) {
 				'union': [
 					{
 						'union': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m2'}}
 						]
 					},
 					{
 						'union': [
-							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}},
-							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev'}}
+							{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m1'}},
+							{'pfs': {'glob': '/*/*', 'project': '%s', 'repo': 'repo2', 'branch': 'dev', 'name': 'repo2_m2'}}
 						]
 					}
 				]
@@ -393,7 +400,7 @@ func TestJoinDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'join': [
@@ -439,10 +446,10 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
-			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}}]}}`,
+			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo2_m2'}}]}}`,
 			pfs.DefaultProjectName, pfs.DefaultProjectName),
 		)
 		resp, err := put("datums/_mount", bytes.NewReader(input))
@@ -458,8 +465,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 
 		files, err := os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
-		require.Equal(t, 1, len(files))
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, files[0].Name()))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -467,11 +474,10 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
-		input = []byte(fmt.Sprintf(
-			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
-			pfs.DefaultProjectName, pfs.DefaultProjectName, pfs.DefaultProjectName),
+		input = []byte(
+			`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1', 'name': 'repo1_m1'}},
+			{'pfs': {'glob': '/*', 'repo': 'repo1', 'name': 'repo1_m2'}},
+			{'pfs': {'glob': '/*', 'repo': 'repo1', 'branch': 'dev', 'name': 'repo1_m3'}}]}}`,
 		)
 		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
@@ -488,8 +494,8 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 		require.NoError(t, err)
 		files, err = os.ReadDir(filepath.Join(mountPoint))
 		require.NoError(t, err)
-		require.Equal(t, 3, len(files)) // Need to account for "out" rw mount
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1_dev"))
+		require.Equal(t, 4, len(files)) // Need to account for "out" rw mount
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1_m1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 	})
@@ -508,7 +514,7 @@ func TestShowDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}`,
 			pfs.DefaultProjectName),
@@ -525,7 +531,7 @@ func TestShowDatum(t *testing.T) {
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo_dev"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -572,7 +578,7 @@ func TestGetDatums(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		resp, err := get("datums")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
@@ -598,7 +604,7 @@ func TestGetDatums(t *testing.T) {
 		require.Equal(t, 2, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo_dev"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
@@ -690,9 +696,9 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev', 'name': 'repo1_dev'}}]}}`,
 			pfs.DefaultProjectName),
 		)
 		resp, err := put("datums/_mount", bytes.NewReader(input))
@@ -706,17 +712,17 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 4, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1_dev"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1_dev"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 
 		input = []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1'}},
-			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev'}}]}}`,
-			projectName, projectName),
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': '%s_repo1'}},
+			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev', 'name': '%s_repo1_dev'}}]}}`,
+			projectName, projectName, projectName, projectName),
 		)
 		resp, err = put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
@@ -729,7 +735,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 		require.Equal(t, 8, mdr.NumDatums)
 		require.Equal(t, true, mdr.AllDatumsReceived)
 
-		files, err = os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1"))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		files, err = os.ReadDir(filepath.Join(mountPoint, projectName+"_repo1"))
@@ -776,7 +782,7 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 
 	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "repo1", "copy", "", commitInfo.Commit.Id, nil))
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo1', 'glob': '/*', 'branch': 'copy'}}}`,
 			pfs.DefaultProjectName),
@@ -785,7 +791,7 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
 
-		files, err := os.ReadDir(filepath.Join(mountPoint, pfs.DefaultProjectName+"_repo1_copy"))
+		files, err := os.ReadDir(filepath.Join(mountPoint, "repo1"))
 		require.NoError(t, err)
 		require.Equal(t, 1, len(files))
 		require.Equal(t, "file1", filepath.Base(files[0].Name()))
@@ -799,28 +805,6 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 		require.Equal(t, 1, len((*mountResp).Mounted))
 		require.Equal(t, "master", (*mountResp).Mounted[0].Branch)
 		require.Equal(t, commitInfo.Commit.Id, (*mountResp).Mounted[0].Commit)
-	})
-}
-
-func TestMountDatumsSpecifyingCommit(t *testing.T) {
-	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
-	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
-	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
-	require.NoError(t, err)
-	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
-	require.NoError(t, err)
-	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
-	require.NoError(t, err)
-
-	withServerMount(t, c, nil, func(mountPoint string) {
-		input := []byte(fmt.Sprintf(
-			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
-			pfs.DefaultProjectName, commitInfo.Commit.Id),
-		)
-		resp, err := put("datums/_mount", bytes.NewReader(input))
-		require.NoError(t, err)
-		require.Equal(t, 400, resp.StatusCode)
 	})
 }
 
@@ -863,7 +847,7 @@ func TestMountDatumsPagination(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
 			pfs.DefaultProjectName, lessThanNumDatumsPerPage),
@@ -943,6 +927,185 @@ func TestMountDatumsPagination(t *testing.T) {
 	})
 }
 
+func simpleRepoFixture(t *testing.T) (*client.APIClient, string) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "repo", "master", "")
+	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	err = c.PutFile(commit, "file2", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "repo", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+	return c, commitInfo.Commit.Id
+}
+
+func bodyToString(body io.ReadCloser) string {
+	buf := new(bytes.Buffer)
+	if _, err := buf.ReadFrom(body); err != nil {
+		return ""
+	}
+	return buf.String()
+}
+
+func TestBadInputSpecNoRepo(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {'pfs': {'glob': '/*'}}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "repo must be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecDuplicateRepos(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo'}}
+				]
+			}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "used more than once"))
+		resp.Body.Close()
+
+		input = []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo', 'name': 'alias'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo', 'name': 'alias'}}
+				]
+			}}`,
+		)
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "used more than once"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecSpecifyingCommit(t *testing.T) {
+	c, commitID := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(fmt.Sprintf(
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
+			pfs.DefaultProjectName, commitID),
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "commit cannot be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecNoGlob(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {'pfs': {'repo': 'repo'}}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "glob must be specified"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecInvalidTypes(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {'cron': {'name': 'tick', 'spec': '@every 60s'}}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "cron"))
+		resp.Body.Close()
+
+		input = []byte(
+			`{'input': {'pfs': {'repo': 'repo', 'glob': '/*', 's3': true}}}`,
+		)
+		resp, err = put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "s3"))
+		resp.Body.Close()
+	})
+}
+
+func TestBadInputSpecOutRepo(t *testing.T) {
+	c, _ := minikubetestenv.AcquireCluster(t)
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "out"))
+	commit := client.NewCommit(pfs.DefaultProjectName, "out", "master", "")
+	err := c.PutFile(commit, "file1", strings.NewReader("foo"))
+	require.NoError(t, err)
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, "out", "master", "")
+	require.NoError(t, err)
+	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
+	require.NoError(t, err)
+
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {'pfs': {'repo': 'out', 'glob': '/*'}}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "name must be specified for repo 'out'"))
+		resp.Body.Close()
+	})
+}
+
+func TestDuplicateReposWithAlias(t *testing.T) {
+	c, _ := simpleRepoFixture(t)
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
+		input := []byte(
+			`{'input': {
+				'cross': [
+					{'pfs': {'glob': '/', 'repo': 'repo', 'name': 'alias'}},
+					{'pfs': {'glob': '/*', 'repo': 'repo'}}
+				]
+			}}`,
+		)
+		resp, err := put("datums/_mount", bytes.NewReader(input))
+		require.NoError(t, err)
+		require.Equal(t, 200, resp.StatusCode)
+
+		mdr := &MountDatumResponse{}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(mdr))
+		require.Equal(t, 0, mdr.Idx)
+		// require.NotEqual(t, "", mdr.Id)
+		require.Equal(t, 2, mdr.NumDatums)
+		require.Equal(t, true, mdr.AllDatumsReceived)
+
+		files, err := os.ReadDir(filepath.Join(mountPoint))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "alias"))
+		require.NoError(t, err)
+		require.Equal(t, 2, len(files))
+		files, err = os.ReadDir(filepath.Join(mountPoint, "repo"))
+		require.NoError(t, err)
+		require.Equal(t, 1, len(files))
+	})
+}
+
 func TestMountDatumsNoGlobMatch(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, "repo"))
@@ -954,14 +1117,16 @@ func TestMountDatumsNoGlobMatch(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
-			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file1*', 'commit': '%s'}}}`,
-			pfs.DefaultProjectName, commitInfo.Commit.Id),
+			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file1*'}}}`,
+			pfs.DefaultProjectName),
 		)
 		resp, err := put("datums/_mount", bytes.NewReader(input))
 		require.NoError(t, err)
 		require.Equal(t, 400, resp.StatusCode)
+		require.True(t, strings.Contains(bodyToString(resp.Body), "spec produces zero datums; nothing to mount"))
+		resp.Body.Close()
 	})
 }
 

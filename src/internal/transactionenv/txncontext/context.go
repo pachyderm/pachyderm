@@ -89,10 +89,16 @@ func (t *TransactionContext) PropagateJobs() {
 	t.PpsPropagater.PropagateJobs()
 }
 
-// StopJobs notifies PPS that some commits have been removed and the jobs
-// associated with them should be stopped.
-func (t *TransactionContext) StopJobs(commitset *pfs.CommitSet) {
-	t.PpsJobStopper.StopJobs(commitset)
+// StopJobSet notifies PPS that a commitset has been removed and the jobs
+// associated with it should be stopped.
+func (t *TransactionContext) StopJobSet(commitset *pfs.CommitSet) {
+	t.PpsJobStopper.StopJobSet(commitset)
+}
+
+// StopJob notifies PPS that a commit has been removed and the job
+// associated with it should be stopped.
+func (t *TransactionContext) StopJob(commit *pfs.Commit) {
+	t.PpsJobStopper.StopJob(commit)
 }
 
 func (t *TransactionContext) FinishJob(commitInfo *pfs.CommitInfo) {
@@ -157,7 +163,8 @@ type PpsPropagater interface {
 // commitsets at the end of a transaction.  It is defined here to avoid a
 // circular dependency.
 type PpsJobStopper interface {
-	StopJobs(commitset *pfs.CommitSet)
+	StopJobSet(commitset *pfs.CommitSet)
+	StopJob(commit *pfs.Commit)
 	Run(context.Context) error
 }
 
