@@ -771,10 +771,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster { // DNJ TODO or no pachd exists for safety?
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
-			deleteRelease(t, context.Background(), namespace, kubeClient)
 			require.NoErrorWithinTRetry(t,
 				time.Minute,
 				func() error {
+					deleteRelease(t, context.Background(), namespace, kubeClient)
 					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}
@@ -898,7 +898,7 @@ func putLease(t testing.TB, namespace string) error {
 	return errors.EnsureStack(err)
 }
 
-// renews the lease every interval fo continued use, cancellled with the context
+// renews the lease every interval fo continued use, cancelled with the context
 func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initialLease *coordination.Lease, interval time.Duration) {
 	latestLease := initialLease
 	for {
@@ -921,12 +921,16 @@ func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initi
 						RenewTime:            &renewTime,
 					},
 				}, metav1.UpdateOptions{})
-				return err
+				return errors.EnsureStack(err)
 			}, backoff.RetryEvery(time.Millisecond*200).For(time.Second))
-			if k8serrors.IsNotFound(err) {
-				return // doesn't exist, so probably manually deleted or test is over. Let it go and give up the lease.
+			if err != nil {
+				t.Logf("Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
+				// doesn't exist or it maybe is in progress deleting, or a new one was re-created.
+				// lots of reasons it could be =in a weird state, but we don't want to fail the test over that.
+				// We retried so it's probably not an ephemeral issue.
+				// Just log it, release the lease, and let the main process recover.
+				return
 			}
-			require.NoError(t, err, "Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
 		case <-ctx.Done():
 			t.Logf("Releasing lease on namespace %s for test %v", latestLease.Namespace, t.Name())
 			return
