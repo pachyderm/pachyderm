@@ -422,10 +422,7 @@ class DatumManager(FileContentsManager):
         self._datum_index = 0
         self._mount_time = datetime.datetime.min
         self._input = None
-        try:
-            shutil.rmtree(f"{self._FILEINFO_DIR}")
-        except FileNotFoundError:
-            pass
+        shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
         super().__init__(**kwargs)
 
@@ -480,7 +477,7 @@ class DatumManager(FileContentsManager):
         return Path(self._FILEINFO_DIR, toplevel, fileinfo.file.path.strip("/"))
 
     def _update_mount(self):
-        shutil.rmtree(f"{self._FILEINFO_DIR}")
+        shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR)
         self._dirs.clear()
         for fileinfo in self._datum_list[self._datum_index].data:
