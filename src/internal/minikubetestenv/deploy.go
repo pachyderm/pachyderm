@@ -705,7 +705,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
-	if opts.Enterprise { // DNJ TODO - does this break other tests? || opts.EnterpriseServer
+	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {
@@ -759,15 +759,29 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		pachAddress.Secured = true
 	}
 	helmOpts.ValuesFiles = opts.ValuesFiles
+	waitForInstallFinished := func() {
+		createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
+		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+
+		if !opts.DisableLoki {
+			waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+		}
+		waitForPgbouncer(t, ctx, kubeClient, namespace)
+		waitForPostgres(t, ctx, kubeClient, namespace)
+		if opts.Determined {
+			waitForDetermined(t, ctx, kubeClient, namespace)
+		}
+	}
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
-	if mustUpgrade { // we used this namespace, but it's different settings // DNJ TODO - delete secrets here first?
+	if mustUpgrade {
 		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
+		waitForInstallFinished()
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster { // DNJ TODO or no pachd exists for safety?
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
@@ -778,24 +792,10 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}
-	} else { // same hash, no need to change anything
+		waitForInstallFinished()
+	} else { // same config, no need to change anything
 		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
-		return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
-		// DNJ TODO missing code coverage and cleanupafter
 	}
-	createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
-
-	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
-
-	if !opts.DisableLoki {
-		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
-	}
-	waitForPgbouncer(t, ctx, kubeClient, namespace)
-	waitForPostgres(t, ctx, kubeClient, namespace)
-	if opts.Determined {
-		waitForDetermined(t, ctx, kubeClient, namespace)
-	}
-
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
@@ -869,10 +869,8 @@ func LeaseNamespace(t testing.TB, namespace string) bool {
 func putLease(t testing.TB, namespace string) error {
 	t.Logf("Creating lease on namespace %s for test %v", namespace, t.Name())
 	kube := testutil.GetKubeClient(t)
-	var identity *string = new(string)
-	*identity = t.Name()
-	var leaseDuration *int32 = new(int32) // DNJ TODO - cleanup
-	*leaseDuration = defaultLeaseDuration
+	identity := t.Name()
+	leaseDuration := int32(defaultLeaseDuration)
 	acquireTime := metav1.NewMicroTime(time.Now())
 	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
 		ObjectMeta: metav1.ObjectMeta{
@@ -880,8 +878,8 @@ func putLease(t testing.TB, namespace string) error {
 			Namespace: namespace,
 		},
 		Spec: coordination.LeaseSpec{
-			HolderIdentity:       identity,
-			LeaseDurationSeconds: leaseDuration,
+			HolderIdentity:       &identity,
+			LeaseDurationSeconds: &leaseDuration,
 			AcquireTime:          &acquireTime,
 			RenewTime:            &acquireTime,
 		},

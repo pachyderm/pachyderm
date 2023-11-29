@@ -121,7 +121,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		if testInfo.Action == "output" {
 			output := strings.Trim(testInfo.Output, "\n ")
 			if output != "" && !strings.HasPrefix(output, "Benchmark") &&
-				!strings.HasPrefix(output, "ExampleAPIClient_") && // DNJ TODO should we be ignoring files or what here? ExampleChild() does currently run and would be missed
+				!strings.HasPrefix(output, "ExampleAPIClient_") &&
 				!strings.HasPrefix(output, "? ") &&
 				!strings.HasPrefix(output, "ok ") {
 				if _, ok := testNames[testInfo.Package]; !ok {
@@ -152,7 +152,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 
 func outputToFile(fileName string, pkgTests map[string][]string) error {
 	// create a lock file so tests know to wait to start if running tests at same time
-	lockFileName := fmt.Sprintf("lock-%s", fileName) // DNJ TODO share lock file name
+	lockFileName := fmt.Sprintf("lock-%s", fileName)
 	lockF, err := os.Create(lockFileName)
 	if err != nil {
 		return errors.EnsureStack(err)

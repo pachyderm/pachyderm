@@ -25,8 +25,7 @@ const (
 
 var (
 	clusterFactory *ClusterFactory = &ClusterFactory{
-		managedClusters:   map[string]*managedCluster{},
-		availableClusters: map[string]struct{}{},
+		managedClusters: map[string]*managedCluster{},
 	}
 	poolSize            *int  = flag.Int("clusters.pool", 15, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
@@ -79,9 +78,8 @@ type managedCluster struct {
 
 type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
-	managedClusters   map[string]*managedCluster
-	availableClusters map[string]struct{} // DNJ TOD - remove probably
-	mu                sync.Mutex          // guards modifications to the ClusterFactory maps // DNJ TODO remove maybe?
+	managedClusters map[string]*managedCluster
+	mu              sync.Mutex // guards modifications to the ClusterFactory maps
 }
 
 func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
@@ -128,7 +126,7 @@ func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 		}
 		return nil
 	}, time.Second*5, "Could not assign a test namespace within timeout")
-	// DNJ TODO - remove? take a slot in managedClusters where we will cache the pachclient if available.
+	// Take a slot in managedClusters where we will cache the pachclient if available.
 	// Useful for getting code coverage from the cluster at the end of the test
 	cf.managedClusters[ns] = nil
 	return ns, idx
@@ -153,15 +151,10 @@ func (cf *ClusterFactory) acquireInstalledCluster(t testing.TB, as *acquireSetti
 
 // ClaimCluster returns an unused kubernetes namespace name that can be deployed. It is only responsible for
 // assigning clusters to test clients, creating the namespace, and reserving the lease on that namespace.
-// Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
+// Unlike AcquireCluster, ClaimCluster doesn't do helm install on the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
 	assigned, clusterIdx := clusterFactory.assignCluster(t)
-	t.Cleanup(func() {
-		clusterFactory.mu.Lock()
-		clusterFactory.availableClusters[assigned] = struct{}{}
-		clusterFactory.mu.Unlock()
-	})
-	portOffset := uint16(clusterIdx * 150) // DNJ TODO ticket to remove this
+	portOffset := uint16(clusterIdx * 150)
 	return assigned, portOffset
 }
 
@@ -196,7 +189,6 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 				deleteAll(t, mc.client)
 			}
 		}
-		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
 	})
 	deleteAll(t, mc.client)
