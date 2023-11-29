@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"path"
 
-	"go.uber.org/zap"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
@@ -154,7 +153,6 @@ func (kd *kubeDriver) UpdateReplicationController(ctx context.Context, old *v1.R
 	// as currently a failure here leads to failing the pipeline
 	rc.ResourceVersion = ""
 	if update(rc) {
-		log.Info(ctx, "DNJ TODO updating RC", zap.Any("RC", rc.Name))
 		// write updated RC to k8s
 		kd.limiter.Acquire()
 		defer kd.limiter.Release()

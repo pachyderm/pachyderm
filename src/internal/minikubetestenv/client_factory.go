@@ -11,9 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/sync/semaphore"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -28,7 +27,6 @@ var (
 	clusterFactory *ClusterFactory = &ClusterFactory{
 		managedClusters:   map[string]*managedCluster{},
 		availableClusters: map[string]struct{}{},
-		sem:               *semaphore.NewWeighted(int64(*poolSize)),
 	}
 	poolSize            *int  = flag.Int("clusters.pool", 15, "maximum size of managed pachyderm clusters")
 	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
@@ -83,8 +81,7 @@ type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
 	managedClusters   map[string]*managedCluster
 	availableClusters map[string]struct{} // DNJ TOD - remove probably
-	mu                sync.Mutex          // guards modifications to the ClusterFactory maps
-	sem               semaphore.Weighted  // enforces max concurrency
+	mu                sync.Mutex          // guards modifications to the ClusterFactory maps // DNJ TODO remove maybe?
 }
 
 func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
@@ -96,7 +93,7 @@ func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 150),
-		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster, // DNJ TODO - remove useLeftoverCluster?
+		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
@@ -117,24 +114,23 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
 	var idx int
 	var ns string
-	timeout := time.Second * 300
-	startAssign := time.Now()
-	for idx = 1; idx <= *poolSize+1; idx++ { //DNJ TODO -cleanup
-		if idx == *poolSize+1 { // We exhausted allowed namespaces, wait and then try again to see if one is available
-			if time.Since(startAssign) > timeout {
-				require.True(t, false, "could not assign a cluster within timeout: %s", timeout.String())
+	// if we exhausted allowed namespaces, wait and then try again to see if one is available
+	require.NoErrorWithinTRetryConstant(t, time.Second*300, func() error {
+		var ok bool
+		for idx = 1; idx <= *poolSize; idx++ {
+			ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
+			if ok = LeaseNamespace(t, ns); ok {
+				break
 			}
-			// DNJ TODO block until we can go, then restart the loop
-			time.Sleep(5 * time.Second)
-			idx = 0 // restarting loop
-			continue
 		}
-		ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
-		if ok := LeaseNamespace(t, ns); ok {
-			break
+		if !ok {
+			return errors.Errorf("No namespaces available to provision, waiting to try again.")
 		}
-	}
-	cf.managedClusters[ns] = nil // DNJ TODO - needed? hold my place in line
+		return nil
+	}, time.Second*5, "Could not assign a test namespace within timeout")
+	// DNJ TODO - remove? take a slot in managedClusters where we will cache the pachclient if available.
+	// Useful for getting code coverage from the cluster at the end of the test
+	cf.managedClusters[ns] = nil
 	return ns, idx
 }
 
@@ -159,13 +155,11 @@ func (cf *ClusterFactory) acquireInstalledCluster(t testing.TB, as *acquireSetti
 // assigning clusters to test clients, creating the namespace, and reserving the lease on that namespace.
 // Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1)) // DNJ TODO should semchanges be in helm mutex to prevent starting new cluster before semaphore decrements?
 	assigned, clusterIdx := clusterFactory.assignCluster(t)
 	t.Cleanup(func() {
 		clusterFactory.mu.Lock()
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
-		clusterFactory.sem.Release(1)
 	})
 	portOffset := uint16(clusterIdx * 150) // DNJ TODO ticket to remove this
 	return assigned, portOffset
@@ -189,9 +183,12 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		return c, ""
 	}
 
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
-	var assigned string
-	t.Cleanup(func() {
+	as := &acquireSettings{}
+	for _, o := range opts {
+		o(as)
+	}
+	assigned, mc := clusterFactory.acquireInstalledCluster(t, as)
+	t.Cleanup(func() { // must come after assignment to run cleanmup with code coverage before the lease is removed.
 		clusterFactory.mu.Lock()
 		if mc := clusterFactory.managedClusters[assigned]; mc != nil {
 			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides)
@@ -201,14 +198,7 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		}
 		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
-		clusterFactory.sem.Release(1)
 	})
-	as := &acquireSettings{}
-	for _, o := range opts {
-		o(as)
-	}
-
-	assigned, mc := clusterFactory.acquireInstalledCluster(t, as)
 	deleteAll(t, mc.client)
 	return mc.client, assigned
 }
