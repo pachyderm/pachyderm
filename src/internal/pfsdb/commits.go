@@ -964,6 +964,8 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 				if err := onUpsert(id, commitInfo); err != nil {
 					return err
 				}
+			default:
+				return errors.Errorf("unknown event type: %v", event.Type)
 			}
 		case <-ctx.Done():
 			return errors.Wrap(ctx.Err(), "watcher cancelled")
