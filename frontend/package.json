@@ -43,7 +43,7 @@
     "@codemirror/state": "6.2.1",
     "@codemirror/view": "^6.16.0",
     "@floating-ui/dom": "^1.5.3",
-    "@floating-ui/react": "^0.25.2",
+    "@floating-ui/react": "^0.26.3",
     "@lezer/common": "^1.0.4",
     "@sentry/browser": "7.64.0",
     "@sentry/react": "7.64.0",
