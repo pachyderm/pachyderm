@@ -96,7 +96,7 @@ func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 150),
-		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
+		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster, // DNJ TODO - remove useLeftoverCluster?
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
@@ -167,7 +167,7 @@ func ClaimCluster(t testing.TB) (string, uint16) {
 		clusterFactory.mu.Unlock()
 		clusterFactory.sem.Release(1)
 	})
-	portOffset := uint16(clusterIdx * 150)
+	portOffset := uint16(clusterIdx * 150) // DNJ TODO ticket to remove this
 	return assigned, portOffset
 }
 

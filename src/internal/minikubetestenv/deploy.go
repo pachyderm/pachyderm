@@ -829,7 +829,7 @@ func LeaseNamespace(t testing.TB, namespace string) bool {
 	lease, err := kube.CoordinationV1().
 		Leases(namespace).
 		Get(context.Background(), fmt.Sprintf("%s%s", leasePrefix, namespace), metav1.GetOptions{})
-	if k8serrors.IsNotFound(err) { // DNJ TODO this probably needs to PutNamespace here now - is that ok with tests?
+	if k8serrors.IsNotFound(err) {
 		PutNamespace(t, namespace)
 		err = putLease(t, namespace)
 		if k8serrors.IsAlreadyExists(err) {
