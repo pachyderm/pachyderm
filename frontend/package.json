@@ -155,7 +155,7 @@
     "rollup-plugin-copy": "3.4.0",
     "rollup-plugin-visualizer": "^5.9.2",
     "serve": "14.2.0",
-    "start-server-and-test": "1.14.0",
+    "start-server-and-test": "2.0.3",
     "storybook": "^7.5.0",
     "stylelint": "^14.16.1",
     "stylelint-config-prettier": "^9.0.4",
