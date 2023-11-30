@@ -209,8 +209,6 @@ func withBase(namespace string) *helm.Options {
 			"postgresql.persistence.size":         "5Gi",
 			"etcd.storageSize":                    "5Gi",
 			"pachw.resources.requests.cpu":        "250m",
-			"pgbouncer.resources.requests.cpu":    "250m",
-			"postgres.resources.requests.cpu":     "250m",
 		},
 	}
 }
