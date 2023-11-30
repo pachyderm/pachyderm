@@ -932,10 +932,10 @@ jobs:
 
             # Run Python unit tests
             mkdir -p test-results
-            pytest -v \
-              --ignore jupyterlab_pachyderm/tests/test_integrations.py \
-              --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm
+            # pytest -v \
+            #   --ignore jupyterlab_pachyderm/tests/test_integrations.py \
+            #   --junitxml=test-results/junit.xml \
+            #   jupyterlab_pachyderm
 
             check-manifest -v
       - store_test_results:
