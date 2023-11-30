@@ -369,6 +369,15 @@ message InspectProjectRequest {
   Project project = 1 [(validate.rules).message.required = true];
 }
 
+message InspectProjectV2Request {
+  Project project = 1 [(validate.rules).message.required = true];
+}
+
+message InspectProjectV2Response {
+  ProjectInfo info = 1;
+  string defaults_json = 2;
+}
+
 message ListProjectRequest {}
 
 message DeleteProjectRequest {
@@ -733,6 +742,8 @@ service API {
   rpc CreateProject(CreateProjectRequest) returns (google.protobuf.Empty) {}
   // InspectProject returns info about a project.
   rpc InspectProject(InspectProjectRequest) returns (ProjectInfo) {}
+  // InspectProjectV2 returns info about and defaults for a project.
+  rpc InspectProjectV2(InspectProjectV2Request) returns (InspectProjectV2Response) {}
   // ListProject returns info about all projects.
   rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
