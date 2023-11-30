@@ -96,8 +96,8 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
-	// cmd.Env = os.Environ()
-	// cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // DNJ TODO - leave or parameter or remove?
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // DNJ TODO - leave or parameter or remove?
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
