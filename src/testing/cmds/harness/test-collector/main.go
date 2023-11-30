@@ -71,22 +71,23 @@ func run(ctx context.Context, tags string, fileName string, pkg string, threadPo
 	return err
 }
 
+// get tests that are tagged, but not in the untagged list since that is inclusive
 func subtractTestSet(testIdsTagged map[string][]string, testIdsUntagged map[string][]string) map[string][]string {
-	testIds := map[string][]string{}
+	resultTests := map[string][]string{}
 	for pkg, testsTagged := range testIdsTagged {
-		testsUntagged, ok := testIdsUntagged[pkg] // DNJ TODO re-read and clean
-		for _, testT := range testsTagged {
-			if !ok || !slice.ContainsString(testsUntagged, testT, func(s string) string { return s }) {
-				if _, ok := testIds[pkg]; !ok {
-					testIds[pkg] = []string{testT}
+		testsUntagged, ok := testIdsUntagged[pkg]
+		for _, testNameTagged := range testsTagged {
+			if !ok || !slice.ContainsString(testsUntagged, testNameTagged, func(s string) string { return s }) {
+				if _, ok := resultTests[pkg]; !ok {
+					resultTests[pkg] = []string{testNameTagged}
 				} else {
-					testIds[pkg] = append(testIds[pkg], testT)
+					resultTests[pkg] = append(resultTests[pkg], testNameTagged)
 				}
 			}
 		}
 
 	}
-	return testIds
+	return resultTests
 }
 
 func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[string][]string, error) {
@@ -97,7 +98,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 		return nil, errors.EnsureStack(err)
 	}
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // DNJ TODO - leave or parameter or remove?
+	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // This prevents the command from running wild eating up processes in the pipelines
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)

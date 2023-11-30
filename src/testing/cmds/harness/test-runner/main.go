@@ -83,8 +83,6 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 		}
 	}
 
-	// DNJ TODO - incorporate gomaxprocs or add parallel parameter
-
 	eg, _ := errgroup.WithContext(ctx)
 	eg.SetLimit(threadPool)
 	for pkg, tests := range testsForShard {
@@ -172,7 +170,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 
 	cmd := exec.Command("gotestsum", runTestArgs...)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOCOVERDIR=\"/tmp/test-results/\"") // DNJ TODO - parameter - how to take from args?
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOCOVERDIR=\"/tmp/test-results/\"")
 	fmt.Printf("Running command %v\n", cmd.String())
 	testsOutput, err := cmd.CombinedOutput()
 	_, copyErr := io.Copy(os.Stdout, strings.NewReader(string(testsOutput)))

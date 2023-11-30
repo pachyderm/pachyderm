@@ -208,6 +208,9 @@ func withBase(namespace string) *helm.Options {
 			"console.enabled":                     "false",
 			"postgresql.persistence.size":         "5Gi",
 			"etcd.storageSize":                    "5Gi",
+			"pachw.resources.requests.cpu":        "250m",
+			"pgbouncer.resources.requests.cpu":    "250m",
+			"postgres.resources.requests.cpu":     "250m",
 		},
 	}
 }
@@ -271,15 +274,16 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 
 func withEnterpriseServer(image, host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
-		"pachd.enabled":                      "false",
-		"enterpriseServer.enabled":           "true",
-		"enterpriseServer.image.tag":         image,
-		"oidc.mockIDP":                       "true",
-		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
-		"pachd.oauthClientID":                "enterprise-pach",
-		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
-		"enterpriseServer.service.type":      "ClusterIP",
+		"pachd.enabled":                           "false",
+		"enterpriseServer.enabled":                "true",
+		"enterpriseServer.image.tag":              image,
+		"oidc.mockIDP":                            "true",
+		"oidc.issuerURI":                          "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost":      fmt.Sprintf("%s:31658", host),
+		"pachd.oauthClientID":                     "enterprise-pach",
+		"pachd.oauthRedirectURI":                  fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
+		"enterpriseServer.service.type":           "ClusterIP",
+		"enterpriseServer.resources.requests.cpu": "250m",
 		// For tests, traffic from outside the cluster is routed through the proxy,
 		// but we bind the internal k8s service ports to the same numbers for
 		// in-cluster traffic, like enterprise registration.
