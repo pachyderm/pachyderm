@@ -460,6 +460,21 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, 5*time.Second)
 }
 
+func checkForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, enterpriseServer bool) (bool, error) {
+	label := "app=pachd"
+	if enterpriseServer {
+		label = "app=pach-enterprise"
+	}
+	pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Wrap(err, "error on pod list to check pachd existence")
+	}
+	return len(pachds.Items) > 0, nil
+}
+
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.RetryNotify(func() error {
 		client := http.Client{
@@ -689,6 +704,77 @@ func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { /
 	require.NoError(t, err)
 	return optsHash.Sum(nil)
 }
+
+func putLease(t testing.TB, namespace string) error {
+	t.Logf("Creating lease on namespace %s for test %v", namespace, t.Name())
+	kube := testutil.GetKubeClient(t)
+	identity := t.Name()
+	leaseDuration := int32(defaultLeaseDuration)
+	acquireTime := metav1.NewMicroTime(time.Now())
+	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s%s", leasePrefix, namespace),
+			Namespace: namespace,
+		},
+		Spec: coordination.LeaseSpec{
+			HolderIdentity:       &identity,
+			LeaseDurationSeconds: &leaseDuration,
+			AcquireTime:          &acquireTime,
+			RenewTime:            &acquireTime,
+		},
+	}, metav1.CreateOptions{})
+	if err == nil {
+		leaseCtx, leaseCancel := pctx.WithCancel(pctx.Background("minikube test lease renewer"))
+		go leaseRenewer(t, leaseCtx, kube, lease, time.Duration(defaultLeaseDuration/2)*time.Second)
+		t.Cleanup(func() {
+			leaseCancel()
+			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			require.NoError(t, err)
+		})
+	}
+	return errors.EnsureStack(err)
+}
+
+// renews the lease every interval fo continued use, cancelled with the context
+func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initialLease *coordination.Lease, interval time.Duration) {
+	latestLease := initialLease
+	for {
+		select {
+		case <-time.After(interval):
+			t.Logf("Renewing lease on namespace %s for test %v", latestLease.GetNamespace(), t.Name())
+			err := backoff.Retry(func() error {
+				renewTime := metav1.NewMicroTime(time.Now())
+				var err error
+				latestLease, err = kube.CoordinationV1().Leases(latestLease.GetNamespace()).Update(ctx, &coordination.Lease{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            latestLease.GetName(),
+						Namespace:       latestLease.GetNamespace(),
+						ResourceVersion: latestLease.GetResourceVersion(),
+					},
+					Spec: coordination.LeaseSpec{
+						HolderIdentity:       latestLease.Spec.HolderIdentity,
+						LeaseDurationSeconds: latestLease.Spec.LeaseDurationSeconds,
+						AcquireTime:          latestLease.Spec.AcquireTime,
+						RenewTime:            &renewTime,
+					},
+				}, metav1.UpdateOptions{})
+				return errors.EnsureStack(err)
+			}, backoff.RetryEvery(time.Millisecond*200).For(time.Second))
+			if err != nil {
+				t.Logf("Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
+				// doesn't exist or it maybe is in progress deleting, or a new one was re-created.
+				// lots of reasons it could be =in a weird state, but we don't want to fail the test over that.
+				// We retried so it's probably not an ephemeral issue.
+				// Just log it, release the lease, and let the main process recover.
+				return
+			}
+		case <-ctx.Done():
+			t.Logf("Releasing lease on namespace %s for test %v", latestLease.Namespace, t.Name())
+			return
+		}
+	}
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -774,6 +860,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		}
 	}
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
+	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, opts.EnterpriseServer)
+	require.NoError(t, err)
 	if mustUpgrade {
 		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
 		require.NoErrorWithinTRetry(t,
@@ -782,7 +870,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
 		waitForInstallFinished()
-	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) || !opts.UseLeftoverCluster { // DNJ TODO or no pachd exists for safety?
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
+		!opts.UseLeftoverCluster ||
+		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *should't* let this happen, but in case something failed, check pachd for sanity.
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			require.NoErrorWithinTRetry(t,
@@ -801,23 +891,6 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
 	})
 	return pClient
-}
-
-// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
-func PutNamespace(t testing.TB, namespace string) {
-	kube := testutil.GetKubeClient(t)
-	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
-		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
-			&v1.Namespace{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: namespace,
-				},
-			},
-			metav1.CreateOptions{})
-		if !k8serrors.IsAlreadyExists(err) { // if it already exists we still have the end result we want and idempotence
-			require.NoError(t, err)
-		}
-	}
 }
 
 // LeaseNamespace attempts to lock a namespace for exclusive use by a test. It creates a k8s lease that is cleaned up at the end of the test.
@@ -866,72 +939,19 @@ func LeaseNamespace(t testing.TB, namespace string) bool {
 	}
 }
 
-func putLease(t testing.TB, namespace string) error {
-	t.Logf("Creating lease on namespace %s for test %v", namespace, t.Name())
+// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
+func PutNamespace(t testing.TB, namespace string) {
 	kube := testutil.GetKubeClient(t)
-	identity := t.Name()
-	leaseDuration := int32(defaultLeaseDuration)
-	acquireTime := metav1.NewMicroTime(time.Now())
-	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s%s", leasePrefix, namespace),
-			Namespace: namespace,
-		},
-		Spec: coordination.LeaseSpec{
-			HolderIdentity:       &identity,
-			LeaseDurationSeconds: &leaseDuration,
-			AcquireTime:          &acquireTime,
-			RenewTime:            &acquireTime,
-		},
-	}, metav1.CreateOptions{})
-	if err == nil {
-		leaseCtx, leaseCancel := pctx.WithCancel(pctx.Background("minikube test lease renewer"))
-		go leaseRenewer(t, leaseCtx, kube, lease, time.Duration(defaultLeaseDuration/2)*time.Second)
-		t.Cleanup(func() {
-			leaseCancel()
-			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
+		_, err := kube.CoreV1().Namespaces().Create(context.Background(),
+			&v1.Namespace{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: namespace,
+				},
+			},
+			metav1.CreateOptions{})
+		if !k8serrors.IsAlreadyExists(err) { // if it already exists we still have the end result we want and idempotence
 			require.NoError(t, err)
-		})
-	}
-	return errors.EnsureStack(err)
-}
-
-// renews the lease every interval fo continued use, cancelled with the context
-func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initialLease *coordination.Lease, interval time.Duration) {
-	latestLease := initialLease
-	for {
-		select {
-		case <-time.After(interval):
-			t.Logf("Renewing lease on namespace %s for test %v", latestLease.GetNamespace(), t.Name())
-			err := backoff.Retry(func() error {
-				renewTime := metav1.NewMicroTime(time.Now())
-				var err error
-				latestLease, err = kube.CoordinationV1().Leases(latestLease.GetNamespace()).Update(ctx, &coordination.Lease{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:            latestLease.GetName(),
-						Namespace:       latestLease.GetNamespace(),
-						ResourceVersion: latestLease.GetResourceVersion(),
-					},
-					Spec: coordination.LeaseSpec{
-						HolderIdentity:       latestLease.Spec.HolderIdentity,
-						LeaseDurationSeconds: latestLease.Spec.LeaseDurationSeconds,
-						AcquireTime:          latestLease.Spec.AcquireTime,
-						RenewTime:            &renewTime,
-					},
-				}, metav1.UpdateOptions{})
-				return errors.EnsureStack(err)
-			}, backoff.RetryEvery(time.Millisecond*200).For(time.Second))
-			if err != nil {
-				t.Logf("Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
-				// doesn't exist or it maybe is in progress deleting, or a new one was re-created.
-				// lots of reasons it could be =in a weird state, but we don't want to fail the test over that.
-				// We retried so it's probably not an ephemeral issue.
-				// Just log it, release the lease, and let the main process recover.
-				return
-			}
-		case <-ctx.Done():
-			t.Logf("Releasing lease on namespace %s for test %v", latestLease.Namespace, t.Name())
-			return
 		}
 	}
 }

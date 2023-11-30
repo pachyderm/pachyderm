@@ -10847,7 +10847,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-	time.Sleep(2 * time.Second) // DNJ TODO - ticket to investigate prexisting flake
+	time.Sleep(2 * time.Second) // CORE-2056
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
