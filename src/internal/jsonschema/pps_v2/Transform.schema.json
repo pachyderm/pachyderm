@@ -68,15 +68,15 @@
                     ]
                 },
                 "secrets": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.SecretMount"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.SecretMount"
+                            },
                             "type": "array"
                         }
                     ]

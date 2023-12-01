@@ -21,12 +21,12 @@
             "oneOf": [
                 {
                     "required": [
-                        "zombie_target"
+                        "zombieTarget"
                     ]
                 },
                 {
                     "required": [
-                        "zombie_all"
+                        "zombieAll"
                     ]
                 }
             ],

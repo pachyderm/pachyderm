@@ -418,15 +418,15 @@
                     ]
                 },
                 "tolerations": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.Toleration"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.Toleration"
+                            },
                             "type": "array"
                         }
                     ]
@@ -602,12 +602,12 @@
                 },
                 {
                     "required": [
-                        "object_storage"
+                        "objectStorage"
                     ]
                 },
                 {
                     "required": [
-                        "sql_database"
+                        "sqlDatabase"
                     ]
                 }
             ],
@@ -662,57 +662,57 @@
                     ]
                 },
                 "join": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "group": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "cross": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "union": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.Input"
+                            },
                             "type": "array"
                         }
                     ]
@@ -1241,15 +1241,15 @@
                     ]
                 },
                 "secrets": {
-                    "items": {
-                        "$ref": "#/definitions/pps_v2.SecretMount"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/pps_v2.SecretMount"
+                            },
                             "type": "array"
                         }
                     ]
