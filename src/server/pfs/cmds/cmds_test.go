@@ -640,10 +640,10 @@ func TestInspectProject(t *testing.T) {
 	require.True(t, strings.Contains(output, `Defaults: {}`), "pachctl inspect project must include defaults")
 
 	output, err = p.RunCommand(ctx, `echo '{"createPipelineRequest": {"datumTries": 14}}' | pachctl update defaults --project default`)
-	require.NoError(t, err, "pachctl update project defaults  must succeed")
+	require.NoError(t, err, "pachctl update project defaults  must succeed:\n", output)
 
 	output, err = p.RunCommand(ctx, `pachctl inspect defaults --project default`)
-	require.NoError(t, err, "pachctl inspect defaults must succeed")
+	require.NoError(t, err, "pachctl inspect defaults must succeed:\n", output)
 
 	output, err = p.RunCommand(ctx, "pachctl inspect project default")
 	require.NoError(t, err, "pachctl inspect project default must succeed")
