@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "backoff",
+    srcs = [
+        "backoff.go",
+        "exponential.go",
+        "retry.go",
+        "ticker.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/backoff",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "backoff_test",
+    srcs = [
+        "backoff_test.go",
+        "example_test.go",
+        "exponential_test.go",
+        "retry_test.go",
+        "ticker_test.go",
+    ],
+    deps = [
+        ":backoff",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)

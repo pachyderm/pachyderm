@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "debugstar",
+    srcs = ["debugstar.go"],
+    embedsrcs = [
+        "starlark/basic.star",
+        "starlark/list_rcs.star",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/debug/server/debugstar",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/promutil",
+        "//src/internal/starlark",
+        "//src/internal/starlark/lib/k8s",
+        "@io_k8s_client_go//dynamic",
+        "@io_k8s_client_go//dynamic/fake",
+        "@io_k8s_client_go//kubernetes",
+        "@io_k8s_client_go//kubernetes/fake",
+        "@io_k8s_client_go//tools/clientcmd",
+        "@io_k8s_kubectl//pkg/scheme",
+        "@net_starlark_go//starlark",
+    ],
+)
+
+go_test(
+    name = "debugstar_test",
+    srcs = ["debugstar_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":debugstar"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+    ],
+)

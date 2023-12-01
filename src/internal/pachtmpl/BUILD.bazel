@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pachtmpl",
+    srcs = ["pachtmpl.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pachtmpl",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@jsonnet_go//:go_default_library",
+    ],
+)
+
+go_test(
+    name = "pachtmpl_test",
+    srcs = ["pachtmpl_test.go"],
+    embed = [":pachtmpl"],
+    deps = ["//src/internal/require"],
+)

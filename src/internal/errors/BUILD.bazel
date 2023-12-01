@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "errors",
+    srcs = [
+        "as.go",
+        "errors.go",
+        "multi.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/errors",
+    visibility = ["//src:__subpackages__"],
+    deps = ["@com_github_pkg_errors//:errors"],
+)
+
+go_test(
+    name = "errors_test",
+    srcs = ["multi_test.go"],
+    embed = [":errors"],
+    deps = ["@com_github_pkg_errors//:errors"],
+)

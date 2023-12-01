@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "proc",
+    srcs = ["proc.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/proc",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/meters",
+        "//src/internal/miscutil",
+        "//src/internal/pctx",
+        "@com_github_prometheus_procfs//:procfs",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "proc_test",
+    srcs = ["proc_test.go"],
+    embed = [":proc"],
+    deps = [
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_prometheus_procfs//:procfs",
+    ],
+)

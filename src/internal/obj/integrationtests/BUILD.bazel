@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "integrationtests",
+    srcs = [
+        "tests.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/obj/integrationtests",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/require"],
+)
+
+go_test(
+    name = "integrationtests_test",
+    srcs = [
+        "amazon_test.go",
+        "google_test.go",
+        "microsoft_test.go",
+        "minio_test.go",
+    ],
+    embed = [":integrationtests"],
+    deps = [
+        "//src/internal/obj",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "@org_golang_google_api//option",
+    ],
+)

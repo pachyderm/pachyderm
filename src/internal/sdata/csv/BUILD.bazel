@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "csv",
+    srcs = [
+        "reader.go",
+        "writer.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/sdata/csv",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)
+
+go_test(
+    name = "csv_test",
+    srcs = [
+        "reader_test.go",
+        "writer_test.go",
+    ],
+    embed = [":csv"],
+    deps = ["//src/internal/require"],
+)

@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "preflight",
+    srcs = ["preflight.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/preflight",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/clusterstate",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "@io_etcd_go_etcd_client_v3//:client",
+        "@io_etcd_go_etcd_server_v3//embed",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "preflight_test",
+    srcs = ["preflight_test.go"],
+    embed = [":preflight"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/testutil",
+    ],
+)

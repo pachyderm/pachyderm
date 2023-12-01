@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "server",
+    srcs = ["api_server.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/admin/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/admin",
+        "//src/auth",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachconfig",
+        "//src/internal/weblinker",
+        "//src/pfs",
+        "//src/version",
+        "//src/version/versionpb",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "server_test",
+    srcs = ["api_server_test.go"],
+    embed = [":server"],
+    deps = [
+        "//src/admin",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/pfs",
+        "//src/version",
+    ],
+)

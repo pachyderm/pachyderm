@@ -26,6 +26,7 @@ import (
 )
 
 func TestDownload(t *testing.T) {
+	t.Log("hi")
 	// Setup a PFS server.
 	rctx := pctx.TestContext(t)
 	e := realenv.NewRealEnvWithIdentity(rctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)

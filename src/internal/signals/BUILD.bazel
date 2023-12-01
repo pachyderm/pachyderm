@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "signals",
+    srcs = [
+        "signals.go",
+        "signals_unix.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/signals",
+    visibility = ["//src:__subpackages__"],
+    deps = ["@org_golang_x_sys//unix"],
+)
+
+go_test(
+    name = "signals_test",
+    srcs = [
+        "signals_test.go",
+        "signals_unix_test.go",
+    ],
+    deps = [
+        ":signals",
+        "//src/internal/errors",
+        "@org_golang_x_sync//errgroup",
+        "@org_golang_x_sys//unix",
+    ],
+)

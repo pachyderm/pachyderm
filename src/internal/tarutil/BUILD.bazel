@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "tarutil",
+    srcs = [
+        "option.go",
+        "tar.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/tarutil",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)

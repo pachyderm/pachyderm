@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "minikubetestenv",
+    srcs = [
+        "code_coverage.go",
+        "deploy.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/debug",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "//src/internal/uuid",
+        "@com_github_gruntwork_io_terratest//modules/helm",
+        "@com_github_gruntwork_io_terratest//modules/k8s",
+        "@io_k8s_api//coordination/v1:coordination",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/api/errors",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/util/net",
+        "@io_k8s_client_go//kubernetes",
+        "@org_golang_google_protobuf//types/known/durationpb",
+    ],
+)

@@ -1,0 +1,124 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "driver",
+    srcs = [
+        "block_linux.go",
+        "block_nonlinux.go",
+        "driver.go",
+        "driver_unix.go",
+        "driver_windows.go",
+        "ps_linux.go",
+        "ps_nonlinux.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/driver",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/ppsdb",
+        "//src/internal/ppsutil",
+        "//src/internal/proc",
+        "//src/internal/serviceenv",
+        "//src/internal/task",
+        "//src/pfs",
+        "//src/pps",
+        "//src/server/worker/common",
+        "//src/server/worker/logs",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+    ] + select({
+        "@rules_go//go/platform:aix": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:android": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+            "@com_github_prometheus_procfs//:procfs",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:ios": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:linux": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+            "@com_github_prometheus_procfs//:procfs",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "//src/internal/log",
+            "//src/internal/meters",
+            "//src/internal/pctx",
+        ],
+        "@rules_go//go/platform:windows": [
+            "//src/internal/log",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "driver_test",
+    srcs = [
+        "driver_linux_test.go",
+        "driver_test.go",
+        "ps_linux_test.go",
+    ],
+    embed = [":driver"],
+    deps = select({
+        "@rules_go//go/platform:android": [
+            "//src/internal/cmputil",
+            "//src/internal/pctx",
+            "//src/pps",
+            "//src/server/worker/logs",
+            "@com_github_google_go_cmp//cmp",
+            "@com_github_google_go_cmp//cmp/cmpopts",
+        ],
+        "@rules_go//go/platform:linux": [
+            "//src/internal/cmputil",
+            "//src/internal/pctx",
+            "//src/pps",
+            "//src/server/worker/logs",
+            "@com_github_google_go_cmp//cmp",
+            "@com_github_google_go_cmp//cmp/cmpopts",
+        ],
+        "//conditions:default": [],
+    }),
+)

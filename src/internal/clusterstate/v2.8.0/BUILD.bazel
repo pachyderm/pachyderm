@@ -1,0 +1,58 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "v2_8_0",
+    srcs = [
+        "clusterstate.go",
+        "collection.go",
+        "defaults.go",
+        "model.go",
+        "pfsdb.go",
+        "ppsdb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.8.0",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/clusterstate/migrationutils",
+        "//src/internal/clusterstate/v2.7.0:v2_7_0",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/pbutil",
+        "//src/internal/ppsdb",
+        "//src/internal/ppsutil",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/pps",
+        "//src/version",
+        "@com_github_jackc_pgerrcode//:pgerrcode",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_lib_pq//:pq",
+        "@io_k8s_apimachinery//pkg/api/resource",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "v2_8_0_test",
+    srcs = [
+        "collection_test.go",
+        "defaults_test.go",
+    ],
+    embed = [":v2_8_0"],
+    deps = [
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
