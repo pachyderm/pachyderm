@@ -45,6 +45,7 @@ const Datum: React.FC<DatumProps> = ({
     callMountDatums,
     callNextDatum,
     callPrevDatum,
+    callDownloadDatum,
     callUnmountAll,
     errorMessage,
     saveInputSpec,
@@ -123,6 +124,14 @@ const Datum: React.FC<DatumProps> = ({
           style={{padding: '0.5rem'}}
         >
           Mount Datums
+        </button>
+        <button
+          data-testid="Datum__downloadDatum"
+          className="pachyderm-button-link"
+          onClick={callDownloadDatum}
+          style={{padding: '0.5rem'}}
+        >
+          Download Datum
         </button>
         {shouldShowCycler && (
           <div

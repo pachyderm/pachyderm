@@ -412,6 +412,8 @@ class DatumManager(FileContentsManager):
         all_datums_received: bool
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
+    _DOWNLOAD_DIR_PFX = os.path.expanduser("~") + "/.cache/pfs_datum_download-"
+    _DOWNLOAD_SYMLINK_PATH = "/pfs"
     # currently unsupported stuff (unclear if needed or not):
     #  - crossing repo with itself
     #  - renaming repo level directories
@@ -422,7 +424,9 @@ class DatumManager(FileContentsManager):
         self._datum_index = 0
         self._mount_time = datetime.datetime.min
         self._input = None
+        self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
+        shutil.rmtree(self._DOWNLOAD_SYMLINK_PATH, ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
         super().__init__(**kwargs)
 
@@ -469,12 +473,44 @@ class DatumManager(FileContentsManager):
             all_datums_received=True,
         )
 
-    def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
+    def download(self):
+        download_dir = f"{self._DOWNLOAD_DIR_PFX}-{datetime.datetime.now().isoformat()}"
+        try:
+            os.makedirs(download_dir)
+            for fileinfo in self._datum_list[self._datum_index].data:
+                path = self._get_download_path(download_dir=download_dir, fileinfo=fileinfo)
+                os.makedirs(path.parent, exist_ok=True)
+                if fileinfo.file_type == pfs.FileType.FILE:
+                    # download individual file
+                    data = list(self._client.pfs.get_file(file=fileinfo.file))[0].value
+                    with open(path, "wb") as download_file:
+                        download_file.write(data)
+                elif fileinfo.file_type == pfs.FileType.DIR:
+                    # download tarball
+                    tar = self._client.pfs.pfs_tar_file(file=fileinfo.file)
+                    tar.extractall(path=path.parent)
+                else:
+                    raise TypeError(f"Attempting to download invalid file type {fileinfo.file_type}")
+            shutil.rmtree(self._DOWNLOAD_SYMLINK_PATH, ignore_errors=True)
+            shutil.rmtree(self._download_dir, ignore_errors=True)
+            self._download_dir = download_dir
+            os.symlink(src=self._DOWNLOAD_SYMLINK_PATH, dst=download_dir)
+        except Exception as e:
+            shutil.rmtree(download_dir, ignore_errors=True)
+            raise e
+
+    def _get_relative_path(self, fileinfo: pfs.FileInfo) -> Path:
         project = fileinfo.file.commit.repo.project.name
         branch = fileinfo.file.commit.branch.name
         repo = fileinfo.file.commit.repo.name
         toplevel = f"{project}_{repo}_{branch}"
-        return Path(self._FILEINFO_DIR, toplevel, fileinfo.file.path.strip("/"))
+        return Path(toplevel, fileinfo.file.path.strip("/"))
+
+    def _get_download_path(self, download_dir: Path, fileinfo: pfs.FileInfo) -> Path:
+        return Path(download_dir, self._get_relative_path(fileinfo=fileinfo))
+
+    def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
+        return Path(self._FILEINFO_DIR, self._get_relative_path(fileinfo=fileinfo))
 
     def _update_mount(self):
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)

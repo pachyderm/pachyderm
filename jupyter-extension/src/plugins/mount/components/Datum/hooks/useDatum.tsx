@@ -22,6 +22,7 @@ export type useDatumResponse = {
   callMountDatums: () => Promise<void>;
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
+  callDownloadDatum: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
   saveInputSpec: () => void;
@@ -202,6 +203,18 @@ export const useDatum = (
     setLoading(false);
   };
 
+  const callDownloadDatum = async () => {
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      const res = await requestAPI<any>('datums/_download', 'PUT');
+    } catch (e) {
+      console.log(e);
+    }
+    setLoading(false);
+  }
+
   const callUnmountAll = async () => {
     setLoading(true);
 
@@ -234,6 +247,7 @@ export const useDatum = (
     callMountDatums,
     callNextDatum,
     callPrevDatum,
+    callDownloadDatum,
     callUnmountAll,
     errorMessage,
     saveInputSpec,
