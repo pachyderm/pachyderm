@@ -55,7 +55,7 @@ func run(ctx context.Context, tags string, exclusiveTags bool, fileName string, 
 		return errors.EnsureStack(err)
 	}
 	var testIds map[string][]string
-	if tags != "" {
+	if exclusiveTags && tags != "" {
 		// set difference to get ONLY tagged tests
 		var err error
 		testIdsUntagged, err := testNames(ctx, pkg, "") // collect for set difference
