@@ -31,7 +31,7 @@ func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
-	exclusiveTags := flag.Bool("exclusiveTags", false, "If true, ONLY tests with the specified tags will run. If false, "+
+	exclusiveTags := flag.Bool("exclusiveTags", true, "If true, ONLY tests with the specified tags will run. If false, "+
 		"the default behavior of 'go test' of including tagged and untagged tests is used.")
 	fileName := flag.String("file", "tests_to_run.csv", "Output file listing the packages and tests to run. Used by the runner script.")
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")

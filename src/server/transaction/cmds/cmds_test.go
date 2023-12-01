@@ -3,7 +3,6 @@
 package cmds
 
 import (
-	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -64,8 +63,7 @@ func startTransaction(t *testing.T, c *client.APIClient) string {
 func requireTransactionDoesNotExist(t *testing.T, c *client.APIClient, txn string) {
 	output, err := (*exec.Cmd)(tu.PachctlBashCmd(t, c, "pachctl inspect transaction {{.txn}} 2>&1", "txn", txn)).Output()
 	require.YesError(t, err)
-	expected := fmt.Sprintf("not found")
-	require.True(t, strings.Contains(string(output), expected))
+	require.True(t, strings.Contains(string(output), "not found"))
 }
 
 func TestDeleteActiveTransaction(t *testing.T) {

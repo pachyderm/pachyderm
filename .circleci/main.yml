@@ -177,7 +177,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: 2xlarge
-    parallelism: 10
+    parallelism: 9
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
@@ -294,8 +294,8 @@ jobs:
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=7 \
-              -gotest-args="-parallel=8 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
+              -threads=8 \
+              -gotest-args="-parallel=4 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
