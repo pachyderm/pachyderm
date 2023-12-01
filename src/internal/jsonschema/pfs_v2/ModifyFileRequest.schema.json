@@ -26,22 +26,22 @@
             "oneOf": [
                 {
                     "required": [
-                        "set_commit"
+                        "setCommit"
                     ]
                 },
                 {
                     "required": [
-                        "add_file"
+                        "addFile"
                     ]
                 },
                 {
                     "required": [
-                        "delete_file"
+                        "deleteFile"
                     ]
                 },
                 {
                     "required": [
-                        "copy_file"
+                        "copyFile"
                     ]
                 }
             ],

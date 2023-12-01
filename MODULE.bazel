@@ -1,0 +1,62 @@
+module(
+    name = "pachyderm",
+    repo_name = "com_github_pachyderm_pachyderm",
+)
+
+bazel_dep(name = "rules_go", version = "0.43.0")
+bazel_dep(name = "gazelle", version = "0.34.0")
+
+bazel_dep(name = "buildifier_prebuilt", version = "6.3.3", dev_dependency = True)
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(
+    name = "go_sdk",
+    version = "1.21.4",
+)
+use_repo(go_sdk, "go_sdk")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//etc/proto:go.mod")
+use_repo(
+    go_deps,
+    "com_github_chrusty_protoc_gen_jsonschema",
+    "com_github_golang_protobuf",
+    "org_golang_google_grpc_cmd_protoc_gen_go_grpc",
+    "org_golang_google_protobuf",
+    "org_uber_go_zap",
+)
+
+non_module_deps = use_extension("//private:extensions.bzl", "non_module_deps")
+use_repo(
+    non_module_deps,
+    # *args is disallowed by the starlark compiler in MODULE.bazel files, so we have to name each
+    # dependency twice; once here, and once in //private:repositories.bzl.
+    "com_github_bufbuild_protoc_gen_validate_aarch64_linux",
+    "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
+    "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
+    "com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
+    "com_github_pseudomuto_protoc_gen_doc_aarch64_linux",
+    "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
+    "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
+    "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "org_uber_go_gopatch_aarch64_linux",
+    "org_uber_go_gopatch_aarch64_macos",
+    "org_uber_go_gopatch_x86_64_linux",
+    "org_uber_go_gopatch_x86_64_macos",
+)

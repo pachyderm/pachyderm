@@ -1,0 +1,12 @@
+try-import .bazelrc.local
+
+build --bes_results_url=https://app.buildbuddy.io/invocation/
+build --bes_backend=grpcs://remote.buildbuddy.io
+build --build_metadata=REPO_URL=https://github.com/pachyderm/pachyderm
+build --workspace_status_command=$(pwd)/workspace_status.sh
+build --remote_cache=grpcs://pachyderm.buildbuddy.io
+build --remote_timeout=3600
+build --experimental_remote_cache_compression
+build --experimental_remote_build_event_upload=minimal
+build --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
+build --nolegacy_important_outputs

@@ -39,7 +39,7 @@
                     "description": "This is left for backwards compatibility, but we want users to use the config defined below."
                 },
                 "config": {
-                    "additionalProperties": false,
+                    "additionalProperties": true,
                     "type": "object",
                     "description": "Config is the configuration for the upstream IDP, which varies based on the type. We make the assumption that this is either yaml or JSON."
                 }

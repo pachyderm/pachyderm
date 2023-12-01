@@ -21,12 +21,12 @@
             "oneOf": [
                 {
                     "required": [
-                        "found_commit"
+                        "foundCommit"
                     ]
                 },
                 {
                     "required": [
-                        "last_searched_commit"
+                        "lastSearchedCommit"
                     ]
                 }
             ],

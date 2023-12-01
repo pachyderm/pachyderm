@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "protoextensions_go",
+    srcs = [
+        "log.pb.go",
+        "log.pb.validate.go",
+        "protoextensions.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/protoextensions",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
+        "@org_golang_google_protobuf//runtime/protoimpl:go_default_library",
+        "@org_golang_google_protobuf//types/descriptorpb:go_default_library",
+        "@org_golang_google_protobuf//types/known/anypb:go_default_library",
+        "@org_golang_google_protobuf//types/known/durationpb:go_default_library",
+        "@org_golang_google_protobuf//types/known/timestamppb:go_default_library",
+        "@org_golang_google_protobuf//types/known/wrapperspb:go_default_library",
+        "@org_uber_go_zap//zapcore:go_default_library",
+    ],
+)
+
+go_test(
+    name = "protoextensions_test",
+    size = "small",
+    srcs = ["protoextensions_test.go"],
+    embed = [":protoextensions_go"],
+    deps = ["@org_uber_go_zap//zapcore:go_default_library"],
+)

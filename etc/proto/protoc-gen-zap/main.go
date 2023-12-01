@@ -26,7 +26,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/pachyderm/pachyderm/etc/proto/protoc-gen-zap/protoextensions"
+	"github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	"google.golang.org/protobuf/compiler/protogen"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
