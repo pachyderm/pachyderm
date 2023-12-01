@@ -133,9 +133,9 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	}
 	query := getBranchBaseQuery
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
-	// Compute ORDER BY
+	// Default ordering is by branch id in ascending order. This is important for pagination.
 	var orderByGeneric []OrderByColumn[branchColumn]
 	if len(orderBys) == 0 {
 		orderByGeneric = []OrderByColumn[branchColumn]{{Column: BranchColumnID, Order: SortOrderAsc}}
@@ -144,7 +144,8 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[branchColumn](orderBy))
 		}
 	}
-	query = tx.Rebind(query + OrderByQuery[branchColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[branchColumn](orderByGeneric...)
+	query = tx.Rebind(query)
 	return &BranchIterator{
 		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
 		tx:        tx,
