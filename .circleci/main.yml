@@ -177,7 +177,7 @@ jobs:
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
     resource_class: 2xlarge
-    parallelism: 9
+    parallelism: 10
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:

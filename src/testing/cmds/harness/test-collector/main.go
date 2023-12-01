@@ -31,11 +31,13 @@ func main() {
 	log.InitPachctlLogger()
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
-	fileName := flag.String("file", "tests_to_run.csv", "Tags to run, for example k8s. Tests without this flag will not be selected.")
+	exclusiveTags := flag.Bool("exclusiveTags", false, "If true, ONLY tests with the specified tags will run. If false, "+
+		"the default behavior of 'go test' of including tagged and untagged tests is used.")
+	fileName := flag.String("file", "tests_to_run.csv", "Output file listing the packages and tests to run. Used by the runner script.")
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
 	threadPool := flag.Int("threads", 2, "Number of packages to collect tests from concurrently.")
 	flag.Parse()
-	err := run(ctx, *tags, *fileName, *pkg, *threadPool)
+	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
 	if err != nil {
 		log.Error(ctx, "Error during tests splitting", zap.Error(err))
 		os.Exit(1)
@@ -43,25 +45,23 @@ func main() {
 	os.Exit(0)
 }
 
-func run(ctx context.Context, tags string, fileName string, pkg string, threadPool int) error {
+func run(ctx context.Context, tags string, exclusiveTags bool, fileName string, pkg string, threadPool int) error {
 	tagsArg := ""
-	var testIdsUntagged map[string][]string
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
-		var err error
-		testIdsUntagged, err = testNames(ctx, pkg, "") // collect for set difference
-		if err != nil {
-			return errors.EnsureStack(err)
-		}
 	}
 	testIdsTagged, err := testNames(ctx, pkg, tagsArg)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
 	var testIds map[string][]string
-
 	if tags != "" {
 		// set difference to get ONLY tagged tests
+		var err error
+		testIdsUntagged, err := testNames(ctx, pkg, "") // collect for set difference
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 		testIds = subtractTestSet(testIdsTagged, testIdsUntagged)
 	} else {
 		testIds = testIdsTagged
