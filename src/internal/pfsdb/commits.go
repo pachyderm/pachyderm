@@ -815,7 +815,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[commitColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + OrderByQuery[commitColumn](orderByGeneric...))
+	query = extCtx.Rebind(query + " " + OrderByQuery[commitColumn](orderByGeneric...))
 	return &CommitIterator{
 		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
 		extCtx:    extCtx,

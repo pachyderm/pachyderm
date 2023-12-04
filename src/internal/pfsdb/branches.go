@@ -140,7 +140,7 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[branchColumn](orderBy))
 		}
 	}
-	query = tx.Rebind(query + OrderByQuery[branchColumn](orderByGeneric...))
+	query = tx.Rebind(query + " " + OrderByQuery[branchColumn](orderByGeneric...))
 	return &BranchIterator{
 		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
 		tx:        tx,

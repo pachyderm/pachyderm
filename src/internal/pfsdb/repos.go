@@ -219,7 +219,7 @@ func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize ui
 			orderByGeneric = append(orderByGeneric, OrderByColumn[repoColumn](orderBy))
 		}
 	}
-	query = tx.Rebind(query + OrderByQuery[repoColumn](orderByGeneric...))
+	query = tx.Rebind(query + " " + OrderByQuery[repoColumn](orderByGeneric...))
 	return &RepoIterator{
 		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize),
 		tx:        tx,
