@@ -97,7 +97,7 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=2 \
-              -gotest-args="-parallel=6 -timeout=20m -cover -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./..."
+              -gotest-args="-parallel=6 -timeout=20m -cover -test.gocoverdir=\"$TEST_RESULTS\" -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
@@ -295,7 +295,7 @@ jobs:
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
               -threads=7 \
-              -gotest-args="-parallel=4 -timeout=30m -cover -covermode=atomic -coverpkg=./..."
+              -gotest-args="-parallel=4 -timeout=30m -cover -test.gocoverdir=\"$TEST_RESULTS\" -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
