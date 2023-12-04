@@ -778,7 +778,7 @@ func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initi
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
-	if opts.CleanupAfter {
+	if opts.CleanupAfter || opts.Determined { // Determined is almost never re-used and uses extra resources, so it is helpful to clean up.
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
@@ -874,7 +874,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForInstallFinished()
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
 		!opts.UseLeftoverCluster ||
-		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *should't* let this happen, but in case something failed, check pachd for sanity.
+		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *shouldn't* let this happen, but in case something failed, check pachd for sanity.
 		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
 		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
 			require.NoErrorWithinTRetry(t,
