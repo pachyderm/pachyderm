@@ -6960,11 +6960,11 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
 			All:           true,
-			RateLimitSpec: "@every 3s",
+			RateLimitSpec: "@every 10s",
 			Size:          "100",
 			Commits:       3,
 		}))
-		sleepDur := 3 * time.Second
+		sleepDur := 10 * time.Second
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		// Doesn't trigger because all 3 conditions must be met
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader(strings.Repeat("a", 100))))
