@@ -114,7 +114,7 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
-  static-checks:
+  static-go-checks:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -1582,22 +1582,22 @@ jobs:
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
 
 workflows:
-  integration-tests:
+  functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       - build-docker-images:
           enableCoverage: true
-      #- build-pachctl-bin:
-      #    version: $CIRCLE_SHA1
-      #    upload: true
+      - test-go
+      - integration-tests
+  linting:
+    when: << pipeline.parameters.run-core-jobs >>
+    jobs:
       - check-prettier
       - jsonnet-lint
-      - test-go
       - govulncheck
-      - static-checks
+      - static-go-checks
       - test-envoy
-      - integration-tests
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
@@ -1805,7 +1805,7 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-release-tags
       - integration-tests:
           filters: *only-release-tags
@@ -1822,7 +1822,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2022,7 +2022,7 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-nightly-tags
       - integration-tests:
           filters: *only-nightly-tags
@@ -2030,7 +2030,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -2040,7 +2040,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
