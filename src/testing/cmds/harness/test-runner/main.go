@@ -146,7 +146,7 @@ func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string
 		fmt.Sprintf("--packages=%s", pkg),
 		"--rerun-fails",
 		"--rerun-fails-max-failures=1",
-		"--format=stadard-verbose",
+		"--format=standard-verbose",
 		"--debug",
 		fmt.Sprintf("--junitfile=%s/circle/gotestsum-report-%s.xml", resultsFolder, pkgShort),
 		fmt.Sprintf("--jsonfile=%s/%s-go-test-results.jsonl", resultsFolder, pkgShort),
