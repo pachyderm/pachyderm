@@ -8,13 +8,7 @@ ENV PFS_MOUNT_DIR=/pfs
 # https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
 
 USER root
-# Cannot enable / to be modifable via Dockerfile -- configure sudo to allow it
-RUN echo "ALL ALL= (root) NOPASSWD: /usr/bin/chmod 777 /" > /etc/sudoers.d/writable-root
-RUN echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
-COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-COPY ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server/ /usr/local/bin/mount-server
-#RUN curl -f -o pachctl.tar.gz -L https://storage.googleapis.com/pachyderm-builds/pachctl_${PACHCTL_VERSION}_linux_amd64.tar.gz
-#RUN tar zxfv pachctl.tar.gz && mv pachctl_${PACHCTL_VERSION}_linux_amd64/pachctl /usr/local/bin/
+COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctlhctl /usr/local/bin/
 
 USER $NB_UID
 RUN pip install --upgrade pip
@@ -23,6 +17,9 @@ USER root
 WORKDIR /app
 COPY /scripts/config.sh .
 RUN chmod +x config.sh
+RUN mkdir /pfs
+RUN chown jovyan:users /pfs
+RUN chmod 777 /pfs
 
 USER $NB_UID
 COPY dist dist

@@ -412,7 +412,7 @@ class DatumManager(FileContentsManager):
         all_datums_received: bool
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
-    _DOWNLOAD_DIR_PFX = os.path.expanduser("~") + "/.cache/pfs_datum_download-"
+    _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
     _DOWNLOAD_SYMLINK_PATH = "/pfs"
     # currently unsupported stuff (unclear if needed or not):
     #  - crossing repo with itself
@@ -426,7 +426,6 @@ class DatumManager(FileContentsManager):
         self._input = None
         self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
-        shutil.rmtree(self._DOWNLOAD_SYMLINK_PATH, ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
         super().__init__(**kwargs)
 
@@ -474,11 +473,15 @@ class DatumManager(FileContentsManager):
         )
 
     def download(self):
-        download_dir = f"{self._DOWNLOAD_DIR_PFX}-{datetime.datetime.now().isoformat()}"
+        download_dir = (
+            f"{self._DOWNLOAD_DIR}/datum-{datetime.datetime.now().isoformat()}"
+        )
         try:
-            os.makedirs(download_dir)
+            os.makedirs(download_dir, exist_ok=True)
             for fileinfo in self._datum_list[self._datum_index].data:
-                path = self._get_download_path(download_dir=download_dir, fileinfo=fileinfo)
+                path = self._get_download_path(
+                    download_dir=download_dir, fileinfo=fileinfo
+                )
                 os.makedirs(path.parent, exist_ok=True)
                 if fileinfo.file_type == pfs.FileType.FILE:
                     # download individual file
@@ -490,11 +493,22 @@ class DatumManager(FileContentsManager):
                     tar = self._client.pfs.pfs_tar_file(file=fileinfo.file)
                     tar.extractall(path=path.parent)
                 else:
-                    raise TypeError(f"Attempting to download invalid file type {fileinfo.file_type}")
-            shutil.rmtree(self._DOWNLOAD_SYMLINK_PATH, ignore_errors=True)
+                    raise TypeError(
+                        f"Attempting to download invalid file type {fileinfo.file_type}"
+                    )
+
+            for dir in os.listdir(self._DOWNLOAD_SYMLINK_PATH):
+                os.unlink(Path(self._DOWNLOAD_SYMLINK_PATH, dir))
+
+            for dir in os.listdir(download_dir):
+                os.symlink(
+                    src=Path(download_dir, dir),
+                    dst=Path(self._DOWNLOAD_SYMLINK_PATH, dir),
+                    target_is_directory=True,
+                )
+
             shutil.rmtree(self._download_dir, ignore_errors=True)
             self._download_dir = download_dir
-            os.symlink(src=self._DOWNLOAD_SYMLINK_PATH, dst=download_dir)
         except Exception as e:
             shutil.rmtree(download_dir, ignore_errors=True)
             raise e
