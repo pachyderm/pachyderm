@@ -108,7 +108,7 @@ jobs:
       - store_test_results: # upload test results for display in Test Summary
           path: "/tmp/test-results/circle"
       - codecov/upload:
-          file: /tmp/test-results/unit-coverage.txt
+          file: /tmp/test-results/coverage.txt
       - collect-test-results
       - save_cache:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
