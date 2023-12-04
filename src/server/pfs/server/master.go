@@ -228,7 +228,6 @@ type cronTrigger struct {
 }
 
 func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWithID) error {
-	repoKey := repoPair.RepoInfo.Repo.Key()
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	cronTriggers := make(map[pfsdb.BranchID]*cronTrigger)
@@ -237,54 +236,17 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWith
 			ct.cancel()
 		}
 	}()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "manageBranches", repoKey),
-		pfsdb.BranchesInRepoChannel(repoPair.ID))
-	if err != nil {
-		return errors.Wrap(err, "manage branches")
-	}
-	var branches []pfsdb.BranchInfoWithID
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		branches, err = pfsdb.ListBranches(ctx, tx, &pfs.Branch{Repo: repoPair.RepoInfo.Repo})
-		return errors.Wrap(err, "manage branches")
-	}); err != nil {
-		return err
-	}
-	for _, branch := range branches {
-		if err := d.manageBranch(ctx, branch, cronTriggers); err != nil {
-			return errors.Wrap(err, "manage branches")
-		}
-	}
-	for {
-		event, ok := <-watcher.Watch()
-		if !ok {
-			return errors.Errorf("watcher for branch repo %d %s closed channel", repoPair.ID, repoKey)
-		}
-		key := pfsdb.BranchID(event.Id)
-		if event.Type == postgres.EventDelete {
-			if ct, ok := cronTriggers[key]; ok {
+	return pfsdb.WatchBranchesInRepo(ctx, d.env.DB, d.env.Listener, repoPair.ID,
+		func(id pfsdb.BranchID, branchInfo *pfs.BranchInfo) error {
+			return d.manageBranch(ctx, pfsdb.BranchInfoWithID{ID: id, BranchInfo: branchInfo}, cronTriggers)
+		},
+		func(id pfsdb.BranchID) error {
+			if ct, ok := cronTriggers[id]; ok {
 				ct.cancel()
-				delete(cronTriggers, key)
+				delete(cronTriggers, id)
 			}
 			return nil
-		}
-		if event.Err != nil {
-			return event.Err
-		}
-		var branchInfo *pfs.BranchInfo
-		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-			branchInfo, err = pfsdb.GetBranchInfo(ctx, tx, key)
-			return err
-		}, dbutil.WithReadOnly()); err != nil {
-			return errors.Wrap(err, "getting commit from event")
-		}
-		branchInfoWithID := pfsdb.BranchInfoWithID{
-			ID:         key,
-			BranchInfo: branchInfo,
-		}
-		if err := d.manageBranch(ctx, branchInfoWithID, cronTriggers); err != nil {
-			return errors.Wrap(err, "manage branch")
-		}
-	}
+		})
 }
 
 func (d *driver) manageBranch(ctx context.Context, branchInfoWithID pfsdb.BranchInfoWithID, cronTriggers map[pfsdb.BranchID]*cronTrigger) error {
