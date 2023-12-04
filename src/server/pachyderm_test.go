@@ -133,10 +133,10 @@ func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
 }
 
 // Wait for at least one pod with the given selector to be running and ready.
-func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) {
+func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) error {
 	t.Helper()
 	kubeClient := tu.GetKubeClient(t)
-	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
+	return backoff.Retry(func() error {
 		pods, err := kubeClient.CoreV1().Pods(namespace).
 			List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
@@ -156,7 +156,7 @@ func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, lab
 			}
 		}
 		return errors.Errorf("one pod with label %s is not yet running and ready.", label)
-	}, 5*time.Second)
+	}, backoff.RetryEvery(time.Second).For(40*time.Second))
 }
 
 func TestCreatePipeline(t *testing.T) {
@@ -9108,7 +9108,8 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-	waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
+	err := waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
+	require.NoError(t, err)
 
 	for i := 0; i < 20; i++ {
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -11265,8 +11266,10 @@ func TestDatumSetCache(t *testing.T) {
 				return
 			case <-ticker.C:
 				deleteEtcd(t, ctx, ns)
-				waitForOnePodReady(t, ctx, ns, "app=etcd")
-
+				err := waitForOnePodReady(t, ctx, ns, "app=etcd")
+				if err != nil {
+					t.Logf("etcd pod did not become ready after deletion.") // if the test ends, or it's sloe this is OK for the test. Just log it and keep testing.
+				}
 				select {
 				case <-ctx.Done():
 					return
