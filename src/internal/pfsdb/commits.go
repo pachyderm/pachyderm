@@ -816,7 +816,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	}
 	query := getCommit
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[commitColumn]
@@ -827,7 +827,8 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[commitColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + OrderByQuery[commitColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[commitColumn](orderByGeneric...)
+	query = extCtx.Rebind(query)
 	return &CommitIterator{
 		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
 		extCtx:    extCtx,
