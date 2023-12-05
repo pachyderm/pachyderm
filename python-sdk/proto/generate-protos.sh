@@ -11,7 +11,6 @@ find src -regex ".*\.proto" \
   | grep -v 'internal' \
   | grep -v 'server' \
   | grep -v 'proxy' \
-  | grep -v 'pjs' \
   | xargs tar cf - \
   | docker run -i pachyderm_python_proto:python-sdk \
   | tar -C python-sdk/pachyderm_sdk -xf -

@@ -4530,6 +4530,46 @@
         ]
       }
     },
+    "/pps_v2.API/CheckStatus": {
+      "post": {
+        "summary": "Check Status returns the status of pipelines within a project.",
+        "operationId": "API_CheckStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2CheckStatusResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2CheckStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Request to check the status of pipelines within a project.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CheckStatusRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/CreateSecret": {
       "post": {
         "operationId": "API_CreateSecret",
@@ -8735,6 +8775,41 @@
     "pps_v2ActivateAuthResponse": {
       "type": "object"
     },
+    "pps_v2CheckStatusRequest": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "boolean",
+          "description": "boolean field indicating status of all project pipelines."
+        },
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
+        }
+      },
+      "description": "Request to check the status of pipelines within a project."
+    },
+    "pps_v2CheckStatusResponse": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "project field"
+        },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2Pipeline",
+          "title": "pipeline field"
+        },
+        "alerts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "title": "alert indicators"
+        }
+      },
+      "description": "Response for check status request. Provides alerts if any."
+    },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
       "properties": {
@@ -8843,6 +8918,9 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
         }
       }
     },
@@ -9984,6 +10062,13 @@
         },
         "determined": {
           "$ref": "#/definitions/pps_v2Determined"
+        },
+        "maximumExpectedUptime": {
+          "type": "string"
+        },
+        "workersStartedAt": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

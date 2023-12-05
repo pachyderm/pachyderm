@@ -7,14 +7,18 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -92,6 +96,7 @@ const (
 		JOIN pfs.commit_ancestry ancestry ON ancestry.parent = commit.int_id`
 	getChildCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.child = commit.int_id`
+	commitsPageSize = 1000
 )
 
 // CommitNotFoundError is returned by GetCommit() when a commit is not found in postgres.
@@ -562,6 +567,9 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 	if rowsAffected == 0 {
 		_, err := GetRepoByName(ctx, tx, commitInfo.Commit.Repo.Project.Name, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
 		if err != nil {
+			if errors.As(err, new(*RepoNotFoundError)) {
+				return errors.Join(err, &CommitNotFoundError{RowID: id})
+			}
 			return errors.Wrapf(err, "get repo for update commit with row id %v", id)
 		}
 		return &CommitNotFoundError{RowID: id}
@@ -702,6 +710,9 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 		if err == sql.ErrNoRows {
 			_, err := GetRepoByName(ctx, tx, commit.Repo.Project.Name, commit.Repo.Name, commit.Repo.Type)
 			if err != nil {
+				if errors.As(err, new(*RepoNotFoundError)) {
+					return nil, errors.Join(err, &CommitNotFoundError{CommitID: id})
+				}
 				return nil, errors.Wrapf(err, "get repo for scan commit row with commit id %v", id)
 			}
 			return nil, &CommitNotFoundError{CommitID: id}
@@ -746,6 +757,7 @@ type commitColumn string
 var (
 	CommitColumnID        = commitColumn("commit.int_id")
 	CommitColumnSetID     = commitColumn("commit.commit_set_id")
+	CommitColumnRepoID    = commitColumn("commit.repo_id")
 	CommitColumnOrigin    = commitColumn("commit.origin")
 	CommitColumnCreatedAt = commitColumn("commit.created_at")
 	CommitColumnUpdatedAt = commitColumn("commit.updated_at")
@@ -804,7 +816,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	}
 	query := getCommit
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[commitColumn]
@@ -815,7 +827,8 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[commitColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + " " + OrderByQuery[commitColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[commitColumn](orderByGeneric...)
+	query = extCtx.Rebind(query)
 	return &CommitIterator{
 		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
 		extCtx:    extCtx,
@@ -837,7 +850,7 @@ func ForEachCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Co
 	if filter == nil {
 		return errors.Errorf("filter cannot be empty")
 	}
-	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
+	iter, err := NewCommitsIterator(ctx, tx, 0, commitsPageSize, filter, orderBys...)
 	if err != nil {
 		return errors.Wrap(err, "for each commit tx by filter")
 	}
@@ -858,4 +871,105 @@ func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 		return nil, errors.Wrap(err, "list commits tx by filter")
 	}
 	return commits, nil
+}
+
+// Helper functions for watching commits.
+type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
+type commitDeleteHandler func(id CommitID) error
+
+// WatchCommits creates a watcher and watches the pfs.commits table for changes.
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	snapshot, err := NewCommitsIterator(ctx, db, 0, commitsPageSize, nil, OrderByCommitColumn{Column: CommitColumnID, Order: SortOrderAsc})
+	if err != nil {
+		return err
+	}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+// WatchCommitsInRepo creates a watcher and watches for commits in a repo.
+func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoID)), CommitsInRepoChannel(repoID))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	// Optimized query for getting commits in a repo.
+	query := getCommit + fmt.Sprintf(" WHERE %s = ?  ORDER BY %s ASC", CommitColumnRepoID, CommitColumnID)
+	query = db.Rebind(query)
+	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+// WatchCommit creates a watcher and watches for changes to a single commit.
+func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	var commitWithID CommitWithID
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo, err := GetCommit(ctx, tx, commitID)
+		if err != nil {
+			return errors.Wrap(err, "watch commit")
+		}
+		commitWithID = CommitWithID{ID: commitID, CommitInfo: commitInfo}
+		return nil
+	}); err != nil {
+		return err
+	}
+	snapshot := stream.NewSlice([]CommitWithID{commitWithID})
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	// Handle snapshot
+	if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
+		return onUpsert(commitWith.ID, commitWith.CommitInfo)
+	}); err != nil {
+		return err
+	}
+	// Handle delta
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return errors.Errorf("watcher closed")
+			}
+			if event.Err != nil {
+				return event.Err
+			}
+			id := CommitID(event.Id)
+			switch event.Type {
+			case postgres.EventDelete:
+				if err := onDelete(id); err != nil {
+					return err
+				}
+			case postgres.EventInsert, postgres.EventUpdate:
+				var commitInfo *pfs.CommitInfo
+				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+					var err error
+					commitInfo, err = GetCommit(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				if err := onUpsert(id, commitInfo); err != nil {
+					return err
+				}
+			default:
+				return errors.Errorf("unknown event type: %v", event.Type)
+			}
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "watcher cancelled")
+		}
+	}
 }

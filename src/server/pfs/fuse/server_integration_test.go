@@ -14,13 +14,15 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // TODO: Uncomment all checks below for datum ID when we transition fully to using ListDatum
@@ -34,7 +36,7 @@ func TestConfig(t *testing.T) {
 	tu.ActivateAuthClient(t, c)
 	c = tu.AuthenticateClient(t, c, auth.RootUser)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		type Config struct {
 			ClusterStatus string `json:"cluster_status"`
 			PachdAddress  string `json:"pachd_address"`
@@ -96,7 +98,7 @@ func TestMountDatum(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/'}}}`,
 			pfs.DefaultProjectName),
@@ -162,7 +164,7 @@ func TestMountDatumGlobFile(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file*'}}}`,
 			pfs.DefaultProjectName),
@@ -209,7 +211,7 @@ func TestCrossDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'cross': [
@@ -304,7 +306,7 @@ func TestUnionDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'union': [
@@ -398,7 +400,7 @@ func TestJoinDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {
 				'join': [
@@ -444,7 +446,7 @@ func TestRepeatedBranchesDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'cross': [{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo1_m1'}},
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'name': 'repo2_m2'}}]}}`,
@@ -512,7 +514,7 @@ func TestShowDatum(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': 'dev'}}}`,
 			pfs.DefaultProjectName),
@@ -576,7 +578,7 @@ func TestGetDatums(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		resp, err := get("datums")
 		require.NoError(t, err)
 		require.Equal(t, 200, resp.StatusCode)
@@ -694,7 +696,7 @@ func TestMountShowDatumsCrossProject(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(`{'input': {'cross': [{'pfs': {'glob': '/*', 'repo': 'repo1'}},
 			{'pfs': {'glob': '/*', 'project': '%s', 'repo': 'repo1', 'branch': 'dev', 'name': 'repo1_dev'}}]}}`,
 			pfs.DefaultProjectName),
@@ -780,7 +782,7 @@ func TestMountDatumsBranchHeadFromOtherBranch(t *testing.T) {
 
 	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, "repo1", "copy", "", commitInfo.Commit.Id, nil))
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo1', 'glob': '/*', 'branch': 'copy'}}}`,
 			pfs.DefaultProjectName),
@@ -845,7 +847,7 @@ func TestMountDatumsPagination(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'branch': '%d'}}}`,
 			pfs.DefaultProjectName, lessThanNumDatumsPerPage),
@@ -950,7 +952,7 @@ func bodyToString(body io.ReadCloser) string {
 
 func TestBadInputSpecNoRepo(t *testing.T) {
 	c, _ := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {'pfs': {'glob': '/*'}}}`,
 		)
@@ -964,7 +966,7 @@ func TestBadInputSpecNoRepo(t *testing.T) {
 
 func TestBadInputSpecDuplicateRepos(t *testing.T) {
 	c, _ := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {
 				'cross': [
@@ -997,7 +999,7 @@ func TestBadInputSpecDuplicateRepos(t *testing.T) {
 
 func TestBadInputSpecSpecifyingCommit(t *testing.T) {
 	c, commitID := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/*', 'commit': '%s'}}}`,
 			pfs.DefaultProjectName, commitID),
@@ -1012,7 +1014,7 @@ func TestBadInputSpecSpecifyingCommit(t *testing.T) {
 
 func TestBadInputSpecNoGlob(t *testing.T) {
 	c, _ := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {'pfs': {'repo': 'repo'}}}`,
 		)
@@ -1026,7 +1028,7 @@ func TestBadInputSpecNoGlob(t *testing.T) {
 
 func TestBadInputSpecInvalidTypes(t *testing.T) {
 	c, _ := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {'cron': {'name': 'tick', 'spec': '@every 60s'}}}`,
 		)
@@ -1058,7 +1060,7 @@ func TestBadInputSpecOutRepo(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {'pfs': {'repo': 'out', 'glob': '/*'}}}`,
 		)
@@ -1072,7 +1074,7 @@ func TestBadInputSpecOutRepo(t *testing.T) {
 
 func TestDuplicateReposWithAlias(t *testing.T) {
 	c, _ := simpleRepoFixture(t)
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(
 			`{'input': {
 				'cross': [
@@ -1115,7 +1117,7 @@ func TestMountDatumsNoGlobMatch(t *testing.T) {
 	_, err = c.WaitCommitSetAll(commitInfo.Commit.Id)
 	require.NoError(t, err)
 
-	withServerMount(t, c, nil, func(mountPoint string) {
+	withServerMount(pctx.TestContext(t), t, c, nil, func(mountPoint string) {
 		input := []byte(fmt.Sprintf(
 			`{'input': {'pfs': {'project': '%s', 'repo': 'repo', 'glob': '/file1*'}}}`,
 			pfs.DefaultProjectName),

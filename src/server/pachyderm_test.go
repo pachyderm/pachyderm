@@ -3153,6 +3153,118 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 	flushJob(numCommits)
 }
 
+func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+
+	c, _ := minikubetestenv.AcquireCluster(t)
+	dataRepo := tu.UniqueString("TestPipelineCheckStatusExceededExpectedDuration_data")
+	c = tu.AuthenticatedPachClient(t, c, "pachtest")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
+	pipeline := tu.UniqueString("pipeline")
+	createPipeline := func() {
+		_, err := c.PpsAPIClient.CreatePipeline(
+			c.Ctx(),
+			&pps.CreatePipelineRequest{
+				Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
+				Transform: &pps.Transform{
+					Cmd:   []string{"bash"},
+					Stdin: []string{"sleep infinity"},
+				},
+				ParallelismSpec: &pps.ParallelismSpec{
+					Constant: 1,
+				},
+				Autoscaling:           true,
+				Input:                 client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
+				Update:                true,
+				MaximumExpectedUptime: durationpb.New(time.Millisecond * 1),
+			})
+		require.NoError(t, err)
+	}
+	createPipeline()
+	flushJob := func(commitNum int) {
+		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
+		require.NoError(t, err)
+		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	}
+	flushJob(1)
+	time.Sleep(10 * time.Second)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for {
+			res, err := checkStatusClient.Recv()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+			}
+			if err != nil {
+				return err
+			}
+			if res == nil {
+				return errors.Errorf("expected response, but got nil")
+			}
+			if len(res.GetAlerts()) != 1 {
+				return errors.Errorf("expected 1 alert, but got %d", len(res.GetAlerts()))
+			}
+		}
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
+
+	deletePipeline := func(project, pipeline string) {
+		require.NoError(t, c.DeletePipeline(project, pipeline, false))
+		require.NoError(t, backoff.Retry(func() error {
+			_, err := c.InspectPipeline(project, pipeline, false)
+			if err == nil {
+				return errors.Errorf("expected pipeline to be missing, but it's still present")
+			}
+			return nil
+		}, backoff.NewTestingBackOff()))
+
+	}
+
+	deletePipeline(pfs.DefaultProjectName, pipeline)
+	time.Sleep(10 * time.Second)
+	require.NoErrorWithinTRetry(t, time.Second*30, func() error {
+		checkStatusClient, err := c.PpsAPIClient.CheckStatus(
+			c.Ctx(),
+			&pps.CheckStatusRequest{
+				Context: &pps.CheckStatusRequest_Project{
+					Project: &pfs.Project{Name: pfs.DefaultProjectName},
+				},
+			},
+		)
+		if err != nil {
+			return err
+		}
+		for {
+			res, err := checkStatusClient.Recv()
+			// expect EOF as nothing should be returned
+			if res != nil {
+				return errors.Errorf("expected no response, but got: %v", res)
+			}
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil // success
+				}
+				return err
+			}
+		}
+	}, backoff.NewConstantBackOff(time.Millisecond*200))
+}
+
 func TestUpdateFailedPipeline(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -9368,9 +9480,9 @@ func TestListPipelineAtCommit(t *testing.T) {
 	commitSets, err := c.ListCommitSet(c.Ctx(), &pfs.ListCommitSetRequest{})
 	require.NoError(t, err)
 	expected := []map[string]uint64{
-		{pipeline1: 1},
-		{pipeline1: 1, pipeline2: 1},
 		{pipeline1: 2, pipeline2: 1},
+		{pipeline1: 1, pipeline2: 1},
+		{pipeline1: 1},
 	}
 	i := 0
 	require.NoError(t, grpcutil.ForEach[*pfs.CommitSetInfo](commitSets, func(csi *pfs.CommitSetInfo) error {
