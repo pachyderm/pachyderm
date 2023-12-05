@@ -222,7 +222,7 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 	if len(conditions) > 0 {
 		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
 	}
-	query += "\nGROUP BY repo.id, project.name, project.id\n"
+	query += "\nGROUP BY repo.id, project.name, project.id"
 	var orderByGeneric []OrderByColumn[repoColumn]
 	if len(orderBys) == 0 {
 		orderByGeneric = []OrderByColumn[repoColumn]{{Column: RepoColumnID, Order: SortOrderAsc}}
@@ -231,7 +231,8 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 			orderByGeneric = append(orderByGeneric, OrderByColumn[repoColumn](orderBy))
 		}
 	}
-	query = ext.Rebind(query + OrderByQuery[repoColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[repoColumn](orderByGeneric...)
+	query = ext.Rebind(query)
 	return &RepoIterator{
 		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize),
 		ext:       ext,
