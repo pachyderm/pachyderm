@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/google/shlex"
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -104,21 +104,11 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 }
 
 func readTests(ctx context.Context, fileName string) ([]string, error) {
-	lockFileName := fmt.Sprintf("lock-%s", fileName)
-	err := backoff.RetryNotify(func() error {
-		if _, err := os.Stat(fileName); err != nil {
-			return errors.EnsureStack(err) // couldn't read file, so retry until it can
+	if _, err := os.Stat(fileName); err != nil {
+		err := waitForTestListFile(fileName)
+		if err != nil {
+			return nil, err
 		}
-		if _, err := os.Stat(lockFileName); err == nil {
-			return errors.Errorf("lock file for test collection still exists")
-		}
-		return nil
-	}, backoff.NewConstantBackOff(time.Second*5).For(time.Minute*20), func(err error, d time.Duration) error {
-		log.Info(ctx, "retry waiting for tests to be collected.", zap.Error(err))
-		return nil
-	})
-	if err != nil {
-		return nil, errors.EnsureStack(err)
 	}
 	tests := []string{}
 	file, err := os.Open(fileName)
@@ -136,10 +126,44 @@ func readTests(ctx context.Context, fileName string) ([]string, error) {
 	return tests, nil
 }
 
+func waitForTestListFile(fileName string) error {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	defer watcher.Close()
+	err = watcher.Add(".")
+	if err != nil {
+		return errors.EnsureStack(err)
+	}
+	timer := time.NewTimer(5 * time.Minute)
+	defer timer.Stop()
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return errors.Errorf("Error waiting for test list file")
+			}
+			if event.Has(fsnotify.Create) && event.Name == fmt.Sprintf("./%s", fileName) {
+				return nil
+			}
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return errors.EnsureStack(err)
+			}
+		case <-timer.C:
+			return errors.Errorf("Timed out waiting for test list file")
+		}
+	}
+}
+
 // run tests with `go test`. We run one package at a time so tests with the same name in different packages
 // like TestConfig or TestDebug don't run multiple times if they land on separate shards.
 func runTest(pkg string, testNames []string, tags string, gotestsumArgs []string, gotestArgs []string) error {
 	resultsFolder := os.Getenv("TEST_RESULTS")
+	if resultsFolder == "" {
+		return errors.Errorf("TEST_RESULTS environment variable must be set.")
+	}
 	pkgShort := strings.ReplaceAll(strings.TrimPrefix(pkg, "github.com/pachyderm/pachyderm/v2/"), "/", "-")
 	runTestArgs := []string{
 		"--raw-command",

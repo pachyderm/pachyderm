@@ -136,19 +136,8 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 }
 
 func outputToFile(fileName string, pkgTests map[string][]string) error {
-	// create a lock file so tests know to wait to start if running tests at same time
-	lockFileName := fmt.Sprintf("lock-%s", fileName)
-	lockF, err := os.Create(lockFileName)
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	errors.Close(&err, lockF, "close file locking")
-	if err != nil {
-		return errors.EnsureStack(err)
-	}
-	defer os.Remove(lockFileName)
-
-	f, err := os.Create(fileName)
+	tmpFileName := fmt.Sprintf("%s.tmp", fileName)
+	f, err := os.Create(tmpFileName)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -162,5 +151,10 @@ func outputToFile(fileName string, pkgTests map[string][]string) error {
 			}
 		}
 	}
-	return errors.EnsureStack(w.Flush())
+	err = errors.EnsureStack(w.Flush())
+	if err != nil {
+		return err
+	}
+	err = os.Rename(tmpFileName, fileName)
+	return errors.EnsureStack(err)
 }
