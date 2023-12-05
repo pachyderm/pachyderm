@@ -24,13 +24,13 @@ const (
 )
 
 var (
-	clusterFactory *ClusterFactory = &ClusterFactory{
+	clusterFactory = &ClusterFactory{
 		managedClusters: map[string]*managedCluster{},
 	}
-	poolSize            *int  = flag.Int("clusters.pool", 9, "maximum size of managed pachyderm clusters")
-	useLeftoverClusters *bool = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
-	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
-	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
+	poolSize            = flag.Int("clusters.pool", 9, "maximum size of managed pachyderm clusters")
+	useLeftoverClusters = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
+	forceLocal          = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
 )
 
 type acquireSettings struct {

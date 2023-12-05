@@ -34,13 +34,11 @@ func main() {
 	flag.Parse()
 	gotestsumArgs, err := shlex.Split(*gotestsumArgsRaw)
 	if err != nil {
-		log.Error(ctx, "Error parsing gotestsumArgs", zap.Error(err))
-		os.Exit(1)
+		log.Exit(ctx, "Error parsing gotestsumArgs", zap.Error(err))
 	}
 	gotestArgs, err := shlex.Split(*gotestArgsRaw)
 	if err != nil {
-		log.Error(ctx, "Error parsing gotestArgs", zap.Error(err))
-		os.Exit(1)
+		log.Exit(ctx, "Error parsing gotestArgs", zap.Error(err))
 	}
 
 	err = run(ctx,
@@ -53,8 +51,7 @@ func main() {
 		*threadPool,
 	)
 	if err != nil {
-		log.Error(ctx, "Error running tests", zap.Error(err))
-		os.Exit(1)
+		log.Exit(ctx, "Error running tests", zap.Error(err))
 	}
 	os.Exit(0)
 }
@@ -70,6 +67,9 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	testsForShard := map[string][]string{}
 	for idx := shard; idx < len(tests); idx += totalShards {
 		val := strings.Split(tests[idx], ",")
+		if len(val) < 1 {
+			return errors.Errorf("error parsing test name and package to run. Value: %v", tests[idx])
+		}
 		pkg := val[0]
 		testName := val[1]
 		// index all tests by package as we collect the ones for this shard. This lets

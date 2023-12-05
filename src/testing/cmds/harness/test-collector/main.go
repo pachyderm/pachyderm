@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -39,14 +38,13 @@ func main() {
 	flag.Parse()
 	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
 	if err != nil {
-		log.Error(ctx, "Error during tests splitting", zap.Error(err))
-		os.Exit(1)
+		log.Exit(ctx, "Error during tests splitting", zap.Error(err))
 	}
 	os.Exit(0)
 }
 
 func run(ctx context.Context, tags string, exclusiveTags bool, fileName string, pkg string, threadPool int) error {
-	tagsArg := ""
+	var tagsArg string
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
 	}
@@ -93,30 +91,26 @@ func subtractTestSet(testIdsTagged map[string][]string, testIdsUntagged map[stri
 func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[string][]string, error) {
 	findTestArgs := append([]string{"test", pkg, "-json", "-list=."}, addtlCmdArgs...)
 	cmd := exec.Command("go", findTestArgs...)
-	cmdReader, err := cmd.StdoutPipe()
+	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // This prevents the command from running wild eating up processes in the pipelines
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	scanner := bufio.NewScanner(cmdReader)
+	cmdOut := bufio.NewScanner(stdout)
 	err = cmd.Start()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	var testNames = map[string][]string{}
-	for scanner.Scan() {
+	for cmdOut.Scan() {
 		testInfo := &testOutput{}
-		raw := scanner.Bytes()
+		raw := cmdOut.Bytes()
 		if !bytes.HasPrefix(raw, []byte("{")) {
 			continue // dependency download junk got shared
 		}
-		err := json.Unmarshal(raw, testInfo)
-		if err != nil {
+		if err := json.Unmarshal(raw, testInfo); err != nil {
 			return nil, errors.Wrapf(err, "parsing json: %s", string(raw))
 		}
 		if testInfo.Action == "output" {
@@ -133,17 +127,7 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 			}
 
 		}
-
 	}
-	stderrBytes, err := io.ReadAll(stderr)
-	if err != nil {
-		return nil, errors.EnsureStack(err)
-	}
-	errorText := string(stderrBytes)
-	if errorText != "" {
-		log.Error(ctx, string(errorText))
-	}
-
 	err = cmd.Wait()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
@@ -158,7 +142,7 @@ func outputToFile(fileName string, pkgTests map[string][]string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	err = lockF.Close()
+	errors.Close(&err, lockF, "close file locking")
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
