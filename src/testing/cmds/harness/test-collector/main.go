@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -98,17 +99,29 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
 	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // This prevents the command from running wild eating up processes in the pipelines
-	cmdOut := bufio.NewScanner(stdout)
 	err = cmd.Start()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	testNames, err := readTests(stdout)
+	if err != nil {
+		return nil, err
+	}
+	err = cmd.Wait()
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	return testNames, nil
+}
+
+func readTests(stdout io.Reader) (map[string][]string, error) {
 	var testNames = map[string][]string{}
-	for cmdOut.Scan() {
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
 		testInfo := &testOutput{}
-		raw := cmdOut.Bytes()
-		if !bytes.HasPrefix(raw, []byte("{")) {
-			continue // dependency download junk got shared
+		raw := scanner.Bytes()
+		if !bytes.HasPrefix(raw, []byte("{")) { // dependency download junk got shared
+			continue
 		}
 		if err := json.Unmarshal(raw, testInfo); err != nil {
 			return nil, errors.Wrapf(err, "parsing json: %s", string(raw))
@@ -127,10 +140,6 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 			}
 
 		}
-	}
-	err = cmd.Wait()
-	if err != nil {
-		return nil, errors.EnsureStack(err)
 	}
 	return testNames, nil
 }
