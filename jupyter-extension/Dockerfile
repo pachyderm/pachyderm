@@ -8,7 +8,7 @@ ENV PFS_MOUNT_DIR=/pfs
 # https://docs.docker.com/engine/reference/builder/#automatic-platform-args-in-the-global-scope
 
 USER root
-COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl /usr/local/bin/
+COPY ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
 
 USER $NB_UID
 RUN pip install --upgrade pip
