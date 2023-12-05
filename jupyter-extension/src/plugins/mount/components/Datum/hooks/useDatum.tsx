@@ -213,7 +213,7 @@ export const useDatum = (
       console.log(e);
     }
     setLoading(false);
-  }
+  };
 
   const callUnmountAll = async () => {
     setLoading(true);
