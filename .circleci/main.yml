@@ -1487,7 +1487,8 @@ jobs:
           # $stable instructs update_homebrew.sh to release this version as default pachctl installation
           command: |
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
-            ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
+            stable=1
+            ./etc/build/update_homebrew.sh 2.8.2 ${stable}
   python-sdk-build:
     executor: python
     working_directory: ~/project/python-sdk
@@ -1681,551 +1682,554 @@ jobs:
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
 
 workflows:
-  integration-tests:
-    when: << pipeline.parameters.run-core-jobs >>
+  test-workflow:
     jobs:
-      - build-docker-images
-      - build-docker-images:
-          enableCoverage: true
-      #- build-pachctl-bin:
-      #    version: $CIRCLE_SHA1
-      #    upload: true
-      - check-prettier
-      - jsonnet-lint
-      - test-go
-      - govulncheck
-      - static-checks
-      - test-envoy
-      - test-pps
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
-  helm-tests:
-    when: << pipeline.parameters.run-core-jobs >>
-    jobs:
-      - helm-tests
-  nightly_load_tests:
-    when: << pipeline.parameters.run_load_tests >>
-    jobs:
-      - build-docker-images
-      - pulumi-aws-test-env:
-          name: create-aws-test-env-LOAD1
-          pachdVersion: $CIRCLE_SHA1
-          action: update
-          env: LOAD1
-          requires:
-            - build-docker-images
-      - pulumi-aws-test-env:
-          name: create-aws-test-env-LOAD2
-          pachdVersion: $CIRCLE_SHA1
-          action: update
-          env: LOAD2
-          requires:
-            - build-docker-images
-      - pulumi-aws-test-env:
-          name: create-aws-test-env-LOAD3
-          pachdVersion: $CIRCLE_SHA1
-          action: update
-          env: LOAD3
-          requires:
-            - build-docker-images
-      - pulumi-aws-test-env:
-          name: create-aws-test-env-LOAD4
-          pachdVersion: $CIRCLE_SHA1
-          action: update
-          env: LOAD4
-          requires:
-            - build-docker-images
-      - nightly-load:
-          name: nightly-load-LOAD1
-          requires:
-            - create-aws-test-env-LOAD1
-          bucket: LOAD1
-          env: LOAD1
-      - nightly-load:
-          name: nightly-load-LOAD2
-          requires:
-            - create-aws-test-env-LOAD2
-          bucket: LOAD2
-          env: LOAD2
-      - nightly-load:
-          name: nightly-load-LOAD3
-          requires:
-            - create-aws-test-env-LOAD3
-          bucket: LOAD3
-          env: LOAD3
-      - nightly-load:
-          name: nightly-load-LOAD4
-          requires:
-            - create-aws-test-env-LOAD4
-          bucket: LOAD4
-          env: LOAD4
-      - nightly-load:
-          name: nightly-load-LOAD5
-          requires:
-            - nightly-load-LOAD1
-          bucket: LOAD5
-          env: LOAD1
-      - nightly-load:
-          name: nightly-load-LOAD6
-          requires:
-            - nightly-load-LOAD2
-          bucket: LOAD6
-          env: LOAD2
-      - nightly-load:
-          name: nightly-load-LOAD7
-          requires:
-            - nightly-load-LOAD3
-          bucket: LOAD7
-          env: LOAD3
-      - nightly-load:
-          name: nightly-load-LOAD8
-          requires:
-            - nightly-load-LOAD4
-          bucket: LOAD8
-          env: LOAD4
-      - nightly-load:
-          name: nightly-load-LOAD9
-          requires:
-            - nightly-load-LOAD5
-          bucket: LOAD9
-          env: LOAD1
-      - nightly-load:
-          name: nightly-load-LOAD10
-          requires:
-            - nightly-load-LOAD6
-          bucket: LOAD10
-          env: LOAD2
-      - nightly-load:
-          name: nightly-load-LOAD11
-          requires:
-            - nightly-load-LOAD7
-          bucket: LOAD11
-          env: LOAD3
-      - nightly-load:
-          name: nightly-load-LOAD12
-          requires:
-            - nightly-load-LOAD8
-          bucket: LOAD12
-          env: LOAD4
-      - pulumi-aws-test-env:
-          name: destroy-aws-testing-env-LOAD1
-          action: destroy
-          requires:
-            - nightly-load-LOAD9
-          env: LOAD1
-      - pulumi-aws-test-env:
-          name: destroy-aws-testing-env-LOAD2
-          action: destroy
-          requires:
-            - nightly-load-LOAD10
-          env: LOAD2
-      - pulumi-aws-test-env:
-          name: destroy-aws-testing-env-LOAD3
-          action: destroy
-          requires:
-            - nightly-load-LOAD11
-          env: LOAD3
-      - pulumi-aws-test-env:
-          name: destroy-aws-testing-env-LOAD4
-          action: destroy
-          requires:
-            - nightly-load-LOAD12
-          env: LOAD4
-  rootless-tests:
-    when: << pipeline.parameters.run-core-jobs >>
-    jobs:
-      - rootless
-  deploy-tests:
-    when: << pipeline.parameters.run-core-jobs >>
-    jobs:
-      - deploy-tests:
-          name: amd64 deploy tests
-          resource_class: xlarge # amd64
-          arch: amd64
-          num_executors: 4
-      - deploy-tests:
-          name: arm64 deploy tests
-          resource_class: arm.xlarge # arm64
-          arch: arm64
-          num_executors: 2
-  jupyter-extension:
-    when: << pipeline.parameters.run-jupyter-jobs >>
-    jobs:
-      - build-docker-images
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
-      - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-      - jupyter-extension-e2e-test:
-          requires:
-            - build-docker-images
-            - jupyter-extension-build
-            - build-pachctl-bin
-      - jupyter-extension-build
-      - jupyter-extension-docker-build:
-          requires:
-            - jupyter-extension-build
-            - build-pachctl-bin
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-  python-sdk:
-    when:
-      or:
-        - << pipeline.parameters.run-python-sdk-jobs >>
-        - << pipeline.parameters.run-core-jobs >>
-    jobs:
-      - test-python-sdk:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - python-sdk-testing-docker-build
-      - build-docker-images
-      - python-sdk-build
-      - python-sdk-testing-docker-build:
-          requires:
-            - python-sdk-build
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-  label-studio:
-    when:
-      or:
-        - << pipeline.parameters.run-label-studio-jobs >>
-        - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
-    jobs:
-      - test-label-studio:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - build-label-studio-ci-testing-image
-      - build-docker-images
-      - build-pachctl-bin:
-          version: $CIRCLE_SHA1
-      - build-label-studio-ci-testing-image
+      - release-hombrew-tap
+  # integration-tests:
+  #   when: << pipeline.parameters.run-core-jobs >>
+  #   jobs:
+  #     - build-docker-images
+  #     - build-docker-images:
+  #         enableCoverage: true
+  #     #- build-pachctl-bin:
+  #     #    version: $CIRCLE_SHA1
+  #     #    upload: true
+  #     - check-prettier
+  #     - jsonnet-lint
+  #     - test-go
+  #     - govulncheck
+  #     - static-checks
+  #     - test-envoy
+  #     - test-pps
+  #     - integration-tests:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - MISC
+  #               - AUTH
+  #               - ENTERPRISE
+  #               - S3_AUTH
+  #               - EXAMPLES
+  # helm-tests:
+  #   when: << pipeline.parameters.run-core-jobs >>
+  #   jobs:
+  #     - helm-tests
+  # nightly_load_tests:
+  #   when: << pipeline.parameters.run_load_tests >>
+  #   jobs:
+  #     - build-docker-images
+  #     - pulumi-aws-test-env:
+  #         name: create-aws-test-env-LOAD1
+  #         pachdVersion: $CIRCLE_SHA1
+  #         action: update
+  #         env: LOAD1
+  #         requires:
+  #           - build-docker-images
+  #     - pulumi-aws-test-env:
+  #         name: create-aws-test-env-LOAD2
+  #         pachdVersion: $CIRCLE_SHA1
+  #         action: update
+  #         env: LOAD2
+  #         requires:
+  #           - build-docker-images
+  #     - pulumi-aws-test-env:
+  #         name: create-aws-test-env-LOAD3
+  #         pachdVersion: $CIRCLE_SHA1
+  #         action: update
+  #         env: LOAD3
+  #         requires:
+  #           - build-docker-images
+  #     - pulumi-aws-test-env:
+  #         name: create-aws-test-env-LOAD4
+  #         pachdVersion: $CIRCLE_SHA1
+  #         action: update
+  #         env: LOAD4
+  #         requires:
+  #           - build-docker-images
+  #     - nightly-load:
+  #         name: nightly-load-LOAD1
+  #         requires:
+  #           - create-aws-test-env-LOAD1
+  #         bucket: LOAD1
+  #         env: LOAD1
+  #     - nightly-load:
+  #         name: nightly-load-LOAD2
+  #         requires:
+  #           - create-aws-test-env-LOAD2
+  #         bucket: LOAD2
+  #         env: LOAD2
+  #     - nightly-load:
+  #         name: nightly-load-LOAD3
+  #         requires:
+  #           - create-aws-test-env-LOAD3
+  #         bucket: LOAD3
+  #         env: LOAD3
+  #     - nightly-load:
+  #         name: nightly-load-LOAD4
+  #         requires:
+  #           - create-aws-test-env-LOAD4
+  #         bucket: LOAD4
+  #         env: LOAD4
+  #     - nightly-load:
+  #         name: nightly-load-LOAD5
+  #         requires:
+  #           - nightly-load-LOAD1
+  #         bucket: LOAD5
+  #         env: LOAD1
+  #     - nightly-load:
+  #         name: nightly-load-LOAD6
+  #         requires:
+  #           - nightly-load-LOAD2
+  #         bucket: LOAD6
+  #         env: LOAD2
+  #     - nightly-load:
+  #         name: nightly-load-LOAD7
+  #         requires:
+  #           - nightly-load-LOAD3
+  #         bucket: LOAD7
+  #         env: LOAD3
+  #     - nightly-load:
+  #         name: nightly-load-LOAD8
+  #         requires:
+  #           - nightly-load-LOAD4
+  #         bucket: LOAD8
+  #         env: LOAD4
+  #     - nightly-load:
+  #         name: nightly-load-LOAD9
+  #         requires:
+  #           - nightly-load-LOAD5
+  #         bucket: LOAD9
+  #         env: LOAD1
+  #     - nightly-load:
+  #         name: nightly-load-LOAD10
+  #         requires:
+  #           - nightly-load-LOAD6
+  #         bucket: LOAD10
+  #         env: LOAD2
+  #     - nightly-load:
+  #         name: nightly-load-LOAD11
+  #         requires:
+  #           - nightly-load-LOAD7
+  #         bucket: LOAD11
+  #         env: LOAD3
+  #     - nightly-load:
+  #         name: nightly-load-LOAD12
+  #         requires:
+  #           - nightly-load-LOAD8
+  #         bucket: LOAD12
+  #         env: LOAD4
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-testing-env-LOAD1
+  #         action: destroy
+  #         requires:
+  #           - nightly-load-LOAD9
+  #         env: LOAD1
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-testing-env-LOAD2
+  #         action: destroy
+  #         requires:
+  #           - nightly-load-LOAD10
+  #         env: LOAD2
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-testing-env-LOAD3
+  #         action: destroy
+  #         requires:
+  #           - nightly-load-LOAD11
+  #         env: LOAD3
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-testing-env-LOAD4
+  #         action: destroy
+  #         requires:
+  #           - nightly-load-LOAD12
+  #         env: LOAD4
+  # rootless-tests:
+  #   when: << pipeline.parameters.run-core-jobs >>
+  #   jobs:
+  #     - rootless
+  # deploy-tests:
+  #   when: << pipeline.parameters.run-core-jobs >>
+  #   jobs:
+  #     - deploy-tests:
+  #         name: amd64 deploy tests
+  #         resource_class: xlarge # amd64
+  #         arch: amd64
+  #         num_executors: 4
+  #     - deploy-tests:
+  #         name: arm64 deploy tests
+  #         resource_class: arm.xlarge # arm64
+  #         arch: arm64
+  #         num_executors: 2
+  # jupyter-extension:
+  #   when: << pipeline.parameters.run-jupyter-jobs >>
+  #   jobs:
+  #     - build-docker-images
+  #     - jupyter-extension-test:
+  #         matrix:
+  #           parameters:
+  #             python-version: ["3.8", "3.9", "3.10"]
+  #     - jupyter-extension-frontend-test
+  #     - jupyter-extension-integration-test:
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #     - jupyter-extension-e2e-test:
+  #         requires:
+  #           - build-docker-images
+  #           - jupyter-extension-build
+  #           - build-pachctl-bin
+  #     - jupyter-extension-build
+  #     - jupyter-extension-docker-build:
+  #         requires:
+  #           - jupyter-extension-build
+  #           - build-pachctl-bin
+  #     - build-pachctl-bin:
+  #         version: $CIRCLE_SHA1
+  # python-sdk:
+  #   when:
+  #     or:
+  #       - << pipeline.parameters.run-python-sdk-jobs >>
+  #       - << pipeline.parameters.run-core-jobs >>
+  #   jobs:
+  #     - test-python-sdk:
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - python-sdk-testing-docker-build
+  #     - build-docker-images
+  #     - python-sdk-build
+  #     - python-sdk-testing-docker-build:
+  #         requires:
+  #           - python-sdk-build
+  #     - build-pachctl-bin:
+  #         version: $CIRCLE_SHA1
+  # label-studio:
+  #   when:
+  #     or:
+  #       - << pipeline.parameters.run-label-studio-jobs >>
+  #       - << pipeline.parameters.run_load_tests >> # Eventually switch back to run-core-jobs
+  #   jobs:
+  #     - test-label-studio:
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - build-label-studio-ci-testing-image
+  #     - build-docker-images
+  #     - build-pachctl-bin:
+  #         version: $CIRCLE_SHA1
+  #     - build-label-studio-ci-testing-image
 
-  release:
-    jobs:
-      - helm-tests:
-          filters: *only-release-tags
-      - test-pps:
-          filters: *only-release-tags
-      - static-checks:
-          filters: *only-release-tags
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
-          filters: *only-release-tags
-      - helm-build:
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - integration-tests
-      - build-docker-images:
-          appVersion: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-      - build-pachctl-bin:
-          version: ${CIRCLE_TAG:1}
-          filters: *only-release-tags
-          requires:
-            - helm-tests
-            - static-checks
-            - integration-tests
-      - helm-publish:
-          name: publish-chart-preview
-          preview: true
-          filters: *only-release-tags
-          requires:
-            - helm-build
-      - release-github-draft:
-          filters: *only-release-tags
-          requires:
-            - build-pachctl-bin
-            - helm-build
-      - jupyter-extension-test:
-          matrix:
-            parameters:
-              python-version: ["3.8", "3.9", "3.10"]
-          filters: *only-release-tags
-      - jupyter-extension-frontend-test:
-          filters: *only-release-tags
-      - jupyter-extension-integration-test:
-          requires:
-            - build-pachctl-bin
-          filters: *only-release-tags
-      - jupyter-extension-e2e-test:
-          requires:
-            - jupyter-extension-build
-            - build-pachctl-bin
-          filters: *only-release-tags
-      - jupyter-extension-build:
-          filters: *only-release-tags
-      - jupyter-extension-docker-build:
-          filters: *only-release-tags
-          requires:
-            - jupyter-extension-build
-            - build-pachctl-bin
-      - test-python-sdk:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-1
-          env: qa1
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-2
-          env: qa2
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-3
-          env: qa3
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-4
-          env: qa4
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - aws-prerelease-testing:
-          name: aws-testing
-          filters: *only-release-tags
-          requires:
-            - aws-prerelease-testing-env-1
-      - cust-prerelease-testing:
-          name: wp-testing
-          customer: wp
-          env: qa2
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-2
-      - cust-prerelease-testing:
-          name: btl-testing
-          customer: btl
-          env: qa3
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-3
-      - cust-prerelease-testing:
-          name: krs-testing
-          customer: krs
-          env: qa4
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-4
-      - pulumi-aws-test-env:
-          name: destroy-aws-prerelease-testing-env-1
-          env: qa1
-          action: destroy
-          filters: *only-release-tags
-          requires:
-            - aws-testing
-      - console-release-draft:
-          filters: *only-release-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - sign-off:
-          filters: *only-release-tags
-          type: approval
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - release-docker-hub:
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      #- push_redhat:
-      #    filters: *only-release-tags
-      #    requires:
-      #      - sign-off
-      - release-github:
-          name: github-release-pach-core
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-github:
-          name: github-release-console
-          repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}-1
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - release-hombrew-tap:
-          filters: *only-release-tags
-          requires:
-            - github-release-pach-core #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-      - helm-publish:
-          name: publish-helm-chart
-          filters: *only-release-tags
-          requires:
-            - sign-off
-      - jupyter-extension-test-publish:
-          requires:
-            - jupyter-extension-build
-            - jupyter-extension-test
-            - jupyter-extension-frontend-test
-            - jupyter-extension-integration-test
-            - jupyter-extension-e2e-test
-          filters: *only-release-tags
-      - jupyter-extension-publish:
-          requires:
-            - jupyter-extension-build
-            - sign-off
-          filters: *only-release-tags
-      - jupyter-extension-docker-push-tag:
-          requires:
-            - sign-off
-            - jupyter-extension-docker-build
-          filters: *only-release-tags
-      - python-sdk-test-publish:
-          version: ${CIRCLE_TAG:1}
-          requires:
-            - test-python-sdk
-          filters: *only-release-tags
-      - python-sdk-publish:
-          version: ${CIRCLE_TAG:1}
-          requires:
-            - test-python-sdk
-            - python-sdk-test-publish
-            - sign-off
-          filters: *only-release-tags
-  nightly-release:
-    jobs:
-      - helm-tests:
-          filters: *only-nightly-tags
-      - test-pps:
-          filters: *only-nightly-tags
-      - static-checks:
-          filters: *only-nightly-tags
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
-          filters: *only-nightly-tags
-      - helm-build:
-          filters: *only-nightly-tags
-          requires:
-            - helm-tests
-            - static-checks
-            - integration-tests
-      - build-docker-images:
-          appVersion: ${CIRCLE_TAG:1}
-          filters: *only-nightly-tags
-      - build-pachctl-bin:
-          version: ${CIRCLE_TAG:1}
-          filters: *only-nightly-tags
-          requires:
-            - helm-tests
-            - static-checks
-            - integration-tests
-      - helm-publish:
-          name: publish-chart-preview
-          preview: true
-          filters: *only-nightly-tags
-          requires:
-            - helm-build
-      - release-github-draft:
-          filters: *only-nightly-tags
-          requires:
-            - build-pachctl-bin
-            - helm-build
-      - pulumi-aws-test-env:
-          name: create-aws-test-env
-          env: qa1
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-nightly-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - aws-prerelease-testing:
-          filters: *only-nightly-tags
-          requires:
-            - create-aws-test-env
-      - pulumi-aws-test-env:
-          name: destroy-aws-test-env
-          env: qa1
-          action: destroy
-          filters: *only-nightly-tags
-          requires:
-            - aws-prerelease-testing
-      - release-docker-hub:
-          filters: *only-nightly-tags
-          requires:
-            - aws-prerelease-testing
-      - release-github:
-          filters: *only-nightly-tags
-          requires:
-            - aws-prerelease-testing
-      - release-hombrew-tap:
-          filters: *only-nightly-tags
-          requires:
-            - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
-      - helm-publish:
-          name: publish-helm-chart
-          filters: *only-nightly-tags
-          requires:
-            - aws-prerelease-testing
+  # release:
+  #   jobs:
+  #     - helm-tests:
+  #         filters: *only-release-tags
+  #     - test-pps:
+  #         filters: *only-release-tags
+  #     - static-checks:
+  #         filters: *only-release-tags
+  #     - integration-tests:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - MISC
+  #               - AUTH
+  #               - ENTERPRISE
+  #               - S3_AUTH
+  #               - EXAMPLES
+  #         filters: *only-release-tags
+  #     - helm-build:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - helm-tests
+  #           - integration-tests
+  #     - build-docker-images:
+  #         appVersion: ${CIRCLE_TAG:1}
+  #         filters: *only-release-tags
+  #     - build-pachctl-bin:
+  #         version: ${CIRCLE_TAG:1}
+  #         filters: *only-release-tags
+  #         requires:
+  #           - helm-tests
+  #           - static-checks
+  #           - integration-tests
+  #     - helm-publish:
+  #         name: publish-chart-preview
+  #         preview: true
+  #         filters: *only-release-tags
+  #         requires:
+  #           - helm-build
+  #     - release-github-draft:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - build-pachctl-bin
+  #           - helm-build
+  #     - jupyter-extension-test:
+  #         matrix:
+  #           parameters:
+  #             python-version: ["3.8", "3.9", "3.10"]
+  #         filters: *only-release-tags
+  #     - jupyter-extension-frontend-test:
+  #         filters: *only-release-tags
+  #     - jupyter-extension-integration-test:
+  #         requires:
+  #           - build-pachctl-bin
+  #         filters: *only-release-tags
+  #     - jupyter-extension-e2e-test:
+  #         requires:
+  #           - jupyter-extension-build
+  #           - build-pachctl-bin
+  #         filters: *only-release-tags
+  #     - jupyter-extension-build:
+  #         filters: *only-release-tags
+  #     - jupyter-extension-docker-build:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - jupyter-extension-build
+  #           - build-pachctl-bin
+  #     - test-python-sdk:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #     - pulumi-aws-test-env:
+  #         name: aws-prerelease-testing-env-1
+  #         env: qa1
+  #         action: update
+  #         pachdVersion: $CIRCLE_SHA1
+  #         helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+  #         filters: *only-release-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - pulumi-aws-test-env:
+  #         name: aws-prerelease-testing-env-2
+  #         env: qa2
+  #         action: update
+  #         pachdVersion: $CIRCLE_SHA1
+  #         helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - pulumi-aws-test-env:
+  #         name: aws-prerelease-testing-env-3
+  #         env: qa3
+  #         action: update
+  #         pachdVersion: $CIRCLE_SHA1
+  #         helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - pulumi-aws-test-env:
+  #         name: aws-prerelease-testing-env-4
+  #         env: qa4
+  #         action: update
+  #         pachdVersion: $CIRCLE_SHA1
+  #         helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - aws-prerelease-testing:
+  #         name: aws-testing
+  #         filters: *only-release-tags
+  #         requires:
+  #           - aws-prerelease-testing-env-1
+  #     - cust-prerelease-testing:
+  #         name: wp-testing
+  #         customer: wp
+  #         env: qa2
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - aws-prerelease-testing-env-2
+  #     - cust-prerelease-testing:
+  #         name: btl-testing
+  #         customer: btl
+  #         env: qa3
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - aws-prerelease-testing-env-3
+  #     - cust-prerelease-testing:
+  #         name: krs-testing
+  #         customer: krs
+  #         env: qa4
+  #         filters: *only-alpha-tags
+  #         requires:
+  #           - aws-prerelease-testing-env-4
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-prerelease-testing-env-1
+  #         env: qa1
+  #         action: destroy
+  #         filters: *only-release-tags
+  #         requires:
+  #           - aws-testing
+  #     - console-release-draft:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - sign-off:
+  #         filters: *only-release-tags
+  #         type: approval
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - release-docker-hub:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - sign-off
+  #     #- push_redhat:
+  #     #    filters: *only-release-tags
+  #     #    requires:
+  #     #      - sign-off
+  #     - release-github:
+  #         name: github-release-pach-core
+  #         filters: *only-release-tags
+  #         requires:
+  #           - sign-off
+  #     - release-github:
+  #         name: github-release-console
+  #         repo: pachyderm/haberdashery
+  #         tag: ${CIRCLE_TAG:1}-1
+  #         filters: *only-release-tags
+  #         requires:
+  #           - sign-off
+  #     - release-hombrew-tap:
+  #         filters: *only-release-tags
+  #         requires:
+  #           - github-release-pach-core #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+  #     - helm-publish:
+  #         name: publish-helm-chart
+  #         filters: *only-release-tags
+  #         requires:
+  #           - sign-off
+  #     - jupyter-extension-test-publish:
+  #         requires:
+  #           - jupyter-extension-build
+  #           - jupyter-extension-test
+  #           - jupyter-extension-frontend-test
+  #           - jupyter-extension-integration-test
+  #           - jupyter-extension-e2e-test
+  #         filters: *only-release-tags
+  #     - jupyter-extension-publish:
+  #         requires:
+  #           - jupyter-extension-build
+  #           - sign-off
+  #         filters: *only-release-tags
+  #     - jupyter-extension-docker-push-tag:
+  #         requires:
+  #           - sign-off
+  #           - jupyter-extension-docker-build
+  #         filters: *only-release-tags
+  #     - python-sdk-test-publish:
+  #         version: ${CIRCLE_TAG:1}
+  #         requires:
+  #           - test-python-sdk
+  #         filters: *only-release-tags
+  #     - python-sdk-publish:
+  #         version: ${CIRCLE_TAG:1}
+  #         requires:
+  #           - test-python-sdk
+  #           - python-sdk-test-publish
+  #           - sign-off
+  #         filters: *only-release-tags
+  # nightly-release:
+  #   jobs:
+  #     - helm-tests:
+  #         filters: *only-nightly-tags
+  #     - test-pps:
+  #         filters: *only-nightly-tags
+  #     - static-checks:
+  #         filters: *only-nightly-tags
+  #     - integration-tests:
+  #         matrix:
+  #           parameters:
+  #             bucket:
+  #               - MISC
+  #               - AUTH
+  #               - ENTERPRISE
+  #               - S3_AUTH
+  #               - EXAMPLES
+  #         filters: *only-nightly-tags
+  #     - helm-build:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - helm-tests
+  #           - static-checks
+  #           - integration-tests
+  #     - build-docker-images:
+  #         appVersion: ${CIRCLE_TAG:1}
+  #         filters: *only-nightly-tags
+  #     - build-pachctl-bin:
+  #         version: ${CIRCLE_TAG:1}
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - helm-tests
+  #           - static-checks
+  #           - integration-tests
+  #     - helm-publish:
+  #         name: publish-chart-preview
+  #         preview: true
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - helm-build
+  #     - release-github-draft:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - build-pachctl-bin
+  #           - helm-build
+  #     - pulumi-aws-test-env:
+  #         name: create-aws-test-env
+  #         env: qa1
+  #         action: update
+  #         pachdVersion: $CIRCLE_SHA1
+  #         helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - build-docker-images
+  #           - build-pachctl-bin
+  #           - publish-chart-preview
+  #           - release-github-draft
+  #     - aws-prerelease-testing:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - create-aws-test-env
+  #     - pulumi-aws-test-env:
+  #         name: destroy-aws-test-env
+  #         env: qa1
+  #         action: destroy
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - aws-prerelease-testing
+  #     - release-docker-hub:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - aws-prerelease-testing
+  #     - release-github:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - aws-prerelease-testing
+  #     - release-hombrew-tap:
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - release-github #current homebrew tap repo uses gh release, but later can be changed to pipeline artifacts to remove deps
+  #     - helm-publish:
+  #         name: publish-helm-chart
+  #         filters: *only-nightly-tags
+  #         requires:
+  #           - aws-prerelease-testing
 
 commands:
   install-helm:
