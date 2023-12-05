@@ -11,12 +11,10 @@ jest.mock('../../../../../handler');
 
 describe('datum screen', () => {
   let setShowDatum = jest.fn();
-  let setKeepMounted = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
     setShowDatum = jest.fn();
-    setKeepMounted = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
 
     // IntersectionObserver isn't available in test environment
@@ -44,8 +42,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -92,8 +88,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -139,8 +133,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -170,8 +162,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -199,8 +189,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -226,8 +214,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}

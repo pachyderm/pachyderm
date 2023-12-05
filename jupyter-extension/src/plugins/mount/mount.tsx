@@ -219,8 +219,6 @@ export class MountPlugin implements IMountPlugin {
               <Datum
                 showDatum={showDatum ? showDatum : this._showDatum}
                 setShowDatum={this.setShowDatum}
-                keepMounted={this._keepMounted}
-                setKeepMounted={this.setKeepMounted}
                 open={this.openDatum}
                 pollRefresh={this._poller.refresh}
                 currentDatumInfo={this._currentDatumInfo}

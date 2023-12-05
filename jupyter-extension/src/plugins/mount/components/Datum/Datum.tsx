@@ -11,8 +11,6 @@ import {
 type DatumProps = {
   showDatum: boolean;
   setShowDatum: (shouldShow: boolean) => Promise<void>;
-  keepMounted: boolean;
-  setKeepMounted: (keep: boolean) => void;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
@@ -27,8 +25,6 @@ const placeholderText = `pfs:
 const Datum: React.FC<DatumProps> = ({
   showDatum,
   setShowDatum,
-  keepMounted,
-  setKeepMounted,
   open,
   pollRefresh,
   currentDatumInfo,
@@ -47,14 +43,11 @@ const Datum: React.FC<DatumProps> = ({
     callNextDatum,
     callPrevDatum,
     callDownloadDatum,
-    callUnmountAll,
     errorMessage,
     saveInputSpec,
     initialInputSpec,
   } = useDatum(
     showDatum,
-    keepMounted,
-    setKeepMounted,
     open,
     pollRefresh,
     repoViewInputSpec,
@@ -68,9 +61,7 @@ const Datum: React.FC<DatumProps> = ({
           data-testid="Datum__back"
           className="pachyderm-button-link"
           onClick={async () => {
-            await callUnmountAll();
             saveInputSpec();
-            setKeepMounted(false);
             await setShowDatum(false);
           }}
         >

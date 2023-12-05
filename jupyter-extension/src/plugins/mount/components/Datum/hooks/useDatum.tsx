@@ -32,8 +32,6 @@ export type useDatumResponse = {
 
 export const useDatum = (
   showDatum: boolean,
-  keepMounted: boolean,
-  setKeepMounted: (keep: boolean) => void,
   open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -57,13 +55,10 @@ export const useDatum = (
 
   useEffect(() => {
     if (showDatum) {
-      if (!keepMounted) {
-        callUnmountAll();
-      }
-
       // Executes when browser reloaded; resume at currently mounted datum
-      if (keepMounted && currentDatumInfo) {
+      if (currentDatumInfo) {
         setShouldShowCycler(true);
+        setShouldShowDownload(true);
         setCurrDatum({
           id: '',
           idx: currentDatumInfo.idx,
@@ -71,7 +66,6 @@ export const useDatum = (
           all_datums_received: currentDatumInfo.all_datums_received,
         });
         setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-        setKeepMounted(false);
       }
       // Pre-populate input spec from mounted repos
       else {
@@ -139,6 +133,7 @@ export const useDatum = (
     setLoading(true);
     setErrorMessage('This could take a few minutes...');
     setShouldShowCycler(false);
+    setShouldShowDownload(false);
 
     try {
       const spec = inputSpecTextToObj();
