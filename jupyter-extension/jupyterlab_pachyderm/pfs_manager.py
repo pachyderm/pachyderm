@@ -491,7 +491,7 @@ class DatumManager(FileContentsManager):
                 elif fileinfo.file_type == pfs.FileType.DIR:
                     # download tarball
                     tar = self._client.pfs.pfs_tar_file(file=fileinfo.file)
-                    tar.extractall(path=path.parent)
+                    tar.extractall(path=path if fileinfo.file.path == "/" else path.parent)
                 else:
                     raise TypeError(
                         f"Attempting to download invalid file type {fileinfo.file_type}"
