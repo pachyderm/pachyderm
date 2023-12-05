@@ -10,6 +10,8 @@ from tornado import web
 import typing
 import shutil
 
+from .env import PFS_MOUNT_DIR
+
 
 class ContentModel(typing.TypedDict):
     name: str
@@ -413,7 +415,6 @@ class DatumManager(FileContentsManager):
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
     _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
-    _DOWNLOAD_SYMLINK_PATH = "/pfs"
     # currently unsupported stuff (unclear if needed or not):
     #  - crossing repo with itself
     #  - renaming repo level directories
@@ -427,6 +428,7 @@ class DatumManager(FileContentsManager):
         self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
+        os.makedirs(PFS_MOUNT_DIR, exist_ok=True)
         super().__init__(**kwargs)
 
     # TODO: don't ignore name in the input spec
@@ -500,13 +502,13 @@ class DatumManager(FileContentsManager):
                         f"Attempting to download invalid file type {fileinfo.file_type}"
                     )
 
-            for dir in os.listdir(self._DOWNLOAD_SYMLINK_PATH):
-                os.unlink(Path(self._DOWNLOAD_SYMLINK_PATH, dir))
+            for dir in os.listdir(PFS_MOUNT_DIR):
+                os.unlink(Path(PFS_MOUNT_DIR, dir))
 
             for dir in os.listdir(download_dir):
                 os.symlink(
                     src=Path(download_dir, dir),
-                    dst=Path(self._DOWNLOAD_SYMLINK_PATH, dir),
+                    dst=Path(PFS_MOUNT_DIR, dir),
                     target_is_directory=True,
                 )
 
