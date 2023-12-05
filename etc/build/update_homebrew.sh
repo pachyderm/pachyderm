@@ -7,10 +7,6 @@ stable=$2
 
 echo "--- Updating homebrew formula to use binaries at version $version"
 BRANCH=master
-if [[ $stable == 0 ]];
-then
-    BRANCH=$version
-fi;
 
 MAJOR_MINOR=$(echo "$version" | cut -f -2 -d ".")
 
