@@ -39,6 +39,7 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
     inputSpec,
     setInputSpec,
@@ -117,22 +118,29 @@ const Datum: React.FC<DatumProps> = ({
             shouldShowCycler &&
             'Drag line below to show datum cycler'}
         </span>
-        <button
-          data-testid="Datum__mountDatums"
-          className="pachyderm-button-link"
-          onClick={callMountDatums}
-          style={{padding: '0.5rem'}}
+        <div
+          className="pachyderm-mount-datum-actions"
+          style={{display: 'flex'}}
         >
-          Mount Datums
-        </button>
-        <button
-          data-testid="Datum__downloadDatum"
-          className="pachyderm-button-link"
-          onClick={callDownloadDatum}
-          style={{padding: '0.5rem'}}
-        >
-          Download Datum
-        </button>
+          <button
+            data-testid="Datum__mountDatums"
+            className="pachyderm-button-link"
+            onClick={callMountDatums}
+            style={{padding: '0.5rem'}}
+          >
+            Mount Datums
+          </button>
+          {shouldShowDownload && (
+            <button
+              data-testid="Datum__downloadDatum"
+              className="pachyderm-button-link"
+              onClick={callDownloadDatum}
+              style={{padding: '0.5rem'}}
+            >
+              Download Datum
+            </button>
+          )}
+        </div>
         {shouldShowCycler && (
           <div
             className="pachyderm-mount-datum-cycler"

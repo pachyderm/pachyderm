@@ -16,6 +16,7 @@ import {
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
+  shouldShowDownload: boolean;
   currDatum: MountDatumResponse;
   inputSpec: string;
   setInputSpec: (input: string) => void;
@@ -40,6 +41,7 @@ export const useDatum = (
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
+  const [shouldShowDownload, setShouldShowDownload] = useState(false);
   const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
     id: '',
     idx: -1,
@@ -146,6 +148,7 @@ export const useDatum = (
       open('');
       setCurrDatum(res);
       setShouldShowCycler(true);
+      setShouldShowDownload(true);
       setInputSpec(inputSpecObjToText(spec));
       setErrorMessage('');
     } catch (e) {
@@ -210,8 +213,10 @@ export const useDatum = (
     try {
       const res = await requestAPI<any>('datums/_download', 'PUT');
     } catch (e) {
+      setErrorMessage('Error downloading datum: ' + e);
       console.log(e);
     }
+    setErrorMessage('Datum downloaded to /pfs');
     setLoading(false);
   };
 
@@ -230,6 +235,7 @@ export const useDatum = (
         all_datums_received: false,
       });
       setShouldShowCycler(false);
+      setShouldShowDownload(false);
     } catch (e) {
       console.log(e);
     }
@@ -241,6 +247,7 @@ export const useDatum = (
   return {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
     inputSpec,
     setInputSpec,

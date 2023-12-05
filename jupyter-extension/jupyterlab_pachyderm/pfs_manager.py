@@ -473,6 +473,9 @@ class DatumManager(FileContentsManager):
         )
 
     def download(self):
+        if len(self._datum_list) == 0 or len(self._datum_list[self._datum_index].data) == 0:
+            raise ValueError("Attempting to download empty or unmounted datum")
+
         download_dir = (
             f"{self._DOWNLOAD_DIR}/datum-{datetime.datetime.now().isoformat()}"
         )

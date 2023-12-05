@@ -196,6 +196,11 @@ class DatumDownloadHandler(BaseHandler):
         try:
             self.datum_manager.download()
             self.finish()
+        except ValueError as e:
+            get_logger().error(f"Invalid datum download: {e}")
+            raise tornado.web.HTTPError(
+                status_code=400, reason=f"Bad download request: {e}"
+            )
         except Exception as e:
             get_logger().error(f"Error downloading datum", exc_info=True)
             raise tornado.web.HTTPError(
