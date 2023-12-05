@@ -16,8 +16,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/zeebo/xxh3"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -61,28 +61,27 @@ func run(ctx context.Context, tags string, fileName string, gotestsumArgs []stri
 	if err != nil {
 		return errors.Wrapf(err, "reading file %v", fileName)
 	}
-	slices.Sort(tests) // sort so we shard them from a pre-determined order
-
 	// loop through by the number of shards so that each gets a roughly equal number on each
 	testsForShard := map[string][]string{}
-	for idx := shard; idx < len(tests); idx += totalShards {
-		val := strings.Split(tests[idx], ",")
-		if len(val) < 1 {
-			return errors.Errorf("error parsing test name and package to run. Value: %v", tests[idx])
-		}
-		pkg := val[0]
-		testName := val[1]
-		// index all tests by package as we collect the ones for this shard. This lets
-		// us run all tests in each package on this shard with one `go test` command, preserving the serial
-		// running of tests without t.parallel the same way that go test ./... would since
-		// got test also runs packages in paralllel.
-		if _, ok := testsForShard[pkg]; !ok {
-			testsForShard[pkg] = []string{testName}
-		} else {
-			testsForShard[pkg] = append(testsForShard[pkg], testName)
+	for idx := 0; idx < len(tests); idx += 1 {
+		if xxh3.Hash([]byte(tests[idx]))%uint64(totalShards) == uint64(shard) {
+			val := strings.Split(tests[idx], ",")
+			if len(val) < 1 {
+				return errors.Errorf("error parsing test name and package to run. Value: %v", tests[idx])
+			}
+			pkg := val[0]
+			testName := val[1]
+			// index all tests by package as we collect the ones for this shard. This lets
+			// us run all tests in each package on this shard with one `go test` command, preserving the serial
+			// running of tests without t.parallel the same way that go test ./... would since
+			// got test also runs packages in paralllel.
+			if _, ok := testsForShard[pkg]; !ok {
+				testsForShard[pkg] = []string{testName}
+			} else {
+				testsForShard[pkg] = append(testsForShard[pkg], testName)
+			}
 		}
 	}
-
 	eg, _ := errgroup.WithContext(ctx)
 	eg.SetLimit(threadPool)
 	for pkg, tests := range testsForShard {

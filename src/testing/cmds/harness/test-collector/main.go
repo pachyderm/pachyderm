@@ -27,7 +27,7 @@ type testOutput struct {
 }
 
 func main() {
-	log.InitPachctlLogger()
+	log.InitBatchLogger("test-collector.log")
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	exclusiveTags := flag.Bool("exclusiveTags", true, "If true, ONLY tests with the specified tags will run. If false, "+

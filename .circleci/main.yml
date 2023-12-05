@@ -92,7 +92,7 @@ jobs:
           name: Run Go Unit Tests
           no_output_timeout: 20m
           command: |-
-            GOMAXPROCS=7 GOMEMLIMIT=8000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
+            GOMAXPROCS=7 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_unit.csv \
               -shard=$CIRCLE_NODE_INDEX \
               -total-shards=$CIRCLE_NODE_TOTAL \
@@ -289,7 +289,7 @@ jobs:
             # any tests that build images will do it directly in minikube's docker registry
             eval "$(minikube docker-env)"
 
-            GOMEMLIMIT=16000MiB GOCOVERDIR="$TEST_RESULTS" go run src/testing/cmds/harness/test-runner/main.go \
+            GOMEMLIMIT=16000MiB go run src/testing/cmds/harness/test-runner/main.go \
               -file=tests_to_run_k8s.csv \
               -tags=k8s \
               -shard=$CIRCLE_NODE_INDEX \
