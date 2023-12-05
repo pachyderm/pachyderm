@@ -13,12 +13,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/consistenthashing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cronutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dlock"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
@@ -27,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
@@ -119,72 +116,28 @@ func (m *Master) watchRepos(ctx context.Context) error {
 	ringPrefix := path.Join(randutil.UniqueString(m.driver.prefix), masterLockPath, "ring")
 	return consistenthashing.WithRing(ctx, m.driver.etcdClient, ringPrefix,
 		func(ctx context.Context, ring *consistenthashing.Ring) error {
-			// Watch for repo events.
-			watcher, err := postgres.NewWatcher(m.env.DB, m.driver.env.Listener, ringPrefix, pfsdb.ReposChannelName)
-			if err != nil {
-				return errors.Wrap(err, "new watcher")
-			}
-			defer watcher.Close()
-			// Get existing entries.
-			var repoWithIDs []pfsdb.RepoInfoWithID
-			if err := dbutil.WithTx(ctx, m.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-				repoWithIDs, err = pfsdb.ListRepo(ctx, tx, nil)
-				return err
-			}); err != nil {
-				return errors.Wrap(err, "watch repos")
-			}
-			for _, repoWithID := range repoWithIDs {
-				lockPrefix := path.Join("repos", fmt.Sprintf("%d", repoWithID.ID))
-				ctx, cancel := pctx.WithCancel(ctx)
-				repos[repoWithID.ID] = cancel
-				go m.driver.manageRepo(ctx, ring, repoWithID, lockPrefix)
-			}
-			// Process new repo events.
-			return m.driver.handleRepoEvents(ctx, ring, repos, watcher.Watch())
-		})
-}
-
-func (d *driver) handleRepoEvents(ctx context.Context, ring *consistenthashing.Ring, repos map[pfsdb.RepoID]context.CancelFunc, watcherChan <-chan *postgres.Event) error {
-	for {
-		select {
-		case event, ok := <-watcherChan:
-			if !ok {
-				return errors.Wrap(fmt.Errorf("unexpected close on events channel"), "watch repo events")
-			}
-			if event.Err != nil {
-				log.Error(ctx, event.Err.Error())
-				continue
-			}
-			repoID := pfsdb.RepoID(event.Id)
-			lockPrefix := path.Join("repos", fmt.Sprintf("%d", event.Id))
-			if event.Type == postgres.EventDelete {
-				if cancel, ok := repos[repoID]; ok {
-					if err := ring.Unlock(lockPrefix); err != nil {
-						return err
+			return pfsdb.WatchRepos(ctx, m.env.DB, m.env.Listener,
+				func(id pfsdb.RepoID, repoInfo *pfs.RepoInfo) error {
+					// On Upsert.
+					lockPrefix := fmt.Sprintf("repos/%d", id)
+					ctx, cancel := pctx.WithCancel(ctx)
+					repos[id] = cancel
+					go m.driver.manageRepo(ctx, ring, pfsdb.RepoInfoWithID{ID: id, RepoInfo: repoInfo}, lockPrefix)
+					return nil
+				},
+				func(id pfsdb.RepoID) error {
+					// On Delete.
+					cancel, ok := repos[id]
+					if !ok {
+						return nil
 					}
-					cancel()
-					delete(repos, repoID)
-				}
-				continue
-			}
-			if _, ok := repos[repoID]; ok {
-				continue // the master has already called manageRepo for this repo.
-			}
-			ctx, cancel := pctx.WithCancel(ctx)
-			repos[repoID] = cancel
-			var repo *pfs.RepoInfo
-			var err error
-			if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-				repo, err = pfsdb.GetRepo(ctx, tx, repoID)
-				return errors.Wrap(err, "get repo from event id")
-			}, dbutil.WithReadOnly()); err != nil {
-				return errors.Wrap(err, "get repo")
-			}
-			go d.manageRepo(ctx, ring, pfsdb.RepoInfoWithID{ID: repoID, RepoInfo: repo}, lockPrefix)
-		case <-ctx.Done():
-			return nil
-		}
-	}
+					defer func() {
+						cancel()
+						delete(repos, id)
+					}()
+					return ring.Unlock(fmt.Sprintf("repos/%d", id))
+				})
+		})
 }
 
 func (d *driver) manageRepo(ctx context.Context, ring *consistenthashing.Ring, repoPair pfsdb.RepoInfoWithID, lockPrefix string) {
@@ -228,7 +181,6 @@ type cronTrigger struct {
 }
 
 func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWithID) error {
-	repoKey := repoPair.RepoInfo.Repo.Key()
 	ctx, cancel := pctx.WithCancel(ctx)
 	defer cancel()
 	cronTriggers := make(map[pfsdb.BranchID]*cronTrigger)
@@ -237,54 +189,17 @@ func (d *driver) manageBranches(ctx context.Context, repoPair pfsdb.RepoInfoWith
 			ct.cancel()
 		}
 	}()
-	watcher, err := postgres.NewWatcher(d.env.DB, d.env.Listener, path.Join(randutil.UniqueString(d.prefix), "manageBranches", repoKey),
-		pfsdb.BranchesInRepoChannel(repoPair.ID))
-	if err != nil {
-		return errors.Wrap(err, "manage branches")
-	}
-	var branches []pfsdb.BranchInfoWithID
-	if err := dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		branches, err = pfsdb.ListBranches(ctx, tx, &pfs.Branch{Repo: repoPair.RepoInfo.Repo})
-		return errors.Wrap(err, "manage branches")
-	}); err != nil {
-		return err
-	}
-	for _, branch := range branches {
-		if err := d.manageBranch(ctx, branch, cronTriggers); err != nil {
-			return errors.Wrap(err, "manage branches")
-		}
-	}
-	for {
-		event, ok := <-watcher.Watch()
-		if !ok {
-			return errors.Errorf("watcher for branch repo %d %s closed channel", repoPair.ID, repoKey)
-		}
-		key := pfsdb.BranchID(event.Id)
-		if event.Type == postgres.EventDelete {
-			if ct, ok := cronTriggers[key]; ok {
+	return pfsdb.WatchBranchesInRepo(ctx, d.env.DB, d.env.Listener, repoPair.ID,
+		func(id pfsdb.BranchID, branchInfo *pfs.BranchInfo) error {
+			return d.manageBranch(ctx, pfsdb.BranchInfoWithID{ID: id, BranchInfo: branchInfo}, cronTriggers)
+		},
+		func(id pfsdb.BranchID) error {
+			if ct, ok := cronTriggers[id]; ok {
 				ct.cancel()
-				delete(cronTriggers, key)
+				delete(cronTriggers, id)
 			}
 			return nil
-		}
-		if event.Err != nil {
-			return event.Err
-		}
-		var branchInfo *pfs.BranchInfo
-		if err := dbutil.WithTx(ctx, d.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-			branchInfo, err = pfsdb.GetBranchInfo(ctx, tx, key)
-			return err
-		}, dbutil.WithReadOnly()); err != nil {
-			return errors.Wrap(err, "getting commit from event")
-		}
-		branchInfoWithID := pfsdb.BranchInfoWithID{
-			ID:         key,
-			BranchInfo: branchInfo,
-		}
-		if err := d.manageBranch(ctx, branchInfoWithID, cronTriggers); err != nil {
-			return errors.Wrap(err, "manage branch")
-		}
-	}
+		})
 }
 
 func (d *driver) manageBranch(ctx context.Context, branchInfoWithID pfsdb.BranchInfoWithID, cronTriggers map[pfsdb.BranchID]*cronTrigger) error {

@@ -7,12 +7,17 @@ import (
 	"strings"
 
 	"github.com/jackc/pgconn"
+	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -35,7 +40,8 @@ const (
 			JOIN core.projects project ON repo.project_id = project.id
 			LEFT JOIN pfs.branches branch ON branch.repo_id = repo.id
 	`
-	noBranches = "{NULL}"
+	noBranches    = "{NULL}"
+	reposPageSize = 100
 )
 
 // RepoNotFoundError is returned by GetRepo() when a repo is not found in postgres.
@@ -195,7 +201,7 @@ const (
 
 type OrderByRepoColumn OrderByColumn[repoColumn]
 
-func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
 	var conditions []string
 	var values []any
 	if filter != nil {
@@ -225,10 +231,10 @@ func NewRepoIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize ui
 			orderByGeneric = append(orderByGeneric, OrderByColumn[repoColumn](orderBy))
 		}
 	}
-	query = tx.Rebind(query + OrderByQuery[repoColumn](orderByGeneric...))
+	query = ext.Rebind(query + OrderByQuery[repoColumn](orderByGeneric...))
 	return &RepoIterator{
 		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize),
-		tx:        tx,
+		ext:       ext,
 	}, nil
 }
 
@@ -256,14 +262,14 @@ func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, orderBys ..
 
 type RepoIterator struct {
 	paginator pageIterator[Repo]
-	tx        *pachsql.Tx
+	ext       sqlx.ExtContext
 }
 
 func (i *RepoIterator) Next(ctx context.Context, dst *RepoInfoWithID) error {
 	if dst == nil {
 		return errors.Errorf("dst RepoInfo cannot be nil")
 	}
-	repo, rev, err := i.paginator.next(ctx, i.tx)
+	repo, rev, err := i.paginator.next(ctx, i.ext)
 	if err != nil {
 		return err
 	}
@@ -275,4 +281,68 @@ func (i *RepoIterator) Next(ctx context.Context, dst *RepoInfoWithID) error {
 	dst.RepoInfo = repoInfo
 	dst.Revision = rev
 	return nil
+}
+
+// Helper functions for watching repos.
+type repoUpsertHandler func(id RepoID, repoInfo *pfs.RepoInfo) error
+type repoDeleteHandler func(id RepoID) error
+
+func WatchRepos(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, onUpsert repoUpsertHandler, onDelete repoDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-repos-"), ReposChannelName)
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	snapshot, err := NewRepoIterator(ctx, db, 0, reposPageSize, nil, OrderByRepoColumn{Column: RepoColumnID, Order: SortOrderAsc})
+	if err != nil {
+		return err
+	}
+	return watchRepos(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[RepoInfoWithID], events <-chan *postgres.Event, onUpsert repoUpsertHandler, onDelete repoDeleteHandler) error {
+	// Handle snapshot.
+	if err := stream.ForEach[RepoInfoWithID](ctx, snapshot, func(r RepoInfoWithID) error {
+		return onUpsert(r.ID, r.RepoInfo)
+	}); err != nil {
+		return err
+	}
+	// Handle events.
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return errors.New("watch repos: events channel closed")
+			}
+			if event.Err != nil {
+				return event.Err
+			}
+			id := RepoID(event.Id)
+			switch event.Type {
+			case postgres.EventDelete:
+				if err := onDelete(id); err != nil {
+					return err
+				}
+			case postgres.EventInsert, postgres.EventUpdate:
+				var repoInfo *pfs.RepoInfo
+				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+					var err error
+					repoInfo, err = GetRepo(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				if err := onUpsert(id, repoInfo); err != nil {
+					return err
+				}
+			default:
+				return errors.Errorf("unknown event type: %v", event.Type)
+			}
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "watch repos")
+		}
+	}
 }
