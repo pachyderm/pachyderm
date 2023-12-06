@@ -35,7 +35,6 @@ func TestTransaction(t *testing.T) {
 	require.NoError(t, err)
 	strs := strings.Split(strings.TrimSpace(string(output)), " ")
 	txn := strs[len(strs)-1]
-	t.Logf("DNJ TODO output: %v --- commit: %v", string(output), txn)
 
 	// The repo shouldn't exist yet
 	require.YesError(t, tu.PachctlBashCmd(t, c, "pachctl inspect repo {{.repo}}", "repo", repo).Run())
