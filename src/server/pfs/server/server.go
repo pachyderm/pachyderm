@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -15,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	etcd "go.etcd.io/etcd/client/v3"
+	"gocloud.dev/blob"
 )
 
 type APIServer = *validatedAPIServer
@@ -40,6 +40,7 @@ type PFSAuth interface {
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
 	ObjectClient obj.Client
+	Bucket       *blob.Bucket
 	DB           *pachsql.DB
 	EtcdPrefix   string
 	EtcdClient   *etcd.Client

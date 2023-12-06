@@ -87,12 +87,11 @@ type driver struct {
 }
 
 func newDriver(env Env) (*driver, error) {
-	objClient := env.ObjectClient
 	// test object storage.
 	if err := func() error {
 		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cf()
-		return obj.TestStorage(ctx, objClient)
+		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
 	}(); err != nil {
 		return nil, err
 	}
@@ -108,7 +107,13 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 	}
-	storageSrv, err := storage.New(storage.Env{DB: env.DB, ObjectStore: env.ObjectClient}, env.StorageConfig)
+	storageEnv := storage.Env{DB: env.DB}
+	if env.Bucket != nil {
+		storageEnv.Bucket = env.Bucket
+	} else {
+		storageEnv.ObjectStore = env.ObjectClient
+	}
+	storageSrv, err := storage.New(storageEnv, env.StorageConfig)
 	if err != nil {
 		return nil, err
 	}

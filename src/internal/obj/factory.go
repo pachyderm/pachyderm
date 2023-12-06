@@ -3,6 +3,8 @@ package obj
 import (
 	"context"
 	"fmt"
+	"gocloud.dev/blob"
+	"gocloud.dev/blob/fileblob"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -475,13 +477,13 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Params: u.RawQuery,
 		}
 	default:
-		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 	}
 	return objStoreUrl, nil
 }
 
 // NewClientFromEnv creates a client based on environment variables.
+// todo(Fahad): this is used in supervisor.go, we need to replace this with go-cdk
 func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
@@ -548,4 +550,34 @@ func NewClient(ctx context.Context, storageBackend string, storageRoot string) (
 	default:
 		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
+}
+
+// NewBucket creates a Bucket using the given backend and storage root (for
+// local backends).
+// TODO: Not sure if we want to keep the storage root configuration for
+// non-local deployments. If so, we will need to connect it to the object path
+// prefix for chunks.
+func NewBucket(ctx context.Context, storageBackend, storageRoot string) (*Bucket, error) {
+	fmt.Println("fahad: using go cdk for storage")
+	var b *Bucket
+	var err error
+	objURL, err := ParseURL(os.Getenv("STORAGE_URL"))
+	if err != nil {
+		return nil, errors.Wrap(err, "new bucket")
+	}
+	switch storageBackend {
+	// TODO: Add minio options
+	case Minio:
+		b, err = NewMinioBucketFromSecret(ctx)
+	case Amazon:
+		b, err = NewAmazonBucketFromSecret(ctx)
+	case Google, Microsoft:
+		b, err = blob.OpenBucket(ctx, objURL.BucketString())
+	case Local:
+		b, err = fileblob.OpenBucket(storageRoot, nil)
+	// TODO: other backends
+	default:
+		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
+	}
+	return b, err
 }

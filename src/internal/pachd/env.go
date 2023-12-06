@@ -100,7 +100,7 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 	if env.AuthServer() == nil {
 		panic("auth server cannot be nil")
 	}
-	return &pfs_server.Env{
+	pfsEnv := &pfs_server.Env{
 		ObjectClient: objClient,
 		DB:           env.GetDBClient(),
 		TxnEnv:       txnEnv,
@@ -113,7 +113,21 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
 		StorageConfig: env.Config().StorageConfiguration,
-	}, nil
+	}
+	cfg := env.Config()
+	if cfg.GoCDKEnabled {
+		pfsEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		var err error
+		pfsEnv.ObjectClient, err = obj.NewClient(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pfsEnv, nil
 }
 
 func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {
