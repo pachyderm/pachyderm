@@ -3932,6 +3932,7 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 	if req.Project == nil || req.Project.Name == "" {
 		req.Project = &pfs.Project{Name: pfs.DefaultProjectName}
 	}
+	// note: do not convert this to InspectProjectV2; it calls GetProjectDefaults
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
 	}

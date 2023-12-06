@@ -538,6 +538,23 @@ func (x *InspectProjectRequest) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	return nil
 }
 
+func (x *InspectProjectV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	return nil
+}
+
+func (x *InspectProjectV2Response) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("info", x.Info)
+	enc.AddString("defaults_json", x.DefaultsJson)
+	return nil
+}
+
 func (x *ListProjectRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
