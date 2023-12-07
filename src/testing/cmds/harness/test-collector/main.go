@@ -29,8 +29,11 @@ type testOutput struct {
 	Output  string
 }
 
-func main() {
+func init() {
 	log.InitPachctlLogger()
+}
+
+func main() {
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	exclusiveTags := flag.Bool("exclusiveTags", true, "If true, ONLY tests with the specified tags will run. If false, "+
@@ -101,7 +104,7 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMEMLIMIT=16GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	cmd.Env = append(cmd.Env, "GOMEMLIMIT=8GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
 	defer monitorCancel()
