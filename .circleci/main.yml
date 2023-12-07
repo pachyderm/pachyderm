@@ -29,6 +29,7 @@ orbs:
   node: circleci/node@5.0.2
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
+  tools: gotest/tools@0.0.14
 
 parameters:
   machine_image:
@@ -172,6 +173,7 @@ jobs:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
+      - tools/mod-tidy-check
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
