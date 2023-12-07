@@ -206,6 +206,7 @@ export const useDatum = (
     setErrorMessage('');
 
     try {
+      // TODO: receiving a 500 response shows success message
       const res = await requestAPI<any>('datums/_download', 'PUT');
     } catch (e) {
       setErrorMessage('Error downloading datum: ' + e);

@@ -11,6 +11,7 @@ import typing
 import shutil
 
 from .env import PFS_MOUNT_DIR
+from .log import get_logger
 
 
 class ContentModel(typing.TypedDict):
@@ -428,7 +429,13 @@ class DatumManager(FileContentsManager):
         self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
-        os.makedirs(PFS_MOUNT_DIR, exist_ok=True)
+        try:
+            os.makedirs(PFS_MOUNT_DIR, exist_ok=True)
+        except Exception as e:
+            get_logger().error(
+                f"Could not create mount dir {PFS_MOUNT_DIR}. Try setting the PFS_MOUNT_DIR env var."
+            )
+            raise e
         super().__init__(**kwargs)
 
     # TODO: don't ignore name in the input spec
@@ -475,7 +482,16 @@ class DatumManager(FileContentsManager):
         )
 
     def download(self):
-        if len(self._datum_list) == 0 or len(self._datum_list[self._datum_index].data) == 0:
+        """
+        Downloads the currently mounted datum to a local cache directory,
+        then links the downloaded files to PFS_MOUNT_DIR (/pfs by default).
+        Subsequent calls to this method will remove the previously
+        downloaded datum and link the newly downloaded ones.
+        """
+        if (
+            len(self._datum_list) == 0
+            or len(self._datum_list[self._datum_index].data) == 0
+        ):
             raise ValueError("Attempting to download empty or unmounted datum")
 
         download_dir = (
@@ -490,13 +506,15 @@ class DatumManager(FileContentsManager):
                 os.makedirs(path.parent, exist_ok=True)
                 if fileinfo.file_type == pfs.FileType.FILE:
                     # download individual file
-                    data = list(self._client.pfs.get_file(file=fileinfo.file))[0].value
-                    with open(path, "wb") as download_file:
-                        download_file.write(data)
+                    with self._client.pfs.pfs_file(file=fileinfo.file) as datum_file:
+                        with open(path, "wb") as download_file:
+                            download_file.write(datum_file.readall())
                 elif fileinfo.file_type == pfs.FileType.DIR:
                     # download tarball
-                    tar = self._client.pfs.pfs_tar_file(file=fileinfo.file)
-                    tar.extractall(path=path if fileinfo.file.path == "/" else path.parent)
+                    with self._client.pfs.pfs_tar_file(file=fileinfo.file) as tar:
+                        tar.extractall(
+                            path=path if fileinfo.file.path == "/" else path.parent
+                        )
                 else:
                     raise TypeError(
                         f"Attempting to download invalid file type {fileinfo.file_type}"
