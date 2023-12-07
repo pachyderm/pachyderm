@@ -44,17 +44,17 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				t.Parallel()
 			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
-			minikubetestenv.PutNamespace(t, ns)
 			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
 			preUpgrade(t, ctx, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
 				k,
 				&minikubetestenv.DeployOpts{
-					Version:        from,
-					DisableLoki:    true,
-					PortOffset:     portOffset,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					Version:            from,
+					DisableLoki:        true,
+					PortOffset:         portOffset,
+					UseLeftoverCluster: false,
+					ValueOverrides:     map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -63,6 +63,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				k,
 				&minikubetestenv.DeployOpts{
 					PortOffset:     portOffset,
+					CleanupAfter:   true,
 					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
 				}), from)
 			t.Logf("postUpgrade done")
@@ -80,7 +81,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
-	upgradeTest(t, pctx.TestContext(t), false /* parallelOK */, 1, fromVersions,
+	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"

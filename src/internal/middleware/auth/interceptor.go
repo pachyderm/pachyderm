@@ -156,6 +156,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/FindCommits":      authDisabledOr(authenticated),
 	"/pfs_v2.API/CreateProject":    authDisabledOr(clusterPermissions(auth.Permission_PROJECT_CREATE)),
 	"/pfs_v2.API/InspectProject":   authDisabledOr(authenticated),
+	"/pfs_v2.API/InspectProjectV2": authDisabledOr(authenticated),
 	"/pfs_v2.API/ListProject":      authDisabledOr(authenticated),
 	"/pfs_v2.API/DeleteProject":    authDisabledOr(authenticated),
 	"/pfs_v2.API/ModifyFile":       authDisabledOr(authenticated),

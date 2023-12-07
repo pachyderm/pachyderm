@@ -9,10 +9,15 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -47,12 +52,14 @@ const (
 	`
 	getBranchByIDQuery   = getBranchBaseQuery + ` WHERE branch.id = $1`
 	getBranchByNameQuery = getBranchBaseQuery + ` WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3 AND branch.name = $4`
+	branchesPageSize     = 100
 )
 
 type branchColumn string
 
 const (
 	BranchColumnID        = branchColumn("branch.id")
+	BranchColumnRepoID    = branchColumn("branch.repo_id")
 	BranchColumnCreatedAt = branchColumn("branch.created_at")
 	BranchColumnUpdatedAt = branchColumn("branch.updated_at")
 )
@@ -98,7 +105,7 @@ func BranchesInRepoChannel(repoID RepoID) string {
 
 type BranchIterator struct {
 	paginator pageIterator[Branch]
-	tx        *pachsql.Tx
+	ext       sqlx.ExtContext
 }
 
 type BranchInfoWithID struct {
@@ -109,7 +116,7 @@ type BranchInfoWithID struct {
 
 type OrderByBranchColumn OrderByColumn[branchColumn]
 
-func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize uint64, filter *pfs.Branch, orderBys ...OrderByBranchColumn) (*BranchIterator, error) {
+func NewBranchIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize uint64, filter *pfs.Branch, orderBys ...OrderByBranchColumn) (*BranchIterator, error) {
 	var conditions []string
 	var values []any
 	// Note that using ? as the bindvar is okay because we rebind it later.
@@ -133,9 +140,9 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 	}
 	query := getBranchBaseQuery
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
-	// Compute ORDER BY
+	// Default ordering is by branch id in ascending order. This is important for pagination.
 	var orderByGeneric []OrderByColumn[branchColumn]
 	if len(orderBys) == 0 {
 		orderByGeneric = []OrderByColumn[branchColumn]{{Column: BranchColumnID, Order: SortOrderAsc}}
@@ -144,10 +151,11 @@ func NewBranchIterator(ctx context.Context, tx *pachsql.Tx, startPage, pageSize 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[branchColumn](orderBy))
 		}
 	}
-	query = tx.Rebind(query + OrderByQuery[branchColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[branchColumn](orderByGeneric...)
+	query = ext.Rebind(query)
 	return &BranchIterator{
 		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
-		tx:        tx,
+		ext:       ext,
 	}, nil
 }
 
@@ -178,11 +186,11 @@ func (i *BranchIterator) Next(ctx context.Context, dst *BranchInfoWithID) error 
 	if dst == nil {
 		return errors.Errorf("dst BranchInfo cannot be nil")
 	}
-	branch, rev, err := i.paginator.next(ctx, i.tx)
+	branch, rev, err := i.paginator.next(ctx, i.ext)
 	if err != nil {
 		return err
 	}
-	branchInfo, err := fetchBranchInfoByBranch(ctx, i.tx, branch)
+	branchInfo, err := fetchBranchInfoByBranch(ctx, i.ext, branch)
 	if err != nil {
 		return err
 	}
@@ -364,9 +372,9 @@ func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID, force bool) 
 }
 
 // GetDirectBranchProvenance returns the direct provenance of a branch, i.e. all branches that it directly depends on.
-func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
-	if err := tx.SelectContext(ctx, &branches, `
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
 		SELECT
 			branch.id,
 			branch.name,
@@ -389,9 +397,9 @@ func GetDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID)
 }
 
 // GetBranchProvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
-func GetBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
-	if err := tx.SelectContext(ctx, &branches, `
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
 		WITH RECURSIVE prov(from_id, to_id) AS (
 		    SELECT from_id, to_id
 		    FROM pfs.branch_provenance
@@ -422,9 +430,9 @@ func GetBranchProvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 }
 
 // GetBranchSubvenance returns the full subvenance of a branch, i.e. all branches that either directly or transitively depend on it.
-func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*pfs.Branch, error) {
+func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
-	if err := tx.SelectContext(ctx, &branches, `
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
 		WITH RECURSIVE subv(from_id, to_id) AS (
 		    SELECT from_id, to_id
 		    FROM pfs.branch_provenance
@@ -455,8 +463,8 @@ func GetBranchSubvenance(ctx context.Context, tx *pachsql.Tx, id BranchID) ([]*p
 }
 
 // CreateBranchProvenance creates a provenance relationship between two branches.
-func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to BranchID) error {
-	if _, err := tx.ExecContext(ctx, `
+func CreateDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, from, to BranchID) error {
+	if _, err := ext.ExecContext(ctx, `
 		INSERT INTO pfs.branch_provenance(from_id, to_id)	
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
@@ -466,9 +474,9 @@ func CreateDirectBranchProvenance(ctx context.Context, tx *pachsql.Tx, from, to 
 	return nil
 }
 
-func GetBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) (*pfs.Trigger, error) {
+func GetBranchTrigger(ctx context.Context, ext sqlx.ExtContext, from BranchID) (*pfs.Trigger, error) {
 	trigger := BranchTrigger{}
-	if err := tx.GetContext(ctx, &trigger, `
+	if err := sqlx.GetContext(ctx, ext, &trigger, `
 		SELECT
 			branch.name as "to_branch.name",
 			cron_spec,
@@ -527,28 +535,92 @@ func DeleteBranchTrigger(ctx context.Context, tx *pachsql.Tx, from BranchID) err
 	return nil
 }
 
-func fetchBranchInfoByBranch(ctx context.Context, tx *pachsql.Tx, branch *Branch) (*pfs.BranchInfo, error) {
+func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *Branch) (*pfs.BranchInfo, error) {
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
 	}
 	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
 	var err error
-	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, tx, branch.ID)
+	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get direct branch provenance")
 	}
-	branchInfo.Provenance, err = GetBranchProvenance(ctx, tx, branch.ID)
+	branchInfo.Provenance, err = GetBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch provenance")
 	}
-	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, tx, branch.ID)
+	branchInfo.Subvenance, err = GetBranchSubvenance(ctx, ext, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get full branch subvenance")
 	}
 	// trigger info
-	branchInfo.Trigger, err = GetBranchTrigger(ctx, tx, branch.ID)
+	branchInfo.Trigger, err = GetBranchTrigger(ctx, ext, branch.ID)
 	if err != nil {
 		return nil, errors.Wrap(err, "could not get branch trigger")
 	}
 	return branchInfo, nil
+}
+
+// Helper functions for watching branches.
+type branchUpsertHandler func(id BranchID, branchInfo *pfs.BranchInfo) error
+type branchDeleteHandler func(id BranchID) error
+
+func WatchBranchesInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, onUpsert branchUpsertHandler, onDelete branchDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-branches-in-repo-%d", repoID)), BranchesInRepoChannel(repoID))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	// Optimized query for getting branches in a repo.
+	query := getBranchBaseQuery + fmt.Sprintf("\nWHERE %s = ?\nORDER BY %s ASC", BranchColumnRepoID, BranchColumnID)
+	query = db.Rebind(query)
+	snapshot := &BranchIterator{paginator: newPageIterator[Branch](ctx, query, []any{repoID}, 0, branchesPageSize), ext: db}
+	return watchBranches(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+func watchBranches(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[BranchInfoWithID], events <-chan *postgres.Event, onUpsert branchUpsertHandler, onDelete branchDeleteHandler) error {
+	// Handle snapshot.
+	if err := stream.ForEach[BranchInfoWithID](ctx, snapshot, func(b BranchInfoWithID) error {
+		return onUpsert(b.ID, b.BranchInfo)
+	}); err != nil {
+		return err
+	}
+	// Handle events.
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return errors.New("watch branches: events channel closed")
+			}
+			if event.Err != nil {
+				return event.Err
+			}
+			id := BranchID(event.Id)
+			switch event.Type {
+			case postgres.EventDelete:
+				if err := onDelete(id); err != nil {
+					return err
+				}
+			case postgres.EventInsert, postgres.EventUpdate:
+				var branchInfo *pfs.BranchInfo
+				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+					var err error
+					branchInfo, err = GetBranchInfo(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				if err := onUpsert(id, branchInfo); err != nil {
+					return err
+				}
+			default:
+				return errors.Errorf("unknown event type: %v", event.Type)
+			}
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "watch branches")
+		}
+	}
 }

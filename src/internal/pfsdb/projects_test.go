@@ -1,12 +1,11 @@
-//go:build unit_test
-
 package pfsdb_test
 
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"testing"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"

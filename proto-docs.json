@@ -11595,6 +11595,74 @@
           ]
         },
         {
+          "name": "InspectProjectV2Request",
+          "longName": "InspectProjectV2Request",
+          "fullName": "pfs_v2.InspectProjectV2Request",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "Project",
+              "longType": "Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "InspectProjectV2Response",
+          "longName": "InspectProjectV2Response",
+          "fullName": "pfs_v2.InspectProjectV2Response",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "info",
+              "description": "",
+              "label": "",
+              "type": "ProjectInfo",
+              "longType": "ProjectInfo",
+              "fullType": "pfs_v2.ProjectInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "defaults_json",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "InspectRepoRequest",
           "longName": "InspectRepoRequest",
           "fullName": "pfs_v2.InspectRepoRequest",
@@ -13478,6 +13546,18 @@
               "responseType": "ProjectInfo",
               "responseLongType": "ProjectInfo",
               "responseFullType": "pfs_v2.ProjectInfo",
+              "responseStreaming": false
+            },
+            {
+              "name": "InspectProjectV2",
+              "description": "InspectProjectV2 returns info about and defaults for a project.",
+              "requestType": "InspectProjectV2Request",
+              "requestLongType": "InspectProjectV2Request",
+              "requestFullType": "pfs_v2.InspectProjectV2Request",
+              "requestStreaming": false,
+              "responseType": "InspectProjectV2Response",
+              "responseLongType": "InspectProjectV2Response",
+              "responseFullType": "pfs_v2.InspectProjectV2Response",
               "responseStreaming": false
             },
             {

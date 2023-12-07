@@ -1333,20 +1333,20 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				return err
 			}
 			defer c.Close()
-			pi, err := c.PfsAPIClient.InspectProject(
+			resp, err := c.PfsAPIClient.InspectProjectV2(
 				c.Ctx(),
-				&pfs.InspectProjectRequest{
+				&pfs.InspectProjectV2Request{
 					Project: &pfs.Project{Name: args[0]},
 				})
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
 			if raw {
-				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(pi))
+				return errors.EnsureStack(cmdutil.Encoder(output, os.Stdout).EncodeProto(resp.Info))
 			} else if output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
-			return pretty.PrintDetailedProjectInfo(pi)
+			return pretty.PrintDetailedInspectProjectV2Response(resp)
 		}),
 	}
 	inspectProject.Flags().AddFlagSet(outputFlags)

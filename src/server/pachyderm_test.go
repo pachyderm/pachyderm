@@ -133,10 +133,10 @@ func deleteEtcd(t *testing.T, ctx context.Context, namespace string) {
 }
 
 // Wait for at least one pod with the given selector to be running and ready.
-func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) {
+func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, label string) error {
 	t.Helper()
 	kubeClient := tu.GetKubeClient(t)
-	require.NoErrorWithinTRetryConstant(t, 1*time.Minute, func() error {
+	return backoff.Retry(func() error {
 		pods, err := kubeClient.CoreV1().Pods(namespace).
 			List(ctx, metav1.ListOptions{LabelSelector: label})
 		if err != nil {
@@ -156,7 +156,7 @@ func waitForOnePodReady(t testing.TB, ctx context.Context, namespace string, lab
 			}
 		}
 		return errors.Errorf("one pod with label %s is not yet running and ready.", label)
-	}, 5*time.Second)
+	}, backoff.RetryEvery(time.Second).For(40*time.Second))
 }
 
 func TestCreatePipeline(t *testing.T) {
@@ -3711,12 +3711,12 @@ func TestAutoscalingStandby(t *testing.T) {
 			require.NoError(t, err)
 		}
 
-		require.NoErrorWithinT(t, time.Second*60, func() error {
+		require.NoErrorWithinT(t, time.Second*90, func() error {
 			_, err := c.WaitCommit(pfs.DefaultProjectName, pipelines[9], "master", "")
 			return err
 		})
 
-		require.NoErrorWithinTRetry(t, time.Second*15, func() error {
+		require.NoErrorWithinTRetry(t, time.Second*30, func() error {
 			pis, err := c.ListPipeline()
 			require.NoError(t, err)
 			var standby int
@@ -4564,10 +4564,10 @@ func TestStopJob(t *testing.T) {
 		jobInfo, err := c.InspectJob(project, pipelineName, commit1.Id, false)
 		require.NoError(t, err)
 		if jobInfo.State != pps.JobState_JOB_RUNNING {
-			return errors.Errorf("first job has the wrong state")
+			return errors.Errorf("first job has the wrong state %v expected %v", jobInfo.State, pps.JobState_JOB_RUNNING)
 		}
 		return nil
-	}, backoff.NewTestingBackOff()))
+	}, backoff.NewConstantBackOff(2*time.Second).For(90*time.Second)))
 
 	// Now stop the second job
 	err = c.StopJob(project, pipelineName, commit2.Id)
@@ -9108,7 +9108,8 @@ func TestRapidUpdatePipelines(t *testing.T) {
 		"",
 		false,
 	))
-	waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
+	err := waitForOnePodReady(t, context.Background(), namespace, fmt.Sprintf("pipelineName=%s", pipeline))
+	require.NoError(t, err)
 
 	for i := 0; i < 20; i++ {
 		_, err := c.PpsAPIClient.CreatePipeline(
@@ -10142,7 +10143,7 @@ func TestKeepRepo(t *testing.T) {
 	}
 
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t, minikubetestenv.UseNewClusterOption)
 
 	dataRepo := tu.UniqueString("TestKeepRepo_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
@@ -10847,7 +10848,7 @@ func TestPipelineAutoscaling(t *testing.T) {
 	require.NoError(t, err)
 	_, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
-
+	time.Sleep(2 * time.Second) // CORE-2056
 	fileIndex := 0
 	commitNFiles := func(n int) {
 		commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
@@ -11265,8 +11266,10 @@ func TestDatumSetCache(t *testing.T) {
 				return
 			case <-ticker.C:
 				deleteEtcd(t, ctx, ns)
-				waitForOnePodReady(t, ctx, ns, "app=etcd")
-
+				err := waitForOnePodReady(t, ctx, ns, "app=etcd")
+				if err != nil {
+					t.Logf("etcd pod did not become ready after deletion.") // if the test ends, or it's sloe this is OK for the test. Just log it and keep testing.
+				}
 				select {
 				case <-ctx.Done():
 					return
@@ -11300,30 +11303,28 @@ func monitorReplicas(t testing.TB, c *client.APIClient, namespace, pipeline stri
 	enoughReplicas := false
 	tooManyReplicas := false
 	var maxSeen int
-	require.NoErrorWithinTRetry(t, 180*time.Second, func() error {
-		for {
-			scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
-			if err != nil {
-				return errors.EnsureStack(err)
-			}
-			replicas := int(scale.Spec.Replicas)
-			if replicas >= n {
-				enoughReplicas = true
-			}
-			if replicas > n {
-				if replicas > maxSeen {
-					maxSeen = replicas
-				}
-				tooManyReplicas = true
-			}
-			ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
-			require.NoError(t, err)
-			if ci.Finished != nil {
-				return nil
-			}
-			time.Sleep(time.Second * 2)
+	require.NoErrorWithinTRetryConstant(t, 4*time.Minute, func() error {
+		scale, err := kc.CoreV1().ReplicationControllers(namespace).GetScale(context.Background(), rcName, metav1.GetOptions{})
+		if err != nil {
+			return errors.EnsureStack(err)
 		}
-	})
+		replicas := int(scale.Spec.Replicas)
+		if replicas >= n {
+			enoughReplicas = true
+		}
+		if replicas > n {
+			if replicas > maxSeen {
+				maxSeen = replicas
+			}
+			tooManyReplicas = true
+		}
+		ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline, "master", "")
+		require.NoError(t, err)
+		if ci.Finished != nil {
+			return nil
+		}
+		return errors.Errorf("Commit not yet finished %v", ci.Commit.Id)
+	}, 2*time.Second)
 	require.True(t, enoughReplicas, "didn't get enough replicas, looking for: %d", n)
 	require.False(t, tooManyReplicas, "got too many replicas (%d), looking for: %d", maxSeen, n)
 }

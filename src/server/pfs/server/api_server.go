@@ -10,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -460,6 +461,26 @@ func (a *apiServer) CreateProject(ctx context.Context, request *pfs.CreateProjec
 // InspectProject implements the protobuf pfs.InspectProject RPC
 func (a *apiServer) InspectProject(ctx context.Context, request *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error) {
 	return a.driver.inspectProject(ctx, request.Project)
+}
+
+// InspectProjectV2 implements the protobuf pfs.InspectProjectV2 RPC
+func (a *apiServer) InspectProjectV2(ctx context.Context, request *pfs.InspectProjectV2Request) (*pfs.InspectProjectV2Response, error) {
+	info, err := a.driver.inspectProject(ctx, request.Project)
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not inspect project %q", request.Project.String())
+	}
+	ppsServer := a.driver.env.GetPPSServer()
+	if ppsServer == nil {
+		return nil, errors.New("no PPS client set")
+	}
+	resp, err := ppsServer.GetProjectDefaults(ctx, &pps.GetProjectDefaultsRequest{Project: request.GetProject()})
+	if err != nil {
+		return nil, errors.Wrapf(err, "could not get project defaults for %q", request.Project.String())
+	}
+	return &pfs.InspectProjectV2Response{
+		Info:         info,
+		DefaultsJson: resp.GetProjectDefaultsJson(),
+	}, nil
 }
 
 // ListProject implements the protobuf pfs.ListProject RPC

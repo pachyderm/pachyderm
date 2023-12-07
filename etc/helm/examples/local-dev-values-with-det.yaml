@@ -82,6 +82,8 @@ determined:
   useNodePortForDB: false
   detVersion: 0.26.2
   masterPort: 8282
+  masterCpuRequest: 250m
+  masterMemRequest: 256M
   oidc:
     enabled: true 
     idpRecipientUrl: http://localhost:8282
