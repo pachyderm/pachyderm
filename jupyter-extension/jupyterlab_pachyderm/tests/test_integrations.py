@@ -11,7 +11,7 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PACH_CONFIG
+from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -22,7 +22,6 @@ ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
-PFS_MOUNT_DIR = "/pfs"
 
 
 @pytest.fixture()
