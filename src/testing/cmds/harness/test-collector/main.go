@@ -98,7 +98,7 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMEMLIMIT=16GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	cmd.Env = append(cmd.Env, "GOMEMLIMIT=6GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
 	err = cmd.Start()
 	if err != nil {
 		return nil, errors.EnsureStack(err)

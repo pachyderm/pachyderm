@@ -83,7 +83,7 @@ jobs:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv -procs=8
+          command: GOMAXPROCS=2 GOMEMLIMIT=2GiB go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv -procs=8
           background: true
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
@@ -220,7 +220,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
+          command: GOMAXPROCS=2 GOMEMLIMIT=2GiB go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
