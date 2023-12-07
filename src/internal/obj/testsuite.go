@@ -9,7 +9,6 @@ import (
 	"path"
 	"testing"
 
-	"gocloud.dev/blob"
 	"gocloud.dev/gcerrors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -118,14 +117,14 @@ func TestInterruption(t *testing.T, client Client) {
 // TestStorage is a defensive method for checking to make sure that storage is
 // properly configured.
 // todo(fahad): consider using a kv.Store here for this instead (since we turn both a client and a bucket into a kv.Store).
-func TestStorage(ctx context.Context, bucket *blob.Bucket, objClient Client) error {
+func TestStorage(ctx context.Context, bucket *Bucket, objClient Client) error {
 	if bucket != nil {
 		return testStorageWithBucket(ctx, bucket)
 	}
 	return testStorageWithObjClient(ctx, objClient)
 }
 
-func testStorageWithBucket(ctx context.Context, bucket *blob.Bucket) (retErr error) {
+func testStorageWithBucket(ctx context.Context, bucket *Bucket) (retErr error) {
 	testObj := "test/" + uuid.NewWithoutDashes()
 	data := []byte("test")
 	if err := func() (retErr error) {
