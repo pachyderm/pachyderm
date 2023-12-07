@@ -324,6 +324,8 @@
     - [InspectCommitSetRequest](#pfs_v2-InspectCommitSetRequest)
     - [InspectFileRequest](#pfs_v2-InspectFileRequest)
     - [InspectProjectRequest](#pfs_v2-InspectProjectRequest)
+    - [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request)
+    - [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response)
     - [InspectRepoRequest](#pfs_v2-InspectRepoRequest)
     - [ListBranchRequest](#pfs_v2-ListBranchRequest)
     - [ListCommitRequest](#pfs_v2-ListCommitRequest)
@@ -5221,6 +5223,37 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-InspectProjectV2Request"></a>
+
+### InspectProjectV2Request
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-InspectProjectV2Response"></a>
+
+### InspectProjectV2Response
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| info | [ProjectInfo](#pfs_v2-ProjectInfo) |  |  |
+| defaults_json | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-InspectRepoRequest"></a>
 
 ### InspectRepoRequest
@@ -5830,6 +5863,7 @@ These are the different places where a commit may be originated from
 | Egress | [EgressRequest](#pfs_v2-EgressRequest) | [EgressResponse](#pfs_v2-EgressResponse) | Egress writes data from a commit to an external system |
 | CreateProject | [CreateProjectRequest](#pfs_v2-CreateProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | Project API CreateProject creates a new project. |
 | InspectProject | [InspectProjectRequest](#pfs_v2-InspectProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) | InspectProject returns info about a project. |
+| InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
 

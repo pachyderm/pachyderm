@@ -206,35 +206,45 @@ func GetOIDCTokenForTrustedApp(t testing.TB, testClient *client.APIClient, unitT
 			"audience:server:client_id:pachyderm",
 		},
 	}
+	var token *oauth2.Token
+	require.NoErrorWithinTRetry(t, time.Minute*5, func() error {
+		// Hit the dex login page for the test client with a fixed nonce
+		resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// Hit the dex login page for the test client with a fixed nonce
-	resp, err := c.Get(oauthConfig.AuthCodeURL("state"))
-	require.NoError(t, err)
+		// Dex login redirects to the provider page, which will generate it's own state
+		resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// Dex login redirects to the provider page, which will generate it's own state
-	resp, err = c.Get(RewriteRedirect(t, resp, DexHost(testClient)))
-	require.NoError(t, err)
+		// Because we've only configured username/password login, there's a redirect
+		// to the login page. The params have the session state. POST our hard-coded
+		// credentials to the login page.
+		vals := make(url.Values)
+		vals.Add("login", "admin")
+		vals.Add("password", "password")
 
-	// Because we've only configured username/password login, there's a redirect
-	// to the login page. The params have the session state. POST our hard-coded
-	// credentials to the login page.
-	vals := make(url.Values)
-	vals.Add("login", "admin")
-	vals.Add("password", "password")
+		resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
+		if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
+			return errors.Errorf("login status code got %v want %v", got, want)
+		}
 
-	resp, err = c.PostForm(RewriteRedirect(t, resp, DexHost(testClient)), vals)
-	require.NoError(t, err)
-	if got, want := resp.StatusCode, http.StatusSeeOther; got != want {
-		require.Equal(t, want, got, "login status code")
-	}
+		// The username/password flow used to redirect to the /approval endpoint, but now it goes
+		// right to our redirect.
+		codeURL, err := url.Parse(resp.Header.Get("Location"))
+		if err != nil {
+			return errors.EnsureStack(err)
+		}
 
-	// The username/password flow used to redirect to the /approval endpoint, but now it goes
-	// right to our redirect.
-	codeURL, err := url.Parse(resp.Header.Get("Location"))
-	require.NoError(t, err)
-
-	token, err := oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
-	require.NoError(t, err)
+		token, err = oauthConfig.Exchange(context.Background(), codeURL.Query().Get("code"))
+		return errors.EnsureStack(err)
+	}, "OIDC token exchange for trusted app")
 
 	return token.Extra("id_token").(string)
 }

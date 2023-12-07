@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package cmds
 
 import (
@@ -622,4 +620,30 @@ func TestDeleteProject(t *testing.T) {
 		"repo", tu.UniqueString("repo"),
 		"pipeline", tu.UniqueString("pipeline"),
 	).Run())
+}
+
+func TestInspectProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
+	c := env.PachClient
+	p, err := tu.NewPachctl(ctx, c, fmt.Sprintf("%s/test-pach-config-%s.json", t.TempDir(), t.Name()))
+	require.NoError(t, err, "NewPachctl must succeed")
+
+	output, err := p.RunCommand(ctx, "pachctl inspect project default")
+	require.NoError(t, err, "pachctl inspect project default must succeed:\n%s", output)
+	require.True(t, strings.Contains(output, `Defaults: {}`), "pachctl inspect project must include defaults")
+
+	output, err = p.RunCommand(ctx, `echo '{"createPipelineRequest": {"datumTries": 14}}' | pachctl update defaults --project default`)
+	require.NoError(t, err, "pachctl update project defaults  must succeed:\n", output)
+
+	output, err = p.RunCommand(ctx, `pachctl inspect defaults --project default`)
+	require.NoError(t, err, "pachctl inspect defaults must succeed:\n", output)
+
+	output, err = p.RunCommand(ctx, "pachctl inspect project default")
+	require.NoError(t, err, "pachctl inspect project default must succeed")
+	require.True(t, strings.Contains(output, `Defaults: {"createPipelineRequest":{"datumTries":14}}`), "pachctl inspect project must include correct defaults; got %q", output)
 }

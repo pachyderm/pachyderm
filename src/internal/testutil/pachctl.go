@@ -199,7 +199,8 @@ func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, da
 // RunCommand runs command in sh (rather than bash), returning the combined
 // stdout & stderr.
 func (p Pachctl) RunCommand(ctx context.Context, command string) (string, error) {
-	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", fmt.Sprintf(`PACH_CONFIG="%s" %s`, shellescape.Quote(p.configPath), command))
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	cmd.Env = append(os.Environ(), fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
 	b, err := cmd.CombinedOutput()
 	return string(b), err
 }

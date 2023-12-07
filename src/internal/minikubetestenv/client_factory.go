@@ -7,15 +7,12 @@ import (
 	"crypto/x509"
 	"flag"
 	"fmt"
-	"reflect"
-	"strconv"
-	"strings"
 	"sync"
 	"testing"
-
-	"golang.org/x/sync/semaphore"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -27,12 +24,13 @@ const (
 )
 
 var (
-	clusterFactory      *ClusterFactory
-	setup               sync.Once
-	poolSize            *int  = flag.Int("clusters.pool", 3, "maximum size of managed pachyderm clusters")
-	useLeftoverClusters *bool = flag.Bool("clusters.reuse", false, "reuse leftover pachyderm clusters if available")
-	cleanupDataAfter    *bool = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
-	forceLocal          *bool = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
+	clusterFactory = &ClusterFactory{
+		managedClusters: map[string]*managedCluster{},
+	}
+	poolSize            = flag.Int("clusters.pool", 9, "maximum size of managed pachyderm clusters")
+	useLeftoverClusters = flag.Bool("clusters.reuse", true, "reuse leftover pachyderm clusters if available")
+	cleanupDataAfter    = flag.Bool("clusters.data.cleanup", false, "cleanup the data following each test")
+	forceLocal          = flag.Bool("clusters.local", false, "use whatever is in your pachyderm context as the target")
 )
 
 type acquireSettings struct {
@@ -41,6 +39,7 @@ type acquireSettings struct {
 	EnterpriseMember bool
 	CertPool         *x509.CertPool
 	ValueOverrides   map[string]string
+	UseNewCluster    bool
 }
 
 type Option func(*acquireSettings)
@@ -68,6 +67,9 @@ func WithValueOverrides(v map[string]string) Option {
 var EnterpriseMemberOption Option = func(as *acquireSettings) {
 	as.EnterpriseMember = true
 }
+var UseNewClusterOption Option = func(as *acquireSettings) {
+	as.UseNewCluster = true
+}
 
 type managedCluster struct {
 	client   *client.APIClient
@@ -76,10 +78,8 @@ type managedCluster struct {
 
 type ClusterFactory struct {
 	// ever growing registry of managed clusters. Removing registries would break the current PortOffset logic
-	managedClusters   map[string]*managedCluster
-	availableClusters map[string]struct{}
-	mu                sync.Mutex         // guards modifications to the ClusterFactory maps
-	sem               semaphore.Weighted // enforces max concurrency
+	managedClusters map[string]*managedCluster
+	mu              sync.Mutex // guards modifications to the ClusterFactory maps
 }
 
 func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
@@ -88,17 +88,10 @@ func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 	cf.managedClusters[assigned] = mc
 }
 
-func clusterIdx(t testing.TB, name string) int {
-	s := strings.Split(name, "-")
-	r, err := strconv.Atoi(s[len(s)-1])
-	require.NoError(t, err)
-	return r
-}
-
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
-		PortOffset:         uint16(clusterIdx * 10),
-		UseLeftoverCluster: *useLeftoverClusters,
+		PortOffset:         uint16(clusterIdx * 150),
+		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
 		DisableLoki:        as.SkipLoki,
 		TLS:                as.TLS,
 		CertPool:           as.CertPool,
@@ -116,34 +109,32 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 	c.SetAuthToken(tok)
 }
 
-func (cf *ClusterFactory) acquireFreeCluster() (string, *managedCluster) {
-	cf.mu.Lock()
-	defer cf.mu.Unlock()
-	if len(cf.availableClusters) > 0 {
-		var assigned string
-		for ns := range cf.availableClusters {
-			assigned = ns
-			delete(cf.availableClusters, ns)
-			break
+func (cf *ClusterFactory) assignCluster(t testing.TB) (string, int) {
+	var idx int
+	var ns string
+	// if we exhausted allowed namespaces, wait and then try again to see if one is available
+	require.NoErrorWithinTRetryConstant(t, time.Second*300, func() error {
+		var ok bool
+		for idx = 1; idx <= *poolSize; idx++ {
+			ns = fmt.Sprintf("%s%v", namespacePrefix, idx)
+			if ok = LeaseNamespace(t, ns); ok {
+				break
+			}
 		}
-		return assigned, cf.managedClusters[assigned]
-	}
-	return "", nil
+		if !ok {
+			return errors.Errorf("No namespaces available to provision, waiting to try again.")
+		}
+		return nil
+	}, time.Second*5, "Could not assign a test namespace within timeout")
+	// Take a slot in managedClusters where we will cache the pachclient if available.
+	// Useful for getting code coverage from the cluster at the end of the test
+	cf.managedClusters[ns] = nil
+	return ns, idx
 }
 
-func (cf *ClusterFactory) assignCluster() (string, int) {
-	cf.mu.Lock()
-	defer cf.mu.Unlock()
-	idx := len(cf.managedClusters) + 1
-	v := fmt.Sprintf("%s%v", namespacePrefix, idx)
-	cf.managedClusters[v] = nil // hold my place in line
-	return v, idx
-}
-
-func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
-	assigned, clusterIdx := cf.assignCluster()
+func (cf *ClusterFactory) acquireInstalledCluster(t testing.TB, as *acquireSettings) (string, *managedCluster) {
+	assigned, clusterIdx := cf.assignCluster(t)
 	kube := testutil.GetKubeClient(t)
-	PutNamespace(t, assigned)
 	c := InstallRelease(t,
 		context.Background(),
 		assigned,
@@ -159,24 +150,11 @@ func (cf *ClusterFactory) acquireNewCluster(t testing.TB, as *acquireSettings) (
 }
 
 // ClaimCluster returns an unused kubernetes namespace name that can be deployed. It is only responsible for
-// assigning clusters to test clients. Unlike AcquireCluster, ClaimCluster doesn't deploy the cluster.
+// assigning clusters to test clients, creating the namespace, and reserving the lease on that namespace.
+// Unlike AcquireCluster, ClaimCluster doesn't do helm install on the cluster.
 func ClaimCluster(t testing.TB) (string, uint16) {
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
-	assigned, clusterIdx := clusterFactory.assignCluster()
-	t.Cleanup(func() {
-		clusterFactory.mu.Lock()
-		clusterFactory.availableClusters[assigned] = struct{}{}
-		clusterFactory.mu.Unlock()
-		clusterFactory.sem.Release(1)
-	})
-	portOffset := uint16(clusterIdx * 10)
+	assigned, clusterIdx := clusterFactory.assignCluster(t)
+	portOffset := uint16(clusterIdx * 150)
 	return assigned, portOffset
 }
 
@@ -197,17 +175,13 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 		t.Cleanup(localLock.Unlock)
 		return c, ""
 	}
-	setup.Do(func() {
-		clusterFactory = &ClusterFactory{
-			managedClusters:   map[string]*managedCluster{},
-			availableClusters: map[string]struct{}{},
-			sem:               *semaphore.NewWeighted(int64(*poolSize)),
-		}
-	})
 
-	require.NoError(t, clusterFactory.sem.Acquire(context.Background(), 1))
-	var assigned string
-	t.Cleanup(func() {
+	as := &acquireSettings{}
+	for _, o := range opts {
+		o(as)
+	}
+	assigned, mc := clusterFactory.acquireInstalledCluster(t, as)
+	t.Cleanup(func() { // must come after assignment to run cleanmup with code coverage before the lease is removed.
 		clusterFactory.mu.Lock()
 		if mc := clusterFactory.managedClusters[assigned]; mc != nil {
 			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides)
@@ -215,30 +189,8 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 				deleteAll(t, mc.client)
 			}
 		}
-		clusterFactory.availableClusters[assigned] = struct{}{}
 		clusterFactory.mu.Unlock()
-		clusterFactory.sem.Release(1)
 	})
-	as := &acquireSettings{}
-	for _, o := range opts {
-		o(as)
-	}
-	assigned, mc := clusterFactory.acquireFreeCluster()
-	if assigned == "" {
-		assigned, mc = clusterFactory.acquireNewCluster(t, as)
-	}
-
-	// If the cluster settings have changed, upgrade the cluster to make them take effect.
-	if !reflect.DeepEqual(mc.settings, as) {
-		t.Logf("%v: cluster settings have changed; upgrading cluster", assigned)
-		mc.client = UpgradeRelease(t,
-			context.Background(),
-			assigned,
-			testutil.GetKubeClient(t),
-			deployOpts(clusterIdx(t, assigned), as),
-		)
-		mc.settings = as
-	}
 	deleteAll(t, mc.client)
 	return mc.client, assigned
 }

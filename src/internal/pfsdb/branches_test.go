@@ -91,7 +91,7 @@ func createRepoInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, rep
 	return &pfsdb.RepoInfoWithID{ID: id, RepoInfo: repoInfo}
 }
 
-func createCreateInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
+func createCommitInfoWithID(t *testing.T, ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo) *pfsdb.CommitWithID {
 	t.Helper()
 	createRepoInfoWithID(t, ctx, tx, newRepoInfo(commitInfo.Commit.Repo.Project, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type))
 	commitID, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
@@ -122,7 +122,7 @@ func TestBranchUpsert(t *testing.T) {
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commitInfoWithID1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+			commitInfoWithID1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
 			branchInfo := &pfs.BranchInfo{
 				Branch: &pfs.Branch{
 					Repo: repoInfo.Repo,
@@ -140,7 +140,7 @@ func TestBranchUpsert(t *testing.T) {
 			require.True(t, cmp.Equal(branchInfo, gotBranchByName.BranchInfo, compareBranchOpts()...))
 
 			// Update branch to point to second commit
-			commitInfoWithID2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
+			commitInfoWithID2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
 			branchInfo.Head = commitInfoWithID2.CommitInfo.Commit
 			id2, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 			require.NoError(t, err)
@@ -164,7 +164,7 @@ func TestBranchProvenance(t *testing.T) {
 			commitBInfo := newCommitInfo(repoBInfo.Repo, random.String(32), nil)
 			commitCInfo := newCommitInfo(repoCInfo.Repo, random.String(32), nil)
 			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
-				createCreateInfoWithID(t, ctx, tx, commitInfo)
+				createCommitInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
 			branchAInfo := &pfs.BranchInfo{
@@ -274,7 +274,7 @@ func TestBranchIterator(t *testing.T) {
 				var newLevel []*pfs.BranchInfo
 				for _, parent := range currentLevel {
 					// create a commits and branches
-					createCreateInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
+					createCommitInfoWithID(t, ctx, tx, newCommitInfo(parent.Head.Repo, parent.Head.Id, nil))
 					id, err := pfsdb.UpsertBranch(ctx, tx, parent)
 					require.NoError(t, err)
 					allBranches[id] = parent
@@ -320,6 +320,57 @@ func TestBranchIterator(t *testing.T) {
 	})
 }
 
+func TestBranchIteratorOrderBy(t *testing.T) {
+	t.Parallel()
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		var branches []*pfs.BranchInfo
+
+		// Create two branches
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, "repo1", pfs.UserRepoType)
+			commitInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
+			createCommitInfoWithID(t, ctx, tx, commitInfo)
+			// create first branch
+			branchInfo := &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "master",
+				},
+				Head: commitInfo.Commit,
+			}
+			branches = append(branches, branchInfo)
+			_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			// create second branch
+			branchInfo = &pfs.BranchInfo{
+				Branch: &pfs.Branch{
+					Repo: repoInfo.Repo,
+					Name: "staging",
+				},
+				Head: commitInfo.Commit,
+			}
+			branches = append(branches, branchInfo)
+			_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+		})
+
+		// List all branches in reverse order
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			branchIterator, err := pfsdb.NewBranchIterator(ctx, tx, 0 /* startPage */, 10 /* pageSize */, nil /* filter */, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderDesc})
+			require.NoError(t, err)
+			var gotBranches []*pfs.BranchInfo
+			require.NoError(t, stream.ForEach[pfsdb.BranchInfoWithID](ctx, branchIterator, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
+				gotBranches = append(gotBranches, branchInfoWithID.BranchInfo)
+				return nil
+			}))
+			require.Equal(t, len(branches), len(gotBranches))
+			for i := range branches {
+				require.Equal(t, branches[i].Branch.Name, gotBranches[len(gotBranches)-1-i].Branch.Name)
+			}
+		})
+	})
+}
+
 func TestBranchDelete(t *testing.T) {
 	t.Parallel()
 	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
@@ -331,7 +382,7 @@ func TestBranchDelete(t *testing.T) {
 			commitBInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
 			commitCInfo := newCommitInfo(repoInfo.Repo, random.String(32), nil)
 			for _, commitInfo := range []*pfs.CommitInfo{commitAInfo, commitBInfo, commitCInfo} {
-				createCreateInfoWithID(t, ctx, tx, commitInfo)
+				createCommitInfoWithID(t, ctx, tx, commitInfo)
 			}
 			// Create 3 branches, one for each repo, pointing to the corresponding commit
 			branchAInfo = &pfs.BranchInfo{
@@ -411,11 +462,11 @@ func TestBranchTrigger(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			var err error
 			repoInfo := newRepoInfo(&pfs.Project{Name: "project1"}, "repo1", pfs.UserRepoType)
-			commit1 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
 			masterBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Head: commit1}
 			masterBranchID, err = pfsdb.UpsertBranch(ctx, tx, masterBranchInfo)
 			require.NoError(t, err)
-			commit2 := createCreateInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
+			commit2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil)).CommitInfo.Commit
 			stagingBranchInfo := &pfs.BranchInfo{Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "staging"}, Head: commit2}
 			stagingBranchID, err = pfsdb.UpsertBranch(ctx, tx, stagingBranchInfo)
 			require.NoError(t, err)

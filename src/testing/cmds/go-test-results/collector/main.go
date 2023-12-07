@@ -20,7 +20,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	gotestresults "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -72,44 +71,41 @@ func run(ctx context.Context) error {
 	}
 	resultsFolder := os.Getenv("TEST_RESULTS")
 	if len(resultsFolder) == 0 {
-		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder."))
+		return errors.WithStack(fmt.Errorf("TEST_RESULTS needs to be populated to find the test results folder"))
 	}
 	if _, err := os.Stat(resultsFolder); os.IsNotExist(err) {
-		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early.", resultsFolder))
+		return errors.WithStack(fmt.Errorf("The test result folder at %v does not exist. Exiting early", resultsFolder))
 	}
 	// connect and authenticate to pachyderm
 	pachClient, err := client.NewFromURIContext(context.Background(), pachdAddress)
 	if err != nil {
-		return errors.Wrapf(err, "Problem provisioning pach client")
+		return errors.Wrapf(err, "provisioning pach client")
 	}
 	pachClient.SetAuthToken(robotToken)
 
 	// upload general job information
 	jobInfo, err := findJobInfoFromCI()
 	if err != nil {
-		return errors.Wrapf(err, "Problem collecting job info")
+		return errors.Wrapf(err, "collecting job info")
 	}
 	basePath := findBasePath(jobInfo)
 	// upload individual test  results
-	eg, _ := errgroup.WithContext(ctx)
-
+	paths := []string{}
 	err = filepath.WalkDir(resultsFolder, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if !d.IsDir() && strings.HasSuffix(d.Name(), fileSuffix) {
-			eg.Go(func() error {
-				return uploadTestResult(path, d, basePath, resultsFolder, jobInfo, pachClient, commit)
-			})
+			paths = append(paths, path)
 		}
 		return nil
 	})
-
 	if err != nil {
-		return errors.Wrapf(err, "Problem walking file paths")
+		return errors.Wrapf(err, "walking file paths")
 	}
-	if goRoutineErrs := eg.Wait(); goRoutineErrs != nil {
-		return errors.Wrapf(goRoutineErrs, "Problem putting files to pachyderm")
+	err = uploadTestResult(paths, basePath, resultsFolder, jobInfo, pachClient, commit)
+	if err != nil {
+		return errors.Wrapf(err, "uploading results to pachops")
 	}
 	log.Info(ctx, "Successfully uploaded files.")
 	return nil
@@ -149,7 +145,7 @@ func findJobInfoFromCI() (gotestresults.JobInfo, error) {
 	for envVar, statsField := range mapping {
 		*statsField = os.Getenv(envVar)
 		if *statsField == "" && !allowEmpty[envVar] {
-			return jobInfo, errors.EnsureStack(fmt.Errorf("%s needs to be populated to upload test results.", envVar))
+			return jobInfo, errors.EnsureStack(fmt.Errorf("%s needs to be populated to upload test results", envVar))
 		}
 	}
 	// non-string fields
@@ -174,8 +170,7 @@ func findBasePath(jobInfo gotestresults.JobInfo) string {
 	return basePath
 }
 
-func uploadTestResult(path string,
-	d fs.DirEntry,
+func uploadTestResult(paths []string,
 	basePath string,
 	resultsFolder string,
 	jobInfo gotestresults.JobInfo,
@@ -186,17 +181,27 @@ func uploadTestResult(path string,
 	if err != nil {
 		return errors.Wrapf(err, "Could not marshal CI job stats to json: %v ", jobInfo)
 	}
+	// upload files together to avoid no-op datums
+	return pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
+		for _, path := range paths {
+			err = uploadResultsFile(path, basePath, resultsFolder, mf)
+			if err != nil {
+				return err
+			}
+		}
+		return mf.PutFile(filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson)) // upload after since this sgnals the egress to dump to sql
+	})
+}
+
+func uploadResultsFile(path string, basePath string, resultsFolder string, mf client.ModifyFile) error {
 	resultsFile, err := os.Open(path)
 	if err != nil {
-		return errors.Wrapf(err, "opening file %v", d.Name())
+		return errors.Wrapf(err, "opening file %v", path)
 	}
 	defer resultsFile.Close()
 	resultsPath := findDestinationPath(path, basePath, resultsFolder)
-	// upload files together to avoid no-op datums
-	return pachClient.WithModifyFileClient(commit, func(mf client.ModifyFile) error {
-		if err = mf.PutFile(resultsPath, resultsFile); err != nil {
-			return err
-		}
-		return mf.PutFile(filepath.Join(basePath, "JobInfo.json"), bytes.NewReader(jobInfoJson))
-	})
+	if err = mf.PutFile(resultsPath, resultsFile); err != nil {
+		return err
+	}
+	return nil
 }

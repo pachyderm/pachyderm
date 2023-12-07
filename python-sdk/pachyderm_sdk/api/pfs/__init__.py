@@ -521,6 +521,17 @@ class InspectProjectRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class InspectProjectV2Request(betterproto.Message):
+    project: "Project" = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class InspectProjectV2Response(betterproto.Message):
+    info: "ProjectInfo" = betterproto.message_field(1)
+    defaults_json: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class ListProjectRequest(betterproto.Message):
     pass
 
@@ -1042,6 +1053,11 @@ class ApiStub:
             "/pfs_v2.API/InspectProject",
             request_serializer=InspectProjectRequest.SerializeToString,
             response_deserializer=ProjectInfo.FromString,
+        )
+        self.__rpc_inspect_project_v2 = channel.unary_unary(
+            "/pfs_v2.API/InspectProjectV2",
+            request_serializer=InspectProjectV2Request.SerializeToString,
+            response_deserializer=InspectProjectV2Response.FromString,
         )
         self.__rpc_list_project = channel.unary_stream(
             "/pfs_v2.API/ListProject",
@@ -1628,6 +1644,15 @@ class ApiStub:
 
         return self.__rpc_inspect_project(request)
 
+    def inspect_project_v2(
+        self, *, project: "Project" = None
+    ) -> "InspectProjectV2Response":
+        request = InspectProjectV2Request()
+        if project is not None:
+            request.project = project
+
+        return self.__rpc_inspect_project_v2(request)
+
     def list_project(self) -> Iterator["ProjectInfo"]:
         request = ListProjectRequest()
 
@@ -2072,6 +2097,13 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def inspect_project_v2(
+        self, project: "Project", context: "grpc.ServicerContext"
+    ) -> "InspectProjectV2Response":
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def list_project(self, context: "grpc.ServicerContext") -> Iterator["ProjectInfo"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2323,6 +2355,11 @@ class ApiBase:
                 self.inspect_project,
                 request_deserializer=InspectProjectRequest.FromString,
                 response_serializer=InspectProjectRequest.SerializeToString,
+            ),
+            "InspectProjectV2": grpc.unary_unary_rpc_method_handler(
+                self.inspect_project_v2,
+                request_deserializer=InspectProjectV2Request.FromString,
+                response_serializer=InspectProjectV2Request.SerializeToString,
             ),
             "ListProject": grpc.unary_stream_rpc_method_handler(
                 self.list_project,

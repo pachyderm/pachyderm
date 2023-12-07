@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package testing
 
 import (
@@ -55,6 +53,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 )
@@ -6961,11 +6960,11 @@ func TestTrigger(t *testing.T) {
 		require.NoError(t, c.CreateBranchTrigger(pfs.DefaultProjectName, repo, "master", "", "", &pfs.Trigger{
 			Branch:        "staging",
 			All:           true,
-			RateLimitSpec: "@every 3s",
+			RateLimitSpec: "@every 10s",
 			Size:          "100",
 			Commits:       3,
 		}))
-		sleepDur := 3 * time.Second
+		sleepDur := 10 * time.Second
 		stagingHead := client.NewCommit(pfs.DefaultProjectName, repo, "staging", "")
 		// Doesn't trigger because all 3 conditions must be met
 		require.NoError(t, c.PutFile(stagingHead, "file1", strings.NewReader(strings.Repeat("a", 100))))
@@ -7755,4 +7754,24 @@ func TestDeleteRepo(t *testing.T) {
 		})
 	require.NoError(t, err, "repo should be deleted")
 	require.Equal(t, true, res.Deleted)
+}
+
+func TestInspectProjectV2(t *testing.T) {
+	ctx := pctx.TestContext(t)
+
+	env := realenv.NewRealEnv(context.Background(), t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+	resp, err := c.PfsAPIClient.InspectProjectV2(ctx, &pfs.InspectProjectV2Request{Project: &pfs.Project{Name: "default"}})
+	require.NoError(t, err, "InspectProjectV2 must succeed with a real project")
+	require.Equal(t, "{}", resp.DefaultsJson)
+
+	// change project defaults; the changed defaults should be then be reflected
+	_, err = c.PpsAPIClient.SetProjectDefaults(ctx, &pps.SetProjectDefaultsRequest{
+		Project:             &pfs.Project{Name: "default"},
+		ProjectDefaultsJson: `{"createPipelineRequest": {"datumTries": 2}}`,
+	})
+	require.NoError(t, err, "SetProjectDefaults must succeed")
+	resp, err = c.PfsAPIClient.InspectProjectV2(ctx, &pfs.InspectProjectV2Request{Project: &pfs.Project{Name: "default"}})
+	require.NoError(t, err, "InspectProjectV2 must succeed with a real project")
+	require.Equal(t, `{"createPipelineRequest": {"datumTries": 2}}`, resp.DefaultsJson)
 }

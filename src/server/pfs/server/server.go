@@ -3,7 +3,15 @@ package server
 import (
 	"context"
 
+	etcd "go.etcd.io/etcd/client/v3"
+
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
+	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
+	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps"
+
 	col "github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -11,10 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
-	etcd "go.etcd.io/etcd/client/v3"
 )
 
 type APIServer = *validatedAPIServer
@@ -51,6 +55,7 @@ type Env struct {
 	GetPipelineInspector func() PipelineInspector
 
 	StorageConfig pachconfig.StorageConfiguration
+	GetPPSServer  func() pps_server.APIServer
 }
 
 // NewAPIServer creates an APIServer.

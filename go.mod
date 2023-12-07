@@ -2,7 +2,7 @@ module github.com/pachyderm/pachyderm/v2
 
 go 1.21
 
-toolchain go1.21.4
+toolchain go1.21.5
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -191,6 +191,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/felixge/httpsnoop v1.0.3
+	github.com/fsnotify/fsnotify v1.7.0
 	github.com/go-asn1-ber/asn1-ber v1.5.4 // indirect
 	github.com/go-errors/errors v1.1.1 // indirect
 	github.com/go-git/gcfg v1.5.0 // indirect
