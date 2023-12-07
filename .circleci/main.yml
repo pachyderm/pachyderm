@@ -220,7 +220,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=4 GOMEMLIMIT=6GiB PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=8
+          command: GOMAXPROCS=4 GOMEMLIMIT=8GiB PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=12
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
