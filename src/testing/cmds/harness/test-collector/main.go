@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"go.uber.org/zap"
 	"k8s.io/kubectl/pkg/util/slice"
 )
@@ -37,6 +38,7 @@ func main() {
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
 	threadPool := flag.Int("procs", 2, "GOMAXPROCS value for the go test -list sbcommand.")
 	flag.Parse()
+	proc.MonitorSelf(ctx)
 	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
 	if err != nil {
 		log.Exit(ctx, "Error during tests splitting", zap.Error(err))
@@ -103,6 +105,7 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	proc.MonitorProcessGroup(ctx, cmd.Process.Pid)
 	testNames, err := readTests(stdout)
 	if err != nil {
 		return nil, err
