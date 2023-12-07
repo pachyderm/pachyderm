@@ -29,11 +29,8 @@ type testOutput struct {
 	Output  string
 }
 
-func init() {
-	log.InitPachctlLogger()
-}
-
 func main() {
+	log.InitPachctlLogger()
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	exclusiveTags := flag.Bool("exclusiveTags", true, "If true, ONLY tests with the specified tags will run. If false, "+
@@ -118,7 +115,11 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	if err != nil {
 		return nil, err
 	}
-	err = cmd.Wait()
+	err = stdout.Close()
+	if err != nil {
+		return nil, errors.EnsureStack(err)
+	}
+	cmd.Wait()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
