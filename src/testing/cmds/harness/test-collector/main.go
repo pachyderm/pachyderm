@@ -100,7 +100,7 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMEMLIMIT=16GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	cmd.Env = append(cmd.Env, "CGO_ENABLED=0", "GOMEMLIMIT=16GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
 	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
 	defer monitorCancel()
 	go proc.MonitorProcessGroup(monitorCtx, -os.Getpid())
