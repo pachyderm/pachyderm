@@ -220,7 +220,7 @@ jobs:
           version: << pipeline.parameters.go-version >>
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=14
+          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=12
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
