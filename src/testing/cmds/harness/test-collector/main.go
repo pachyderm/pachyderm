@@ -38,9 +38,7 @@ func main() {
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
 	threadPool := flag.Int("procs", 2, "GOMAXPROCS value for the go test -list sbcommand.")
 	flag.Parse()
-	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
-	defer monitorCancel()
-	go proc.MonitorSelf(monitorCtx)
+
 	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
 	if err != nil {
 		log.Exit(ctx, "Error during tests splitting", zap.Error(err))
@@ -102,7 +100,10 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMEMLIMIT=6GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	cmd.Env = append(cmd.Env, "GOMEMLIMIT=16GiB", fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
+	defer monitorCancel()
+	go proc.MonitorProcessGroup(monitorCtx, -os.Getpid())
 	err = cmd.Start()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
