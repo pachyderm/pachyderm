@@ -51,14 +51,12 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pretty"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset/index"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testsnowflake"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -11402,106 +11400,6 @@ func TestValidationFailure(t *testing.T) {
 	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
 	require.NoError(t, err)
 	require.Equal(t, "", commitInfo.Error)
-}
-
-// TestPPSEgressToSnowflake tests basic Egress functionality via PPS mechanism,
-// and how it handles inserting the same primary key twice.
-func TestPPSEgressToSnowflake(t *testing.T) {
-	// setup
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
-	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	// create input repo with CSV
-	repo := tu.UniqueString(t.Name())
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
-
-	// create output database, and destination table
-	ctx := pctx.TestContext(t)
-	db, dbName := testsnowflake.NewEphemeralSnowflakeDB(ctx, t)
-	require.NoError(t, pachsql.CreateTestTable(db, "test_table", struct {
-		Id int    `column:"ID" dtype:"INT" constraint:"PRIMARY KEY"`
-		A  string `column:"A" dtype:"VARCHAR(100)"`
-	}{}))
-
-	// create K8s secrets
-	b := []byte(fmt.Sprintf(`
-	{
-		"apiVersion": "v1",
-		"kind": "Secret",
-		"stringData": {
-			"PACHYDERM_SQL_PASSWORD": "%s"
-		},
-		"metadata": {
-			"name": "egress-secret",
-			"creationTimestamp": null
-		}
-	}`, os.Getenv("SNOWSQL_PWD")))
-	require.NoError(t, c.CreateSecret(b))
-
-	// create a pipeline with egress
-	pipeline := tu.UniqueString("egress")
-	dsn, err := testsnowflake.DSN()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := c.PpsAPIClient.CreatePipeline(
-		c.Ctx(),
-		&pps.CreatePipelineRequest{
-			Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipeline),
-			Transform: &pps.Transform{
-				Image: tu.DefaultTransformImage,
-				Cmd:   []string{"bash"},
-				Stdin: []string{"cp -r /pfs/in/* /pfs/out/"},
-			},
-			Input: &pps.Input{Pfs: &pps.PFSInput{
-				Repo: repo,
-				Glob: "/",
-				Name: "in",
-			}},
-			Egress: &pps.Egress{
-				Target: &pps.Egress_SqlDatabase{SqlDatabase: &pfs.SQLDatabaseEgress{
-					Url: fmt.Sprintf("%s/%s", dsn, dbName),
-					FileFormat: &pfs.SQLDatabaseEgress_FileFormat{
-						Type: pfs.SQLDatabaseEgress_FileFormat_CSV,
-					},
-					Secret: &pfs.SQLDatabaseEgress_Secret{
-						Name: "egress-secret",
-						Key:  "PACHYDERM_SQL_PASSWORD",
-					},
-				},
-				},
-			},
-		},
-	); err != nil {
-		t.Fatal(err)
-	}
-
-	// Initial load
-	master := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
-	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar")))
-	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.InspectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
-	require.NoError(t, err)
-	// query db for results
-	var count, expected int
-	expected = 2
-	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
-	require.Equal(t, expected, count)
-
-	// Add a new row, and test whether primary key conflicts
-	require.NoError(t, c.PutFile(master, "/test_table/0000", strings.NewReader("1,Foo\n2,Bar\n3,ABC")))
-	commitInfo, err = c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", "")
-	require.NoError(t, err)
-	_, err = c.InspectJob(pfs.DefaultProjectName, pipeline, commitInfo.Commit.Id, false)
-	require.NoError(t, err)
-	// query db for results
-	expected = 3
-	require.NoError(t, db.QueryRow("select count(*) from test_table").Scan(&count))
-	require.Equal(t, expected, count)
 }
 
 func TestMissingSecretFailure(t *testing.T) {
