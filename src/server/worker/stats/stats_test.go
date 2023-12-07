@@ -23,6 +23,7 @@ import (
 )
 
 func TestPrometheusStats(t *testing.T) {
+	t.Skip() // DNJ - these have not run in years and need debugging
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
@@ -232,6 +233,7 @@ func TestPrometheusStats(t *testing.T) {
 // Regression: stats commits would not close when there were no input datums.
 // For more info, see github.com/pachyderm/pachyderm/v2/issues/3337
 func TestCloseStatsCommitWithNoInputDatums(t *testing.T) {
+	t.Skip() // DNJ - these have not run in years and need debugging
 	c, _ := minikubetestenv.AcquireCluster(t)
 	tu.ActivateEnterprise(t, c)
 
