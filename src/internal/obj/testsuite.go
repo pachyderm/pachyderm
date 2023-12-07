@@ -116,7 +116,6 @@ func TestInterruption(t *testing.T, client Client) {
 
 // TestStorage is a defensive method for checking to make sure that storage is
 // properly configured.
-// todo(fahad): consider using a kv.Store here for this instead (since we turn both a client and a bucket into a kv.Store).
 func TestStorage(ctx context.Context, bucket *Bucket, objClient Client) error {
 	if bucket != nil {
 		return testStorageWithBucket(ctx, bucket)
