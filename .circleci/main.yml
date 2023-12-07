@@ -1391,8 +1391,8 @@ jobs:
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
-            git fetch --all
-            git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
+            git fetch origin
+            git checkout -b release-${CIRCLE_TAG:1} origin/${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
