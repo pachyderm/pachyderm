@@ -29,6 +29,7 @@ orbs:
   node: circleci/node@5.0.2
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
+  tools: gotest/tools@0.0.14
 
 parameters:
   machine_image:
