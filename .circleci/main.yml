@@ -224,7 +224,7 @@ jobs:
           background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
       - wait-for-docker
       - start-minikube-2xlarge
       # The build cache will grow indefinitely, so we rotate the cache once a week.
