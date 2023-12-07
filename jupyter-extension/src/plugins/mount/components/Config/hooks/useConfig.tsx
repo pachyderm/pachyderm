@@ -101,11 +101,11 @@ export const useConfig = (
     setLoading(true);
     try {
       const res = await requestAPI<any>('auth/_login', 'PUT');
-      if (res.auth_url) {
+      if (res.loginUrl) {
         const x = window.screenX + (window.outerWidth - 500) / 2;
         const y = window.screenY + (window.outerHeight - 500) / 2.5;
         const features = `width=${500},height=${500},left=${x},top=${y}`;
-        window.open(res.auth_url, '', features);
+        window.open(res.loginUrl, '', features);
       }
     } catch (e) {
       console.log(e);
@@ -116,6 +116,7 @@ export const useConfig = (
     setTimeout(() => {
       setLoading(false);
     }, 2000);
+    await refresh();
   };
 
   const callLogout = async () => {

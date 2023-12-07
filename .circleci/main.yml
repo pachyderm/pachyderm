@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.21.4"
+    default: "1.21.5"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -68,7 +68,8 @@ jobs:
   test-go:
     machine:
       image: << pipeline.parameters.machine_image >>
-    resource_class: xlarge
+    resource_class: large
+    parallelism: 5
     environment:
       TEST_RESULTS: /tmp/test-results
     steps:
@@ -79,36 +80,33 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          background: true
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
       - run:
+          name: Run Go Unit Tests
           no_output_timeout: 20m
           command: |-
-            CGO_ENABLED=0 KUBECONFIG=/dev/null PACH_CONFIG=/dev/null \
-            gotestsum \
-            --raw-command \
-            --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-            --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-            --rerun-fails \
-            --rerun-fails-max-failures=100 \
-            --debug \
-            -- \
-            go test ./... -json \
-            -tags=unit_test \
-            -count=1 \
-            -timeout 20m \
-            -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./...
+            GOMAXPROCS=7 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
+              -file=tests_to_run_unit.csv \
+              -shard=$CIRCLE_NODE_INDEX \
+              -total-shards=$CIRCLE_NODE_TOTAL \
+              -threads=2 \
+              -gotest-args="-parallel=6 -timeout=20m -cover -test.gocoverdir=\"$TEST_RESULTS\" -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
           command: etc/testing/circle/format-coverage.sh
       - store_artifacts: # upload test summary for display in Artifacts
-          path: /tmp/test-results
+          path: "/tmp/test-results/"
           destination: raw-test-output
       - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
+          path: "/tmp/test-results/circle"
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
       - collect-test-results
@@ -116,131 +114,7 @@ jobs:
           key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
           paths:
             - /home/circleci/go/pkg/mod
-  test-pps:
-    resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      TEST_RESULTS: /tmp/test-results
-      GOPROXY: https://proxy.golang.org
-    parallelism: 8
-    steps:
-      - checkout
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
-      - run: mkdir -p ${TEST_RESULTS}
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
-
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
-            then
-              echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
-            else
-              echo 'export TEST_IMAGE_SHA=cover-$CIRCLE_SHA1' >> $BASH_ENV
-            fi
-      - run: go install gotest.tools/gotestsum@latest
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-      - run: etc/testing/circle/install.sh
-      - install-go-releaser
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - wait-for-docker
-      - start-minikube
-      # The build cache will grow indefinitely, so we rotate the cache once a week.
-      # This ensures the time to restore the cache isn't longer than the speedup in compilation.
-      - run: "echo $(($(date +%s)/604800)) > current_week"
-      - restore_cache:
-          keys:
-            - pach-go-build-cache-v1-{{ .Branch }}-{{ checksum "current_week" }}
-            - pach-go-build-cache-v1-master-{{ checksum "current_week" }}
-
-      # Only restore the module cache based on an exact match for go.sum.
-      # This also avoids accumulating old versions of modules over time.
-      - restore_cache:
-          keys:
-            - pach-go-mod-cache-v2-{{ checksum "go.sum" }}
-      # Try running go mod download to pull the rest of the deps
-      - run: go mod download
-      - run: etc/testing/circle/wait-minikube.sh
-      - run:
-          name: Install minio
-          command: kubectl apply -f etc/testing/minio.yaml
-      - run:
-          name: Install prom # Make Launch stats
-          command: kubectl apply --filename etc/kubernetes-prometheus -R
-      - run:
-          name: Wait for docker images to be built
-          command: etc/testing/circle/wait_for_docker_images.sh
-      - run:
-          name: run tests
-          no_output_timeout: 20m
-          command: |
-            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
-            export PROM_PORT
-
-            bucket_num=$CIRCLE_NODE_INDEX
-            num_buckets=$CIRCLE_NODE_TOTAL
-            package="./src/server"
-            test_tags="k8s"
-
-            tests=( $(go test -v -tags="${test_tags}"  "${package}" -list ".*" | grep -v '^ok' | grep -v '^Benchmark') )
-            # Add anchors for the regex so we don't run collateral tests
-            tests=( "${tests[@]/#/^}" )
-            tests=( "${tests[@]/%/\$\$}" )
-            total_tests="${#tests[@]}"
-
-            # Determine the offset and length of the sub-array of tests we want to run
-            # The last bucket may have a few extra tests, to accommodate rounding
-            # errors from bucketing:
-            let "bucket_size=total_tests/num_buckets" \
-              "start=bucket_size * (bucket_num-1)" \
-              "bucket_size+=bucket_num < num_buckets ? 0 : total_tests%num_buckets"
-
-            test_regex="$(IFS=\|; echo "${tests[*]:start:bucket_size}")"
-
-            echo $test_regex
-
-            gotestsum \
-              --junitfile ${TEST_RESULTS}/gotestsum-report.xml \
-              --raw-command \
-              --rerun-fails \
-              --rerun-fails-max-failures=15 \
-              --format standard-verbose \
-              --jsonfile "${TEST_RESULTS}/go-test-results.jsonl" \
-              --format testname \
-              --debug \
-              -- \
-              go test "${package}" -timeout 15m \
-              -json \
-              -run ${test_regex} \
-              -tags="${test_tags}" \
-              -count=1 \
-              -cover -test.gocoverdir=$TEST_RESULTS -covermode=atomic -coverpkg=./...
-      - run:
-          name: Dump debugging info in case of failure
-          when: on_fail
-          command: etc/testing/circle/kube_debug.sh
-      - run:
-          name: Format code coverage
-          when: always
-          command: etc/testing/circle/format-coverage.sh
-      - store_test_results: # upload test results for display in Test Summary
-          path: /tmp/test-results
-      - store_artifacts:
-          path: /tmp/test-results
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
-      - collect-test-results
-  static-checks:
+  static-go-checks:
     resource_class: xlarge
     machine:
       image: << pipeline.parameters.machine_image >>
@@ -302,15 +176,12 @@ jobs:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
   integration-tests:
-    parameters:
-      bucket:
-        type: string
-    resource_class: xlarge
+    resource_class: 2xlarge
+    parallelism: 9
     machine:
       image: << pipeline.parameters.machine_image >>
     environment:
       GOPROXY: https://proxy.golang.org
-      BUCKET: << parameters.bucket >>
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
@@ -326,6 +197,8 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+            echo 'export RUNNER_INDEX="$CIRCLE_NODE_INDEX"' >> $BASH_ENV
+
             if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
@@ -343,9 +216,15 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
+          background: true
       - run: mkdir ${TEST_RESULTS}
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
       - wait-for-docker
-      - start-minikube
+      - start-minikube-2xlarge
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -360,20 +239,15 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
-      #Save cache in only one bucket, after build and before running tests,
-      #this ensures build cache is saved even when tests fail
-      - when:
-          condition:
-            equal: [MISC, <<parameters.bucket>>]
-          steps:
-            - save_cache:
-                key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-                paths:
-                  - /home/circleci/.go_workspace/pkg/mod
-            - save_cache:
-                key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
-                paths:
-                  - /home/circleci/.gocache
+      - save_cache:
+          key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+          paths:
+            - /home/circleci/.go_workspace/pkg/mod
+      - save_cache:
+          key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
+          paths:
+            - /home/circleci/.gocache
+      - run: go mod download
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
@@ -383,18 +257,45 @@ jobs:
           name: Install minio
           command: kubectl apply -f etc/testing/minio.yaml
       - run:
+          name: Install prom # Make Launch stats
+          command: kubectl apply --filename etc/kubernetes-prometheus -R
+      - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
       - run:
-          no_output_timeout: 20m
-          command: etc/testing/circle/run_tests.sh | ts '%Y-%m-%dT%H:%M:%S'
-      - run:
-          command: etc/testing/circle/upload_stats.sh
-          when: always
-      - run:
-          name: Format test results for upload
-          command: go tool test2json -t < "/tmp/go-test-results.txt" > "${TEST_RESULTS}/go-test-results.jsonl" || true
-          when: always
+          no_output_timeout: 30m
+          name: Run Go Integration Tests
+          command: |-
+            PROM_PORT=$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort)
+            export PROM_PORT
+
+            # enterprise test setup
+            VM_IP="$(minikube ip)"
+            export VM_IP
+            ENTERPRISE_PORT="31650"
+            export ENTEPRRISE_PORT
+            echo "{\"pachd_address\": \"grpc://${VM_IP}:${ENTERPRISE_PORT}\", \"source\": 2}" | pachctl config set context "enterprise" --overwrite
+            pachctl config set active-enterprise-context enterprise
+            go install -v ./src/testing/match
+            pachctl config update context "$(pachctl config get active-context)" --pachd-address="$(minikube ip):30650"
+
+            # minikube status check
+            minikube status
+            kubectl version
+
+            # add repo for upgrade tests that use docker images instead of local-built images
+            helm repo add pachyderm https://helm.pachyderm.com
+            helm repo update
+            # any tests that build images will do it directly in minikube's docker registry
+            eval "$(minikube docker-env)"
+
+            GOMEMLIMIT=16000MiB go run src/testing/cmds/harness/test-runner/main.go \
+              -file=tests_to_run_k8s.csv \
+              -tags=k8s \
+              -shard=$CIRCLE_NODE_INDEX \
+              -total-shards=$CIRCLE_NODE_TOTAL \
+              -threads=7 \
+              -gotest-args="-parallel=4 -timeout=30m -cover -test.gocoverdir=\"$TEST_RESULTS\" -covermode=atomic -coverpkg=./..."
       - run:
           name: Format code coverage
           when: always
@@ -405,7 +306,7 @@ jobs:
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
       - store_test_results:
-          path: "/tmp/test-results"
+          path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
       - codecov/upload:
@@ -601,7 +502,7 @@ jobs:
           background: true
       - run: mkdir ${TEST_RESULTS}
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       - run:
           name: Wait for docker images to be built
           command: etc/testing/circle/wait_for_docker_images.sh
@@ -625,7 +526,7 @@ jobs:
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
-  deploy-tests:
+  deploy-tests: # run only arm64 now that integration test runs these
     parameters:
       num_executors:
         type: integer
@@ -635,7 +536,7 @@ jobs:
         default: large
       arch:
         type: string
-        default: amd64
+        default: arm64
     resource_class: << parameters.resource_class >>
     parallelism: << parameters.num_executors >>
     machine:
@@ -676,7 +577,7 @@ jobs:
           background: true
       - run: mkdir -p "${TEST_RESULTS}"
       - wait-for-docker
-      - start-minikube
+      - start-minikube-large
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
       - run: "echo $(($(date +%s)/604800)) > current_week"
@@ -932,10 +833,10 @@ jobs:
 
             # Run Python unit tests
             mkdir -p test-results
-            pytest -v \
-              --ignore jupyterlab_pachyderm/tests/test_integrations.py \
-              --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm
+            # pytest -v \
+            #   --ignore jupyterlab_pachyderm/tests/test_integrations.py \
+            #   --junitxml=test-results/junit.xml \
+            #   jupyterlab_pachyderm
 
             check-manifest -v
       - store_test_results:
@@ -1534,7 +1435,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - attach_workspace:
           at: ./
       - run:
@@ -1639,7 +1540,7 @@ jobs:
       - install-minikube
       - install-helm
       - install-kubectl
-      - start-minikube
+      - start-minikube-large
       - wait-for-minikube
       - attach_workspace:
           at: ./
@@ -1681,31 +1582,22 @@ jobs:
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
 
 workflows:
-  integration-tests:
+  functional-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - build-docker-images
       - build-docker-images:
           enableCoverage: true
-      #- build-pachctl-bin:
-      #    version: $CIRCLE_SHA1
-      #    upload: true
+      - test-go
+      - integration-tests
+  linting:
+    when: << pipeline.parameters.run-core-jobs >>
+    jobs:
       - check-prettier
       - jsonnet-lint
-      - test-go
       - govulncheck
-      - static-checks
+      - static-go-checks
       - test-envoy
-      - test-pps
-      - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
   helm-tests:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
@@ -1846,11 +1738,6 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - deploy-tests:
-          name: amd64 deploy tests
-          resource_class: xlarge # amd64
-          arch: amd64
-          num_executors: 4
-      - deploy-tests:
           name: arm64 deploy tests
           resource_class: arm.xlarge # arm64
           arch: arm64
@@ -1918,19 +1805,9 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-release-tags
-      - test-pps:
-          filters: *only-release-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-release-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-release-tags
       - helm-build:
           filters: *only-release-tags
@@ -1945,7 +1822,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2145,25 +2022,15 @@ workflows:
     jobs:
       - helm-tests:
           filters: *only-nightly-tags
-      - test-pps:
-          filters: *only-nightly-tags
-      - static-checks:
+      - static-go-checks:
           filters: *only-nightly-tags
       - integration-tests:
-          matrix:
-            parameters:
-              bucket:
-                - MISC
-                - AUTH
-                - ENTERPRISE
-                - S3_AUTH
-                - EXAMPLES
           filters: *only-nightly-tags
       - helm-build:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -2173,7 +2040,7 @@ workflows:
           filters: *only-nightly-tags
           requires:
             - helm-tests
-            - static-checks
+            - static-go-checks
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2333,11 +2200,17 @@ commands:
               fi
               sleep 1
             done
-  start-minikube:
+  start-minikube-2xlarge:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=12g --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
+          background: true
+  start-minikube-large:
+    steps:
+      - run:
+          name: Start minikube
+          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:

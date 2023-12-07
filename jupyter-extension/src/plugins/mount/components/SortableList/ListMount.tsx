@@ -1,15 +1,6 @@
-import {Circle, CircleColor} from '../../../../utils/components/Circle/Circle';
-import {capitalize} from 'lodash';
-import React, {useEffect, useState} from 'react';
+import React, {useState} from 'react';
 import {requestAPI} from '../../../../handler';
-import {mountState, Mount, ListMountsResponse} from '../../types';
-import {infoIcon} from '../../../../utils/icons';
-
-export const DISABLED_STATES: mountState[] = [
-  'unmounting',
-  'mounting',
-  'error',
-];
+import {Mount, ListMountsResponse} from '../../types';
 
 type ListMountProps = {
   item: Mount;
@@ -21,11 +12,6 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
   const [disabled, setDisabled] = useState<boolean>(false);
   const branch = item.branch;
   const buttonText = 'Unmount';
-  const behind = item.how_many_commits_behind;
-
-  useEffect(() => {
-    setDisabled(DISABLED_STATES.includes(item.state));
-  }, [item]);
 
   const openFolder = () => {
     open(item.name);
@@ -61,12 +47,6 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
           {
             <div>
               <span title={branch}>@ {branch}</span>
-              <span
-                style={{marginLeft: '7px'}}
-                data-testid="ListItem__commitBehindness"
-              >
-                {renderCommitBehindness(behind)}
-              </span>
             </div>
           }
         </span>
@@ -80,67 +60,8 @@ const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
         >
           {buttonText}
         </button>
-        {
-          <span
-            className="pachyderm-mount-list-item-status"
-            data-testid="ListItem__status"
-          >
-            {renderStatus(item.state, item.status)}
-          </span>
-        }
       </span>
     </li>
-  );
-};
-
-const renderCommitBehindness = (behind: number) => {
-  if (behind === 0) {
-    return <span>✅ up to date</span>;
-  } else if (behind === 1) {
-    return <span>⌛ {behind} commit behind</span>;
-  } else {
-    return <span>⌛ {behind} commits behind</span>;
-  }
-};
-
-const renderStatus = (state: mountState, status: string | null) => {
-  let color = 'gray';
-  let statusMessage = '';
-
-  switch (state) {
-    case 'mounted':
-      color = 'green';
-      break;
-    case 'unmounting':
-    case 'mounting':
-      color = 'yellow';
-      break;
-    case 'error':
-      color = 'red';
-      break;
-  }
-
-  if (status) {
-    statusMessage = `${capitalize(state || 'Unknown')}: ${status}`;
-  } else {
-    statusMessage = capitalize(state || 'Unknown');
-  }
-
-  return (
-    <>
-      <Circle
-        color={color as CircleColor}
-        className="pachyderm-mount-list-item-status-circle"
-      />
-
-      <div
-        data-testid="ListItem__statusIcon"
-        className="pachyderm-mount-list-item-status-icon"
-        title={statusMessage}
-      >
-        <infoIcon.react tag="span" />
-      </div>
-    </>
   );
 };
 

@@ -984,6 +984,7 @@ type listBranchFunc func(*pfs.ListBranchRequest, pfs.API_ListBranchServer) error
 type deleteBranchFunc func(context.Context, *pfs.DeleteBranchRequest) (*emptypb.Empty, error)
 type createProjectFunc func(context.Context, *pfs.CreateProjectRequest) (*emptypb.Empty, error)
 type inspectProjectFunc func(context.Context, *pfs.InspectProjectRequest) (*pfs.ProjectInfo, error)
+type inspectProjectV2Func func(context.Context, *pfs.InspectProjectV2Request) (*pfs.InspectProjectV2Response, error)
 type listProjectFunc func(*pfs.ListProjectRequest, pfs.API_ListProjectServer) error
 type deleteProjectFunc func(context.Context, *pfs.DeleteProjectRequest) (*emptypb.Empty, error)
 type modifyFileFunc func(pfs.API_ModifyFileServer) error
@@ -1034,6 +1035,7 @@ type mockListBranch struct{ handler listBranchFunc }
 type mockDeleteBranch struct{ handler deleteBranchFunc }
 type mockCreateProject struct{ handler createProjectFunc }
 type mockInspectProject struct{ handler inspectProjectFunc }
+type mockInspectProjectV2 struct{ handler inspectProjectV2Func }
 type mockListProject struct{ handler listProjectFunc }
 type mockDeleteProject struct{ handler deleteProjectFunc }
 type mockModifyFile struct{ handler modifyFileFunc }
@@ -1084,6 +1086,7 @@ func (mock *mockListBranch) Use(cb listBranchFunc)             { mock.handler = 
 func (mock *mockDeleteBranch) Use(cb deleteBranchFunc)         { mock.handler = cb }
 func (mock *mockCreateProject) Use(cb createProjectFunc)       { mock.handler = cb }
 func (mock *mockInspectProject) Use(cb inspectProjectFunc)     { mock.handler = cb }
+func (mock *mockInspectProjectV2) Use(cb inspectProjectV2Func) { mock.handler = cb }
 func (mock *mockListProject) Use(cb listProjectFunc)           { mock.handler = cb }
 func (mock *mockDeleteProject) Use(cb deleteProjectFunc)       { mock.handler = cb }
 func (mock *mockModifyFile) Use(cb modifyFileFunc)             { mock.handler = cb }
@@ -1141,6 +1144,7 @@ type mockPFSServer struct {
 	DeleteBranch     mockDeleteBranch
 	CreateProject    mockCreateProject
 	InspectProject   mockInspectProject
+	InspectProjectV2 mockInspectProjectV2
 	ListProject      mockListProject
 	DeleteProject    mockDeleteProject
 	ModifyFile       mockModifyFile
@@ -1318,6 +1322,12 @@ func (api *pfsServerAPI) InspectProject(ctx context.Context, req *pfs.InspectPro
 		return api.mock.InspectProject.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pfs.InspectProject")
+}
+func (api *pfsServerAPI) InspectProjectV2(ctx context.Context, req *pfs.InspectProjectV2Request) (*pfs.InspectProjectV2Response, error) {
+	if api.mock.InspectProjectV2.handler != nil {
+		return api.mock.InspectProjectV2.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.InspectProjectV2")
 }
 func (api *pfsServerAPI) ListProject(req *pfs.ListProjectRequest, srv pfs.API_ListProjectServer) error {
 	if api.mock.ListProject.handler != nil {

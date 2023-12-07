@@ -426,6 +426,10 @@ func (c *unsupportedPfsBuilderClient) InspectProject(_ context.Context, _ *pfs_v
 	return nil, unsupportedError("InspectProject")
 }
 
+func (c *unsupportedPfsBuilderClient) InspectProjectV2(_ context.Context, _ *pfs_v2.InspectProjectV2Request, opts ...grpc.CallOption) (*pfs_v2.InspectProjectV2Response, error) {
+	return nil, unsupportedError("InspectProjectV2")
+}
+
 func (c *unsupportedPfsBuilderClient) InspectRepo(_ context.Context, _ *pfs_v2.InspectRepoRequest, opts ...grpc.CallOption) (*pfs_v2.RepoInfo, error) {
 	return nil, unsupportedError("InspectRepo")
 }

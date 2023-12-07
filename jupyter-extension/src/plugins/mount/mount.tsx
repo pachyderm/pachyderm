@@ -40,7 +40,9 @@ import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
 import {requestAPI} from '../../handler';
 
-export const MOUNT_BROWSER_NAME = 'mount-browser:';
+export const MOUNT_BROWSER_PREFIX = 'mount-browser-';
+export const PFS_MOUNT_BROWSER_NAME = 'mount-browser-pfs:';
+export const DATUM_MOUNT_BROWSER_NAME = 'mount-browser-datum:';
 
 export const METADATA_KEY = 'pachyderm_pps';
 
@@ -54,7 +56,8 @@ export class MountPlugin implements IMountPlugin {
   private _mountedList: ReactWidget;
   private _unmountedList: ReactWidget;
   private _datum: ReactWidget;
-  private _mountBrowser: FileBrowser;
+  private _pfsBrowser: FileBrowser;
+  private _datumBrowser: FileBrowser;
   private _poller: PollMounts;
   private _panel: SplitPanel;
   private _widgetTracker: ILabShell;
@@ -170,7 +173,7 @@ export class MountPlugin implements IMountPlugin {
               </button>
             </div>
             <SortableList
-              open={this.open}
+              open={this.openPFS}
               items={mounted ? mounted : this._poller.mounted}
               updateData={this._poller.updateData}
               mountedItems={[]}
@@ -193,7 +196,7 @@ export class MountPlugin implements IMountPlugin {
                   Unmounted Repositories
                 </div>
                 <SortableList
-                  open={this.open}
+                  open={this.openPFS}
                   items={unmounted ? unmounted : this._poller.unmounted}
                   updateData={this._poller.updateData}
                   mountedItems={this._poller.mounted}
@@ -218,7 +221,7 @@ export class MountPlugin implements IMountPlugin {
                 setShowDatum={this.setShowDatum}
                 keepMounted={this._keepMounted}
                 setKeepMounted={this.setKeepMounted}
-                open={this.open}
+                open={this.openDatum}
                 pollRefresh={this._poller.refresh}
                 currentDatumInfo={this._currentDatumInfo}
                 repoViewInputSpec={
@@ -268,7 +271,20 @@ export class MountPlugin implements IMountPlugin {
     );
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
 
-    this._mountBrowser = createCustomFileBrowser(app, manager, factory);
+    this._pfsBrowser = createCustomFileBrowser(
+      app,
+      manager,
+      factory,
+      'pfs',
+      'pfs',
+    );
+    this._datumBrowser = createCustomFileBrowser(
+      app,
+      manager,
+      factory,
+      'view_datum',
+      'datum',
+    );
     this._poller.mountedSignal.connect(this.verifyBrowserPath);
     this._poller.mountedSignal.connect(this.refresh);
     this._poller.unmountedSignal.connect(this.refresh);
@@ -286,7 +302,8 @@ export class MountPlugin implements IMountPlugin {
     this._panel.addWidget(this._datum);
     this._panel.addWidget(this._pipelineSplash);
     this._panel.addWidget(this._pipeline);
-    this._panel.addWidget(this._mountBrowser);
+    this._panel.addWidget(this._pfsBrowser);
+    this._panel.addWidget(this._datumBrowser);
     this._panel.setRelativeSizes([1, 1, 3, 3]);
 
     this._panel.addWidget(this._loader);
@@ -301,7 +318,8 @@ export class MountPlugin implements IMountPlugin {
     this._datum.setHidden(true);
     this._pipelineSplash.setHidden(true);
     this._pipeline.setHidden(true);
-    this._mountBrowser.setHidden(true);
+    this._pfsBrowser.setHidden(true);
+    this._datumBrowser.setHidden(true);
 
     window.addEventListener('resize', () => {
       this._panel.update();
@@ -414,29 +432,36 @@ export class MountPlugin implements IMountPlugin {
     }
   };
 
-  open = (path: string): void => {
+  openPFS = (path: string): void => {
     this._app.commands.execute('filebrowser:open-path', {
-      path: MOUNT_BROWSER_NAME + path,
+      path: PFS_MOUNT_BROWSER_NAME + path,
+    });
+  };
+
+  openDatum = (path: string): void => {
+    this._app.commands.execute('filebrowser:open-path', {
+      path: DATUM_MOUNT_BROWSER_NAME + path,
     });
   };
 
   refresh = async (_: PollMounts, _data: Mount[] | Repo[]): Promise<void> => {
-    await this._mountBrowser.model.refresh();
+    await this._pfsBrowser.model.refresh();
+    await this._datumBrowser.model.refresh();
   };
 
   // Change back to root directory if in a mount that no longer exists
   verifyBrowserPath = (_: PollMounts, mounted: Mount[]): void => {
-    if (this._mountBrowser.model.path === this._mountBrowser.model.rootPath) {
+    if (this._pfsBrowser.model.path === this._pfsBrowser.model.rootPath) {
       return;
     }
 
-    if (!this.isValidBrowserPath(this._mountBrowser.model.path, mounted)) {
-      this.open('');
+    if (!this.isValidBrowserPath(this._pfsBrowser.model.path, mounted)) {
+      this.openPFS('');
     }
   };
 
   isValidBrowserPath = (path: string, mounted: Mount[]): boolean => {
-    const currentMountDir = path.split(MOUNT_BROWSER_NAME)[1].split('/')[0];
+    const currentMountDir = path.split(PFS_MOUNT_BROWSER_NAME)[1].split('/')[0];
     if (currentMountDir === 'out') {
       return true;
     }
@@ -446,26 +471,6 @@ export class MountPlugin implements IMountPlugin {
       }
     }
     return false;
-  };
-
-  setShowDatum = async (shouldShow: boolean): Promise<void> => {
-    if (shouldShow) {
-      this._datum.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this.saveMountedReposList();
-    } else {
-      this._datum.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      await this.restoreMountedReposList();
-    }
-    this._mountBrowser.setHidden(false);
-    this._config.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showDatum = shouldShow;
-    this._showDatumSignal.emit(shouldShow);
   };
 
   saveMountedReposList = (): void => {
@@ -544,7 +549,30 @@ export class MountPlugin implements IMountPlugin {
       });
       this._poller.updateData(res);
     }
-    this.open('');
+    this.openPFS('');
+  };
+
+  setShowDatum = async (shouldShow: boolean): Promise<void> => {
+    if (shouldShow) {
+      this._datum.setHidden(false);
+      this._mountedList.setHidden(true);
+      this._unmountedList.setHidden(true);
+      this._pfsBrowser.setHidden(true);
+      this._datumBrowser.setHidden(false);
+      this.saveMountedReposList();
+    } else {
+      this._datum.setHidden(true);
+      this._mountedList.setHidden(false);
+      this._unmountedList.setHidden(false);
+      await this.restoreMountedReposList();
+      this._pfsBrowser.setHidden(false);
+      this._datumBrowser.setHidden(true);
+    }
+    this._config.setHidden(true);
+    this._pipeline.setHidden(true);
+    this._fullPageError.setHidden(true);
+    this._showDatum = shouldShow;
+    this._showDatumSignal.emit(shouldShow);
   };
 
   setShowPipeline = (shouldShow: boolean): void => {
@@ -554,23 +582,24 @@ export class MountPlugin implements IMountPlugin {
         this._pipelineSplash.setHidden(true);
         this._mountedList.setHidden(true);
         this._unmountedList.setHidden(true);
-        this._mountBrowser.setHidden(true);
+        this._pfsBrowser.setHidden(true);
       } else {
         this._pipeline.setHidden(true);
         this._pipelineSplash.setHidden(false);
         this._mountedList.setHidden(true);
         this._unmountedList.setHidden(true);
-        this._mountBrowser.setHidden(true);
+        this._pfsBrowser.setHidden(true);
       }
     } else {
       this._pipeline.setHidden(true);
       this._pipelineSplash.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
+      this._pfsBrowser.setHidden(false);
     }
     this._config.setHidden(true);
     this._datum.setHidden(true);
+    this._datumBrowser.setHidden(true);
     this._fullPageError.setHidden(true);
     this._showPipeline = shouldShow;
     this._showPipelineSignal.emit(shouldShow);
@@ -585,13 +614,14 @@ export class MountPlugin implements IMountPlugin {
       this._config.setHidden(false);
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
+      this._pfsBrowser.setHidden(true);
     } else {
       this._config.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
+      this._pfsBrowser.setHidden(false);
     }
+    this._datumBrowser.setHidden(true);
     this._datum.setHidden(true);
     this._pipeline.setHidden(true);
     this._fullPageError.setHidden(true);
@@ -606,7 +636,8 @@ export class MountPlugin implements IMountPlugin {
       this._datum.setHidden(true);
       this._mountedList.setHidden(true);
       this._unmountedList.setHidden(true);
-      this._mountBrowser.setHidden(true);
+      this._pfsBrowser.setHidden(true);
+      this._datumBrowser.setHidden(true);
       this._pipeline.setHidden(true);
     } else {
       this._fullPageError.setHidden(true);
@@ -614,7 +645,8 @@ export class MountPlugin implements IMountPlugin {
       this._datum.setHidden(false);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
-      this._mountBrowser.setHidden(false);
+      this._pfsBrowser.setHidden(false);
+      this._datumBrowser.setHidden(false);
       this._pipeline.setHidden(false);
     }
   };

@@ -69,6 +69,7 @@ const (
 	API_Egress_FullMethodName           = "/pfs_v2.API/Egress"
 	API_CreateProject_FullMethodName    = "/pfs_v2.API/CreateProject"
 	API_InspectProject_FullMethodName   = "/pfs_v2.API/InspectProject"
+	API_InspectProjectV2_FullMethodName = "/pfs_v2.API/InspectProjectV2"
 	API_ListProject_FullMethodName      = "/pfs_v2.API/ListProject"
 	API_DeleteProject_FullMethodName    = "/pfs_v2.API/DeleteProject"
 )
@@ -176,6 +177,8 @@ type APIClient interface {
 	CreateProject(ctx context.Context, in *CreateProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// InspectProject returns info about a project.
 	InspectProject(ctx context.Context, in *InspectProjectRequest, opts ...grpc.CallOption) (*ProjectInfo, error)
+	// InspectProjectV2 returns info about and defaults for a project.
+	InspectProjectV2(ctx context.Context, in *InspectProjectV2Request, opts ...grpc.CallOption) (*InspectProjectV2Response, error)
 	// ListProject returns info about all projects.
 	ListProject(ctx context.Context, in *ListProjectRequest, opts ...grpc.CallOption) (API_ListProjectClient, error)
 	// DeleteProject deletes a project.
@@ -1008,6 +1011,15 @@ func (c *aPIClient) InspectProject(ctx context.Context, in *InspectProjectReques
 	return out, nil
 }
 
+func (c *aPIClient) InspectProjectV2(ctx context.Context, in *InspectProjectV2Request, opts ...grpc.CallOption) (*InspectProjectV2Response, error) {
+	out := new(InspectProjectV2Response)
+	err := c.cc.Invoke(ctx, API_InspectProjectV2_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *aPIClient) ListProject(ctx context.Context, in *ListProjectRequest, opts ...grpc.CallOption) (API_ListProjectClient, error) {
 	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[17], API_ListProject_FullMethodName, opts...)
 	if err != nil {
@@ -1152,6 +1164,8 @@ type APIServer interface {
 	CreateProject(context.Context, *CreateProjectRequest) (*emptypb.Empty, error)
 	// InspectProject returns info about a project.
 	InspectProject(context.Context, *InspectProjectRequest) (*ProjectInfo, error)
+	// InspectProjectV2 returns info about and defaults for a project.
+	InspectProjectV2(context.Context, *InspectProjectV2Request) (*InspectProjectV2Response, error)
 	// ListProject returns info about all projects.
 	ListProject(*ListProjectRequest, API_ListProjectServer) error
 	// DeleteProject deletes a project.
@@ -1303,6 +1317,9 @@ func (UnimplementedAPIServer) CreateProject(context.Context, *CreateProjectReque
 }
 func (UnimplementedAPIServer) InspectProject(context.Context, *InspectProjectRequest) (*ProjectInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InspectProject not implemented")
+}
+func (UnimplementedAPIServer) InspectProjectV2(context.Context, *InspectProjectV2Request) (*InspectProjectV2Response, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectProjectV2 not implemented")
 }
 func (UnimplementedAPIServer) ListProject(*ListProjectRequest, API_ListProjectServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListProject not implemented")
@@ -2230,6 +2247,24 @@ func _API_InspectProject_Handler(srv interface{}, ctx context.Context, dec func(
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_InspectProjectV2_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(InspectProjectV2Request)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).InspectProjectV2(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_InspectProjectV2_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).InspectProjectV2(ctx, req.(*InspectProjectV2Request))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _API_ListProject_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(ListProjectRequest)
 	if err := stream.RecvMsg(m); err != nil {
@@ -2395,6 +2430,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InspectProject",
 			Handler:    _API_InspectProject_Handler,
+		},
+		{
+			MethodName: "InspectProjectV2",
+			Handler:    _API_InspectProjectV2_Handler,
 		},
 		{
 			MethodName: "DeleteProject",

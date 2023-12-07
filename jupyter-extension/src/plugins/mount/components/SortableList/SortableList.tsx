@@ -1,11 +1,5 @@
 import React, {useCallback, useState} from 'react';
-import {
-  Repo,
-  Mount,
-  ListMountsResponse,
-  Project,
-  ProjectInfo,
-} from '../../types';
+import {Repo, Mount, ListMountsResponse, ProjectInfo} from '../../types';
 import {caretUpIcon, caretDownIcon} from '@jupyterlab/ui-components';
 import {useSort, stringComparator} from '../../../../utils/hooks/useSort';
 import ListMount from './ListMount';
