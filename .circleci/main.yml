@@ -173,7 +173,7 @@ jobs:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - mod-tidy-check
+      - tools/mod-tidy-check
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
