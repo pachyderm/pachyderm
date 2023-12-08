@@ -11,11 +11,13 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/proc"
 	"go.uber.org/zap"
 	"k8s.io/kubectl/pkg/util/slice"
 )
@@ -28,15 +30,16 @@ type testOutput struct {
 }
 
 func main() {
-	log.InitBatchLogger("test-collector.log")
+	log.InitPachctlLogger()
 	ctx := pctx.Background("test-collector")
 	tags := flag.String("tags", "", "Tags to run, for example k8s. Tests without this flag will not be selected.")
 	exclusiveTags := flag.Bool("exclusiveTags", true, "If true, ONLY tests with the specified tags will run. If false, "+
 		"the default behavior of 'go test' of including tagged and untagged tests is used.")
 	fileName := flag.String("file", "tests_to_run.csv", "Output file listing the packages and tests to run. Used by the runner script.")
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
-	threadPool := flag.Int("threads", 2, "Number of packages to collect tests from concurrently.")
+	threadPool := flag.Int("procs", 2, "GOMAXPROCS value for the go test -list sbcommand.")
 	flag.Parse()
+
 	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
 	if err != nil {
 		log.Exit(ctx, "Error during tests splitting", zap.Error(err))
@@ -49,7 +52,7 @@ func run(ctx context.Context, tags string, exclusiveTags bool, fileName string, 
 	if tags != "" {
 		tagsArg = fmt.Sprintf("-tags=%s", tags)
 	}
-	testIdsTagged, err := testNames(ctx, pkg, tagsArg)
+	testIdsTagged, err := testNames(ctx, pkg, threadPool, tagsArg)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
@@ -57,7 +60,7 @@ func run(ctx context.Context, tags string, exclusiveTags bool, fileName string, 
 	if exclusiveTags && tags != "" {
 		// set difference to get ONLY tagged tests
 		var err error
-		testIdsUntagged, err := testNames(ctx, pkg, "") // collect for set difference
+		testIdsUntagged, err := testNames(ctx, pkg, threadPool, "") // collect for set difference
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -89,7 +92,7 @@ func subtractTestSet(testIdsTagged map[string][]string, testIdsUntagged map[stri
 	return resultTests
 }
 
-func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[string][]string, error) {
+func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...string) (map[string][]string, error) {
 	findTestArgs := append([]string{"test", pkg, "-json", "-list=."}, addtlCmdArgs...)
 	cmd := exec.Command("go", findTestArgs...)
 	stdout, err := cmd.StdoutPipe()
@@ -98,11 +101,16 @@ func testNames(ctx context.Context, pkg string, addtlCmdArgs ...string) (map[str
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
 	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, "GOMAXPROCS=16") // This prevents the command from running wild eating up processes in the pipelines
+	cmd.Env = append(cmd.Env, fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
+	defer monitorCancel()
+	go proc.MonitorProcessGroup(monitorCtx, cmd.SysProcAttr.Pgid)
 	err = cmd.Start()
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+
 	testNames, err := readTests(stdout)
 	if err != nil {
 		return nil, err
