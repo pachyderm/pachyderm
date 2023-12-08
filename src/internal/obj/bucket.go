@@ -50,7 +50,7 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
 	endpoint := urlParams.Get("endpoint")
-	//nolint:errcheck // if unset, disableSSL will be false
+	// if unset, disableSSL will be false.
 	disableSSL, _ := strconv.ParseBool(urlParams.Get("disableSSL"))
 	region := urlParams.Get("region")
 	httpClient, retries, err := amazonHTTPClient()
