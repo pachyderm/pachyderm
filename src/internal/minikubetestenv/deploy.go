@@ -3,6 +3,7 @@ package minikubetestenv
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"crypto/x509"
 	"encoding/json"
 	"flag"
@@ -22,8 +23,9 @@ import (
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/k8s"
-	terraTest "github.com/gruntwork-io/terratest/modules/testing"
+	coordination "k8s.io/api/coordination/v1"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
@@ -41,6 +43,8 @@ const (
 	helmChartPublishedPath = "pachyderm/pachyderm"
 	localImage             = "local"
 	licenseKeySecretName   = "enterprise-license-key-secret"
+	leasePrefix            = "minikubetestenv-"
+	defaultLeaseDuration   = 30
 )
 
 const (
@@ -52,6 +56,7 @@ const (
 	determinedRegistry       = "registry-1.docker.io/determinedai"
 	determinedRegistrySecret = "detregcred"
 	determinedLoginSecret    = "detlogin"
+	helmOptsConfigMap        = "testhelmopts"
 )
 
 var (
@@ -66,7 +71,10 @@ var (
 )
 
 type DeployOpts struct {
-	Version            string
+	Version string
+	// Necessarry to enable auth and activate enterprise.
+	// EnterpriseServer and EnterpriseMember can be used
+	// without this flag to test manual enterprise/auth activation.
 	Enterprise         bool
 	Console            bool
 	AuthUser           string
@@ -77,7 +85,6 @@ type DeployOpts struct {
 	// NOTE: it might make more sense to declare port instead of offset
 	PortOffset       uint16
 	DisableLoki      bool
-	WaitSeconds      int
 	EnterpriseMember bool
 	EnterpriseServer bool
 	Determined       bool
@@ -87,21 +94,11 @@ type DeployOpts struct {
 	ValuesFiles      []string
 }
 
-type helmPutE func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error
-
 func getLocalImage() string {
 	if sha := os.Getenv("TEST_IMAGE_SHA"); sha != "" {
 		return sha
 	}
 	return localImage
-}
-
-func helmLock(f helmPutE) helmPutE {
-	return func(t terraTest.TestingT, options *helm.Options, chart string, releaseName string) error {
-		mu.Lock()
-		defer mu.Unlock()
-		return f(t, options, chart, releaseName)
-	}
 }
 
 func helmChartLocalPath(t testing.TB) string {
@@ -188,6 +185,7 @@ func withLokiOptions(namespace string, port int) *helm.Options {
 			"loki-stack.promtail.initContainer[0].command[1]":                 "-c",
 			"loki-stack.promtail.initContainer[0].command[2]":                 "sysctl -w fs.inotify.max_user_instances=8000",
 			"loki-stack.promtail.initContainer[0].securityContext.privileged": "true",
+			"loki-stack.persistence.size":                                     "5Gi",
 		},
 	}
 }
@@ -208,6 +206,9 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultSidecarMemoryRequest":   "64M",
 			"pachd.defaultSidecarStorageRequest":  "100Mi",
 			"console.enabled":                     "false",
+			"postgresql.persistence.size":         "5Gi",
+			"etcd.storageSize":                    "5Gi",
+			"pachw.resources.requests.cpu":        "250m",
 		},
 	}
 }
@@ -271,15 +272,16 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 
 func withEnterpriseServer(image, host string) *helm.Options {
 	return &helm.Options{SetValues: map[string]string{
-		"pachd.enabled":                      "false",
-		"enterpriseServer.enabled":           "true",
-		"enterpriseServer.image.tag":         image,
-		"oidc.mockIDP":                       "true",
-		"oidc.issuerURI":                     "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
-		"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:31658", host),
-		"pachd.oauthClientID":                "enterprise-pach",
-		"pachd.oauthRedirectURI":             fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
-		"enterpriseServer.service.type":      "ClusterIP",
+		"pachd.enabled":                           "false",
+		"enterpriseServer.enabled":                "true",
+		"enterpriseServer.image.tag":              image,
+		"oidc.mockIDP":                            "true",
+		"oidc.issuerURI":                          "http://pach-enterprise.enterprise.svc.cluster.local:31658/dex",
+		"oidc.userAccessibleOauthIssuerHost":      fmt.Sprintf("%s:31658", host),
+		"pachd.oauthClientID":                     "enterprise-pach",
+		"pachd.oauthRedirectURI":                  fmt.Sprintf("http://%s:31657/authorization-code/callback", host),
+		"enterpriseServer.service.type":           "ClusterIP",
+		"enterpriseServer.resources.requests.cpu": "250m",
 		// For tests, traffic from outside the cluster is routed through the proxy,
 		// but we bind the internal k8s service ports to the same numbers for
 		// in-cluster traffic, like enterprise registration.
@@ -460,6 +462,21 @@ func waitForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset,
 	}, 5*time.Second)
 }
 
+func checkForPachd(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, namespace string, enterpriseServer bool) (bool, error) {
+	label := "app=pachd"
+	if enterpriseServer {
+		label = "app=pach-enterprise"
+	}
+	pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+	if k8serrors.IsNotFound(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, errors.Wrap(err, "error on pod list to check pachd existence")
+	}
+	return len(pachds.Items) > 0, nil
+}
+
 func waitForLoki(t testing.TB, lokiHost string, lokiPort int) {
 	require.NoError(t, backoff.RetryNotify(func() error {
 		client := http.Client{
@@ -544,6 +561,7 @@ func pachClient(t testing.TB, pachAddress *grpcutil.PachdAddress, authUser, name
 }
 
 func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset) {
+	t.Logf("Deleting release in namespace %v", namespace)
 	options := &helm.Options{
 		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
 	}
@@ -551,6 +569,8 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 	err := helm.DeleteE(t, options, namespace, true)
 	mu.Unlock()
 	require.True(t, err == nil || strings.Contains(err.Error(), "not found"))
+
+	require.NoError(t, kubeClient.CoreV1().ConfigMaps(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"}))
 	require.NoError(t, kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "app=loki"}))
 	require.NoError(t, backoff.Retry(func() error {
@@ -562,10 +582,18 @@ func deleteRelease(t testing.TB, ctx context.Context, namespace string, kubeClie
 		if err != nil {
 			return errors.Wrap(err, "error on loki pvc list")
 		}
-		if len(pachPvcs.Items) == 0 && len(lokiPvcs.Items) == 0 {
+		// All Determined pvcs are removed by the helm uninstall, but
+		// we should still wait for them because if they are deleted
+		// by the storage provisioner just when a new cluster starts it
+		// can prevent the new pvc from being created.
+		detPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: fmt.Sprintf("app=determined-db-%s", namespace)})
+		if err != nil {
+			return errors.Wrap(err, "error on det pvc list")
+		}
+		if len(pachPvcs.Items) == 0 && len(lokiPvcs.Items) == 0 && len(detPvcs.Items) == 0 {
 			return nil
 		}
-		return errors.Errorf("pvcs have yet to be deleted. pvcs left: %d", len(pachPvcs.Items)+len(lokiPvcs.Items))
+		return errors.Errorf("pvcs have yet to be deleted. Namespace: %s PVCs left - pach: %d loki: %d det: %d", namespace, len(pachPvcs.Items), len(lokiPvcs.Items), len(detPvcs.Items))
 	}, backoff.RetryEvery(5*time.Second).For(2*time.Minute)))
 }
 
@@ -641,8 +669,116 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
-func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
-	if opts.CleanupAfter {
+// deletes the existing configmap and writes the new hel opts to this one
+func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string, helmOpts *helm.Options, chartPath string) {
+	err := kubeClient.CoreV1().ConfigMaps(ns).Delete(ctx, helmOptsConfigMap, *metav1.NewDeleteOptions(0))
+	require.True(t, err == nil || k8serrors.IsNotFound(err), "deleting configMap error: %v", err)
+	_, err = kubeClient.CoreV1().ConfigMaps(ns).Create(ctx, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      helmOptsConfigMap,
+			Namespace: ns,
+			Labels:    map[string]string{"suite": "pachyderm"},
+		},
+		BinaryData: map[string][]byte{
+			"helmopts-hash": hashOpts(t, helmOpts, chartPath),
+		},
+	}, metav1.CreateOptions{})
+	require.NoError(t, err, "creating helmOpts ConfigMap")
+}
+
+func getOptsConfigMapData(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string) []byte {
+	configMap, err := kubeClient.CoreV1().ConfigMaps(ns).Get(ctx, helmOptsConfigMap, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []byte{}
+	}
+	require.NoError(t, err, "getting helmOpts ConfigMap")
+	return configMap.BinaryData["helmopts-hash"]
+}
+
+func hashOpts(t testing.TB, helmOpts *helm.Options, chartPath string) []byte { // return string for consistency with configMap data
+	// we don't need to deserialize, we just use this to check differences, so just save a hash
+	helmBytes, err := json.Marshal(helmOpts) // lists might be ordered differently, but there are not many list fields that we actively use that would be different in practice
+	require.NoError(t, err)
+	optsHash := sha256.New()
+	_, err = optsHash.Write(helmBytes)
+	require.NoError(t, err)
+	_, err = optsHash.Write([]byte(chartPath))
+	require.NoError(t, err)
+	return optsHash.Sum(nil)
+}
+
+func putLease(t testing.TB, namespace string) error {
+	t.Logf("Creating lease on namespace %s for test %v", namespace, t.Name())
+	kube := testutil.GetKubeClient(t)
+	identity := t.Name()
+	leaseDuration := int32(defaultLeaseDuration)
+	acquireTime := metav1.NewMicroTime(time.Now())
+	lease, err := kube.CoordinationV1().Leases(namespace).Create(context.Background(), &coordination.Lease{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s%s", leasePrefix, namespace),
+			Namespace: namespace,
+		},
+		Spec: coordination.LeaseSpec{
+			HolderIdentity:       &identity,
+			LeaseDurationSeconds: &leaseDuration,
+			AcquireTime:          &acquireTime,
+			RenewTime:            &acquireTime,
+		},
+	}, metav1.CreateOptions{})
+	if err == nil {
+		leaseCtx, leaseCancel := pctx.WithCancel(pctx.Background("minikube test lease renewer"))
+		go leaseRenewer(t, leaseCtx, kube, lease, time.Duration(defaultLeaseDuration/2)*time.Second)
+		t.Cleanup(func() {
+			leaseCancel()
+			err := kube.CoordinationV1().Leases(namespace).Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			require.NoError(t, err)
+		})
+	}
+	return errors.EnsureStack(err)
+}
+
+// renews the lease every interval fo continued use, cancelled with the context
+func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initialLease *coordination.Lease, interval time.Duration) {
+	latestLease := initialLease
+	for {
+		select {
+		case <-time.After(interval):
+			t.Logf("Renewing lease on namespace %s for test %v", latestLease.GetNamespace(), t.Name())
+			err := backoff.Retry(func() error {
+				renewTime := metav1.NewMicroTime(time.Now())
+				var err error
+				latestLease, err = kube.CoordinationV1().Leases(latestLease.GetNamespace()).Update(ctx, &coordination.Lease{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:            latestLease.GetName(),
+						Namespace:       latestLease.GetNamespace(),
+						ResourceVersion: latestLease.GetResourceVersion(),
+					},
+					Spec: coordination.LeaseSpec{
+						HolderIdentity:       latestLease.Spec.HolderIdentity,
+						LeaseDurationSeconds: latestLease.Spec.LeaseDurationSeconds,
+						AcquireTime:          latestLease.Spec.AcquireTime,
+						RenewTime:            &renewTime,
+					},
+				}, metav1.UpdateOptions{})
+				return errors.EnsureStack(err)
+			}, backoff.RetryEvery(time.Millisecond*200).For(time.Second))
+			if err != nil {
+				t.Logf("Could not renew lease on %v for test %v", latestLease.Namespace, t.Name())
+				// doesn't exist or it maybe is in progress deleting, or a new one was re-created.
+				// lots of reasons it could be =in a weird state, but we don't want to fail the test over that.
+				// We retried so it's probably not an ephemeral issue.
+				// Just log it, release the lease, and let the main process recover.
+				return
+			}
+		case <-ctx.Done():
+			t.Logf("Releasing lease on namespace %s for test %v", latestLease.Namespace, t.Name())
+			return
+		}
+	}
+}
+
+func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
+	if opts.CleanupAfter || opts.Determined { // Determined is almost never re-used and uses extra resources, so it is helpful to clean up.
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
@@ -657,7 +793,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		helmOpts.SetValues["pachd.image.tag"] = version
 	}
 	pachAddress := GetPachAddress(t)
-	if opts.Enterprise || opts.EnterpriseServer {
+	if opts.Enterprise {
 		createSecretEnterpriseKeySecret(t, ctx, kubeClient, namespace)
 		issuerPort := int(pachAddress.Port+opts.PortOffset) + 8
 		if opts.EnterpriseMember {
@@ -711,28 +847,46 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		pachAddress.Secured = true
 	}
 	helmOpts.ValuesFiles = opts.ValuesFiles
-	if err := f(t, helmOpts, chartPath, namespace); err != nil {
-		if opts.UseLeftoverCluster {
-			return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
-		}
-		deleteRelease(t, context.Background(), namespace, kubeClient)
-		// When CircleCI was experiencing network slowness, downloading
-		// the Helm chart would sometimes fail.  Retrying it was
-		// successful.
-		require.NoErrorWithinTRetry(t, time.Minute, func() error { return f(t, helmOpts, chartPath, namespace) })
-	}
-	waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+	waitForInstallFinished := func() {
+		createOptsConfigMap(t, ctx, kubeClient, namespace, helmOpts, chartPath)
 
-	if !opts.DisableLoki {
-		waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
+
+		if !opts.DisableLoki {
+			waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
+		}
+		waitForPgbouncer(t, ctx, kubeClient, namespace)
+		waitForPostgres(t, ctx, kubeClient, namespace)
+		if opts.Determined {
+			waitForDetermined(t, ctx, kubeClient, namespace)
+		}
 	}
-	waitForPgbouncer(t, ctx, kubeClient, namespace)
-	waitForPostgres(t, ctx, kubeClient, namespace)
-	if opts.Determined {
-		waitForDetermined(t, ctx, kubeClient, namespace)
-	}
-	if opts.WaitSeconds > 0 {
-		time.Sleep(time.Duration(opts.WaitSeconds) * time.Second)
+	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
+	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, opts.EnterpriseServer)
+	require.NoError(t, err)
+	if mustUpgrade {
+		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
+		require.NoErrorWithinTRetry(t,
+			time.Minute,
+			func() error {
+				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
+			})
+		waitForInstallFinished()
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
+		!opts.UseLeftoverCluster ||
+		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *shouldn't* let this happen, but in case something failed, check pachd for sanity.
+		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
+		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
+			require.NoErrorWithinTRetry(t,
+				time.Minute,
+				func() error {
+					deleteRelease(t, context.Background(), namespace, kubeClient)
+					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
+				})
+		}
+		waitForInstallFinished()
+	} else { // same config, no need to change anything
+		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
 	}
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {
@@ -741,6 +895,53 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	return pClient
 }
 
+// LeaseNamespace attempts to lock a namespace for exclusive use by a test. It creates a k8s lease that is cleaned up at the end of the test.
+// Calling LeaseNamespace will create the namespace if it doesn't exist. It returns true if Lease was acquired, false if not.
+// To block until a namespace lock can be acquired, retry for the desired amount of time. LeaseNamespace will force-acquire
+// the namespace lock after the the lease duration has passed.
+func LeaseNamespace(t testing.TB, namespace string) bool {
+	kube := testutil.GetKubeClient(t)
+	lease, err := kube.CoordinationV1().
+		Leases(namespace).
+		Get(context.Background(), fmt.Sprintf("%s%s", leasePrefix, namespace), metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		PutNamespace(t, namespace)
+		err = putLease(t, namespace)
+		if k8serrors.IsAlreadyExists(err) {
+			// if it already exists, but didn't before then we are racing another process.
+			// Just try to take the next namespace since there are many available.
+			return false
+		}
+		require.NoError(t, err)
+		return true
+	} else {
+		require.NoError(t, err)
+		timeSinceRenewal := time.Since(lease.Spec.RenewTime.Time)
+		maxLeaseTime := time.Duration(*lease.Spec.LeaseDurationSeconds) * time.Second
+		if timeSinceRenewal > maxLeaseTime {
+			t.Logf("Lease expired. Force acquiring lock on namespace %v.", namespace)
+			err := kube.CoordinationV1().
+				Leases(namespace).
+				Delete(context.Background(), lease.Name, metav1.DeleteOptions{})
+			if k8serrors.IsNotFound(err) {
+				return false // someone else deleted it first and so is likely in the process of leasing this namespace, move on
+			}
+			require.NoError(t, err)
+			PutNamespace(t, namespace)
+			err = putLease(t, namespace)
+			if k8serrors.IsAlreadyExists(err) {
+				// if it already exists, we deleted it, but another runner snuck in and
+				// created it somehow. Let them have it and go to the next open namespace.
+				return false
+			}
+			require.NoError(t, err)
+			return true
+		}
+		return false // lease exists and is not expired, can't take it
+	}
+}
+
+// Creates a Namespace if it doesn't exist. If it does exist, does nothing.
 func PutNamespace(t testing.TB, namespace string) {
 	kube := testutil.GetKubeClient(t)
 	if _, err := kube.CoreV1().Namespaces().Get(context.Background(), namespace, metav1.GetOptions{}); err != nil {
@@ -751,18 +952,20 @@ func PutNamespace(t testing.TB, namespace string) {
 				},
 			},
 			metav1.CreateOptions{})
-		require.NoError(t, err)
+		if !k8serrors.IsAlreadyExists(err) { // if it already exists we still have the end result we want and idempotence
+			require.NoError(t, err)
+		}
 	}
 }
 
 // Deploy pachyderm using a `helm upgrade ...`
 // returns an API Client corresponding to the deployment
 func UpgradeRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.UpgradeE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, true, opts)
 }
 
 // Deploy pachyderm using a `helm install ...`
 // returns an API Client corresponding to the deployment
 func InstallRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, opts *DeployOpts) *client.APIClient {
-	return putRelease(t, ctx, namespace, kubeClient, helmLock(helm.InstallE), opts)
+	return putRelease(t, ctx, namespace, kubeClient, false, opts)
 }

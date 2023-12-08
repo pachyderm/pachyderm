@@ -6656,6 +6656,281 @@ var _ interface {
 	ErrorName() string
 } = InspectProjectRequestValidationError{}
 
+// Validate checks the field values on InspectProjectV2Request with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *InspectProjectV2Request) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InspectProjectV2Request with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// InspectProjectV2RequestMultiError, or nil if none found.
+func (m *InspectProjectV2Request) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InspectProjectV2Request) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetProject() == nil {
+		err := InspectProjectV2RequestValidationError{
+			field:  "Project",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, InspectProjectV2RequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, InspectProjectV2RequestValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return InspectProjectV2RequestValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return InspectProjectV2RequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// InspectProjectV2RequestMultiError is an error wrapping multiple validation
+// errors returned by InspectProjectV2Request.ValidateAll() if the designated
+// constraints aren't met.
+type InspectProjectV2RequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InspectProjectV2RequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InspectProjectV2RequestMultiError) AllErrors() []error { return m }
+
+// InspectProjectV2RequestValidationError is the validation error returned by
+// InspectProjectV2Request.Validate if the designated constraints aren't met.
+type InspectProjectV2RequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InspectProjectV2RequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InspectProjectV2RequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InspectProjectV2RequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InspectProjectV2RequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InspectProjectV2RequestValidationError) ErrorName() string {
+	return "InspectProjectV2RequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InspectProjectV2RequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInspectProjectV2Request.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InspectProjectV2RequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InspectProjectV2RequestValidationError{}
+
+// Validate checks the field values on InspectProjectV2Response with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *InspectProjectV2Response) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on InspectProjectV2Response with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// InspectProjectV2ResponseMultiError, or nil if none found.
+func (m *InspectProjectV2Response) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *InspectProjectV2Response) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetInfo()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, InspectProjectV2ResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, InspectProjectV2ResponseValidationError{
+					field:  "Info",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInfo()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return InspectProjectV2ResponseValidationError{
+				field:  "Info",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for DefaultsJson
+
+	if len(errors) > 0 {
+		return InspectProjectV2ResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// InspectProjectV2ResponseMultiError is an error wrapping multiple validation
+// errors returned by InspectProjectV2Response.ValidateAll() if the designated
+// constraints aren't met.
+type InspectProjectV2ResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m InspectProjectV2ResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m InspectProjectV2ResponseMultiError) AllErrors() []error { return m }
+
+// InspectProjectV2ResponseValidationError is the validation error returned by
+// InspectProjectV2Response.Validate if the designated constraints aren't met.
+type InspectProjectV2ResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e InspectProjectV2ResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e InspectProjectV2ResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e InspectProjectV2ResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e InspectProjectV2ResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e InspectProjectV2ResponseValidationError) ErrorName() string {
+	return "InspectProjectV2ResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e InspectProjectV2ResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sInspectProjectV2Response.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = InspectProjectV2ResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = InspectProjectV2ResponseValidationError{}
+
 // Validate checks the field values on ListProjectRequest with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.

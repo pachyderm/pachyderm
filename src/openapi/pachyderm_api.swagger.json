@@ -3476,6 +3476,36 @@
         ]
       }
     },
+    "/pfs_v2.API/InspectProjectV2": {
+      "post": {
+        "summary": "InspectProjectV2 returns info about and defaults for a project.",
+        "operationId": "API_InspectProjectV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2InspectProjectV2Response"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2InspectProjectV2Request"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/ListProject": {
       "post": {
         "summary": "ListProject returns info about all projects.",
@@ -8016,6 +8046,25 @@
       "properties": {
         "project": {
           "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pfs_v2InspectProjectV2Request": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project"
+        }
+      }
+    },
+    "pfs_v2InspectProjectV2Response": {
+      "type": "object",
+      "properties": {
+        "info": {
+          "$ref": "#/definitions/pfs_v2ProjectInfo"
+        },
+        "defaultsJson": {
+          "type": "string"
         }
       }
     },

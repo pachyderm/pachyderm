@@ -18,6 +18,7 @@ func TestTest(t *testing.T) {
 
 func TestTestParallel(t *testing.T) {
 	c := make(chan struct{})
+
 	t.Run("a", func(t *testing.T) {
 		t.Parallel()
 		ctx := TestParallel(context.Background(), t)

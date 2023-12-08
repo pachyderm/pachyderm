@@ -326,6 +326,15 @@ export type InspectProjectRequest = {
   project?: Project
 }
 
+export type InspectProjectV2Request = {
+  project?: Project
+}
+
+export type InspectProjectV2Response = {
+  info?: ProjectInfo
+  defaultsJson?: string
+}
+
 export type ListProjectRequest = {
 }
 
@@ -673,6 +682,9 @@ export class API {
   }
   static InspectProject(req: InspectProjectRequest, initReq?: fm.InitReq): Promise<ProjectInfo> {
     return fm.fetchReq<InspectProjectRequest, ProjectInfo>(`/pfs_v2.API/InspectProject`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static InspectProjectV2(req: InspectProjectV2Request, initReq?: fm.InitReq): Promise<InspectProjectV2Response> {
+    return fm.fetchReq<InspectProjectV2Request, InspectProjectV2Response>(`/pfs_v2.API/InspectProjectV2`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static ListProject(req: ListProjectRequest, entityNotifier?: fm.NotifyStreamEntityArrival<ProjectInfo>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<ListProjectRequest, ProjectInfo>(`/pfs_v2.API/ListProject`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

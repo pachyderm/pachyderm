@@ -3,7 +3,7 @@
 package main
 
 func init() {
-	valueOverrides = map[string]string{
+	globalValueOverrides = map[string]string{
 		"postgresql.image.repository": "pachyderm/postgresql",
 		"postgresql.image.tag":        "13.3.0",
 		"etcd.image.tag":              "v3.5.5",

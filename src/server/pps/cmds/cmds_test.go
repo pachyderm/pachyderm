@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -256,11 +257,12 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 	c, _ := minikubetestenv.AcquireCluster(t)
-	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmd(t, c, `
+	ctx := pctx.TestContext(t)
+	require.NoErrorWithinTRetry(t, 2*time.Minute, tu.PachctlBashCmdCtx(ctx, t, c, `
 		yes | pachctl delete all
 	`).Run)
 	pipeline1 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create repo data
 		pachctl put file data@master:/file <<<"This is a test"
 		pachctl create pipeline <<EOF
@@ -281,7 +283,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		`,
 		"pipeline", pipeline1).Run())
 	pipeline2 := tu.UniqueString("p-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoError(t, tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl create pipeline <<EOF
 		  {
 		    "pipeline": {"name": "{{.pipeline}}"},
@@ -299,9 +301,10 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		EOF
 		`,
 		"pipeline", pipeline2, "inputPipeline", pipeline1).Run())
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	require.NoErrorWithinTRetryConstant(t, 60*time.Second, func() error {
+		return errors.EnsureStack(tu.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl wait commit data@master
-		sleep 20
+
 		# make sure that there is a not-run job
 		pachctl list job --raw \
 			| match "JOB_UNRUNNABLE"
@@ -309,6 +312,7 @@ func TestUnrunnableJobInfo(t *testing.T) {
 		pachctl list pipeline \
 			| match "unrunnable"
 		`, "pipeline", pipeline2).Run())
+	}, 1*time.Second)
 }
 
 // TestJSONMultiplePipelines tests that pipeline specs with multiple pipelines
@@ -529,7 +533,7 @@ func TestListPipelineFilter(t *testing.T) {
 		yes | pachctl delete all
 	`).Run())
 	pipeline1, pipeline2 := tu.UniqueString("pipeline1-"), tu.UniqueString("pipeline2-")
-	require.NoError(t, tu.PachctlBashCmd(t, c, `
+	out, err := tu.PachctlBashCmdCtx(pctx.TestContext(t), t, c, `
 		yes | pachctl delete all
 		pachctl create project myProject
 		pachctl create repo input
@@ -597,11 +601,12 @@ func TestListPipelineFilter(t *testing.T) {
 		pachctl list pipeline --all-projects | match {{.pipeline1}}
 		pachctl list pipeline --all-projects | match {{.pipeline2}}
 		pachctl list pipeline --state crashing --state failure | match -v {{.pipeline1}}
-		pachctl list pipeline --state starting --state running | match {{.pipeline1}}
+		pachctl list pipeline --state starting --state running --state standby | match {{.pipeline1}}
 	`,
 		"pipeline1", pipeline1,
 		"pipeline2", pipeline2,
-	).Run())
+	).Output()
+	require.NoError(t, err, "failed pachctl command with output %v", string(out))
 }
 
 func TestInspectWaitJob(t *testing.T) {

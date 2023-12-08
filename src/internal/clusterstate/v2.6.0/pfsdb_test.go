@@ -1,5 +1,3 @@
-//go:build unit_test
-
 package v2_6_0
 
 import (

@@ -2,10 +2,10 @@ package pretty
 
 import (
 	"fmt"
-	"html/template"
 	"io"
 	"os"
 	"strings"
+	"text/template"
 
 	units "github.com/docker/go-units"
 	"github.com/fatih/color"
@@ -183,24 +183,27 @@ Trigger: {{printTrigger .Trigger}} {{end}}
 }
 
 // PrintDetailedProjectInfo pretty-prints detailed project info.
-func PrintDetailedProjectInfo(projectInfo *pfs.ProjectInfo) error {
+func PrintDetailedInspectProjectV2Response(resp *pfs.InspectProjectV2Response) error {
 	template, err := template.New("ProjectInfo").Funcs(funcMap).Parse(
-		`Name: {{ .Project.Name }}
-{{- if .Description }}
-Description: {{ .Description}}
-{{- end -}}
-{{- if .CreatedAt }}
-Created at: {{ prettyTime .CreatedAt }}
-{{- end -}}
-{{- if .AuthInfo }}
-Roles: {{.AuthInfo.Roles | commafy}}
-Permissions: {{.AuthInfo.Permissions | commafy}}
-{{- end -}}
+		`Name: {{ .Info.Project.Name }}
+{{- if .Info.Description }}
+Description: {{ .Info.Description}}
+{{ end -}}
+{{- if .Info.CreatedAt }}
+Created at: {{ prettyTime .Info.CreatedAt }}
+{{ end -}}
+{{- if .Info.AuthInfo }}
+Roles: {{.Info.AuthInfo.Roles | commafy}}
+Permissions: {{.Info.AuthInfo.Permissions | commafy}}
+{{ end -}}
+{{- if .DefaultsJson}}
+Defaults: {{ .DefaultsJson }}
+{{ end -}}
 `)
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	return errors.EnsureStack(template.Execute(os.Stdout, projectInfo))
+	return errors.EnsureStack(template.Execute(os.Stdout, resp))
 }
 
 // PrintCommitInfo pretty-prints commit info.

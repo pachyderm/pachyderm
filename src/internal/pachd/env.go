@@ -113,6 +113,7 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		GetPipelineInspector: func() pfs_server.PipelineInspector { return env.PpsServer() },
 
 		StorageConfig: env.Config().StorageConfiguration,
+		GetPPSServer:  env.PpsServer,
 	}, nil
 }
 
