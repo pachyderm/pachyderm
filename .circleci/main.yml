@@ -84,7 +84,7 @@ jobs:
       - run: go mod download
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv -procs=16
           background: true
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
@@ -247,7 +247,7 @@ jobs:
             - /home/circleci/.gocache
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=24
           background: true
       - wait-for-docker
       - run: etc/testing/circle/wait-minikube.sh
