@@ -37,7 +37,7 @@ func main() {
 		"the default behavior of 'go test' of including tagged and untagged tests is used.")
 	fileName := flag.String("file", "tests_to_run.csv", "Output file listing the packages and tests to run. Used by the runner script.")
 	pkg := flag.String("pkg", "./...", "Package to run defaults to all packages.")
-	threadPool := flag.Int("procs", 2, "GOMAXPROCS value for the go test -list sbcommand.")
+	threadPool := flag.Int("procs", 0, "GOMAXPROCS value for the go test -list sbcommand.")
 	flag.Parse()
 
 	err := run(ctx, *tags, *exclusiveTags, *fileName, *pkg, *threadPool)
@@ -100,8 +100,10 @@ func testNames(ctx context.Context, pkg string, threadPool int, addtlCmdArgs ...
 		return nil, errors.EnsureStack(err)
 	}
 	cmd.Stderr = log.WriterAt(log.ChildLogger(ctx, "stderr"), log.InfoLevel)
-	cmd.Env = os.Environ()
-	cmd.Env = append(cmd.Env, fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	if threadPool > 0 {
+		cmd.Env = os.Environ()
+		cmd.Env = append(cmd.Env, fmt.Sprintf("GOMAXPROCS=%d", threadPool)) // This prevents the command from running wild eating up processes in the pipelines
+	}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	monitorCtx, monitorCancel := context.WithCancel(pctx.Child(ctx, "monitor go process"))
 	defer monitorCancel()
