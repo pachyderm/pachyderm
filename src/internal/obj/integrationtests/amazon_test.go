@@ -58,3 +58,14 @@ func TestAmazonClient(t *testing.T) {
 		amazonTests(t, GoogleBackend, id, secret, bucket, region, endpoint)
 	})
 }
+
+func TestAmazonBucket(t *testing.T) {
+	t.Parallel()
+	obj.TestBucket(t, func(t testing.TB) *obj.Bucket {
+		ctx := pctx.TestContext(t)
+		b, err := obj.NewAmazonBucketFromEnv(ctx)
+		require.NoError(t, err)
+		t.Cleanup(func() { b.Close() })
+		return b
+	})
+}
