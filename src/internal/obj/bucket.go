@@ -27,11 +27,11 @@ type Bucket = blob.Bucket
 func amazonHTTPClient() (*http.Client, int, error) {
 	advancedConfig := &AmazonAdvancedConfiguration{}
 	if err := cmdutil.Populate(advancedConfig); err != nil {
-		return nil, -1, errors.EnsureStack(err)
+		return nil, -1, errors.Wrap(err, "creating amazon http client")
 	}
 	timeout, err := time.ParseDuration(advancedConfig.Timeout)
 	if err != nil {
-		return nil, -1, errors.EnsureStack(err)
+		return nil, -1, errors.Wrap(err, "creating amazon http client")
 	}
 	httpClient := &http.Client{Timeout: timeout}
 	if advancedConfig.NoVerifySSL {
@@ -50,7 +50,8 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 		return nil, errors.Wrap(err, "creating amazon session")
 	}
 	endpoint := urlParams.Get("endpoint")
-	disableSSL, _ := strconv.ParseBool(urlParams.Get("disableSSL")) //nolint:errcheck // if unset, disableSSL will be false
+	//nolint:errcheck // if unset, disableSSL will be false
+	disableSSL, _ := strconv.ParseBool(urlParams.Get("disableSSL"))
 	region := urlParams.Get("region")
 	httpClient, retries, err := amazonHTTPClient()
 	if err != nil {
@@ -69,7 +70,11 @@ func amazonSession(ctx context.Context, objURL *ObjectStoreURL) (*session.Sessio
 		awsConfig.S3ForcePathStyle = aws.Bool(true)
 	}
 	// Create new session using awsConfig
-	return session.NewSession(awsConfig)
+	sess, err := session.NewSession(awsConfig)
+	if err != nil {
+		return nil, errors.Wrap(err, "creating amazon session")
+	}
+	return sess, nil
 }
 
 // NewAmazonBucket constructs an amazon client by reading credentials
@@ -79,11 +84,11 @@ func NewAmazonBucket(ctx context.Context, objURL *ObjectStoreURL) (*Bucket, erro
 	// Use or retrieve S3 bucket
 	sess, err := amazonSession(ctx, objURL)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "amazon bucket")
 	}
 	blobBucket, err := s3blob.OpenBucket(ctx, sess, objURL.Bucket, nil)
 	if err != nil {
-		return nil, errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "amazon bucket")
 	}
 	return blobBucket, nil
 }
@@ -95,18 +100,23 @@ func NewAmazonBucket(ctx context.Context, objURL *ObjectStoreURL) (*Bucket, erro
 // prefix for chunks.
 func NewBucket(ctx context.Context, storageBackend, storageRoot string) (*Bucket, error) {
 	var err error
+	var bucket *Bucket
 	objURL, err := ParseURL(os.Getenv("STORAGE_URL"))
 	if err != nil {
 		return nil, errors.Wrap(err, "new bucket")
 	}
 	switch storageBackend {
 	case Amazon:
-		return NewAmazonBucket(ctx, objURL)
+		bucket, err = NewAmazonBucket(ctx, objURL)
 	case Google, Microsoft:
-		return blob.OpenBucket(ctx, objURL.BucketString())
+		bucket, err = blob.OpenBucket(ctx, objURL.BucketString())
 	case Local:
-		return fileblob.OpenBucket(storageRoot, nil)
+		bucket, err = fileblob.OpenBucket(storageRoot, nil)
 	default:
 		return nil, errors.Errorf("unrecognized storage backend: %s", storageBackend)
 	}
+	if err != nil {
+		return nil, errors.Wrap(err, "new bucket")
+	}
+	return bucket, nil
 }
