@@ -218,10 +218,6 @@ jobs:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
-      - run:
-          name: Collect tests to run
-          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
-          background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
@@ -250,6 +246,10 @@ jobs:
           paths:
             - /home/circleci/.gocache
       - run: go mod download
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
+          background: true
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events
