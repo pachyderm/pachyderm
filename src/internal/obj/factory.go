@@ -482,7 +482,6 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 }
 
 // NewClientFromEnv creates a client based on environment variables.
-// todo(Fahad): this is used in supervisor.go, we need to replace this with go-cdk
 func NewClientFromEnv(ctx context.Context, storageRoot string) (c Client, err error) {
 	storageBackend, ok := os.LookupEnv(StorageBackendEnvVar)
 	if !ok {
