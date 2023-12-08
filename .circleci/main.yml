@@ -212,16 +212,16 @@ jobs:
             - pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
       - run: etc/testing/circle/install.sh
       - install-go-releaser
-      - run:
-          name: Collect tests to run
-          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
-          background: true
       - save_cache:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
       - go/install:
           version: << pipeline.parameters.go-version >>
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=16
+          background: true
       - run: mkdir ${TEST_RESULTS}
       - run: go install gotest.tools/gotestsum@latest
       - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
