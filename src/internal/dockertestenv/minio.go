@@ -102,6 +102,7 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 	require.NoError(t, err)
 	return bucket, obj.ObjectStoreURL{
 		Scheme: "s3://",
-		Bucket: fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", endpoint, bucketName),
-	}.String()
+		Bucket: fmt.Sprintf("%s", bucketName),
+		Params: fmt.Sprintf("endpoint=%s&disableSSL=true&region=dummy-region", endpoint),
+	}.BucketString()
 }
