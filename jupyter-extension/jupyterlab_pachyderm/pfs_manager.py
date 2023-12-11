@@ -508,7 +508,7 @@ class DatumManager(FileContentsManager):
                     # download individual file
                     with self._client.pfs.pfs_file(file=fileinfo.file) as datum_file:
                         with open(path, "wb") as download_file:
-                            download_file.write(datum_file.readall())
+                            shutil.copyfileobj(fsrc=datum_file, fdst=download_file)
                 elif fileinfo.file_type == pfs.FileType.DIR:
                     # download tarball
                     with self._client.pfs.pfs_tar_file(file=fileinfo.file) as tar:
