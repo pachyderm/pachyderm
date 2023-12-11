@@ -225,7 +225,7 @@ clean-launch: check-kubectl
 	kubectl delete pvc -l app=minio -n default
 
 proto: check-bazel
-	bazel run //etc/proto:run
+	bazel run //:make_proto
 	$(MAKE) -C python-sdk proto
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis

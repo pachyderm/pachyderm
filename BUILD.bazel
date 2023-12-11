@@ -76,3 +76,9 @@ alias(
     name = "go",
     actual = "@rules_go//go",
 )
+
+# An alias for regeneating protos.
+alias(
+    name = "make_proto",
+    actual = "//src/proto:run",
+)

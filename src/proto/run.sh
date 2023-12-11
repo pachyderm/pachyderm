@@ -42,17 +42,17 @@ done
 "$(rlocation com_google_protobuf/protoc)" \
     -I"$(dirname $(dirname $(dirname $(rlocation com_google_protobuf/src/google/protobuf/any.proto))))" \
     -Isrc \
-    --plugin=protoc-gen-go="$(rlocation _main/etc/proto/protoc-gen-go)" \
+    --plugin=protoc-gen-go="$(rlocation _main/src/proto/protoc-gen-go)" \
     --plugin=protoc-gen-go-grpc="$(rlocation org_golang_google_grpc_cmd_protoc_gen_go_grpc/protoc-gen-go-grpc_/protoc-gen-go-grpc)" \
-    --plugin=protoc-gen-zap="$(rlocation _main/etc/proto/protoc-gen-zap/protoc-gen-zap_/protoc-gen-zap)" \
-    --plugin=protoc-gen-pach="$(rlocation _main/etc/proto/pachgen/pachgen_/pachgen)" \
-    --plugin=protoc-gen-doc="$(rlocation _main/etc/proto/protoc-gen-doc)" \
-    --plugin=protoc-gen-doc2="$(rlocation _main/etc/proto/protoc-gen-doc)" \
+    --plugin=protoc-gen-zap="$(rlocation _main/src/proto/protoc-gen-zap/protoc-gen-zap_/protoc-gen-zap)" \
+    --plugin=protoc-gen-pach="$(rlocation _main/src/proto/pachgen/pachgen_/pachgen)" \
+    --plugin=protoc-gen-doc="$(rlocation _main/src/proto/protoc-gen-doc)" \
+    --plugin=protoc-gen-doc2="$(rlocation _main/src/proto/protoc-gen-doc)" \
     --plugin=protoc-gen-jsonschema="$(rlocation com_github_chrusty_protoc_gen_jsonschema/cmd/protoc-gen-jsonschema/protoc-gen-jsonschema_/protoc-gen-jsonschema)" \
-    --plugin=protoc-gen-validate="$(rlocation _main/etc/proto/protoc-gen-validate-go)" \
-    --plugin=protoc-gen-openapiv2="$(rlocation _main/etc/proto/protoc-gen-openapiv2)" \
-    --plugin=protoc-gen-grpc-gateway="$(rlocation _main/etc/proto/protoc-gen-grpc-gateway)" \
-    --plugin=protoc-gen-grpc-gateway-ts="$(rlocation _main/etc/proto/protoc-gen-grpc-gateway-ts)" \
+    --plugin=protoc-gen-validate="$(rlocation _main/src/proto/protoc-gen-validate-go)" \
+    --plugin=protoc-gen-openapiv2="$(rlocation _main/src/proto/protoc-gen-openapiv2)" \
+    --plugin=protoc-gen-grpc-gateway="$(rlocation _main/src/proto/protoc-gen-grpc-gateway)" \
+    --plugin=protoc-gen-grpc-gateway-ts="$(rlocation _main/src/proto/protoc-gen-grpc-gateway-ts)" \
     --zap_out=":$OUT/src" \
     --pach_out=":$OUT/src" \
     --go_out=":$OUT/src" \
@@ -89,7 +89,7 @@ rm -rf $OUT/src/github.com
 
 pushd $OUT >/dev/null
 echo -n "gopatch..."
-"$(rlocation _main/etc/proto/gopatch)" ./... -p="$(rlocation _main/etc/proto/proto.patch)"
+"$(rlocation _main/src/proto/gopatch)" ./... -p="$(rlocation _main/src/proto/proto.patch)"
 echo "done."
 echo -n "gofmt..."
 "$(rlocation go_sdk/bin/gofmt)" -w .
