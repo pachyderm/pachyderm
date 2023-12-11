@@ -1600,7 +1600,7 @@ jobs:
           chmod a+x bazelisk-linux-amd64
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
           popd
-      - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //etc/proto:run
+      - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
       - run: git diff --exit-code
 
 workflows:
