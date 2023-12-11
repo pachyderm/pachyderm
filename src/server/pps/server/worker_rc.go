@@ -142,6 +142,12 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		Name:  "STORAGE_BACKEND",
 		Value: kd.config.StorageBackend,
 	}, {
+		Name:  "STORAGE_URL",
+		Value: kd.config.StorageURL,
+	}, {
+		Name:  "GOCDK_ENABLED",
+		Value: strconv.FormatBool(kd.config.GoCDKEnabled),
+	}, {
 		Name:  "POSTGRES_USER",
 		Value: kd.config.PostgresUser,
 	}, {
