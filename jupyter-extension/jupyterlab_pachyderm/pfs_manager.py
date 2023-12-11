@@ -10,6 +10,9 @@ from tornado import web
 import typing
 import shutil
 
+from .env import PFS_MOUNT_DIR
+from .log import get_logger
+
 
 class ContentModel(typing.TypedDict):
     name: str
@@ -412,6 +415,7 @@ class DatumManager(FileContentsManager):
         all_datums_received: bool
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
+    _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
     # currently unsupported stuff (unclear if needed or not):
     #  - crossing repo with itself
     #  - renaming repo level directories
@@ -422,8 +426,16 @@ class DatumManager(FileContentsManager):
         self._datum_index = 0
         self._mount_time = datetime.datetime.min
         self._input = None
+        self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
+        try:
+            os.makedirs(PFS_MOUNT_DIR, exist_ok=True)
+        except Exception as e:
+            get_logger().error(
+                f"Could not create mount dir {PFS_MOUNT_DIR}. Try setting the PFS_MOUNT_DIR env var."
+            )
+            raise e
         super().__init__(**kwargs)
 
     # TODO: don't ignore name in the input spec
@@ -469,12 +481,73 @@ class DatumManager(FileContentsManager):
             all_datums_received=True,
         )
 
-    def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
+    def download(self):
+        """
+        Downloads the currently mounted datum to a local cache directory,
+        then links the downloaded files to PFS_MOUNT_DIR (/pfs by default).
+        Subsequent calls to this method will remove the previously
+        downloaded datum and link the newly downloaded ones.
+        """
+        if (
+            len(self._datum_list) == 0
+            or len(self._datum_list[self._datum_index].data) == 0
+        ):
+            raise ValueError("Attempting to download empty or unmounted datum")
+
+        download_dir = (
+            f"{self._DOWNLOAD_DIR}/datum-{datetime.datetime.now().isoformat()}"
+        )
+        try:
+            os.makedirs(download_dir, exist_ok=True)
+            for fileinfo in self._datum_list[self._datum_index].data:
+                path = self._get_download_path(
+                    download_dir=download_dir, fileinfo=fileinfo
+                )
+                os.makedirs(path.parent, exist_ok=True)
+                if fileinfo.file_type == pfs.FileType.FILE:
+                    # download individual file
+                    with self._client.pfs.pfs_file(file=fileinfo.file) as datum_file:
+                        with open(path, "wb") as download_file:
+                            shutil.copyfileobj(fsrc=datum_file, fdst=download_file)
+                elif fileinfo.file_type == pfs.FileType.DIR:
+                    # download tarball
+                    with self._client.pfs.pfs_tar_file(file=fileinfo.file) as tar:
+                        tar.extractall(
+                            path=path if fileinfo.file.path == "/" else path.parent
+                        )
+                else:
+                    raise TypeError(
+                        f"Attempting to download invalid file type {fileinfo.file_type}"
+                    )
+
+            for dir in os.listdir(PFS_MOUNT_DIR):
+                os.unlink(Path(PFS_MOUNT_DIR, dir))
+
+            for dir in os.listdir(download_dir):
+                os.symlink(
+                    src=Path(download_dir, dir),
+                    dst=Path(PFS_MOUNT_DIR, dir),
+                    target_is_directory=True,
+                )
+
+            shutil.rmtree(self._download_dir, ignore_errors=True)
+            self._download_dir = download_dir
+        except Exception as e:
+            shutil.rmtree(download_dir, ignore_errors=True)
+            raise e
+
+    def _get_relative_path(self, fileinfo: pfs.FileInfo) -> Path:
         project = fileinfo.file.commit.repo.project.name
         branch = fileinfo.file.commit.branch.name
         repo = fileinfo.file.commit.repo.name
         toplevel = f"{project}_{repo}_{branch}"
-        return Path(self._FILEINFO_DIR, toplevel, fileinfo.file.path.strip("/"))
+        return Path(toplevel, fileinfo.file.path.strip("/"))
+
+    def _get_download_path(self, download_dir: Path, fileinfo: pfs.FileInfo) -> Path:
+        return Path(download_dir, self._get_relative_path(fileinfo=fileinfo))
+
+    def _get_fileinfo_path(self, fileinfo: pfs.FileInfo) -> Path:
+        return Path(self._FILEINFO_DIR, self._get_relative_path(fileinfo=fileinfo))
 
     def _update_mount(self):
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)

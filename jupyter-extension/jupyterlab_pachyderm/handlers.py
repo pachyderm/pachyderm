@@ -190,6 +190,25 @@ class DatumPrevHandler(BaseHandler):
             )
 
 
+class DatumDownloadHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self):
+        try:
+            self.datum_manager.download()
+            self.finish()
+        except ValueError as e:
+            get_logger().error(f"Invalid datum download: {e}")
+            raise tornado.web.HTTPError(
+                status_code=400, reason=f"Bad download request: {e}"
+            )
+        except Exception as e:
+            get_logger().error(f"Error downloading datum", exc_info=True)
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 500),
+                reason=f"Error downloading datum: {e}.",
+            )
+
+
 class DatumsHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
@@ -451,6 +470,7 @@ def setup_handlers(web_app):
         ("/datums/_mount", MountDatumsHandler),
         ("/datums/_next", DatumNextHandler),
         ("/datums/_prev", DatumPrevHandler),
+        ("/datums/_download", DatumDownloadHandler),
         ("/datums", DatumsHandler),
         (r"/pfs%s" % path_regex, PFSHandler),
         (r"/view_datum%s" % path_regex, ViewDatumHandler),

@@ -19,6 +19,8 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
+
+	"gocloud.dev/blob"
 )
 
 type APIServer = *validatedAPIServer
@@ -44,6 +46,7 @@ type PFSAuth interface {
 // Env is the dependencies needed to run the PFS API server
 type Env struct {
 	ObjectClient obj.Client
+	Bucket       *blob.Bucket
 	DB           *pachsql.DB
 	EtcdPrefix   string
 	EtcdClient   *etcd.Client
