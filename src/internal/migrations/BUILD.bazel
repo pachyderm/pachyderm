@@ -1,0 +1,30 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "migrations",
+    srcs = ["migrations.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/migrations",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/obj",
+        "//src/internal/pachsql",
+        "@io_etcd_go_etcd_client_v3//:client",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "migrations_test",
+    srcs = ["migrations_test.go"],
+    embed = [":migrations"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "@com_github_stretchr_testify//assert",
+        "@org_golang_x_sync//errgroup",
+    ],
+)

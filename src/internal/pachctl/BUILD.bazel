@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pachctl",
+    srcs = ["pachctl.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pachctl",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/middleware/logging/client",
+    ],
+)

@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "conditionalrequest",
+    srcs = ["conditionalrequest.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/conditionalrequest",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)
+
+go_test(
+    name = "conditionalrequest_test",
+    srcs = ["conditionalrequest_test.go"],
+    embed = [":conditionalrequest"],
+)

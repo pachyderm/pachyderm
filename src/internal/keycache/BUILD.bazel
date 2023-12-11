@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "keycache",
+    srcs = ["cache.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/keycache",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/collection",
+        "//src/internal/errors",
+        "//src/internal/watch",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

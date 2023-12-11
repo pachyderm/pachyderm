@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "postgres",
+    srcs = ["impl.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/collection",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "@com_github_lib_pq//:pq",
+    ],
+)
+
+go_test(
+    name = "postgres_test",
+    srcs = ["impl_test.go"],
+    deps = [
+        ":postgres",
+        "//src/internal/clusterstate",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/migrations",
+        "//src/internal/pctx",
+        "//src/internal/pfsdb",
+        "//src/internal/require",
+        "//src/internal/testetcd",
+        "//src/internal/testutil",
+    ],
+)

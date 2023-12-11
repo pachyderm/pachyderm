@@ -1,0 +1,31 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "renew",
+    srcs = [
+        "renewer.go",
+        "string_set.go",
+        "tmp.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/renew",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/storage/track",
+        "//src/internal/uuid",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "renew_test",
+    srcs = ["string_set_test.go"],
+    embed = [":renew"],
+    deps = [
+        "//src/internal/require",
+        "//src/internal/uuid",
+    ],
+)

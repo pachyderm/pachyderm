@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "track",
+    srcs = [
+        "gc.go",
+        "postgres_tracker.go",
+        "tracker.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/track",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pacherr",
+        "//src/internal/pachsql",
+        "//src/internal/require",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "track_test",
+    srcs = ["postgres_tracker_test.go"],
+    deps = [
+        ":track",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pachsql",
+        "//src/internal/require",
+    ],
+)

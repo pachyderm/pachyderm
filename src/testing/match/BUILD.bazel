@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "match_lib",
+    srcs = ["match.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/match",
+    visibility = ["//visibility:private"],
+)
+
+go_binary(
+    name = "match",
+    embed = [":match_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "match_test",
+    srcs = ["match_test.go"],
+    embed = [":match_lib"],
+    deps = [
+        "//src/internal/require",
+        "//src/internal/testutil",
+    ],
+)

@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "transactionenv",
+    srcs = ["env.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/internal/client",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/transactionenv/txncontext",
+        "//src/pfs",
+        "//src/pps",
+        "//src/transaction",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_golang_google_protobuf//proto",
+    ],
+)

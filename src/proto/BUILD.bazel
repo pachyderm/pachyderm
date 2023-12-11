@@ -1,3 +1,4 @@
+load("@rules_go//go:def.bzl", "go_library")
 load("//private/rules:rules.bzl", "host_native_binary")
 
 host_native_binary(
@@ -66,4 +67,16 @@ sh_binary(
     ],
     visibility = ["//:__pkg__"],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+go_library(
+    name = "proto",
+    srcs = ["tools.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/proto",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_chrusty_protoc_gen_jsonschema//cmd/protoc-gen-jsonschema",
+        "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",
+        "@org_uber_go_zap//:zap",
+    ],
 )

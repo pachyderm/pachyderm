@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "test-runner_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/cmds/harness/test-runner",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_fsnotify_fsnotify//:fsnotify",
+        "@com_github_google_shlex//:shlex",
+        "@org_golang_x_exp//slices",
+        "@org_golang_x_sync//errgroup",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "test-runner",
+    embed = [":test-runner_lib"],
+    visibility = ["//visibility:public"],
+)

@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "v2_6_0",
+    srcs = [
+        "clusterstate.go",
+        "pfsdb.go",
+        "ppsdb.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.6.0",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/internal/authdb",
+        "//src/internal/clusterstate/v2.5.0:v2_5_0",
+        "//src/internal/collection",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/storage/fileset",
+        "//src/pfs",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "v2_6_0_test",
+    srcs = ["pfsdb_test.go"],
+    embed = [":v2_6_0"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/clusterstate/v2.5.0:v2_5_0",
+        "//src/internal/require",
+        "//src/pfs",
+    ],
+)

@@ -1,0 +1,24 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "taskchain",
+    srcs = ["task_chain.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/taskchain",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@org_golang_x_sync//errgroup",
+        "@org_golang_x_sync//semaphore",
+    ],
+)
+
+go_test(
+    name = "taskchain_test",
+    srcs = ["task_chain_test.go"],
+    embed = [":taskchain"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/require",
+        "@org_golang_x_sync//semaphore",
+    ],
+)

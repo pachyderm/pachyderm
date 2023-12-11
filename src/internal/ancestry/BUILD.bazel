@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "ancestry",
+    srcs = ["ancestry.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/ancestry",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)
+
+go_test(
+    name = "ancestry_test",
+    srcs = ["ancestry_test.go"],
+    embed = [":ancestry"],
+    deps = ["//src/internal/require"],
+)

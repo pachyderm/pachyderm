@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "server",
+    srcs = ["api_server.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/proxy/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/collection",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/uuid",
+        "//src/proxy",
+        "@org_uber_go_zap//:zap",
+    ],
+)

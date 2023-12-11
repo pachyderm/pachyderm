@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "egress_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/cmds/go-test-results/egress",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/testing/cmds/go-test-results",
+        "@com_github_google_uuid//:uuid",
+        "@com_github_jackc_pgconn//:pgconn",
+        "@com_github_jackc_pgx_v4//stdlib",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_golang_x_sync//errgroup",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "egress",
+    embed = [":egress_lib"],
+    visibility = ["//visibility:public"],
+)

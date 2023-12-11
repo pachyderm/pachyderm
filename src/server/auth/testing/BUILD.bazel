@@ -1,0 +1,14 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "testing",
+    srcs = ["auth.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/auth/testing",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/internal/transactionenv/txncontext",
+        "//src/pfs",
+        "//src/pps",
+    ],
+)

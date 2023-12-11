@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "randutil",
+    srcs = [
+        "rand.go",
+        "unique.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/randutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/miscutil",
+        "//src/internal/uuid",
+    ],
+)
+
+go_test(
+    name = "randutil_test",
+    srcs = ["rand_test.go"],
+    embed = [":randutil"],
+    deps = [
+        "//src/internal/require",
+        "@com_github_docker_go_units//:go-units",
+    ],
+)

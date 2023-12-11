@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "fsutil",
+    srcs = ["file.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/fsutil",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)

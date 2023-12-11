@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "promutil",
+    srcs = ["promutil.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/promutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "promutil_test",
+    srcs = ["promutil_test.go"],
+    embed = [":promutil"],
+)

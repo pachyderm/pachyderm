@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "testutil",
+    srcs = ["generate.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/sdata/testutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "@com_github_google_gofuzz//:gofuzz",
+        "@com_github_jmoiron_sqlx//:sqlx",
+    ],
+)
