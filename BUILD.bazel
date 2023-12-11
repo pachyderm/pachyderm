@@ -1,4 +1,4 @@
-load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test")
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle")
 
 # Conifigure supported architectures.  Note that some architectures are only supported for tooling
@@ -69,6 +69,11 @@ buildifier_test(
     mode = "diff",
     no_sandbox = True,
     workspace = "//:MODULE.bazel",
+)
+
+# Run the buildozer command.
+buildozer_binary(
+    name = "buildozer",
 )
 
 # go for "go doc" or "go mod tidy"; invoke those as "bazel run go -- mod tidy" or similar.
