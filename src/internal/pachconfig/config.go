@@ -3,7 +3,9 @@
 // This package should be at the bottom of the dependency graph.
 package pachconfig
 
-import "k8s.io/apimachinery/pkg/api/resource"
+import (
+	"k8s.io/apimachinery/pkg/api/resource"
+)
 
 // Configuration is the generic configuration structure used to access configuration fields.
 type Configuration struct {
@@ -128,6 +130,8 @@ func (PachdFullConfiguration) isPachConfig() {}
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
+	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=false"`
+	StorageURL                 string `env:"STORAGE_URL,default="`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
 	KubeAddress                string `env:"KUBERNETES_PORT_443_TCP_ADDR,required"`
