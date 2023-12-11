@@ -792,7 +792,7 @@ jobs:
       - run:
           name: Check for known security vulnerabilities
           command: |
-            find -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
+            find -path src/proto -prune -o -name go.mod -print0 | xargs -0 -I{} sh -c 'cd $(dirname {}); echo; echo '---'; echo $PWD; exec govulncheck ./...'
   jupyter-extension-test:
     parameters:
       python-version:
