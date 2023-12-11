@@ -32,12 +32,12 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	})))
 
 	dbcfg := dockertestenv.NewTestDBConfig(t)
-	objC := dockertestenv.NewTestObjClient(ctx, t)
 	lis := testutil.Listen(t)
+	bucket, _ := dockertestenv.NewTestBucket(ctx, t)
 	env := Env{
 		DB:         testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...),
 		DirectDB:   testutil.OpenDB(t, dbcfg.Direct.DBOptions()...),
-		ObjClient:  objC,
+		Bucket:     bucket,
 		EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient,
 		Listener:   lis,
 	}

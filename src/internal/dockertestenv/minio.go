@@ -26,28 +26,6 @@ const (
 	minioPort = 9000
 )
 
-func NewTestObjClient(ctx context.Context, t testing.TB) obj.Client {
-	t.Helper()
-	dclient := newDockerClient()
-	defer dclient.Close()
-	err := backoff.Retry(func() error {
-		return ensureMinio(ctx, dclient)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err)
-	endpoint := getMinioEndpoint()
-	id := "minioadmin"
-	secret := "minioadmin"
-	client, err := minio.New(endpoint, &minio.Options{
-		Creds:  minioCreds.NewStaticV4(id, secret, ""),
-		Secure: false,
-	})
-	require.NoError(t, err)
-	bucketName := newTestMinioBucket(ctx, t, client)
-	oc, err := obj.NewMinioClient(endpoint, bucketName, id, secret, false, false)
-	require.NoError(t, err)
-	return obj.WrapWithTestURL(oc)
-}
-
 // newTestMinioBucket creates a new bucket, which will be cleaned up when the test finishes
 func newTestMinioBucket(ctx context.Context, t testing.TB, client *minio.Client) string {
 	bucketName := testBucketName(t)
@@ -123,7 +101,7 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
 	require.NoError(t, err)
 	return bucket, obj.ObjectStoreURL{
-		Scheme: "minio",
-		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
+		Scheme: "s3://",
+		Bucket: fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", endpoint, bucketName),
 	}.String()
 }
