@@ -64,6 +64,6 @@ sh_binary(
         "@go_sdk//:bin/gofmt",
         "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",
     ],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
     visibility = ["//:__pkg__"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
