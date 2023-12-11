@@ -42,7 +42,7 @@ host_native_binary(
     target = ":gopatch",
 )
 
-# bazel build //etc/proto:run will regenerate the protos in your working copy.
+# bazel build //src/proto:run will regenerate the protos in your working copy.
 sh_binary(
     name = "run",
     srcs = ["run.sh"],
@@ -55,8 +55,8 @@ sh_binary(
         ":protoc-gen-grpc-gateway-ts",
         ":protoc-gen-openapiv2",
         ":protoc-gen-validate-go",
-        "//etc/proto/pachgen",
-        "//etc/proto/protoc-gen-zap",
+        "//src/proto/pachgen",
+        "//src/proto/protoc-gen-zap",
         "@com_github_chrusty_protoc_gen_jsonschema//cmd/protoc-gen-jsonschema",
         "@com_google_protobuf//:descriptor_proto_srcs",
         "@com_google_protobuf//:protoc",
@@ -65,4 +65,5 @@ sh_binary(
         "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
+    visibility = ["//:__pkg__"],
 )

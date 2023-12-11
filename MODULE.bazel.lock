@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "80277c1dcaaa9b596c4eec9e7c2125bd2130b3a09898f607b6481f8711fd2c9a",
+  "moduleFileHash": "46fe3821c4e2da1ba16d54de2a95cd602da65b99cddc3aab4e62329ad3387387",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -76,7 +76,7 @@
             {
               "tagName": "from_file",
               "attributeValues": {
-                "go_mod": "//etc/proto:go.mod"
+                "go_mod": "//src/proto:go.mod"
               },
               "devDependency": false,
               "location": {
@@ -1646,10 +1646,10 @@
         "accumulatedFileDigests": {
           "@@rules_go~0.43.0//:go.mod": "58f9901703af412a1a8771d283721ef391c0ca1cc6ef3c141334311965535676",
           "@@gazelle~0.34.0//:go.mod": "9ae159a385b2f244bbe964b9f91dbea6e7bd534e0b22e846655f241c65de2c49",
-          "@@//etc/proto:go.sum": "006302dd6b69a271aa245b1da6ad18a54007183dae319c3d67ae91211c2569fc",
+          "@@//src/proto:go.sum": "006302dd6b69a271aa245b1da6ad18a54007183dae319c3d67ae91211c2569fc",
+          "@@//src/proto:go.mod": "e1731202ced912fde2dc528d61f32b115b92184b9de274fdc17f5a3bc0e58a24",
           "@@rules_go~0.43.0//:go.sum": "c6368ec1da45691f9148115d7317e740c3b32313b624b8f6545ef36b2ab4d781",
-          "@@gazelle~0.34.0//:go.sum": "7469786f3930030c430969cedae951e6947cb40f4a563dac94a350659c0fedc4",
-          "@@//etc/proto:go.mod": "e1731202ced912fde2dc528d61f32b115b92184b9de274fdc17f5a3bc0e58a24"
+          "@@gazelle~0.34.0//:go.sum": "7469786f3930030c430969cedae951e6947cb40f4a563dac94a350659c0fedc4"
         },
         "envVariables": {},
         "generatedRepoSpecs": {
