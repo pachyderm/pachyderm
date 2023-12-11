@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "3ca65150e4073623c27c8618feed59f2b1ffe5184f7388a8ba9e4afa134b77db",
+  "moduleFileHash": "53b968be6492c8f8fc2020c8c41aedfc52ed47ff05b9dbc397416797a1adba58",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -196,6 +196,36 @@
                 "line": 19,
                 "column": 18
               }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "go.etcd.io/etcd/api/v3"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 20,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "go.etcd.io/etcd/server/v3"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 26,
+                "column": 25
+              }
             }
           ],
           "hasDevUseExtension": false,
@@ -207,7 +237,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 141,
+            "line": 153,
             "column": 32
           },
           "imports": {
@@ -5662,7 +5692,9 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~io_etcd_go_etcd_api_v3",
               "importpath": "go.etcd.io/etcd/api/v3",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
@@ -7058,7 +7090,9 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~io_etcd_go_etcd_server_v3",
               "importpath": "go.etcd.io/etcd/server/v3",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],

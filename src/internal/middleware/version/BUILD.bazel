@@ -8,6 +8,6 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/version",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
     ],
 )

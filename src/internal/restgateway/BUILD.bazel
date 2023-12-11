@@ -21,6 +21,6 @@ go_library(
         "//src/version/versionpb",
         "//src/worker",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
     ],
 )

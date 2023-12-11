@@ -8,7 +8,7 @@ go_library(
     deps = [
         "//src/internal/log",
         "//src/internal/pctx",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//metadata",
         "@org_golang_google_protobuf//proto",
         "@org_uber_go_zap//:zap",
@@ -24,7 +24,7 @@ go_test(
         "@com_github_grpc_ecosystem_go_grpc_middleware//testing",
         "@com_github_grpc_ecosystem_go_grpc_middleware//testing/testproto",
         "@com_github_stretchr_testify//suite",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//metadata",
     ],

@@ -47,7 +47,7 @@ config_setting(
 # Add gazelle for "bazel run gazelle -- ..."
 
 # gazelle:prefix github.com/pachyderm/pachyderm/v2
-# gazelle:proto disable
+# gazelle:proto disable_global
 gazelle(name = "gazelle")
 
 # Buildifier formats all BUILD files in the workspace.
