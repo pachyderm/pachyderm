@@ -2269,7 +2269,7 @@
     },
     "@@rules_go~0.43.0//go:extensions.bzl%go_sdk": {
       "os:linux,arch:amd64": {
-        "bzlTransitiveDigest": "rV0vOU4iKAaK0H9TDSJwjc2IqN1f3pDhJI4ghT3nbCo=",
+        "bzlTransitiveDigest": "X7FY+0kUDFpsa3ulS9IPEJAqEW8vwFdmD7u4epims+M=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2353,7 +2353,7 @@
     },
     "@@rules_go~0.43.0//go/private:extensions.bzl%non_module_dependencies": {
       "general": {
-        "bzlTransitiveDigest": "HVQFeyOKBLrSd0aeADxmzVnAYkpu/jimGzaJxoxrtio=",
+        "bzlTransitiveDigest": "YUftLGAPWeJ7VDs/ZX2BI5W5qF/Q4UMGXucg1L0abgo=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
