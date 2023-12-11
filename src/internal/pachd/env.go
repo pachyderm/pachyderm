@@ -117,7 +117,7 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 	}
 	cfg := env.Config()
 	if cfg.GoCDKEnabled {
-		pfsEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot)
+		pfsEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
 		if err != nil {
 			return nil, err
 		}

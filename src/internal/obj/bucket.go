@@ -9,7 +9,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"time"
 
@@ -95,13 +94,10 @@ func NewAmazonBucket(ctx context.Context, objURL *ObjectStoreURL) (*Bucket, erro
 
 // NewBucket creates a Bucket using the given backend and storage root (for
 // local backends).
-// TODO: Not sure if we want to keep the storage root configuration for
-// non-local deployments. If so, we will need to connect it to the object path
-// prefix for chunks.
-func NewBucket(ctx context.Context, storageBackend, storageRoot string) (*Bucket, error) {
+func NewBucket(ctx context.Context, storageBackend, storageRoot, storageURL string) (*Bucket, error) {
 	var err error
 	var bucket *Bucket
-	objURL, err := ParseURL(os.Getenv("STORAGE_URL"))
+	objURL, err := ParseURL(storageURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "new bucket")
 	}
