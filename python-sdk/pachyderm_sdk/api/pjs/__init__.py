@@ -386,6 +386,7 @@ class ApiStub:
         cache_read: bool = False,
         cache_write: bool = False
     ) -> "CreateJobResponse":
+
         request = CreateJobRequest()
         request.context = context
         if spec is not None:
@@ -400,6 +401,7 @@ class ApiStub:
     def cancel_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "CancelJobResponse":
+
         request = CancelJobRequest()
         request.context = context
         if job is not None:
@@ -410,6 +412,7 @@ class ApiStub:
     def delete_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "DeleteJobResponse":
+
         request = DeleteJobRequest()
         request.context = context
         if job is not None:
@@ -420,6 +423,7 @@ class ApiStub:
     def list_job(
         self, *, context: str = "", job: "Job" = None
     ) -> Iterator["ListJobResponse"]:
+
         request = ListJobRequest()
         request.context = context
         if job is not None:
@@ -431,6 +435,7 @@ class ApiStub:
     def walk_job(
         self, *, context: str = "", job: "Job" = None
     ) -> Iterator["ListJobResponse"]:
+
         request = WalkJobRequest()
         request.context = context
         if job is not None:
@@ -442,6 +447,7 @@ class ApiStub:
     def inspect_job(
         self, *, context: str = "", job: "Job" = None
     ) -> "InspectJobResponse":
+
         request = InspectJobRequest()
         request.context = context
         if job is not None:
@@ -455,16 +461,19 @@ class ApiStub:
             AsyncIterable["ProcessQueueRequest"], Iterable["ProcessQueueRequest"]
         ],
     ) -> Iterator["ProcessQueueResponse"]:
+
         for response in self.__rpc_process_queue(request_iterator):
             yield response
 
     def list_queue(self) -> Iterator["ListQueueResponse"]:
+
         request = ListQueueRequest()
 
         for response in self.__rpc_list_queue(request):
             yield response
 
     def inspect_queue(self, *, queue: "Queue" = None) -> "InspectQueueResponse":
+
         request = InspectQueueRequest()
         if queue is not None:
             request.queue = queue
