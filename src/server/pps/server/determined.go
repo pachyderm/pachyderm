@@ -16,7 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	mlc "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
-	pfs "github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -47,7 +47,7 @@ func (a *apiServer) getDetConfig() detConfig {
 	}
 }
 
-func detClientInCluster(ctx context.Context, cfg detConfig) (det.DeterminedClient, context.Context, context.CancelFunc, error) {
+func newInClusterDetClient(ctx context.Context, cfg detConfig) (det.DeterminedClient, context.Context, context.CancelFunc, error) {
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
 	if cfg.TLS {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
@@ -62,7 +62,6 @@ func detClientInCluster(ctx context.Context, cfg detConfig) (det.DeterminedClien
 	if err != nil {
 		return nil, nil, nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
-	defer conn.Close()
 	dc := det.NewDeterminedClient(conn)
 	tok, err := mintDeterminedToken(ctx, dc, cfg.Username, cfg.Password)
 	if err != nil {
@@ -85,9 +84,9 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 	errCnt := 0
 	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		dc, ctx, cf, err := detClientInCluster(ctx, config)
+		dc, ctx, cf, err := newInClusterDetClient(ctx, config)
 		if err != nil {
-			return errors.Wrap(err, "set up in cluser determined client")
+			return errors.Wrap(err, "set up in cluster determined client")
 		}
 		defer cf()
 		detWorkspaces, err := resolveDeterminedWorkspaces(ctx, dc, workspaces)
@@ -129,13 +128,14 @@ type pipelineGetter interface {
 	ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error
 }
 
-func detUserGC(ctx context.Context, config detConfig, period time.Duration, pipGetter pipelineGetter, secrets corev1.SecretInterface) {
+func gcDetUsers(ctx context.Context, config detConfig, period time.Duration, pipGetter pipelineGetter, secrets corev1.SecretInterface) {
 	if config.MasterURL == "" {
 		log.Info(ctx, "Determined not configured. Skipping Determined user garbage collection.")
 		return
 	}
+	log.Info(ctx, "Starting Determined user garbage collection.")
 	err := backoff.RetryUntilCancel(ctx, func() error {
-		dc, detCtx, cf, err := detClientInCluster(ctx, config)
+		dc, detCtx, cf, err := newInClusterDetClient(ctx, config)
 		if err != nil {
 			return errors.Wrap(err, "setup in cluster determined client for garbage collection")
 		}
@@ -169,30 +169,36 @@ func detUserGC(ctx context.Context, config detConfig, period time.Duration, pipG
 					continue
 				}
 				if _, ok := pipelines[p.String()]; !ok {
-					u, err := getDetPipelineUser(detCtx, dc, p)
-					if err != nil {
-						return err
-					}
-					if _, err := dc.PatchUser(detCtx, &det.PatchUserRequest{
-						UserId: u.Id,
-						User: &userv1.PatchUser{
-							Active: &wrapperspb.BoolValue{Value: false},
-						}}); err != nil {
-						return errors.Wrapf(err, "inactivate user")
-					}
-					if err := secrets.Delete(ctx, detUserSecretName(p), v1.DeleteOptions{}); err != nil {
-						return errors.Wrapf(err, "delete determined pipeline user secret %q", detUserSecretName(p))
+					ctx, end := log.SpanContextL(ctx, "", log.DebugLevel, zap.String("pipeline", p.String()))
+					if err := func() error {
+						u, err := getDetPipelineUser(detCtx, dc, p)
+						if err != nil {
+							return err
+						}
+						if _, err := dc.PatchUser(detCtx, &det.PatchUserRequest{
+							UserId: u.Id,
+							User: &userv1.PatchUser{
+								Active: &wrapperspb.BoolValue{Value: false},
+							}}); err != nil {
+							return errors.Wrapf(err, "inactivate user")
+						}
+						if err := secrets.Delete(ctx, detUserSecretName(p), v1.DeleteOptions{}); err != nil {
+							return errors.Wrapf(err, "delete determined pipeline user secret %q", detUserSecretName(p))
+						}
+						return nil
+					}(); err != nil {
+						end(log.Errorp(&err))
 					}
 				}
 			}
 			select {
 			case <-ctx.Done():
-				return errors.Wrap(ctx.Err(), "determined user garbage collection")
+				return errors.Wrap(context.Cause(ctx), "determined user garbage collection")
 			case <-ticker.C:
 			}
 		}
 	}, backoff.RetryEvery(5*time.Minute), nil)
-	log.Error(ctx, "determined user GC context cancelled", zap.Error(err))
+	log.Info(ctx, "determined user GC context cancelled", zap.Error(err))
 }
 
 func workspaceEditorRoleId(ctx context.Context, dc det.DeterminedClient) (int32, error) {
