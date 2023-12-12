@@ -540,9 +540,18 @@ func TestBranchDelete(t *testing.T) {
 	mockInspectCluster(env)
 	pc := env.PachClient
 
-	err := tu.PachctlBashCmd(t, pc, `pachctl delete branch foo`).Run()
-	if err == nil {
-		t.Error("want error for deleting non-existent branch")
+	repo := tu.UniqueString("repo")
+	if err := tu.PachctlBashCmd(t, pc, `
+		pachctl create repo {{.repo}}
+		pachctl create branch {{.repo}}@foo
+	`, "repo", repo).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := tu.PachctlBashCmd(t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := tu.PachctlBashCmd(t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err == nil {
+		t.Error("want error for deleting a non-existent branch")
 	}
 }
 
