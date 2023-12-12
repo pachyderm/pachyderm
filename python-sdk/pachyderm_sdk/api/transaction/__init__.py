@@ -155,6 +155,7 @@ class ApiStub:
         return self.__rpc_batch_transaction(request)
 
     def start_transaction(self) -> "Transaction":
+
         request = StartTransactionRequest()
 
         return self.__rpc_start_transaction(request)
@@ -162,6 +163,7 @@ class ApiStub:
     def inspect_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "TransactionInfo":
+
         request = InspectTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -171,6 +173,7 @@ class ApiStub:
     def delete_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -178,6 +181,7 @@ class ApiStub:
         return self.__rpc_delete_transaction(request)
 
     def list_transaction(self) -> "TransactionInfos":
+
         request = ListTransactionRequest()
 
         return self.__rpc_list_transaction(request)
@@ -185,6 +189,7 @@ class ApiStub:
     def finish_transaction(
         self, *, transaction: "Transaction" = None
     ) -> "TransactionInfo":
+
         request = FinishTransactionRequest()
         if transaction is not None:
             request.transaction = transaction
@@ -192,6 +197,7 @@ class ApiStub:
         return self.__rpc_finish_transaction(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
