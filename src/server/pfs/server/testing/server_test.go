@@ -3580,9 +3580,7 @@ func TestBranchCreateInNonExistentRepo(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
-	// repo := tu.UniqueString("test")
-	// require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "test", "master", "", "", nil))
+	require.ErrorContains(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "test", "master", "", "", nil), "repo (id=0, project=default, name=test, type=user) not found")
 }
 
 func TestWaitCommitSet(t *testing.T) {
