@@ -68,12 +68,14 @@ func newPageIterator[T ModelType](ctx context.Context, query string, values []an
 func (i *pageIterator[T]) nextPage(ctx context.Context, extCtx sqlx.ExtContext) (err error) {
 	var page []T
 	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
+	fmt.Println("debug-issue-1212: next page: query: ", query)
 	if err := sqlx.SelectContext(ctx, extCtx, &page, query, i.values...); err != nil {
 		return errors.Wrap(err, "getting page")
 	}
 	if len(page) == 0 {
 		return stream.EOS()
 	}
+	fmt.Println("debug-issue-1212: next page: items in page", len(page))
 	i.page = page
 	i.pageIdx = 0
 	i.offset += i.limit

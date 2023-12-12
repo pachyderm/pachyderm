@@ -1405,6 +1405,7 @@ func (d *driver) listCommit(
 		}); err != nil {
 			return errors.Wrap(err, "ensure repo exists")
 		}
+		fmt.Println("debug-issue-1212: list commit: repo", repo.Name, "exists")
 	}
 
 	// Make sure that both from and to are valid commits
@@ -1414,11 +1415,13 @@ func (d *driver) listCommit(
 		}
 	}
 	if to != nil {
+		fmt.Println("debug-issue-1212: list commit: to is not nil")
 		ci, err := d.inspectCommit(ctx, to, pfs.CommitState_STARTED)
 		if err != nil {
 			return err
 		}
 		to = ci.Commit
+		fmt.Println("debug-issue-1212: list commit: to is", ci.Commit.Key())
 	}
 
 	// if number is 0, we return all commits that match the criteria
@@ -1429,6 +1432,7 @@ func (d *driver) listCommit(
 	if from != nil && to == nil {
 		return errors.Errorf("cannot use `from` commit without `to` commit")
 	} else if from == nil && to == nil {
+		fmt.Println("debug-issue-1212: list commit: from and to are both nil")
 		// we hold onto a revisions worth of cis so that we can sort them by provenance
 		var cis []*pfs.CommitInfo
 		// sendCis sorts cis and passes them to f
@@ -1449,6 +1453,7 @@ func (d *driver) listCommit(
 				if err != nil && !pfsserver.IsBaseCommitNotFinishedErr(err) {
 					return err
 				}
+				fmt.Println("debug-issue-1212: list commit: sending commit to client:", ci.Commit.Key())
 				if err := cb(ci); err != nil {
 					return err
 				}
@@ -1458,6 +1463,7 @@ func (d *driver) listCommit(
 		}
 		lastRev := int64(-1)
 		listCallback := func(ci *pfs.CommitInfo, createRev int64) error {
+			fmt.Println("debug-issue-1212: list commit: list callback: commit is", ci.Commit.Key(), "create rev", createRev, "last rev", lastRev)
 			if createRev != lastRev {
 				if err := sendCis(); err != nil {
 					if errors.Is(err, errutil.ErrBreak) {
@@ -1466,6 +1472,8 @@ func (d *driver) listCommit(
 					return err
 				}
 				lastRev = createRev
+			} else {
+				fmt.Println("debug-issue 1212: list commit: list callback: create rev and last rev match, skipping commit", ci.Commit.Key())
 			}
 			if passesCommitOriginFilter(ci, all, originKind) {
 				if startTime != nil {
@@ -1477,6 +1485,8 @@ func (d *driver) listCommit(
 					return nil
 				}
 				cis = append(cis, proto.Clone(ci).(*pfs.CommitInfo))
+			} else {
+				fmt.Println("debug-issue-1212: list commit: list callback: commit does not pass the origin filter, skipping commit", ci.Commit.Key())
 			}
 			return nil
 		}
@@ -1486,6 +1496,7 @@ func (d *driver) listCommit(
 		var filter *pfs.Commit
 		if repo.Name != "" {
 			filter = &pfs.Commit{Repo: repo}
+			fmt.Println("debug-issue-1212: list commit: setting filter to repo =", repo.Name)
 		}
 		// driver.listCommit should return more recent commits by default, which is the
 		// opposite behavior of pfsdb.ForEachCommit.
