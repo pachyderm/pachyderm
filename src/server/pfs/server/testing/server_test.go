@@ -3576,6 +3576,15 @@ func TestCreateBranchTwice(t *testing.T) {
 	require.Equal(t, commit2.Id, branchInfos[1].Head.Id) // original branch should remain unchanged
 }
 
+func TestBranchCreateInNonExistentRepo(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	// repo := tu.UniqueString("test")
+	// require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "test", "master", "", "", nil))
+}
+
 func TestWaitCommitSet(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
