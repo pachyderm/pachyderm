@@ -390,7 +390,7 @@ console:
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
     # defaults to .Chart.AppVersion
-    tag: "" 
+    tag: ""
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
