@@ -256,6 +256,7 @@ workflows:
 
 jobs:
   runner-test:
+    machine: true
     resource_class: pachyderm/hpeops
     steps:
       - run: echo "hello"
