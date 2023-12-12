@@ -249,14 +249,16 @@ parameters:
 #                 - v2.5.1
 #                 - latest
 
-workflows:
-  testing:
-    jobs:
-      - runner-test
-
 jobs:
-  runner-test:
-    machine: true
+  build:
+    docker:
+      - image: cimg/base:2021.11
     resource_class: pachyderm/hpeops
     steps:
-      - run: echo "hello"
+      - checkout
+      - run: echo "Hi I'm on Runners!"
+
+workflows:
+  build-workflow:
+    jobs:
+      - build
