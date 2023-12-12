@@ -52,199 +52,210 @@ parameters:
     type: string
     default: "1.21.5"
 # our defined job, and its steps
-jobs:
-  setup:
-    executor: continuation/default
-    steps:
-      - checkout # checkout code
-      #- run: # run a command
-      #    name: Generate config
-      #    command: |
-      - continuation/continue:
-          configuration_path: .circleci/main.yml # use newly generated config to continue
-  create-nightly-tag:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - add_ssh_keys:
-          fingerprints:
-            - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
-      - run:
-          name: setup pachydermbuildbot git
-          command: |
-            git config --global user.email "buildbot@pachyderm.io"
-            git config --global user.name "pachydermbuildbot"
-      - run:
-          name: create nightly tag
-          command: |
-            TIMESTAMP=$(date +'%Y%m%d')
-            WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
-            NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
-            git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
-            git push origin ${NIGHTLY}
-  release-etcd:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: Download utilities
-          command: |
-            sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: pachydermbuildbot docker login
-          command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run:
-          name: update etcd image
-          command: |
-            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-            docker context create buildx-build
-            docker buildx create --name etcd --driver docker-container --use buildx-build
-            docker buildx build --builder etcd --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push .
-  release-pgbouncer:
-    docker:
-      - image: cimg/base:stable
-    steps:
-      - checkout
-      - run:
-          name: Download utilities
-          command: |
-            sudo apt update
-            sudo apt install qemu binfmt-support qemu-user-static
-      - setup_remote_docker:
-          docker_layer_caching: true
-      - run:
-          name: pachydermbuildbot docker login
-          command: |
-            echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
-      - run:
-          name: update pgbouncer image
-          command: |
-            docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-            docker context create buildx-build
-            docker buildx create --name pgb --driver docker-container --use buildx-build
-            docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-base-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-tag >> --push ./etc/pgbouncer
-  api-performance-test:
-    resource_class: xlarge
-    parameters:
-      version:
-        type: string
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    environment:
-      TEST_RESULTS: /tmp/test-results
-      PACHD_VERSION: << parameters.version >>
-      PACHD_LATEST_VERSION: << pipeline.parameters.pachd-latest-version >>
-    parallelism: 1
-    steps:
-      - checkout
-      - run: mkdir -p ${TEST_RESULTS}
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o "${TEST_RESULTS}/sar_stats"
-          background: true
-      - run:
-          name: Clone Locust tests
-          command: |
-            git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run:
-          name: setup env vars
-          command: |
-            echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
-            echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
+# jobs:
+#   setup:
+#     executor: continuation/default
+#     steps:
+#       - checkout # checkout code
+#       #- run: # run a command
+#       #    name: Generate config
+#       #    command: |
+#       - continuation/continue:
+#           configuration_path: .circleci/main.yml # use newly generated config to continue
+#   create-nightly-tag:
+#     docker:
+#       - image: cimg/base:stable
+#     steps:
+#       - checkout
+#       - add_ssh_keys:
+#           fingerprints:
+#             - "23:49:d3:11:ea:69:de:6f:c3:29:e3:09:ff:01:b1:f0"
+#       - run:
+#           name: setup pachydermbuildbot git
+#           command: |
+#             git config --global user.email "buildbot@pachyderm.io"
+#             git config --global user.name "pachydermbuildbot"
+#       - run:
+#           name: create nightly tag
+#           command: |
+#             TIMESTAMP=$(date +'%Y%m%d')
+#             WORKINGVERSION=<< pipeline.parameters.working-pachyderm-version >>
+#             NIGHTLY=${WORKINGVERSION}-nightly.${TIMESTAMP}
+#             git tag -am "nightly release tag ${NIGHTLY}" ${NIGHTLY}
+#             git push origin ${NIGHTLY}
+#   release-etcd:
+#     docker:
+#       - image: cimg/base:stable
+#     steps:
+#       - checkout
+#       - run:
+#           name: Download utilities
+#           command: |
+#             sudo apt update
+#             sudo apt install qemu binfmt-support qemu-user-static
+#       - setup_remote_docker:
+#           docker_layer_caching: true
+#       - run:
+#           name: pachydermbuildbot docker login
+#           command: |
+#             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+#       - run:
+#           name: update etcd image
+#           command: |
+#             docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+#             docker context create buildx-build
+#             docker buildx create --name etcd --driver docker-container --use buildx-build
+#             docker buildx build --builder etcd --build-arg ETCD_VERSION=<< pipeline.parameters.etcd-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.etcd -t pachyderm/etcd:<< pipeline.parameters.etcd-image-version >> --push .
+#   release-pgbouncer:
+#     docker:
+#       - image: cimg/base:stable
+#     steps:
+#       - checkout
+#       - run:
+#           name: Download utilities
+#           command: |
+#             sudo apt update
+#             sudo apt install qemu binfmt-support qemu-user-static
+#       - setup_remote_docker:
+#           docker_layer_caching: true
+#       - run:
+#           name: pachydermbuildbot docker login
+#           command: |
+#             echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+#       - run:
+#           name: update pgbouncer image
+#           command: |
+#             docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+#             docker context create buildx-build
+#             docker buildx create --name pgb --driver docker-container --use buildx-build
+#             docker buildx build --builder pgb --build-arg VERSION=<< pipeline.parameters.pgbouncer-base-image-version >> --platform=linux/amd64,linux/arm64 -f Dockerfile.pgbouncer -t pachyderm/pgbouncer:<< pipeline.parameters.pgbouncer-image-tag >> --push ./etc/pgbouncer
+#   api-performance-test:
+#     resource_class: xlarge
+#     parameters:
+#       version:
+#         type: string
+#     machine:
+#       image: << pipeline.parameters.machine_image >>
+#     environment:
+#       TEST_RESULTS: /tmp/test-results
+#       PACHD_VERSION: << parameters.version >>
+#       PACHD_LATEST_VERSION: << pipeline.parameters.pachd-latest-version >>
+#     parallelism: 1
+#     steps:
+#       - checkout
+#       - run: mkdir -p ${TEST_RESULTS}
+#       - run:
+#           name: Collect node stats
+#           command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h -o "${TEST_RESULTS}/sar_stats"
+#           background: true
+#       - run:
+#           name: Clone Locust tests
+#           command: |
+#             git clone https://github.com/pachyderm/locust-pachyderm.git locust-pachyderm
+#       - go/install:
+#           version: << pipeline.parameters.go-version >>
+#       - run:
+#           name: setup env vars
+#           command: |
+#             echo 'export GOCACHE=/home/circleci/.gocache' >> $BASH_ENV
+#             echo 'export GOPATH=/home/circleci/.go_workspace' >> $BASH_ENV
 
-            echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
-            echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-      - restore_cache:
-          keys:
-            - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
-      - run: etc/testing/circle/install.sh
-      - gh/setup:
-          version: 2.20.2
-      - run:
-          name: Start minikube
-          command: etc/testing/circle/start-minikube.sh
-          background: true
-      - run: etc/testing/circle/wait-minikube.sh
-      - run:
-          name: Install minio
-          command: kubectl apply -f etc/testing/minio.yaml
-      - run:
-          name: run api performance benchmark
-          no_output_timeout: 20m
-          command: |
-            etc/testing/circle/run_api_performance_tests.sh
-      - run:
-          name: Dump debugging info in case of failure
-          when: on_fail
-          command: etc/testing/circle/kube_debug.sh
-      - store_artifacts:
-          path: /tmp/test-results
+#             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
+#             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
+#       - restore_cache:
+#           keys:
+#             - pach-build-dependencies-v2-{{ checksum "etc/testing/circle/install.sh" }}
+#       - run: etc/testing/circle/install.sh
+#       - gh/setup:
+#           version: 2.20.2
+#       - run:
+#           name: Start minikube
+#           command: etc/testing/circle/start-minikube.sh
+#           background: true
+#       - run: etc/testing/circle/wait-minikube.sh
+#       - run:
+#           name: Install minio
+#           command: kubectl apply -f etc/testing/minio.yaml
+#       - run:
+#           name: run api performance benchmark
+#           no_output_timeout: 20m
+#           command: |
+#             etc/testing/circle/run_api_performance_tests.sh
+#       - run:
+#           name: Dump debugging info in case of failure
+#           when: on_fail
+#           command: etc/testing/circle/kube_debug.sh
+#       - store_artifacts:
+#           path: /tmp/test-results
 
-# our single workflow, that triggers the setup job defined above
+# # our single workflow, that triggers the setup job defined above
+# workflows:
+#   generate-config:
+#     when:
+#       and:
+#         - not: << pipeline.parameters.run_nightly_tag >>
+#         - not: << pipeline.parameters.release-pgbouncer >>
+#         - not: << pipeline.parameters.release-etcd >>
+#         - not: << pipeline.parameters.run-perf-tests >>
+#     jobs:
+#       - path-filtering/filter:
+#           name: check-updated-files
+#           # 3-column, whitespace-delimited mapping. One mapping per
+#           # line:
+#           # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
+#           # Note: The regex is prepended with ^ and appended with $ by the orb
+#           mapping: |
+#             ([^/]+|(.github|.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
+#             ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
+#             ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
+#             ((.circleci|label-studio)/.*) run-label-studio-jobs true
+#           base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
+#           config-path: .circleci/main.yml
+#       - setup: # Only run setup on tags, otherwise use path filtering
+#           filters:
+#             tags:
+#               only: /.*/
+#             branches:
+#               ignore: /.*/
+#   create-nightly-tag:
+#     when: << pipeline.parameters.run_nightly_tag >>
+#     jobs:
+#       - create-nightly-tag
+#   release-etcd-image:
+#     when:
+#       and:
+#         - not: << pipeline.parameters.run_nightly_tag >>
+#         - equal: [true, << pipeline.parameters.release-etcd >>]
+#     jobs:
+#       - release-etcd
+#   release-pgbouncer-image:
+#     when:
+#       and:
+#         - not: << pipeline.parameters.run_nightly_tag >>
+#         - equal: [true, << pipeline.parameters.release-pgbouncer >>]
+#     jobs:
+#       - release-pgbouncer
+#   nightly-api-performance:
+#     when:
+#       and:
+#         - not: << pipeline.parameters.run_nightly_tag >>
+#         - equal: [true, << pipeline.parameters.run-perf-tests >>]
+#     jobs:
+#       - api-performance-test:
+#           matrix:
+#             parameters:
+#               version:
+#                 - v2.4.6
+#                 - v2.5.1
+#                 - latest
+
 workflows:
-  generate-config:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
-        - not: << pipeline.parameters.release-pgbouncer >>
-        - not: << pipeline.parameters.release-etcd >>
-        - not: << pipeline.parameters.run-perf-tests >>
+  testing:
     jobs:
-      - path-filtering/filter:
-          name: check-updated-files
-          # 3-column, whitespace-delimited mapping. One mapping per
-          # line:
-          # <regex path-to-test> <parameter-to-set> <value-of-pipeline-parameter>
-          # Note: The regex is prepended with ^ and appended with $ by the orb
-          mapping: |
-            ([^/]+|(.github|.circleci|src|etc|examples|goreleaser|licenses|dex-assets)/.*) run-core-jobs true
-            ((.circleci|jupyter-extension)/.*) run-jupyter-jobs true
-            ((.circleci|python-sdk)/.*) run-python-sdk-jobs true
-            ((.circleci|label-studio)/.*) run-label-studio-jobs true
-          base-revision: master # NOTE: This should be updated to reflect the base branch (ie. master, 2.3.x)
-          config-path: .circleci/main.yml
-      - setup: # Only run setup on tags, otherwise use path filtering
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore: /.*/
-  create-nightly-tag:
-    when: << pipeline.parameters.run_nightly_tag >>
-    jobs:
-      - create-nightly-tag
-  release-etcd-image:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
-        - equal: [true, << pipeline.parameters.release-etcd >>]
-    jobs:
-      - release-etcd
-  release-pgbouncer-image:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
-        - equal: [true, << pipeline.parameters.release-pgbouncer >>]
-    jobs:
-      - release-pgbouncer
-  nightly-api-performance:
-    when:
-      and:
-        - not: << pipeline.parameters.run_nightly_tag >>
-        - equal: [true, << pipeline.parameters.run-perf-tests >>]
-    jobs:
-      - api-performance-test:
-          matrix:
-            parameters:
-              version:
-                - v2.4.6
-                - v2.5.1
-                - latest
+      - runner-test
+
+jobs:
+  runner-test:
+    resource_class: pachyderm/hpeops
+    steps:
+      - run: echo "hello"
