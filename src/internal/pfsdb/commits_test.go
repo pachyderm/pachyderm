@@ -132,7 +132,7 @@ func TestCreateCommit(t *testing.T) {
 			require.YesError(t, err, "should not be able to create commit when commit is nil")
 			require.True(t, errors.As(err, &pfsdb.CommitMissingInfoError{}))
 		})
-		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			commitInfo := testCommit(ctx, t, tx, testRepoName)
 			_, err := pfsdb.CreateCommit(ctx, tx, commitInfo)
 			require.NoError(t, err, "should be able to create a commit")

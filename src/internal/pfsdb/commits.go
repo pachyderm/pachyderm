@@ -198,8 +198,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	}
 	commit, err := GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
 	if err == nil && commit != nil {
-		// commit already exists
-		return 0, nil
+		return 0, &CommitAlreadyExistsError{CommitID: commit.CommitInfo.Commit.Key()}
 	}
 	if err != nil && (errors.As(err, new(*ProjectNotFoundError)) || errors.As(err, new(*RepoNotFoundError))) {
 		return 0, err
