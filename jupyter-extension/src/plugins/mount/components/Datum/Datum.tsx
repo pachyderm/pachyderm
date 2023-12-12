@@ -11,8 +11,6 @@ import {
 type DatumProps = {
   showDatum: boolean;
   setShowDatum: (shouldShow: boolean) => Promise<void>;
-  keepMounted: boolean;
-  setKeepMounted: (keep: boolean) => void;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
@@ -27,8 +25,6 @@ const placeholderText = `pfs:
 const Datum: React.FC<DatumProps> = ({
   showDatum,
   setShowDatum,
-  keepMounted,
-  setKeepMounted,
   open,
   pollRefresh,
   currentDatumInfo,
@@ -39,20 +35,19 @@ const Datum: React.FC<DatumProps> = ({
   const {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callNextDatum,
     callPrevDatum,
-    callUnmountAll,
+    callDownloadDatum,
     errorMessage,
     saveInputSpec,
     initialInputSpec,
   } = useDatum(
     showDatum,
-    keepMounted,
-    setKeepMounted,
     open,
     pollRefresh,
     repoViewInputSpec,
@@ -66,9 +61,7 @@ const Datum: React.FC<DatumProps> = ({
           data-testid="Datum__back"
           className="pachyderm-button-link"
           onClick={async () => {
-            await callUnmountAll();
             saveInputSpec();
-            setKeepMounted(false);
             await setShowDatum(false);
           }}
         >
@@ -116,14 +109,29 @@ const Datum: React.FC<DatumProps> = ({
             shouldShowCycler &&
             'Drag line below to show datum cycler'}
         </span>
-        <button
-          data-testid="Datum__mountDatums"
-          className="pachyderm-button-link"
-          onClick={callMountDatums}
-          style={{padding: '0.5rem'}}
+        <div
+          className="pachyderm-mount-datum-actions"
+          style={{display: 'flex'}}
         >
-          Mount Datums
-        </button>
+          <button
+            data-testid="Datum__mountDatums"
+            className="pachyderm-button-link"
+            onClick={callMountDatums}
+            style={{padding: '0.5rem'}}
+          >
+            Mount Datums
+          </button>
+          {shouldShowDownload && (
+            <button
+              data-testid="Datum__downloadDatum"
+              className="pachyderm-button-link"
+              onClick={callDownloadDatum}
+              style={{padding: '0.5rem'}}
+            >
+              Download Datum
+            </button>
+          )}
+        </div>
         {shouldShowCycler && (
           <div
             className="pachyderm-mount-datum-cycler"
