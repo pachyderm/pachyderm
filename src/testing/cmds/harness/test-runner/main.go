@@ -136,7 +136,7 @@ func waitForTestListFile(fileName string) error {
 	if err != nil {
 		return errors.EnsureStack(err)
 	}
-	timer := time.NewTimer(5 * time.Minute)
+	timer := time.NewTimer(9 * time.Minute)
 	defer timer.Stop()
 	for {
 		select {

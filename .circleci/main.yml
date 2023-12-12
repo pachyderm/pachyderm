@@ -29,6 +29,7 @@ orbs:
   node: circleci/node@5.0.2
   kubernetes: circleci/kubernetes@1.3.0
   aws-eks: circleci/aws-eks@2.2.0
+  tools: gotest/tools@0.0.14
 
 parameters:
   machine_image:
@@ -80,12 +81,13 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
+      - run: go mod download
       - run:
           name: Collect tests to run
-          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv -procs=16
           background: true
       - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
+      - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
       - run: go install ./src/testing/match
       - run: etc/testing/circle/install.sh
       - run:
@@ -149,8 +151,6 @@ jobs:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
-      - go/install:
-          version: << pipeline.parameters.go-version >>
       - run: mkdir ${TEST_RESULTS}
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -164,6 +164,8 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
+      - go/install:
+          version: << pipeline.parameters.go-version >>
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:
@@ -172,6 +174,7 @@ jobs:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
+      - tools/mod-tidy-check
       - run:
           no_output_timeout: 20m
           command: etc/testing/circle/run_ci_linters.sh | ts '%Y-%m-%dT%H:%M:%S'
@@ -214,16 +217,7 @@ jobs:
           key: pach-build-dependencies-v2-{{ arch }}-{{ checksum "etc/testing/circle/install.sh" }}
           paths:
             - cached-deps/
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run:
-          name: Collect tests to run
-          command: GOMAXPROCS=2 go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv
-          background: true
       - run: mkdir ${TEST_RESULTS}
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 go install ./src/server/cmd/pachctl
-      - wait-for-docker
       - start-minikube-2xlarge
       # The build cache will grow indefinitely, so we rotate the cache once a week.
       # This ensures the time to restore the cache isn't longer than the speedup in compilation.
@@ -238,7 +232,11 @@ jobs:
       - restore_cache:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
-      - run: make install # Install pachctl
+      - go/install:
+          version: << pipeline.parameters.go-version >>
+      - run: go install gotest.tools/gotestsum@latest
+      - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
+      - run: go mod download
       - save_cache:
           key: pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
           paths:
@@ -247,7 +245,11 @@ jobs:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
             - /home/circleci/.gocache
-      - run: go mod download
+      - run:
+          name: Collect tests to run
+          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -tags=k8s -file=tests_to_run_k8s.csv -procs=24
+          background: true
+      - wait-for-docker
       - run: etc/testing/circle/wait-minikube.sh
       - run:
           name: Collect kube events

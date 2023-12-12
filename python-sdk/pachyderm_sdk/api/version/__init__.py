@@ -40,6 +40,7 @@ class ApiStub:
         )
 
     def get_version(self) -> "Version":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_get_version(request)

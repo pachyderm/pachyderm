@@ -11,7 +11,7 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PACH_CONFIG
+from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -335,6 +335,99 @@ def test_mount_datums(pachyderm_resources, dev_server):
 
     r = requests.put(f"{BASE_URL}/_unmount_all")
     assert r.status_code == 200, r.text
+
+
+def test_download_datum(pachyderm_resources, dev_server):
+    repos, branches, files = pachyderm_resources
+    input_spec = {
+        "input": {
+            "cross": [
+                {
+                    "pfs": {
+                        "repo": repos[0],
+                        "glob": "/",
+                    }
+                },
+                {
+                    "pfs": {
+                        "repo": repos[1],
+                        "branch": "dev",
+                        "glob": "/*",
+                    }
+                },
+                {
+                    "pfs": {
+                        "repo": repos[2],
+                        "glob": "/*",
+                    }
+                },
+            ]
+        }
+    }
+
+    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+    assert r.json()["num_datums"] == 4
+    assert r.json()["all_datums_received"] == True
+    r = requests.put(f"{BASE_URL}/datums/_download")
+    assert r.status_code == 200, r.text
+    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
+    assert sorted(
+        list(
+            os.walk(
+                os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"]))
+            )
+        )[0][2]
+    ) == sorted(files)
+    assert (
+        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
+        in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    )
+    assert (
+        len(
+            list(
+                os.walk(
+                    os.path.join(
+                        PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2], "_master"])
+                    )
+                )
+            )[0][2]
+        )
+        == 1
+    )
+
+    r = requests.put(f"{BASE_URL}/datums/_next")
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 1
+    assert r.json()["num_datums"] == 4
+    assert r.json()["all_datums_received"] == True
+    r = requests.put(f"{BASE_URL}/datums/_download")
+    assert r.status_code == 200, r.text
+    assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
+    assert sorted(
+        list(
+            os.walk(
+                os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"]))
+            )
+        )[0][2]
+    ) == sorted(files)
+    assert (
+        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
+        in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    )
+    assert (
+        len(
+            list(
+                os.walk(
+                    os.path.join(
+                        PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2], "_master"])
+                    )
+                )
+            )[0][2]
+        )
+        == 1
+    )
 
 
 @pytest.mark.skip(reason="we should implement writing to config file before re-enabling")

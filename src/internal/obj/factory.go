@@ -21,6 +21,7 @@ import (
 
 // Environment variables for determining storage backend and pathing
 const (
+	StorageURLVar        = "STORAGE_URL"
 	StorageBackendEnvVar = "STORAGE_BACKEND"
 )
 
@@ -475,7 +476,6 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 			Params: u.RawQuery,
 		}
 	default:
-		// return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 		return nil, errors.Errorf("unrecognized object store: %s", u.Scheme)
 	}
 	return objStoreUrl, nil

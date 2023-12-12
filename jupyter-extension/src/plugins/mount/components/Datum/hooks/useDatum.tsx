@@ -16,12 +16,14 @@ import {
 export type useDatumResponse = {
   loading: boolean;
   shouldShowCycler: boolean;
+  shouldShowDownload: boolean;
   currDatum: MountDatumResponse;
   inputSpec: string;
   setInputSpec: (input: string) => void;
   callMountDatums: () => Promise<void>;
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
+  callDownloadDatum: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
   saveInputSpec: () => void;
@@ -30,8 +32,6 @@ export type useDatumResponse = {
 
 export const useDatum = (
   showDatum: boolean,
-  keepMounted: boolean,
-  setKeepMounted: (keep: boolean) => void,
   open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -39,6 +39,7 @@ export const useDatum = (
 ): useDatumResponse => {
   const [loading, setLoading] = useState(false);
   const [shouldShowCycler, setShouldShowCycler] = useState(false);
+  const [shouldShowDownload, setShouldShowDownload] = useState(false);
   const [currDatum, setCurrDatum] = useState<MountDatumResponse>({
     id: '',
     idx: -1,
@@ -54,13 +55,10 @@ export const useDatum = (
 
   useEffect(() => {
     if (showDatum) {
-      if (!keepMounted) {
-        callUnmountAll();
-      }
-
       // Executes when browser reloaded; resume at currently mounted datum
-      if (keepMounted && currentDatumInfo) {
+      if (currentDatumInfo) {
         setShouldShowCycler(true);
+        setShouldShowDownload(true);
         setCurrDatum({
           id: '',
           idx: currentDatumInfo.idx,
@@ -68,7 +66,6 @@ export const useDatum = (
           all_datums_received: currentDatumInfo.all_datums_received,
         });
         setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-        setKeepMounted(false);
       }
       // Pre-populate input spec from mounted repos
       else {
@@ -136,6 +133,7 @@ export const useDatum = (
     setLoading(true);
     setErrorMessage('This could take a few minutes...');
     setShouldShowCycler(false);
+    setShouldShowDownload(false);
 
     try {
       const spec = inputSpecTextToObj();
@@ -145,6 +143,7 @@ export const useDatum = (
       open('');
       setCurrDatum(res);
       setShouldShowCycler(true);
+      setShouldShowDownload(true);
       setInputSpec(inputSpecObjToText(spec));
       setErrorMessage('');
     } catch (e) {
@@ -202,6 +201,21 @@ export const useDatum = (
     setLoading(false);
   };
 
+  const callDownloadDatum = async () => {
+    setLoading(true);
+    setErrorMessage('');
+
+    try {
+      // TODO: receiving a 500 response shows success message
+      const res = await requestAPI<any>('datums/_download', 'PUT');
+    } catch (e) {
+      setErrorMessage('Error downloading datum: ' + e);
+      console.log(e);
+    }
+    setErrorMessage('Datum downloaded to /pfs');
+    setLoading(false);
+  };
+
   const callUnmountAll = async () => {
     setLoading(true);
 
@@ -217,6 +231,7 @@ export const useDatum = (
         all_datums_received: false,
       });
       setShouldShowCycler(false);
+      setShouldShowDownload(false);
     } catch (e) {
       console.log(e);
     }
@@ -228,12 +243,14 @@ export const useDatum = (
   return {
     loading,
     shouldShowCycler,
+    shouldShowDownload,
     currDatum,
     inputSpec,
     setInputSpec,
     callMountDatums,
     callNextDatum,
     callPrevDatum,
+    callDownloadDatum,
     callUnmountAll,
     errorMessage,
     saveInputSpec,

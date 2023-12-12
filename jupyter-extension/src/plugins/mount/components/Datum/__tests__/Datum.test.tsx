@@ -11,12 +11,10 @@ jest.mock('../../../../../handler');
 
 describe('datum screen', () => {
   let setShowDatum = jest.fn();
-  let setKeepMounted = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
     setShowDatum = jest.fn();
-    setKeepMounted = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
 
     // IntersectionObserver isn't available in test environment
@@ -30,7 +28,7 @@ describe('datum screen', () => {
   });
 
   describe('mounting datums', () => {
-    it('successful mount datums call shows cycler', async () => {
+    it('successful mount datums call shows cycler and download', async () => {
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
           id: 'asdfaew34ri92jafiolwe',
@@ -44,8 +42,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -54,6 +50,7 @@ describe('datum screen', () => {
 
       expect(queryByTestId('Datum__cyclerLeft')).not.toBeInTheDocument();
       expect(queryByTestId('Datum__cyclerRight')).not.toBeInTheDocument();
+      expect(queryByTestId('Datum__downloadDatum')).not.toBeInTheDocument();
 
       const input = await findByTestId('Datum__inputSpecInput');
       const submit = await findByTestId('Datum__mountDatums');
@@ -64,7 +61,7 @@ describe('datum screen', () => {
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
-          2,
+          1,
           'datums/_mount',
           'PUT',
           {input: {pfs: 'a'}},
@@ -73,6 +70,7 @@ describe('datum screen', () => {
 
       getByTestId('Datum__cyclerLeft');
       getByTestId('Datum__cyclerRight');
+      getByTestId('Datum__downloadDatum');
       expect(getByTestId('Datum__cycler')).toHaveTextContent('(1/6)');
     });
   });
@@ -92,8 +90,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -121,7 +117,7 @@ describe('datum screen', () => {
 
       await waitFor(() => {
         expect(mockRequestAPI.requestAPI).toHaveBeenNthCalledWith(
-          3,
+          2,
           'datums/_next',
           'PUT',
         );
@@ -139,8 +135,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -170,8 +164,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -199,8 +191,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -226,8 +216,6 @@ describe('datum screen', () => {
         <Datum
           showDatum={true}
           setShowDatum={setShowDatum}
-          keepMounted={false}
-          setKeepMounted={setKeepMounted}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}

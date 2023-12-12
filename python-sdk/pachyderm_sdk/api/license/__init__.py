@@ -241,6 +241,7 @@ class ApiStub:
     def activate(
         self, *, activation_code: str = "", expires: datetime = None
     ) -> "ActivateResponse":
+
         request = ActivateRequest()
         request.activation_code = activation_code
         if expires is not None:
@@ -249,11 +250,13 @@ class ApiStub:
         return self.__rpc_activate(request)
 
     def get_activation_code(self) -> "GetActivationCodeResponse":
+
         request = GetActivationCodeRequest()
 
         return self.__rpc_get_activation_code(request)
 
     def delete_all(self) -> "DeleteAllResponse":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
@@ -268,6 +271,7 @@ class ApiStub:
         cluster_deployment_id: str = "",
         enterprise_server: bool = False
     ) -> "AddClusterResponse":
+
         request = AddClusterRequest()
         request.id = id
         request.address = address
@@ -279,12 +283,14 @@ class ApiStub:
         return self.__rpc_add_cluster(request)
 
     def delete_cluster(self, *, id: str = "") -> "DeleteClusterResponse":
+
         request = DeleteClusterRequest()
         request.id = id
 
         return self.__rpc_delete_cluster(request)
 
     def list_clusters(self) -> "ListClustersResponse":
+
         request = ListClustersRequest()
 
         return self.__rpc_list_clusters(request)
@@ -298,6 +304,7 @@ class ApiStub:
         cluster_deployment_id: str = "",
         secret: str = ""
     ) -> "UpdateClusterResponse":
+
         request = UpdateClusterRequest()
         request.id = id
         request.address = address
@@ -316,6 +323,7 @@ class ApiStub:
         auth_enabled: bool = False,
         client_id: str = ""
     ) -> "HeartbeatResponse":
+
         request = HeartbeatRequest()
         request.id = id
         request.secret = secret
@@ -326,6 +334,7 @@ class ApiStub:
         return self.__rpc_heartbeat(request)
 
     def list_user_clusters(self) -> "ListUserClustersResponse":
+
         request = ListUserClustersRequest()
 
         return self.__rpc_list_user_clusters(request)
