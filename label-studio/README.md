@@ -8,7 +8,7 @@ works with the latest version of Pachyderm in `master`. The tests run in CI.
 
 ### Prerequisites
 
-1. Ensure you have Python installed before running test these tests locally.
+1. Ensure you have Python installed before running test these tests locally!
 2. Add the pachd address for the Pachyderm cluster that Label Studio will
    connect to in <mark>Makefile::run-tests</mark> section. This can be a fresh
    cluster.
