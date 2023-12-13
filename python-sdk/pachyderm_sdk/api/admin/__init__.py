@@ -94,6 +94,7 @@ class ApiStub:
         client_version: "_version__.Version" = None,
         current_project: "_pfs__.Project" = None
     ) -> "ClusterInfo":
+
         request = InspectClusterRequest()
         if client_version is not None:
             request.client_version = client_version
