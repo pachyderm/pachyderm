@@ -6,7 +6,7 @@ go_library(
         "main.go",
         "transaction_client.go",
     ],
-    importpath = "github.com/pachyderm/pachyderm/v2/etc/proto/pachgen",
+    importpath = "github.com/pachyderm/pachyderm/v2/src/proto/pachgen",
     visibility = ["//visibility:private"],
     deps = [
         "@com_github_golang_protobuf//protoc-gen-go/descriptor",

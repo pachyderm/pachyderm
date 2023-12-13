@@ -156,7 +156,7 @@
                 },
                 {
                     "required": [
-                        "uriRef"
+                        "uri_ref"
                     ]
                 },
                 {
@@ -171,7 +171,7 @@
                 },
                 {
                     "required": [
-                        "wellKnownRegex"
+                        "well_known_regex"
                     ]
                 }
             ],

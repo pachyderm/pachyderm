@@ -3,15 +3,15 @@ load("@rules_go//go:def.bzl", "go_binary", "go_library")
 go_library(
     name = "protoc-gen-zap_lib",
     srcs = ["main.go"],
-    importpath = "github.com/pachyderm/pachyderm/v2/etc/proto/protoc-gen-zap",
+    importpath = "github.com/pachyderm/pachyderm/v2/src/proto/protoc-gen-zap",
     visibility = ["//visibility:private"],
     deps = [
-        "@com_github_pachyderm_pachyderm_v2//src/protoextensions:protoextensions_go",
-        "@org_golang_google_protobuf//compiler/protogen:go_default_library",
-        "@org_golang_google_protobuf//proto:go_default_library",
-        "@org_golang_google_protobuf//reflect/protoreflect:go_default_library",
-        "@org_golang_google_protobuf//types/descriptorpb:go_default_library",
-        "@org_golang_google_protobuf//types/pluginpb:go_default_library",
+        "//src/protoextensions:protoextensions_go",
+        "@org_golang_google_protobuf//compiler/protogen",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//types/descriptorpb",
+        "@org_golang_google_protobuf//types/pluginpb",
     ],
 )
 

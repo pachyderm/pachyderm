@@ -45,12 +45,12 @@
                 },
                 {
                     "required": [
-                        "objectStorage"
+                        "object_storage"
                     ]
                 },
                 {
                     "required": [
-                        "sqlDatabase"
+                        "sql_database"
                     ]
                 }
             ],

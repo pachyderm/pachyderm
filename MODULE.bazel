@@ -54,6 +54,18 @@ go_deps.gazelle_override(
     ],
     path = "github.com/determined-ai/determined/proto",
 )
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable",
+    ],
+    path = "github.com/chrusty/protoc-gen-jsonschema",
+)
+
+go_deps.module(
+    path = "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+    sum = "h1:rNBFJjBCOgVr9pWD7rs/knKL4FRTKgpZmsRfV214zcA=",
+    version = "v1.3.0",
+)
 use_repo(
     go_deps,
     "com_github_adrg_xdg",
