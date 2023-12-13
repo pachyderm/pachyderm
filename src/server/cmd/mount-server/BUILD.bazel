@@ -17,5 +17,6 @@ go_library(
 go_binary(
     name = "mount-server",
     embed = [":mount-server_lib"],
+    pure = "on",
     visibility = ["//visibility:public"],
 )

@@ -10,3 +10,4 @@ build --experimental_remote_cache_compression
 build --remote_build_event_upload=minimal
 build --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
 build --nolegacy_important_outputs
+build --stamp

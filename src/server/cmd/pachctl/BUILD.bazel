@@ -17,5 +17,10 @@ go_library(
 go_binary(
     name = "pachctl",
     embed = [":pachctl_lib"],
+    pure = "on",
     visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
 )

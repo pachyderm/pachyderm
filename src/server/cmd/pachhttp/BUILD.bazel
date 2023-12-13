@@ -19,5 +19,6 @@ go_library(
 go_binary(
     name = "pachhttp",
     embed = [":pachhttp_lib"],
+    pure = "on",
     visibility = ["//visibility:public"],
 )
