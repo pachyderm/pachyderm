@@ -7,10 +7,6 @@ stable=$2
 
 echo "--- Updating homebrew formula to use binaries at version $version"
 BRANCH=master
-if [[ $stable == 0 ]];
-then
-    BRANCH=$version
-fi;
 
 MAJOR_MINOR=$(echo "$version" | cut -f -2 -d ".")
 
@@ -42,7 +38,7 @@ pushd homebrew-tap
     if [[ $stable == 1 ]]; then
 	if [[ "${major}.${minor}" == "$MAJOR_MINOR" ]]; then 
             cp "pachctl@$MAJOR_MINOR.rb" pachctl.rb
-            sed -i -E 's/class PachctlAT\([0-9]*\)/class Pachctl/g' pachctl.rb
+            sed -i 's/class PachctlAT\([0-9]*\)/class Pachctl/g' pachctl.rb
             git add pachctl.rb
 	fi;
     fi;
