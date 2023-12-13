@@ -1391,8 +1391,8 @@ jobs:
               fi
             git clone https://github.com/pachyderm/haberdashery.git haberdashery
             cd haberdashery
-            git fetch --all
-            git checkout -b release-${CIRCLE_TAG:1} ${parentBranch}
+            git fetch origin
+            git checkout -b release-${CIRCLE_TAG:1} origin/${parentBranch}
             tmp=$(mktemp)
             jq --arg val "${CIRCLE_TAG:1}-${CIRCLE_SHA1}" '.pachyderm = $val' version.json > "$tmp" && mv "$tmp" version.json
             jq --arg val "${CIRCLE_SHA1}" '.pachReleaseCommit = $val' version.json > "$tmp" && mv "$tmp" version.json
@@ -1401,6 +1401,7 @@ jobs:
             git commit -m "bump pachyderm version"
             git push origin release-${CIRCLE_TAG:1}
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
+            sleep 10 # give it a bit time for checks to attach
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
             PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
             if [[ "$PR_STATE" != "CLEAN" ]]; then

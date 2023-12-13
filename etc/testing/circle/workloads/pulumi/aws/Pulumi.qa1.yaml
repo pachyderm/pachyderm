@@ -3,3 +3,6 @@ config:
   core:eksNodeInstanceType: m5.2xlarge
   core:pgBouncerDefaultPoolSize: "100"
   core:pgBouncerMaxConnections: "1500"
+  core:desiredClusterSize: 4
+  core:maxClusterSize: 5
+  core:minClusterSize: 3
