@@ -274,6 +274,7 @@ class DebugStub:
     def profile(
         self, *, profile: "Profile" = None, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = ProfileRequest()
         if profile is not None:
             request.profile = profile
@@ -286,6 +287,7 @@ class DebugStub:
     def binary(
         self, *, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = BinaryRequest()
         if filter is not None:
             request.filter = filter
@@ -296,6 +298,7 @@ class DebugStub:
     def dump(
         self, *, filter: "Filter" = None, limit: int = 0
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = DumpRequest()
         if filter is not None:
             request.filter = filter
@@ -312,6 +315,7 @@ class DebugStub:
         duration: timedelta = None,
         recurse: bool = False
     ) -> "SetLogLevelResponse":
+
         request = SetLogLevelRequest()
         request.pachyderm = pachyderm
         request.grpc = grpc
@@ -368,6 +372,7 @@ class DebugStub:
         seed: int = 0,
         state_id: str = ""
     ) -> "RunPfsLoadTestResponse":
+
         request = RunPfsLoadTestRequest()
         request.spec = spec
         if branch is not None:
@@ -378,6 +383,7 @@ class DebugStub:
         return self.__rpc_run_pfs_load_test(request)
 
     def run_pfs_load_test_default(self) -> "RunPfsLoadTestResponse":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_run_pfs_load_test_default(request)

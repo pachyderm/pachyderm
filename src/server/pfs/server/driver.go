@@ -1979,9 +1979,6 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	}
 	branchInfoWithID, err := pfsdb.GetBranchInfoWithID(ctx, txnCtx.SqlTx, branch)
 	if err != nil {
-		if errors.As(err, new(*pfsdb.BranchNotFoundError)) {
-			return nil
-		}
 		return errors.Wrapf(err, "get branch %q", branch.Key())
 	}
 	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
