@@ -8543,6 +8543,88 @@
             }
           }
         }
+      },
+      "os:osx,arch:aarch64": {
+        "bzlTransitiveDigest": "X7FY+0kUDFpsa3ulS9IPEJAqEW8vwFdmD7u4epims+M=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "go_default_sdk": {
+            "bzlFile": "@@rules_go~0.43.0//go/private:sdk.bzl",
+            "ruleClassName": "go_download_sdk_rule",
+            "attributes": {
+              "name": "rules_go~0.43.0~go_sdk~go_default_sdk",
+              "goos": "",
+              "goarch": "",
+              "sdks": {},
+              "experiments": [],
+              "patches": [],
+              "patch_strip": 0,
+              "urls": [
+                "https://dl.google.com/go/{}"
+              ],
+              "version": "1.21.1",
+              "strip_prefix": "go"
+            }
+          },
+          "go_host_compatible_sdk_label": {
+            "bzlFile": "@@rules_go~0.43.0//go/private:extensions.bzl",
+            "ruleClassName": "host_compatible_toolchain",
+            "attributes": {
+              "name": "rules_go~0.43.0~go_sdk~go_host_compatible_sdk_label",
+              "toolchain": "@go_sdk//:ROOT"
+            }
+          },
+          "go_toolchains": {
+            "bzlFile": "@@rules_go~0.43.0//go/private:sdk.bzl",
+            "ruleClassName": "go_multiple_toolchains",
+            "attributes": {
+              "name": "rules_go~0.43.0~go_sdk~go_toolchains",
+              "prefixes": [
+                "_0000_go_sdk_",
+                "_0001_go_default_sdk_"
+              ],
+              "geese": [
+                "",
+                ""
+              ],
+              "goarchs": [
+                "",
+                ""
+              ],
+              "sdk_repos": [
+                "go_sdk",
+                "go_default_sdk"
+              ],
+              "sdk_types": [
+                "remote",
+                "remote"
+              ],
+              "sdk_versions": [
+                "1.21.5",
+                "1.21.1"
+              ]
+            }
+          },
+          "go_sdk": {
+            "bzlFile": "@@rules_go~0.43.0//go/private:sdk.bzl",
+            "ruleClassName": "go_download_sdk_rule",
+            "attributes": {
+              "name": "rules_go~0.43.0~go_sdk~go_sdk",
+              "goos": "",
+              "goarch": "",
+              "sdks": {},
+              "experiments": [],
+              "patches": [],
+              "patch_strip": 0,
+              "urls": [
+                "https://dl.google.com/go/{}"
+              ],
+              "version": "1.21.5",
+              "strip_prefix": "go"
+            }
+          }
+        }
       }
     },
     "@@rules_go~0.43.0//go/private:extensions.bzl%non_module_dependencies": {
