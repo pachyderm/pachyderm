@@ -65,12 +65,12 @@ determined:
   enabled: true
   enterpriseEdition: true
   useNodePortForMaster: true
-  useNodePortForDB: true
   detVersion: 0.26.2
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 512M # turn requests way down for automated smoke tests
   db:
+    useNodePortForDB: false
     storageSize: 2Gi
     cpuRequest: 250m
     memRequest: 512M

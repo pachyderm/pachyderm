@@ -56,6 +56,12 @@ spec:
         env:
         - name: IS_PACHW
           value: "true"
+        - name: GOCDK_ENABLED
+          value: {{ .Values.pachd.storage.gocdkEnabled | default false | quote }}
+        {{- if .Values.pachd.storage.storageURL }}
+        - name: STORAGE_URL
+          value: {{ .Values.pachd.storage.storageURL }}
+        {{- end }}
         - name: POSTGRES_HOST
           value: {{ required "postgresql host required" .Values.global.postgresql.postgresqlHost | quote }}
         - name: POSTGRES_PORT

@@ -2,6 +2,7 @@ package pachd
 
 import (
 	"testing"
+	"time"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -64,6 +65,6 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	require.NoError(t, err)
 	pachClient, err := client.NewFromPachdAddress(ctx, addr)
 	require.NoError(t, err)
-
+	require.NoErrorWithinTRetry(t, 5*time.Second, func() error { return pachClient.Health() })
 	return pachClient
 }

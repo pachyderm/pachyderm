@@ -18,15 +18,12 @@ pachd:
   activateEnterprise: false
   # enterpriseLicenseKey: ""
   storage:
-    backend: MINIO
-    minio:
-      bucket: "pachyderm-test"
-      endpoint: "minio.default.svc.cluster.local:9000"
+    gocdkEnabled: true
+    storageURL: s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region
+    backend: AMAZON
+    amazon:
       id: "minioadmin"
       secret: "minioadmin"
-      secure: "false"
-      signature: ""
-
 etcd:
   service:
     type: NodePort

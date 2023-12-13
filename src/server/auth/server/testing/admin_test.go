@@ -1,5 +1,3 @@
-//go:build unit_test
-
 // admin_test.go tests various features related to pachyderm's auth admins.
 // Because the cluster has one global set of admins, these tests can't be run in
 // parallel

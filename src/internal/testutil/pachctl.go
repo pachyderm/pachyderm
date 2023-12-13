@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"text/template"
 
+	"github.com/alessio/shellescape"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -193,4 +194,13 @@ func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, da
 		return Cmd{}, errors.Wrap(err, "could not execute script template")
 	}
 	return newCmd(ctx, "/bin/bash", nil, r), nil
+}
+
+// RunCommand runs command in sh (rather than bash), returning the combined
+// stdout & stderr.
+func (p Pachctl) RunCommand(ctx context.Context, command string) (string, error) {
+	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
+	cmd.Env = append(os.Environ(), fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
+	b, err := cmd.CombinedOutput()
+	return string(b), err
 }
