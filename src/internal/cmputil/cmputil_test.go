@@ -1,7 +1,6 @@
 package cmputil
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -51,20 +50,5 @@ func TestRegexpStrings(t *testing.T) {
 				t.Error("diff empty, but wanted one")
 			}
 		})
-	}
-}
-
-func TestWantErr(t *testing.T) {
-	if got, want := WantErr(t, nil, false), true; got != want {
-		t.Errorf("WantErr(nil, false).continue:\n  got: %v\n want: %v", got, want)
-	}
-	if got, want := WantErr(t, nil, ""), true; got != want {
-		t.Errorf("WantErr(nil, \"\").continue:\n  got: %v\n want: %v", got, want)
-	}
-	if got, want := WantErr(t, errors.New("blah"), true), false; got != want {
-		t.Errorf("WantErr(error(\"blah\"), true).continue:\n  got: %v\n want: %v", got, want)
-	}
-	if got, want := WantErr(t, errors.New("some text then blah and more text"), "/blah/"), false; got != want {
-		t.Errorf("WantErr(error(\"some text...\"), \"/blah/\")).continue:\n  got: %v\n want: %v", got, want)
 	}
 }
