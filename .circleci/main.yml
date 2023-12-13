@@ -1594,7 +1594,7 @@ workflows:
       - test-go
       - integration-tests
   linting:
-    when: 
+    when:
       or:
         - << pipeline.parameters.run-label-studio-jobs >>
         - << pipeline.parameters.run-python-sdk-jobs >>
