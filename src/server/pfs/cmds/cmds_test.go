@@ -533,6 +533,30 @@ func TestBranchNotFound(t *testing.T) {
 	}
 }
 
+func TestBranchDelete(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping test in short mode")
+	}
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
+	pc := env.PachClient
+
+	repo := tu.UniqueString("repo")
+	if err := tu.PachctlBashCmd(t, pc, `
+		pachctl create repo {{.repo}}
+		pachctl create branch {{.repo}}@foo
+	`, "repo", repo).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := tu.PachctlBashCmd(t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err != nil {
+		t.Fatal(err)
+	}
+	if err := tu.PachctlBashCmd(t, pc, `pachctl delete branch {{.repo}}@foo`, "repo", repo).Run(); err == nil {
+		t.Error("want error for deleting a non-existent branch")
+	}
+}
+
 func TestCopyFile(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping test in short mode")
