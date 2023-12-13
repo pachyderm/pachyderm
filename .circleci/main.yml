@@ -1594,7 +1594,12 @@ workflows:
       - test-go
       - integration-tests
   linting:
-    when: << pipeline.parameters.run-core-jobs >>
+    when: 
+      or:
+        - << pipeline.parameters.run-label-studio-jobs >>
+        - << pipeline.parameters.run-python-sdk-jobs >>
+        - << pipeline.parameters.run-jupyter-jobs >>
+        - << pipeline.parameters.run-core-jobs >>
     jobs:
       - check-prettier
       - jsonnet-lint
