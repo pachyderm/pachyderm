@@ -29,6 +29,23 @@ go_deps.gazelle_override(
     ],
     path = "go.etcd.io/etcd/server/v3",
 )
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "go.etcd.io/etcd/raft/v3",
+)
+go_deps.gazelle_override(
+    path = "github.com/grpc-ecosystem/grpc-gateway",
+    build_file_generation = "on",
+    directives = [
+        "gazelle:exclude **/**_test.go",
+        "gazelle:exclude examples",
+        "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/internal //internal",
+        "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options //protoc-gen-swagger/options",
+        "gazelle:proto disable_global",
+    ],
+)
 use_repo(
     go_deps,
     "com_github_adrg_xdg",
@@ -63,7 +80,6 @@ use_repo(
     "com_github_golang_protobuf",
     "com_github_google_btree",
     "com_github_google_go_cmp",
-    "com_github_google_go_jsonnet",
     "com_github_google_gofuzz",
     "com_github_google_shlex",
     "com_github_google_uuid",

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "53b968be6492c8f8fc2020c8c41aedfc52ed47ff05b9dbc397416797a1adba58",
+  "moduleFileHash": "9d9de884eeae95f617869287927ffc2e661b13aa27a889d33ddd3c5f7899fe54",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -97,7 +97,6 @@
             "com_github_golang_protobuf": "com_github_golang_protobuf",
             "com_github_google_btree": "com_github_google_btree",
             "com_github_google_go_cmp": "com_github_google_go_cmp",
-            "com_github_google_go_jsonnet": "com_github_google_go_jsonnet",
             "com_github_google_gofuzz": "com_github_google_gofuzz",
             "com_github_google_shlex": "com_github_google_shlex",
             "com_github_google_uuid": "com_github_google_uuid",
@@ -226,6 +225,41 @@
                 "line": 26,
                 "column": 25
               }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "go.etcd.io/etcd/raft/v3"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 32,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "path": "github.com/grpc-ecosystem/grpc-gateway",
+                "build_file_generation": "on",
+                "directives": [
+                  "gazelle:exclude **/**_test.go",
+                  "gazelle:exclude examples",
+                  "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/internal //internal",
+                  "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options //protoc-gen-swagger/options",
+                  "gazelle:proto disable_global"
+                ]
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 38,
+                "column": 25
+              }
             }
           ],
           "hasDevUseExtension": false,
@@ -237,7 +271,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 153,
+            "line": 169,
             "column": 32
           },
           "imports": {
@@ -1788,8 +1822,8 @@
         "accumulatedFileDigests": {
           "@@rules_go~0.43.0//:go.mod": "58f9901703af412a1a8771d283721ef391c0ca1cc6ef3c141334311965535676",
           "@@gazelle~0.34.0//:go.mod": "9ae159a385b2f244bbe964b9f91dbea6e7bd534e0b22e846655f241c65de2c49",
-          "@@//:go.mod": "9e119a37856b709d56c92f0eb52ca082d6275e142cf9d53465ec03994d4c562f",
-          "@@//:go.sum": "e92d8305d2e695335076b71331b0b316777af2fa45466b47404bc8a493ae447e",
+          "@@//:go.mod": "445f170fadaedc9a9c1c250cd01e997bd78ae5e3682a49de8fb27a875bf4d784",
+          "@@//:go.sum": "7612f97a321404f94f91f3e26e27343d0f70401afb96d9a3a4af5b88f96fe9ae",
           "@@rules_go~0.43.0//:go.sum": "c6368ec1da45691f9148115d7317e740c3b32313b624b8f6545ef36b2ab4d781",
           "@@gazelle~0.34.0//:go.sum": "7469786f3930030c430969cedae951e6947cb40f4a563dac94a350659c0fedc4"
         },
@@ -3383,22 +3417,6 @@
               "version": "v0.9.1"
             }
           },
-          "com_github_google_go_jsonnet": {
-            "bzlFile": "@@gazelle~0.34.0//internal:go_repository.bzl",
-            "ruleClassName": "go_repository",
-            "attributes": {
-              "name": "gazelle~0.34.0~go_deps~com_github_google_go_jsonnet",
-              "importpath": "github.com/google/go-jsonnet",
-              "build_directives": [],
-              "build_file_generation": "auto",
-              "build_extra_args": [],
-              "patches": [],
-              "patch_args": [],
-              "sum": "h1:/9NIEfhK1NQRKl3sP2536b2+x5HnZMdql7x3yK/l8JY=",
-              "replace": "",
-              "version": "v0.17.0"
-            }
-          },
           "com_github_beorn7_perks": {
             "bzlFile": "@@gazelle~0.34.0//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -4832,7 +4850,6 @@
                 "com_github_golang_protobuf": "github.com/golang/protobuf",
                 "com_github_google_btree": "github.com/google/btree",
                 "com_github_google_go_cmp": "github.com/google/go-cmp",
-                "com_github_google_go_jsonnet": "github.com/google/go-jsonnet",
                 "com_github_google_gofuzz": "github.com/google/gofuzz",
                 "com_github_google_uuid": "github.com/google/uuid",
                 "com_github_gorilla_mux": "github.com/gorilla/mux",
@@ -5726,7 +5743,9 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~io_etcd_go_etcd_raft_v3",
               "importpath": "go.etcd.io/etcd/raft/v3",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
@@ -6080,8 +6099,14 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~com_github_grpc_ecosystem_grpc_gateway",
               "importpath": "github.com/grpc-ecosystem/grpc-gateway",
-              "build_directives": [],
-              "build_file_generation": "auto",
+              "build_directives": [
+                "gazelle:exclude **/**_test.go",
+                "gazelle:exclude examples",
+                "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/internal //internal",
+                "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options //protoc-gen-swagger/options",
+                "gazelle:proto disable_global"
+              ],
+              "build_file_generation": "on",
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
@@ -8000,7 +8025,6 @@
             "com_github_golang_protobuf",
             "com_github_google_btree",
             "com_github_google_go_cmp",
-            "com_github_google_go_jsonnet",
             "com_github_google_gofuzz",
             "com_github_google_uuid",
             "com_github_gorilla_mux",
