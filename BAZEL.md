@@ -63,8 +63,8 @@ dialect of Starlark (raw Starlark, BUILD.bazel, WORKSPACE, etc.), so your editor
 
 If you'd like to invoke the version of Go used for proto generation, run `bazel run //:go`.
 
-If the build prints something like "The following buildozer command can fix this...", use
-`bazel run //:buildozer` to invoke
+If the build prints something like "You can use the following buildozer command to fix these
+issues:", use `bazel run //:buildozer` to invoke
 [buildozer](https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md).
 
 If you somehow find yourself responsible for bazelifying the repo, `bazel run //:gazelle` will run

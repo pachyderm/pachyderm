@@ -8,6 +8,8 @@ bazel_dep(name = "gazelle", version = "0.34.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.3.3", dev_dependency = True)
 
+bazel_dep(name = "jsonnet_go", version = "0.20.0")
+
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(
     name = "go_sdk",
@@ -36,7 +38,6 @@ go_deps.gazelle_override(
     path = "go.etcd.io/etcd/raft/v3",
 )
 go_deps.gazelle_override(
-    path = "github.com/grpc-ecosystem/grpc-gateway",
     build_file_generation = "on",
     directives = [
         "gazelle:exclude **/**_test.go",
@@ -45,6 +46,7 @@ go_deps.gazelle_override(
         "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options //protoc-gen-swagger/options",
         "gazelle:proto disable_global",
     ],
+    path = "github.com/grpc-ecosystem/grpc-gateway",
 )
 use_repo(
     go_deps,
