@@ -15,57 +15,57 @@
                     ]
                 },
                 "join": {
-                    "items": {
-                        "$ref": "#/definitions/Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "group": {
-                    "items": {
-                        "$ref": "#/definitions/Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "cross": {
-                    "items": {
-                        "$ref": "#/definitions/Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/Input"
+                            },
                             "type": "array"
                         }
                     ]
                 },
                 "union": {
-                    "items": {
-                        "$ref": "#/definitions/Input"
-                    },
                     "additionalProperties": false,
                     "oneOf": [
                         {
                             "type": "null"
                         },
                         {
+                            "items": {
+                                "$ref": "#/definitions/Input"
+                            },
                             "type": "array"
                         }
                     ]

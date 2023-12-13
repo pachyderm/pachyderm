@@ -54,21 +54,55 @@ go_deps.gazelle_override(
     ],
     path = "github.com/determined-ai/determined/proto",
 )
-go_deps.gazelle_override(
-    directives = [
-        "gazelle:proto disable",
-    ],
-    path = "github.com/chrusty/protoc-gen-jsonschema",
-)
 
+# This is a program and not a module, but we depend on it since there aren't prebuilt binaries
+# available.
 go_deps.module(
     path = "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
     sum = "h1:rNBFJjBCOgVr9pWD7rs/knKL4FRTKgpZmsRfV214zcA=",
     version = "v1.3.0",
 )
+
+# These are dependencies necessary to build protoc-gen-jsonschema; they don't issue binary releases,
+# and we can't import _ github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-json-schema because
+# govulncheck does not like non-modules being imported (errors with "it's a program, not a module").
+# Therefore, we can't keep a reference to it in a go file and so "go mod tidy" deletes the cmd-only
+# dependencies from go.sum.  That makes them unavailable to Bazel builds, and thus we fail to build
+# the command for //:make_proto.
+go_deps.module(
+    path = "github.com/alecthomas/jsonschema",
+    sum = "h1:SM/PhkjhbeX1w/Jkv7dHFYDn2y4/88XZp3CIqVHsdcs=",
+    version = "v0.0.0-20210918223802-a1d3f4b43d7b",
+)
+go_deps.module(
+    path = "github.com/iancoleman/orderedmap",
+    sum = "h1:sq1N/TFpYH++aViPcaKjys3bDClUEU7s5B+z6jq8pNA=",
+    version = "v0.2.0",
+)
+go_deps.module(
+    path = "github.com/iancoleman/strcase",
+    sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
+    version = "v0.2.0",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonpointer",
+    sum = "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
+    version = "v0.0.0-20190809123943-df4f5c81cb3b",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonreference",
+    sum = "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
+    version = "v0.0.0-20180127040603-bd5ef7bd5415",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonschema",
+    sum = "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
+    version = "v1.2.0",
+)
 use_repo(
     go_deps,
     "com_github_adrg_xdg",
+    "com_github_alecthomas_jsonschema",
     "com_github_alessio_shellescape",
     "com_github_aws_aws_lambda_go",
     "com_github_aws_aws_sdk_go",
@@ -111,6 +145,8 @@ use_repo(
     "com_github_hanwen_go_fuse_v2",
     "com_github_hashicorp_golang_lru",
     "com_github_hashicorp_golang_lru_v2",
+    "com_github_iancoleman_orderedmap",
+    "com_github_iancoleman_strcase",
     "com_github_itchyny_gojq",
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
@@ -151,6 +187,9 @@ use_repo(
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
     "com_github_wcharczuk_go_chart",
+    "com_github_xeipuuv_gojsonpointer",
+    "com_github_xeipuuv_gojsonreference",
+    "com_github_xeipuuv_gojsonschema",
     "com_github_zeebo_xxh3",
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",

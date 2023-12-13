@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "bd15e94f34b001a9f8b2ca7dbb215136e6ba1b5c35595850b2093225a956f411",
+  "moduleFileHash": "1d70f367aa4984e3f82ccf3f9c552770400ff85ecb3eaf637f90c0d01668dd58",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -66,6 +66,7 @@
           },
           "imports": {
             "com_github_adrg_xdg": "com_github_adrg_xdg",
+            "com_github_alecthomas_jsonschema": "com_github_alecthomas_jsonschema",
             "com_github_alessio_shellescape": "com_github_alessio_shellescape",
             "com_github_aws_aws_lambda_go": "com_github_aws_aws_lambda_go",
             "com_github_aws_aws_sdk_go": "com_github_aws_aws_sdk_go",
@@ -108,6 +109,8 @@
             "com_github_hanwen_go_fuse_v2": "com_github_hanwen_go_fuse_v2",
             "com_github_hashicorp_golang_lru": "com_github_hashicorp_golang_lru",
             "com_github_hashicorp_golang_lru_v2": "com_github_hashicorp_golang_lru_v2",
+            "com_github_iancoleman_orderedmap": "com_github_iancoleman_orderedmap",
+            "com_github_iancoleman_strcase": "com_github_iancoleman_strcase",
             "com_github_itchyny_gojq": "com_github_itchyny_gojq",
             "com_github_jackc_pgconn": "com_github_jackc_pgconn",
             "com_github_jackc_pgerrcode": "com_github_jackc_pgerrcode",
@@ -148,6 +151,9 @@
             "com_github_vbauerster_mpb_v6": "com_github_vbauerster_mpb_v6",
             "com_github_wader_readline": "com_github_wader_readline",
             "com_github_wcharczuk_go_chart": "com_github_wcharczuk_go_chart",
+            "com_github_xeipuuv_gojsonpointer": "com_github_xeipuuv_gojsonpointer",
+            "com_github_xeipuuv_gojsonreference": "com_github_xeipuuv_gojsonreference",
+            "com_github_xeipuuv_gojsonschema": "com_github_xeipuuv_gojsonschema",
             "com_github_zeebo_xxh3": "com_github_zeebo_xxh3",
             "com_google_cloud_go_profiler": "com_google_cloud_go_profiler",
             "com_google_cloud_go_storage": "com_google_cloud_go_storage",
@@ -277,21 +283,6 @@
               }
             },
             {
-              "tagName": "gazelle_override",
-              "attributeValues": {
-                "directives": [
-                  "gazelle:proto disable"
-                ],
-                "path": "github.com/chrusty/protoc-gen-jsonschema"
-              },
-              "devDependency": false,
-              "location": {
-                "file": "@@//:MODULE.bazel",
-                "line": 57,
-                "column": 25
-              }
-            },
-            {
               "tagName": "module",
               "attributeValues": {
                 "path": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
@@ -301,7 +292,91 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 64,
+                "line": 60,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/alecthomas/jsonschema",
+                "sum": "h1:SM/PhkjhbeX1w/Jkv7dHFYDn2y4/88XZp3CIqVHsdcs=",
+                "version": "v0.0.0-20210918223802-a1d3f4b43d7b"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 72,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/iancoleman/orderedmap",
+                "sum": "h1:sq1N/TFpYH++aViPcaKjys3bDClUEU7s5B+z6jq8pNA=",
+                "version": "v0.2.0"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 77,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/iancoleman/strcase",
+                "sum": "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
+                "version": "v0.2.0"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 82,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/xeipuuv/gojsonpointer",
+                "sum": "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
+                "version": "v0.0.0-20190809123943-df4f5c81cb3b"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 87,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/xeipuuv/gojsonreference",
+                "sum": "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
+                "version": "v0.0.0-20180127040603-bd5ef7bd5415"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 92,
+                "column": 15
+              }
+            },
+            {
+              "tagName": "module",
+              "attributeValues": {
+                "path": "github.com/xeipuuv/gojsonschema",
+                "sum": "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
+                "version": "v1.2.0"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 97,
                 "column": 15
               }
             }
@@ -315,7 +390,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 189,
+            "line": 228,
             "column": 32
           },
           "imports": {
@@ -2046,9 +2121,9 @@
         "accumulatedFileDigests": {
           "@@rules_go~0.43.0//:go.mod": "58f9901703af412a1a8771d283721ef391c0ca1cc6ef3c141334311965535676",
           "@@gazelle~0.34.0//:go.mod": "9ae159a385b2f244bbe964b9f91dbea6e7bd534e0b22e846655f241c65de2c49",
-          "@@//:go.mod": "55b043e70442c726896d451fc61101b19b9ac4221b1fa0e9d1419734294e21b8",
+          "@@//:go.mod": "2e91552a82ad4ce57e972bcb1d0ae807b3c25b3fce515a0fdff50c84288ce242",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
-          "@@//:go.sum": "efed070f4e57a1eca106f11c3f67490b103b62e6882795b6d2934fd5c56aa6a3",
+          "@@//:go.sum": "b6ad0bda053ff386f2534b522877d20585c65b3122c1eb4a7bb55c975f44861b",
           "@@rules_go~0.43.0//:go.sum": "c6368ec1da45691f9148115d7317e740c3b32313b624b8f6545ef36b2ab4d781",
           "@@gazelle~0.34.0//:go.sum": "7469786f3930030c430969cedae951e6947cb40f4a563dac94a350659c0fedc4",
           "@@jsonnet_go~0.20.0//:go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145"
@@ -5048,6 +5123,12 @@
               "name": "gazelle~0.34.0~go_deps~bazel_gazelle_go_repository_config",
               "importpaths": {
                 "org_golang_google_grpc_cmd_protoc_gen_go_grpc": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+                "com_github_alecthomas_jsonschema": "github.com/alecthomas/jsonschema",
+                "com_github_iancoleman_orderedmap": "github.com/iancoleman/orderedmap",
+                "com_github_iancoleman_strcase": "github.com/iancoleman/strcase",
+                "com_github_xeipuuv_gojsonpointer": "github.com/xeipuuv/gojsonpointer",
+                "com_github_xeipuuv_gojsonreference": "github.com/xeipuuv/gojsonreference",
+                "com_github_xeipuuv_gojsonschema": "github.com/xeipuuv/gojsonschema",
                 "com_google_cloud_go_profiler": "cloud.google.com/go/profiler",
                 "com_google_cloud_go_storage": "cloud.google.com/go/storage",
                 "com_github_azure_azure_sdk_for_go": "github.com/Azure/azure-sdk-for-go",
@@ -5150,12 +5231,6 @@
                 "io_k8s_klog_v2": "k8s.io/klog/v2",
                 "io_k8s_kubectl": "k8s.io/kubectl",
                 "io_k8s_utils": "k8s.io/utils",
-                "com_github_alecthomas_jsonschema": "github.com/alecthomas/jsonschema",
-                "com_github_iancoleman_orderedmap": "github.com/iancoleman/orderedmap",
-                "com_github_iancoleman_strcase": "github.com/iancoleman/strcase",
-                "com_github_xeipuuv_gojsonpointer": "github.com/xeipuuv/gojsonpointer",
-                "com_github_xeipuuv_gojsonreference": "github.com/xeipuuv/gojsonreference",
-                "com_github_xeipuuv_gojsonschema": "github.com/xeipuuv/gojsonschema",
                 "com_google_cloud_go": "cloud.google.com/go",
                 "com_google_cloud_go_compute": "cloud.google.com/go/compute",
                 "com_google_cloud_go_compute_metadata": "cloud.google.com/go/compute/metadata",
@@ -6767,16 +6842,14 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~com_github_chrusty_protoc_gen_jsonschema",
               "importpath": "github.com/chrusty/protoc-gen-jsonschema",
-              "build_directives": [
-                "gazelle:proto disable"
-              ],
+              "build_directives": [],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:WqTuh63Eanl4DrV0oAUW7ZJgpG9x25NCTTx3v6h4LPM=",
+              "sum": "h1:y9ecNwC7J4ZTykzTT0sjnJnNcYnbGUrMZ0ShU4zmi7E=",
               "replace": "",
-              "version": "v0.0.0-20230418203306-956cc32e45d6"
+              "version": "v0.0.0-20230806074057-e487289b0982"
             }
           },
           "com_github_gregjones_httpcache": {
@@ -6987,6 +7060,22 @@
               "version": "v0.17.0"
             }
           },
+          "com_github_xeipuuv_gojsonschema": {
+            "bzlFile": "@@gazelle~0.34.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.34.0~go_deps~com_github_xeipuuv_gojsonschema",
+              "importpath": "github.com/xeipuuv/gojsonschema",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
+              "replace": "",
+              "version": "v1.2.0"
+            }
+          },
           "io_k8s_api": {
             "bzlFile": "@@gazelle~0.34.0//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -7003,22 +7092,6 @@
               "sum": "h1:IpPlZnxBpV1xl7TGk/X6lFtpgjgntCg8PJ+qrPHAC7I=",
               "replace": "",
               "version": "v0.26.0"
-            }
-          },
-          "com_github_xeipuuv_gojsonschema": {
-            "bzlFile": "@@gazelle~0.34.0//internal:go_repository.bzl",
-            "ruleClassName": "go_repository",
-            "attributes": {
-              "name": "gazelle~0.34.0~go_deps~com_github_xeipuuv_gojsonschema",
-              "importpath": "github.com/xeipuuv/gojsonschema",
-              "build_directives": [],
-              "build_file_generation": "auto",
-              "build_extra_args": [],
-              "patches": [],
-              "patch_args": [],
-              "sum": "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
-              "replace": "",
-              "version": "v1.2.0"
             }
           },
           "com_github_aws_aws_sdk_go_v2_config": {
@@ -8227,6 +8300,12 @@
         "moduleExtensionMetadata": {
           "explicitRootModuleDirectDeps": [
             "org_golang_google_grpc_cmd_protoc_gen_go_grpc",
+            "com_github_alecthomas_jsonschema",
+            "com_github_iancoleman_orderedmap",
+            "com_github_iancoleman_strcase",
+            "com_github_xeipuuv_gojsonpointer",
+            "com_github_xeipuuv_gojsonreference",
+            "com_github_xeipuuv_gojsonschema",
             "com_google_cloud_go_profiler",
             "com_google_cloud_go_storage",
             "com_github_azure_azure_sdk_for_go",
