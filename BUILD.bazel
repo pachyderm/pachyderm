@@ -70,6 +70,7 @@ buildifier_test(
     mode = "diff",
     no_sandbox = True,
     workspace = "//:MODULE.bazel",
+    timeout = "short",
 )
 
 # Run the buildozer command.

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "22a265137c9f3a0b9f10b2060ad4753dcba7e96c3f52e098be044e2f45dcf606",
+  "moduleFileHash": "9693b4fc700bb3b57578ab11c15d81c6a3f0547e314865e6358e5eebe2b5b58c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -260,6 +260,21 @@
                 "line": 40,
                 "column": 25
               }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "github.com/determined-ai/determined/proto"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 51,
+                "column": 25
+              }
             }
           ],
           "hasDevUseExtension": false,
@@ -271,7 +286,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 171,
+            "line": 177,
             "column": 32
           },
           "imports": {
@@ -1849,6 +1864,26 @@
         }
       }
     },
+    "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
+      "general": {
+        "bzlTransitiveDigest": "cizrA62cv8WUgb0cCmx5B6PRijtr/I4TAWxg/4caNGU=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "remote_coverage_tools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "bazel_tools~remote_coverage_tools_extension~remote_coverage_tools",
+              "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
+              "urls": [
+                "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
+              ]
+            }
+          }
+        }
+      }
+    },
     "@@buildifier_prebuilt~6.3.3//:defs.bzl%buildifier_prebuilt_deps_extension": {
       "general": {
         "bzlTransitiveDigest": "hxFr9Y+nZmWympflJ/60YOO2NVcYQSkk9F3wM5Qr17Y=",
@@ -2915,7 +2950,9 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~com_github_determined_ai_determined_proto",
               "importpath": "github.com/determined-ai/determined/proto",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],

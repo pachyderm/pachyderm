@@ -5,6 +5,7 @@ go_library(
     srcs = ["real_env.go"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv",
     visibility = ["//src:__subpackages__"],
+    data = ["//dex-assets"],
     deps = [
         "//src/debug",
         "//src/identity",
