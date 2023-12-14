@@ -38,7 +38,7 @@ spec:
       {{- end }}
 {{- include "pachyderm.imagePullSecrets" . | indent 6 }}
       containers:
-      - image: "{{ .Values.global.image.registry }}{{ .Values.console.image.repository }}:{{ .Values.console.image.tag }}"
+      - image: "{{ .Values.global.image.registry }}{{ .Values.console.image.repository }}:{{ default .Chart.AppVersion .Values.console.image.tag }}"
         imagePullPolicy: {{ .Values.console.image.pullPolicy }}
         name: console
         livenessProbe:
