@@ -2,7 +2,8 @@
 import json
 import os
 from base64 import b64decode
-from dataclasses import dataclass
+from copy import deepcopy
+from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Optional, Union
 
@@ -12,20 +13,64 @@ from .errors import ConfigError
 class ConfigFile:
     """A parsed Pachyderm config file."""
 
-    def __init__(self, config_file: Union[Path, str]):
+    def __init__(self, data: dict):
         """
+        Parameters
+        ----------
+        data : dict (JSON)
+            The config file data. The only required fields are:
+            {
+              "v2": {
+                "active_context": ...,
+                "contexts": {...}
+              }
+            }
+        """
+        if (v2 := data.get("v2")) is None or not (
+            "active_context" in v2 and "contexts" in v2
+        ):
+            raise ValueError(
+                'Expected format: {"v2": {"active_context": ..., "contexts": {...}}'
+            )
+        self._config_file_data = data
+
+    @classmethod
+    def from_file(cls, config_file: Union[Path, str]) -> "ConfigFile":
+        """Parse a Pachyderm config file.
+
         Parameters
         ----------
         config_file : str
             The path to the config file.
         """
         config_file = Path(os.path.expanduser(config_file)).resolve()
-        self._config_file_data = json.loads(config_file.read_bytes())
+        return cls(data=json.loads(config_file.read_bytes()))
+
+    @classmethod
+    def new_with_context(cls, name: str, context: "Context") -> "ConfigFile":
+        """Create a new ConfigFile object from a single context.
+        This will also set this specified context as the active context.
+
+        Parameters
+        ----------
+        name : str
+            The name of the context.
+        context : Context
+            The context object.
+        """
+        data = dict(
+            v2=dict(
+                active_context=name,
+                contexts={name: asdict(context)},
+                metrics=False,  # TODO: Reconsider after understanding user_id.
+            ),
+        )
+        return cls(data)
 
     @property
-    def user_id(self) -> str:
+    def user_id(self) -> Optional[str]:
         """The user ID of the config file."""
-        return self._config_file_data["user_id"]
+        return self._config_file_data.get("user_id")
 
     @property
     def active_context(self) -> "Context":
@@ -46,6 +91,54 @@ class ConfigFile:
         if context_name not in contexts:
             raise ConfigError(f"active enterprise context not found: {context_name}")
         return Context(**contexts[context_name])
+
+    def add_context(
+        self, name: str, context: "Context", *, overwrite: bool = False
+    ) -> None:
+        """Add a context to the parsed config.
+        The context name must be unique, unless overwrite is True.
+
+        Parameters
+        ----------
+        name : str
+            The name of the context.
+        context : Context
+            The context object.
+        overwrite : bool (kwarg)
+            Whether to overwrite an existing context.
+        """
+        contexts = self._config_file_data["v2"]["contexts"]
+        if (name in contexts) and not overwrite:
+            raise ValueError(f'context "{name}" already exists')
+        contexts[name] = asdict(context)
+
+    def set_active_context(self, name: str) -> None:
+        """Set the active context to the specified name.
+        The context must exist, else a ValueError is raise.
+
+        Parameters
+        ----------
+        name : str
+            The name of the context.
+        """
+        contexts = self._config_file_data["v2"]["contexts"]
+        if name not in contexts:
+            raise ValueError(f'context "{name}" does not exist')
+        self._config_file_data["v2"]["active_context"] = name
+
+    def write(self, config_file: Union[Path, str]) -> None:
+        """Write the current config data to the specified file.
+
+        Parameters
+        ----------
+        config_file : str
+            The path to the config file.
+        """
+        config_file = Path(os.path.expanduser(config_file)).resolve()
+        data = deepcopy(self._config_file_data)
+        with config_file.open("w") as file_out:
+            file_out.write(json.dumps(data, indent=2))
+            file_out.write("\n")
 
 
 @dataclass
