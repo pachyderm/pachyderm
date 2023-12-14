@@ -1,6 +1,7 @@
 """Functionality for parsing Pachyderm config files."""
 import json
 import os
+import uuid
 from base64 import b64decode
 from copy import deepcopy
 from dataclasses import dataclass, asdict
@@ -59,10 +60,11 @@ class ConfigFile:
             The context object.
         """
         data = dict(
+            user_id=str(uuid.uuid4()).replace("-", ""),
             v2=dict(
                 active_context=name,
                 contexts={name: asdict(context)},
-                metrics=False,  # TODO: Reconsider after understanding user_id.
+                metrics=True,
             ),
         )
         return cls(data)

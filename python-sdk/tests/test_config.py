@@ -105,7 +105,8 @@ class TestConfig:
 
         # Assert
         assert config.active_context == context
-        assert config.user_id is None
+        assert config.user_id is not None
+        assert len(config.user_id) == 32
 
     @staticmethod
     def test_set_active_context():
