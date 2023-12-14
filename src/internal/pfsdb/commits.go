@@ -200,7 +200,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if err == nil && commit != nil {
 		return 0, &CommitAlreadyExistsError{CommitID: commit.CommitInfo.Commit.Key()}
 	}
-	if err != nil && (errors.As(err, new(*ProjectNotFoundError)) || errors.As(err, new(*RepoNotFoundError))) {
+	if err != nil && !errors.As(err, new(*CommitNotFoundError)) {
 		return 0, err
 	}
 	opt := AncestryOpt{}
