@@ -103,7 +103,17 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	require.NoError(t, err)
 	current := determinedGetUsers(t, *detUrl, userToken)
 	require.Equal(t, len(*previous.Users)+1, len(*current.Users), "the new pipeline has created an additional service user in Determined")
-
+	// once a pipeline is deleted the users should eventually be cleaned up in determined
+	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)})
+	require.NoError(t, err)
+	previous = current
+	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
+		current = determinedGetUsers(t, *detUrl, userToken)
+		if len(*previous.Users)-1 == len(*current.Users) {
+			return errors.Errorf("the new pipeline has created an additional service user in Determined")
+		}
+		return nil
+	}, 5*time.Second)
 }
 
 func determinedLogin(t testing.TB, detUrl url.URL, username string, password string) string {
@@ -154,6 +164,7 @@ func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *Deter
 
 func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
 	detUrl.Path = detUserPath
+	detUrl.Query().Add("active", "true")
 	req, err := http.NewRequest("GET", detUrl.String(), strings.NewReader("{}"))
 	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
 	require.NoError(t, err, "Creating Determined get users request")

@@ -2322,7 +2322,7 @@ func (a *apiServer) createPipeline(ctx context.Context, req *pps.CreatePipelineV
 // TODO: set up garbage collection for the records stored outside the DB
 func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *pps.Pipeline, workspaces []string) error {
 	// check if pipeline's creds secret exists
-	secretName := pipeline.Project.Name + "-" + pipeline.Name + "-det"
+	secretName := detUserSecretName(pipeline)
 	password := uuid.NewWithoutDashes()
 	whoAmI, err := a.env.AuthServer.WhoAmI(ctx, &auth.WhoAmIRequest{})
 	if err != nil {
@@ -2351,7 +2351,10 @@ func (a *apiServer) CreateDetPipelineSideEffects(ctx context.Context, pipeline *
 		},
 	}
 	s.SetLabels(map[string]string{
-		"suite": "pachyderm",
+		"suite":        "pachyderm",
+		"pipelineName": pipeline.Name,
+		"project":      pipeline.GetProject().String(),
+		"determined":   "true",
 	})
 	if _, err := a.env.KubeClient.CoreV1().Secrets(a.namespace).Create(ctx, s, metav1.CreateOptions{}); err != nil {
 		return errors.Wrapf(err, "failed to create pipeline's determined secret")
