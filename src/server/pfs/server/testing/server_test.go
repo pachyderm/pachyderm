@@ -3212,7 +3212,7 @@ func TestDeleteNonexistentBranch(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "doesnt_exist", false))
+	require.ErrorContains(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "doesnt_exist", false), "not found")
 }
 
 func TestSubscribeCommit(t *testing.T) {
