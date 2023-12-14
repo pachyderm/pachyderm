@@ -423,7 +423,11 @@ type ObjectStoreURL struct {
 }
 
 func (s ObjectStoreURL) String() string {
-	return fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
+	bucket := fmt.Sprintf("%s://%s/%s", s.Scheme, s.Bucket, s.Object)
+	if s.Params != "" {
+		bucket += "?" + s.Params
+	}
+	return bucket
 }
 
 func (s ObjectStoreURL) BucketString() string {

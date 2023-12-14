@@ -141,6 +141,7 @@ type Env struct {
 	DB         *pachsql.DB
 	DirectDB   *pachsql.DB
 	ObjClient  obj.Client
+	Bucket     *obj.Bucket
 	EtcdClient *clientv3.Client
 	Listener   net.Listener
 }
@@ -220,6 +221,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
 			return pfs_server.Env{
 				DB:           env.DB,
+				Bucket:       env.Bucket,
 				ObjectClient: env.ObjClient,
 				EtcdClient:   env.EtcdClient,
 				EtcdPrefix:   etcdPrefix,
@@ -264,6 +266,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			return pfs_server.WorkerEnv{
 				DB:          env.DB,
 				ObjClient:   env.ObjClient,
+				Bucket:      env.Bucket,
 				TaskService: task.NewEtcdService(env.EtcdClient, etcdPrefix),
 			}
 		}),
