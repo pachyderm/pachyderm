@@ -152,6 +152,7 @@ func (a *apiServer) master(ctx context.Context) {
 		log.Info(ctx, "PPS master: launching master process")
 		kd := newKubeDriver(a.env.KubeClient, a.env.Config)
 		sd := newPipelineStateDriver(a.env.DB, a.pipelines, a.txnEnv, a.env.PFSServer)
+		go gcDetUsers(ctx, a.getDetConfig(), time.Minute, sd, a.env.KubeClient.CoreV1().Secrets(a.namespace))
 		m := newMaster(ctx, a.env, a.etcdPrefix, kd, sd)
 		m.run()
 		return errors.Wrapf(context.Cause(ctx), "ppsMaster.Run() exited unexpectedly")
