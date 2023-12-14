@@ -806,12 +806,13 @@ func GetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 		Short: "Get the role bindings for the cluster",
 		Long:  "This command returns the role bindings for the cluster.",
 		Run: cmdutil.RunBoundedArgsCmd(0, 0, func(cmd *cobra.Command, args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			resp, err := c.GetClusterRoleBinding(c.Ctx())
+			ctx := c.AddMetadata(cmd.Context())
+			resp, err := c.GetClusterRoleBinding(ctx)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -857,12 +858,13 @@ func GetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config
 		Short: "Get the role bindings for the enterprise server",
 		Long:  "This command returns the role bindings for the enterprise server.",
 		Run: cmdutil.RunBoundedArgsCmd(0, 0, func(cmd *cobra.Command, args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), true)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			resp, err := c.GetClusterRoleBinding(c.Ctx())
+			ctx := c.AddMetadata(cmd.Context())
+			resp, err := c.GetClusterRoleBinding(ctx)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
