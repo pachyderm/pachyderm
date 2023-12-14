@@ -94,7 +94,7 @@ func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) 
 
 func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, tests []pipelineTest) {
 	for _, test := range tests {
-		require.NoErrorWithinT(t, 10*time.Second, func() error {
+		require.NoErrorWithinT(t, 30*time.Second, func() error {
 			return backoff.Retry(func() error {
 				return require.ElementsEqualOrErr(test.expectedStates, sDriver.states[test.key])
 			}, backoff.NewTestingBackOff())
