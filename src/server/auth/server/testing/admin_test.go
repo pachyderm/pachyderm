@@ -50,7 +50,7 @@ func TestActivate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, who.Username)
 
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 }
@@ -79,7 +79,7 @@ func TestActivateKnownToken(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, who.Username)
 
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 }
@@ -94,7 +94,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// The initial set of admins is just the user "admin"
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -134,7 +134,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.ClusterAdminRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.ClusterAdminRole), bindings)
 
@@ -159,7 +159,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
 
 	// wait until bob is not in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -194,7 +194,7 @@ func TestFSAdminRWO(t *testing.T) {
 	rootClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// The initial set of admins is just the user "admin"
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -234,7 +234,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.RepoOwnerRole), bindings)
 
@@ -259,7 +259,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{}))
 
 	// wait until bob is not in admin list
-	bindings, err = aliceClient.GetClusterRoleBinding()
+	bindings, err = aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
@@ -303,7 +303,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(bob, []string{auth.RepoOwnerRole}))
 
 	// wait until bob shows up in admin list
-	bindings, err := aliceClient.GetClusterRoleBinding()
+	bindings, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.RepoOwnerRole), bindings)
 
@@ -341,32 +341,32 @@ func TestCannotRemoveRootAdmin(t *testing.T) {
 	aliceClient, rootClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// Check that the initial set of admins is just "admin"
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// root cannot remove themselves from the list of super admins
 	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
 
-	bindings, err = rootClient.GetClusterRoleBinding()
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(), bindings)
 
 	// root can make alice a cluster administrator
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.ClusterAdminRole}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 
 	// Root still cannot remove themselves as a cluster admin
 	require.YesError(t, rootClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 
 	// alice is an admin, and she cannot remove root as an admin
 	require.YesError(t, aliceClient.ModifyClusterRoleBinding(auth.RootUser, []string{}))
-	bindings, err = rootClient.GetClusterRoleBinding()
+	bindings, err = rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.ClusterAdminRole), bindings)
 }
@@ -649,7 +649,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	// make robotUser an admin
 	require.NoError(t, rootClient.ModifyClusterRoleBinding(tu.Robot(robotUser), []string{auth.ClusterAdminRole}))
 	// wait until robotUser shows up in admin list
-	bindings, err := rootClient.GetClusterRoleBinding()
+	bindings, err := rootClient.GetClusterRoleBinding(rootClient.Ctx())
 	require.NoError(t, err)
 	require.Equal(t, tu.BuildClusterBindings(tu.Robot(robotUser), auth.ClusterAdminRole), bindings)
 
