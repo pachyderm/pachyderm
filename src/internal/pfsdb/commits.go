@@ -196,6 +196,18 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if err := validateCommitInfo(commitInfo); err != nil {
 		return 0, err
 	}
+	commit, err := GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+	if err == nil {
+		return 0, &CommitAlreadyExistsError{CommitID: commit.CommitInfo.Commit.Key()}
+	}
+	if err != nil {
+		if errors.As(err, new(*ProjectNotFoundError)) || errors.As(err, new(*RepoNotFoundError)) {
+			return 0, err
+		}
+		if !errors.As(err, new(*CommitNotFoundError)) {
+			return 0, err
+		}
+	}
 	opt := AncestryOpt{}
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -227,15 +239,10 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
+
 	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
 		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
 		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
-	if row.Err() != nil {
-		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
-			return 0, &CommitAlreadyExistsError{CommitID: CommitKey(commitInfo.Commit)}
-		}
-		return 0, errors.Wrap(row.Err(), "exec create commitInfo")
-	}
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
 		return 0, errors.Wrap(err, "scanning id from create commitInfo")
