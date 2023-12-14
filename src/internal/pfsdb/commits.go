@@ -196,12 +196,12 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if err := validateCommitInfo(commitInfo); err != nil {
 		return 0, err
 	}
-	commit, err := GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
-	if err == nil && commit != nil {
+	commit, getCommitErr := GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+	if getCommitErr == nil {
 		return 0, &CommitAlreadyExistsError{CommitID: commit.CommitInfo.Commit.Key()}
 	}
-	if err != nil && !errors.As(err, new(*CommitNotFoundError)) {
-		return 0, err
+	if getCommitErr != nil && (errors.As(getCommitErr, new(*ProjectNotFoundError)) || errors.As(getCommitErr, new(*RepoNotFoundError))) {
+		return 0, getCommitErr
 	}
 	opt := AncestryOpt{}
 	if len(opts) > 0 {
@@ -240,7 +240,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
-		return 0, errors.Wrap(err, "scanning id from create commitInfo")
+		return 0, errors.Wrap(errors.Join(getCommitErr, err), "scanning id from create commitInfo")
 	}
 	if commitInfo.ParentCommit != nil && !opt.SkipParent {
 		if err := CreateCommitParent(ctx, tx, commitInfo.ParentCommit, CommitID(lastInsertId)); err != nil {
