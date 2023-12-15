@@ -3213,7 +3213,7 @@ func TestDeleteNonexistentBranch(t *testing.T) {
 
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "doesnt_exist", false))
+	require.ErrorContains(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "doesnt_exist", false), "not found")
 }
 
 func TestSubscribeCommit(t *testing.T) {
@@ -3575,6 +3575,13 @@ func TestCreateBranchTwice(t *testing.T) {
 	require.Equal(t, commit2.Id, branchInfos[0].Head.Id) // aliased branch should have the same commit ID
 	require.Equal(t, "foo", branchInfos[1].Branch.Name)
 	require.Equal(t, commit2.Id, branchInfos[1].Head.Id) // original branch should remain unchanged
+}
+
+func TestBranchCreateInNonExistentRepo(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	require.ErrorContains(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "test", "master", "", "", nil), "repo (id=0, project=default, name=test, type=user) not found")
 }
 
 func TestWaitCommitSet(t *testing.T) {
