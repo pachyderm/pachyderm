@@ -2,9 +2,22 @@
 ################################################################################
 # This script is what I (msteffen) have been using to build, run, and test
 # Pachyderm more or less since I joined (2016). It's similar to restart.py in
-# the parent directory. Some parts may be out of date (notably, it doesn't use
-# minikube tunnel--for some reason, that didn't work the last time I tried it),
-# but as of Feb. 2023, it still basically works.
+# the parent directory and minikube testenv. It has a few features that aren't
+# in one of those two, though, which is why I keep using it:
+#   - CLI interface (for e.g. testing python)
+#   - Manages minikube VM (create VM, push images)
+#   - Creates VM concurrent with building images
+#       - to save time when testing locally
+#   - Simple "start over" process, with control over degree of reset:
+#       - recreate entire minikube environment (e.g. if networking is broken)
+#       - leave minikube, redeploy postgrest/obj storage and pach (bad state)
+#       - leave minikube, postgres and obj storage, and only update pach pod
+#   - Many deployment options (auth/no auth, minio/local storage, etc)
+#       - This can be useful when debugging specific configurations, or testing
+#         features that are known to be partially complete (e.g. don't support
+#         auth yet).
+# Some parts may be out of date (notably, it doesn't use minikube tunnel, which
+# doesn't seem to work on linux), but as of Oct. 2023, it still basically works.
 ################################################################################
 
 # Get the dir in which this script resides (git-root/etc/contributing), working
@@ -13,7 +26,7 @@ source_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
 function ts {
   set +x
-  echo "$(date +%H:%M:%S.%N):" "${@}"
+  echo "$(date +%H:%M:%S.%N): " "${@}"
   set -x
 }
 export -f ts
@@ -64,6 +77,10 @@ declare _PUSH_PACH=1
 declare _RESTART_PACH=2
 declare _REDEPLOY_PACH=3
 
+declare ROOT_TOKEN=iamroot
+
+declare KIND_CLUSTER_NAME="pachyderm-test-cluster"
+
 # Parse script arguments. Sets the global variables:
 # - HELM_VALUES
 # - PACH_ACTION
@@ -71,11 +88,13 @@ declare _REDEPLOY_PACH=3
 # - BUILD_MOUNT_SERVER
 # - KUBE_VERSION
 # - PACH_VERSION
+# - USE_AUTH
+# - CLUSTER_TYPE
 function parse_args {
   # parse args in variable definition instead of eval so that "$?" is set
   # correctly
   local new_args  # assigning inline would mask "missing argument" errors
-  new_args="$(getopt -o "n:" -l "deploy-args:,no-pachyderm,only-pachyderm,tag:,version:,kubernetes-version:,push-only" -- "${@}")"
+  new_args="$(getopt -o "n:" -l "no-pachyderm,push-pach-image,update-pach-pod,no-restart-kube,no-build-mount-server,no-auth,deploy-args:,version:,tag:,kubernetes-version:,local-storage,minio,cluster-type:" -- "${@}")"
   # shellcheck disable=SC2181
   if [[ "$?" -ne 0 ]]; then
     exit 1
@@ -87,7 +106,10 @@ function parse_args {
   declare -g BUILD_MOUNT_SERVER=true
   declare -g KUBE_VERSION=""
   declare -g PACH_VERSION=""
+  declare -g USE_AUTH=true
+  declare -g PACH_OBJ_STORAGE=minio
   declare -ag K8S_ARGS
+  declare -g CLUSTER_TYPE=kind
   local kube_namespace
   while true; do
     case "${1}" in
@@ -114,6 +136,18 @@ function parse_args {
           ;;
       --no-build-mount-server)
           unset BUILD_MOUNT_SERVER
+          shift
+          ;;
+      --no-auth)
+          unset USE_AUTH
+          shift
+          ;;
+      --local-storage)
+          PACH_OBJ_STORAGE="local"
+          shift
+          ;;
+      --minio)
+          PACH_OBJ_STORAGE="minio"
           shift
           ;;
       --deploy-args)
@@ -148,6 +182,10 @@ function parse_args {
         KUBE_VERSION="${2}"
         shift 2
         ;;
+      --cluster-type)
+        CLUSTER_TYPE="${2}"
+        shift 2
+        ;;
       --)
         shift
         break
@@ -158,16 +196,25 @@ function parse_args {
     esac
   done
 
+  if [[ "${PACH_OBJ_STORAGE}" != "minio" ]] && [[ "${PACH_OBJ_STORAGE}" != "local" ]]; then
+    echo "Pach object storage must be 'minio' or 'local'"
+    exit 1
+  fi
+  if [[ "${CLUSTER_TYPE}" != "minikube" ]] \
+    && [[ "${CLUSTER_TYPE}" != "kind" ]]; then
+    echo "Error: --cluster-type must be either 'minikube' or 'kind'"
+    exit 1
+  fi
   if [[ -z "${PACH_VERSION}" ]]; then
     PACH_VERSION=local
     if [[ "${PWD}" != "$(git rev-parse --show-toplevel)" ]] || ! ls ./mascot.txt; then
-      echo "Must be in a Pachyderm client"
+      echo "Error: must be in a Pachyderm client"
       exit 1
     fi
   fi
 
   if [[ -n "${kube_namespace}" ]] && ! kubectl get namespace "${2}"; then
-    echo "Could not create resources in k8s namespace \"${kube_namespace}\"; does not exist"
+    echo "Error: could not create resources in k8s namespace \"${kube_namespace}\"; does not exist"
     exit 1
   fi
   local response
@@ -238,60 +285,137 @@ function set_helm_command {
   else
     chart_source="./etc/helm/pachyderm"
   fi
-  HELM_TEMPLATE_COMMAND=(
-    helm template pach "${chart_source}"
-      --set deployTarget=LOCAL
-      --set pachd.enterpriseLicenseKey="${ENT_ACT_CODE}"
-      --set pachd.image.tag=local
-      "${HELM_VALUES[@]}"
+  HELM_TEMPLATE_COMMAND=(helm template pach "${chart_source}")
+  # Common flags
+  HELM_TEMPLATE_COMMAND+=(
+    --set pachd.image.tag=local
+    --set pachd.enterpriseLicenseKey="${ENT_ACT_CODE}"
+    --set pachd.lokiDeploy=false
+    --set pachd.lokiLogging=false
+    --set pachd.clusterDeploymentID=dev
+    --set proxy.service.type=NodePort
+    --set pachd.rootToken="${ROOT_TOKEN}"
   )
+  if [[ "${PACH_OBJ_STORAGE}" == "minio" ]]; then
+    HELM_TEMPLATE_COMMAND+=(
+      --set deployTarget=custom
+      --set pachd.storage.backend=MINIO
+      --set pachd.storage.minio.bucket=pachyderm-test
+      --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000
+      --set pachd.storage.minio.id=minioadmin
+      --set pachd.storage.minio.secret=minioadmin
+      --set-string pachd.storage.minio.signature=""
+      --set-string pachd.storage.minio.secure=false
+    )
+  elif [[ "${PACH_OBJ_STORAGE}" == "local" ]]; then
+    HELM_TEMPLATE_COMMAND+=(
+      --set deployTarget=LOCAL
+    )
+  fi
+  # Other flags from minikubetestenv (unused)
+  HELM_TEMPLATE_COMMAND+=(
+    # --set pachd.resources.requests.cpu=250m
+    # --set pachd.resources.requests.memory=512M
+    # --set etcd.resources.requests.cpu=250m
+    # --set etcd.resources.requests.memory=512M
+    # --set pachd.defaultPipelineCPURequest=100m
+    # --set pachd.defaultPipelineMemoryRequest=64M
+    # --set pachd.defaultPipelineStorageRequest=100Mi
+    # --set pachd.defaultSidecarCPURequest=100m
+    # --set pachd.defaultSidecarMemoryRequest=64M
+    # --set pachd.defaultSidecarStorageRequest=100Mi
+    # --set console.enabled=false
+    # --set pachd.service.type=ClusterIP
+    # --set proxy.enabled=true # true by default
+    # --set proxy.service.httpPort=30650
+    # --set proxy.service.httpNodePort=30650
+    # --set pachd.service.apiGRPCPort=30650
+    # --set proxy.service.legacyPorts.oidc=30657
+    # --set pachd.service.oidcPort=30657
+    # --set proxy.service.legacyPorts.identity=30658
+    # --set pachd.service.identityPort=30658
+    # --set proxy.service.legacyPorts.s3Gateway=30600
+    # --set pachd.service.s3GatewayPort=30600
+    # --set proxy.service.legacyPorts.metrics=30656
+    # --set pachd.service.prometheusPort=30656
+    # --set set deployTarget=LOCAL
+    # --set set pachd.enterpriseLicenseKey="${ENT_ACT_CODE}"
+    # --set set pachd.image.tag=local
+  )
+  HELM_TEMPLATE_COMMAND+=( "${HELM_VALUES[@]}" )
+  if [[ "${USE_AUTH}" != true ]]; then
+    HELM_TEMPLATE_COMMAND+=( --set pachd.activateAuth=false )
+  fi
   export HELM_TEMPLATE_COMMAND
 }
 
-function maybe_delete_minikube {
-  # Start minikube restart process
-  if [[ "${RESTART_KUBERNETES}" == true ]]; then
-    minikube delete
+function maybe_delete_cluster {
+  ts ">>> function maybe_delete_cluster <<<"
+  if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then
+    if [[ "${RESTART_KUBERNETES}" == true ]]; then
+      minikube delete
+    fi
+  else
+    kind delete cluster --name="${KIND_CLUSTER_NAME}"
   fi
-  ts "minikube delete is done"
+  ts "k8s cluster deletion is done"
 }
 
-# Function for creating a kind cluster with a local registry intead of
-# minikube. Unused for now, as kind seems to be much, much slower than minikube
-# for some reason (in particular, pushing images to kind is very slow on my
-# machine. It's faster with the local registry but still much slower than
-# minikube)
-function maybe_create_kind_cluster_with_local_registry {
-  # Code below copied from https://kind.sigs.k8s.io/docs/user/local-registry/
-  # create registry container unless it already exists
-  local reg_name='kind-registry'
-  local reg_port='5001'
-  if ! docker inspect -f '{{.State.Running}}' "${reg_name}" 2>/dev/null; then
-    docker run \
-      -d --restart=always -p "127.0.0.1:${reg_port}:5000" --name "${reg_name}" \
-      registry:2
+function maybe_create_kube_cluster {
+  ts ">>> function maybe_create_kube_cluster <<<"
+  if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then
+    if minikube status; then
+      return
+    fi
+    if [[ -n "${KUBE_VERSION}" ]]; then
+      minikube start --disk-size=15g --kubernetes-version="${KUBE_VERSION}"
+    else
+      minikube start --disk-size=15g
+    fi
+    return
+  fi
+  if [[ "${CLUSTER_TYPE}" == "kind" ]]; then
+    if kind get clusters | grep "${KIND_CLUSTER_NAME}"; then
+      return
+    fi
+    kind create cluster --name="${KIND_CLUSTER_NAME}"
+    return
   fi
 
-  ## create a cluster with the local registry enabled in containerd
-  # the guide above makes this a mirror of the 'localhost:5001' registry, but
-  # I want images to be pulled from my local registry by default (breaking all
-  # kinds of shit but allowing the pachyderm helm chart to do the right thing,
-  # since it doesn't prefix the images within with 'localhost:5001') so I
-  # change the containerd config to make my registry a mirror of docker.io
+  ###
+  # 1. Create registry container (unless it already exists)
+  ###
+  # Code below copied from https://kind.sigs.k8s.io/docs/user/local-registry/
+  # N.B. that because this registry will be running in Kind's docker network,
+  # KiND/k8s will reach it from its docker-internal address
+  # (hostname=$KIND_REGISTRY_NAME, port=$KIND_REGISTRY_PORT), but images
+  # should be pushed to it using its exposed address
+  # (127.0.0.1:$KIND_REGISTRY_PORT).
+  if ! docker inspect -f '{{.State.Running}}' "${KIND_REGISTRY_NAME}" 2>/dev/null; then
+    docker run \
+      -d --restart=always \
+      -p "127.0.0.1:${KIND_REGISTRY_PORT}:${KIND_REGISTRY_PORT}" \
+      --name "${KIND_REGISTRY_NAME}" \
+      registry:2.8.3
+  fi
+  
+  ###
+  # 2. Create a cluster with the local registry enabled in containerd
+  ###
+  # The guide above makes this a mirror of the 'localhost:5000' registry, but
+  # I want images to be pulled from my local registry *by default* (breaking
+  # all kinds of shit but allowing the pachyderm helm chart to do the right
+  # thing and pull images from the local registry instead of attempting to
+  # download them from dockerhub. This behavior isn't automatic because our
+  # helm chart doesn't prefix the images within with 'localhost:5001').
+  # So I change the containerd config to make my registry a mirror of
+  # docker.io
   #
   # Per some old CRI docs (https://github.com/containerd/cri/blob/8f1a8a1fb9ebd821a1afe3b3ff3adec7bd33cfdf/docs/registry.md):
   # "The endpoint is a list that can contain multiple image registry URLs split
   # by commas. When pulling an image from a registry, containerd will try these
   # endpoint URLs one by one, and use the first working one."
-
-  #   cat <<EOF | kind create cluster --name=pachd-client-cluster --config=-
-  # kind: Cluster
-  # apiVersion: kind.x-k8s.io/v1alpha4
-  # containerdConfigPatches:
-  # - |-
-  #   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:${reg_port}"]
-  #     endpoint = ["http://${reg_name}:5000"]
-  cat <<EOF | kind create cluster --name=pachd-client-cluster --config=-
+  cat <<EOF | kind create cluster --name="${KIND_CLUSTER_NAME}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 containerdConfigPatches:
@@ -299,14 +423,21 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."docker.io"]
     endpoint = ["http://${reg_name}:5000", "https://index.docker.io"]
 EOF
-
-  # connect the registry to the cluster network if not already connected
-  if [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${reg_name}")" = 'null' ]; then
-    docker network connect "kind" "${reg_name}"
+  
+  ###
+  # 3. Connect the registry to the cluster network if not already connected
+  ###
+  # N.B. Do this here, instead of via `--network=kind` in `docker run` in
+  # case the container registry is pre-existing and `docker run` never
+  # actually ran.
+  if [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${KIND_REGISTRY_NAME}")" = 'null' ]; then
+    docker network connect "kind" "${KIND_REGISTRY_NAME}"
   fi
-
-  # Document the local registry
+  
+  ###
+  # 4. Document the local registry
   # https://github.com/kubernetes/enhancements/tree/master/keps/sig-cluster-lifecycle/generic/1755-communicating-a-local-registry
+  ###
   cat <<EOF | kubectl "${K8S_ARGS[@]}" apply -f -
 apiVersion: v1
 kind: ConfigMap
@@ -315,20 +446,9 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "localhost:${reg_port}"
+    host: "localhost:${KIND_REGISTRY_PORT}"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
-}
-
-function maybe_start_minikube {
-  if minikube status; then
-    return
-  fi
-  if [[ -n "${KUBE_VERSION}" ]]; then
-    minikube start --disk-size=15g --kubernetes-version="${KUBE_VERSION}"
-  else
-    minikube start --disk-size=15g
-  fi
 }
 
 # get_old_pach_version gets the version of pach that's running from the
@@ -398,25 +518,56 @@ function maybe_build_or_pull_pachyderm {
 
 }
 
-function maybe_push_images_to_kube {
-  if [[ "${RESTART_KUBERNETES}" == true ]]; then
-    # Minikube is new, so we must re-pull & deploy accessory images
-    for image in \
-      "busybox:1.28" \
-      "postgres:13.0-alpine" \
-      "edoburu/pgbouncer:1.15.0" \
-      "docker.io/bitnami/postgresql:13.3.0" \
-      "quay.io/coreos/etcd:v3.3.5" \
-      "jaegertracing/all-in-one:1.10.1"
-    do
-  		{ docker images | kmp "${image}"; } || docker pull "${image}"
-      "${source_dir}/../kube/push-to-minikube.sh" "${image}"
+function push_image {
+  images=( "${@}" )
+  if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then
+    for image in "${images[@]}"; do 
+      docker save "${image}" | pv | (\
+        if [[ "${nonedriver}" != "true" ]]; then
+          eval $(minikube docker-env)
+        fi
+        docker load
+      )
+    done
+  elif [[ "${CLUSTER_TYPE}" == "kind" ]]; then
+    kind load docker-image "${images[@]}"
+  else
+    for image in "${images[@]}"; do 
+      ## TODO(msteffen) is this sufficient?
+      docker tag "${image}" "127.0.0.1:${KIND_REGISTRY_PORT}/${image}"
+      docker push "127.0.0.1:${KIND_REGISTRY_PORT}/${image}"
     done
   fi
+}
 
-  if [[ "${DEPLOY_PACHYDERM}" = "true" ]]; then
-    "${source_dir}/../kube/push-to-minikube.sh" pachyderm/pachd:${PACH_VERSION}
-    "${source_dir}/../kube/push-to-minikube.sh" pachyderm/worker:${PACH_VERSION}
+function maybe_push_images_to_kube {
+  ts ">>> function maybe_push_images_to_kube <<<"
+  images=( $(
+    "${HELM_TEMPLATE_COMMAND[@]}" \
+        | yq -o json \
+        | jq -r '.. | .image? | select(. | . != null)' \
+        | sort -u \
+        | grep -v pachd
+  ) )
+  images+=( $(
+    yq -o json etc/testing/minio.yaml \
+        | jq -r '.. | .image? | select(. | . != null)'
+  ) )
+  images+=(
+    "busybox:1.28" \
+    "bats/bats:v1.1.0" \
+    "jaegertracing/all-in-one:1.10.1"
+  )
+  if [[ "${RESTART_KUBERNETES}" == true ]]; then
+    # Minikube is new, so we must re-pull & deploy accessory images
+    for image in "${images[@]}"; do
+      { docker images | grep -F "${image}"; } || docker pull "${image}"
+    done
+    push_image "${images[@]}"
+  fi
+
+  if [[ "${PACH_ACTION}" -ge "${_PUSH_PACH}" ]]; then
+    push_image pachyderm/pachd:${PACH_VERSION} pachyderm/worker:${PACH_VERSION}
   fi
 }
 
@@ -469,60 +620,45 @@ function maybe_connect_to_pachyderm {
     rm "${PACH_CONFIG}"
   fi
 
-  # Extract Pach root token from the deployment above and use it in the local
-  # pachctl
-  if kubectl "${K8S_ARGS[@]}" get secret/pachyderm-auth; then
-    # Add trailing newline, so that 'pachctl auth' is able to read the token
-    # shellcheck disable=SC1003
-    kubectl "${K8S_ARGS[@]}" get secret/pachyderm-auth -o jsonpath='{.data.root-token}' \
-      | base64 -d \
-      | sed -e '$a\' \
-      | pachctl auth use-auth-token
+  # Set up new pach config
+  local pachd_ip
+  local pachd_port="$(kubectl get svc/pachyderm-proxy -o jsonpath='{$.spec.ports[0].nodePort}')"
+  if [[ "${CLUSTER_TYPE}" == "minikube" ]]; then
+    pachd_ip="$( minikube ip )"
   else
-    # At some point, the name of the auth token that Pachyderm deploys changed.
-    # I don't know whether this or the above is newer or what
-    # shellcheck disable=SC1003
-    kubectl "${K8S_ARGS[@]}" get secret/pachyderm-bootstrap-config -o jsonpath='{.data.rootToken}' \
-      | base64 -d \
-      | sed -e '$a\' \
-      | pachctl auth use-auth-token
+    pachd_ip="$( kubectl get node/kind-control-plane -o jsonpath="{.status.addresses[0].address}" )"
   fi
-
-  # Turn pachyderm proxy service into a NodePort
-  # (minikube tunnel doesn't work on Linux for some reason)
-  # This is preferred over the built-in port-forward mechanism because it makes
-  # testing jupyter easier
-  if kubectl "${K8S_ARGS[@]}" get svc/pachyderm-proxy; then
-    kubectl get svc/pachyderm-proxy -o json \
-      | jq '.spec.type="NodePort"' \
-      | kubectl apply -f -
-    pachctl config update context \
-      --pachd-address="$(minikube ip):$(kubectl get svc/pachyderm-proxy -o jsonpath='{$.spec.ports[0].nodePort}')"
+  local pachd_address="${pachd_ip}:${pachd_port}"
+  pachctl config update context --pachd-address="${pachd_address}"
+  if [[ "${USE_AUTH}" == true ]]; then
+    pachctl auth use-auth-token <<<"${ROOT_TOKEN}"
   fi
 
   # Pachd RC already exists & pod should come back on its own
   # Wait for pachd pod to enter "Running"
-  local new_pod
+  set +x
   while true; do
     sleep 1
-    new_pod="$( pachd_pod "${K8S_ARGS[@]}" )"
+    declare new_pod="$( pachd_pod "${K8S_ARGS[@]}" )"
     if [[ "${new_pod}" == "NotFound" ]]; then
       continue
     fi
-    state="$(kubectl "${K8S_ARGS[@]}" get po/"${new_pod}" -o 'jsonpath={.status.phase}' 2>&1 || true)"
+    declare state="$(kubectl "${K8S_ARGS[@]}" get po/"${new_pod}" -o 'jsonpath={.status.phase}' 2>&1 || true)"
     if [[ "${state}" == "Running" ]]; then
       break
     fi
-    ts "Waiting for new pod (still in ${state})"
+    echo -en "\e[G${WHEEL:$((W=(W+1)%4)):1} $(date +%H:%M:%S.%N): Waiting for new pod (still in ${state})"
+    sleep 1
   done
   ts "pachd/worker pods are in RUNNING"
 
   # Wait for pachctl to connect
-  until pachctl version; do
-    echo "No Pachyderm at ${PACHD_ADDRESS}"
+  until pachctl version >/dev/null 2>&1; do
+    echo -en "\e[G${WHEEL:$((W=(W+1)%4)):1} $(date +%H:%M:%S.%N): No Pachyderm at ${pachd_address})"
     sleep 1
   done
   ts "pachd is available, logging in..."
+  set -x
 }
 
 function __main__ {
@@ -533,16 +669,13 @@ function __main__ {
   ts "Starting"
   # Now that validation is done, start showing all commands
   set -x
-  maybe_delete_minikube
+  maybe_delete_cluster
 
   # Start minikube and obtain pachd/pachctl in parallel
-  export -f maybe_start_minikube
+  export -f maybe_create_kube_cluster
   export -f maybe_build_or_pull_pachyderm
-  echo -e "maybe_start_minikube\nmaybe_build_or_pull_pachyderm" \
+  echo -e "maybe_create_kube_cluster\nmaybe_build_or_pull_pachyderm" \
     | xargs -t -n1 -P0 -d'\n' /bin/bash -c
-  maybe_push_images_to_kube
-  ts "pachd/worker pushed"
-
   ###
   # Wait for minikube to come up and for pachctl (and the pachd/worker images) to
   # finish building (the prereqs for deploying)
@@ -563,6 +696,10 @@ function __main__ {
   hash -r
   ts "pachctl is built"
 
+  maybe_push_images_to_kube
+  ts ">>> images pushed <<<"
+
+  echo ""
   echo "###"
   echo "# Deploying pachyderm version v$(pachctl version --client-only)"
   echo "###"
