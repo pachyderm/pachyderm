@@ -28,7 +28,7 @@ func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServer
 	} else {
 		log.DPanic(ctx, "no validation routine on request message", zap.String("type", fmt.Sprintf("%T", req)))
 	}
-	time.Sleep(time.Millisecond * time.Duration(rand.Intn(50)))
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
 	return handler(ctx, req)
 }
 
@@ -56,7 +56,7 @@ func (w *streamWrapper) RecvMsg(m any) error {
 }
 
 func StreamServerInterceptor(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
-	time.Sleep(time.Millisecond * time.Duration(rand.Intn(50)))
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
 	return handler(srv, &streamWrapper{ServerStream: stream})
 }
 
