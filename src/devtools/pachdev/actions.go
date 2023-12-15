@@ -20,6 +20,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
+	"sigs.k8s.io/kind/pkg/log"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -48,9 +49,9 @@ const KindTestClusterName = "pachyderm-test"
 // Note that 'err' is a special case of (2), as if it is set, it means that the
 // overall operation failed, and other intermdiate results are unset or invalid.
 type deployOp struct {
-	//////////////////////////
-	//// Input Parameters ////
-	//////////////////////////
+	//////////////////////////////
+	//// User-Provided Fields ////
+	//////////////////////////////
 
 	// pachVersion specifies, approximately, the version of pachyderm that should
 	// be deployed.  This can be a tag or docker image sha (which will be pulled
@@ -66,37 +67,53 @@ type deployOp struct {
 	//////////////////////////////
 	//// Intermediate Results ////
 	//////////////////////////////
+
 	// ctx is the context associated with the overall restart operation. It's
 	// used in 'pachClient' and 'kubeClient' below, as well as other operations
-	// that require a context. They are wrapped so that they can be left
-	// undefined for operations that don't need them (such as printing out a
-	// manifest). See NewDeployOp for the definitions of these functions.
-	Ctx    func() context.Context
-	Cancel func()
-
-	// PachClient and KubeClient are pre-initialized clients for pachd and
-	// kubernetes, to be shared across various subtasks. These members are
-	// functions rather than actual values so that the clients can be
-	// initialized lazily (and, specifically, so that the clients are not
-	// initialized for operations that don't require them, such as printing out
-	// a manifest. These semantics mean that such operations can conveniently be
-	// run even in the absence of a kube/pach cluster.)
+	// that require a context.
 	//
-	// See NewDeployOp for how these are initialized. These functions are
-	// defined there, and the values they return are cached in captured
-	// local variables in NewDeployOp.
-	PachClient func() *client.APIClient
-	KubeClient func() *kubernetes.Clientset
+	// This is set lazily by the Ctx() accessor, so that it can be left undefined
+	// when not useful (such as printing out a manifest). Therefore it should
+	// always be accessed via the Ctx() accessor.
+	ctx context.Context
 
-	// As above, KindProvider is a pre-initialized KiND provider, to be shared
-	// across various subtasks.
-	//
-	// See NewDeployOp for initialization. The value this returns is cached in a
-	// captured local variable in NewDeployOp.
-	KindProvider func() *cluster.Provider
+	// cancel is the cancel function associated with 'ctx' above. It likewise
+	// is set lazily by op.Ctx(), and should only be called via op.Cancel(), in
+	// case it was never initialized.
+	cancel func()
 
-	// k8sManifest is the kubernetes manifest that will be deployed. This is
-	// calculated by getk8sManifest() and then memoized here.
+	// pachClient is a pre-initialized client for pachd, to be shared across
+	// various subtasks. Like ctx, kubeClient and others, this is initialized
+	// lazily by the PachClient() method, and should only be accessed through it
+	// (even internally, by other methods, in case it hasn't been initialized
+	// yet). This is so that it's not initialized for operations that don't
+	// require it, such as printing out a manifest, allowing those operations to
+	// be run even in the absence of a kube/pach cluster.)
+	pachClient *client.APIClient
+
+	// kubeClient is a pre-initialized client for Kubernetes, to be shared across
+	// various subtasks. Like ctx, pachClient, and others, this is initialized
+	// lazily by the KubeClient() method, and should only be accessed through it
+	// (even internally, by other methods, in case it hasn't been initialized
+	// yet). This is so that it's not initialized for operations that don't
+	// require it, such as printing out a manifest, allowing those operations to
+	// be run even in the absence of a kube/pach cluster.)
+	kubeClient *kubernetes.Clientset
+
+	// kindProvider is a pre-initialized kind client (or cluster provider,
+	// actually, as kind is local), to be shared across various subtasks. Like
+	// ctx, pachClient, and others, this is initialized lazily by the
+	// KindProvider() method, and should only be accessed through it (even
+	// internally, by other methods, in case it hasn't been initialized yet).
+	// This is so that it's not initialized for operations that don't require
+	// it, such as printing out a manifest, allowing those operations to be run
+	// even in the absence of kind or Docker.)
+	kindProvider *cluster.Provider
+
+	// k8sManifest is the kubernetes manifest that will be deployed. Like ctx,
+	// pachClient, and others, This is initialized lazily by K8sManifest() and
+	// should only be accessed through it (even internally, by other methods, in
+	// case it hasn't been initialized yet).
 	k8sManifest string
 
 	// err is set if the overall operation has failed, and indicates the cause.
@@ -141,6 +158,98 @@ func WithObjectStorage(v string) Option {
 	}
 }
 
+func NewDeployOp(verbose bool, opts ...Option) (*deployOp, error) {
+	result := &deployOp{
+		pachVersion:   "local",
+		objectStorage: "minio",
+	}
+	for _, op := range opts {
+		if err := op(result); err != nil {
+			return nil, err
+		}
+	}
+
+	return result, nil
+}
+
+// ctx and cancel are captured by result.Ctx(), and will not be initialized
+// if that is never called
+func (op *deployOp) Ctx() context.Context {
+	if op.ctx != nil {
+		return op.ctx
+	}
+	op.ctx, op.cancel = context.WithCancel(context.Background())
+	return op.ctx
+}
+
+func (op *deployOp) Cancel() {
+	if op.cancel != nil {
+		op.cancel()
+	}
+}
+
+// KubeClient is an accessor for op.kubeClient that lazily initializes the
+// field if it's not already set.  All access to op.kubeClient should be through
+// this method, even internally, in case it hasn't been initialized yet.
+func (op *deployOp) KubeClient() *kubernetes.Clientset {
+	if op.kubeClient != nil {
+		return op.kubeClient
+	}
+
+	// Load the Kubernetes configuration from the default location
+	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	if err != nil {
+		op.err = errors.Wrap(err, "could not load kubernetes config")
+	}
+
+	op.kubeClient, err = kubernetes.NewForConfig(config)
+	if err != nil {
+		op.err = errors.Wrap(err, "could not create kubernetes client")
+	}
+	return op.kubeClient
+}
+
+// PachClient is an accessor for op.pachClient that lazily initializes the
+// field if it's not already set.  All access to op.kubeClient should be through
+// this method, even internally, in case it hasn't been initialized yet.
+func (op *deployOp) PachClient() *client.APIClient {
+	if op.pachClient != nil {
+		return op.pachClient
+	}
+
+	pachctlCfg := &pachctl.Config{}
+	var err error
+	op.pachClient, err = pachctlCfg.NewOnUserMachine(op.Ctx(), false)
+	if err != nil {
+		op.err = errors.Wrap(err, "could not create Pachyderm client")
+	}
+	return op.pachClient
+}
+
+// KindProvider is an accessor for op.kindProvider that lazily initializes the
+// field if it's not already set.  All access to op.kindProvider should be through
+// this method, even internally, in case it hasn't been initialized yet.
+func (op *deployOp) KindProvider() *cluster.Provider {
+	if op.kindProvider != nil {
+		return op.kindProvider
+	}
+	var kindLogger log.Logger = log.NoopLogger{}
+	if verbose {
+		// TODO(msteffen) literally no idea what good UX is here. Ideally we
+		// would log to stdout instead of stderr, but I can't access
+		// kind/pgk/internal/cli to change the logging destination. Am I holding
+		// this wrong?
+		kindLogger = cmd.NewLogger()
+	}
+	op.kindProvider = cluster.NewProvider(
+		cluster.ProviderWithLogger(kindLogger),
+		cluster.ProviderWithDocker(), // TODO(msteffen): is this necessary or appropriate?
+	)
+	return op.kindProvider
+}
+
+// helmChartSource is a helper for K8sManifest that returns the location of the
+// Pachyderm helm chart it should use.
 func (op *deployOp) helmChartSource() string {
 	if op.pachVersion == "latest" {
 		// // TODO(msteffen): this codepath has no automated tests. Maybe set up
@@ -166,85 +275,8 @@ func (op *deployOp) helmChartSource() string {
 	panic("do not know how to get helm chart for pachVersion " + op.pachVersion)
 }
 
-func NewDeployOp(verbose bool, opts ...Option) (*deployOp, error) {
-	result := &deployOp{
-		pachVersion:   "local",
-		objectStorage: "minio",
-	}
-	for _, op := range opts {
-		if err := op(result); err != nil {
-			return nil, err
-		}
-	}
-
-	// ctx and cancel are captured by result.Ctx(), and will not be initialized
-	// if that is never called
-	var ctx context.Context
-	var cancel func()
-	result.Ctx = func() context.Context {
-		if ctx != nil {
-			return ctx // TODO wrap?
-		}
-		ctx, cancel = context.WithCancel(context.Background())
-		return ctx
-	}
-	result.Cancel = func() {
-		if cancel != nil {
-			cancel()
-		}
-	}
-
-	// kubeClient is captured by result.KubeClient(), and will not be
-	// initialized if that fn is never called.
-	var kubeClient *kubernetes.Clientset
-	result.KubeClient = func() *kubernetes.Clientset {
-		// Load the Kubernetes configuration from the default location
-		config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
-		if err != nil {
-			result.err = errors.Wrap(err, "could not load kubernetes config")
-		}
-
-		kubeClient, err = kubernetes.NewForConfig(config)
-		if err != nil {
-			result.err = errors.Wrap(err, "could not create kubernetes client")
-		}
-		return kubeClient
-	}
-
-	// pachClient is captured by result.KubeClient(), and will not be
-	// initialized if that fn is never called.
-	var pachClient *client.APIClient
-	result.PachClient = func() *client.APIClient {
-		if pachClient != nil {
-			return pachClient
-		}
-		pachctlCfg := &pachctl.Config{}
-		pachClient, result.err = pachctlCfg.NewOnUserMachine(result.Ctx(), false)
-		return pachClient
-	}
-
-	var kindProvider *cluster.Provider
-	result.KindProvider = func() *cluster.Provider {
-		if kindProvider != nil {
-			return kindProvider
-		}
-		logOpt := cmd.NewLogger()
-		logOpt.SetWriter(os.Stdout) // uses stderr by default
-		if verbose {
-			logOpt = cluster.ProviderWithLogger(cmd.NewLogger())
-		} else {
-			logOpt = cluster.ProviderWithLogger()
-
-		}
-		kindProvider = cluster.NewProvider(
-			cluster.ProviderWithLogger(cluster.NewSilentLogger()),
-		)
-		return kindProvider
-	}
-
-	return result, nil
-}
-
+// getHelmArgs is a helper for K8sManifest that returns the arguments it should
+// pass to helm
 func (op *deployOp) getHelmArgs() []string {
 	args := []string{
 		"--set", "pachd.image.tag=local",
@@ -276,7 +308,10 @@ func (op *deployOp) getHelmArgs() []string {
 	return args
 }
 
-func (op *deployOp) getK8sManifest() string {
+// K8sManifest is an accessor for op.k8sManifest that lazily initializes the
+// field if it's not already set.  All access to op.k8sManifest should be through
+// this method, even internally, in case it hasn't been initialized yet.
+func (op *deployOp) K8sManifest() string {
 	if op.err != nil {
 		return ""
 	}
@@ -330,8 +365,8 @@ func (op *deployOp) getImages() ([]string, error) {
 
 		for {
 			// decoder.Decode returns one yaml document, but the k8s manifest
-			// contains one document per k8s artifact, so we'll need to decode all
-			// of them.
+			// contains one document per k8s artifact (i.e. many documents
+			// total), so we'll need to decode all of them.
 			//
 			// Taken from https://github.com/mikefarah/yq/blob/aaef27147fadc1cc2d59c7f3c940f5281a1a8654/pkg/yqlib/all_at_once_evaluator_test.go#L35-L56
 			candidateNode, err := decoder.Decode()
@@ -414,51 +449,49 @@ func (op *deployOp) maybeBuildOrPullPachyderm() {
 }
 
 // maybeDeleteK8sCluster deletes the kind cluster if it exists.
+// Taken from: https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/delete/cluster/deletecluster.go#L68-L77
 func (op *deployOp) maybeDeleteK8sCluster() error {
-	// TODO(msteffen) maybe switch to the sigs.k8s.io/kind/pkg/cluster?
-	// The implementation of `kind delete cluster` is here:
-	// https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/delete/cluster/deletecluster.go#L68-L77
-	cmd := exec.Command("kind", "delete", "cluster", KindTestClusterName)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	err := cmd.Run()
-	if err != nil {
+	if err := op.KindProvider().Delete(KindTestClusterName, ""); err != nil {
 		op.err = errors.Wrap(err, "failed to delete kind cluster")
 		return op.err
 	}
 	return nil
 }
 
+// maybeCreateK8sCluster creates the kind cluster if it doesn't exist.
 func (op *deployOp) maybeCreateK8sCluster() error {
 	// TODO(msteffen) maybe switch to sigs.k8s.io/kind/pkg/cluster?
-	// The implementation of `kind get clusters` is here:
-	// https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/get/clusters/clusters.go#L48-L63
-	// and the implementation of `kind create cluster` is here:
-	// https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/create/cluster/createcluster.go#L98-L123
 
 	// Check if the cluster already exists
-	cmd := exec.Command("kind", "get", "clusters")
-	output, err := cmd.Output()
+	// The implementation of `kind get clusters` is here:
+	// https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/get/clusters/clusters.go#L48-L63
+	clusters, err := op.KindProvider().List()
 	if err != nil {
-		return errors.Wrap(err, "could not list existing kind clusters")
+		op.err = errors.Wrap(err, "could not list existing kind clusters")
+		return op.err
 	}
-	if strings.Contains(string(output), KindTestClusterName) {
-		return nil
+	for _, cluster := range clusters {
+		if strings.Contains(cluster, KindTestClusterName) {
+			return nil
+		}
 	}
 
 	// Create the cluster
-	cmd = exec.Command("kind", "create", "cluster", "--name="+KindTestClusterName)
-	_, err = cmd.Output()
-	if err != nil {
-		return err
+	// The implementation of `kind create cluster` is here:
+	// https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/create/cluster/createcluster.go#L98-L123
+	if err = op.KindProvider().Create(
+		KindTestClusterName,
+		cluster.CreateWithDisplayUsage(true),
+		cluster.CreateWithDisplaySalutation(true),
+	); err != nil {
+		op.err = errors.Wrap(err, "failed to create cluster")
+		return op.err
 	}
-
 	return nil
 }
 
 func (op *deployOp) maybeDeployPachyderm() {
-	// TODO: Implement maybeDeployPachyderm logic
+	op.
 }
 
 func (op *deployOp) Deploy() {
