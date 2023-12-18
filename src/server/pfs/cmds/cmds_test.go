@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -110,6 +111,37 @@ func TestCommit(t *testing.T) {
 		"repo", tu.UniqueString("TestCommit-repo"),
 		"project", tu.UniqueString("project"),
 	).Run())
+}
+
+func TestPutFileFullPathNoFilePath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+
+	// Create a temporary directory and file with nested structure
+	tmpDir, err := os.MkdirTemp("", "pachyderm_test_put_file_full_path")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	nestedDir := filepath.Join(tmpDir, "nested/dir")
+	require.NoError(t, os.MkdirAll(nestedDir, 0755))
+
+	filePath := filepath.Join(nestedDir, "testfile.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("test data"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileFullPathNoFilePath")
+
+	// Create repo and put file with fullPath flag using pachctlBashCmd
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master -f {{.filePath}} --full-path
+        pachctl get file "{{.repo}}@master:{{.filePath}}" \
+          | match "test data"
+    `, "repo", repoName, "filePath", filePath).Run())
 }
 
 func TestPutFileTAR(t *testing.T) {
