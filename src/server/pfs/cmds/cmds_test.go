@@ -135,13 +135,133 @@ func TestPutFileFullPathNoFilePath(t *testing.T) {
 
 	repoName := tu.UniqueString("TestPutFileFullPathNoFilePath")
 
-	// Create repo and put file with fullPath flag using pachctlBashCmd
+	// Create repo and put file with fullPath flag, and verify
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
         pachctl create repo {{.repo}}
         pachctl put file {{.repo}}@master -f {{.filePath}} --full-path
         pachctl get file "{{.repo}}@master:{{.filePath}}" \
           | match "test data"
     `, "repo", repoName, "filePath", filePath).Run())
+}
+
+func TestPutFileFullPathWithFilePath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+
+	// Create a temporary file in a nested directory
+	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_with_file_path")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	nestedDir := filepath.Join(tmpDir, "nested/dir")
+	require.NoError(t, os.MkdirAll(nestedDir, 0755))
+
+	filePath := filepath.Join(nestedDir, "testfile.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("test data"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileFullPathWithFilePath")
+	targetFilePath := "specific/target/file.txt"
+
+	// Create repo, put file with file.Path and fullPath flag, and verify
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.targetFilePath}} -f {{.filePath}} --full-path
+        pachctl get file "{{.repo}}@master:{{.targetFilePath}}" \
+          | match "test data"
+    `, "repo", repoName, "targetFilePath", targetFilePath, "filePath", filePath).Run())
+}
+
+func TestPutFileFullPathWithFilePathEndingSlash(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+
+	// Create a temporary file in a nested directory
+	tmpDir, err := os.MkdirTemp("", "pachyderm_test_full_path_with_file_path_ending_slash")
+	require.NoError(t, err)
+	defer os.RemoveAll(tmpDir)
+
+	nestedDir := filepath.Join(tmpDir, "nested/dir")
+	require.NoError(t, os.MkdirAll(nestedDir, 0755))
+
+	filePath := filepath.Join(nestedDir, "testfile.txt")
+	require.NoError(t, os.WriteFile(filePath, []byte("test data"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileFullPathWithFilePathEndingSlash")
+	targetDirPath := "nested/dir/"
+
+	// Create repo, put file with file.Path ending with '/' and fullPath flag, and verify
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.targetDirPath}} -f {{.filePath}} --full-path
+        pachctl get file "{{.repo}}@master:{{.targetDirPath}}{{.filePath}}" \
+          | match "test data"
+    `, "repo", repoName, "targetDirPath", targetDirPath, "filePath", filePath).Run())
+}
+
+func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("", "pachyderm_test_put_file_single_source")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("test data"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileFilePathEndsWithSlashSingleSource")
+	filePath := "dir/"
+
+	// Create repo, put file with file.Path ending with '/', and verify
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.filePath}} -f {{.fileName}}
+        pachctl get file "{{.repo}}@master:{{.filePath}}{{.baseFileName}}" \
+          | match "test data"
+    `, "repo", repoName, "filePath", filePath, "fileName", tmpFile.Name(), "baseFileName", filepath.Base(tmpFile.Name())).Run())
+}
+
+func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+
+	// Create a temporary file
+	tmpFile, err := os.CreateTemp("", "pachyderm_test_put_file_single_source_no_slash")
+	require.NoError(t, err)
+	defer os.Remove(tmpFile.Name())
+
+	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("test data"), 0644))
+
+	repoName := tu.UniqueString("TestPutFileFilePathWithoutSlashSingleSource")
+	targetFilePath := "specific/target/path/file.txt"
+
+	// Create repo, put file with file.Path without ending '/', and verify
+	require.NoError(t, tu.PachctlBashCmd(t, c, `
+        pachctl create repo {{.repo}}
+        pachctl put file {{.repo}}@master:{{.targetFilePath}} -f {{.fileName}}
+        pachctl get file "{{.repo}}@master:{{.targetFilePath}}" \
+          | match "test data"
+    `, "repo", repoName, "targetFilePath", targetFilePath, "fileName", tmpFile.Name()).Run())
 }
 
 func TestPutFileTAR(t *testing.T) {
