@@ -197,15 +197,15 @@ func TestPutFileFullPathWithFilePathEndingSlash(t *testing.T) {
 	require.NoError(t, os.WriteFile(filePath, []byte("test data"), 0644))
 
 	repoName := tu.UniqueString("TestPutFileFullPathWithFilePathEndingSlash")
-	targetDirPath := "nested/dir/"
+	targetPrefix := "nested/dir/"
 
 	// Create repo, put file with file.Path ending with '/' and fullPath flag, and verify
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
         pachctl create repo {{.repo}}
-        pachctl put file {{.repo}}@master:{{.targetDirPath}} -f {{.filePath}} --full-path
-        pachctl get file "{{.repo}}@master:{{.targetDirPath}}{{.filePath}}" \
+        pachctl put file {{.repo}}@master:{{.targetPrefix}} -f {{.filePath}} --full-path
+        pachctl get file "{{.repo}}@master:{{.targetPrefix}}{{.filePath}}" \
           | match "test data"
-    `, "repo", repoName, "targetDirPath", targetDirPath, "filePath", filePath).Run())
+    `, "repo", repoName, "targetPrefix", targetPrefix, "filePath", filePath).Run())
 }
 
 func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
@@ -225,7 +225,7 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
 	require.NoError(t, os.WriteFile(tmpFile.Name(), []byte("test data"), 0644))
 
 	repoName := tu.UniqueString("TestPutFileFilePathEndsWithSlashSingleSource")
-	filePath := "dir/"
+	targetPrefix := "dir/"
 
 	// Create repo, put file with file.Path ending with '/', and verify
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
@@ -233,7 +233,7 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
         pachctl put file {{.repo}}@master:{{.filePath}} -f {{.fileName}}
         pachctl get file "{{.repo}}@master:{{.filePath}}{{.baseFileName}}" \
           | match "test data"
-    `, "repo", repoName, "filePath", filePath, "fileName", tmpFile.Name(), "baseFileName", filepath.Base(tmpFile.Name())).Run())
+    `, "repo", repoName, "targetPrefix", targetPrefix, "fileName", tmpFile.Name(), "baseFileName", filepath.Base(tmpFile.Name())).Run())
 }
 
 func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
