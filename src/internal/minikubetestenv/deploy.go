@@ -923,6 +923,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForInstallFinished()
 	} else { // same config, no need to change anything
 		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
+		waitForPachd(t, ctx, kubeClient, namespace, version, opts.EnterpriseServer)
 	}
 	if opts.InstallPrometheus {
 		// get latest version with: helm repo update && helm pull prometheus-community/kube-prometheus-stack -d etc/helm/charts/
