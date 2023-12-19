@@ -73,7 +73,6 @@ class WorkerStub:
         )
 
     def status(self) -> "_pps__.WorkerStatus":
-
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_status(request)
@@ -90,7 +89,6 @@ class WorkerStub:
         return self.__rpc_cancel(request)
 
     def next_datum(self, *, error: str = "") -> "NextDatumResponse":
-
         request = NextDatumRequest()
         request.error = error
 
