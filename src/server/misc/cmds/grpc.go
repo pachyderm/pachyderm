@@ -43,6 +43,10 @@ type gRPCParams struct {
 	Headers []string
 }
 
+func GrpcFromAddress(address string) gRPCParams {
+	return gRPCParams{Address: address}
+}
+
 func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Writer, args []string) error {
 	handlers := buildRPCs(
 		admin.File_admin_admin_proto,
@@ -66,7 +70,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		methods := maps.Keys(handlers)
 		sort.Strings(methods)
 		for _, m := range methods {
-			fmt.Println(m)
+			fmt.Fprint(w, m)
 		}
 		return nil
 	}
