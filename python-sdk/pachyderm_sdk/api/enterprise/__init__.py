@@ -245,7 +245,6 @@ class ApiStub:
     def activate(
         self, *, license_server: str = "", id: str = "", secret: str = ""
     ) -> "ActivateResponse":
-
         request = ActivateRequest()
         request.license_server = license_server
         request.id = id
@@ -254,43 +253,36 @@ class ApiStub:
         return self.__rpc_activate(request)
 
     def get_state(self) -> "GetStateResponse":
-
         request = GetStateRequest()
 
         return self.__rpc_get_state(request)
 
     def get_activation_code(self) -> "GetActivationCodeResponse":
-
         request = GetActivationCodeRequest()
 
         return self.__rpc_get_activation_code(request)
 
     def heartbeat(self) -> "HeartbeatResponse":
-
         request = HeartbeatRequest()
 
         return self.__rpc_heartbeat(request)
 
     def deactivate(self) -> "DeactivateResponse":
-
         request = DeactivateRequest()
 
         return self.__rpc_deactivate(request)
 
     def pause(self) -> "PauseResponse":
-
         request = PauseRequest()
 
         return self.__rpc_pause(request)
 
     def unpause(self) -> "UnpauseResponse":
-
         request = UnpauseRequest()
 
         return self.__rpc_unpause(request)
 
     def pause_status(self) -> "PauseStatusResponse":
-
         request = PauseStatusRequest()
 
         return self.__rpc_pause_status(request)
