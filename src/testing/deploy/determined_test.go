@@ -58,6 +58,8 @@ func TestDeterminedUserSync(t *testing.T) {
 		PortOffset: portOffset,
 		Determined: true,
 	}
+	valueOverrides := make(map[string]string)
+	maps.Copy(valueOverrides, globalValueOverrides)
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
 	minikubetestenv.PutNamespace(t, ns)
