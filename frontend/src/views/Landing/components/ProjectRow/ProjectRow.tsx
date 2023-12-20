@@ -4,7 +4,6 @@ import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
-import ActiveProjectModal from '@dash-frontend/components/ActiveProjectModal';
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
 import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
@@ -41,11 +40,6 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 }) => {
   const {projectStatus} = useProjectStatus(project.id);
   const browserHistory = useHistory();
-  const {
-    openModal: openActiveProjectModal,
-    closeModal: closeActiveProjectModal,
-    isOpen: activeProjectModalIsOpen,
-  } = useModal(false);
   const {
     openModal: openRolesModal,
     closeModal: closeRolesModal,
@@ -90,13 +84,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   const onClick = () =>
     browserHistory.push(lineageRoute({projectId: project.id}));
 
-  const overflowMenuItems: DropdownItem[] = [
-    {
-      id: 'set-active',
-      content: 'Set Active Project',
-      closeOnClick: true,
-    },
-  ];
+  const overflowMenuItems: DropdownItem[] = [];
 
   if (editProjectIsAuthorizedAction)
     overflowMenuItems.push({
@@ -123,9 +111,6 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   const onSelect = (id: string) => {
     switch (id) {
-      case 'set-active':
-        openActiveProjectModal();
-        return null;
       case 'edit-project-roles':
         openRolesModal();
         return null;
@@ -210,13 +195,6 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
           </Group>
         </Group>
       </div>
-      {activeProjectModalIsOpen && (
-        <ActiveProjectModal
-          show={activeProjectModalIsOpen}
-          onHide={closeActiveProjectModal}
-          projectName={project.id}
-        />
-      )}
       {updateModalIsOpen && (
         <UpdateProjectModal
           show={updateModalIsOpen}

@@ -9,7 +9,6 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {
-  mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockEmptyGetRoles,
   mockHealthyProjectStatus,
@@ -48,31 +47,6 @@ describe('ProjectRow RBAC', () => {
 
   afterAll(() => server.close());
 
-  it('should give users a pachctl command to set their active project', async () => {
-    server.use(mockEmptyGetAuthorize());
-
-    render(<ProjectRow />);
-
-    await click(
-      screen.getByRole('button', {
-        name: 'ProjectA overflow menu',
-      }),
-    );
-    await click(
-      await screen.findByRole('menuitem', {
-        name: /set active project/i,
-      }),
-    );
-
-    expect(
-      await screen.findByText('Set Active Project: "ProjectA"'),
-    ).toBeInTheDocument();
-    await click(screen.getByRole('button', {name: 'Copy'}));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'pachctl config update context --project ProjectA',
-    );
-  });
-
   it('should not allow CRUD actions without permission', async () => {
     server.use(mockFalseGetAuthorize());
 
@@ -83,11 +57,6 @@ describe('ProjectRow RBAC', () => {
         name: 'ProjectA overflow menu',
       }),
     );
-    expect(
-      await screen.findByRole('menuitem', {
-        name: /set active project/i,
-      }),
-    ).toBeInTheDocument();
     expect(
       await screen.findByRole('menuitem', {
         name: /view project roles/i,

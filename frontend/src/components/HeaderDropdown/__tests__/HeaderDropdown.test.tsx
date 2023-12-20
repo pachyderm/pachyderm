@@ -121,29 +121,4 @@ describe('HeaderDropdown', () => {
       expect(window.open).toHaveBeenCalledWith(SLACK_SUPPORT);
     });
   });
-
-  it('should give users a pachctl command to set their active project', async () => {
-    window.history.replaceState('', '', `/lineage/projectA`);
-
-    render(<HeaderDropdown />);
-
-    await click(
-      screen.getByRole('button', {
-        name: /header menu/i,
-      }),
-    );
-    await click(
-      await screen.findByRole('menuitem', {
-        name: /set active project/i,
-      }),
-    );
-
-    expect(
-      await screen.findByText('Set Active Project: "projectA"'),
-    ).toBeInTheDocument();
-    await click(screen.getByRole('button', {name: 'Copy'}));
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'pachctl config update context --project projectA',
-    );
-  });
 });
