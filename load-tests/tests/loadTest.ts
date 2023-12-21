@@ -1,5 +1,5 @@
-import { group, sleep } from "k6";
-import http from "k6/http";
+import {group, sleep} from 'k6';
+import http from 'k6/http';
 
 const DURATION = 90;
 const POLL_INTERVAL = 3;
@@ -11,28 +11,18 @@ import {
   Authentication,
   createGraphqlClient,
   Operation,
-} from "../utils";
+} from '../utils';
 
 export const options = {
   vus: 30,
   duration: `${DURATION}s`,
 };
 
-// ran once for all vus, results passed to default export function
-export const setup = () => {
-  return authenticate();
-};
-
-export default function (auth: Authentication) {
-  if (!auth || !auth.pachToken || !auth.idToken) {
-    sleep(DURATION);
-    throw `not authenticated`;
-  }
-
-  const { query, pollRequest } = createGraphqlClient(auth);
+export default function () {
+  const {query, pollRequest} = createGraphqlClient();
   const pages = [
     () => {
-      group("landing", () => {
+      group('landing', () => {
         query(Operation.getAccount);
         query(Operation.projects);
 
@@ -41,12 +31,12 @@ export default function (auth: Authentication) {
             query(Operation.project);
           },
           POLL_INTERVAL,
-          POLL_DURATION
+          POLL_DURATION,
         );
       });
     },
     () => {
-      group("lineage", () => {
+      group('lineage', () => {
         query(Operation.getAccount);
         query(Operation.projects);
         query(Operation.project);
@@ -57,16 +47,15 @@ export default function (auth: Authentication) {
             query(Operation.jobSets);
           },
           POLL_INTERVAL,
-          POLL_DURATION
+          POLL_DURATION,
         );
       });
     },
     () => {
-      group("repo", () => {
+      group('repo', () => {
         query(Operation.getAccount);
         query(Operation.project);
         query(Operation.repos);
-        query(Operation.getDag);
 
         pollRequest(
           () => {
@@ -75,16 +64,15 @@ export default function (auth: Authentication) {
             query(Operation.getCommits);
           },
           POLL_INTERVAL,
-          POLL_DURATION
+          POLL_DURATION,
         );
       });
     },
     () => {
-      group("pipeline", () => {
+      group('pipeline', () => {
         query(Operation.getAccount);
         query(Operation.project);
         query(Operation.repos);
-        query(Operation.getDag);
         query(Operation.pipeline);
 
         pollRequest(
@@ -93,16 +81,15 @@ export default function (auth: Authentication) {
             query(Operation.jobSets);
           },
           POLL_INTERVAL,
-          POLL_DURATION
+          POLL_DURATION,
         );
       });
     },
     () => {
-      group("files", () => {
+      group('files', () => {
         query(Operation.getAccount);
         query(Operation.project);
         query(Operation.repos);
-        query(Operation.getDag);
         query(Operation.getFiles);
 
         pollRequest(
@@ -112,7 +99,7 @@ export default function (auth: Authentication) {
             query(Operation.getCommits);
           },
           POLL_INTERVAL,
-          POLL_DURATION
+          POLL_DURATION,
         );
       });
     },
@@ -127,36 +114,26 @@ export const handleSummary = (data: any) => {
 *Concurrent virtual users*: ${data?.metrics?.vus?.values?.value}
 *Requests*: ${data?.metrics?.http_reqs?.values?.count} 
 ${data?.root_group?.groups
-  ?.map(({ name, checks }: any) => {
-    return `  ${name}: ${checks[0].passes}`;
+  ?.map(({name, checks}: any) => {
+    return `  ${name}: ${checks?.[0]?.passes}`;
   })
   .join(`\n`)}
 *Failures*: ${data?.metrics?.checks?.values?.fails} ${
     data?.metrics?.checks?.values?.fails
       ? data?.root_group?.groups
-          ?.map(({ name, checks }: any) => {
-            return `\n  ${name}: ${checks[0].fails}`;
+          ?.map(({name, checks}: any) => {
+            return `\n  ${name}: ${checks?.[0]?.fails}`;
           })
           .join(``)
-      : ""
+      : ''
   }
 *Avg response time*: ${data?.metrics?.http_req_duration?.values?.avg?.toFixed(
-    2
+    2,
   )}ms
 *95% response time*: ${data?.metrics?.http_req_duration?.values[
-    "p(95)"
+    'p(95)'
   ].toFixed(2)}ms
   `;
-
-  http.post(
-    `https://hooks.slack.com/services/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`,
-    JSON.stringify({ text: summary }),
-    {
-      headers: {
-        "Content-type": "application/json",
-      },
-    }
-  );
 
   return {
     stdout: summary,

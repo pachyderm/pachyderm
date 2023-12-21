@@ -1,43 +1,41 @@
-import http, { RefinedResponse, request } from "k6/http";
-import EXCHANGE_CODE_MUTATION from "@mutations/ExchangeCode";
-import { DocumentNode } from "graphql/language/ast";
-import { check, sleep } from "k6";
-import { print } from "graphql";
+import http, {RefinedResponse, request} from 'k6/http';
+import EXCHANGE_CODE_MUTATION from '@mutations/ExchangeCode';
+import {DocumentNode} from 'graphql/language/ast';
+import {check, sleep} from 'k6';
+import {print} from 'graphql';
 
-import { GET_PROJECTS_QUERY } from "@queries/GetProjectsQuery";
-import { GET_ACCOUNT_QUERY } from "@queries/GetAccountQuery";
-import { GET_PROJECT_DETAILS_QUERY } from "@queries/GetProjectDetailsQuery";
-import { GET_PROJECT_QUERY } from "@queries/GetProjectQuery";
-import { GET_REPOS_QUERY } from "@queries/GetReposQuery";
-import { GET_REPO_QUERY } from "@queries/GetRepoQuery";
-import { JOB_SET_QUERY } from "@queries/GetJobsetQuery";
-import { JOBS_QUERY } from "@queries/GetJobsQuery";
-import { JOB_SETS_QUERY } from "@queries/GetJobSetsQuery";
-import { JOB_QUERY } from "@queries/GetJobQuery";
-import { GET_DAG_QUERY } from "@queries/GetDagQuery";
-import { GET_COMMITS_QUERY } from "@queries/GetCommitsQuery";
-import { GET_PIPELINE_QUERY } from "@queries/GetPipelineQuery";
-import { GET_FILES_QUERY } from "@queries/GetFilesQuery";
+import {GET_PROJECTS_QUERY} from '@queries/GetProjectsQuery';
+import {GET_ACCOUNT_QUERY} from '@queries/GetAccountQuery';
+import {GET_PROJECT_DETAILS_QUERY} from '@queries/GetProjectDetailsQuery';
+import {GET_PROJECT_QUERY} from '@queries/GetProjectQuery';
+import {GET_REPOS_QUERY} from '@queries/GetReposQuery';
+import {GET_REPO_QUERY} from '@queries/GetRepoQuery';
+import {JOB_SET_QUERY} from '@queries/GetJobsetQuery';
+import {JOBS_QUERY} from '@queries/GetJobsQuery';
+import {JOB_SETS_QUERY} from '@queries/GetJobSetsQuery';
+import {JOB_QUERY} from '@queries/GetJobQuery';
+import {GET_COMMITS_QUERY} from '@queries/GetCommitsQuery';
+import {GET_PIPELINE_QUERY} from '@queries/GetPipelineQuery';
+import {GET_FILES_QUERY} from '@queries/GetFilesQuery';
 
-const IDP_URL = "https://hub-e2e-testing.us.auth0.com";
-const DEX_URL = "http://localhost:30658";
+const IDP_URL = 'https://hub-e2e-testing.us.auth0.com';
+const DEX_URL = 'http://localhost:4000';
 
 export enum Operation {
-  getAccount = "getAccount",
-  projects = "projects",
-  project = "project",
-  projectDetails = "projectDetails",
-  jobSets = "jobSets",
-  jobSet = "jobSet",
-  jobs = "jobs",
-  job = "job",
-  repos = "repos",
-  repo = "repo",
-  getDag = "getDag",
-  getCommits = "getCommits",
-  exchangeCode = "exchangeCode",
-  pipeline = "pipeline",
-  getFiles = "getFiles",
+  getAccount = 'getAccount',
+  projects = 'projects',
+  project = 'project',
+  projectDetails = 'projectDetails',
+  jobSets = 'jobSets',
+  jobSet = 'jobSet',
+  jobs = 'jobs',
+  job = 'job',
+  repos = 'repos',
+  repo = 'repo',
+  getCommits = 'getCommits',
+  exchangeCode = 'exchangeCode',
+  pipeline = 'pipeline',
+  getFiles = 'getFiles',
 }
 
 type QueryVariables = {
@@ -65,16 +63,16 @@ const QUERIES: QueryMap = {
   },
   [Operation.project]: {
     query: GET_PROJECT_QUERY,
-    variables: { id: "default" },
+    variables: {id: 'default'},
   },
   [Operation.projectDetails]: {
     query: GET_PROJECT_DETAILS_QUERY,
-    variables: { args: { projectId: "default" } },
+    variables: {args: {projectId: 'default'}},
   },
   [Operation.jobSets]: {
     query: JOB_SETS_QUERY,
     variables: {
-      args: { projectId: "default" },
+      args: {projectId: 'default'},
     },
   },
   [Operation.jobSet]: {
@@ -82,7 +80,7 @@ const QUERIES: QueryMap = {
     variables: {
       args: {
         // need ID
-        projectId: "default",
+        projectId: 'default',
       },
     },
   },
@@ -91,36 +89,30 @@ const QUERIES: QueryMap = {
     variables: {
       args: {
         // need ID
-        pipelineName: "dag-0-pipeline-0",
-        projectId: "default",
+        pipelineName: 'dag-0-pipeline-0',
+        projectId: 'default',
       },
     },
   },
   [Operation.repos]: {
     query: GET_REPOS_QUERY,
     variables: {
-      args: { projectId: "default" },
+      args: {projectId: 'default'},
     },
   },
   [Operation.repo]: {
     query: GET_REPO_QUERY,
     variables: {
-      args: { projectId: "default", id: "repo-0" },
-    },
-  },
-  [Operation.getDag]: {
-    query: GET_DAG_QUERY,
-    variables: {
-      args: { projectId: "default" },
+      args: {projectId: 'default', id: 'repo-0'},
     },
   },
   [Operation.getCommits]: {
     query: GET_COMMITS_QUERY,
     variables: {
       args: {
-        projectId: "default",
-        repoName: "repo-0",
-        branchName: "master",
+        projectId: 'default',
+        repoName: 'repo-0',
+        branchName: 'master',
         number: 100,
       },
     },
@@ -133,8 +125,8 @@ const QUERIES: QueryMap = {
     query: GET_PIPELINE_QUERY,
     variables: {
       args: {
-        id: "dag-0-pipeline-0",
-        projectId: "default",
+        id: 'dag-0-pipeline-0',
+        projectId: 'default',
       },
     },
   },
@@ -142,8 +134,8 @@ const QUERIES: QueryMap = {
     query: JOBS_QUERY,
     variables: {
       args: {
-        pipelineId: "dag-0-pipeline-0",
-        projectId: "default",
+        pipelineId: 'dag-0-pipeline-0',
+        projectId: 'default',
       },
     },
   },
@@ -151,11 +143,11 @@ const QUERIES: QueryMap = {
     query: GET_FILES_QUERY,
     variables: {
       args: {
-        branchName: "master",
-        commitId: "^",
-        path: "/",
-        projectId: "default",
-        repoName: "repo-0",
+        branchName: 'master',
+        commitId: '^',
+        path: '/',
+        projectId: 'default',
+        repoName: 'repo-0',
       },
     },
   },
@@ -170,14 +162,14 @@ type ParamsObject = {
 };
 const buildParams = (object: ParamsObject) => {
   return Object.keys(object)
-    .map((key) => key + "=" + object[key])
-    .join("&");
+    .map((key) => key + '=' + object[key])
+    .join('&');
 };
 
 const parseParams = (url: string) => {
-  const paramString = url.split("?")[1];
-  return paramString.split("&").reduce((memo: ParamsObject, param) => {
-    const [key, value] = param.split("=");
+  const paramString = url.split('?')[1];
+  return paramString.split('&').reduce((memo: ParamsObject, param) => {
+    const [key, value] = param.split('=');
     memo[decodeURIComponent(key)] = decodeURIComponent(value);
     return memo;
   }, {});
@@ -195,24 +187,24 @@ export const authenticate = (): Authentication => {
     !__ENV.PACHYDERM_AUTH_EMAIL ||
     !__ENV.PACHYDERM_AUTH_PASSWORD
   ) {
-    throw "environment credentials are not configured";
+    throw 'environment credentials are not configured';
   }
   try {
     const url = `${DEX_URL}/auth?${buildParams({
-      client_id: "dash",
-      redirect_uri: "http://localhost:4000/oauth/callback/?inline=true",
-      response_type: "code",
-      scope: "openid+email+profile+groups+audience:server:client_id:pachd",
+      client_id: 'dash',
+      redirect_uri: 'http://localhost:4000/oauth/callback/?inline=true',
+      response_type: 'code',
+      scope: 'openid+email+profile+groups+audience:server:client_id:pachd',
     })}`;
     const loginPage = http.get(url);
 
     const loginPageParams = parseParams(loginPage.url);
     const loginBody = loginPageParams;
     loginBody.client_id = loginBody.client;
-    loginBody.connection = "Username-Password-Authentication";
+    loginBody.connection = 'Username-Password-Authentication';
     loginBody.username = __ENV.PACHYDERM_AUTH_EMAIL;
     loginBody.password = __ENV.PACHYDERM_AUTH_PASSWORD;
-    loginBody.tenant = "hub-e2e-testing";
+    loginBody.tenant = 'hub-e2e-testing';
 
     const loginResponse = http.post(
       `${IDP_URL}/usernamepassword/login`,
@@ -221,10 +213,10 @@ export const authenticate = (): Authentication => {
         headers: {
           referer: loginPage.url,
           origin: IDP_URL,
-          "content-type": "application/json",
-          cookie: loginPage.headers["Set-Cookie"],
+          'content-type': 'application/json',
+          cookie: loginPage.headers['Set-Cookie'],
         },
-      }
+      },
     );
     const formResponse = loginResponse.submitForm();
     const code = parseParams(formResponse.url).code;
@@ -250,40 +242,34 @@ const exchangeCode = (code: string): Authentication => {
     EXCHANGE_CODE_MUTATION,
     {
       code,
-    }
+    },
   );
   const exchangeResponse = res.json();
 
   return (exchangeResponse as ExchangeCodeResponse)?.data?.exchangeCode;
 };
 
-export const createGraphqlClient = (
-  auth: Authentication,
-) => ({
+export const createGraphqlClient = () => ({
   query: (operationName: Operation) => {
-    return query(operationName, auth);
+    return query(operationName);
   },
-  pollRequest: (requests: ()=>void, interval: number, duration: number) => {
-    return pollRequest(interval, duration/interval, requests);
+  pollRequest: (requests: () => void, interval: number, duration: number) => {
+    return pollRequest(interval, duration / interval, requests);
   },
 });
 
-const query = (
-  operationName: Operation,
-  auth: Authentication
-): RefinedResponse<any> => {
-  const { query, variables } = QUERIES[operationName];
-  return makeGraphqlRequest(operationName, query, variables, auth);
+const query = (operationName: Operation): RefinedResponse<any> => {
+  const {query, variables} = QUERIES[operationName];
+  return makeGraphqlRequest(operationName, query, variables);
 };
 
 const makeGraphqlRequest = (
   operationName: Operation,
   query: DocumentNode,
   variables = {},
-  auth?: Authentication
 ): RefinedResponse<any> => {
   const response = http.post(
-    "http://localhost:4000/graphql",
+    'http://localhost:3000/graphql',
     JSON.stringify({
       operationName,
       variables,
@@ -291,16 +277,12 @@ const makeGraphqlRequest = (
     }),
     {
       headers: {
-        "Content-Type": "application/json",
-        ...(auth
-          ? {
-              "auth-token": auth.pachToken,
-              "id-token": auth.idToken,
-              cookie: `dashAuthToken=${auth.pachToken};`,
-            }
-          : {}),
+        'Content-Type': 'application/json',
+        'auth-token': '',
+        'id-token': '',
+        cookie: `dashAuthToken=;`,
       },
-    }
+    },
   );
 
   checkWasSuccessful(response);
@@ -310,29 +292,23 @@ const makeGraphqlRequest = (
 const pollRequest = (
   interval: number,
   iteration: number,
-  request: ()=>void
+  request: () => void,
 ) => {
   if (iteration === 0) return;
   sleep(interval);
   request();
-  pollRequest(
-    interval,
-    iteration - 1,
-    request,
-  );
+  pollRequest(interval, iteration - 1, request);
 };
 
 const checkWasSuccessful = (res: RefinedResponse<any>) => {
   check(res, {
     successfulResponse: (res) => {
       const bodyString = res.body
-        ? typeof res.body === "string"
+        ? typeof res.body === 'string'
           ? res.body
           : String.fromCharCode(...res.body)
-        : "{}";
-      const successful =
-        res.status === 200 &&
-        !JSON.parse(bodyString).errors;
+        : '{}';
+      const successful = res.status === 200 && !JSON.parse(bodyString).errors;
       if (!successful) {
         logObject(res);
       }

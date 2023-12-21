@@ -26,6 +26,7 @@
     "load-setup": "node ./load-tests/projectSetup.js",
     "load-test:ci": "start-server-and-test start:e2e http-get://localhost:4000 load-test",
     "load-test": "npm i --prefix ./load-tests && npm run build --prefix ./load-tests && NODE_ENV=development dotenv-flow -- k6 run ./load-tests/build/loadTest.bundle.js",
+    "load-test2": "npm i --prefix ./load-tests && npm run build --prefix ./load-tests && NODE_ENV=development dotenv-flow -- k6 run ./load-tests/build/newTest.bundle.js",
     "size-limit": "size-limit",
     "size-limit:install": "npm install && npm install --prefix ./backend && npm install --prefix ./frontend",
     "size-limit:build": "npm run size-limit:install && npm run build --prefix ./frontend"

@@ -1,4 +1,4 @@
-const { exec } = require("child_process");
+const {exec} = require('child_process');
 
 const executeCommand = (command) => {
   return new Promise((res, rej) => {
@@ -33,15 +33,15 @@ const setup = async () => {
           },
           input: {
             pfs: {
-              glob: "/*",
+              glob: '/*',
               repo: `repo-${dagIndex}`,
             },
           },
           transform: {
-            cmd: ["python3", "/edges.py"],
-            image: "pachyderm/opencv",
+            cmd: ['python3', '/edges.py'],
+            image: 'pachyderm/opencv',
           },
-        })}' | pachctl create pipeline`
+        })}' | pachctl create pipeline`,
       );
       commands.push(
         ...[...new Array(pipelines).keys()]
@@ -56,41 +56,43 @@ const setup = async () => {
                   cross: [
                     {
                       pfs: {
-                        glob: "/*",
+                        glob: '/*',
                         repo: `repo-${dagIndex}`,
                       },
                     },
                     {
                       pfs: {
-                        glob: "/*",
+                        glob: '/*',
                         repo: `dag-${dagIndex}-pipeline-${pipelineIndex - 1}`,
                       },
                     },
                   ],
                 },
                 transform: {
-                  cmd: ["sh"],
-                  image: "dpokidov/imagemagick:7.0.10-58",
+                  cmd: ['sh'],
+                  image: 'dpokidov/imagemagick:7.0.10-58',
                   stdin: [
-                    "montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png",
+                    'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
                   ],
                 },
-              })}' | pachctl create pipeline`
-          )
+              })}' | pachctl create pipeline`,
+          ),
       );
       return commands;
     },
-    []
+    [],
   );
 
-  console.log('building pipelines...')
+  console.log('building pipelines...');
   await executeSynchronousCommands(pipelineCommands);
 
   const commitCommands = [...new Array(commits).keys()].map(
     (commitIndex) =>
-      `pachctl put file repo-${commitIndex%2}@master:liberty-${commitIndex}.png -f http://imgur.com/46Q8nDz.png`
+      `pachctl put file repo-${
+        commitIndex % 2
+      }@master:liberty-${commitIndex}.png -f ./etc/testing/files/46Q8nDz.jpg`,
   );
-  console.log('committing files...')
+  console.log('committing files...');
 
   await executeSynchronousCommands(commitCommands);
 };

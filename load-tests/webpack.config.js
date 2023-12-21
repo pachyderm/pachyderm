@@ -5,7 +5,7 @@ module.exports = {
   mode: 'production',
   entry: glob.sync('./tests/*.ts').reduce((acc, match) => {
     const entry = path.basename(match, '.ts');
-    acc[entry] = match;
+    acc[entry] = './' + match;
     return acc;
   }, {}),
   output: {
@@ -22,7 +22,7 @@ module.exports = {
     },
   },
   module: {
-    rules: [{ test: /\.ts$/, use: 'babel-loader' }],
+    rules: [{test: /\.ts$/, use: 'babel-loader'}],
   },
   target: 'web',
   externals: /k6(\/.*)?/,
