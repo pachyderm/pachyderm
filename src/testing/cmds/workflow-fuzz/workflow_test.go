@@ -3,52 +3,79 @@
 package workflowfuzz
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"flag"
-	"fmt"
 	"math/rand"
+	"path"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 const namespace = "fuzz-cluster-1"
 
-var run = flag.Bool("testgen.run", false, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness?
+var run = flag.Bool("testgen.run", true, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness? set back to false at least
 var alphaNumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]*$`)
 var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // TODO - make own rangeRPC function from rpc_fuzz_test
-	pfs.File_pfs_pfs_proto: {pfs.API_CreateRepo_FullMethodName},
+	pfs.File_pfs_pfs_proto: {pfs.API_CreateRepo_FullMethodName, pfs.API_CreateProject_FullMethodName},
 }
 
-type grpcArrayWriter struct {
-	ByteCount   int
-	GrpcMethods []string
-}
+// type grpcArrayWriter struct {
+// 	ByteCount   int
+// 	GrpcMethods []string
+// }
 
-func (w *grpcArrayWriter) Write(bytes []byte) (int, error) {
-	if len(bytes) > 0 {
-		if w.GrpcMethods == nil {
-			w.GrpcMethods = make([]string, 0)
+//	func (w *grpcArrayWriter) Write(bytes []byte) (int, error) {
+//		if len(bytes) > 0 {
+//			if w.GrpcMethods == nil {
+//				w.GrpcMethods = make([]string, 0)
+//			}
+//			w.GrpcMethods = append(w.GrpcMethods, string(bytes))
+//			w.ByteCount += len(bytes)
+//		}
+//		return w.ByteCount, nil
+//	}
+//
+// DNJ TODO - rpc fuzz test
+func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
+	for fd, protoDescriptors := range protos {
+		svcMethods := map[string][]string{}
+		for _, name := range protoDescriptors {
+			split := strings.Split(name, "/") // DNJ TODO - what is up with the / separator?
+			svcName := split[1]               // 0 is empty
+			methodName := split[2]
+			if arr, ok := svcMethods[svcName]; !ok {
+				svcMethods[svcName] = []string{methodName}
+			} else {
+				svcMethods[svcName] = append(arr, methodName)
+			}
 		}
-		w.GrpcMethods = append(w.GrpcMethods, string(bytes))
-		w.ByteCount += len(bytes)
+		svcs := fd.Services()
+		for si := 0; si < svcs.Len(); si++ {
+			sd := svcs.Get(si)
+			if methodNames, ok := svcMethods[string(sd.FullName())]; ok {
+				methods := sd.Methods()
+				for mi := 0; mi < methods.Len(); mi++ {
+					md := methods.Get(mi)
+					if slices.Contains(methodNames, string(md.Name())) {
+						f(fd, sd, md)
+					}
+				}
+			}
+		}
 	}
-	return w.ByteCount, nil
 }
 
-func getSharedCluster(f *testing.F) *grpcutil.PachdAddress {
+func getSharedCluster(f *testing.F) *client.APIClient {
 	k := testutil.GetKubeClient(f)
 	minikubetestenv.PutNamespace(f, namespace)
 	pachClient := minikubetestenv.InstallRelease(f, context.Background(), namespace, k, &minikubetestenv.DeployOpts{
@@ -60,16 +87,32 @@ func getSharedCluster(f *testing.F) *grpcutil.PachdAddress {
 			"proxy.replicas":                  "3",
 		},
 	})
-	return pachClient.GetAddress()
+	return pachClient
 }
 
-func randString(r *rand.Rand, maxLength int) string {
+func randString(r *rand.Rand, minlength int, maxLength int) string {
 	var characters strings.Builder
-	length := r.Intn(maxLength)
+	length := r.Intn(maxLength) + minlength
 	for i := 0; i < length; i++ {
 		characters.WriteByte(byte(r.Intn(127)))
 	}
 	return characters.String()
+}
+
+func inputGenerator(r *rand.Rand, msgDesc protoreflect.MessageDescriptor) protoreflect.ProtoMessage { // DNJ TODO - generics maybe?
+	msg := dynamicpb.NewMessage(msgDesc)
+	// DNJ TODO Inject and save successful field values
+	defaultGenerators := map[protoreflect.Kind]func(*rand.Rand, protoreflect.FieldDescriptor) interface{}{
+		protoreflect.BoolKind:    func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return (r.Float32() < .5) },
+		protoreflect.StringKind:  func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return randString(r, 0, 5) },
+		protoreflect.MessageKind: func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return inputGenerator(r, f.Message()) },
+	}
+	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
+		field := msgDesc.Fields().Get(i)
+		fieldVal := defaultGenerators[field.Kind()](r, field)
+		msg.Set(field, protoreflect.ValueOf(fieldVal))
+	}
+	return msg
 }
 
 // DNJ TODO context and logger?
@@ -77,61 +120,72 @@ func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
 	if !*run {
 		f.Skip()
 	}
+	ctx := pctx.Background("FuzzGrpcWorkflow")
 	// log.InitPachctlLogger()
 	// ctx := pctx.Background("workflow-fuzz")
-	grpcAddress := getSharedCluster(f)
-	grpcs := &grpcArrayWriter{} // DNJ TODO - needed? do we just list from file descriptors? We need the "testable" whitelist. Should be protosUnderTest
-	err := cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
-		Run(pctx.TestContext(f),
-			&pachctl.Config{},
-			grpcs,
-			[]string{},
-		)
-	require.NoError(f, err)
-	f.Logf("grpc method: %v len: %d", grpcs.GrpcMethods, grpcs.ByteCount)
+	client := getSharedCluster(f)
+	// grpcs := &grpcArrayWriter{} // DNJ TODO - needed? do we just list from file descriptors? We need the "testable" whitelist. Should be protosUnderTest
+	// err := cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
+	// 	Run(pctx.TestContext(f),
+	// 		&pachctl.Config{},
+	// 		grpcs,
+	// 		[]string{},
+	// 	)
+	// require.NoError(f, err)
+	// f.Logf("grpc method: %v len: %d", grpcs.GrpcMethods, grpcs.ByteCount)
 	// DNJ TODO - magic to select repo rpc
 	// selectedMethod := "pfs_v2.API.CreateRepo"
 
 	// for i := 0; i < 50; i++ {
 	// 	f.Add(randutil.UniqueString("repo"))
 	// }
+	// r := rand.New(rand.NewSource(time.Now().Unix()))
+
 	f.Fuzz(func(t *testing.T, seed int64) {
 		// if !alphaNumericRegex.MatchString(name) || name == "" { // DNJ TODO remove err
 		// 	t.Skip()
 		// }
 		r := rand.New(rand.NewSource(seed))
-		name := randString(r, 10)
-		t.Logf("input: %s", string(name))
-		responseBytes := &bytes.Buffer{}
-		request := &pfs.CreateRepoRequest{
-			Repo: &pfs.Repo{
-				Name: string(name),
-				Type: "user",
-				Project: &pfs.Project{
-					Name: "default",
-				},
-			},
-			Update: false,
-		}
-		requestBytes, err := json.Marshal(request)
-		require.NoError(t, err)
-		err = cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
-			Run(pctx.TestContext(t),
-				&pachctl.Config{},
-				responseBytes,
-				[]string{strings.ReplaceAll(strings.TrimLeft(pfs.API_CreateRepo_FullMethodName, "/"), "/", "."), //"pfs_v2.API.CreateRepo",
-					string(requestBytes),
-				})
-		if err != nil &&
-			!strings.Contains(err.Error(), "only alphanumeric characters") &&
-			!strings.Contains(err.Error(), "already exists") &&
-			!strings.Contains(err.Error(), "invalid escape code") &&
-			!strings.Contains(err.Error(), "invalid character") {
-			// log.Info(ctx, "Err in RPC", zap.Error(err))
-			t.Errorf("Why fail? %v", err)
-		}
+		// f.Logf("fd : %v -sd: %v -md: %v msg: %v", fd.FullName(), sd.Name(), md.Input().Fields(), inputGenerator(r, md.Input()))
+		rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
+			input := inputGenerator(r, md.Input())
+			reply := dynamicpb.NewMessage(md.Output())
+			fullName := "/" + path.Join(string(sd.FullName()), string(md.Name())) // DNJ TODO move to rpc fuzz test and make function for this.
+			if err := client.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
+				t.Logf("Invoke grpc method err %s", err.Error())
+			}
+			t.Logf("Reply: %#v", reply)
+		})
+
+		// request := &pfs.CreateRepoRequest{
+		// 	Repo: &pfs.Repo{
+		// 		Name: string(name),
+		// 		Type: "user",
+		// 		Project: &pfs.Project{
+		// 			Name: "default",
+		// 		},
+		// 	},
+		// 	Update: false,
+		// }
+		// requestBytes, err := json.Marshal(request)
 		// require.NoError(t, err)
-		t.Logf("RESP: %s", string(responseBytes.Bytes()))
+		// err = cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
+		// 	Run(pctx.TestContext(t),
+		// 		&pachctl.Config{},
+		// 		responseBytes,
+		// 		[]string{strings.ReplaceAll(strings.TrimLeft(pfs.API_CreateRepo_FullMethodName, "/"), "/", "."), //"pfs_v2.API.CreateRepo",
+		// 			string(requestBytes),
+		// 		})
+		// if err != nil &&
+		// 	!strings.Contains(err.Error(), "only alphanumeric characters") &&
+		// 	!strings.Contains(err.Error(), "already exists") &&
+		// 	!strings.Contains(err.Error(), "invalid escape code") &&
+		// 	!strings.Contains(err.Error(), "invalid character") {
+		// 	// log.Info(ctx, "Err in RPC", zap.Error(err))
+		// 	t.Errorf("Why fail? %v", err)
+		// }
+		// // require.NoError(t, err)
+		// t.Logf("RESP: %s", string(responseBytes.Bytes()))
 	})
 
 }
