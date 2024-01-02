@@ -713,6 +713,22 @@ func TestToggleBranchProvenance(t *testing.T) {
 	require.Equal(t, inCommitInfo.Commit.Id, inMasterCommitInfo.Commit.Id)
 }
 
+func TestDeleteBranchWithProvenance(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "in"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "out"))
+	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "out", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "in", "master")}))
+	err := env.PachClient.DeleteBranch(pfs.DefaultProjectName, "in", "master", false)
+	require.YesError(t, err)
+	matchErr := fmt.Sprintf("branch %q cannot be deleted because it's in the direct provenance of %v",
+		client.NewBranch(pfs.DefaultProjectName, "in", "master"),
+		[]*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "out", "master")},
+	)
+	require.Equal(t, matchErr, err.Error())
+	require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, "in", "master", true))
+}
+
 func TestRecreateBranchProvenance(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)

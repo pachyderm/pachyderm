@@ -2,6 +2,7 @@ package pfsdb_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -422,16 +423,23 @@ func TestBranchDelete(t *testing.T) {
 			_, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
 		})
-		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			// Delete branch should fail because there exists branches that depend on it.
 			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, branchID, false /* force */), "violates foreign key constraint")
+			branchInfoWithID := &pfsdb.BranchInfoWithID{ID: branchID, BranchInfo: branchBInfo}
+			err = pfsdb.DeleteBranch(ctx, tx, branchInfoWithID, false /* force */)
+			matchErr := fmt.Sprintf("branch %q cannot be deleted because it's in the direct provenance of %v",
+				branchBInfo.Branch,
+				[]*pfs.Branch{branchCInfo.Branch},
+			)
+			require.Equal(t, matchErr, err.Error())
 		})
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			branchID, err := pfsdb.GetBranchID(ctx, tx, branchBInfo.Branch)
 			require.NoError(t, err)
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchID, true /* force */))
+			branchInfoWithID := &pfsdb.BranchInfoWithID{ID: branchID, BranchInfo: branchBInfo}
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, branchInfoWithID, true /* force */))
 			_, err = pfsdb.GetBranchInfo(ctx, tx, branchID)
 			require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 			// Verify that BranchA no longer has BranchB in its subvenance
@@ -518,12 +526,23 @@ func TestBranchTrigger(t *testing.T) {
 			require.NoError(t, err)
 		})
 		// Try to delete the staging branch, which should fail because master depends on it for triggering.
-		withFailedTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			require.ErrorContains(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, false /* force */), "violates foreign key constraint")
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			stagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			require.NoError(t, err)
+			masterBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, masterBranchID)
+			require.NoError(t, err)
+			err = pfsdb.DeleteBranch(ctx, tx,
+				&pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo},
+				false /* force */)
+			require.YesError(t, err)
+			msg := fmt.Sprintf("%q cannot be deleted because it is triggered by branches %v", stagingBranchInfo.Branch, []*pfs.Branch{masterBranchInfo.Branch})
+			require.ErrorContains(t, err, msg)
 		})
 		// Delete with force should work.
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, stagingBranchID, true /* force */))
+			stagingBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, stagingBranchID)
+			require.NoError(t, err)
+			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, &pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo}, true /* force */))
 		})
 	})
 }
