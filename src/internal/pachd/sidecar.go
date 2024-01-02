@@ -111,6 +111,7 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 		sb.registerHealthServer,
 		sb.resumeHealth,
 		sb.registerDebugServer,
+		sb.initPrometheusServer,
 
 		sb.initTransaction,
 		sb.internallyListen,

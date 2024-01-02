@@ -198,24 +198,33 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	commonEnv = append(commonEnv, log.WorkerLogConfig.AsKubernetesEnvironment()...)
 
 	// Set up sidecar env vars
-	sidecarEnv := []v1.EnvVar{{
-		Name:  "PORT",
-		Value: strconv.FormatUint(uint64(kd.config.Port), 10),
-	}, {
-		Name: "PACHD_POD_NAME",
-		ValueFrom: &v1.EnvVarSource{
-			FieldRef: &v1.ObjectFieldSelector{
-				APIVersion: "v1",
-				FieldPath:  "metadata.name",
+	sidecarEnv := []v1.EnvVar{
+		{
+			Name:  "PORT",
+			Value: strconv.FormatUint(uint64(kd.config.Port), 10),
+		},
+		{
+			Name: "PACHD_POD_NAME",
+			ValueFrom: &v1.EnvVarSource{
+				FieldRef: &v1.ObjectFieldSelector{
+					APIVersion: "v1",
+					FieldPath:  "metadata.name",
+				},
 			},
 		},
-	}, {
-		Name:  "PACHW_IN_SIDECARS",
-		Value: strconv.FormatBool(kd.config.PachwInSidecars),
-	}, {
-		Name:  "GC_PERCENT",
-		Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
-	}}
+		{
+			Name:  "PACHW_IN_SIDECARS",
+			Value: strconv.FormatBool(kd.config.PachwInSidecars),
+		},
+		{
+			Name:  "GC_PERCENT",
+			Value: strconv.FormatInt(int64(kd.config.GCPercent), 10),
+		},
+		{
+			Name:  "PROMETHEUS_PORT",
+			Value: strconv.FormatInt(workerstats.PrometheusPort+1, 10),
+		},
+	}
 
 	sidecarEnv = append(sidecarEnv, kd.getStorageEnvVars(pipelineInfo)...)
 	sidecarEnv = append(sidecarEnv, commonEnv...)
