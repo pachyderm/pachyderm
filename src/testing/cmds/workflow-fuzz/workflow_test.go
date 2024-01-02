@@ -22,11 +22,21 @@ import (
 )
 
 const namespace = "fuzz-cluster-1"
+const useSucccessfulValWeight = .8
 
-var run = flag.Bool("testgen.run", true, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness? set back to false at least
-var alphaNumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]*$`)
+var (
+	run               = flag.Bool("testgen.run", true, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness? set back to false at least
+	alphaNumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]*$`)
+	successfulInputs  = map[string][]interface{}{}
+)
+
 var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // TODO - make own rangeRPC function from rpc_fuzz_test
 	pfs.File_pfs_pfs_proto: {pfs.API_CreateRepo_FullMethodName, pfs.API_CreateProject_FullMethodName},
+}
+
+type genData struct { // DNJ TODO - awful name
+	r     *rand.Rand
+	field protoreflect.FieldDescriptor
 }
 
 // type grpcArrayWriter struct {
@@ -99,17 +109,25 @@ func randString(r *rand.Rand, minlength int, maxLength int) string {
 	return characters.String()
 }
 
+type generator func(genData) interface{}
+
 func inputGenerator(r *rand.Rand, msgDesc protoreflect.MessageDescriptor) protoreflect.ProtoMessage { // DNJ TODO - generics maybe?
 	msg := dynamicpb.NewMessage(msgDesc)
 	// DNJ TODO Inject and save successful field values
-	defaultGenerators := map[protoreflect.Kind]func(*rand.Rand, protoreflect.FieldDescriptor) interface{}{
-		protoreflect.BoolKind:    func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return (r.Float32() < .5) },
-		protoreflect.StringKind:  func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return randString(r, 0, 5) },
-		protoreflect.MessageKind: func(r *rand.Rand, f protoreflect.FieldDescriptor) interface{} { return inputGenerator(r, f.Message()) },
+	defaultGenerators := map[protoreflect.Kind]generator{
+		protoreflect.BoolKind:    func(gen genData) interface{} { return gen.r.Float32() < .5 }, // DNJ TODO - Generics and/or pass context for error?
+		protoreflect.StringKind:  func(gen genData) interface{} { return randString(gen.r, 0, 5) },
+		protoreflect.MessageKind: func(gen genData) interface{} { return inputGenerator(gen.r, gen.field.Message()) },
 	}
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
 		field := msgDesc.Fields().Get(i)
-		fieldVal := defaultGenerators[field.Kind()](r, field)
+		var fieldVal interface{}
+		if successVals, ok := successfulInputs[string(field.FullName())]; ok && r.Float32() < useSucccessfulValWeight {
+			fieldVal = successVals[r.Intn(len(successVals))]
+		} else {
+			gen := genData{r: r, field: field}
+			fieldVal = defaultGenerators[field.Kind()](gen)
+		}
 		msg.Set(field, protoreflect.ValueOf(fieldVal))
 	}
 	return msg
