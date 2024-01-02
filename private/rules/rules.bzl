@@ -9,19 +9,13 @@ def host_native_binary(name, repo, target):
     You can "bazel run" this binary, or use the binary in another dependency.  The output will have the
     same path regardless of the host architeture.
     """
-    for arch in ["_x86_64_linux", "_aarch64_linux", "_x86_64_macos", "_aarch64_macos"]:
-        native_binary(
-            name = name + arch,
-            src = repo + arch + "//" + target,
-            out = name,
-        )
-
-    native.alias(
-        name = name,
-        actual = select({
-            "//:is_x86_64_linux": name + "_x86_64_linux",
-            "//:is_aarch64_linux": name + "_aarch64_linux",
-            "//:is_x86_64_macos": name + "_x86_64_macos",
-            "//:is_aarch64_macos": name + "_aarch64_macos",
+    native_binary(
+        name = name + "_bin",
+        src = select({
+            "//:is_x86_64_linux": repo + "_x86_64_linux//" + target,
+            "//:is_aarch64_linux": repo + "_aarch64_linux//" + target,
+            "//:is_x86_64_macos": repo + "_x86_64_macos//" + target,
+            "//:is_aarch64_macos": repo + "_aarch64_macos//" + target,
         }),
+        out = name,
     )

@@ -1585,7 +1585,7 @@ jobs:
           command: |
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
-  check-protos:
+  bazel-tests:
     resource_class: medium
     docker:
       - image: debian:stable
@@ -1602,6 +1602,7 @@ jobs:
           popd
       - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
       - run: git diff --exit-code
+      - run: bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
 
 workflows:
   functional-tests:
@@ -1616,7 +1617,7 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - check-prettier
-      - check-protos
+      - bazel-tests
       - jsonnet-lint
       - govulncheck
       - static-go-checks
