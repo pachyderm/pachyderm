@@ -30,7 +30,7 @@ mkdir -p $OUT/src/internal/jsonschema
 mkdir -p $OUT/src/openapi
 mkdir -p $OUT/src/typescript
 
-mapfile -t PROTOS < <(find src -name "*.proto" | sort)
+PROTOS=("$@")
 
 for i in "${PROTOS[@]}"; do \
     if ! grep -q 'go_package' "${i}"; then
