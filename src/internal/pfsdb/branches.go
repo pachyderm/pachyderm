@@ -364,7 +364,8 @@ func DeleteBranch(ctx context.Context, tx *pachsql.Tx, b *BranchInfoWithID, forc
 				b.BranchInfo.Branch, subv,
 			)
 		}
-		triggered, triggering, err := GetTriggerBranches(ctx, tx, b.ID)
+		var triggered, triggering []*pfs.Branch
+		triggered, triggering, err = GetTriggerBranches(ctx, tx, b.ID)
 		if len(triggered) > 0 || len(triggering) > 0 {
 			// query branch triggers as well
 			return errors.Errorf(
