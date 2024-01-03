@@ -145,7 +145,7 @@ func (sr *bufferResponseWriter) Header() http.Header {
 
 func (sr *bufferResponseWriter) WriteHeader(statusCode int) {
 	sr.rw.WriteHeader(statusCode)
-	statusCode = statusCode
+	sr.statusCode = statusCode
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
