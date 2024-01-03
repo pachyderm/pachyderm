@@ -1592,7 +1592,7 @@ jobs:
         entrypoint: /bin/bash
     steps:
       - run: apt update
-      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential
       - checkout
       - run: |
           pushd /tmp
