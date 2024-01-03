@@ -39,7 +39,7 @@ for i in "${PROTOS[@]}"; do \
     fi
 done
 
-"$(rlocation com_google_protobuf/protoc)" \
+"$(rlocation _main/src/proto/protoc)" \
     -I"$(dirname "$(dirname "$(dirname "$(rlocation com_google_protobuf/src/google/protobuf/any.proto)")")")" \
     -Isrc \
     --plugin=protoc-gen-go="$(rlocation _main/src/proto/protoc-gen-go)" \

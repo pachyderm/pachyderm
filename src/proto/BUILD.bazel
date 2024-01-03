@@ -42,6 +42,12 @@ host_native_binary(
     target = ":gopatch",
 )
 
+host_native_binary(
+    name = "protoc",
+    repo = "@com_github_protocolbuffers_protobuf",
+    target = ":bin/protoc",
+)
+
 # bazel build //src/proto:run will regenerate the protos in your working copy.
 sh_binary(
     name = "run",
@@ -56,12 +62,12 @@ sh_binary(
         ":protoc-gen-grpc-gateway_bin",
         ":protoc-gen-openapiv2_bin",
         ":protoc-gen-validate-go_bin",
+        ":protoc_bin",
         "//src:all_protos",
         "//src/proto/pachgen",
         "//src/proto/protoc-gen-zap",
         "@com_github_chrusty_protoc_gen_jsonschema//cmd/protoc-gen-jsonschema",
         "@com_google_protobuf//:descriptor_proto_srcs",
-        "@com_google_protobuf//:protoc",
         "@com_google_protobuf//:well_known_type_protos",
         "@go_sdk//:bin/gofmt",
         "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "1d70f367aa4984e3f82ccf3f9c552770400ff85ecb3eaf637f90c0d01668dd58",
+  "moduleFileHash": "ba786486ada2b538173fa4f8948d35cd726ae935d5d3a20e64ecc79ee8d12ccd",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -283,6 +283,50 @@
               }
             },
             {
+              "tagName": "module_override",
+              "attributeValues": {
+                "patch_strip": 1,
+                "patches": [
+                  "//private:protoc-gen-validate.patch"
+                ],
+                "path": "github.com/envoyproxy/protoc-gen-validate"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 57,
+                "column": 24
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "build_file_generation": "off",
+                "path": "github.com/envoyproxy/protoc-gen-validate"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 64,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "github.com/chrusty/protoc-gen-jsonschema"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 68,
+                "column": 25
+              }
+            },
+            {
               "tagName": "module",
               "attributeValues": {
                 "path": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
@@ -292,7 +336,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 60,
+                "line": 77,
                 "column": 15
               }
             },
@@ -306,7 +350,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 72,
+                "line": 89,
                 "column": 15
               }
             },
@@ -320,7 +364,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 77,
+                "line": 94,
                 "column": 15
               }
             },
@@ -334,7 +378,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 82,
+                "line": 99,
                 "column": 15
               }
             },
@@ -348,7 +392,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 87,
+                "line": 104,
                 "column": 15
               }
             },
@@ -362,7 +406,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 92,
+                "line": 109,
                 "column": 15
               }
             },
@@ -376,7 +420,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 97,
+                "line": 114,
                 "column": 15
               }
             }
@@ -390,7 +434,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 228,
+            "line": 245,
             "column": 32
           },
           "imports": {
@@ -410,10 +454,14 @@
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+            "com_github_protocolbuffers_protobuf_aarch64_linux": "com_github_protocolbuffers_protobuf_aarch64_linux",
+            "com_github_protocolbuffers_protobuf_aarch64_macos": "com_github_protocolbuffers_protobuf_aarch64_macos",
             "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux": "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
             "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos": "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
             "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux": "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux",
             "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos": "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
+            "com_github_protocolbuffers_protobuf_x86_64_linux": "com_github_protocolbuffers_protobuf_x86_64_linux",
+            "com_github_protocolbuffers_protobuf_x86_64_macos": "com_github_protocolbuffers_protobuf_x86_64_macos",
             "com_github_pseudomuto_protoc_gen_doc_aarch64_linux": "com_github_pseudomuto_protoc_gen_doc_aarch64_linux",
             "com_github_pseudomuto_protoc_gen_doc_aarch64_macos": "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
             "com_github_pseudomuto_protoc_gen_doc_x86_64_linux": "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
@@ -1565,7 +1613,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "1NwcZzqq1mok67SdV6268lgiBB2CVYGgPM4BUE0aFjs=",
+        "bzlTransitiveDigest": "DGJhdsWY+shgsWFg/Mq5f2ZbKqG52BHCmVGbqwxYEsU=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -1610,6 +1658,36 @@
               "downloaded_file_path": "protoc-gen-openapiv2"
             }
           },
+          "com_github_protocolbuffers_protobuf_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_x86_64_macos",
+              "url": "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-osx-x86_64.zip",
+              "build_file_content": "exports_files([\"bin/protoc\"])",
+              "integrity": "sha256-csbWsryFX/hojDt/sxKIzK/Qq1Ulb/g4LVcR7PzBH08="
+            }
+          },
+          "com_github_protocolbuffers_protobuf_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_aarch64_macos",
+              "url": "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-osx-aarch_64.zip",
+              "build_file_content": "exports_files([\"bin/protoc\"])",
+              "integrity": "sha256-MgMIzhjDWVZJSHVPUXSN5BzwKk5+3wz0eoBbnThhDxY="
+            }
+          },
+          "com_github_protocolbuffers_protobuf_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_aarch64_linux",
+              "url": "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-aarch_64.zip",
+              "build_file_content": "exports_files([\"bin/protoc\"])",
+              "integrity": "sha256-mZdajBG4PNZcPhFRrhcUv5WavAUhrLZZv3IFJCdqsMg="
+            }
+          },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -1619,6 +1697,16 @@
               "integrity": "sha256-ZKcjzAiohWlQXFa2pAvIk9+xKGnbQOpx3E0anmScSq0=",
               "executable": true,
               "downloaded_file_path": "protoc-gen-grpc-gateway"
+            }
+          },
+          "com_github_protocolbuffers_protobuf_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_x86_64_linux",
+              "url": "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-x86_64.zip",
+              "build_file_content": "exports_files([\"bin/protoc\"])",
+              "integrity": "sha256-7Y/Kh6EciI/tMp1qWcNMfUNhZfZiosh1JG3bGsK23VA="
             }
           },
           "org_uber_go_gopatch_x86_64_linux": {
@@ -1911,6 +1999,33 @@
         }
       }
     },
+    "@@bazel_tools//tools/android:android_extensions.bzl%remote_android_tools_extensions": {
+      "general": {
+        "bzlTransitiveDigest": "iz3RFYDcsjupaT10sdSPAhA44WL3eDYkTEnYThllj1w=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "android_tools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "bazel_tools~remote_android_tools_extensions~android_tools",
+              "sha256": "2b661a761a735b41c41b3a78089f4fc1982626c76ddb944604ae3ff8c545d3c2",
+              "url": "https://mirror.bazel.build/bazel_android_tools/android_tools_pkg-0.30.0.tar"
+            }
+          },
+          "android_gmaven_r8": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_jar",
+            "attributes": {
+              "name": "bazel_tools~remote_android_tools_extensions~android_gmaven_r8",
+              "sha256": "57a696749695a09381a87bc2f08c3a8ed06a717a5caa3ef878a3077e0d3af19d",
+              "url": "https://maven.google.com/com/android/tools/r8/8.1.56/r8-8.1.56.jar"
+            }
+          }
+        }
+      }
+    },
     "@@bazel_tools//tools/cpp:cc_configure.bzl%cc_configure_extension": {
       "general": {
         "bzlTransitiveDigest": "O9sf6ilKWU9Veed02jG9o2HM/xgV/UAyciuFBuxrFRY=",
@@ -1963,6 +2078,26 @@
             "ruleClassName": "sh_config",
             "attributes": {
               "name": "bazel_tools~sh_configure_extension~local_config_sh"
+            }
+          }
+        }
+      }
+    },
+    "@@bazel_tools//tools/test:extensions.bzl%remote_coverage_tools_extension": {
+      "general": {
+        "bzlTransitiveDigest": "cizrA62cv8WUgb0cCmx5B6PRijtr/I4TAWxg/4caNGU=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "remote_coverage_tools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "bazel_tools~remote_coverage_tools_extension~remote_coverage_tools",
+              "sha256": "7006375f6756819b7013ca875eab70a541cf7d89142d9c511ed78ea4fefa38af",
+              "urls": [
+                "https://mirror.bazel.build/bazel_coverage_output_generator/releases/coverage_output_generator-v2.6.zip"
+              ]
             }
           }
         }
@@ -6082,13 +6217,15 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~com_github_envoyproxy_protoc_gen_validate",
               "importpath": "github.com/envoyproxy/protoc-gen-validate",
-              "build_directives": [
-                "gazelle:build_file_name BUILD.bazel"
-              ],
-              "build_file_generation": "on",
+              "build_directives": [],
+              "build_file_generation": "off",
               "build_extra_args": [],
-              "patches": [],
-              "patch_args": [],
+              "patches": [
+                "@@//private:protoc-gen-validate.patch"
+              ],
+              "patch_args": [
+                "-p1"
+              ],
               "sum": "h1:QkIBuU5k+x7/QXPvPPnWXWlCdaBFApVqftFV6k087DA=",
               "replace": "",
               "version": "v1.0.2"
@@ -6842,7 +6979,9 @@
             "attributes": {
               "name": "gazelle~0.34.0~go_deps~com_github_chrusty_protoc_gen_jsonschema",
               "importpath": "github.com/chrusty/protoc-gen-jsonschema",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
@@ -8461,6 +8600,32 @@
         }
       }
     },
+    "@@jsonnet~0.20.0//tools/build_defs:extensions.bzl%build_defs": {
+      "general": {
+        "bzlTransitiveDigest": "Uw8fJJlY1Gz/lYapaKLezYG6LVcGImvXgdeHYJgkxNo=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "io_bazel_rules_jsonnet": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:git.bzl",
+            "ruleClassName": "git_repository",
+            "attributes": {
+              "name": "jsonnet~0.20.0~build_defs~io_bazel_rules_jsonnet",
+              "commit": "ad2b4204157ddcf7919e8bd210f607f8a801aa7f",
+              "remote": "https://github.com/bazelbuild/rules_jsonnet.git",
+              "shallow_since": "1556260764 +0200"
+            }
+          },
+          "default_python3_headers": {
+            "bzlFile": "@@jsonnet~0.20.0//tools/build_defs:python_repo.bzl",
+            "ruleClassName": "python_headers",
+            "attributes": {
+              "name": "jsonnet~0.20.0~build_defs~default_python3_headers"
+            }
+          }
+        }
+      }
+    },
     "@@rules_go~0.43.0//go:extensions.bzl%go_sdk": {
       "os:linux,arch:amd64": {
         "bzlTransitiveDigest": "X7FY+0kUDFpsa3ulS9IPEJAqEW8vwFdmD7u4epims+M=",
@@ -9384,6 +9549,81 @@
             "attributes": {
               "name": "rules_java~7.1.0~toolchains~remotejdk21_win_toolchain_config_repo",
               "build_file": "\nconfig_setting(\n    name = \"prefix_version_setting\",\n    values = {\"java_runtime_version\": \"remotejdk_21\"},\n    visibility = [\"//visibility:private\"],\n)\nconfig_setting(\n    name = \"version_setting\",\n    values = {\"java_runtime_version\": \"21\"},\n    visibility = [\"//visibility:private\"],\n)\nalias(\n    name = \"version_or_prefix_version_setting\",\n    actual = select({\n        \":version_setting\": \":version_setting\",\n        \"//conditions:default\": \":prefix_version_setting\",\n    }),\n    visibility = [\"//visibility:private\"],\n)\ntoolchain(\n    name = \"toolchain\",\n    target_compatible_with = [\"@platforms//os:windows\", \"@platforms//cpu:x86_64\"],\n    target_settings = [\":version_or_prefix_version_setting\"],\n    toolchain_type = \"@bazel_tools//tools/jdk:runtime_toolchain_type\",\n    toolchain = \"@remotejdk21_win//:jdk\",\n)\ntoolchain(\n    name = \"bootstrap_runtime_toolchain\",\n    # These constraints are not required for correctness, but prevent fetches of remote JDK for\n    # different architectures. As every Java compilation toolchain depends on a bootstrap runtime in\n    # the same configuration, this constraint will not result in toolchain resolution failures.\n    exec_compatible_with = [\"@platforms//os:windows\", \"@platforms//cpu:x86_64\"],\n    target_settings = [\":version_or_prefix_version_setting\"],\n    toolchain_type = \"@bazel_tools//tools/jdk:bootstrap_runtime_toolchain_type\",\n    toolchain = \"@remotejdk21_win//:jdk\",\n)\n"
+            }
+          }
+        }
+      }
+    },
+    "@@rules_python~0.4.0//bzlmod:extensions.bzl%pip_install": {
+      "general": {
+        "bzlTransitiveDigest": "rTru6D/C8vlaQDk4HOKyx4U/l6PCnj3Aq/gLraAqHgQ=",
+        "accumulatedFileDigests": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "pypi__pkginfo": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__pkginfo",
+              "url": "https://files.pythonhosted.org/packages/77/83/1ef010f7c4563e218854809c0dff9548de65ebec930921dedf6ee5981f27/pkginfo-1.7.1-py2.py3-none-any.whl",
+              "sha256": "37ecd857b47e5f55949c41ed061eb51a0bee97a87c969219d144c0e023982779",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "pypi__wheel": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__wheel",
+              "url": "https://files.pythonhosted.org/packages/65/63/39d04c74222770ed1589c0eaba06c05891801219272420b40311cd60c880/wheel-0.36.2-py2.py3-none-any.whl",
+              "sha256": "78b5b185f0e5763c26ca1e324373aadd49182ca90e825f7853f4b2509215dc0e",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "pypi__click": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__click",
+              "url": "https://files.pythonhosted.org/packages/76/0a/b6c5f311e32aeb3b406e03c079ade51e905ea630fc19d1262a46249c1c86/click-8.0.1-py3-none-any.whl",
+              "sha256": "fba402a4a47334742d782209a7c79bc448911afe1149d07bdabdf480b3e2f4b6",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "pypi__pip": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__pip",
+              "url": "https://files.pythonhosted.org/packages/47/ca/f0d790b6e18b3a6f3bd5e80c2ee4edbb5807286c21cdd0862ca933f751dd/pip-21.1.3-py3-none-any.whl",
+              "sha256": "78cb760711fedc073246543801c84dc5377affead832e103ad0211f99303a204",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "pypi__pip_tools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__pip_tools",
+              "url": "https://files.pythonhosted.org/packages/6d/16/75d65bdccd48bb59a08e2bf167b01d8532f65604270d0a292f0f16b7b022/pip_tools-5.5.0-py2.py3-none-any.whl",
+              "sha256": "10841c1e56c234d610d0466447685b9ea4ee4a2c274f858c0ef3c33d9bd0d985",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "pypi__setuptools": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "rules_python~0.4.0~pip_install~pypi__setuptools",
+              "url": "https://files.pythonhosted.org/packages/a2/e1/902fbc2f61ad6243cd3d57ffa195a9eb123021ec912ec5d811acf54a39f8/setuptools-57.1.0-py3-none-any.whl",
+              "sha256": "ddae4c1b9220daf1e32ba9d4e3714df6019c5b583755559be84ff8199f7e1fe3",
+              "type": "zip",
+              "build_file_content": "package(default_visibility = [\"//visibility:public\"])\n\nload(\"@rules_python//python:defs.bzl\", \"py_library\")\n\npy_library(\n    name = \"lib\",\n    srcs = glob([\"**/*.py\"]),\n    data = glob([\"**/*\"], exclude=[\"**/*.py\", \"**/* *\", \"BUILD\", \"WORKSPACE\"]),\n    # This makes this directory a top-level in the python import\n    # search path for anything that depends on this.\n    imports = [\".\"],\n)\n"
             }
           }
         }

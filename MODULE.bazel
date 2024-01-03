@@ -54,6 +54,23 @@ go_deps.gazelle_override(
     ],
     path = "github.com/determined-ai/determined/proto",
 )
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        "//private:protoc-gen-validate.patch",
+    ],
+    path = "github.com/envoyproxy/protoc-gen-validate",
+)
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "github.com/envoyproxy/protoc-gen-validate",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/chrusty/protoc-gen-jsonschema",
+)
 
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.
@@ -246,10 +263,14 @@ use_repo(
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+    "com_github_protocolbuffers_protobuf_aarch64_linux",
+    "com_github_protocolbuffers_protobuf_aarch64_macos",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
+    "com_github_protocolbuffers_protobuf_x86_64_linux",
+    "com_github_protocolbuffers_protobuf_x86_64_macos",
     "com_github_pseudomuto_protoc_gen_doc_aarch64_linux",
     "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",

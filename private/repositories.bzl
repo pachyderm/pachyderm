@@ -201,3 +201,30 @@ def etc_proto_deps():
         build_file_content = gopatch_build_file_content,
         sha256 = "2bb3914dbf273581c34e0db0913bd99f10cbbe622849ee0d8a460dbd03f27348",
     )
+
+    # protoc binaries
+    protoc_build_file_content = """exports_files(["bin/protoc"])"""
+    http_archive(
+        name = "com_github_protocolbuffers_protobuf_x86_64_linux",
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-x86_64.zip",
+        build_file_content = protoc_build_file_content,
+        integrity = "sha256-7Y/Kh6EciI/tMp1qWcNMfUNhZfZiosh1JG3bGsK23VA=",
+    )
+    http_archive(
+        name = "com_github_protocolbuffers_protobuf_aarch64_linux",
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-linux-aarch_64.zip",
+        build_file_content = protoc_build_file_content,
+        integrity = "sha256-mZdajBG4PNZcPhFRrhcUv5WavAUhrLZZv3IFJCdqsMg=",
+    )
+    http_archive(
+        name = "com_github_protocolbuffers_protobuf_x86_64_macos",
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-osx-x86_64.zip",
+        build_file_content = protoc_build_file_content,
+        integrity = "sha256-csbWsryFX/hojDt/sxKIzK/Qq1Ulb/g4LVcR7PzBH08=",
+    )
+    http_archive(
+        name = "com_github_protocolbuffers_protobuf_aarch64_macos",
+        url = "https://github.com/protocolbuffers/protobuf/releases/download/v25.1/protoc-25.1-osx-aarch_64.zip",
+        build_file_content = protoc_build_file_content,
+        integrity = "sha256-MgMIzhjDWVZJSHVPUXSN5BzwKk5+3wz0eoBbnThhDxY=",
+    )
