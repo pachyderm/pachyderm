@@ -98,12 +98,6 @@ dialect of Starlark (raw Starlark, BUILD.bazel, WORKSPACE, etc.), so your editor
 
 If you'd like to invoke the version of Go used for proto generation, run `bazel run //:go`.
 
-If the build prints something like "The following buildozer command can fix this...", use
-`bazel run //:buildozer` to invoke
-[buildozer](https://github.com/bazelbuild/buildtools/blob/master/buildozer/README.md).
-
-# If you somehow find yourself responsible for bazelifying the repo, `bazel run //:gazelle` will run [Gazelle](https://github.com/bazelbuild/bazel-gazelle).
-
 ### Buildozer
 
 If the build prints something like **You can use the following buildozer command to fix these
@@ -121,7 +115,7 @@ To run pachctl, `bazel run //:pachctl`. You can also build the binary and copy i
 like. After `bazel run //:pachctl` or `bazel build //:pachctl`, it will be in
 `bazel-bin/src/server/cmd/pachctl/pachctl_/pachctl`.
 
-This version of pachctl has the current version number, based on `workspace_status.sh` baked into
+This version of pachctl has the current version number, based on `workspace_status.sh`, baked into
 it. Thus, `pachctl version` on the binary will lead you to the exact code it was built with!
 
 ## Hints
