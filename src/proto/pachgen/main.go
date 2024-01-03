@@ -7,8 +7,8 @@ import (
 	"os"
 	"sort"
 
-	descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor"
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"
+	descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor" //nolint:depguard
+	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"         //nolint:depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/descriptorpb"
 	"google.golang.org/protobuf/types/pluginpb"
