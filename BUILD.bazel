@@ -62,6 +62,7 @@ buildifier(
 # //:buildifier" to auto-fix them.
 buildifier_test(
     name = "buildifier_test",
+    size = "small",
     exclude_patterns = [
         "./.git/*",
     ],
