@@ -91,6 +91,24 @@ go_deps.gazelle_override(
     ],
     path = "github.com/docker/docker",
 )
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/grpc-ecosystem/go-grpc-middleware",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/opentracing/basictracer-go",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "sourcegraph.com/sourcegraph/appdash",
+)
 
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.

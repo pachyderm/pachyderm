@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "49de7100eb44128e525b5e7956e7dc1a7f1c3520b6f234f2eb0c3d2481df50b9",
+  "moduleFileHash": "a6022759a4ff821952705f562dd222f073e6c263cb6f9380257938cadd02a91e",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -372,6 +372,51 @@
               }
             },
             {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "github.com/grpc-ecosystem/go-grpc-middleware"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 94,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "github.com/opentracing/basictracer-go"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 100,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "directives": [
+                  "gazelle:proto disable_global"
+                ],
+                "path": "sourcegraph.com/sourcegraph/appdash"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 106,
+                "column": 25
+              }
+            },
+            {
               "tagName": "module",
               "attributeValues": {
                 "path": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
@@ -381,7 +426,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 97,
+                "line": 115,
                 "column": 15
               }
             },
@@ -395,7 +440,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 109,
+                "line": 127,
                 "column": 15
               }
             },
@@ -409,7 +454,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 114,
+                "line": 132,
                 "column": 15
               }
             },
@@ -423,7 +468,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 119,
+                "line": 137,
                 "column": 15
               }
             },
@@ -437,7 +482,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 124,
+                "line": 142,
                 "column": 15
               }
             },
@@ -451,7 +496,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 129,
+                "line": 147,
                 "column": 15
               }
             },
@@ -465,7 +510,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 134,
+                "line": 152,
                 "column": 15
               }
             }
@@ -479,7 +524,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 265,
+            "line": 283,
             "column": 32
           },
           "imports": {
@@ -529,7 +574,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 306,
+            "line": 324,
             "column": 20
           },
           "imports": {
@@ -551,7 +596,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 307,
+                "line": 325,
                 "column": 9
               }
             }
@@ -4639,7 +4684,9 @@
             "attributes": {
               "name": "gazelle~0.35.0~go_deps~com_github_opentracing_basictracer_go",
               "importpath": "github.com/opentracing/basictracer-go",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
@@ -4737,7 +4784,9 @@
             "attributes": {
               "name": "gazelle~0.35.0~go_deps~com_sourcegraph_sourcegraph_appdash",
               "importpath": "sourcegraph.com/sourcegraph/appdash",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],
@@ -4785,7 +4834,9 @@
             "attributes": {
               "name": "gazelle~0.35.0~go_deps~com_github_grpc_ecosystem_go_grpc_middleware",
               "importpath": "github.com/grpc-ecosystem/go-grpc-middleware",
-              "build_directives": [],
+              "build_directives": [
+                "gazelle:proto disable_global"
+              ],
               "build_file_generation": "auto",
               "build_extra_args": [],
               "patches": [],

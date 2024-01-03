@@ -8,6 +8,7 @@ go_test(
         "rpc_fuzz_test.go",
     ],
     data = glob(["testdata/**"]),
+    pure = "on",
     deps = [
         "//src/admin",
         "//src/auth",

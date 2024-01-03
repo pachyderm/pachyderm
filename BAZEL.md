@@ -128,7 +128,32 @@ useful if you are passing flags to something you're `bazel run`ning.
 
 `bazel query 'deps("//some:target")'` will list all dependencies of `//some:target`.
 
-`bazel query 'path("//some:target", "@@some_library//:whatever")` will show a dependency chain from
-`//some:target` to `@@some_library//:whatever`.
+`bazel query 'somepath("//some:target", "@@some_library//:whatever")` will show a dependency chain
+from `//some:target` to `@@some_library//:whatever`. `allpaths` will show all the chains.
 
 `bazel query --output=build ...` will show a BUILD file representing the matched rules.
+
+### protoc
+
+Gazelle likes to regenerate the protos included with go modules. We have a lot of entries in
+`MODULE.bazel` to suppress this behavior:
+
+```starlark
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/opentracing/basictracer-go",
+)
+```
+
+To find more of these to add, do something like:
+
+    bazel query 'somepath("...", "@rules_go//proto:protoc")'
+
+To find even more, do something like:
+
+    bazel query 'rdeps("...", "@@zlib~1.3//:zutil.h")'
+
+(protoc depends on zlib, which has a file called zutil.h; this shows anything in ... that ends up
+depending on that file.)
