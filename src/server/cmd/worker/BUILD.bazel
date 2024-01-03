@@ -29,7 +29,7 @@ go_library(
         "//src/version/versionpb",
         "//src/worker",
         "@io_etcd_go_etcd_client_v3//:client",
-        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//:grpc",
     ],
 )
 
