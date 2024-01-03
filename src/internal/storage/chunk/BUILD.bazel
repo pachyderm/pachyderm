@@ -39,7 +39,7 @@ go_library(
         "//src/internal/storage/track",
         "//src/internal/stream",
         "//src/internal/taskchain",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "@com_github_chmduquesne_rollinghash//buzhash64",
         "@com_github_docker_go_units//:go-units",
         "@com_github_hashicorp_golang_lru_v2//:golang-lru",

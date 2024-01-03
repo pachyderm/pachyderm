@@ -28,7 +28,7 @@ go_library(
         "//src/internal/storage/fileset",
         "//src/internal/task",
         "//src/pfs",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//reflect/protoreflect",
         "@org_golang_google_protobuf//runtime/protoimpl",

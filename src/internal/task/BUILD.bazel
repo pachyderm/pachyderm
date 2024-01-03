@@ -23,7 +23,7 @@ go_library(
         "//src/internal/taskchain",
         "//src/internal/uuid",
         "//src/internal/watch",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "//src/task",
         "//src/version",
         "@com_github_cevaris_ordered_map//:ordered_map",

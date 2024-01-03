@@ -26,7 +26,7 @@ go_library(
         "//src/internal/uuid",
         "//src/pfs",
         "//src/pps",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "//src/server/pfs",
         "//src/version",
         "@com_github_jackc_pgerrcode//:pgerrcode",

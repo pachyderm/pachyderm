@@ -1,3 +1,4 @@
+load("@rules_go//go:def.bzl", "go_library")
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle")
 
@@ -87,4 +88,11 @@ alias(
 alias(
     name = "make_proto",
     actual = "//src/proto:run",
+)
+
+go_library(
+    name = "pachyderm",
+    srcs = ["pachyderm.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2",
+    visibility = ["//visibility:public"],
 )

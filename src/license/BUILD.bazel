@@ -14,10 +14,10 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/enterprise",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
-        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//grpclog",
         "@org_golang_google_grpc//metadata",

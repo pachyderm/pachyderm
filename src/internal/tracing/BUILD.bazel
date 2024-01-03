@@ -12,7 +12,7 @@ go_library(
         "@com_github_opentracing_opentracing_go//:opentracing-go",
         "@com_github_uber_jaeger_client_go//:jaeger-client-go",
         "@com_github_uber_jaeger_client_go//config",
-        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//:go_default_library",
         "@org_uber_go_zap//:zap",
     ],
 )

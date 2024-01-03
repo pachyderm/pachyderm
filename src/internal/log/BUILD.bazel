@@ -27,7 +27,7 @@ go_library(
     deps = [
         "//src/constants",
         "//src/internal/errors",
-        "//src/protoextensions:protoextensions_go",
+        "//src/protoextensions",
         "@com_github_adrg_xdg//:xdg",
         "@com_github_aws_aws_sdk_go//aws",
         "@com_github_fatih_color//:color",
