@@ -230,10 +230,10 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
 	// Create repo, put file with file.Path ending with '/', and verify
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
         pachctl create repo {{.repo}}
-        pachctl put file {{.repo}}@master:{{.filePath}} -f {{.fileName}}
-        pachctl get file "{{.repo}}@master:{{.filePath}}{{.baseFileName}}" \
+        pachctl put file {{.repo}}@master:{{.targetPrefix}} -f {{.fileName}}
+        pachctl get file "{{.repo}}@master:{{.targetPrefix}}{{.fileName}}" \
           | match "test data"
-    `, "repo", repoName, "targetPrefix", targetPrefix, "fileName", tmpFile.Name(), "baseFileName", filepath.Base(tmpFile.Name())).Run())
+    `, "repo", repoName, "targetPrefix", targetPrefix, "fileName", tmpFile.Name()).Run())
 }
 
 func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
