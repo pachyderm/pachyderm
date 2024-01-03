@@ -356,7 +356,7 @@ func DeleteBranch(ctx context.Context, tx *pachsql.Tx, b *BranchInfoWithID, forc
 	if !force {
 		subv, err := GetDirectBranchSubvenance(ctx, tx, b.ID)
 		if err != nil {
-			return errors.Wrapf(err, "collect direct subvenance of branch %d", b.BranchInfo.Branch)
+			return errors.Wrapf(err, "collect direct subvenance of branch %q", b.BranchInfo.Branch)
 		}
 		if len(subv) > 0 {
 			return errors.Errorf(
@@ -366,6 +366,9 @@ func DeleteBranch(ctx context.Context, tx *pachsql.Tx, b *BranchInfoWithID, forc
 		}
 		var triggered, triggering []*pfs.Branch
 		triggered, triggering, err = GetTriggerBranches(ctx, tx, b.ID)
+		if err != nil {
+			return errors.Wrapf(err, "collect triggering and triggered by branches for branch %q", b.BranchInfo.Branch)
+		}
 		if len(triggered) > 0 || len(triggering) > 0 {
 			// query branch triggers as well
 			return errors.Errorf(
