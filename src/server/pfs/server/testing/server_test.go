@@ -6447,7 +6447,7 @@ OpLoop:
 			branch := inputBranches[i]
 			err = env.PachClient.DeleteBranch(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, false)
 			// don't fail if the error was just that it couldn't delete the branch without breaking subvenance
-			if err != nil && !strings.Contains(err.Error(), `delete on table "branches" violates foreign key constraint "branch_provenance_to_id_fkey" on table "branch_provenance`) {
+			if err != nil && !strings.Contains(err.Error(), fmt.Sprintf("branch %q cannot be deleted because it's in the direct provenance of", branch)) {
 				require.NoError(t, err)
 			}
 			inputBranches = append(inputBranches[:i], inputBranches[i+1:]...)
