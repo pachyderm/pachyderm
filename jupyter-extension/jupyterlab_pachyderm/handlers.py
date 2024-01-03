@@ -9,6 +9,7 @@ from pathlib import Path
 import tornado
 import traceback
 
+from .env import PACHD_ADDRESS, DEX_TOKEN
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient
@@ -477,16 +478,27 @@ class TestDownloadHandler(BaseHandler):
 
 
 def setup_handlers(web_app):
+    """
+    Sets up the Pachyderm client and the HTTP request handler.
+
+    Config for the Pachyderm client will first be attempted by reading
+    the local config file. This falls back to the PACHD_ADDRESS and
+    DEX_TOKEN env vars, and finally defaulting to a localhost client
+    on the default port 30650 failing that.
+    """
     try:
         client = Client().from_config()
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        client = Client()
-        get_logger().debug(
-            "Could not find config file, creating localhost Pachyderm client"
-        )
+        if PACHD_ADDRESS:
+            client = Client().from_pachd_address(pachd_address=PACHD_ADDRESS, auth_token=DEX_TOKEN)
+        else:
+            client = Client()
+            get_logger().debug(
+                "Could not find config file, creating localhost Pachyderm client"
+            )
 
     web_app.settings["pachyderm_client"] = client
     web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
