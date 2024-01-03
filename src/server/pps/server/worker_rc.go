@@ -222,7 +222,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		},
 		{
 			Name:  "PROMETHEUS_PORT",
-			Value: strconv.FormatInt(workerstats.PrometheusPort+1, 10),
+			Value: strconv.FormatInt(workerstats.SidecarPrometheusPort, 10),
 		},
 	}
 
