@@ -31,10 +31,13 @@ Once Bazelisk is installed, it will fetch the version of Bazel specified in the 
 automatically update the next time you run a Bazel command. You shouldn't need to ever update
 Bazelisk, but feel free of course.
 
+Note: you will need a C++ compiler installed. `apt install build-essential` on Debian, or do the
+xcode dance on Mac OS. The C++ compiler is used to build some internal Bazel tools.
+
 ### Setup at Pachyderm
 
-If you'd like to use the shared cache, join the Buildbuddy organization by logging in with your
-pachyderm.io Google account:
+If you'd like to use the shared build cache, join the Buildbuddy organization by logging in with
+your pachyderm.io Google account:
 
 https://pachyderm.buildbuddy.io/join/
 
@@ -74,3 +77,10 @@ If you somehow find yourself responsible for bazelifying the repo, `bazel run //
 
 `bazel run //target -- ...` prevents `...` from being interpreted as an argument to Bazel, which is
 useful if you are passing flags to something you're `bazel run`ning.
+
+`bazel query 'deps("//some:target")'` will list all dependencies of `//some:target`.
+
+`bazel query 'path("//some:target", "@@some_library//:whatever")` will show a dependency chain from
+`//some:target` to `@@some_library//:whatever`.
+
+`bazel query --output=build ...` will show a BUILD file representing the matched rules.
