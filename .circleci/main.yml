@@ -1603,6 +1603,8 @@ jobs:
       - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
       - run: git diff --exit-code
       - run: bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
+      - store_test_results:
+          path: "bazel-testlogs/"
 
 workflows:
   functional-tests:
