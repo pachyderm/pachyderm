@@ -5,12 +5,12 @@ building everything here with [Bazel](https://bazel.build/), so that day 1 setup
 so that test tooling can be shared between languages.
 
 Right now, only proto generation requires Bazel. In the future, everything will be possible to work
-on with normal Go tools, but it will also be possible to use Bazel for those use cases. It is likely
-that most Pachyderm-specific development tasks, like deploying a dev environment and syncing your
-code changes to it, will require Bazel. We'll probably also use it for CI, because of the test
-result caching. But, because people depend on `github.com/pachyderm/pachyderm/v2` with "go get", we
-can never fully convert to only using Bazel as the build system. Rather, we will use both Bazel and
-go.mod for the foreseeable future. Hence, we check in all of our generated code.
+on with normal Go tools, but it will also be possible to use Bazel. It is likely that most
+Pachyderm-specific development tasks, like deploying a dev environment and syncing your code changes
+to it, will require Bazel. We'll probably also use it for CI, because of the test result caching.
+But, because people depend on `github.com/pachyderm/pachyderm/v2` with "go get", we can never fully
+convert to only using Bazel as the build system. Rather, we will use both Bazel and go.mod for the
+foreseeable future. Hence, we check in all of our generated code.
 
 Additionally, the relase process will also use `goreleaser` for a short while.
 
@@ -33,7 +33,7 @@ Bazelisk, but feel free of course.
 
 ### Setup at Pachyderm
 
-If you'd like to use the shared cache, join the Buildbuddy organizatio by logging in with your
+If you'd like to use the shared cache, join the Buildbuddy organization by logging in with your
 pachyderm.io Google account:
 
 https://pachyderm.buildbuddy.io/join/
