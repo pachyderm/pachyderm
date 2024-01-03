@@ -462,7 +462,7 @@ func (d *driver) deleteRepoInfo(ctx context.Context, txnCtx *txncontext.Transact
 	// against certain corruption situations where the RepoInfo doesn't
 	// exist in postgres but branches do.
 	err = pfsdb.ForEachBranch(ctx, txnCtx.SqlTx, &pfs.Branch{Repo: ri.Repo}, func(branchInfoWithID pfsdb.BranchInfoWithID) error {
-		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
+		return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, &branchInfoWithID, force)
 	}, pfsdb.OrderByBranchColumn{Column: pfsdb.BranchColumnID, Order: pfsdb.SortOrderAsc})
 	if err != nil {
 		return errors.Wrap(err, "delete repo info")
@@ -1981,7 +1981,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	if err != nil {
 		return errors.Wrapf(err, "get branch %q", branch.Key())
 	}
-	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID.ID, force)
+	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID, force)
 }
 
 func (d *driver) deleteAll(ctx context.Context) error {
