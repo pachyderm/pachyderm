@@ -13,7 +13,7 @@ fileExistenceTests:
       shouldExist: true
       isExecutableBy: "any"
     - name: "dumb_init"
-      path: "/app/dumb-init-amd64"
+      path: "/app/dumb-init"
       shouldExist: true
       isExecutableBy: "any"
     - name: "our_license"

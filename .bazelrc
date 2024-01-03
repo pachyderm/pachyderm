@@ -10,3 +10,8 @@ build --experimental_remote_cache_compression
 build --remote_build_event_upload=minimal
 build --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
 build --nolegacy_important_outputs
+build --stamp
+build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote,OCIImage=+no-remote
+
+test --test_env=ENT_ACT_CODE
+test:race --test_env=ENT_ACT_CODE --@rules_go//go/config:race

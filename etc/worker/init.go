@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime"
 )
 
 func cp(src, dst string) error {
@@ -52,8 +51,8 @@ func main() {
 			panic(err)
 		}
 	}
-	// Copy over the correct variant of dumb-init.
-	if err := cp(fmt.Sprintf("/app/dumb-init-%s", runtime.GOARCH), "/pach-bin/dumb-init"); err != nil {
+	// Copy over dumb-init.
+	if err := cp("/app/dumb-init", "/pach-bin/dumb-init"); err != nil {
 		panic(err)
 	}
 }

@@ -1,3 +1,4 @@
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
 load("@container_structure_test//:defs.bzl", "container_structure_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 load("@rules_pkg//pkg:mappings.bzl", "pkg_files")
@@ -46,7 +47,7 @@ pkg_tar(
 )
 
 oci_image(
-    name = "pachd_image",
+    name = "pachd_host_image",
     base = "@distroless",
     entrypoint = ["/pachd"],
     tars = [
@@ -56,8 +57,18 @@ oci_image(
     ],
 )
 
+platform_transition_filegroup(
+    name = "pachd_image",
+    srcs = [":pachd_host_image"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 container_structure_test(
     name = "pachd_image_test",
+    size = "small",
     configs = ["pachd_image_test.yaml"],
     image = ":pachd_image",
 )
@@ -79,7 +90,7 @@ pkg_tar(
 )
 
 oci_image(
-    name = "pachctl_image",
+    name = "pachctl_host_image",
     base = "@distroless",
     entrypoint = ["/usr/local/bin/pachctl"],
     tars = [
@@ -88,8 +99,18 @@ oci_image(
     ],
 )
 
+platform_transition_filegroup(
+    name = "pachctl_image",
+    srcs = [":pachctl_host_image"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 container_structure_test(
     name = "pachctl_image_test",
+    size = "small",
     configs = ["pachctl_image_test.yaml"],
     image = ":pachctl_image",
 )
@@ -113,8 +134,8 @@ pkg_tar(
 pkg_tar(
     name = "dumb_init_tar",
     srcs = select({
-        "//:is_x86_64_linux": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init-amd64"],
-        "//:is_aarch64_linux": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init-arm64"],
+        "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
+        "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
     }),
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
@@ -122,7 +143,7 @@ pkg_tar(
 )
 
 oci_image(
-    name = "worker_image",
+    name = "worker_host_image",
     base = "@distroless",
     entrypoint = ["/app/init"],
     tars = [
@@ -134,8 +155,18 @@ oci_image(
     ],
 )
 
+platform_transition_filegroup(
+    name = "worker_image",
+    srcs = [":worker_host_image"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 container_structure_test(
     name = "worker_image_test",
+    size = "small",
     configs = ["worker_image_test.yaml"],
     image = ":worker_image",
 )

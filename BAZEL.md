@@ -52,15 +52,11 @@ work-inappropriate, maybe fix that before you add your key!
 
 ## Use
 
-=======
-
 ## Regenerating protos
 
 Right now, `make proto` calls out to `bazel run //:make_proto` to generate the Go protos. When you
 run `make proto`, you're getting your first taste of Bazel. CI checks that you remembered to run
 this after editing protos.
-
-=======
 
 ## Managing dependencies
 
@@ -70,13 +66,20 @@ remove dependencies, run `bazel run //:go mod tidy` to update go.mod and go.sum,
 `bazel run :buildifier` to format the BUILD files. Sometimes the `buildozer` commands suggested by
 Gazelle lead to lint errors; buildifier will auto-fix them for you.
 
-Tests ensure you did all of this correctly. CI runs them and you can run them locally.
-TODO(jrockway): List these.
+The `bazel-style-tests` in CircleCI ensure you did all of this correctly.
 
 ## Run Go
 
 If you'd like to invoke the version of Go used internally, run `bazel run //:go`. For example
 `bazel run //:go mod tidy` will tidy go.mod and go.sum (which Bazel uses to load dependencies).
+
+## Build containers
+
+The containers are defined in the `oci/` directory. `bazel build //oci:pachd_image`, for example,
+will build a container image compiled for linux on your host machine's architecture. You can copy
+this into a registry to pull with `skopeo copy oci:bazel-bin/oci/pachd_image ...`.
+
+Very soon, pushing to a dev environment will be automated.
 
 ## Tools
 
