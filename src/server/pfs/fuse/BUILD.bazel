@@ -49,6 +49,7 @@ go_test(
         "fuse_test.go",
         "helpers_test.go",
         "server_test.go",
+        "util_test.go",
     ],
     embed = [":fuse"],
     deps = [

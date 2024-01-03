@@ -3,6 +3,7 @@ load("@rules_go//go:def.bzl", "go_test")
 go_test(
     name = "server_test",
     srcs = [
+        "pachd_restgateway_test.go",
         "pachyderm_validation_test.go",
         "rpc_fuzz_test.go",
     ],
@@ -15,6 +16,7 @@ go_test(
         "//src/identity",
         "//src/internal/client",
         "//src/internal/dockertestenv",
+        "//src/internal/log",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testpachd/realenv",
@@ -23,6 +25,7 @@ go_test(
         "//src/pfs",
         "//src/pps",
         "//src/proxy",
+        "//src/server/http",
         "//src/transaction",
         "//src/version/versionpb",
         "//src/worker",
