@@ -60,7 +60,7 @@ class TestConfig:
         with open(config_path, "w") as config_file:
             config_file.write(TEST_CONFIG)
 
-        config = ConfigFile.from_file(config_path)
+        config = ConfigFile.from_path(config_path)
         context = config.active_context
         assert config.user_id == "some_user"
         assert context.session_token == "token"
@@ -81,7 +81,7 @@ class TestConfig:
         original_path = tmp_path / "config.json"
         with open(original_path, "w") as config_file:
             config_file.write(TEST_CONFIG)
-        original_config = ConfigFile.from_file(original_path)
+        original_config = ConfigFile.from_path(original_path)
 
         # Act
         new_path = tmp_path / "new_config.json"
