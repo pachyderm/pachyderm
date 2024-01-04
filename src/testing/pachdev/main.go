@@ -102,6 +102,56 @@ func getImagesCmd() *cobra.Command {
 	}
 }
 
+func getValuesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "print values",
+		Short: "List all helm values that this tool uses when deploying a Pachyderm test cluster with the Pachyderm helm chart",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			op, err := NewDeployOp(verbose)
+			if err != nil {
+				return err
+			}
+			defer op.Cancel()
+			images, err := op.getImages()
+			if err != nil {
+				return err
+			}
+			for _, i := range images {
+				fmt.Printf("%v\n", i)
+			}
+			return nil
+		},
+	}
+}
+
+func getOldValuesCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "print old values",
+		Short: "List all helm values that this tool uses when deploying a Pachyderm test cluster with the Pachyderm helm chart",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			op, err := NewDeployOp(verbose)
+			if err != nil {
+				return err
+			}
+			defer op.Cancel()
+			images, err := op.GetValues(&DeployOpts{
+				Namespace: "pachyderm"
+				Enterprise: true,
+				Console: true,
+				AuthUser: "authuser",
+
+			})
+			if err != nil {
+				return err
+			}
+			for _, i := range images {
+				fmt.Printf("%v\n", i)
+			}
+			return nil
+		},
+	}
+}
+
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "pachdev",

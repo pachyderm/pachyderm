@@ -1,6 +1,6 @@
 //go:build k8s
 
-package main
+package deploy_test
 
 import (
 	"bytes"

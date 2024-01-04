@@ -41,46 +41,29 @@ const KindTestClusterName = "pachyderm-test"
 // - include mount-server image in build?
 // -
 
-// deployOp represents a single deployment operation. The variables in this
-// struct, consequently, fall into two categories:
-//  1. Parameters that are set by the user (e.g. pachVersion, kubeVersion)
-//  2. Intermediate (or cached) results calculated by the program (e.g. k8sManifest)
-//
-// Note that 'err' is a special case of (2), as if it is set, it means that the
-// overall operation failed, and other intermdiate results are unset or invalid.
-type deployOp struct {
-	//////////////////////////////
-	//// User-Provided Fields ////
-	//////////////////////////////
-
-	// pachVersion specifies, approximately, the version of pachyderm that should
+type DeploymentOptions struct {
+	// PachVersion specifies, approximately, the version of pachyderm that should
 	// be deployed.  This can be a tag or docker image sha (which will be pulled
 	// if it doesn't exist locally, and then pushed), or it can be any of the
 	// special strings:
 	// - "latest" (which uses the most recent minor release of Pachyderm),
 	// - "nightly" (which uses the most recently nightly release of Pachyderm), or
 	// - "local" (which uses the special tag ":local").
-	pachVersion string
-	// objectStorage specifies the type of object storage to use. This can be "minio" or "local"
-	objectStorage string
+	PachVersion string
 
-	//////////////////////////////
-	//// Intermediate Results ////
-	//////////////////////////////
+	// ObjectStorage specifies the type of object storage to use. This can be "minio" or "local"
+	ObjectStorage string
+}
 
-	// ctx is the context associated with the overall restart operation. It's
-	// used in 'pachClient' and 'kubeClient' below, as well as other operations
-	// that require a context.
-	//
-	// This is set lazily by the Ctx() accessor, so that it can be left undefined
-	// when not useful (such as printing out a manifest). Therefore it should
-	// always be accessed via the Ctx() accessor.
-	ctx context.Context
-
-	// cancel is the cancel function associated with 'ctx' above. It likewise
-	// is set lazily by op.Ctx(), and should only be called via op.Cancel(), in
-	// case it was never initialized.
-	cancel func()
+// DeployOperation represents a single deployment operation. The variables in this
+// struct, consequently, fall into two categories:
+//  1. Parameters that are set by the user (e.g. pachVersion, kubeVersion)
+//  2. Intermediate (or cached) results calculated by the program (e.g. k8sManifest)
+//
+// Note that 'err' is a special case of (2), as if it is set, it means that the
+// overall operation failed, and other intermdiate results are unset or invalid.
+type DeployOperation struct {
+	opts *DeploymentOptions
 
 	// pachClient is a pre-initialized client for pachd, to be shared across
 	// various subtasks. Like ctx, kubeClient and others, this is initialized
@@ -90,6 +73,10 @@ type deployOp struct {
 	// require it, such as printing out a manifest, allowing those operations to
 	// be run even in the absence of a kube/pach cluster.)
 	pachClient *client.APIClient
+
+	// pachAddress is closely related to pachClient above (and has a corresponding
+	// accessor, PachAddress()).
+	pachAddress string
 
 	// kubeClient is a pre-initialized client for Kubernetes, to be shared across
 	// various subtasks. Like ctx, pachClient, and others, this is initialized
@@ -131,7 +118,7 @@ type deployOp struct {
 }
 
 // Option is the type of optional values passed to NewDeployOp
-type Option func(*deployOp) error
+type Option func(*DeployOperation) error
 
 // WithPachVersion is an option for NewDeployOp that sets the version of the
 // Pachyderm instance that will be deployed. The argument can be any released
@@ -143,8 +130,8 @@ type Option func(*deployOp) error
 //   - nightly (indicating that the most recent nightly release of Pachyderm
 //     should be deployed)
 func WithPachVersion(v string) Option {
-	return func(op *deployOp) error {
-		op.pachVersion = v
+	return func(op *DeployOperation) error {
+		op.PachVersion = v
 		return nil
 	}
 }
@@ -152,19 +139,22 @@ func WithPachVersion(v string) Option {
 func WithObjectStorage(v string) Option {
 	// WithPachVersion is an option for NewDeployOp that sets the version of the
 	// Pachyderm instance that will be deployed.
-	return func(op *deployOp) error {
-		op.pachVersion = v
+	return func(op *DeployOperation) error {
+		op.PachVersion = v
 		return nil
 	}
 }
 
-func NewDeployOp(verbose bool, opts ...Option) (*deployOp, error) {
-	result := &deployOp{
-		pachVersion:   "local",
-		objectStorage: "minio",
+func NewDeployOperation(verbose bool, opts ...Option) (*DeployOperation, error) {
+	result := &DeployOperation{
+		opts: &DeploymentOpts{
+			PachVersion:   "local",
+			ObjectStorage: "minio",
+		},
 	}
+
 	for _, op := range opts {
-		if err := op(result); err != nil {
+		if err := op(result.opts); err != nil {
 			return nil, err
 		}
 	}
@@ -172,26 +162,10 @@ func NewDeployOp(verbose bool, opts ...Option) (*deployOp, error) {
 	return result, nil
 }
 
-// ctx and cancel are captured by result.Ctx(), and will not be initialized
-// if that is never called
-func (op *deployOp) Ctx() context.Context {
-	if op.ctx != nil {
-		return op.ctx
-	}
-	op.ctx, op.cancel = context.WithCancel(context.Background())
-	return op.ctx
-}
-
-func (op *deployOp) Cancel() {
-	if op.cancel != nil {
-		op.cancel()
-	}
-}
-
 // KubeClient is an accessor for op.kubeClient that lazily initializes the
 // field if it's not already set.  All access to op.kubeClient should be through
 // this method, even internally, in case it hasn't been initialized yet.
-func (op *deployOp) KubeClient() *kubernetes.Clientset {
+func (op *DeployOperation) KubeClient() *kubernetes.Clientset {
 	if op.kubeClient != nil {
 		return op.kubeClient
 	}
@@ -212,7 +186,31 @@ func (op *deployOp) KubeClient() *kubernetes.Clientset {
 // PachClient is an accessor for op.pachClient that lazily initializes the
 // field if it's not already set.  All access to op.kubeClient should be through
 // this method, even internally, in case it hasn't been initialized yet.
-func (op *deployOp) PachClient() *client.APIClient {
+//
+// TODO(msteffen): open question: this uses the pachyderm config (at
+// ~/.pachyderm/config.json by default) to initialize the client, but that
+// approach may not make sense once this library is being used for
+// minikubetestenv. Specifically, I think an intended use-case of
+// minikubetestenv is users running multiple tests concurrently against multiple
+// Pachyderm clusters installed into seprate k8s namespaces. If the pach client
+// is always initialized based on the config, could you have a problem where
+// test A deploys a pach cluster (thereby setting the current context in
+// ~/.pachyderm/config.json to e.g. 'test-A') and then test B needs to reset a
+// different pach cluster in a different namespace, but resets the pach cluster
+// in 'test-A-namespace' because it's the currently-active pach context? Or,
+// more generally, if ~/.pachyderm/config.json defines a global notion of
+// "current cluster," won't that be incompatible with concurrent tests using
+// independent clusters concurrently?
+//
+// There are several solutions to this that I can think of off the top of my
+// head (having 'PachContext' be a parameter that each test can use/set, or
+// having different tests use independent pach configs via the `PACH_CONFIG` env
+// var, as I currently do) but I have no idea which option is best. For now, I
+// will leave this code as-is until things start breaking, and then we'll
+// evaluate options in the light of that specific use-case. For now, I'm leaving
+// this comment as a warning that things may break at some point because I don't
+// know how to prevent it yet.
+func (op *DeployOperation) PachClient() *client.APIClient {
 	if op.pachClient != nil {
 		return op.pachClient
 	}
@@ -229,7 +227,7 @@ func (op *deployOp) PachClient() *client.APIClient {
 // KindProvider is an accessor for op.kindProvider that lazily initializes the
 // field if it's not already set.  All access to op.kindProvider should be through
 // this method, even internally, in case it hasn't been initialized yet.
-func (op *deployOp) KindProvider() *cluster.Provider {
+func (op *DeployOperation) KindProvider() *cluster.Provider {
 	if op.kindProvider != nil {
 		return op.kindProvider
 	}
@@ -250,8 +248,8 @@ func (op *deployOp) KindProvider() *cluster.Provider {
 
 // helmChartSource is a helper for K8sManifest that returns the location of the
 // Pachyderm helm chart it should use.
-func (op *deployOp) helmChartSource() string {
-	if op.pachVersion == "latest" {
+func (op *DeployOperation) helmChartSource() string {
+	if op.PachVersion == "latest" {
 		// // TODO(msteffen): this codepath has no automated tests. Maybe set up
 		// // mock GitHub? (has worked in the past, and I bet the releases endpoint
 		// // is simple)
@@ -265,19 +263,19 @@ func (op *deployOp) helmChartSource() string {
 		// return fmt.Sprintf("https://github.com/pachyderm/helmchart/releases/download/pachyderm-%s/pachyderm-%s.tgz", *release.TagName, *release.TagName)
 		panic("not implemented")
 	}
-	if op.pachVersion == "nightly" {
+	if op.PachVersion == "nightly" {
 		// look up from dockerhub or something, somehow
 		panic("not implemented")
 	}
-	if op.pachVersion == "local" {
+	if op.PachVersion == "local" {
 		return "./etc/helm/pachyderm"
 	}
-	panic("do not know how to get helm chart for pachVersion " + op.pachVersion)
+	panic("do not know how to get helm chart for pachVersion " + op.PachVersion)
 }
 
 // getHelmArgs is a helper for K8sManifest that returns the arguments it should
 // pass to helm
-func (op *deployOp) getHelmArgs() []string {
+func (op *DeployOperation) getHelmArgs() []string {
 	args := []string{
 		"--set", "pachd.image.tag=local",
 		"--set", "pachd.enterpriseLicenseKey=" + os.Getenv("ENT_ACT_CODE"), // used in CI -- weird name, though
@@ -288,7 +286,7 @@ func (op *deployOp) getHelmArgs() []string {
 		"--set", "pachd.rootToken=iamroot",
 	}
 
-	if op.objectStorage == "minio" {
+	if op.ObjectStorage == "minio" {
 		args = append(args,
 			"--set", "deployTarget=custom",
 			"--set", "pachd.storage.backend=MINIO",
@@ -299,7 +297,7 @@ func (op *deployOp) getHelmArgs() []string {
 			"--set-string", "pachd.storage.minio.signature=",
 			"--set-string", "pachd.storage.minio.secure=false",
 		)
-	} else if op.objectStorage == "local" {
+	} else if op.ObjectStorage == "local" {
 		args = append(args,
 			"--set", "deployTarget=LOCAL",
 		)
@@ -311,7 +309,7 @@ func (op *deployOp) getHelmArgs() []string {
 // K8sManifest is an accessor for op.k8sManifest that lazily initializes the
 // field if it's not already set.  All access to op.k8sManifest should be through
 // this method, even internally, in case it hasn't been initialized yet.
-func (op *deployOp) K8sManifest() string {
+func (op *DeployOperation) K8sManifest() string {
 	if op.err != nil {
 		return ""
 	}
@@ -335,7 +333,7 @@ func (op *deployOp) K8sManifest() string {
 // getImages returns a slice of all docker images that 'op' will reference in
 // it's Pachyderm deploy manifest *except* pachd and worker. These images can
 // downloaded (via 'docker pull') and pushed into the cluster (via 'kind load').
-func (op *deployOp) getImages() ([]string, error) {
+func (op *DeployOperation) getImages() ([]string, error) {
 	if op.err != nil {
 		return nil, op.err
 	}
@@ -345,9 +343,9 @@ func (op *deployOp) getImages() ([]string, error) {
 	// JSON, 'helm template' cannot, so we query the output with yq.
 	decoder := yqlib.NewYamlDecoder(yqlib.NewDefaultYamlPreferences())
 	yamlDocs := []io.Reader{
-		strings.NewReader(op.getK8sManifest()),
+		strings.NewReader(op.K8sManifest()),
 	}
-	if op.objectStorage == "minio" {
+	if op.ObjectStorage == "minio" {
 		minioManifest, err := os.Open("etc/testing/minio.yaml")
 		if err != nil {
 			op.err = errors.Wrap(err, "could not read minio manifest to load minio image")
@@ -384,7 +382,7 @@ func (op *deployOp) getImages() ([]string, error) {
 			}
 			for el := l.Front(); el != nil; el = el.Next() {
 				image := el.Value.(*yqlib.CandidateNode).Value
-				if strings.Contains(image, "pachyderm/pachd") && op.pachVersion == "local" {
+				if strings.Contains(image, "pachyderm/pachd") && op.PachVersion == "local" {
 					continue // this will be built and pushed in a different fn
 				}
 				images = append(images, image)
@@ -410,7 +408,7 @@ func (op *deployOp) getImages() ([]string, error) {
 	return images, nil
 }
 
-func (op *deployOp) getOldPachVersion() (string, error) {
+func (op *DeployOperation) getOldPachVersion() (string, error) {
 	// Call the 'Version' API to get the Pachyderm version
 	resp, err := op.PachClient().GetVersion(op.Ctx(), &emptypb.Empty{})
 	if err != nil {
@@ -420,7 +418,7 @@ func (op *deployOp) getOldPachVersion() (string, error) {
 	return version.PrettyPrintVersion(resp), nil
 }
 
-func (op *deployOp) getPachdPodName() (string, error) {
+func (op *DeployOperation) getPachdPodName() (string, error) {
 	// Retrieve the list of pachd pods (matching the below label selector)
 	labelSelector := labels.Set{
 		"suite": "pachyderm",
@@ -444,13 +442,13 @@ func (op *deployOp) getPachdPodName() (string, error) {
 	return pachdPodName, nil
 }
 
-func (op *deployOp) maybeBuildOrPullPachyderm() {
+func (op *DeployOperation) maybeBuildOrPullPachyderm() {
 	// Not implemented
 }
 
 // maybeDeleteK8sCluster deletes the kind cluster if it exists.
 // Taken from: https://github.com/kubernetes-sigs/kind/blob/8f6cb8f45de2c56e4d13de1b4678f1d538755208/pkg/cmd/kind/delete/cluster/deletecluster.go#L68-L77
-func (op *deployOp) maybeDeleteK8sCluster() error {
+func (op *DeployOperation) maybeDeleteK8sCluster() error {
 	if err := op.KindProvider().Delete(KindTestClusterName, ""); err != nil {
 		op.err = errors.Wrap(err, "failed to delete kind cluster")
 		return op.err
@@ -459,7 +457,7 @@ func (op *deployOp) maybeDeleteK8sCluster() error {
 }
 
 // maybeCreateK8sCluster creates the kind cluster if it doesn't exist.
-func (op *deployOp) maybeCreateK8sCluster() error {
+func (op *DeployOperation) maybeCreateK8sCluster() error {
 	// TODO(msteffen) maybe switch to sigs.k8s.io/kind/pkg/cluster?
 
 	// Check if the cluster already exists
@@ -490,11 +488,7 @@ func (op *deployOp) maybeCreateK8sCluster() error {
 	return nil
 }
 
-func (op *deployOp) maybeDeployPachyderm() {
-	op.
-}
-
-func (op *deployOp) Deploy() {
+func (op *DeployOperation) Deploy() {
 	op.maybeDeleteK8sCluster()
 
 	eg := &errgroup.Group{}
@@ -548,24 +542,24 @@ func (op *deployOp) Deploy() {
 }
 
 // RN:
-// ✅ fix restart_minikube images
-// ✅ test with kind instead of minikube -- time it
+// ✔ fix restart_minikube images
+// ✔ test with kind instead of minikube -- time it
 //      - kind is faster; no need to support both
-// ✅ test op.getImages()
+// ✔ test op.getImages()
 //
-// Symbols: ❌ ✅ ✀ ❓ 🚧
+// Symbols: ✘ (2718) ✔ (2714) ✀  (2700, "won't do -- feature has been cut")
 // ✀ ts
-// ❓ init_go_env_vars
+// ? init_go_env_vars
 //     - unclear if this is necessary or happens in subcommands (e.g. set GOBIN every time?)
 //     - this should become unnecessary with Bazel migration
-// ✅ parse_args -- happens in main.go (cobra)
-// ✅ set_helm_command - test that this is working
-// ✅ maybe_delete_cluster
-// ✅ maybe_create_kube_cluster
-// ❌ get_old_pach_version (next)
-// ❌ maybe_undeploy_pachyderm
-// ❌ maybe_build_or_pull_pachyderm
-// ❌ maybe_push_images_to_kube
-// ❌ maybe_deploy_pachyderm
-// ❌ maybe_connect_to_pachyderm
-// ❌ __main__
+// ✔ parse_args -- happens in main.go (cobra)
+// ✔ set_helm_command - test that this is working
+// ✔ maybe_delete_cluster
+// ✔ maybe_create_kube_cluster
+// ✘ get_old_pach_version (next)
+// ✘ maybe_undeploy_pachyderm
+// ✘ maybe_build_or_pull_pachyderm
+// ✘ maybe_push_images_to_kube
+// ✘ maybe_deploy_pachyderm
+// ✘ maybe_connect_to_pachyderm
+// ✘ __main__

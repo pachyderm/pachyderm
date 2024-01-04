@@ -1,6 +1,6 @@
 //go:build k8s
 
-package main
+package deploy_test
 
 import (
 	"bytes"
@@ -39,11 +39,13 @@ type DeterminedUser struct {
 	Active      bool   `json:"active"`
 	DisplayName string `json:"displayName"`
 }
+
 type DeterminedUserBody struct {
 	User     *DeterminedUser `json:"user"`
 	Password string          `json:"password"`
 	IsHashed bool            `json:"isHashed"`
 }
+
 type DeterminedUserList struct {
 	Users *[]DeterminedUser `json:"users"`
 }
