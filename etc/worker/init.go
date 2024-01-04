@@ -2,9 +2,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 )
 
 func cp(src, dst string) error {
@@ -51,8 +53,22 @@ func main() {
 			panic(err)
 		}
 	}
-	// Copy over dumb-init.
-	if err := cp("/app/dumb-init", "/pach-bin/dumb-init"); err != nil {
-		panic(err)
+
+	var errs error
+	var copyOK bool
+	srcs := []string{
+		fmt.Sprintf("/app/dumb-init-%s", runtime.GOARCH), // for "docker build" images
+		"/app/dumb-init", // for rules_oci builds
+	}
+	for _, src := range srcs {
+		if err := cp(src, "/pach-bin/dumb-init"); err != nil {
+			errs = errors.Join(errs, fmt.Errorf("copy from %v: %w", src, err))
+		} else {
+			copyOK = true
+			break
+		}
+	}
+	if !copyOK {
+		panic(errs)
 	}
 }
