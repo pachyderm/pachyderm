@@ -1590,6 +1590,7 @@ jobs:
     docker:
       - image: debian:stable
         entrypoint: /bin/bash
+    working_directory: /code
     steps:
       - run: apt update
       - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential
@@ -1599,9 +1600,9 @@ jobs:
           wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
           chmod a+x bazelisk-linux-amd64
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
-          popd
           useradd bazel -m
-          chown bazel -R .
+          chown bazel -R /code
+          popd
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto'
       - run: git diff --exit-code
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}//:gazelle'
@@ -1614,6 +1615,7 @@ jobs:
     docker:
       - image: debian:stable
         entrypoint: /bin/bash
+    working_directory: /code
     steps:
       - run: apt update
       - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential
@@ -1623,9 +1625,9 @@ jobs:
           wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
           chmod a+x bazelisk-linux-amd64
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
-          popd
           useradd bazel -m
-          chown bazel -R .
+          chown bazel -R /code
+          popd
       - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:all'
       - store_test_results:
           path: "bazel-testlogs/"
