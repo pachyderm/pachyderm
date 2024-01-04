@@ -40,10 +40,12 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-// TaskNamespace returns the namespace used by the task package for this
-// pipeline.
-func TaskNamespace(pipelineInfo *pps.PipelineInfo) string {
-	return fmt.Sprintf("/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+const (
+	PreprocessingTaskNamespace = "preprocessing"
+)
+
+func ProcessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	return fmt.Sprintf("processing/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
 }
 
 // Driver provides an interface for common functions needed by worker code, and
@@ -56,7 +58,8 @@ type Driver interface {
 	Pipelines() col.PostgresCollection
 
 	NewTaskSource() task.Source
-	NewTaskDoer(string, task.Cache) task.Doer
+	NewPreprocessingTaskDoer(string, task.Cache) task.Doer
+	NewProcessingTaskDoer(string, task.Cache) task.Doer
 
 	// Returns the PipelineInfo for the pipeline that this worker belongs to
 	PipelineInfo() *pps.PipelineInfo
@@ -287,13 +290,19 @@ func (d *driver) Pipelines() col.PostgresCollection {
 func (d *driver) NewTaskSource() task.Source {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewSource(TaskNamespace(d.pipelineInfo))
+	return taskService.NewSource(ProcessingTaskNamespace(d.pipelineInfo))
 }
 
-func (d *driver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
+func (d *driver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(TaskNamespace(d.pipelineInfo), groupID, cache)
+	return taskService.NewDoer(PreprocessingTaskNamespace, groupID, cache)
+}
+
+func (d *driver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
+	taskService := d.env.GetTaskService(etcdPrefix)
+	return taskService.NewDoer(ProcessingTaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) ExpectedNumWorkers() (int64, error) {

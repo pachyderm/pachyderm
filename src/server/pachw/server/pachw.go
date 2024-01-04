@@ -17,6 +17,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 )
 
 const (
@@ -50,7 +51,7 @@ func (p *pachW) run(ctx context.Context) {
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
-			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace})
+			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace, driver.PreprocessingTaskNamespace})
 			if err != nil {
 				return errors.Wrap(err, "error counting tasks")
 			}

@@ -287,9 +287,10 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 	}
-	taskDoer := reg.driver.NewTaskDoer(pj.ji.Job.Id, pj.cache)
+	preprocessingTaskDoer := reg.driver.NewPreprocessingTaskDoer(pj.ji.Job.Id, pj.cache)
+	processingTaskDoer := reg.driver.NewProcessingTaskDoer(pj.ji.Job.Id, pj.cache)
 	if err := pachClient.WithRenewer(func(ctx context.Context, renewer *renew.StringSet) error {
-		fileSetID, err := pj.createParallelDatums(ctx, taskDoer)
+		fileSetID, err := pj.createParallelDatums(ctx, preprocessingTaskDoer)
 		if err != nil {
 			return err
 		}
@@ -297,17 +298,17 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 			return err
 		}
 		pachClient := pachClient.WithCtx(ctx)
-		if err := reg.processDatums(pachClient, pj, taskDoer, fileSetID); err != nil {
+		if err := reg.processDatums(pachClient, pj, preprocessingTaskDoer, processingTaskDoer, fileSetID); err != nil {
 			return err
 		}
-		fileSetID, err = pj.createSerialDatums(ctx, taskDoer)
+		fileSetID, err = pj.createSerialDatums(ctx, preprocessingTaskDoer)
 		if err != nil {
 			return err
 		}
 		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
-		return reg.processDatums(pachClient, pj, taskDoer, fileSetID)
+		return reg.processDatums(pachClient, pj, preprocessingTaskDoer, processingTaskDoer, fileSetID)
 	}); err != nil {
 		if errors.Is(err, errutil.ErrBreak) {
 			return nil
@@ -321,8 +322,8 @@ func (reg *registry) processJobRunning(pj *pendingJob) error {
 	return reg.succeedJob(pj)
 }
 
-func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob, taskDoer task.Doer, fileSetID string) error {
-	datumSets, err := createDatumSets(pachClient, pj, taskDoer, fileSetID)
+func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob, preprocessingTaskDoer, processingTaskDoer task.Doer, fileSetID string) error {
+	datumSets, err := createDatumSets(pachClient, pj, preprocessingTaskDoer, fileSetID)
 	if err != nil {
 		return err
 	}
@@ -341,7 +342,7 @@ func (reg *registry) processDatums(pachClient *client.APIClient, pj *pendingJob,
 	}
 	ctx := pachClient.Ctx()
 	stats := &datum.Stats{ProcessStats: &pps.ProcessStats{}}
-	if err := task.DoBatch(ctx, taskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
+	if err := task.DoBatch(ctx, processingTaskDoer, inputs, func(i int64, output *anypb.Any, err error) error {
 		if err != nil {
 			return err
 		}

@@ -86,8 +86,7 @@ const (
 	DefaultLogsFrom = time.Hour * 24
 	// jobClockSkew is how much earlier than the job start time to look for
 	// logs.  It is an attempt to account for clock skew.
-	jobClockSkew     = time.Hour
-	ppsTaskNamespace = "/pps"
+	jobClockSkew = time.Hour
 
 	maxPipelineNameLength = 51
 
@@ -1181,7 +1180,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
-	taskDoer := a.env.TaskService.NewDoer(ppsTaskNamespace, uuid.NewWithoutDashes(), nil)
+	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace, uuid.NewWithoutDashes(), nil)
 	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err
@@ -2819,7 +2818,7 @@ func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline,
 			info.Details.WorkersAvailable = int64(len(workerStatus))
 			info.Details.WorkersRequested = int64(info.Parallelism)
 		}
-		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.TaskNamespace(info), "")
+		tasks, claims, err := task.Count(ctx, a.env.TaskService, driver.ProcessingTaskNamespace(info), "")
 		if err != nil {
 			return nil, errors.EnsureStack(err)
 		}

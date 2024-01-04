@@ -103,7 +103,7 @@ func (w *Worker) worker() {
 
 		// Process any tasks that the master creates.
 		eg.Go(func() error {
-			return transform.Worker(ctx, driver, logger, w.status)
+			return transform.ProcessingWorker(ctx, driver, logger, w.status)
 		})
 
 		return errors.EnsureStack(eg.Wait())
