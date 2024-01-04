@@ -1608,7 +1608,7 @@ jobs:
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle'
       - run: su bazel -c 'git diff --exit-code'
       - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test'
-      - run: cp -a bazel-testlogs/ # store_test_results can't handle bazel-testlogs being a symlink
+      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
       - store_test_results:
           path: /tmp/bazel-testlogs/
   bazel-tests:
@@ -1631,7 +1631,7 @@ jobs:
           popd
       - setup_remote_docker
       - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:all'
-      - run: cp -a bazel-testlogs/ # store_test_results can't handle bazel-testlogs being a symlink
+      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
       - store_test_results:
           path: /tmp/bazel-testlogs/
 
