@@ -3,7 +3,6 @@ import json
 import os
 import uuid
 from base64 import b64decode
-from copy import deepcopy
 from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Dict, Optional, Union
@@ -31,13 +30,13 @@ class ConfigFile:
             "active_context" in v2 and "contexts" in v2
         ):
             raise ValueError(
-                'Expected format: {"v2": {"active_context": ..., "contexts": {...}}'
+                'Missing required fields v2.active_context and/or v2.contexts.'
             )
         self._config_file_data = data
 
     @classmethod
-    def from_file(cls, config_file: Union[Path, str]) -> "ConfigFile":
-        """Parse a Pachyderm config file.
+    def from_path(cls, config_file: Union[Path, str]) -> "ConfigFile":
+        """Parse a Pachyderm config file from a local file.
 
         Parameters
         ----------
@@ -137,9 +136,8 @@ class ConfigFile:
             The path to the config file.
         """
         config_file = Path(os.path.expanduser(config_file)).resolve()
-        data = deepcopy(self._config_file_data)
         with config_file.open("w") as file_out:
-            file_out.write(json.dumps(data, indent=2))
+            file_out.write(json.dumps(self._config_file_data, indent=2))
             file_out.write("\n")
 
 
