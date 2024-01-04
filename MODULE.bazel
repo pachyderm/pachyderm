@@ -9,6 +9,7 @@ bazel_dep(name = "gazelle", version = "0.35.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_go", version = "0.44.1")
 bazel_dep(name = "rules_oci", version = "1.5.1")
+bazel_dep(name = "rules_python", version = "0.22.1")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -332,3 +333,9 @@ oci.pull(
     ],
 )
 use_repo(oci, "distroless")
+
+python = use_extension("@rules_python//python:extensions.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12.1",
+)
