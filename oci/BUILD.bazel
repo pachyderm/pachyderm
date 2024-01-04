@@ -40,30 +40,30 @@ pkg_tar(
 )
 
 pkg_tar(
-    name = "pachd_tar",
+    name = "pachd_host_tar",
     srcs = ["//src/server/cmd/pachd"],
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
 )
 
+platform_transition_filegroup(
+    name = "pachd_linux_tar",
+    srcs = [":pachd_host_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 oci_image(
-    name = "pachd_host_image",
+    name = "pachd_image",
     base = "@distroless",
     entrypoint = ["/pachd"],
     tars = [
         ":licenses_tar",
         ":dex_assets_tar",
-        ":pachd_tar",
+        ":pachd_linux_tar",
     ],
-)
-
-platform_transition_filegroup(
-    name = "pachd_image",
-    srcs = [":pachd_host_image"],
-    target_platform = select({
-        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
-        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
-    }),
 )
 
 container_structure_test(
@@ -74,38 +74,47 @@ container_structure_test(
 )
 
 pkg_tar(
-    name = "pachctl_self_tar",
+    name = "pachctl_self_host_tar",
     srcs = ["//src/server/cmd/pachctl"],
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
     package_dir = "/usr/local/bin",
 )
 
+platform_transition_filegroup(
+    name = "pachctl_self_linux_tar",
+    srcs = [":pachctl_self_host_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 pkg_tar(
-    name = "pachctl_worker_tar",
+    name = "pachctl_worker_host_tar",
     srcs = ["//src/server/cmd/pachctl"],
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
     package_dir = "/app",
 )
 
-oci_image(
-    name = "pachctl_host_image",
-    base = "@distroless",
-    entrypoint = ["/usr/local/bin/pachctl"],
-    tars = [
-        ":licenses_tar",
-        ":pachctl_self_tar",
-    ],
-)
-
 platform_transition_filegroup(
-    name = "pachctl_image",
-    srcs = [":pachctl_host_image"],
+    name = "pachctl_worker_linux_tar",
+    srcs = [":pachctl_worker_host_tar"],
     target_platform = select({
         "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
         "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
     }),
+)
+
+oci_image(
+    name = "pachctl_image",
+    base = "@distroless",
+    entrypoint = ["/usr/local/bin/pachctl"],
+    tars = [
+        ":licenses_tar",
+        ":pachctl_self_linux_tar",
+    ],
 )
 
 container_structure_test(
@@ -116,23 +125,41 @@ container_structure_test(
 )
 
 pkg_tar(
-    name = "worker_init_tar",
+    name = "worker_init_host_tar",
     srcs = ["//etc/worker:init"],
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
     package_dir = "/app",
 )
 
+platform_transition_filegroup(
+    name = "worker_init_linux_tar",
+    srcs = [":worker_init_host_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 pkg_tar(
-    name = "worker_tar",
+    name = "worker_host_tar",
     srcs = ["//src/server/cmd/worker"],
     owner = NONROOT,
     ownername = NONROOT_USERNAME,
     package_dir = "/app",
 )
 
+platform_transition_filegroup(
+    name = "worker_linux_tar",
+    srcs = [":worker_host_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
 pkg_tar(
-    name = "dumb_init_tar",
+    name = "dumb_init_linux_tar",
     srcs = select({
         "//:is_x86_64": ["@com_github_yelp_dumb_init_x86_64_linux//file:dumb-init"],
         "//:is_aarch64": ["@com_github_yelp_dumb_init_aarch64_linux//file:dumb-init"],
@@ -143,25 +170,16 @@ pkg_tar(
 )
 
 oci_image(
-    name = "worker_host_image",
+    name = "worker_image",
     base = "@distroless",
     entrypoint = ["/app/init"],
     tars = [
-        ":dumb_init_tar",
-        ":worker_init_tar",
+        ":dumb_init_linux_tar",
+        ":worker_init_linux_tar",
         ":licenses_tar",
-        ":pachctl_worker_tar",
-        ":worker_tar",
+        ":pachctl_worker_linux_tar",
+        ":worker_linux_tar",
     ],
-)
-
-platform_transition_filegroup(
-    name = "worker_image",
-    srcs = [":worker_host_image"],
-    target_platform = select({
-        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
-        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
-    }),
 )
 
 container_structure_test(
