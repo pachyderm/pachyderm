@@ -64,3 +64,9 @@ go_test(
         "@org_golang_google_protobuf//types/known/timestamppb",
     ],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

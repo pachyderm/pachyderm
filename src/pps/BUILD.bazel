@@ -47,3 +47,9 @@ go_test(
     srcs = ["filter_test.go"],
     deps = [":pps"],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

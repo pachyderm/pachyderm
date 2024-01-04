@@ -36,3 +36,9 @@ go_test(
     srcs = ["version_test.go"],
     embed = [":versionpb"],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

@@ -91,3 +91,9 @@ go_test(
         "@org_golang_x_sync//errgroup",
     ],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

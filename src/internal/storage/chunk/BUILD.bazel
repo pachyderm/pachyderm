@@ -76,3 +76,9 @@ go_test(
         "@com_github_docker_go_units//:go-units",
     ],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

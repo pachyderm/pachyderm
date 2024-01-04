@@ -44,3 +44,9 @@ go_test(
         "@org_golang_google_grpc//status",
     ],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

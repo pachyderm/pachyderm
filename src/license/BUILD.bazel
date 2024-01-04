@@ -30,3 +30,9 @@ go_library(
         "@org_uber_go_zap//zapcore",
     ],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

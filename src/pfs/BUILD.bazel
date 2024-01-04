@@ -45,3 +45,9 @@ go_test(
     embed = [":pfs"],
     deps = ["@com_github_stretchr_testify//require"],
 )
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)
