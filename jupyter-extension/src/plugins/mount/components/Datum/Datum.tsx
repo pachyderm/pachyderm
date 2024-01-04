@@ -119,7 +119,7 @@ const Datum: React.FC<DatumProps> = ({
             onClick={callMountDatums}
             style={{padding: '0.5rem'}}
           >
-            Mount Datums
+            Load Datums
           </button>
           {shouldShowDownload && (
             <button
