@@ -225,6 +225,7 @@ func TestSidecarMetrics(t *testing.T) {
 	require.NoError(t, err, "commit set must finish")
 
 	branch, err := c.InspectBranch(pfs.DefaultProjectName, "pipeline2", "master")
+	require.NoError(t, err, "pipeline2@master must be inspectable")
 
 	var buf3 bytes.Buffer
 	err = c.GetFile(branch.Head, "/output", &buf3)
