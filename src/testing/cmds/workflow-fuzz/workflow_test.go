@@ -13,25 +13,34 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 const namespace = "fuzz-cluster-1"
-const useSucccessfulValWeight = .8
+const useSucccessValWeight = 1
 
 var (
 	run               = flag.Bool("testgen.run", true, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness? set back to false at least
 	alphaNumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]*$`)
-	successfulInputs  = map[string][]interface{}{}
+	successInputs     = map[string][]interface{}{}
 )
 
 var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // TODO - make own rangeRPC function from rpc_fuzz_test
-	pfs.File_pfs_pfs_proto: {pfs.API_CreateRepo_FullMethodName, pfs.API_CreateProject_FullMethodName},
+	pfs.File_pfs_pfs_proto: {
+		pfs.API_CreateRepo_FullMethodName,
+		pfs.API_CreateProject_FullMethodName,
+		pfs.API_DeleteRepo_FullMethodName,
+		pfs.API_DeleteProject_FullMethodName,
+		pfs.API_InspectProjectV2_FullMethodName,
+		pfs.API_InspectRepo_FullMethodName,
+	},
 }
 
 type genData struct { // DNJ TODO - awful name
@@ -39,22 +48,6 @@ type genData struct { // DNJ TODO - awful name
 	field protoreflect.FieldDescriptor
 }
 
-// type grpcArrayWriter struct {
-// 	ByteCount   int
-// 	GrpcMethods []string
-// }
-
-//	func (w *grpcArrayWriter) Write(bytes []byte) (int, error) {
-//		if len(bytes) > 0 {
-//			if w.GrpcMethods == nil {
-//				w.GrpcMethods = make([]string, 0)
-//			}
-//			w.GrpcMethods = append(w.GrpcMethods, string(bytes))
-//			w.ByteCount += len(bytes)
-//		}
-//		return w.ByteCount, nil
-//	}
-//
 // DNJ TODO - rpc fuzz test
 func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
 	for fd, protoDescriptors := range protos {
@@ -92,9 +85,9 @@ func getSharedCluster(f *testing.F) *client.APIClient {
 		CleanupAfter:       false,
 		UseLeftoverCluster: true,
 		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "2Gi", // DNJ TODO -- proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want.
+			"prxoy.resources.requests.memory": "2Gi",
 			"prxoy.resources.limits.memory":   "2Gi",
-			"proxy.replicas":                  "3",
+			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
 		},
 	})
 	return pachClient
@@ -111,19 +104,22 @@ func randString(r *rand.Rand, minlength int, maxLength int) string {
 
 type generator func(genData) interface{}
 
-func inputGenerator(r *rand.Rand, msgDesc protoreflect.MessageDescriptor) protoreflect.ProtoMessage { // DNJ TODO - generics maybe?
+func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]interface{}) *dynamicpb.Message { // DNJ TODO - generics maybe?
 	msg := dynamicpb.NewMessage(msgDesc)
 	// DNJ TODO Inject and save successful field values
 	defaultGenerators := map[protoreflect.Kind]generator{
 		protoreflect.BoolKind:    func(gen genData) interface{} { return gen.r.Float32() < .5 }, // DNJ TODO - Generics and/or pass context for error?
 		protoreflect.StringKind:  func(gen genData) interface{} { return randString(gen.r, 0, 5) },
-		protoreflect.MessageKind: func(gen genData) interface{} { return inputGenerator(gen.r, gen.field.Message()) },
+		protoreflect.MessageKind: func(gen genData) interface{} { return inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs) },
 	}
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
 		field := msgDesc.Fields().Get(i)
 		var fieldVal interface{}
-		if successVals, ok := successfulInputs[string(field.FullName())]; ok && r.Float32() < useSucccessfulValWeight {
+		log.Info(ctx, "DNJ TODO setting field", zap.String("field", string(field.FullName())), zap.String("msg", string(msgDesc.FullName()))) // DNJ TODO repeated fields
+		if successVals, ok := potentialInputs[string(field.FullName())]; ok &&                                                                // DNJ TODO figure out input naming
+			r.Float32() < useSucccessValWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
+			log.Info(ctx, "DNJ TODO setting field success", zap.Any("field", field), zap.Any("fieldVal", fieldVal))
 		} else {
 			gen := genData{r: r, field: field}
 			fieldVal = defaultGenerators[field.Kind()](gen)
@@ -132,78 +128,60 @@ func inputGenerator(r *rand.Rand, msgDesc protoreflect.MessageDescriptor) protor
 	}
 	return msg
 }
+func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]interface{}) {
+	msg.Range(func(field protoreflect.FieldDescriptor, val protoreflect.Value) bool {
+		log.Info(ctx, "DNJ TODO adding field", zap.Any("field", field), zap.Any("field val", val.Interface()))
+		fieldName := string(field.FullName())
+		fieldVal := val.Interface()
+		if vals, ok := out[fieldName]; ok {
+			vals = append(vals, fieldVal) // DNJ TODO - test
+		} else {
+			out[fieldName] = []interface{}{fieldVal} // DNJ TODO repeated fields
+		}
+		if field.Kind() == protoreflect.MessageKind { // handle sub messages
+			subMsg, ok := fieldVal.(*dynamicpb.Message)
+			log.Info(ctx, "DNJ TODO sub msg", zap.Any("submsg", subMsg))
+			if ok { //should always be ok because of the .Kind() check
+				storeSuccessVals(ctx, subMsg, out)
+			}
+		}
+		return true // always continue since there's no error case
+	})
+	// t.Logf("DNJ TODO %#v", out)
+}
+
+func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TODO - can and/or should this be public?
+	r := rand.New(rand.NewSource(seed)) // DNJ TODO - accept intrface that Rand stisifies to allow custom value sourcing? move successvals logic there! needs Float32 and Intn right now
+	rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
+		input := inputGenerator(ctx, r, md.Input(), successInputs)
+		reply := dynamicpb.NewMessage(md.Output())
+		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name())) // DNJ TODO move to rpc fuzz test and make function for this.
+		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
+			log.Info(ctx, "Invoke grpc method err", zap.String("method name", fullName), zap.Error(err))
+		} else {
+			log.Info(ctx, "successful rpc call, saving fields for re-use", zap.String("method name", fullName))
+			storeSuccessVals(ctx, input, successInputs)
+			storeSuccessVals(ctx, reply, successInputs)
+		}
+		// t.Logf("Reply: %#v", reply)
+	})
+}
 
 // DNJ TODO context and logger?
 func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
 	if !*run {
 		f.Skip()
 	}
+	l := log.InitBatchLogger("/tmp/FuzzGrpc.log") //fmt.Sprintf("/tmp/FuzzGrpcLog-%d", os.Getpid()))
 	ctx := pctx.Background("FuzzGrpcWorkflow")
-	// log.InitPachctlLogger()
-	// ctx := pctx.Background("workflow-fuzz")
-	client := getSharedCluster(f)
-	// grpcs := &grpcArrayWriter{} // DNJ TODO - needed? do we just list from file descriptors? We need the "testable" whitelist. Should be protosUnderTest
-	// err := cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
-	// 	Run(pctx.TestContext(f),
-	// 		&pachctl.Config{},
-	// 		grpcs,
-	// 		[]string{},
-	// 	)
-	// require.NoError(f, err)
-	// f.Logf("grpc method: %v len: %d", grpcs.GrpcMethods, grpcs.ByteCount)
-	// DNJ TODO - magic to select repo rpc
-	// selectedMethod := "pfs_v2.API.CreateRepo"
-
-	// for i := 0; i < 50; i++ {
-	// 	f.Add(randutil.UniqueString("repo"))
+	c := getSharedCluster(f)
+	// for i := 0; i < 100; i++ {
+	// 	fuzzGrpc(f, ctx, c, time.Now().Unix())
+	// 	time.Sleep(time.Millisecond * 1000)
 	// }
-	// r := rand.New(rand.NewSource(time.Now().Unix()))
-
 	f.Fuzz(func(t *testing.T, seed int64) {
-		// if !alphaNumericRegex.MatchString(name) || name == "" { // DNJ TODO remove err
-		// 	t.Skip()
-		// }
-		r := rand.New(rand.NewSource(seed))
-		// f.Logf("fd : %v -sd: %v -md: %v msg: %v", fd.FullName(), sd.Name(), md.Input().Fields(), inputGenerator(r, md.Input()))
-		rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
-			input := inputGenerator(r, md.Input())
-			reply := dynamicpb.NewMessage(md.Output())
-			fullName := "/" + path.Join(string(sd.FullName()), string(md.Name())) // DNJ TODO move to rpc fuzz test and make function for this.
-			if err := client.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
-				t.Logf("Invoke grpc method err %s", err.Error())
-			}
-			t.Logf("Reply: %#v", reply)
-		})
-
-		// request := &pfs.CreateRepoRequest{
-		// 	Repo: &pfs.Repo{
-		// 		Name: string(name),
-		// 		Type: "user",
-		// 		Project: &pfs.Project{
-		// 			Name: "default",
-		// 		},
-		// 	},
-		// 	Update: false,
-		// }
-		// requestBytes, err := json.Marshal(request)
-		// require.NoError(t, err)
-		// err = cmds.GrpcFromAddress(fmt.Sprintf("%s:%d", grpcAddress.Host, grpcAddress.Port)).
-		// 	Run(pctx.TestContext(t),
-		// 		&pachctl.Config{},
-		// 		responseBytes,
-		// 		[]string{strings.ReplaceAll(strings.TrimLeft(pfs.API_CreateRepo_FullMethodName, "/"), "/", "."), //"pfs_v2.API.CreateRepo",
-		// 			string(requestBytes),
-		// 		})
-		// if err != nil &&
-		// 	!strings.Contains(err.Error(), "only alphanumeric characters") &&
-		// 	!strings.Contains(err.Error(), "already exists") &&
-		// 	!strings.Contains(err.Error(), "invalid escape code") &&
-		// 	!strings.Contains(err.Error(), "invalid character") {
-		// 	// log.Info(ctx, "Err in RPC", zap.Error(err))
-		// 	t.Errorf("Why fail? %v", err)
-		// }
-		// // require.NoError(t, err)
-		// t.Logf("RESP: %s", string(responseBytes.Bytes()))
+		fuzzGrpc(ctx, c, seed)
+		l(nil)
 	})
 
 }
