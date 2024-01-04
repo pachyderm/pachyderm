@@ -1607,7 +1607,7 @@ jobs:
       - run: su bazel -c 'git diff --exit-code'
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle'
       - run: su bazel -c 'git diff --exit-code'
-      - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier-test'
+      - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test'
       - store_test_results:
           path: "bazel-testlogs/"
   bazel-tests:
