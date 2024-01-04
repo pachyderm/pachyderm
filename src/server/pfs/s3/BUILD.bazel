@@ -43,6 +43,7 @@ go_test(
         "worker_test.go",
     ],
     embed = [":s3"],
+    pure = "on",
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",

@@ -38,7 +38,7 @@ go_test(
         "repl_test.go",
         "starlark_test.go",
     ],
-    data = glob(["testdata/**"]),
+    data = glob(["testdata/**"]) + glob(["tests/**"]),
     embed = [":starlark"],
     deps = [
         "//src/internal/errors",

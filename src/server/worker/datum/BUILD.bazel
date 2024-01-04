@@ -59,6 +59,7 @@ go_test(
         "iterator_test.go",
     ],
     embed = [":datum"],
+    pure = "on",
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",

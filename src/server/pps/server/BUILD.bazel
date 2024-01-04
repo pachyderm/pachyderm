@@ -127,6 +127,7 @@ go_test(
         "worker_rc_test.go",
     ],
     embed = [":server"],
+    pure = "on",
     deps = [
         "//src/internal/backoff",
         "//src/internal/client",

@@ -157,3 +157,30 @@ To find even more, do something like:
 
 (protoc depends on zlib, which has a file called zutil.h; this shows anything in ... that ends up
 depending on that file.)
+
+### realenv
+
+Realenv tests require that `CGO_ENABLED=0`. This means that tests that use realenv will have to set
+`pure = "on"` in the `go_test` target. To do that, find the reverse dependencies of realenv:
+
+    $ bazel query 'kind("go_test", rdeps("...", "//src/internal/testpachd/realenv"))'
+    //src/internal/collection:collection_test
+    //src/internal/fileserver:fileserver_test
+    ...
+
+Then use buildozer to adjust those targets:
+
+    $ bazel build //:buildozer
+    $ bazel query 'kind("go_test", rdeps("...", "//src/internal/testpachd/realenv"))' | \
+      xargs bazel-bin/buildozer 'set pure "on"'
+    fixed /home/jrockway/pach/gazelle/src/server/auth/server/testing/BUILD.bazel
+    fixed /home/jrockway/pach/gazelle/src/server/pfs/server/testing/BUILD.bazel
+    ...
+
+This will not print anything if everything is already fixed, so you can run this freely and know
+whether or not it affected anything.
+
+### pulumi
+
+Pulumi eventually depends on github.com/cloudflare/circl, which will require this workaround:
+https://github.com/bazelbuild/bazel-gazelle/issues/1421#issuecomment-1424075874

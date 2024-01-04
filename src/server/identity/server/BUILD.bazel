@@ -47,6 +47,7 @@ go_test(
         "dex_web_test.go",
     ],
     embed = [":server"],
+    pure = "on",
     deps = [
         "//src/auth",
         "//src/identity",

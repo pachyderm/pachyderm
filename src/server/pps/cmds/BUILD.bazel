@@ -48,6 +48,7 @@ go_test(
         "cmds_simple_test.go",
     ],
     embed = [":cmds"],
+    pure = "on",
     deps = [
         "//src/admin",
         "//src/internal/dockertestenv",

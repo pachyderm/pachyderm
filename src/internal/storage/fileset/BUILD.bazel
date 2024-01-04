@@ -63,6 +63,7 @@ go_library(
 
 go_test(
     name = "fileset_test",
+    size = "enormous",
     srcs = [
         "compaction_test.go",
         "fileset_test.go",

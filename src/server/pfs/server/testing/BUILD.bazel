@@ -2,12 +2,14 @@ load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "testing_test",
+    size = "enormous",
     srcs = [
         "load_test.go",
         "server_test.go",
         "storage_test.go",
     ],
     data = glob(["testdata/**"]),
+    pure = "on",
     deps = [
         "//src/auth",
         "//src/enterprise",

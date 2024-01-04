@@ -45,6 +45,7 @@ go_test(
     name = "server_test",
     srcs = ["enterprise_test.go"],
     embed = [":server"],
+    pure = "on",
     deps = [
         "//src/enterprise",
         "//src/internal/backoff",

@@ -55,6 +55,7 @@ go_test(
         "postgres_collection_test.go",
         "watch_test.go",
     ],
+    pure = "on",
     deps = [
         ":collection",
         "//src/internal/client",

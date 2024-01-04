@@ -13,6 +13,5 @@ build --nolegacy_important_outputs
 build --stamp
 build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote,OCIImage=+no-remote
 
-run --test_env=ENT_ACT_CODE
-test --test_env=ENT_ACT_CODE
-test:race --test_env=ENT_ACT_CODE --@rules_go//go/config:race
+common --test_env=ENT_ACT_CODE
+test:race --@rules_go//go/config:race

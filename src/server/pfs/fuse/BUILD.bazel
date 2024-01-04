@@ -52,6 +52,7 @@ go_test(
         "util_test.go",
     ],
     embed = [":fuse"],
+    pure = "on",
     deps = [
         "//src/auth",
         "//src/internal/client",

@@ -26,6 +26,7 @@ go_library(
 go_test(
     name = "pfssync_test",
     srcs = ["sync_test.go"],
+    pure = "on",
     deps = [
         ":pfssync",
         "//src/internal/client",

@@ -8,6 +8,7 @@ go_test(
         "config_test.go",
         "oidc_test.go",
     ],
+    pure = "on",
     deps = [
         "//src/auth",
         "//src/enterprise",
