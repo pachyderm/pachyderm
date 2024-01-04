@@ -1601,6 +1601,7 @@ jobs:
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
           popd
           useradd bazel -m
+          chown bazel -R .
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto'
       - run: git diff --exit-code
       - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY}//:gazelle'
@@ -1624,6 +1625,7 @@ jobs:
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
           popd
           useradd bazel -m
+          chown bazel -R .
       - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:all'
       - store_test_results:
           path: "bazel-testlogs/"
