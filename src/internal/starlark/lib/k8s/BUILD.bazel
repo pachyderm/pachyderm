@@ -27,6 +27,7 @@ go_library(
 go_test(
     name = "k8s_test",
     srcs = ["k8s_test.go"],
+    data = ["k8s_test.star"],
     embed = [":k8s"],
     deps = [
         "//src/internal/starlark",
