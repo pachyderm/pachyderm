@@ -30,7 +30,7 @@ class ConfigFile:
             "active_context" in v2 and "contexts" in v2
         ):
             raise ValueError(
-                'Missing required fields v2.active_context and/or v2.contexts.'
+                "Missing required fields v2.active_context and/or v2.contexts."
             )
         self._config_file_data = data
 
