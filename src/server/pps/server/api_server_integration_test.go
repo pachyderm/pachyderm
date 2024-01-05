@@ -159,7 +159,7 @@ func applyTemplate(text string, data any) (string, error) {
 func TestSidecarMetrics(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	t.Parallel()
-	c, namespace := minikubetestenv.AcquireCluster(t)
+	c, _ := minikubetestenv.AcquireCluster(t)
 
 	inputRepo := "input"
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputRepo))
@@ -203,7 +203,7 @@ func TestSidecarMetrics(t *testing.T) {
 		},
 		"transform": {
 			"image": "curlimages/curl:8.5.0",
-			"cmd": ["sh", "-c", "curl http://default-pipeline1-v1.{{.Namespace}}.svc.cluster.local:9091/metrics > /pfs/out/output"]
+			"cmd": ["sh", "-c", "curl http://default-pipeline1-v1:9091/metrics > /pfs/out/output"]
 		},
 		"input": {
 			"pfs": {
@@ -216,8 +216,8 @@ func TestSidecarMetrics(t *testing.T) {
 		"autoscaling": false
 	}`,
 		struct {
-			ProjectName, PipelineName, RepoName, Namespace string
-		}{pfs.DefaultProjectName, "pipeline2", "pipeline1", namespace})
+			ProjectName, PipelineName, RepoName string
+		}{pfs.DefaultProjectName, "pipeline2", "pipeline1"})
 	require.NoError(t, err, "must execute template for pipeline2")
 	_, err = c.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
 		CreatePipelineRequestJson: js,
