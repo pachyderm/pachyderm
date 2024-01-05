@@ -331,7 +331,8 @@ class ConfigHandler(BaseHandler):
             address = body["pachd_address"]
             cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
-            if address.removeprefix("grpc://") != self.client.address or cas:
+            # TODO: Can this conditional be removed entirely?
+            if address.endswith(self.client.address) or cas:
                 client = Client().from_pachd_address(
                     pachd_address=address, root_certs=cas
                 )
