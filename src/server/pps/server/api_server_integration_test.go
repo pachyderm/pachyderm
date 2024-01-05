@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -142,6 +143,18 @@ func TestRerunPipeline(t *testing.T) {
 	require.Equal(t, int64(0), jobInfo.DataFailed)
 }
 
+func applyTemplate(text string, data any) (string, error) {
+	tmpl, err := template.New("main").Parse(text)
+	if err != nil {
+		return "", errors.Wrapf(err, "could not parse template %q", text)
+	}
+	var b bytes.Buffer
+	if err := tmpl.Execute(&b, data); err != nil {
+		return "", errors.Wrap(err, "could not execute template")
+	}
+	return b.String(), nil
+}
+
 // TestSidecarMetrics tests that sidecar metrics are available.
 func TestSidecarMetrics(t *testing.T) {
 	ctx := pctx.TestContext(t)
@@ -151,7 +164,7 @@ func TestSidecarMetrics(t *testing.T) {
 	inputRepo := "input"
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputRepo))
 
-	var pipelineTemplate1 = `{
+	js, err := applyTemplate(`{
 		"pipeline": {
 			"project": {
 				"name": "{{.ProjectName | js}}"
@@ -170,20 +183,18 @@ func TestSidecarMetrics(t *testing.T) {
 			}
 		},
 		"autoscaling": false
-	}`
-	tmpl1, err := template.New("pipeline").Parse(pipelineTemplate1)
-	require.NoError(t, err, "template must parse")
-	var buf bytes.Buffer
-	require.NoError(t, tmpl1.Execute(&buf, struct {
-		ProjectName, PipelineName, RepoName string
-	}{pfs.DefaultProjectName, "pipeline1", inputRepo}), "template must execute")
+	}`,
+		struct {
+			ProjectName, PipelineName, RepoName string
+		}{pfs.DefaultProjectName, "pipeline1", inputRepo})
+	require.NoError(t, err, "must execute template for pipeline1")
 	_, err = c.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: buf.String(),
+		CreatePipelineRequestJson: js,
 	})
 	require.NoError(t, err, "creating pipeline1 must succeed")
 
 	// pipeline2 pulls metrics from pipeline1
-	var pipelineTemplate2 = `{
+	js, err = applyTemplate(`{
 		"pipeline": {
 			"project": {
 				"name": "{{.ProjectName | js}}"
@@ -203,15 +214,13 @@ func TestSidecarMetrics(t *testing.T) {
 			}
 		},
 		"autoscaling": false
-	}`
-	tmpl2, err := template.New("pipeline").Parse(pipelineTemplate2)
-	require.NoError(t, err, "template must parse")
-	var buf2 bytes.Buffer
-	require.NoError(t, tmpl2.Execute(&buf2, struct {
-		ProjectName, PipelineName, RepoName, Namespace string
-	}{pfs.DefaultProjectName, "pipeline2", "pipeline1", namespace}), "template must execute")
+	}`,
+		struct {
+			ProjectName, PipelineName, RepoName, Namespace string
+		}{pfs.DefaultProjectName, "pipeline2", "pipeline1", namespace})
+	require.NoError(t, err, "must execute template for pipeline2")
 	_, err = c.PpsAPIClient.CreatePipelineV2(ctx, &pps.CreatePipelineV2Request{
-		CreatePipelineRequestJson: buf2.String(),
+		CreatePipelineRequestJson: js,
 	})
 	require.NoError(t, err, "creating pipeline2 must succeed")
 
@@ -227,9 +236,9 @@ func TestSidecarMetrics(t *testing.T) {
 	branch, err := c.InspectBranch(pfs.DefaultProjectName, "pipeline2", "master")
 	require.NoError(t, err, "pipeline2@master must be inspectable")
 
-	var buf3 bytes.Buffer
-	err = c.GetFile(branch.Head, "/output", &buf3)
+	var buf bytes.Buffer
+	err = c.GetFile(branch.Head, "/output", &buf)
 	require.NoError(t, err, "get file must succeed")
 	// this is a bit brute force, but it does work
-	require.True(t, strings.Contains(buf3.String(), "\npachyderm_pachd_pps"))
+	require.True(t, strings.Contains(buf.String(), "\npachyderm_pachd_pps"))
 }
