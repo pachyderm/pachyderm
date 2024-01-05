@@ -352,21 +352,53 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 }
 
 // DeleteBranch deletes a branch.
-func DeleteBranch(ctx context.Context, tx *pachsql.Tx, id BranchID, force bool) error {
+func DeleteBranch(ctx context.Context, tx *pachsql.Tx, b *BranchInfoWithID, force bool) error {
+	if !force {
+		subv, err := GetDirectBranchSubvenance(ctx, tx, b.ID)
+		if err != nil {
+			return errors.Wrapf(err, "collect direct subvenance of branch %q", b.BranchInfo.Branch)
+		}
+		if len(subv) > 0 {
+			return errors.Errorf(
+				"branch %q cannot be deleted because it's in the direct provenance of %v",
+				b.BranchInfo.Branch, subv,
+			)
+		}
+		triggered, err := GetTriggeredBranches(ctx, tx, b.ID)
+		if err != nil {
+			return errors.Wrapf(err, "collect triggered branches for branch %q", b.BranchInfo.Branch)
+		}
+		if len(triggered) > 0 {
+			return errors.Errorf(
+				"branch %q cannot be deleted because it is triggered by branches %v",
+				b.BranchInfo.Branch, triggered,
+			)
+		}
+		triggering, err := GetTriggeringBranches(ctx, tx, b.ID)
+		if err != nil {
+			return errors.Wrapf(err, "collect triggering branches for branch %q", b.BranchInfo.Branch)
+		}
+		if len(triggering) > 0 {
+			return errors.Errorf(
+				"branch %q cannot be deleted because it triggers branches %v",
+				b.BranchInfo.Branch, triggering,
+			)
+		}
+	}
 	deleteProvQuery := `DELETE FROM pfs.branch_provenance WHERE from_id = $1`
 	deleteTriggerQuery := `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1`
 	if force {
 		deleteProvQuery = `DELETE FROM pfs.branch_provenance WHERE from_id = $1 OR to_id = $1`
 		deleteTriggerQuery = `DELETE FROM pfs.branch_triggers WHERE from_branch_id = $1 OR to_branch_id = $1`
 	}
-	if _, err := tx.ExecContext(ctx, deleteProvQuery, id); err != nil {
-		return errors.Wrapf(err, "could not delete branch provenance for branch %d", id)
+	if _, err := tx.ExecContext(ctx, deleteProvQuery, b.ID); err != nil {
+		return errors.Wrapf(err, "could not delete branch provenance for branch %d", b.BranchInfo.Branch)
 	}
-	if _, err := tx.ExecContext(ctx, deleteTriggerQuery, id); err != nil {
-		return errors.Wrapf(err, "could not delete branch trigger for branch %d", id)
+	if _, err := tx.ExecContext(ctx, deleteTriggerQuery, b.ID); err != nil {
+		return errors.Wrapf(err, "could not delete branch trigger for branch %d", b.BranchInfo.Branch)
 	}
-	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, id); err != nil {
-		return errors.Wrapf(err, "could not delete branch %d", id)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM pfs.branches WHERE id = $1`, b.ID); err != nil {
+		return errors.Wrapf(err, "could not delete branch %d", b.BranchInfo.Branch)
 	}
 	return nil
 }
@@ -429,6 +461,30 @@ func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) 
 	return branchPbs, nil
 }
 
+func GetDirectBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	if err := sqlx.SelectContext(ctx, ext, &branches, `
+		SELECT
+			branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+		FROM pfs.branch_provenance bp
+		    JOIN pfs.branches branch ON bp.from_id = branch.id
+			JOIN pfs.repos repo ON branch.repo_id = repo.id
+			JOIN core.projects project ON repo.project_id = project.id
+		WHERE bp.to_id = $1
+	`, id); err != nil {
+		return nil, errors.Wrap(err, "could not get direct branch subvenance")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
 // GetBranchSubvenance returns the full subvenance of a branch, i.e. all branches that either directly or transitively depend on it.
 func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
 	var branches []Branch
@@ -474,7 +530,56 @@ func CreateDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, from
 	return nil
 }
 
+// GetTriggeredBranches lists all the branches that are directly triggered by a branch
+func GetTriggeredBranches(ctx context.Context, ext sqlx.ExtContext, bid BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	q := `SELECT branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+              FROM pfs.branches branch
+                  JOIN pfs.repos repo ON branch.repo_id = repo.id
+                  JOIN core.projects project ON repo.project_id = project.id
+                  JOIN pfs.branch_triggers trigger ON trigger.to_branch_id = $1
+              WHERE branch.id = trigger.from_branch_id
+        `
+	if err := sqlx.SelectContext(ctx, ext, &branches, q, bid); err != nil {
+		return nil, errors.Wrap(err, "could not get triggered branches")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
+// GetTriggeringBranches lists all the branches that would directly trigger a branch
+func GetTriggeringBranches(ctx context.Context, ext sqlx.ExtContext, bid BranchID) ([]*pfs.Branch, error) {
+	var branches []Branch
+	q := `SELECT branch.id,
+			branch.name,
+			repo.name as "repo.name",
+			repo.type as "repo.type",
+			project.name as "repo.project.name"
+              FROM pfs.branches branch
+                  JOIN pfs.repos repo ON branch.repo_id = repo.id
+                  JOIN core.projects project ON repo.project_id = project.id
+                  JOIN pfs.branch_triggers trigger ON trigger.from_branch_id = $1
+              WHERE branch.id = trigger.to_branch_id
+        `
+	if err := sqlx.SelectContext(ctx, ext, &branches, q, bid); err != nil {
+		return nil, errors.Wrap(err, "could not get triggering branches")
+	}
+	var branchPbs []*pfs.Branch
+	for _, branch := range branches {
+		branchPbs = append(branchPbs, branch.Pb())
+	}
+	return branchPbs, nil
+}
+
 func GetBranchTrigger(ctx context.Context, ext sqlx.ExtContext, from BranchID) (*pfs.Trigger, error) {
+	// TODO: should this handle more than one trigger?
 	trigger := BranchTrigger{}
 	if err := sqlx.GetContext(ctx, ext, &trigger, `
 		SELECT

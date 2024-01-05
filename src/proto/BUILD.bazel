@@ -1,0 +1,77 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "protoc-gen-go",
+    repo = "@com_github_protocolbuffers_protobuf_go_protoc_gen_go",
+    target = ":protoc-gen-go",
+)
+
+host_native_binary(
+    name = "protoc-gen-validate-go",
+    repo = "@com_github_bufbuild_protoc_gen_validate",
+    target = ":protoc-gen-validate-go",
+)
+
+host_native_binary(
+    name = "protoc-gen-doc",
+    repo = "@com_github_pseudomuto_protoc_gen_doc",
+    target = ":protoc-gen-doc",
+)
+
+host_native_binary(
+    name = "protoc-gen-openapiv2",
+    repo = "@com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2",
+    target = "file:protoc-gen-openapiv2",
+)
+
+host_native_binary(
+    name = "protoc-gen-grpc-gateway",
+    repo = "@com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway",
+    target = "file:protoc-gen-grpc-gateway",
+)
+
+host_native_binary(
+    name = "protoc-gen-grpc-gateway-ts",
+    repo = "@com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts",
+    target = ":protoc-gen-grpc-gateway-ts",
+)
+
+host_native_binary(
+    name = "gopatch",
+    repo = "@org_uber_go_gopatch",
+    target = ":gopatch",
+)
+
+host_native_binary(
+    name = "protoc",
+    repo = "@com_github_protocolbuffers_protobuf",
+    target = ":bin/protoc",
+)
+
+# bazel build //src/proto:run will regenerate the protos in your working copy.
+sh_binary(
+    name = "run",
+    srcs = ["run.sh"],
+    args = ["$(locations //src:all_protos)"],
+    data = [
+        ":gopatch_bin",
+        ":proto.patch",
+        ":protoc-gen-doc_bin",
+        ":protoc-gen-go_bin",
+        ":protoc-gen-grpc-gateway-ts_bin",
+        ":protoc-gen-grpc-gateway_bin",
+        ":protoc-gen-openapiv2_bin",
+        ":protoc-gen-validate-go_bin",
+        ":protoc_bin",
+        "//src:all_protos",
+        "//src/proto/pachgen",
+        "//src/proto/protoc-gen-zap",
+        "@com_github_chrusty_protoc_gen_jsonschema//cmd/protoc-gen-jsonschema",
+        "@com_google_protobuf//:descriptor_proto_srcs",
+        "@com_google_protobuf//:well_known_type_protos",
+        "@go_sdk//:bin/gofmt",
+        "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",
+    ],
+    visibility = ["//:__pkg__"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

@@ -1585,6 +1585,26 @@ jobs:
           command: |
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
+  bazel-tests:
+    resource_class: medium
+    docker:
+      - image: debian:stable
+        entrypoint: /bin/bash
+    steps:
+      - run: apt update
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential
+      - checkout
+      - run: |
+          pushd /tmp
+          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
+          chmod a+x bazelisk-linux-amd64
+          ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
+          popd
+      - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
+      - run: git diff --exit-code
+      - run: bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
+      - store_test_results:
+          path: "bazel-testlogs/"
 
 workflows:
   functional-tests:
@@ -1599,6 +1619,7 @@ workflows:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - check-prettier
+      - bazel-tests
       - jsonnet-lint
       - govulncheck
       - static-go-checks

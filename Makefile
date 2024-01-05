@@ -105,11 +105,6 @@ docker-build-netcat:
 docker-build-coverage:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --rm-dist -f goreleaser/docker-cover.yml
 
-# You can build a multi-arch container here by specifying --platform=linux/amd64,linux/arm64, but
-# it's very slow and this is only going to run on your local machine anyway.
-docker-build-proto:
-	docker buildx build $(DOCKER_BUILD_FLAGS)  --build-arg GOVERSION=golang:$(GOVERSION) --platform=linux/$(shell go env GOARCH) -t pachyderm_proto etc/proto --load
-
 docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
@@ -229,11 +224,8 @@ clean-launch: check-kubectl
 	kubectl delete service -l app=minio -n default
 	kubectl delete pvc -l app=minio -n default
 
-test-proto-static:
-	./etc/proto/test_no_changes.sh
-
-proto: docker-build-proto
-	./etc/proto/build.sh
+proto: check-bazel
+	bazel run //:make_proto
 	$(MAKE) -C python-sdk proto
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
@@ -412,6 +404,9 @@ validate-circle:
 	circleci config validate .circleci/main.yml
 	circleci config validate .circleci/config.yml
 
+check-bazel:
+	@if ! command bazel >/dev/null; then echo "Bazel is required.  Install Bazelisk as bazel: https://github.com/bazelbuild/bazelisk#installation"; exit 1; fi;
+
 .PHONY: \
 	install \
 	install-clean \
@@ -427,7 +422,6 @@ validate-circle:
 	release-pachctl \
 	docker-build \
 	docker-build-coverage \
-	docker-build-proto \
 	docker-build-gpu \
 	docker-build-kafka \
 	docker-build-spout-test \
@@ -446,7 +440,6 @@ validate-circle:
 	launch \
 	launch-dev \
 	clean-launch \
-	test-proto-static \
 	proto \
 	test \
 	enterprise-code-checkin-test \
@@ -490,4 +483,5 @@ validate-circle:
 	clean-microsoft-cluster \
 	lint \
 	spellcheck \
-	validate-circle
+	validate-circle \
+	check-bazel
