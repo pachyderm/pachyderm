@@ -236,7 +236,7 @@ class Client:
         Client
             A properly configured Client.
         """
-        config = ConfigFile(config_file)
+        config = ConfigFile.from_path(config_file)
         active_context = config.active_context
         client = cls.from_pachd_address(
             active_context.active_pachd_address,
