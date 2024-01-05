@@ -388,7 +388,7 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 	}
 
 	var sidecarPorts = []v1.ContainerPort{
-		v1.ContainerPort{
+		{
 			Name:          "metrics-storage",
 			ContainerPort: workerstats.SidecarPrometheusPort,
 		},
