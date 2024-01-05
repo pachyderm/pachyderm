@@ -1,0 +1,42 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pfssync",
+    srcs = [
+        "cache_client.go",
+        "option.go",
+        "pipe_unix.go",
+        "pipe_windows.go",
+        "sync.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pfssync",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/pfsdb",
+        "//src/internal/storage/renew",
+        "//src/internal/tarutil",
+        "//src/pfs",
+        "@com_github_hashicorp_golang_lru//simplelru",
+        "@org_golang_x_sync//errgroup",
+    ],
+)
+
+go_test(
+    name = "pfssync_test",
+    srcs = ["sync_test.go"],
+    pure = "on",
+    deps = [
+        ":pfssync",
+        "//src/internal/client",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/randutil",
+        "//src/internal/require",
+        "//src/internal/storage/renew",
+        "//src/internal/testpachd/realenv",
+        "//src/pfs",
+    ],
+)

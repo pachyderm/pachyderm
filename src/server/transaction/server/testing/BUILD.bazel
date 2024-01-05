@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "testing_test",
+    srcs = ["server_test.go"],
+    pure = "on",
+    deps = [
+        "//src/internal/client",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "//src/transaction",
+    ],
+)

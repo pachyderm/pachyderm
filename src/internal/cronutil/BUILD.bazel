@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cronutil",
+    srcs = ["cronutil.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/cronutil",
+    visibility = ["//src:__subpackages__"],
+    deps = ["@com_github_robfig_cron//:cron"],
+)
+
+go_test(
+    name = "cronutil_test",
+    srcs = ["cronutil_test.go"],
+    embed = [":cronutil"],
+)

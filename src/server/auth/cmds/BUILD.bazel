@@ -1,0 +1,29 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "cmds",
+    srcs = [
+        "cmds.go",
+        "configure.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/auth/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/identity",
+        "//src/internal/client",
+        "//src/internal/cmdutil",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachctl",
+        "//src/internal/serde",
+        "//src/pfs",
+        "//src/pps",
+        "@com_github_pkg_browser//:browser",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_x_text//feature/plural",
+        "@org_golang_x_text//language",
+        "@org_golang_x_text//message",
+    ],
+)

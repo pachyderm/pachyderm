@@ -1,0 +1,5 @@
+filegroup(
+    name = "licenses",
+    srcs = glob(["**"]),
+    visibility = ["//oci:__subpackages__"],
+)

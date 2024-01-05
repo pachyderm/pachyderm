@@ -1,0 +1,128 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cmds",
+    srcs = [
+        "cmds.go",
+        "mount_darwin.go",
+        "mount_linux.go",
+        "mount_unix.go",
+        "mount_windows.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/debug",
+        "//src/internal/client",
+        "//src/internal/cmdutil",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/grpcutil",
+        "//src/internal/pachctl",
+        "//src/internal/pager",
+        "//src/internal/pfsload",
+        "//src/internal/progress",
+        "//src/internal/tabwriter",
+        "//src/internal/tarutil",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/pps",
+        "//src/server/cmd/pachctl/shell",
+        "//src/server/pfs",
+        "//src/server/pfs/pretty",
+        "//src/server/transaction/cmds",
+        "@com_github_c_bata_go_prompt//:go-prompt",
+        "@com_github_mattn_go_isatty//:go-isatty",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/emptypb",
+    ] + select({
+        "@rules_go//go/platform:aix": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:android": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:darwin": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:dragonfly": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:freebsd": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:illumos": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:ios": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:js": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:linux": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:netbsd": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:openbsd": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:plan9": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "@rules_go//go/platform:solaris": [
+            "//src/server/pfs/fuse",
+            "@com_github_hanwen_go_fuse_v2//fs",
+            "@com_github_hanwen_go_fuse_v2//fuse",
+        ],
+        "//conditions:default": [],
+    }),
+)
+
+go_test(
+    name = "cmds_test",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    pure = "on",
+    deps = [
+        "//src/admin",
+        "//src/internal/client",
+        "//src/internal/dockertestenv",
+        "//src/internal/fsutil",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/tarutil",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "//src/server/pfs/fuse",
+    ],
+)

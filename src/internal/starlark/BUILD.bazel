@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "starlark",
+    srcs = [
+        "fields.go",
+        "personality.go",
+        "reflect.go",
+        "repl.go",
+        "starlark.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/starlark",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_adrg_xdg//:xdg",
+        "@com_github_spf13_pflag//:pflag",
+        "@com_github_wader_readline//:readline",
+        "@com_github_zeebo_xxh3//:xxh3",
+        "@net_starlark_go//lib/json",
+        "@net_starlark_go//lib/math",
+        "@net_starlark_go//lib/time",
+        "@net_starlark_go//starlark",
+        "@net_starlark_go//syntax",
+        "@org_golang_x_exp//maps",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+go_test(
+    name = "starlark_test",
+    srcs = [
+        "reflect_test.go",
+        "repl_test.go",
+        "starlark_test.go",
+    ],
+    data = glob(["testdata/**"]) + glob(["tests/**"]),
+    embed = [":starlark"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/starlark/starcmp",
+        "//src/internal/starlark/startest",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@net_starlark_go//starlark",
+        "@net_starlark_go//syntax",
+    ],
+)

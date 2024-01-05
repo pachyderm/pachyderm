@@ -1,0 +1,41 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "storage",
+    srcs = [
+        "config.go",
+        "server.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/obj",
+        "//src/internal/pachconfig",
+        "//src/internal/pachsql",
+        "//src/internal/storage/chunk",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/kv",
+        "//src/internal/storage/track",
+        "//src/internal/uuid",
+        "@dev_gocloud//blob",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "storage_test",
+    srcs = ["server_test.go"],
+    embed = [":storage"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/obj",
+        "//src/internal/pachconfig",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/storage/fileset",
+        "//src/internal/storage/track",
+        "//src/internal/stream",
+    ],
+)

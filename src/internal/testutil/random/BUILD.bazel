@@ -1,0 +1,8 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "random",
+    srcs = ["random.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutil/random",
+    visibility = ["//src:__subpackages__"],
+)

@@ -1,0 +1,45 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "worker_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/cmd/worker",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/debug",
+        "//src/internal/client",
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/log",
+        "//src/internal/middleware/logging",
+        "//src/internal/pachconfig",
+        "//src/internal/pctx",
+        "//src/internal/ppsutil",
+        "//src/internal/proc",
+        "//src/internal/profileutil",
+        "//src/internal/serviceenv",
+        "//src/internal/tracing",
+        "//src/pfs",
+        "//src/pps",
+        "//src/server/debug/server",
+        "//src/server/worker",
+        "//src/server/worker/server",
+        "//src/version",
+        "//src/version/versionpb",
+        "//src/worker",
+        "@io_etcd_go_etcd_client_v3//:client",
+        "@org_golang_google_grpc//:grpc",
+    ],
+)
+
+go_binary(
+    name = "worker",
+    embed = [":worker_lib"],
+    pure = "on",
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
+)

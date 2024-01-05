@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cmdutil",
+    srcs = [
+        "cobra.go",
+        "env.go",
+        "exec.go",
+        "password.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/cmdutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/ancestry",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/pachconfig",
+        "//src/internal/serde",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/pps",
+        "@com_github_mattn_go_isatty//:go-isatty",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_pflag//:pflag",
+        "@io_k8s_apimachinery//pkg/api/resource",
+        "@org_golang_x_term//:term",
+    ],
+)
+
+go_test(
+    name = "cmdutil_test",
+    srcs = ["env_test.go"],
+    embed = [":cmdutil"],
+    deps = [
+        "@com_github_google_go_cmp//cmp",
+        "@io_k8s_apimachinery//pkg/api/resource",
+    ],
+)

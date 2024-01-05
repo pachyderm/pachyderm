@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pretty",
+    srcs = ["pretty.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pretty",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_fatih_color//:color",
+        "@org_golang_google_protobuf//types/known/durationpb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "pretty_test",
+    srcs = ["pretty_test.go"],
+    deps = [
+        ":pretty",
+        "//src/internal/require",
+    ],
+)

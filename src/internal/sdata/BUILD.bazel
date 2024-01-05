@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "sdata",
+    srcs = [
+        "convert.go",
+        "csv.go",
+        "errors.go",
+        "json.go",
+        "sdata.go",
+        "sql.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/sdata",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/sdata/csv",
+    ],
+)
+
+go_test(
+    name = "sdata_test",
+    srcs = ["sdata_test.go"],
+    embed = [":sdata"],
+    deps = [
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/sdata/testutil",
+        "@com_github_google_gofuzz//:gofuzz",
+    ],
+)

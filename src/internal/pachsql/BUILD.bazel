@@ -1,0 +1,40 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pachsql",
+    srcs = [
+        "db.go",
+        "pgdump_reader.go",
+        "table_info.go",
+        "url.go",
+        "util.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pachsql",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@com_github_go_sql_driver_mysql//:mysql",
+        "@com_github_jackc_pgx_v4//stdlib",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "pachsql_test",
+    srcs = [
+        "db_test.go",
+        "table_info_test.go",
+        "url_test.go",
+    ],
+    embed = [":pachsql"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "@com_github_data_dog_go_sqlmock//:go-sqlmock",
+        "@com_github_jmoiron_sqlx//:sqlx",
+        "@com_github_stretchr_testify//assert",
+    ],
+)

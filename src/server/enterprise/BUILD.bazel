@@ -1,0 +1,9 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "enterprise",
+    srcs = ["iface.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/enterprise",
+    visibility = ["//visibility:public"],
+    deps = ["//src/enterprise"],
+)

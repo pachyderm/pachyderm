@@ -1,0 +1,43 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "k8s",
+    srcs = ["k8s.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/starlark/lib/k8s",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/starlark",
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_zeebo_xxh3//:xxh3",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1/unstructured",
+        "@io_k8s_apimachinery//pkg/labels",
+        "@io_k8s_apimachinery//pkg/runtime/schema",
+        "@io_k8s_client_go//dynamic",
+        "@io_k8s_client_go//kubernetes",
+        "@io_k8s_utils//pointer",
+        "@net_starlark_go//starlark",
+        "@net_starlark_go//starlarkstruct",
+        "@net_starlark_go//syntax",
+    ],
+)
+
+go_test(
+    name = "k8s_test",
+    srcs = ["k8s_test.go"],
+    data = ["k8s_test.star"],
+    embed = [":k8s"],
+    deps = [
+        "//src/internal/starlark",
+        "//src/internal/starlark/startest",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/runtime",
+        "@io_k8s_client_go//dynamic/fake",
+        "@io_k8s_client_go//kubernetes/fake",
+        "@io_k8s_kubectl//pkg/scheme",
+        "@net_starlark_go//starlark",
+    ],
+)

@@ -1,0 +1,34 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "stream",
+    srcs = [
+        "doc.go",
+        "from_foreach.go",
+        "iterator.go",
+        "merger.go",
+        "ordered.go",
+        "priority_queue.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/stream",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/stream/heap",
+    ],
+)
+
+go_test(
+    name = "stream_test",
+    srcs = [
+        "merger_test.go",
+        "stream_test.go",
+    ],
+    embed = [":stream"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/require",
+    ],
+)

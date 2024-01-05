@@ -228,3 +228,19 @@ def etc_proto_deps():
         build_file_content = protoc_build_file_content,
         integrity = "sha256-MgMIzhjDWVZJSHVPUXSN5BzwKk5+3wz0eoBbnThhDxY=",
     )
+
+def dumb_init_deps():
+    http_file(
+        name = "com_github_yelp_dumb_init_x86_64_linux",
+        url = "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_x86_64",
+        integrity = "sha256-6HS1XzJ5ykFBXSkMUSp7qdCPmAQbKK58KssZpUXxxN8=",
+        executable = True,
+        downloaded_file_path = "dumb-init",
+    )
+    http_file(
+        name = "com_github_yelp_dumb_init_aarch64_linux",
+        url = "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_aarch64",
+        integrity = "sha256-t9ZI+XFUqZxTm2PFWXnNKfAF+IQw+zgwB/40WDQLeV4=",
+        executable = True,
+        downloaded_file_path = "dumb-init",
+    )

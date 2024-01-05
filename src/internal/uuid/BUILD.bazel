@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "uuid",
+    srcs = ["uuid.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/uuid",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/backoff",
+        "//src/internal/errors",
+        "@com_github_satori_go_uuid//:go_uuid",
+    ],
+)
+
+go_test(
+    name = "uuid_test",
+    srcs = ["uuid_test.go"],
+    embed = [":uuid"],
+    deps = ["//src/internal/require"],
+)

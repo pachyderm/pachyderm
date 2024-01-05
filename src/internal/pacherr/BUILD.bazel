@@ -1,0 +1,23 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pacherr",
+    srcs = [
+        "common.go",
+        "transient.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pacherr",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "pacherr_test",
+    srcs = ["common_test.go"],
+    embed = [":pacherr"],
+    deps = ["//src/internal/require"],
+)

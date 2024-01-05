@@ -1,0 +1,71 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "v2_5_0",
+    srcs = [
+        "auth.go",
+        "clusterstate.go",
+        "collection.go",
+        "commit_info.pb.go",
+        "commit_info.pb.validate.go",
+        "commit_info.pb.zap.go",
+        "pfsdb.go",
+        "ppsdb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.5.0",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/internal/authdb",
+        "//src/internal/clusterstate/migrationutils",
+        "//src/internal/collection",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/migrations",
+        "//src/internal/pachsql",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/pps",
+        "//src/protoextensions",
+        "//src/server/pfs",
+        "//src/version",
+        "@com_github_jackc_pgerrcode//:pgerrcode",
+        "@com_github_lib_pq//:pq",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+go_test(
+    name = "v2_5_0_test",
+    srcs = [
+        "collection_test.go",
+        "proto_test.go",
+    ],
+    embed = [":v2_5_0"],
+    deps = [
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/pfs",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//testing/protocmp",
+        "@org_golang_google_protobuf//types/known/durationpb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "common",
+    srcs = [
+        "common.go",
+        "common.pb.go",
+        "common.pb.validate.go",
+        "common.pb.zap.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/worker/common",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/client",
+        "//src/pfs",
+        "//src/pps",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)
