@@ -114,7 +114,7 @@ const Datum: React.FC<DatumProps> = ({
           style={{display: 'flex'}}
         >
           <button
-            data-testid="Datum__mountDatums"
+            data-testid="Datum__loadDatums"
             className="pachyderm-button-link"
             onClick={callMountDatums}
             style={{padding: '0.5rem'}}
