@@ -1586,7 +1586,7 @@ jobs:
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
   bazel-tests:
-    resource_class: medium
+    resource_class: xlarge
     docker:
       - image: debian:stable
         entrypoint: /bin/bash
