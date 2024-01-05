@@ -133,7 +133,7 @@ describe('sortable list components', () => {
       />,
     );
     const listItem = getByTestId('ListItem__repo');
-    const mountButton = getByTestId('ListItem__mount');
+    const mountButton = getByTestId('ListItem__load');
 
     expect(listItem).toHaveTextContent('images');
     expect(mountButton).not.toBeDisabled();
@@ -177,7 +177,7 @@ describe('sortable list components', () => {
       />,
     );
     const listItem = getByTestId('ListItem__repo');
-    const unmountButton = getByTestId('ListItem__unmount');
+    const unmountButton = getByTestId('ListItem__unload');
 
     expect(listItem).toHaveTextContent('images');
     expect(unmountButton).not.toBeDisabled();
@@ -246,7 +246,7 @@ describe('sortable list components', () => {
     expect(select.value).toBe('master');
     fireEvent.change(select, {target: {value: 'develop'}});
 
-    getByText('Mount').click();
+    getByText('Load').click();
     expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith('_mount', 'PUT', {
       mounts: [
         {
@@ -318,7 +318,7 @@ describe('sortable list components', () => {
         projects={[]}
       />,
     );
-    const unmountButtons = getAllByTestId('ListItem__unmount');
+    const unmountButtons = getAllByTestId('ListItem__unload');
     expect(unmountButtons[0]).toBeDisabled();
     expect(unmountButtons[1]).toBeDisabled();
     expect(unmountButtons[2]).toBeDisabled();
@@ -432,10 +432,10 @@ describe('sortable list components', () => {
     fireEvent.change(getByTestId('ListItem__select'), {
       target: {value: 'mounted_branch'},
     });
-    expect(getByTestId('ListItem__mount')).toBeDisabled();
+    expect(getByTestId('ListItem__load')).toBeDisabled();
 
     fireEvent.change(getByTestId('ListItem__select'), {target: {value: 'dev'}});
-    expect(getByTestId('ListItem__mount')).not.toBeDisabled();
+    expect(getByTestId('ListItem__load')).not.toBeDisabled();
   });
 
   it('project filtering', async () => {
