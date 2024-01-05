@@ -1,0 +1,50 @@
+{
+  "console": {
+    "enabled": false,
+    "image": { "tag": "2.8.2-1" }
+  },
+  "deployTarget": "LOCAL",
+  "global": {
+    "postgresql": { "postgresqlPassword": "user", "postgresqlPostgresPassword": "root" },
+    "securityContexts": { "enabled": true },
+    "image": { "registry": "" }
+  },
+  "oidc": {
+    "issuerURI": "http://pachd:30658/dex"
+  },
+  "pachd": {
+    "clusterDeploymentID": "dev",
+    "defaultPipelineCPURequest": "100m",
+    "defaultPipelineMemoryRequest": "128Mi",
+    "defaultPipelineStorageRequest": "512Mi",
+    "disableLogSampling": true,
+    "enterpriseSecret": "enterpriseSecret",
+    "image": { "tag": "2.8.2" },
+    "logLevel": "debug",
+    "lokiDeploy": true,
+    "lokiLogging": true,
+    "oauthClientSecret": "oauthClientSecret",
+    "resources": {
+      "limits": { "cpu": 1, "memory": "8G" },
+      "requests": { "cpu": 1, "memory": "8G" }
+    },
+    "rootToken": "iamroot",
+    "sqlQueryLogs": true,
+    "storage": {
+      "backend": "MINIO",
+      "minio": {
+        "bucket": "pachyderm-test",
+        "endpoint": "minio.default.svc.cluster.local:9000",
+        "id": "minioadmin",
+        "secret": "minioadmin",
+        "secure": "false",
+        "signature": ""
+      }
+    }
+  },
+  "postgresql": { "persistence": { "size": "30Gi" } },
+  "proxy": {
+    "enabled": true,
+    "service": { "type": "NodePort" }
+  }
+}

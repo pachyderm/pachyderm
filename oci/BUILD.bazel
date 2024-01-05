@@ -64,6 +64,7 @@ oci_image(
         ":dex_assets_tar",
         ":pachd_linux_tar",
     ],
+    visibility = ["//visibility:public"],
 )
 
 container_structure_test(
@@ -115,6 +116,7 @@ oci_image(
         ":licenses_tar",
         ":pachctl_self_linux_tar",
     ],
+    visibility = ["//visibility:public"],
 )
 
 container_structure_test(
@@ -180,6 +182,7 @@ oci_image(
         ":pachctl_worker_linux_tar",
         ":worker_linux_tar",
     ],
+    visibility = ["//visibility:public"],
 )
 
 container_structure_test(

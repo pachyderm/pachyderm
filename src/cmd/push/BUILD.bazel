@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+filegroup(
+    name = "helm_values",
+    srcs = glob(["*.values.json"]),
+)
+
+go_library(
+    name = "push_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/cmd/push",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_bazelbuild_rules_go//go/runfiles",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "push",
+    data = [
+        ":helm_values",
+        "//oci:pachd_image",
+        "//oci:pachd_image.digest",
+        "//oci:worker_image",
+        "//oci:worker_image.digest",
+    ],
+    embed = [":push_lib"],
+    visibility = ["//visibility:public"],
+)
