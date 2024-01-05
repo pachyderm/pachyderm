@@ -120,6 +120,7 @@ func TestPutFileFullPathNoFilePath(t *testing.T) {
 
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
 	c := env.PachClient
 
 	// Create a temporary directory and file with nested structure
@@ -151,6 +152,7 @@ func TestPutFileFullPathWithFilePath(t *testing.T) {
 
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
 	c := env.PachClient
 
 	// Create a temporary file in a nested directory
@@ -183,6 +185,7 @@ func TestPutFileFullPathWithFilePathEndingSlash(t *testing.T) {
 
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
 	c := env.PachClient
 
 	// Create a temporary file in a nested directory
@@ -215,6 +218,7 @@ func TestPutFileFilePathEndsWithSlashSingleSource(t *testing.T) {
 
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
 	c := env.PachClient
 
 	// Create a temporary file
@@ -243,6 +247,7 @@ func TestPutFileFilePathWithoutSlashSingleSource(t *testing.T) {
 
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	mockInspectCluster(env)
 	c := env.PachClient
 
 	// Create a temporary file
