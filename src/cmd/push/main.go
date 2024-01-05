@@ -7,12 +7,17 @@ import (
 	"os/signal"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/version"
+	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
 	"go.uber.org/zap"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 type imageTags struct {
@@ -52,6 +57,42 @@ func runSkopeo(ctx context.Context, args ...string) (retErr error) {
 	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "stderr"), log.ErrorLevel)
 	if err := cmd.Run(); err != nil {
 		return errors.Wrap(err, "run skopeo")
+	}
+	return nil
+}
+
+func waitForPachd(ctx context.Context) error {
+	cl, err := client.NewOnUserMachine(ctx, "")
+	if err != nil {
+		return errors.Wrap(err, "NewOnUserMachine")
+	}
+	tryOnce := func() (*versionpb.Version, error) {
+		ctx, c := context.WithTimeout(ctx, time.Second)
+		cl := cl.WithCtx(ctx)
+		defer c()
+		v, err := cl.VersionAPIClient.GetVersion(cl.Ctx(), &emptypb.Empty{})
+		if err != nil {
+			return nil, err
+		}
+		return v, nil
+	}
+	for {
+		v, err := tryOnce()
+		if err != nil {
+			if strings.Contains(err.Error(), context.Canceled.Error()) {
+				return context.Cause(ctx)
+			}
+			log.Error(ctx, "problem getting version; retrying...", zap.Error(err))
+			time.Sleep(time.Second)
+			continue
+		}
+		if got, want := v.Canonical(), version.Version.Canonical(); got != want {
+			log.Debug(ctx, "version not matched yet; retrying...", zap.String("got", got), zap.String("want", want))
+			time.Sleep(time.Second)
+			continue
+		}
+		log.Info(ctx, "server is running desired version", zap.String("version", v.Canonical()))
+		break
 	}
 	return nil
 }
@@ -126,6 +167,11 @@ func main() {
 	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "helm.stderr"), log.ErrorLevel)
 	if err := cmd.Run(); err != nil {
 		log.Exit(ctx, "problem running helm upgrade", zap.Error(err))
+	}
+
+	log.Info(ctx, "waiting for pachd to be serving traffic")
+	if err := waitForPachd(ctx); err != nil {
+		log.Exit(ctx, "problem waiting for pachd", zap.Error(err))
 	}
 	log.Info(ctx, "done")
 }
