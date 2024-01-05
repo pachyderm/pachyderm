@@ -52,7 +52,7 @@ If you are running the frontend container on Linux, and want to be able to talk 
 Install the project in editable mode, and start JupyterLab
 
 ```
-pip install -e .
+pip install -e ".[dev]"
 jupyter labextension develop --overwrite
 
 # Server extension must be manually installed in develop mode, for example
@@ -115,7 +115,7 @@ Note: You will need NodeJS to build the extension package.
 # Change directory to the jupyterlab-pachyderm directory (top level of repo)
 # Make sure you are using a virtual environment
 # Install package in development mode
-pip install -e .
+pip install -e ".[dev]"
 # Link your development version of the extension with JupyterLab
 jupyter labextension develop . --overwrite
 # Server extension must be manually installed in develop mode

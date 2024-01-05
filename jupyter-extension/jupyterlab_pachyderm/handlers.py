@@ -331,14 +331,13 @@ class ConfigHandler(BaseHandler):
             address = body["pachd_address"]
             cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
-            if address.removeprefix("grpc://") != self.client.address or cas:
-                client = Client().from_pachd_address(
-                    pachd_address=address, root_certs=cas
-                )
-                self.settings["pachyderm_client"] = client
-                self.settings["pfs_contents_manager"] = PFSManager(client=client)
-                self.settings["datum_contents_manager"] = DatumManager(client=client)
-                self.settings["pachyderm_pps_client"] = PPSClient(client=client)
+            client = Client().from_pachd_address(
+                pachd_address=address, root_certs=cas
+            )
+            self.settings["pachyderm_client"] = client
+            self.settings["pfs_contents_manager"] = PFSManager(client=client)
+            self.settings["datum_contents_manager"] = DatumManager(client=client)
+            self.settings["pachyderm_pps_client"] = PPSClient(client=client)
 
             response = self.config_response()
             self.finish(response)
