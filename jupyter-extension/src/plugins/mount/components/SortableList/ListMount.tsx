@@ -11,7 +11,7 @@ type ListMountProps = {
 const ListMount: React.FC<ListMountProps> = ({item, open, updateData}) => {
   const [disabled, setDisabled] = useState<boolean>(false);
   const branch = item.branch;
-  const buttonText = 'Unmount';
+  const buttonText = 'Unload';
 
   const openFolder = () => {
     open(item.name);
