@@ -164,8 +164,9 @@ var localLock sync.Mutex
 // clusters deployed in separate namespace, along with the associated namespace
 func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Helper()
+	ctx := pctx.TestContext(t)
 	if *forceLocal {
-		c, err := client.NewOnUserMachine(pctx.TODO(), "")
+		c, err := client.NewOnUserMachine(ctx, "")
 		if err != nil {
 			t.Fatalf("create local client: %v", err)
 		}
