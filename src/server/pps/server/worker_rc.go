@@ -387,8 +387,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 		workerServiceAccountName = DefaultWorkerServiceAccountName
 	}
 
+	var sidecarPorts = []v1.ContainerPort{
+		v1.ContainerPort{
+			Name:          "metrics-storage",
+			ContainerPort: workerstats.SidecarPrometheusPort,
+		},
+	}
 	// possibly expose s3 gateway port in the sidecar container
-	var sidecarPorts []v1.ContainerPort
 	if options.s3GatewayPort != 0 {
 		sidecarPorts = append(sidecarPorts, v1.ContainerPort{
 			ContainerPort: options.s3GatewayPort,

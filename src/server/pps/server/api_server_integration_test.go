@@ -9,6 +9,7 @@ import (
 	"text/template"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -18,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -159,7 +161,7 @@ func applyTemplate(text string, data any) (string, error) {
 func TestSidecarMetrics(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
+	c, namespace := minikubetestenv.AcquireCluster(t)
 
 	inputRepo := "input"
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, inputRepo))
@@ -241,4 +243,27 @@ func TestSidecarMetrics(t *testing.T) {
 	require.NoError(t, err, "get file must succeed")
 	// this is a bit brute force, but it does work
 	require.True(t, strings.Contains(buf.String(), "\npachyderm_pachd_pps"))
+
+	kc := testutil.GetKubeClient(t)
+	pl, err := kc.CoreV1().Pods(namespace).List(ctx, v1.ListOptions{
+		LabelSelector: "pipelineName = pipeline1",
+	})
+	require.NoError(t, err, "k8s pod list must succeed")
+	require.Equal(t, 1, len(pl.Items), "there must be exactly one pipeline")
+	var foundSidecar bool
+	for _, c := range pl.Items[0].Spec.Containers {
+		if c.Name != client.PPSWorkerSidecarContainerName {
+			continue
+		}
+		foundSidecar = true
+		var foundMetrics bool
+		for _, p := range c.Ports {
+			if p.Name != "metrics-storage" {
+				continue
+			}
+			foundMetrics = true
+		}
+		require.True(t, foundMetrics, "metrics port must exist")
+	}
+	require.True(t, foundSidecar, "sidecar must exist")
 }
