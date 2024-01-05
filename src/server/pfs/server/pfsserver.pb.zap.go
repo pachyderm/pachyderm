@@ -104,16 +104,8 @@ func (x *ValidateTaskResult) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.First).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("first", obj)
-	} else {
-		enc.AddReflected("first", x.First)
-	}
-	if obj, ok := interface{}(x.Last).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("last", obj)
-	} else {
-		enc.AddReflected("last", x.Last)
-	}
+	enc.AddObject("first", x.First)
+	enc.AddObject("last", x.Last)
 	enc.AddString("error", x.Error)
 	enc.AddInt64("size_bytes", x.SizeBytes)
 	return nil

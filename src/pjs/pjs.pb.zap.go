@@ -21,28 +21,12 @@ func (x *JobInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
-	if obj, ok := interface{}(x.ParentJob).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("parent_job", obj)
-	} else {
-		enc.AddReflected("parent_job", x.ParentJob)
-	}
+	enc.AddObject("job", x.Job)
+	enc.AddObject("parent_job", x.ParentJob)
 	enc.AddString("state", x.State.String())
 	protoextensions.AddAny(enc, "spec", x.Spec)
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
-	if obj, ok := interface{}(x.GetOutput()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("output", obj)
-	} else {
-		enc.AddReflected("output", x.GetOutput())
-	}
+	enc.AddObject("input", x.Input)
+	enc.AddObject("output", x.GetOutput())
 	enc.AddString("error", x.GetError().String())
 	return nil
 }
@@ -51,11 +35,7 @@ func (x *JobInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.JobInfo).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job_info", obj)
-	} else {
-		enc.AddReflected("job_info", x.JobInfo)
-	}
+	enc.AddObject("job_info", x.JobInfo)
 	return nil
 }
 
@@ -71,11 +51,7 @@ func (x *QueueInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Queue).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("queue", obj)
-	} else {
-		enc.AddReflected("queue", x.Queue)
-	}
+	enc.AddObject("queue", x.Queue)
 	protoextensions.AddAny(enc, "spec", x.Spec)
 	return nil
 }
@@ -84,11 +60,7 @@ func (x *QueueInfoDetails) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.QueueInfo).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("queue_info", obj)
-	} else {
-		enc.AddReflected("queue_info", x.QueueInfo)
-	}
+	enc.AddObject("queue_info", x.QueueInfo)
 	enc.AddInt64("size", x.Size)
 	return nil
 }
@@ -114,11 +86,7 @@ func (x *CreateJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddString("context", x.Context)
 	protoextensions.AddAny(enc, "spec", x.Spec)
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	enc.AddObject("input", x.Input)
 	enc.AddBool("cache_read", x.CacheRead)
 	enc.AddBool("cache_write", x.CacheWrite)
 	return nil
@@ -128,11 +96,7 @@ func (x *CreateJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Id).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("id", obj)
-	} else {
-		enc.AddReflected("id", x.Id)
-	}
+	enc.AddObject("id", x.Id)
 	return nil
 }
 
@@ -141,11 +105,7 @@ func (x *CancelJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -161,11 +121,7 @@ func (x *DeleteJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -181,11 +137,7 @@ func (x *ListJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -193,21 +145,9 @@ func (x *ListJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Id).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("id", obj)
-	} else {
-		enc.AddReflected("id", x.Id)
-	}
-	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("info", obj)
-	} else {
-		enc.AddReflected("info", x.Info)
-	}
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("id", x.Id)
+	enc.AddObject("info", x.Info)
+	enc.AddObject("details", x.Details)
 	return nil
 }
 
@@ -216,11 +156,7 @@ func (x *WalkJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -229,11 +165,7 @@ func (x *InspectJobRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Job).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("job", obj)
-	} else {
-		enc.AddReflected("job", x.Job)
-	}
+	enc.AddObject("job", x.Job)
 	return nil
 }
 
@@ -241,11 +173,7 @@ func (x *InspectJobResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("details", x.Details)
 	return nil
 }
 
@@ -253,16 +181,8 @@ func (x *ProcessQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Queue).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("queue", obj)
-	} else {
-		enc.AddReflected("queue", x.Queue)
-	}
-	if obj, ok := interface{}(x.GetOutput()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("output", obj)
-	} else {
-		enc.AddReflected("output", x.GetOutput())
-	}
+	enc.AddObject("queue", x.Queue)
+	enc.AddObject("output", x.GetOutput())
 	enc.AddBool("failed", x.GetFailed())
 	return nil
 }
@@ -272,11 +192,7 @@ func (x *ProcessQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 		return nil
 	}
 	enc.AddString("context", x.Context)
-	if obj, ok := interface{}(x.Input).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("input", obj)
-	} else {
-		enc.AddReflected("input", x.Input)
-	}
+	enc.AddObject("input", x.Input)
 	return nil
 }
 
@@ -291,21 +207,9 @@ func (x *ListQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Id).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("id", obj)
-	} else {
-		enc.AddReflected("id", x.Id)
-	}
-	if obj, ok := interface{}(x.Info).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("info", obj)
-	} else {
-		enc.AddReflected("info", x.Info)
-	}
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("id", x.Id)
+	enc.AddObject("info", x.Info)
+	enc.AddObject("details", x.Details)
 	return nil
 }
 
@@ -313,11 +217,7 @@ func (x *InspectQueueRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Queue).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("queue", obj)
-	} else {
-		enc.AddReflected("queue", x.Queue)
-	}
+	enc.AddObject("queue", x.Queue)
 	return nil
 }
 
@@ -325,10 +225,6 @@ func (x *InspectQueueResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	if x == nil {
 		return nil
 	}
-	if obj, ok := interface{}(x.Details).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("details", obj)
-	} else {
-		enc.AddReflected("details", x.Details)
-	}
+	enc.AddObject("details", x.Details)
 	return nil
 }

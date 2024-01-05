@@ -71,7 +71,7 @@ func generateListField(g *protogen.GeneratedFile, f *protogen.Field) {
 		if isPachydermProto(string(f.Desc.Message().FullName())) {
 			g.P("enc.AppendObject(v)")
 		} else {
-			fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK ON %v\n", f.Desc.Message().FullName())
+			fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK (list) ON %v IN %v\n", f.Desc.Message().FullName(), f.Location.SourceFile)
 			g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
 			g.P("enc.AppendObject(obj)")
 			g.P("} else {")
@@ -120,7 +120,7 @@ func generateMapField(g *protogen.GeneratedFile, f *protogen.Field) {
 		if isPachydermProto(string(f.Desc.Message().FullName())) {
 			g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), v)")
 		} else {
-			fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK ON %v\n", f.Desc.Message().FullName())
+			fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK (map) ON %v IN %v\n", f.Desc.Message().FullName(), f.Location.SourceFile)
 			g.P("if obj, ok := interface{}(v).(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
 			g.P("enc.AddObject(", g.QualifiedGoIdent(fmtPkg.Ident("Sprintf")), "(\"%v\", k), obj)")
 			g.P("} else {")
@@ -192,7 +192,7 @@ func generatePrimitiveField(g *protogen.GeneratedFile, f *protogen.Field, opts *
 			if isPachydermProto(string(f.Desc.Message().FullName())) {
 				g.P("enc.AddObject(\"", fname, "\", x.", gname, ")")
 			} else {
-				fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK ON %v\n", f.Desc.Message().FullName())
+				fmt.Fprintf(os.Stderr, "** OBJECT FALLBACK (prim) ON %v IN %v\n", f.Desc.Message().FullName(), f.Location.SourceFile)
 
 				g.P("if obj, ok := interface{}(x.", gname, ").(", g.QualifiedGoIdent(zapcorePkg.Ident("ObjectMarshaler")), "); ok {")
 				g.P("enc.AddObject(\"", fname, "\", obj)")
@@ -219,7 +219,12 @@ func isPachydermProto(fullName string) bool {
 	return strings.HasPrefix(fullName, "datum.") ||
 		strings.HasPrefix(fullName, "pfsload.") ||
 		strings.HasPrefix(fullName, "pfsserver.") ||
-		strings.HasPrefix(fullName, "taskapi.")
+		strings.HasPrefix(fullName, "taskapi.") ||
+		strings.HasPrefix(fullName, "pjs.") ||
+		strings.HasPrefix(fullName, "index.") ||
+		strings.HasPrefix(fullName, "chunk.") ||
+		strings.HasPrefix(fullName, "fileset.") ||
+		fullName == "common.Input"
 }
 
 func generateMessage(g *protogen.GeneratedFile, m *protogen.Message) {
