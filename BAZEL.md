@@ -111,6 +111,22 @@ this into a registry to pull with `skopeo copy oci:bazel-bin/oci/pachd_image ...
 
 Very soon, pushing to a dev environment will be automated.
 
+## Run Tests
+
+`bazel test ...` will run all tests. Test caching means tests whose results couldn't have changed
+since the last time they were run will not actually be run, so if you're just editing one file it's
+not much slower to run this. You can also pick the test you want to run, like
+`bazel test //src/internal/archiveserver:archiveserver_test`. `--test_output=streamed` will show you
+the messages from the test as they run (overwhelming if `...`), otherwise, bazel will print the path
+of the test logs for failing tests. They are also available in the BuildBuddy UI.
+
+For more Go details, see
+https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md#go_test
+
+### Run one test case
+
+`bazel test //the:test --test_filter=TestCaseIWantToRun`
+
 ## Tools
 
 ### Gazelle
