@@ -92,7 +92,7 @@ spec:
         - name: UPGRADE_NO_OP
           value: {{ randAlphaNum 32 }}
         {{- end }}
-        {{- if .Values.global.customCaCerts }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - name: NODE_EXTRA_CA_CERTS
           value:  /pach-tls/certs/root.crt
         {{- end }}
@@ -124,7 +124,7 @@ spec:
           name: home
         - mountPath: /tmp/
           name: tmp
-        {{- if .Values.global.customCaCerts }}
+        {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
         - mountPath: /pach-tls/certs
           name: pachd-tls-cert
         {{- end }}
@@ -156,7 +156,7 @@ spec:
         name: tmp
       - emptyDir: {}
         name: home
-      {{- if .Values.global.customCaCerts }}
+      {{- if and .Values.pachd.tls.enabled .Values.global.customCaCerts }}
       - name: pachd-tls-cert
         secret:
           secretName: {{ required "If pachd.tls.enabled, you must set pachd.tls.secretName" .Values.pachd.tls.secretName | quote }}
