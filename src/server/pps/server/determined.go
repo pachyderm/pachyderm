@@ -351,16 +351,13 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 			}); err != nil {
 				return 0, errors.Wrapf(err, "reactivate user %q", pipelineUserName(p))
 			}
-
-			if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
-				UserId:   u.Id,
-				Password: password,
-			}); err != nil {
-				return 0, errors.Wrapf(err, "set password for user %q", pipelineUserName(p))
-			}
-			return u.Id, nil
 		}
-		// If the user is already active, simply return the user's ID
+		if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
+			UserId:   u.Id,
+			Password: password,
+		}); err != nil {
+			return 0, errors.Wrapf(err, "set password for user %q", pipelineUserName(p))
+		}
 		return u.Id, nil
 	}
 
