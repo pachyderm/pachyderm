@@ -22,6 +22,6 @@ build --stamp
 
 # Common options.
 common --test_env=ENT_ACT_CODE
+common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
 
-# --config=race for running tests with the race detector.
 test:race --@rules_go//go/config:race
