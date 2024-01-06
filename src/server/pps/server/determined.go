@@ -20,11 +20,9 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -331,26 +329,29 @@ func validateWorkspacePermissions(ctx context.Context, dc det.DeterminedClient, 
 }
 
 func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClient, p *pps.Pipeline, password string) (int32, error) {
-	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
-		User:     &userv1.User{Username: pipelineUserName(p), Active: true},
-		Password: password,
-	})
+	// Try to get the user first
+	u, err := getDetPipelineUser(ctx, dc, p)
 	if err != nil {
-		if status.Code(err) == codes.InvalidArgument && strings.Contains(err.Error(), "user already exists") {
-			u, err := getDetPipelineUser(ctx, dc, p)
-			if err != nil {
-				return 0, err
+		// Temporary thing, probably not the best to use strings.Contains here
+		if strings.Contains(err.Error(), "no determined users return") {
+			u = nil
+		} else {
+			return 0, err
+		}
+	}
+
+	// If the user exists, check and update if needed
+	if u != nil {
+		if !u.Active {
+			if _, err := dc.PatchUser(ctx, &det.PatchUserRequest{
+				UserId: u.Id,
+				User: &userv1.PatchUser{
+					Active: &wrapperspb.BoolValue{Value: true},
+				},
+			}); err != nil {
+				return 0, errors.Wrapf(err, "reactivate user %q", pipelineUserName(p))
 			}
-			if !u.Active {
-				if _, err := dc.PatchUser(ctx, &det.PatchUserRequest{
-					UserId: u.Id,
-					User: &userv1.PatchUser{
-						Active: &wrapperspb.BoolValue{Value: true},
-					},
-				}); err != nil {
-					return 0, errors.Wrapf(err, "reactivate user %q", pipelineUserName(p))
-				}
-			}
+
 			if _, err := dc.SetUserPassword(ctx, &det.SetUserPasswordRequest{
 				UserId:   u.Id,
 				Password: password,
@@ -359,8 +360,20 @@ func provisionDeterminedPipelineUser(ctx context.Context, dc det.DeterminedClien
 			}
 			return u.Id, nil
 		}
+		// If the user is already active, simply return the user's ID
+		return u.Id, nil
+	}
+
+	// If no user exists, proceed with user creation
+	resp, err := dc.PostUser(ctx, &det.PostUserRequest{
+		User:     &userv1.User{Username: pipelineUserName(p), Active: true},
+		Password: password,
+	})
+	if err != nil {
+		// Handle the error here, API call issue should be thrown as an error
 		return 0, errors.Wrap(err, "provision determined user")
 	}
+
 	return resp.User.Id, nil
 }
 
