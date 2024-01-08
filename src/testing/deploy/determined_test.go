@@ -103,12 +103,9 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	require.Equal(t, auth.RootUser, whoami.Username)
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
-	// log in and create a non-admin user with the kilgore email from pachyderm
+	// Log in and create a non-admin user with the kilgore email from pachyderm.
+	// The user should already exist in Determined due to the user synching system.
 	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
-	authToken := determinedLogin(t, *detUrl, "admin", "")
-	detUser := determinedCreateUser(t, *detUrl, authToken)
-	require.Equal(t, testutil.DexMockConnectorEmail, detUser.Username, "The new user has the same name as dex user")
-
 	repoName := "images"
 	pipelineName := "edges"
 	workspaceName := "pach-test-workspace"
@@ -170,32 +167,6 @@ func determinedLogin(t testing.TB, detUrl url.URL, username string, password str
 	require.NoError(t, err, "Parsing Determined login")
 	require.NotEqual(t, "", authToken.Token)
 	return authToken.Token
-}
-
-func determinedCreateUser(t testing.TB, detUrl url.URL, authToken string) *DeterminedUser {
-	userReq := DeterminedUserBody{
-		User: &DeterminedUser{
-			Username:    testutil.DexMockConnectorEmail,
-			Admin:       false,
-			Active:      true,
-			DisplayName: testutil.DexMockConnectorEmail,
-		},
-		Password: detNewUserPassword,
-		IsHashed: false,
-	}
-	userJson, err := json.Marshal(userReq)
-	require.NoError(t, err, "Marshal determined user json")
-	detUrl.Path = detUserPath
-	req, err := http.NewRequest("POST", detUrl.String(), bytes.NewReader(userJson))
-	req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", authToken))
-	require.NoError(t, err, "Creating Determined create user request")
-
-	body := doDeterminedRequest(t, req)
-
-	userResponse := &DeterminedUserBody{}
-	err = json.Unmarshal(body, userResponse)
-	require.NoError(t, err, "Parsing Determined user create", string(body))
-	return userResponse.User
 }
 
 func determinedGetUsers(t testing.TB, detUrl url.URL, authToken string) *DeterminedUserList {
