@@ -160,6 +160,7 @@ export class MountPlugin implements IMountPlugin {
               </button>
               <button
                 className="pachyderm-button-link"
+                data-testid="Config__mode"
                 onClick={() => this.setShowConfig(true)}
               >
                 <settingsIcon.react

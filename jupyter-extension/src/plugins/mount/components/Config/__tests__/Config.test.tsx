@@ -47,7 +47,7 @@ describe('config screen', () => {
   describe('AUTH_ENABLED config', () => {
     it('should show authenticated view', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'VALID_LOGGED_OUT',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -95,9 +95,9 @@ describe('config screen', () => {
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
     });
 
-    it('should allow user to login', async () => {
+    it('should allow user to logout', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'VALID_LOGGED_OUT',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -120,27 +120,24 @@ describe('config screen', () => {
         );
       });
     });
-    /* TODO: tests must be updated for the new FUSE-less impl
-    it('should allow user to logout', async () => {
+
+    it('should allow user to login', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       window.open = jest.fn();
-
+      const loginUrl =
+        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd';
       mockRequestAPI.requestAPI.mockImplementation(
-        mockedRequestAPI({
-          auth_url:
-            'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        }),
+        mockedRequestAPI({loginUrl: loginUrl}),
       );
 
       const {findByTestId} = render(
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -156,12 +153,8 @@ describe('config screen', () => {
         );
       });
 
-      expect(window.open).toHaveBeenCalledWith(
-        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        '',
-        'width=500,height=500,left=262,top=107.2',
-      );
-    });*/
+      expect(window.open).toHaveBeenCalledWith(loginUrl, '', expect.anything());
+    });
   });
 
   describe('AUTH_DISABLED config', () => {
@@ -191,7 +184,7 @@ describe('config screen', () => {
     });
   });
 
-  it('should allow user to navigate back to mount screen if get repos is sucessful', () => {
+  it('shows back button when successfully connected to cluster', () => {
     const authConfig: AuthConfig = {
       cluster_status: 'VALID_LOGGED_IN',
       pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
@@ -207,7 +200,6 @@ describe('config screen', () => {
       />,
     );
 
-    expect(setShowConfig).not.toHaveBeenCalled();
     getByTestId('Config__back').click();
     expect(setShowConfig).toHaveBeenCalledWith(false);
   });
