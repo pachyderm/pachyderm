@@ -554,10 +554,13 @@ def write_config(
     ------
     RuntimeError: If unable to parse an already existing config file.
     """
+    if server_cas is not None:
+        # server_cas are base64 encoded strings in the config file.
+        server_cas = b64encode(server_cas).decode("utf-8")
     context = Context(
         pachd_address=pachd_address,
         session_token=session_token,
-        server_cas=server_cas and b64encode(server_cas).decode("utf-8"),
+        server_cas=server_cas,
     )
     name = f"jupyter-{pachd_address}"
     if PACH_CONFIG.exists():
