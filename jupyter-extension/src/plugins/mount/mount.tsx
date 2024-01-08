@@ -120,9 +120,6 @@ export class MountPlugin implements IMountPlugin {
                   <Config
                     showConfig={showConfig ? showConfig : this._showConfig}
                     setShowConfig={this.setShowConfig}
-                    reposStatus={
-                      status ? status.code : this._poller.status.code
-                    }
                     updateConfig={this.updateConfig}
                     authConfig={authConfig ? authConfig : this._poller.config}
                     refresh={this._poller.refresh}

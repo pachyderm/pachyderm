@@ -28,7 +28,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -56,7 +55,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -82,7 +80,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -108,7 +105,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -179,7 +175,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -206,7 +201,6 @@ describe('config screen', () => {
       <Config
         showConfig={true}
         setShowConfig={setShowConfig}
-        reposStatus={200}
         updateConfig={updateConfig}
         authConfig={authConfig}
         refresh={jest.fn()}
@@ -234,7 +228,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -300,7 +293,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -348,7 +340,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}

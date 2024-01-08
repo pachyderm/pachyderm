@@ -13,6 +13,7 @@ export type mountState =
   | '';
 
 export type clusterStatus =
+  | 'NONE'
   | 'INVALID'
   | 'VALID_NO_AUTH'
   | 'VALID_LOGGED_IN'
