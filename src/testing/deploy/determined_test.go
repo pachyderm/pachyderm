@@ -97,7 +97,6 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	opts.ValueOverrides = valueOverrides
 	t.Logf("Determined installing in namespace %s", ns)
 	c := minikubetestenv.InstallRelease(t, context.Background(), ns, k, opts)
-
 	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 	require.NoError(t, err)
 	require.Equal(t, auth.RootUser, whoami.Username)
@@ -109,10 +108,9 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	repoName := "images"
 	pipelineName := "edges"
 	workspaceName := "pach-test-workspace"
-	// log in as non-admin test user to make and use the new workspace
-	userToken := determinedLogin(t, *detUrl, testutil.DexMockConnectorEmail, detNewUserPassword)
-	determinedCreateWorkspace(t, *detUrl, userToken, workspaceName)
-	previous := determinedGetUsers(t, *detUrl, userToken)
+	detToken := determinedLogin(t, *detUrl, "admin", "")
+	determinedCreateWorkspace(t, *detUrl, detToken, workspaceName)
+	previous := determinedGetUsers(t, *detUrl, detToken)
 	// create repo and pipeline that should make the determined service user
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repoName))
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -134,14 +132,14 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	current := determinedGetUsers(t, *detUrl, userToken)
+	current := determinedGetUsers(t, *detUrl, detToken)
 	require.Equal(t, len(*previous.Users)+1, len(*current.Users), "the new pipeline has created an additional service user in Determined")
 	// once a pipeline is deleted the users should eventually be cleaned up in determined
 	_, err = c.PpsAPIClient.DeletePipeline(c.Ctx(), &pps.DeletePipelineRequest{Pipeline: client.NewPipeline(pfs.DefaultProjectName, pipelineName)})
 	require.NoError(t, err)
 	previous = current
 	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
-		current = determinedGetUsers(t, *detUrl, userToken)
+		current = determinedGetUsers(t, *detUrl, detToken)
 		if len(*previous.Users)-1 == len(*current.Users) {
 			return errors.Errorf("the new pipeline has created an additional service user in Determined")
 		}
