@@ -18,6 +18,7 @@ go_library(
 
 go_test(
     name = "proc_test",
+    size = "small",
     srcs = ["proc_test.go"],
     embed = [":proc"],
     deps = [

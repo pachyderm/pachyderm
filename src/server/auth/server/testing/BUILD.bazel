@@ -4,6 +4,7 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_test(
     name = "admin_test",
+    size = "small",
     srcs = ["admin_test.go"],
     shard_count = 4,
     tags = ["cpu:8"],
@@ -56,6 +57,7 @@ go_test(
 
 go_test(
     name = "config_test",
+    size = "small",
     srcs = ["config_test.go"],
     pure = "on",
     deps = [
@@ -75,6 +77,7 @@ go_test(
 
 go_test(
     name = "oidc_test",
+    size = "small",
     srcs = ["oidc_test.go"],
     pure = "on",
     deps = [

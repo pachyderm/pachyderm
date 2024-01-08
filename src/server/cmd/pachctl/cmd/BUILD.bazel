@@ -44,6 +44,7 @@ go_library(
 
 go_test(
     name = "cmd_test",
+    size = "small",
     srcs = ["cmd_test.go"],
     embed = [":cmd"],
     deps = [

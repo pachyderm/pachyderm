@@ -14,6 +14,7 @@ go_library(
 
 go_test(
     name = "taskchain_test",
+    size = "small",
     srcs = ["task_chain_test.go"],
     embed = [":taskchain"],
     deps = [

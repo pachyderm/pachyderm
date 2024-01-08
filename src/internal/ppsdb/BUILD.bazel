@@ -27,6 +27,7 @@ go_library(
 
 go_test(
     name = "ppsdb_test",
+    size = "small",
     srcs = ["ppsdb_test.go"],
     embed = [":ppsdb"],
     deps = [
