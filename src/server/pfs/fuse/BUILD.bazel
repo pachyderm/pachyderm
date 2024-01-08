@@ -45,6 +45,7 @@ go_library(
 
 go_test(
     name = "fuse_test",
+    size = "large",  # test cannot be sharded because of port number conflicts
     srcs = [
         "fuse_test.go",
         "helpers_test.go",
@@ -53,6 +54,7 @@ go_test(
     ],
     embed = [":fuse"],
     pure = "on",
+    tags = ["no-sandbox"],  # fusermount cannot run in bazel test sandbox
     deps = [
         "//src/auth",
         "//src/internal/client",
