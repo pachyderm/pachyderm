@@ -112,6 +112,10 @@ go_test(
         "url_test.go",
     ],
     embed = [":server"],
+    tags = [
+        "external",
+        "manual",
+    ],
     deps = [
         "//src/internal/obj",
         "//src/internal/obj/integrationtests",
