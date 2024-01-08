@@ -3500,10 +3500,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "3daaf9762856489ba6cabff50c1e0b60154bec82aa744d35d3b6d7b377b808a1",
+          "@@//:go.mod": "15d3dd5f3e64362ecc25a37f3fda5cff66fd5a00b1e1adf2817fe381eca40930",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.44.1//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
-          "@@//:go.sum": "f5dff5cc0a790d66a6599d04eb6bdb24b9fc0a4c6ad3a965abdd38657a5b1e56",
+          "@@//:go.sum": "5a36c6eacc60e22e8200a323e0f0340dd4ae34d7bde946c4f756324938ee9d77",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@rules_go~0.44.1//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
@@ -6630,6 +6630,7 @@
                 "io_k8s_kubectl": "k8s.io/kubectl",
                 "io_k8s_utils": "k8s.io/utils",
                 "io_k8s_sigs_yaml": "sigs.k8s.io/yaml",
+                "@rules_go~0.44.1": "github.com/bazelbuild/rules_go",
                 "com_google_cloud_go": "cloud.google.com/go",
                 "com_google_cloud_go_compute": "cloud.google.com/go/compute",
                 "com_google_cloud_go_compute_metadata": "cloud.google.com/go/compute/metadata",
@@ -6869,7 +6870,6 @@
                 "com_sourcegraph_sourcegraph_appdash": "sourcegraph.com/sourcegraph/appdash",
                 "org_golang_x_tools": "golang.org/x/tools",
                 "com_github_bazelbuild_buildtools": "github.com/bazelbuild/buildtools",
-                "@rules_go~0.44.1": "github.com/bazelbuild/rules_go",
                 "com_github_bmatcuk_doublestar_v4": "github.com/bmatcuk/doublestar/v4",
                 "org_golang_x_tools_go_vcs": "golang.org/x/tools/go/vcs",
                 "com_github_golang_mock": "github.com/golang/mock",
@@ -9816,7 +9816,6 @@
             "io_k8s_sigs_yaml",
             "com_github_alessio_shellescape",
             "com_github_fsnotify_fsnotify",
-            "com_github_gogo_protobuf",
             "com_github_google_shlex"
           ],
           "explicitRootModuleDirectDevDeps": [],

@@ -74,27 +74,13 @@ func (p Pachctl) Close() error {
 }
 
 func (p Pachctl) bashPrelude(w io.Writer) error {
-	_, err := fmt.Fprintf(w, `
-set -e -o pipefail
-# Try to ignore pipefail errors (encountered when writing to a closed pipe).
-# Processes like 'yes' are essentially guaranteed to hit this, and because of
-# -e -o pipefail they will crash the whole script. We need these options,
-# though, for 'match' to work, so for now we work around pipefail errors on a
-# cmd-by-cmd basis. See "The Infamous SIGPIPE Signal"
-# http://www.tldp.org/LDP/lpg/node20.html
-pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
-function yes {
-	/usr/bin/yes || test "$?" -eq "${pipeerr}"
-}
-export -f yes # use in subshells too
-which match >/dev/null || {
-	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  go install ./src/testing/match" >&2
-	exit 1
-}
-export PACH_CONFIG="%s"
-`, p.configPath)
-	return errors.Wrap(err, "could not write prelude")
+	if err := writeBashPrelude(w); err != nil {
+		return errors.Wrap(err, "write bash prelude")
+	}
+	if _, err := fmt.Fprintf(w, `export PACH_CONFIG="%s"`+"\n", p.configPath); err != nil {
+		return errors.Wrap(err, "write PACH_CONFIG")
+	}
+	return nil
 }
 
 // writeTemplate dedents the given script, parses it as a Go template and writes

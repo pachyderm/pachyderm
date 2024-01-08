@@ -96,25 +96,9 @@ func bashCmd(cmd string, subs ...string) io.Reader {
 	// this library, and enable 'pipefail' so that if any 'match' in a chain
 	// fails, the whole command fails.
 	buf := &bytes.Buffer{}
-	buf.WriteString(`
-set -e -o pipefail
-# Try to ignore pipefail errors (encountered when writing to a closed pipe).
-# Processes like 'yes' are essentially guaranteed to hit this, and because of
-# -e -o pipefail they will crash the whole script. We need these options,
-# though, for 'match' to work, so for now we work around pipefail errors on a
-# cmd-by-cmd basis. See "The Infamous SIGPIPE Signal"
-# http://www.tldp.org/LDP/lpg/node20.html
-pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
-function yes {
-	/usr/bin/yes || test "$?" -eq "${pipeerr}"
-}
-export -f yes # use in subshells too
-which match >/dev/null || {
-	echo "You must have 'match' installed to run these tests. Please run:" >&2
-	echo "  go install ./src/testing/match" >&2
-	exit 1
-}`)
-	buf.WriteRune('\n')
+	if err := writeBashPrelude(buf); err != nil {
+		panic(errors.Wrap(err, "add bash prelude"))
+	}
 
 	// do the substitution
 	if err := template.Must(template.New("").Parse(dedent(cmd))).Execute(buf, data); err != nil {
