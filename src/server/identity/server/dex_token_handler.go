@@ -130,22 +130,22 @@ type bufferResponseWriter struct {
 	statusCode int
 }
 
-func (sr *bufferResponseWriter) Write(b []byte) (int, error) {
-	i, err := sr.rw.Write(b)
+func (br *bufferResponseWriter) Write(b []byte) (int, error) {
+	i, err := br.rw.Write(b)
 	if err != nil {
 		return i, errors.Wrap(err, "write to response writer")
 	}
-	i, err = sr.b.Write(b)
+	i, err = br.b.Write(b)
 	return i, errors.Wrap(err, "write to buffered response writer")
 }
 
-func (sr *bufferResponseWriter) Header() http.Header {
-	return sr.rw.Header()
+func (br *bufferResponseWriter) Header() http.Header {
+	return br.rw.Header()
 }
 
-func (sr *bufferResponseWriter) WriteHeader(statusCode int) {
-	sr.rw.WriteHeader(statusCode)
-	sr.statusCode = statusCode
+func (br *bufferResponseWriter) WriteHeader(statusCode int) {
+	br.rw.WriteHeader(statusCode)
+	br.statusCode = statusCode
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
