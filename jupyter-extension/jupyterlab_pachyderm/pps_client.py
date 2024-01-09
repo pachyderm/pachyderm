@@ -6,7 +6,7 @@ from datetime import datetime
 from inspect import getsource
 from pathlib import Path
 from textwrap import dedent
-from typing import Optional, Union
+from typing import List, Optional, Union
 
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -25,6 +25,7 @@ class PpsConfig:
     pipeline: pps.Pipeline
     image: str
     requirements: Optional[str]
+    external_files: List[str]
     port: str
     gpu_mode: str
     resource_spec: dict
@@ -36,6 +37,7 @@ class PpsConfig:
 
         Raises ValueError if required field is not specified.
         """
+        notebook_directory = os.path.dirname(notebook_path)
         notebook_path = Path(notebook_path)
         notebook_data = json.loads(notebook_path.read_bytes())
 
@@ -68,6 +70,12 @@ class PpsConfig:
 
         requirements = config.get("requirements")
 
+        external_files = []
+        external_files_str = config.get("external_files")
+        if isinstance(external_files_str, str):
+            for external_file in external_files_str.strip().split(','):
+                external_files.append(os.path.join(notebook_directory, external_file.strip()))
+
         input_spec_str = config.get("input_spec")
         if input_spec_str is None:
             raise ValueError("field input_spec not set")
@@ -88,6 +96,7 @@ class PpsConfig:
             pipeline=pipeline,
             image=image,
             requirements=requirements,
+            external_files=external_files,
             input_spec=input_spec,
             port=port,
             gpu_mode=gpu_mode,
@@ -195,6 +204,9 @@ def upload_environment(
         if config.requirements:
             with open(config.requirements, "rb") as reqs_file:
                 commit.put_file_from_file(path="/requirements.txt", file=reqs_file)
+        for external_file in config.external_files:
+            with open(external_file, "rb") as external_file_data:
+                commit.put_file_from_file(path=f'/{external_file}', file=external_file_data)
         commit.put_file_from_bytes(
             path="/entrypoint.py", data=entrypoint_script.encode("utf-8")
         )
@@ -266,6 +278,10 @@ class PPSClient:
 
         if config.requirements and not os.path.exists(config.requirements):
             raise HTTPError(status_code=400, reason="requirements file does not exist")
+        
+        for external_file in config.external_files:
+            if not os.path.exists(external_file):
+                raise HTTPError(status_code=400, reason=f'external file {external_file} could not be found in the directory of the Jupyter notebook')
 
         script, _resources = self.nbconvert.from_filename(str(path))
 
