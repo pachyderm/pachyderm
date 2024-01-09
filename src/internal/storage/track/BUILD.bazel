@@ -23,7 +23,7 @@ go_library(
 
 go_test(
     name = "track_test",
-    size = "medium",
+    size = "small",
     tags = ["cpu:8"],
     srcs = ["postgres_tracker_test.go"],
     deps = [
