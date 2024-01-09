@@ -1,10 +1,9 @@
 import {useCallback, useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
-import {useDeleteFilesMutation} from '@dash-frontend/generated/hooks';
-import useCurrentRepoWithLinkedPipeline from '@dash-frontend/hooks/useCurrentRepoWithLinkedPipeline';
+import useDeleteFiles from '@dash-frontend/hooks/useDeleteFiles';
+import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getProxyEnabled} from '@dash-frontend/lib/runtimeVariables';
 import useArchiveDownload from '@dash-frontend/views/FileBrowser/hooks/useArchiveDownload';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useModal} from '@pachyderm/components';
@@ -14,10 +13,15 @@ const useListViewTable = () => {
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const browserHistory = useHistory();
 
-  const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
+  const {loading: pipelineLoading, pipeline} = usePipeline({
+    pipeline: {
+      name: repoId,
+      project: {name: projectId},
+    },
+  });
 
   const noFilesSelected = selectedFiles.length === 0;
-  const isOutputRepo = Boolean(repo?.linkedPipeline);
+  const isOutputRepo = Boolean(pipeline);
 
   const addSelection = useCallback(
     (filePath: string) => {
@@ -42,36 +46,31 @@ const useListViewTable = () => {
     isOpen: deleteModalOpen,
   } = useModal(false);
 
-  const [deleteFilesMutation, {loading: deleteLoading, error: deleteError}] =
-    useDeleteFilesMutation();
-  const deleteFiles = useCallback(async () => {
-    const deleteCommit = await deleteFilesMutation({
-      variables: {
-        args: {
-          filePaths: selectedFiles,
-          repo: repoId,
-          branch: branchId,
-          projectId,
-        },
-      },
-    });
-    deleteCommit.data?.deleteFiles &&
+  const {
+    deleteFiles: deleteHook,
+    loading: deleteLoading,
+    error: deleteError,
+  } = useDeleteFiles({
+    onSuccess: (id) => {
       browserHistory.push(
         fileBrowserRoute({
           repoId,
           branchId,
           projectId,
-          commitId: deleteCommit.data?.deleteFiles,
+          commitId: id,
         }),
       );
-  }, [
-    branchId,
-    browserHistory,
-    deleteFilesMutation,
-    projectId,
-    repoId,
-    selectedFiles,
-  ]);
+    },
+  });
+
+  const deleteFiles = () => {
+    deleteHook({
+      filePaths: selectedFiles,
+      repoId: repoId,
+      branchId: branchId,
+      projectId,
+    });
+  };
 
   const {archiveDownload} = useArchiveDownload();
 
@@ -79,11 +78,9 @@ const useListViewTable = () => {
     await archiveDownload(selectedFiles);
   }, [archiveDownload, selectedFiles]);
 
-  const proxyEnabled = getProxyEnabled();
-
   return {
     repoId,
-    repoLoading,
+    pipelineLoading,
     branchId,
     selectedFiles,
     addSelection,
@@ -94,7 +91,6 @@ const useListViewTable = () => {
     deleteLoading,
     deleteError,
     downloadSelected,
-    proxyEnabled,
     isOutputRepo,
     noFilesSelected,
   };

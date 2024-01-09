@@ -1,8 +1,23 @@
-import {mockSearchResultsQuery} from '@graphqlTypes';
 import {render, screen, act} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {ListRepoRequest, RepoInfo} from '@dash-frontend/api/pfs';
+import {
+  InspectJobSetRequest,
+  JobInfo,
+  ListPipelineRequest,
+  PipelineInfo,
+} from '@dash-frontend/api/pps';
+import {
+  buildJob,
+  buildPipeline,
+  buildRepo,
+  mockPipelinesEmpty,
+  mockReposEmpty,
+} from '@dash-frontend/mocks';
 import {click, withContextProviders, type} from '@dash-frontend/testHelpers';
 
 import SearchComponent from '../Search';
@@ -36,19 +51,8 @@ describe('Search', () => {
   });
 
   it('should display empty state messages', async () => {
-    server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
-    );
+    server.use(mockReposEmpty());
+    server.use(mockPipelinesEmpty());
 
     render(<Search />);
 
@@ -70,23 +74,13 @@ describe('Search', () => {
   });
 
   it('should underline matched search term', async () => {
+    server.use(mockPipelinesEmpty());
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [
-                {
-                  name: 'images',
-                  id: 'images',
-                },
-              ],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
+      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+        '/api/pfs_v2.API/ListRepo',
+        (_req, res, ctx) =>
+          res(ctx.json([buildRepo({repo: {name: 'images'}})])),
+      ),
     );
     render(<Search />);
 
@@ -100,23 +94,13 @@ describe('Search', () => {
   });
 
   it('should save recent searches and populate search bar', async () => {
+    server.use(mockPipelinesEmpty());
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [
-                {
-                  name: 'images',
-                  id: 'images',
-                },
-              ],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
+      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+        '/api/pfs_v2.API/ListRepo',
+        (_req, res, ctx) =>
+          res(ctx.json([buildRepo({repo: {name: 'images'}})])),
+      ),
     );
     render(<Search />);
 
@@ -140,23 +124,13 @@ describe('Search', () => {
   });
 
   it('should clear saved search history', async () => {
+    server.use(mockPipelinesEmpty());
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [
-                {
-                  name: 'images',
-                  id: 'images',
-                },
-              ],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
+      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+        '/api/pfs_v2.API/ListRepo',
+        (_req, res, ctx) =>
+          res(ctx.json([buildRepo({repo: {name: 'images'}})])),
+      ),
     );
     render(<Search />);
 
@@ -185,23 +159,13 @@ describe('Search', () => {
   });
 
   it('should route to selected repo', async () => {
+    server.use(mockPipelinesEmpty());
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [
-                {
-                  name: 'images',
-                  id: 'images',
-                },
-              ],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
+      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+        '/api/pfs_v2.API/ListRepo',
+        (_req, res, ctx) =>
+          res(ctx.json([buildRepo({repo: {name: 'images'}})])),
+      ),
     );
     render(<Search />);
 
@@ -221,27 +185,17 @@ describe('Search', () => {
 
   it('should route to selected pipeline', async () => {
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [
-                {
-                  name: 'edges',
-                  id: 'default_edges',
-                },
-              ],
-              repos: [
-                {
-                  name: 'edges',
-                  id: 'edges',
-                },
-              ],
-              jobSet: null,
-            },
-          }),
-        );
-      }),
+      rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+        '/api/pps_v2.API/ListPipeline',
+        (_req, res, ctx) =>
+          res(ctx.json([buildPipeline({pipeline: {name: 'edges'}})])),
+      ),
+    );
+    server.use(
+      rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+        '/api/pfs_v2.API/ListRepo',
+        (_req, res, ctx) => res(ctx.json([buildRepo({repo: {name: 'edges'}})])),
+      ),
     );
     render(<Search />);
 
@@ -259,17 +213,15 @@ describe('Search', () => {
 
   it('should route to jobs for selected id', async () => {
     server.use(
-      mockSearchResultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            searchResults: {
-              pipelines: [],
-              repos: [],
-              jobSet: {id: '1dc67e479f03498badcc6180be4ee6ce'},
-            },
-          }),
-        );
-      }),
+      rest.post<InspectJobSetRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/InspectJobSet',
+        (_req, res, ctx) =>
+          res(
+            ctx.json([
+              buildJob({job: {id: '1dc67e479f03498badcc6180be4ee6ce'}}),
+            ]),
+          ),
+      ),
     );
     render(<Search />);
 

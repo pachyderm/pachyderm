@@ -1,7 +1,9 @@
-import {File} from '@graphqlTypes';
 import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {getDownloadLink} from '@dash-frontend/lib/fileUtils';
+import formatBytes from '@dash-frontend/lib/formatBytes';
 import {
   Button,
   DefaultDropdown,
@@ -18,7 +20,7 @@ import FilePreviewContent from './components/FilePreviewContent';
 import styles from './FilePreview.module.css';
 
 type FilePreviewProps = {
-  file: File;
+  file: FileInfo;
 };
 
 const FilePreview = ({file}: FilePreviewProps) => {
@@ -80,17 +82,19 @@ const FilePreview = ({file}: FilePreviewProps) => {
             <Description term="File Type">{fileType}</Description>
           </div>
           <div className={styles.description}>
-            <Description term="Size">{file.sizeDisplay}</Description>
+            <Description term="Size">
+              {formatBytes(file.sizeBytes || 0)}
+            </Description>
           </div>
           <div className={styles.description}>
-            <Description term="File Path">{file.path}</Description>
+            <Description term="File Path">{file.file?.path}</Description>
           </div>
         </Group>
       </div>
 
       <FilePreviewContent
-        download={file.download}
-        path={file.path}
+        download={getDownloadLink(file)}
+        path={file.file?.path || ''}
         viewSource={viewSource}
         toggleViewSource={toggleViewSource}
       />
@@ -105,11 +109,11 @@ const FilePreview = ({file}: FilePreviewProps) => {
           confirmText="Delete"
           onConfirm={deleteFile}
           loading={loading}
-          errorMessage={error?.message}
+          errorMessage={error}
         >
-          {file.path}
+          {file.file?.path}
           <br />
-          {`${file.repoName}@${file.commitId}`}
+          {`${file.file?.commit?.repo?.name}@${file.file?.commit?.id}`}
         </BasicModal>
       )}
     </div>

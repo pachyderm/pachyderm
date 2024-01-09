@@ -1,19 +1,69 @@
-import {QueryHookOptions} from '@apollo/client';
-import {GetLogsQuery, GetLogsQueryVariables} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {useGetLogsQuery} from '@dash-frontend/generated/hooks';
+import {GetLogsRequest, LogMessage, getLogs} from '@dash-frontend/api/pps';
+import {isErrorWithMessage, isUnknown} from '@dash-frontend/api/utils/error';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useLogs = (
-  baseOptions: QueryHookOptions<GetLogsQuery, GetLogsQueryVariables>,
+/**
+ * The provided `since` should be an ISO string. `since` for the network request is a protobuf duration.
+ * The provided `since` ISO string will be converted to the correct duration for the network request.
+ */
+export const useLogs = (
+  req: Omit<GetLogsRequest, 'since'>,
+  {
+    cursor,
+    limit,
+    enabled = true,
+    refetchInterval = false,
+    since,
+  }: {
+    since?: string;
+    cursor?: LogMessage;
+    limit?: number;
+    enabled?: boolean;
+    refetchInterval?: false | number;
+  },
 ) => {
-  const logsQuery = useGetLogsQuery({
-    ...baseOptions,
+  const isOverLokiQueryLimit = (error: unknown) =>
+    isUnknown(error) &&
+    isErrorWithMessage(error) &&
+    error?.message.includes('the query time range exceeds the limit');
+
+  const {
+    data,
+    isLoading: loading,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.log({
+      projectName: req.pipeline?.project?.name || '',
+      pipelineName: req.pipeline?.name || '',
+      jobId: req.job?.id || '',
+      datumId: req.datum?.id || '',
+      req,
+      args: {
+        cursor,
+        limit,
+        since,
+      },
+    }),
+    queryFn: () => getLogs(req, {cursor, limit, since}),
+    throwOnError: (e) =>
+      // This error will occur when you request a time frame longer than loki is storing
+      !isOverLokiQueryLimit(e),
+    enabled,
+    refetchInterval,
   });
+
+  const isPagingError = error?.name === 'PagingError';
+
   return {
-    ...logsQuery,
-    logs: logsQuery.data?.logs.items || [],
-    cursor: logsQuery.data?.logs.cursor,
+    loading,
+    logs: data,
+    error: getErrorMessage(error),
+    refetch,
+    isOverLokiQueryLimit: isOverLokiQueryLimit(error),
+    isPagingError,
   };
 };
-
-export default useLogs;

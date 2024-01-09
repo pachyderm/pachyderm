@@ -1,4 +1,3 @@
-import {ApolloError} from '@apollo/client';
 import React, {useEffect} from 'react';
 
 import {
@@ -18,7 +17,7 @@ const NETWORK_ERROR_DETAILS =
   'Repo and Pipeline data may not be up to date. You may want to refresh the page.';
 
 type DAGErrorProps = {
-  error: ApolloError | string | undefined;
+  error: string | undefined;
 };
 
 const DAGError: React.FC<DAGErrorProps> = ({error}) => {

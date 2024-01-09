@@ -6,6 +6,7 @@ import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {projectReposRoute} from '@dash-frontend/views/Project/utils/routes';
+import {useNotificationBanner} from '@pachyderm/components';
 
 import {JobDatumViewer, PipelineDatumViewer} from '../DatumViewer';
 import FileBrowser from '../FileBrowser';
@@ -19,6 +20,7 @@ import ProjectSideNav from './components/ProjectSideNav';
 import RepoList from './components/RepoList';
 import {
   PROJECT_PATH,
+  PROJECT_CONFIG_PATH,
   PROJECT_JOBS_PATH,
   PROJECT_REPOS_PATH,
   PROJECT_PIPELINES_PATH,
@@ -39,11 +41,14 @@ import {
   PROJECT_FILE_BROWSER_PATH_LATEST,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
+  PROJECT_SIDENAV_PATHS,
 } from './constants/projectPaths';
 import styles from './Project.module.css';
+import ProjectConfig from './ProjectConfig';
 
 const Project: React.FC = () => {
   const {loading, enterpriseActive} = useEnterpriseActive();
+  const {add} = useNotificationBanner();
   const {projectId} = useUrlState();
 
   return (
@@ -55,7 +60,12 @@ const Project: React.FC = () => {
       {!loading && !enterpriseActive && <Favicon url="/img/pachyderm.ico" />}
       <ProjectHeader />
       <div className={styles.view}>
-        <ProjectSideNav />
+        <Route path={PROJECT_CONFIG_PATH} exact>
+          <ProjectConfig triggerNotification={add} />
+        </Route>
+        <Route path={PROJECT_SIDENAV_PATHS} exact>
+          <ProjectSideNav />
+        </Route>
         <Route path={PROJECT_PATH} exact>
           <Redirect
             to={projectReposRoute({
@@ -113,11 +123,9 @@ const Project: React.FC = () => {
         >
           <JobDatumViewer />
         </Route>
-
         <Route path={[PROJECT_FILE_UPLOAD_PATH, LINEAGE_FILE_UPLOAD_PATH]}>
           <FileUpload />
         </Route>
-        {/* Tutorial is temporarily disabled because of "Project" Console Support */}
       </div>
     </>
   );

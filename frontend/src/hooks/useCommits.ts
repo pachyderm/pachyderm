@@ -1,31 +1,89 @@
-import {WatchQueryFetchPolicy} from '@apollo/client';
-import {CommitsQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
+import {listCommitsPaged} from '@dash-frontend/api/pfs';
+import {DEFAULT_COMMITS_LIMIT} from '@dash-frontend/constants/limits';
 import {COMMITS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useGetCommitsQuery} from '@dash-frontend/generated/hooks';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
 export const COMMIT_LIMIT = 100;
 
-type UseCommitArgs = {
-  args: CommitsQueryArgs;
-  skip?: boolean;
-  fetchPolicy?: WatchQueryFetchPolicy;
+type UseCommitsArgs = {
+  branchName?: string;
+  cursor?: string;
+  commitIdCursor?: string;
+  number: number;
+  reverse?: boolean;
 };
 
-const useCommits = ({args, skip = false, fetchPolicy}: UseCommitArgs) => {
-  const getCommitsQuery = useGetCommitsQuery({
-    pollInterval: COMMITS_POLL_INTERVAL_MS,
-    variables: {args},
-    skip,
-    fetchPolicy,
+type UseCommits = {
+  projectName: string;
+  repoName: string;
+  args: UseCommitsArgs;
+};
+
+export const useCommits = (
+  {args, projectName, repoName}: UseCommits,
+  skip = false,
+) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+    refetch,
+    isRefetching: refetching,
+  } = useQuery({
+    queryKey: queryKeys.commits<UseCommitsArgs>({
+      projectId: projectName,
+      repoId: repoName,
+      args,
+    }),
+    refetchInterval: COMMITS_POLL_INTERVAL_MS,
+    enabled: !skip,
+    queryFn: () => {
+      // You can only use one cursor in a query at a time.
+      if (args.cursor && args.commitIdCursor) {
+        throw new Error(
+          `INVALID_ARGUMENT: received cursor and commitIdCursor arguments`,
+        );
+      }
+      // The branch parameter only works when not using the cursor argument
+      if (args.cursor && args.branchName) {
+        throw new Error(
+          `INVALID_ARGUMENT: can not specify cursor and branchName in query`,
+        );
+      }
+
+      const repo = {
+        name: repoName,
+        type: 'user',
+        project: {name: projectName},
+      };
+
+      return listCommitsPaged({
+        repo,
+        to:
+          args.commitIdCursor || args.branchName
+            ? {
+                id: args.commitIdCursor || '',
+                branch: {
+                  name: args.branchName || '',
+                  repo: repo,
+                },
+              }
+            : undefined,
+        startedTime: args.cursor || undefined,
+        number: String(args.number ?? DEFAULT_COMMITS_LIMIT),
+        reverse: args.reverse,
+      });
+    },
   });
 
   return {
-    ...getCommitsQuery,
-    commits: getCommitsQuery.data?.commits.items || [],
-    cursor: getCommitsQuery.data?.commits.cursor,
-    parentCommit: getCommitsQuery.data?.commits.parentCommit,
+    ...data,
+    loading,
+    error: getErrorMessage(error),
+    refetch,
+    refetching,
   };
 };
-
-export default useCommits;

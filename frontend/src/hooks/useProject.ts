@@ -1,18 +1,22 @@
-import {useProjectQuery} from '@dash-frontend/generated/hooks';
+import {useQuery} from '@tanstack/react-query';
 
-interface UseProjectArgs {
-  id: string;
-}
+import {Project, inspectProject} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useProject = ({id}: UseProjectArgs) => {
-  const projectQuery = useProjectQuery({
-    variables: {id},
+export const useProject = (projectName: Project['name']) => {
+  const {
+    data,
+    error,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: queryKeys.project({projectId: projectName}),
+    queryFn: () => inspectProject({project: {name: projectName}}),
   });
 
   return {
-    ...projectQuery,
-    project: projectQuery?.data?.project,
+    error: getErrorMessage(error),
+    loading,
+    project: data,
   };
 };
-
-export default useProject;

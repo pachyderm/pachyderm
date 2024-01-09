@@ -1,17 +1,61 @@
-import {JobSetQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {JOBS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useJobSetQuery} from '@dash-frontend/generated/hooks';
+import {JobSet, inspectJobSet} from '@dash-frontend/api/pps';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useJobSet = (args: JobSetQueryArgs) => {
-  const {data, error, loading} = useJobSetQuery({
-    variables: {args},
-    pollInterval: JOBS_POLL_INTERVAL_MS,
+export const useJobSet = (jobSetId: JobSet['id'], enabled = true) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.jobSet({jobSetId: jobSetId}),
+    queryFn: () =>
+      inspectJobSet({
+        jobSet: {
+          id: jobSetId,
+        },
+        details: true,
+      }),
+    enabled,
   });
 
   return {
-    error,
-    jobSet: data?.jobSet,
     loading,
+    jobSet: data,
+    error: getErrorMessage(error),
+  };
+};
+
+export const useJobSetLazy = (jobSetId: JobSet['id']) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+    refetch,
+    isFetched,
+    isRefetching,
+    isSuccess,
+  } = useQuery({
+    queryKey: queryKeys.jobSet({jobSetId: jobSetId}),
+    queryFn: () =>
+      inspectJobSet({
+        jobSet: {
+          id: jobSetId,
+        },
+        details: true,
+      }),
+    enabled: false,
+  });
+
+  return {
+    refetch,
+    isFetched,
+    isRefetching,
+    isSuccess,
+    loading,
+    jobSet: data,
+    error: getErrorMessage(error),
   };
 };

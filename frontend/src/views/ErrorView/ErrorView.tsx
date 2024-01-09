@@ -1,4 +1,3 @@
-import {GraphQLError} from 'graphql';
 import React from 'react';
 import {Helmet} from 'react-helmet';
 
@@ -19,7 +18,7 @@ type ErrorViewProps = {
   errorMessage?: string;
   errorDetails?: string;
   source?: string;
-  stackTrace?: string | GraphQLError;
+  stackTrace?: string | object | unknown[];
   showBackHomeButton?: boolean;
 };
 

@@ -3,7 +3,6 @@ import React from 'react';
 import CodePreview, {
   EffectiveSpecPreview,
 } from '@dash-frontend/components/CodePreview';
-import UpdatePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UpdatePipelineButton/UpdatePipelineButton';
 import {
   DefaultDropdown,
   ButtonGroup,
@@ -41,7 +40,6 @@ interface ConfigFilePreviewProps {
   title?: string;
   header?: JSX.Element;
   allowMinimize?: boolean;
-  allowUpdate?: boolean;
   userSpecJSON?: JSON;
 }
 
@@ -50,7 +48,6 @@ const ConfigPreview: React.FC<ConfigFilePreviewProps> = ({
   title,
   header = null,
   allowMinimize = false,
-  allowUpdate = false,
   userSpecJSON,
   ...rest
 }) => {
@@ -74,7 +71,6 @@ const ConfigPreview: React.FC<ConfigFilePreviewProps> = ({
               />
             </Tooltip>
           )}
-          {allowUpdate && <UpdatePipelineButton />}
           <DefaultDropdown
             items={gearDropdownItems}
             menuOpts={{pin: 'right'}}

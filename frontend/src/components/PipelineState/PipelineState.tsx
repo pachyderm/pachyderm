@@ -1,11 +1,11 @@
-import {PipelineState as PipelineStateEnum} from '@graphqlTypes';
 import React, {useMemo} from 'react';
 
+import {PipelineState as PipelineStateEnum} from '@dash-frontend/api/pps';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 import {Circle, Group} from '@pachyderm/components';
 
 interface PipelineStateProps {
-  state: PipelineStateEnum;
+  state?: PipelineStateEnum;
 }
 
 const PipelineState: React.FC<PipelineStateProps> = ({state}) => {

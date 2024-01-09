@@ -14,6 +14,8 @@ describe('FileBrowser', () => {
         pachctl delete file images@test:image1.png        
         pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
         pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
+        pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png
         `,
       ).visit('/');
     });
@@ -35,7 +37,7 @@ describe('FileBrowser', () => {
         name: /test/i,
       }).click();
 
-      cy.findAllByTestId('CommitList__listItem').should('have.length', 4);
+      cy.findAllByTestId('CommitList__listItem').should('have.length', 6);
     });
 
     it('should display version history for selected file', () => {
@@ -44,23 +46,35 @@ describe('FileBrowser', () => {
       cy.findByRole('button', {
         name: 'Load older file versions',
       }).click();
-      cy.findByRole('button', {
-        name: 'Load older file versions',
-      }).should('be.disabled');
 
       cy.get(`[aria-label="file metadata"]`).findByText('80.59 kB');
       cy.findByTestId('FileHistory__commitList')
         .children()
         .should(($links) => {
-          expect($links).to.have.length(4);
+          expect($links).to.have.length(5);
           expect($links[0]).to.contain('Updated');
           expect($links[0]).to.have.property('href');
-          expect($links[1]).to.contain('Added');
+          expect($links[1]).to.contain('Updated');
           expect($links[1]).to.have.property('href');
-          expect($links[2]).to.contain('Deleted');
-          expect($links[2]).to.have.property('href', '');
+          expect($links[2]).to.contain('Updated');
+          expect($links[2]).to.have.property('href');
           expect($links[3]).to.contain('Added');
           expect($links[3]).to.have.property('href');
+          expect($links[4]).to.contain('Deleted');
+          expect($links[4]).to.have.property('href', '');
+        });
+
+      cy.findByRole('button', {
+        name: 'Load older file versions',
+      }).click();
+      cy.findByRole('button', {
+        name: 'Load older file versions',
+      }).should('be.disabled');
+
+      cy.findByTestId('FileHistory__commitList')
+        .children()
+        .should(($links) => {
+          expect($links).to.have.length(6);
           $links[3].click();
         });
 
@@ -122,7 +136,6 @@ describe('FileBrowser', () => {
       );
     });
 
-    // This test relies on REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST being set in the enviroment
     it('should download multiple files', () => {
       cy.on('window:before:load', (win) => {
         cy.stub(win, 'open').callsFake(cy.stub().as('open'));
@@ -149,7 +162,7 @@ describe('FileBrowser', () => {
 
       cy.get('@open').should(
         'have.been.calledOnceWithExactly',
-        'http://localhost/archive/ASi1L_0gZXUBACQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOjEucG5nADI0LnBuZwMAYBRFsUKG2QQ.zip',
+        '/proxyForward/archive/ASi1L_0gZXUBACQCZGVmYXVsdC9pbWFnZXNAbWFzdGVyOjEucG5nADI0LnBuZwMAYBRFsUKG2QQ.zip',
       );
     });
   });

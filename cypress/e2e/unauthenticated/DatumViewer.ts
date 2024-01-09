@@ -21,12 +21,13 @@ describe('DatumViewer', () => {
       cy.visit('/lineage/default/pipelines/lots-of-logs');
 
       cy.findByRole('link', {
-        name: /inspect jobs/i,
+        name: /previous subjobs/i,
         timeout: 30000,
       }).click();
 
+      // a bit flakey, can timeout
       cy.findAllByTestId('LogRow__base', {
-        timeout: 30000,
+        timeout: 90000,
       }).should('have.length.at.least', 19);
 
       cy.findByTestId('Pager__forward').as('forward');

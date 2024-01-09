@@ -1,6 +1,6 @@
-import {File} from '@graphqlTypes';
 import React from 'react';
 
+import {File} from '@dash-frontend/api/pfs';
 import CodePreview, {
   useFileDetails,
 } from '@dash-frontend/components/CodePreview';
@@ -15,7 +15,7 @@ import WebPreview from '../WebPreview';
 import styles from './FilePreviewContent.module.css';
 
 type FilePreviewContentProps = {
-  download: File['download'];
+  download: string | null;
   path: File['path'];
   viewSource?: boolean;
   toggleViewSource?: () => void;

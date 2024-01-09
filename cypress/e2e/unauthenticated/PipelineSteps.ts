@@ -13,6 +13,11 @@ describe('Pipelines', () => {
   });
 
   after(() => {
+    // Delete repos and pipelines can trigger an error as the browser and polling will remain open
+    // while they are deleted. Therefore we can visit about:blank to stop an error from happening.
+    cy.window().then((win) => {
+      win.location.href = 'about:blank';
+    });
     cy.deleteReposAndPipelines();
   });
 
@@ -100,7 +105,12 @@ describe('Pipelines', () => {
       name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
       timeout: 10000,
     }).click();
-    cy.findByRole('button', {name: 'Update Pipeline', timeout: 12000}).click();
+    cy.findByRole('button', {
+      name: /pipeline actions/i,
+    }).click();
+    cy.findByRole('menuitem', {
+      name: /update pipeline/i,
+    }).click();
 
     cy.findByRole('status').should('not.exist');
 
@@ -146,6 +156,37 @@ describe('Pipelines', () => {
       name: 'GROUP_fa25b098cdc91b225479ff6f51bedbe124e29d5a repo',
       timeout: 10000,
     }).click();
-    cy.findAllByTestId('ResourceLink__pipeline').eq(0).should('have.attr', 'href', '/lineage/default/pipelines/edges');
+    cy.findAllByTestId('ResourceLink__pipeline')
+      .eq(0)
+      .should('have.attr', 'href', '/lineage/default/pipelines/edges');
+  });
+
+  it('should allow a user to duplicate a pipeline', () => {
+    cy.findByRole('button', {
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
+      timeout: 10000,
+    }).click();
+    cy.findByRole('button', {
+      name: /pipeline actions/i,
+    }).click();
+    cy.findByRole('menuitem', {
+      name: /duplicate pipeline/i,
+    }).click();
+
+    cy.findByRole('status').should('not.exist');
+
+    cy.findByRole('textbox').should('contain.text', 'edges');
+    cy.findByRole('button', {
+      name: /create pipeline/i,
+    }).click();
+
+    // images2 now has pipeline edges_copy as output
+    cy.findByRole('button', {
+      name: 'GROUP_fa25b098cdc91b225479ff6f51bedbe124e29d5a repo',
+      timeout: 10000,
+    }).click();
+    cy.findAllByTestId('ResourceLink__pipeline')
+      .eq(0)
+      .should('have.attr', 'href', '/lineage/default/pipelines/edges_copy');
   });
 });

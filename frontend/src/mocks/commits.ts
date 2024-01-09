@@ -1,65 +1,90 @@
-import {
-  mockGetCommitsQuery,
-  Commit,
-  OriginKind,
-  mockCommitQuery,
-  mockCommitDiffQuery,
-} from '@graphqlTypes';
+import merge from 'lodash/merge';
+import {rest} from 'msw';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {
+  CommitInfo,
+  OriginKind,
+  ListCommitRequest,
+  DiffFileRequest,
+  DiffFileResponse,
+  FileType,
+  StartCommitRequest,
+  Commit,
+  FinishCommitRequest,
+} from '@dash-frontend/api/pfs';
+import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
 import generateId from '@dash-frontend/lib/generateId';
 
-const COMMIT_4E: Commit = {
-  repoName: 'images',
-  branch: {
-    name: 'master',
-    repo: null,
-    __typename: 'Branch',
+export const buildCommit = (commit: CommitInfo) => {
+  const defaultCommit: CommitInfo = {
+    __typename: 'CommitInfo',
+    origin: {kind: OriginKind.USER},
+  };
+
+  return merge(defaultCommit, commit);
+};
+
+export const COMMIT_INFO_4E: CommitInfo = buildCommit({
+  commit: {
+    id: '4eb1aa567dab483f93a109db4641ee75',
+    repo: {name: 'images', project: {name: 'default'}},
+    branch: {
+      name: 'master',
+      __typename: 'Branch',
+    },
   },
   description: 'commit not finished',
-  originKind: OriginKind.USER,
-  id: '4eb1aa567dab483f93a109db4641ee75',
-  started: 1690221505,
-  finished: -1,
-  sizeBytes: 0,
-  sizeDisplay: '0 B',
-  __typename: 'Commit',
-};
+  started: '2023-07-24T17:58:25Z',
+  finished: undefined,
+  sizeBytesUpperBound: '0',
+  details: {
+    sizeBytes: '0',
+  },
+});
 
-export const COMMIT_4A: Commit = {
-  repoName: 'images',
-  branch: {
-    name: 'master',
-    repo: null,
-    __typename: 'Branch',
+export const COMMIT_INFO_4A: CommitInfo = buildCommit({
+  commit: {
+    id: '4a83c74809664f899261baccdb47cd90',
+    repo: {name: 'images', project: {name: 'default'}},
+    branch: {
+      name: 'master',
+      __typename: 'Branch',
+    },
   },
   description: 'added mako',
-  originKind: OriginKind.USER,
-  id: '4a83c74809664f899261baccdb47cd90',
-  started: 1690221505,
-  finished: 1690321505,
-  sizeBytes: 139232,
-  sizeDisplay: '139.24 kB',
-  __typename: 'Commit',
-};
+  started: '2023-07-24T17:58:25Z',
+  finished: '2023-07-25T21:45:05Z',
+  sizeBytesUpperBound: '139232',
+  details: {
+    sizeBytes: '139232',
+  },
+});
 
-export const COMMIT_C4: Commit = {
-  repoName: 'images',
-  branch: {
-    name: 'master',
-    repo: null,
-    __typename: 'Branch',
+export const COMMIT_INFO_C4: CommitInfo = buildCommit({
+  commit: {
+    id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
+    repo: {name: 'images', project: {name: 'default'}},
+    branch: {
+      name: 'master',
+      __typename: 'Branch',
+    },
   },
   description: 'sold materia',
-  originKind: OriginKind.USER,
-  id: 'c43fffd650a24b40b7d9f1bf90fcfdbe',
-  started: 1690221505,
-  finished: 1690221505,
-  sizeBytes: 58644,
-  sizeDisplay: '58.65 kB',
-  __typename: 'Commit',
-};
+  started: '2023-07-24T17:58:25Z',
+  finished: '2023-07-24T17:58:25Z',
+  sizeBytesUpperBound: '58644',
+  details: {
+    sizeBytes: '58644',
+  },
+  parentCommit: {id: 'c43fffd650a24b40b7d9f1bf90fcfdbe'},
+});
 
-export const IMAGE_COMMITS: Commit[] = [COMMIT_4E, COMMIT_4A, COMMIT_C4];
+export const IMAGE_COMMITS: CommitInfo[] = [
+  COMMIT_INFO_4A,
+  COMMIT_INFO_4E,
+  COMMIT_INFO_C4,
+];
 
 type generateCommitsArgs = {
   n: number;
@@ -71,91 +96,174 @@ export const generatePagingCommits = ({
   n,
   repoName = 'repo',
   branchName = 'master',
-}: generateCommitsArgs) => {
-  const commits: Commit[] = [];
+}: generateCommitsArgs): CommitInfo[] => {
+  const commits: CommitInfo[] = [];
 
   for (let i = 0; i < n; i++) {
-    commits.push({
-      repoName,
-      branch: {
-        name: branchName,
-        repo: null,
-        __typename: 'Branch',
-      },
-      description: `item ${i}`,
-      originKind: OriginKind.USER,
-      id: generateId(),
-      started: i,
-      finished: -1,
-      sizeBytes: 0,
-      sizeDisplay: '0 B',
-      __typename: 'Commit',
-    });
+    commits.push(
+      buildCommit({
+        commit: {
+          id: generateId(),
+          repo: {name: repoName, project: {name: 'default'}},
+          branch: {
+            name: branchName,
+            __typename: 'Branch',
+          },
+        },
+        description: `item ${i}`,
+        started: getISOStringFromUnix(i),
+        finished: undefined,
+        sizeBytesUpperBound: '0',
+      }),
+    );
   }
+
+  for (let i = n - 2; i > 0; i--) {
+    commits[i].parentCommit = commits[i + 1].commit;
+  }
+
   return commits;
 };
 
 export const mockGetImageCommits = () =>
-  mockGetCommitsQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        commits: {items: IMAGE_COMMITS, cursor: null, parentCommit: null},
-      }),
-    );
-  });
-export const mockGetCommitsA4Only = () =>
-  mockGetCommitsQuery((req, res, ctx) => {
-    const {projectId, repoName, branchName} = req.variables.args;
-    if (
-      projectId === 'default' &&
-      repoName === 'images' &&
-      branchName === 'master'
-    ) {
-      return res(
-        ctx.data({
-          commits: {items: [COMMIT_4A], cursor: null, parentCommit: null},
-        }),
-      );
-    }
-    return res();
-  });
+  rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+    '/api/pfs_v2.API/ListCommit',
+    async (req, res, ctx) => {
+      const body = await req.json();
 
-export const mockGetCommitA4 = () =>
-  mockCommitQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        commit: COMMIT_4A,
-      }),
-    );
-  });
+      // responses from a specific global id filter or commit in path
+      if (
+        body.repo.project.name === 'default' &&
+        body.repo.name === 'images' &&
+        body.number === '2' &&
+        body?.to?.id === COMMIT_INFO_C4.commit?.id
+      ) {
+        return res(ctx.json([COMMIT_INFO_C4]));
+      }
 
-export const mockGetCommitC4 = () =>
-  mockCommitQuery((req, res, ctx) => {
-    if (req.variables.args.id === 'c43fffd650a24b40b7d9f1bf90fcfdbe') {
-      return res(
-        ctx.data({
-          commit: COMMIT_C4,
-        }),
-      );
-    } else {
-      return res(ctx.errors([]));
-    }
-  });
+      // responses from a specific global id filter or commit in path
+      if (
+        body.repo.project.name === 'default' &&
+        body.repo.name === 'images' &&
+        body.number === '2' &&
+        body?.to?.id === COMMIT_INFO_4E.commit?.id
+      ) {
+        return res(ctx.json([COMMIT_INFO_4E]));
+      }
+
+      // response for the latest commit in a repo
+      if (
+        body.repo.project.name === 'default' &&
+        body.repo.name === 'images' &&
+        body.number === '2' &&
+        !body?.to?.id
+      ) {
+        return res(ctx.json([COMMIT_INFO_4A]));
+      }
+
+      // regular listCommit response
+      if (body.repo.name === 'images' && body.repo.project.name === 'default') {
+        return res(ctx.json(IMAGE_COMMITS));
+      }
+      return res(ctx.json([]));
+    },
+  );
+
+export const mockEmptyCommits = () => {
+  return rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+    '/api/pfs_v2.API/ListCommit',
+    async (_req, res, ctx) => {
+      return res(ctx.json([]));
+    },
+  );
+};
 
 export const mockEmptyCommitDiff = () =>
-  mockCommitDiffQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        commitDiff: null,
-      }),
-    );
-  });
+  rest.post<DiffFileRequest, Empty, DiffFileResponse[]>(
+    '/api/pfs_v2.API/DiffFile',
+    (_req, res, ctx) => {
+      return res(ctx.json([]));
+    },
+  );
 
-export const mockEmptyCommit = () =>
-  mockCommitQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        commit: null,
-      }),
-    );
-  });
+export const mockDiffFile = () => {
+  return rest.post<DiffFileRequest, Empty, DiffFileResponse[]>(
+    '/api/pfs_v2.API/DiffFile',
+    async (_req, res, ctx) => {
+      return res(
+        ctx.json([
+          {
+            newFile: {
+              file: {
+                commit: {
+                  repo: {
+                    name: 'images',
+                    type: 'user',
+                    project: {
+                      name: 'default',
+                    },
+                  },
+                  id: '0b773ae5bd3248c2b84987df9c2385c8',
+                  branch: {
+                    repo: {
+                      name: 'images',
+                      type: 'user',
+                      project: {
+                        name: 'default',
+                      },
+                    },
+                    name: 'master',
+                  },
+                },
+                path: '/',
+                datum: '',
+              },
+              fileType: FileType.DIR,
+              committed: '2023-11-03T16:07:39.745857Z',
+              sizeBytes: '58650',
+            },
+          },
+        ]),
+      );
+    },
+  );
+};
+
+export const mockStartCommit = (id: string) =>
+  rest.post<StartCommitRequest, Empty, Commit>(
+    '/api/pfs_v2.API/StartCommit',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          repo: {
+            name: 'images',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+            __typename: 'Repo',
+          },
+          id,
+          branch: {
+            repo: {
+              name: 'images',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            name: 'master',
+          },
+          __typename: 'Commit',
+        }),
+      );
+    },
+  );
+
+export const mockFinishCommit = () =>
+  rest.post<FinishCommitRequest, Empty>(
+    '/api/pfs_v2.API/FinishCommit',
+    (_req, res, ctx) => {
+      return res(ctx.json({}));
+    },
+  );

@@ -1,20 +1,34 @@
-import {BranchesQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {useGetBranchesQuery} from '@dash-frontend/generated/hooks';
+import {listBranch} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-type UseBranchesArgs = {
-  args: BranchesQueryArgs;
+type UseBranches = {
+  projectId: string;
+  repoId: string;
 };
 
-const useBranches = (args: UseBranchesArgs) => {
-  const branchesQuery = useGetBranchesQuery({
-    variables: args,
+export const useBranches = (args: UseBranches) => {
+  const {projectId, repoId} = {...args};
+  const {
+    data,
+    error,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: queryKeys.branches({projectId, repoId}),
+    queryFn: () =>
+      listBranch({
+        repo: {
+          name: repoId,
+          type: 'user',
+          project: {name: projectId},
+        },
+      }),
   });
-
   return {
-    ...branchesQuery,
-    branches: branchesQuery?.data?.branches,
+    error: getErrorMessage(error),
+    loading,
+    branches: data,
   };
 };
-
-export default useBranches;

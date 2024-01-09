@@ -1,11 +1,12 @@
 import React, {useMemo} from 'react';
 
+import {Pipeline} from '@dash-frontend/api/pps';
 import {
   TableViewFilters,
   TableViewLoadingDots,
 } from '@dash-frontend/components/TableView';
-import usePipelines from '@dash-frontend/hooks/usePipelines';
-import useRepos from '@dash-frontend/hooks/useRepos';
+import {usePipelines} from '@dash-frontend/hooks/usePipelines';
+import {useRepos} from '@dash-frontend/hooks/useRepos';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form} from '@pachyderm/components';
 
@@ -20,33 +21,31 @@ const PipelineStepsTable: React.FC<PipelineStepsTableProps> = ({
   filtersExpanded,
 }) => {
   const {projectId} = useUrlState();
-  const {pipelines, loading, error} = usePipelines({projectIds: [projectId]});
-  const {
-    repos,
-    loading: reposLoading,
-    error: reposError,
-  } = useRepos({projectId});
+  const {pipelines, loading, error} = usePipelines(projectId);
+  const {repos, loading: reposLoading, error: reposError} = useRepos(projectId);
   const {sortedPipelines, formCtx, staticFilterKeys, clearableFiltersMap} =
     usePipelineFilters({pipelines});
 
   const pipelineRepoMap =
     useMemo(() => {
       if (pipelines && repos) {
-        const pipelineMap = pipelines.reduce<
-          Record<string, (typeof pipelines)[0]>
-        >((map, pipeline) => {
-          if (map && pipeline && pipeline.id) {
-            map[pipeline.id] = pipeline;
-          }
-          return map;
-        }, {});
+        const pipelineMap = pipelines.reduce<Record<string, Pipeline>>(
+          (map, pipeline) => {
+            const pipelineId = pipeline?.pipeline?.name;
+            if (map && pipeline && pipelineId) {
+              map[pipelineId] = pipeline?.pipeline || {};
+            }
+            return map;
+          },
+          {},
+        );
 
         // pipeline id -> repo
         return repos.reduce<Record<string, (typeof repos)[0]>>((obj, repo) => {
-          const repoProjectAndId = `${repo?.projectId}_${repo?.id}`;
-          const linkedPipeline = pipelineMap && pipelineMap[repoProjectAndId];
+          const linkedPipeline =
+            pipelineMap && pipelineMap[repo?.repo?.name || ''];
           if (linkedPipeline) {
-            obj[linkedPipeline?.id] = repo;
+            obj[linkedPipeline.name || ''] = repo;
           }
           return obj;
         }, {});

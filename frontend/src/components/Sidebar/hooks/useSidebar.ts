@@ -9,7 +9,7 @@ const SIDEBAR_MAX_WIDTH = 700;
 
 const useSidebar = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const {projectId} = useUrlState();
+  const {projectId, pipelineId, repoId} = useUrlState();
   const [sidebarWidthSetting, handleUpdateSidebarWidth] =
     useLocalProjectSettings({projectId, key: 'sidebar_width'});
   const {sidebarSize} = useSidebarInfo();
@@ -69,6 +69,8 @@ const useSidebar = () => {
     throttleMouseEvent,
     applyMousePosition,
     onDragEnd,
+    pipelineId,
+    repoId,
   };
 };
 

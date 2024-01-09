@@ -1,5 +1,4 @@
-import {JobState} from '@graphqlTypes';
-
+import {JobState} from '@dash-frontend/api/pps';
 import {readableJobState, getJobRuntime} from '@dash-frontend/lib/jobs';
 
 describe('readableJobState', () => {

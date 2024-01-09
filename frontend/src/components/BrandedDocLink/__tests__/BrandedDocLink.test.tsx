@@ -4,8 +4,8 @@ import React from 'react';
 
 import {
   mockGetVersionInfo,
-  mockGetAccountAuth,
   mockGetEnterpriseInfo,
+  mockGetEnterpriseInfoInactive,
 } from '@dash-frontend/mocks';
 import {withContextProviders, loginUser} from '@dash-frontend/testHelpers';
 
@@ -26,6 +26,7 @@ describe('BrandedDocLink', () => {
     window.localStorage.clear();
     server.resetHandlers();
     server.use(mockGetVersionInfo());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -55,7 +56,6 @@ describe('BrandedDocLink', () => {
   });
 
   it('should show the HPE docs when enterprise is active', async () => {
-    server.use(mockGetAccountAuth());
     server.use(mockGetEnterpriseInfo());
     loginUser();
 

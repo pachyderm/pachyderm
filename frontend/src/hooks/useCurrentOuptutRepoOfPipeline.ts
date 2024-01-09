@@ -1,11 +1,15 @@
-import useRepo from './useRepo';
+import {useRepo} from './useRepo';
 import useUrlState from './useUrlState';
 
 const useCurrentOuptutRepoOfPipeline = () => {
   const {pipelineId, projectId} = useUrlState();
   const {repo, loading, error} = useRepo({
-    id: pipelineId,
-    projectId,
+    repo: {
+      name: pipelineId,
+      project: {
+        name: projectId,
+      },
+    },
   });
 
   return {

@@ -4,7 +4,7 @@ const useProjectHeader = () => {
   const {currentProject, loading, error} = useCurrentProject();
 
   return {
-    projectName: currentProject?.id || '',
+    projectName: currentProject?.project?.name || '',
     loading,
     error,
   };

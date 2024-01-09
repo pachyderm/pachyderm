@@ -3,10 +3,19 @@ import {
   waitForElementToBeRemoved,
   screen,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {mockGetAllJobs, mockEmptyJobs} from '@dash-frontend/mocks';
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {JobInfo, ListJobRequest} from '@dash-frontend/api/pps';
+import {
+  mockGetEnterpriseInfo,
+  mockGetAllJobs,
+  EDGES_JOB_INFO_1D,
+  MONTAGE_JOB_INFO_5C,
+  mockEmptyJob,
+} from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import JobSetListComponent from '../JobSetList';
@@ -20,11 +29,13 @@ describe('JobSet SubJobs List', () => {
 
   beforeAll(() => {
     server.listen();
-    server.use(mockGetAllJobs());
   });
 
   beforeEach(() => {
     window.history.replaceState('', '', '/project/default/jobs/subjobs');
+    server.resetHandlers();
+    server.use(mockGetAllJobs());
+    server.use(mockGetEnterpriseInfo());
   });
 
   afterAll(() => server.close());
@@ -32,11 +43,23 @@ describe('JobSet SubJobs List', () => {
   it('should display jobs details', async () => {
     render(<JobSetList />);
 
+    server.use(
+      rest.post<ListJobRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/ListJob',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          if (body?.['projects']?.[0]?.['name'] === 'default') {
+            return res(ctx.json([EDGES_JOB_INFO_1D, MONTAGE_JOB_INFO_5C]));
+          }
+        },
+      ),
+    );
+
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('JobsList__loadingDots'),
     );
 
-    const job1 = screen.getAllByTestId('JobsList__row')[1];
+    const job1 = screen.getAllByTestId('JobsList__row')[0];
     expect(job1).toHaveTextContent('@edges');
     expect(job1).toHaveTextContent('v:1');
     expect(job1).toHaveTextContent('0 Total');
@@ -44,7 +67,7 @@ describe('JobSet SubJobs List', () => {
     expect(job1).toHaveTextContent('1dc67e...');
     expect(job1).toHaveTextContent('0 B');
 
-    const job2 = screen.getAllByTestId('JobsList__row')[4];
+    const job2 = screen.getAllByTestId('JobsList__row')[1];
     expect(job2).toHaveTextContent('@montage');
     expect(job1).toHaveTextContent('v:1');
     expect(job2).toHaveTextContent('1 Total');
@@ -92,16 +115,25 @@ describe('JobSet SubJobs List', () => {
   it('should sort jobs based on creation time', async () => {
     render(<JobSetList />);
 
+    server.use(
+      rest.post<ListJobRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/ListJob',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          if (body?.['projects']?.[0]?.['name'] === 'default') {
+            return res(ctx.json([EDGES_JOB_INFO_1D, MONTAGE_JOB_INFO_5C]));
+          }
+        },
+      ),
+    );
+
     await waitForElementToBeRemoved(() =>
       screen.queryByTestId('JobsList__loadingDots'),
     );
 
     let jobs = screen.getAllByTestId('JobsList__row');
     expect(jobs[0]).toHaveTextContent('1dc67e...');
-    expect(jobs[1]).toHaveTextContent('1dc67e...');
-    expect(jobs[2]).toHaveTextContent('a44234...');
-    expect(jobs[3]).toHaveTextContent('a44234...');
-    expect(jobs[4]).toHaveTextContent('5c1aa9...');
+    expect(jobs[1]).toHaveTextContent('5c1aa9...');
 
     await click(screen.getByLabelText('expand filters'));
     await click(
@@ -109,11 +141,8 @@ describe('JobSet SubJobs List', () => {
     );
 
     jobs = screen.getAllByTestId('JobsList__row');
-    expect(jobs[0]).toHaveTextContent('cf302e...');
-    expect(jobs[1]).toHaveTextContent('bc322d...');
-    expect(jobs[2]).toHaveTextContent('5c1aa9...');
-    expect(jobs[3]).toHaveTextContent('5c1aa9...');
-    expect(jobs[4]).toHaveTextContent('a44234...');
+    expect(jobs[0]).toHaveTextContent('5c1aa9...');
+    expect(jobs[1]).toHaveTextContent('1dc67e...');
   });
 
   it('should filter jobs by job status', async () => {
@@ -181,8 +210,7 @@ describe('JobSet SubJobs List', () => {
   });
 
   it('should display an empty state', async () => {
-    server.use(mockEmptyJobs());
-
+    server.use(mockEmptyJob());
     render(<JobSetList />);
 
     await waitForElementToBeRemoved(() =>

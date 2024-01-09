@@ -1,7 +1,7 @@
 import {useCallback} from 'react';
 import {useForm} from 'react-hook-form';
 
-import {useDeleteProjectAndResources} from '@dash-frontend/hooks/useDeleteProjectAndResources';
+import {useDeleteProject} from '@dash-frontend/hooks/useDeleteProject';
 
 type DeleteProjectFormValues = {
   name: string;
@@ -12,7 +12,7 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
     deleteProject,
     loading: deleteProjectLoading,
     error,
-  } = useDeleteProjectAndResources(onHide);
+  } = useDeleteProject(onHide);
   const formCtx = useForm<DeleteProjectFormValues>({mode: 'onChange'});
   const {watch, reset} = formCtx;
   const name = watch('name');
@@ -21,9 +21,16 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
 
   const handleSubmit = useCallback(async () => {
     try {
-      await deleteProject({
-        name: projectName.trim(),
-      });
+      deleteProject(
+        {
+          project: {
+            name: projectName.trim(),
+          },
+        },
+        {
+          onSuccess: () => reset(),
+        },
+      );
       reset();
     } catch (e) {
       return;
@@ -32,7 +39,7 @@ const useDeleteProjectModal = (projectName: string, onHide?: () => void) => {
 
   return {
     formCtx,
-    error: error?.message,
+    error,
     handleSubmit,
     isFormComplete,
     loading: deleteProjectLoading,

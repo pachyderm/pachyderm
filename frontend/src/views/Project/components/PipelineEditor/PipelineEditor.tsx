@@ -53,8 +53,11 @@ const PipelineEditor = () => {
     clusterDefaults,
     clusterDefaultsJSON,
     clusterDefaultsLoading,
+    projectDefaults,
+    projectDefaultsJSON,
+    projectDefaultsLoading,
     pipelineLoading,
-    isCreating,
+    isCreatingOrDuplicating,
     splitView,
     setSplitView,
     editorTextJSON,
@@ -64,14 +67,10 @@ const PipelineEditor = () => {
   } = usePipelineEditor(closeUpdateModal);
 
   const continueWithCreateOrUpdate = () => {
-    if (isCreating) {
+    if (isCreatingOrDuplicating) {
       createPipeline({
-        variables: {
-          args: {
-            createPipelineRequestJson: editorText,
-            update: !isCreating,
-          },
-        },
+        createPipelineRequestJson: editorText,
+        update: !isCreatingOrDuplicating,
       });
     } else {
       openUpdateModal();
@@ -88,7 +87,7 @@ const PipelineEditor = () => {
   };
 
   const getCreateButtonSVG = () => {
-    if (isCreating) {
+    if (isCreatingOrDuplicating) {
       return createLoading ? SpinnerSVG : undefined;
     } else {
       return ArrowRightSVG;
@@ -111,6 +110,7 @@ const PipelineEditor = () => {
     <>
       <Tabs.Tab id="effective-spec">Effective Spec</Tabs.Tab>
       <Tabs.Tab id="cluster-defaults">Cluster Defaults</Tabs.Tab>
+      <Tabs.Tab id="project-defaults">Project Defaults</Tabs.Tab>
     </>
   );
 
@@ -118,7 +118,9 @@ const PipelineEditor = () => {
     <View className={styles.view} sidenav={false} canvas={false}>
       <ProjectHeader />
       <Group justify="stretch" className={styles.titleBar}>
-        <h5>{isCreating ? 'Create Pipeline' : 'Update Pipeline'}</h5>
+        <h5>
+          {isCreatingOrDuplicating ? 'Create Pipeline' : 'Update Pipeline'}
+        </h5>
         <Group spacing={8}>
           <Button
             IconSVG={ArrowLeftSVG}
@@ -134,7 +136,7 @@ const PipelineEditor = () => {
             iconPosition="end"
             onClick={createButtonClick}
           >
-            {isCreating ? 'Create Pipeline' : 'Update Pipeline'}
+            {isCreatingOrDuplicating ? 'Create Pipeline' : 'Update Pipeline'}
           </Button>
         </Group>
       </Group>
@@ -168,13 +170,15 @@ const PipelineEditor = () => {
 
             <Tabs.TabPanel id="pipeline-spec" className={styles.editorTabPanel}>
               <CodeEditorInfoBar
-                error={error}
+                errorMessage={error}
                 handlePrettify={prettifyJSON}
                 docsLink="/build-dags/pipeline-spec/"
                 invalidJSON={!isValidJSON}
                 fullError={fullError}
                 fullErrorModalTitle={
-                  isCreating ? 'Create Pipeline Error' : 'Update Pipeline Error'
+                  isCreatingOrDuplicating
+                    ? 'Create Pipeline Error'
+                    : 'Update Pipeline Error'
                 }
               />
               <CodeEditor
@@ -191,10 +195,13 @@ const PipelineEditor = () => {
               <CodePreviewTabs
                 editorTextJSON={editorTextJSON}
                 clusterDefaultsJSON={clusterDefaultsJSON}
+                projectDefaultsJSON={projectDefaultsJSON}
                 effectiveSpec={effectiveSpec}
                 effectiveSpecLoading={effectiveSpecLoading}
                 clusterDefaults={clusterDefaults}
                 clusterDefaultsLoading={clusterDefaultsLoading}
+                projectDefaults={projectDefaults}
+                projectDefaultsLoading={projectDefaultsLoading}
               />
             )}
           </Tabs>
@@ -218,10 +225,13 @@ const PipelineEditor = () => {
               <CodePreviewTabs
                 editorTextJSON={editorTextJSON}
                 clusterDefaultsJSON={clusterDefaultsJSON}
+                projectDefaultsJSON={projectDefaultsJSON}
                 effectiveSpec={effectiveSpec}
                 effectiveSpecLoading={effectiveSpecLoading}
                 clusterDefaults={clusterDefaults}
                 clusterDefaultsLoading={clusterDefaultsLoading}
+                projectDefaults={projectDefaults}
+                projectDefaultsLoading={projectDefaultsLoading}
               />
             </Tabs>
           </div>
@@ -235,13 +245,9 @@ const PipelineEditor = () => {
           onHide={closeUpdateModal}
           onSubmit={({reprocess}: {reprocess: boolean}) =>
             createPipeline({
-              variables: {
-                args: {
-                  createPipelineRequestJson: editorText,
-                  update: true,
-                  reprocess,
-                },
-              },
+              createPipelineRequestJson: editorText,
+              update: true,
+              reprocess,
             })
           }
         />

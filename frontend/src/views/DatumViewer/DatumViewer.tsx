@@ -1,7 +1,7 @@
 import React from 'react';
 
 import InfoPanel from '@dash-frontend/components/InfoPanel/';
-import {RerunPipelineButton} from '@dash-frontend/components/RerunPipelineModal';
+import PipelineActionsMenu from '@dash-frontend/components/PipelineActionsMenu';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import PipelineInfo from '@dash-frontend/views/Project/components/ProjectSidebar/components/PipelineDetails/components/PipelineInfo';
@@ -19,7 +19,7 @@ type DatumViewerProps = {
   onCloseRoute: string;
 };
 const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
-  const {isOpen, onClose, jobId, datumId, job, isServiceOrSpout} =
+  const {isOpen, onClose, pipelineId, jobId, datumId, job, isServiceOrSpout} =
     useDatumViewer(onCloseRoute);
   return (
     <>
@@ -33,9 +33,7 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
             <>
               <MiddleSection key={jobId} />
               <FullPagePanelModal.RightPanel
-                headerContent={
-                  <RerunPipelineButton>Rerun Pipeline</RerunPipelineButton>
-                }
+                headerContent={<PipelineActionsMenu pipelineId={pipelineId} />}
               >
                 <PipelineInfo />
               </FullPagePanelModal.RightPanel>
@@ -47,9 +45,7 @@ const DatumViewer: React.FC<DatumViewerProps> = ({onCloseRoute}) => {
               <LeftPanel job={job} />
               <MiddleSection key={`${jobId}-${datumId}`} />
               <FullPagePanelModal.RightPanel
-                headerContent={
-                  <RerunPipelineButton>Rerun Pipeline</RerunPipelineButton>
-                }
+                headerContent={<PipelineActionsMenu pipelineId={pipelineId} />}
               >
                 {datumId ? (
                   <DatumDetails className={styles.overflowYScroll} />

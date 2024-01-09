@@ -1,7 +1,6 @@
-import {ApolloError} from '@apollo/client';
-import {ProjectDetailsQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {JobInfo} from '@dash-frontend/api/pps';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {LoadingDots} from '@pachyderm/components';
 
@@ -12,10 +11,10 @@ const errorMessage = `Sorry! We're currently having trouble loading the list of 
 const errorMessageAction = 'Please refresh the page';
 
 type ProjectJobSetListProps = {
-  jobs?: ProjectDetailsQuery['projectDetails']['jobSets'];
+  jobs?: JobInfo[];
   loading?: boolean;
   projectId: string;
-  error?: ApolloError;
+  error?: string;
   emptyStateTitle: string;
   emptyStateMessage: string;
 };
@@ -52,7 +51,7 @@ const ProjectJobSetList: React.FC<ProjectJobSetListProps> = ({
       data-testid={`ProjectJobSetList__project${projectId}`}
     >
       {jobs?.map((job) => (
-        <JobListItem job={job} projectId={projectId} key={job.id} />
+        <JobListItem job={job} projectId={projectId} key={job.job?.id} />
       ))}
     </ul>
   );

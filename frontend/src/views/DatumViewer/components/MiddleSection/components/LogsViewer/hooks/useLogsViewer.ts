@@ -1,21 +1,20 @@
-import {LogInputCursor, Maybe} from '@graphqlTypes';
 import {useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {LogMessage} from '@dash-frontend/api/pps';
 import {LOGS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import useLogs from '@dash-frontend/hooks/useLogs';
+import {useLogs} from '@dash-frontend/hooks/useLogs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-
-import {LOGS_PAGE_SIZE} from '../constants/logsViewersConstants';
+import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
 
 const timeNowInSeconds = Math.floor(Date.now() / 1000);
 
-export const defaultValues: {[key: string]: number} = {
-  'Last 30 Minutes': timeNowInSeconds - 1800,
-  'Last 24 Hours': timeNowInSeconds - 86400,
-  'Last 3 Days': timeNowInSeconds - 86400 * 3,
+export const defaultValues: {[key: string]: string} = {
+  'Last 30 Minutes': getISOStringFromUnix(timeNowInSeconds - 1800) || '',
+  'Last 24 Hours': getISOStringFromUnix(timeNowInSeconds - 86400) || '',
+  'Last 3 Days': getISOStringFromUnix(timeNowInSeconds - 86400 * 3) || '',
 };
 
 export type LogsViewerFormValues = {
@@ -26,7 +25,7 @@ export type LogsViewerFormValues = {
 
 const useLogsViewer = (
   isSkippedDatum: boolean,
-  startTime?: number | null,
+  startTime?: string,
   jobId?: string,
 ) => {
   const {projectId, pipelineId, datumId} = useUrlState();
@@ -53,60 +52,64 @@ const useLogsViewer = (
   const {getValues} = formCtx;
   const {selectedTime, displayRawLogs, highlightUserLogs} = getValues();
 
-  const dropdownValues: {[key: string]: Maybe<number> | undefined} = {
-    default: startTime,
+  const dropdownValues: {[key: string]: string} = {
+    default: startTime || '', // TODO: Can we just use null and not pass anything to since? Is this an optimization?
     ...defaultValues,
   };
+
   const [shouldPoll, setShouldPoll] = useState(true);
   const [page, setPage] = useState(1);
-  const [cursors, setCursors] = useState<(LogInputCursor | null)[]>([null]);
-  const [currentCursor, setCurrentCursor] = useState<LogInputCursor | null>(
-    null,
+  const [cursors, setCursors] = useState<(LogMessage | undefined)[]>([
+    undefined,
+  ]);
+  const [currentCursor, setCurrentCursor] = useState<LogMessage | undefined>(
+    undefined,
   );
 
-  const {logs, cursor, loading, error, refetch} = useLogs({
-    variables: {
-      args: {
-        projectId: projectId,
-        pipelineName: pipelineId,
-        jobId: jobId,
-        datumId: datumId,
-        start: dropdownValues[selectedTime],
+  const {logs, loading, error, refetch, isPagingError, isOverLokiQueryLimit} =
+    useLogs(
+      {
+        pipeline: {
+          name: pipelineId,
+          project: {
+            name: projectId,
+          },
+        },
+        job: {
+          id: jobId,
+          pipeline: {
+            name: pipelineId,
+            project: {
+              name: projectId,
+            },
+          },
+        },
+        datum: {
+          id: datumId,
+        },
         master: isServiceOrSpout,
-        limit: LOGS_PAGE_SIZE,
-        cursor: currentCursor,
       },
-    },
-    skip: isSkippedDatum || !pipelineType || !dropdownValues[selectedTime],
-    notifyOnNetworkStatusChange: true,
-    pollInterval: shouldPoll ? LOGS_POLL_INTERVAL_MS : 0,
-  });
+      {
+        since: dropdownValues[selectedTime],
+        cursor: currentCursor,
+        enabled:
+          !isSkippedDatum && !!pipelineType && !!dropdownValues[selectedTime], // TODO: I think we do only !isSkippedDatum
+        refetchInterval: shouldPoll ? LOGS_POLL_INTERVAL_MS : false,
+      },
+    );
 
   useEffect(() => {
-    if (shouldPoll && logs.length !== 0) {
+    if (shouldPoll && logs?.length && logs.length !== 0) {
       setShouldPoll(false);
     }
-  }, [logs.length, shouldPoll]);
+  }, [logs?.length, shouldPoll]);
+
+  const cursor = logs?.at(-1);
 
   useEffect(() => {
     if (cursor && cursors.length < page) {
-      setCurrentCursor({
-        timestamp: {
-          seconds: cursor.timestamp.seconds,
-          nanos: cursor.timestamp.nanos,
-        },
-        message: cursor.message,
-      });
-      setCursors((arr) => [
-        ...arr,
-        {
-          timestamp: {
-            seconds: cursor.timestamp.seconds,
-            nanos: cursor.timestamp.nanos,
-          },
-          message: cursor.message,
-        },
-      ]);
+      setCurrentCursor(cursor);
+      setCursors((arr) => [...arr, cursor]);
     } else {
       setCurrentCursor(cursors[page - 1]);
     }
@@ -114,8 +117,8 @@ const useLogsViewer = (
 
   useEffect(() => {
     setPage(1);
-    setCursors([null]);
-    setCurrentCursor(null);
+    setCursors([undefined]);
+    setCurrentCursor(undefined);
   }, [jobId, datumId, projectId]);
 
   useEffect(() => {
@@ -138,6 +141,8 @@ const useLogsViewer = (
     refetch,
     page,
     setPage,
+    isPagingError,
+    isOverLokiQueryLimit,
   };
 };
 export default useLogsViewer;

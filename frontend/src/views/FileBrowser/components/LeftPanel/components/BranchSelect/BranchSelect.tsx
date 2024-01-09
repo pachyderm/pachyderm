@@ -1,7 +1,7 @@
 import React, {useMemo, useState} from 'react';
 import {useHistory} from 'react-router';
 
-import useBranches from '@dash-frontend/hooks/useBranches';
+import {useBranches} from '@dash-frontend/hooks/useBranches';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserLatestRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
@@ -20,10 +20,8 @@ const BranchSelect: React.FC = () => {
   const [searchFilter, setSearchFilter] = useState('');
 
   const {branches} = useBranches({
-    args: {
-      projectId,
-      repoName: repoId,
-    },
+    projectId,
+    repoId,
   });
 
   const updateSelectedBranch = (selectedBranchId?: string) => {
@@ -40,7 +38,9 @@ const BranchSelect: React.FC = () => {
   const filteredBranches = useMemo(
     () =>
       branches && searchFilter
-        ? branches.filter((branch) => branch?.name.indexOf(searchFilter) !== -1)
+        ? branches.filter(
+            (branch) => branch?.branch?.name?.indexOf(searchFilter) !== -1,
+          )
         : branches,
     [branches, searchFilter],
   );
@@ -74,11 +74,11 @@ const BranchSelect: React.FC = () => {
         {(filteredBranches || []).map((value) => (
           <Dropdown.MenuItem
             closeOnClick
-            onClick={() => updateSelectedBranch(value?.name)}
-            key={value?.name}
-            id={value?.name || 'default'}
+            onClick={() => updateSelectedBranch(value?.branch?.name)}
+            key={value?.branch?.name}
+            id={value?.branch?.name || 'default'}
           >
-            {value?.name}
+            {value?.branch?.name}
           </Dropdown.MenuItem>
         ))}
       </Dropdown.Menu>

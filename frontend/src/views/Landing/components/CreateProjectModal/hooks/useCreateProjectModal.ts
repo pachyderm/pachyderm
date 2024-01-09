@@ -2,7 +2,7 @@ import isEmpty from 'lodash/isEmpty';
 import {useCallback} from 'react';
 import {useForm} from 'react-hook-form';
 
-import useCreateProject from '@dash-frontend/hooks/useCreateProject';
+import {useCreateProject} from '@dash-frontend/hooks/useCreateProject';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
 
 type CreateProjectFormValues = {
@@ -34,7 +34,10 @@ const useCreateProjectModal = (onHide?: () => void) => {
 
   const validateProjectName = useCallback(
     (value: string) => {
-      if (projects && projects.map((project) => project?.id).includes(value)) {
+      if (
+        projects &&
+        projects.map((project) => project.project?.name).includes(value)
+      ) {
         return 'Project name already in use';
       }
     },
@@ -46,11 +49,15 @@ const useCreateProjectModal = (onHide?: () => void) => {
   const handleSubmit = useCallback(
     async (values: CreateProjectFormValues) => {
       try {
-        await createProject({
-          name: values.name.trim(),
-          description: values.description,
-        });
-        reset();
+        createProject(
+          {
+            project: {name: values.name.trim()},
+            description: values.description,
+          },
+          {
+            onSuccess: () => reset(),
+          },
+        );
       } catch (e) {
         return;
       }
@@ -60,7 +67,7 @@ const useCreateProjectModal = (onHide?: () => void) => {
 
   return {
     formCtx,
-    error: projectsError?.message || error?.message,
+    error: projectsError || error,
     handleSubmit,
     isFormComplete,
     loading: createProjectLoading || projectsLoading,

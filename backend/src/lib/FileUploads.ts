@@ -1,6 +1,6 @@
 import uniqueId from 'lodash/uniqueId';
 
-import {FILE_UPLOAD_EXPIRATION_TIMEOUT} from './constants';
+export const FILE_UPLOAD_EXPIRATION_TIMEOUT = 1500000;
 
 export type upload = {
   fileSets: Record<string, {id: string; deleted: boolean}>;

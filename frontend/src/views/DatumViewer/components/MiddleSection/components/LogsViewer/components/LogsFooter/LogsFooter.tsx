@@ -1,8 +1,8 @@
-import {ApolloQueryResult} from '@apollo/client';
-import {GetLogsQuery} from '@graphqlTypes';
+import {QueryObserverResult, RefetchOptions} from '@tanstack/react-query';
 import React, {useState} from 'react';
 
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {LogMessage} from '@dash-frontend/api/pps';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {ActionUpdateSVG, Button, SimplePager} from '@pachyderm/components';
 
 import {LOGS_PAGE_SIZE} from '../../constants/logsViewersConstants';
@@ -10,8 +10,10 @@ import {LOGS_PAGE_SIZE} from '../../constants/logsViewersConstants';
 import styles from './LogsFooter.module.css';
 
 type LogsFooterProps = {
-  logs: GetLogsQuery['logs']['items'];
-  refetch: () => Promise<ApolloQueryResult<GetLogsQuery>>;
+  logs?: LogMessage[];
+  refetch: (
+    options?: RefetchOptions | undefined,
+  ) => Promise<QueryObserverResult<LogMessage[], Error>>;
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
 };
@@ -22,10 +24,10 @@ const LogsFooter: React.FC<LogsFooterProps> = ({
   page,
   setPage,
 }) => {
-  const hasNextPage = logs.length >= LOGS_PAGE_SIZE;
+  const hasNextPage = logs?.length && logs.length >= LOGS_PAGE_SIZE;
 
-  const footerText = logs[0]?.timestamp?.seconds
-    ? getStandardDate(logs[0]?.timestamp?.seconds)
+  const footerText = logs?.[0]?.ts
+    ? getStandardDateFromISOString(logs?.[0]?.ts)
     : null;
 
   const [loading, setLoading] = useState(false);

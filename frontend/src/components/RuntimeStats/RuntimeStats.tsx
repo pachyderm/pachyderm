@@ -1,9 +1,10 @@
-import formatBytes from '@dash-backend/lib/formatBytes';
 import classNames from 'classnames';
 import React from 'react';
 
+import {DatumInfo, DatumState} from '@dash-frontend/api/pps';
 import Description from '@dash-frontend/components/Description';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
+import formatBytes from '@dash-frontend/lib/formatBytes';
 import {
   CaptionTextSmall,
   ChevronDownSVG,
@@ -14,31 +15,35 @@ import {
 import {useRuntimeStats} from './hooks/useRuntimeStats';
 import styles from './RuntimeStats.module.css';
 
-const RuntimeStats = ({
-  loading,
-  started,
-  created,
-  totalRuntime,
-  runtimeMetrics,
-  previousJobId,
-}: {
+type RuntimeStatsProps = {
   loading: boolean;
   started?: string;
   created?: string;
-  totalRuntime: string;
+  totalRuntime?: string;
+  cumulativeTime: string;
   runtimeMetrics: {
     label: string;
     duration: string;
     bytes: number | null | undefined;
   }[];
-  previousJobId?: string | null;
-}) => {
+  datum?: DatumInfo | null;
+};
+
+const RuntimeStats = ({
+  loading,
+  started,
+  created,
+  totalRuntime,
+  cumulativeTime,
+  runtimeMetrics,
+  datum,
+}: RuntimeStatsProps) => {
   const {toggleRunTimeDetailsOpen, runtimeDetailsOpen, runtimeDetailsClosing} =
     useRuntimeStats();
 
   return (
     <>
-      {previousJobId && (
+      {datum?.state === DatumState.SKIPPED && (
         <>
           <h6 className={styles.header}>Previous Job</h6>
           <div className={styles.metricSection}>
@@ -48,7 +53,7 @@ const RuntimeStats = ({
               className={styles.jobIdContainer}
               data-testid="RuntimeStats__jobId"
             >
-              <GlobalIdCopy id={previousJobId} />
+              <GlobalIdCopy id={datum.datum?.job?.id || ''} />
             </Description>
           </div>
         </>
@@ -77,20 +82,36 @@ const RuntimeStats = ({
           </Description>
         </div>
       )}
+      {totalRuntime && (
+        <div className={styles.metricSection}>
+          <Description
+            loading={loading}
+            className={classNames(styles.duration, {
+              [styles.runtime]: !loading,
+            })}
+            aria-label="Runtime"
+          >
+            Runtime: {totalRuntime}
+          </Description>
+          <CaptionTextSmall>Finished time minus start time</CaptionTextSmall>
+        </div>
+      )}
       <div className={styles.metricSection}>
         <Description
-          term="Runtime"
           loading={loading}
           className={classNames(styles.duration, {
             [styles.runtime]: !loading,
           })}
           onClick={toggleRunTimeDetailsOpen}
+          role="button"
+          aria-label="Cumulative Time"
         >
-          {totalRuntime}
+          Cumulative Time: {cumulativeTime}
           <Icon>
             {runtimeDetailsOpen ? <ChevronUpSVG /> : <ChevronDownSVG />}
           </Icon>
         </Description>
+        <CaptionTextSmall>Time spent actively working</CaptionTextSmall>
       </div>
       {runtimeDetailsOpen ? (
         <div

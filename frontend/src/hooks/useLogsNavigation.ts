@@ -1,7 +1,7 @@
-import {DatumFilter} from '@graphqlTypes';
 import {useCallback} from 'react';
 import {useLocation} from 'react-router';
 
+import {DatumFilter} from '@dash-frontend/lib/types';
 import {
   logsViewerJobRoute,
   logsViewerDatumRoute,

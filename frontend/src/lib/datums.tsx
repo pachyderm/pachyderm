@@ -1,7 +1,7 @@
-import {DatumState} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {DatumState} from '@dash-frontend/api/pps';
 import {
   ArrowCircleRightSVG,
   Icon,
@@ -12,7 +12,7 @@ import {
   StatusWarningSVG,
 } from '@pachyderm/components';
 
-export const getDatumStateIcon = (state: DatumState) => {
+export const getDatumStateIcon = (state?: DatumState) => {
   const IconSVG = getDatumStateSVG(state);
   return (
     <Icon color={getDatumStateColor(state) ?? undefined}>
@@ -21,7 +21,7 @@ export const getDatumStateIcon = (state: DatumState) => {
   );
 };
 
-export const getDatumStateSVG = (state: DatumState) => {
+export const getDatumStateSVG = (state?: DatumState) => {
   switch (state) {
     case DatumState.FAILED:
       return StatusWarningSVG;
@@ -40,7 +40,7 @@ export const getDatumStateSVG = (state: DatumState) => {
   }
 };
 
-export const getDatumStateColor = (state: DatumState) => {
+export const getDatumStateColor = (state?: DatumState) => {
   switch (state) {
     case DatumState.FAILED:
       return 'red';

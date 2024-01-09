@@ -1,17 +1,28 @@
 import {
-  mockDeleteFilesMutation,
-  mockRepoWithLinkedPipelineQuery,
-} from '@graphqlTypes';
-import {render, screen, within} from '@testing-library/react';
+  render,
+  screen,
+  waitForElementToBeRemoved,
+  within,
+} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  mockEmptyGetAuthorize,
+  DiffFileRequest,
+  DiffFileResponse,
+  FileType,
+} from '@dash-frontend/api/pfs';
+import {
+  mockEmptyCommitDiff,
+  mockEmptyInspectPipeline,
+  mockFinishCommit,
+  mockGetMontagePipeline,
   mockGetVersionInfo,
-  mockRepoImagesWithLinkedPipeline,
+  mockStartCommit,
 } from '@dash-frontend/mocks';
-import {MOCK_IMAGES_FILES, mockFileDownload} from '@dash-frontend/mocks/files';
+import {MOCK_IMAGES_FILES, mockEncode} from '@dash-frontend/mocks/files';
 import {click, hover, withContextProviders} from '@dash-frontend/testHelpers';
 
 import {default as ListViewTableComponent} from '../ListViewTable';
@@ -35,9 +46,9 @@ describe('List View Table', () => {
       '',
       '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
     );
-    server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
-    server.use(mockRepoImagesWithLinkedPipeline());
+    server.use(mockEmptyCommitDiff());
+    server.use(mockEmptyInspectPipeline());
   });
 
   afterEach(() => server.resetHandlers());
@@ -45,7 +56,54 @@ describe('List View Table', () => {
   afterAll(() => server.close());
 
   it('should display file info per table row', async () => {
+    server.use(
+      rest.post<DiffFileRequest, Empty, DiffFileResponse[]>(
+        '/api/pfs_v2.API/DiffFile',
+        async (req, res, ctx) => {
+          const body = await req.json();
+
+          if (body.newFile.path === '/liberty.png') {
+            return res(
+              ctx.json([
+                {
+                  newFile: {
+                    file: {
+                      commit: {
+                        repo: {
+                          name: 'images',
+                          type: 'user',
+                          project: {
+                            name: 'default',
+                          },
+                        },
+                        id: '4a83c74809664f899261baccdb47cd90',
+                        branch: {
+                          repo: {
+                            name: 'images',
+                            type: 'user',
+                            project: {
+                              name: 'default',
+                            },
+                          },
+                          name: 'master',
+                        },
+                      },
+                      path: '/liberty.png',
+                      datum: '',
+                    },
+                    fileType: FileType.FILE,
+                  },
+                },
+              ]),
+            );
+          }
+          return res(ctx.json([]));
+        },
+      ),
+    );
+
     render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     const files = await screen.findAllByTestId('FileTableRow__row');
 
@@ -113,24 +171,22 @@ describe('List View Table', () => {
     });
 
     it('should delete file on action click', async () => {
+      server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
       server.use(
-        mockDeleteFilesMutation((req, res, ctx) => {
-          const {projectId, repo, branch, filePaths} = req.variables.args;
-          if (
-            projectId === 'default' &&
-            repo === 'images' &&
-            branch === 'master' &&
-            JSON.stringify(filePaths) === JSON.stringify(['/AT-AT.png'])
-          ) {
-            return res(
-              ctx.data({
-                deleteFiles: '720d471659dc4682a53576fdb637a482',
-              }),
-            );
-          }
-          return res(ctx.errors(['file does not exist']));
-        }),
+        rest.post<string, Empty>(
+          '/api/pfs_v2.API/ModifyFile',
+          async (req, res, ctx) => {
+            const body = await req.text();
+            const expected =
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"deleteFile":{"path":"/AT-AT.png"}}';
+            if (body === expected) {
+              return res(ctx.json({}));
+            }
+          },
+        ),
       );
+      server.use(mockFinishCommit());
 
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
@@ -146,25 +202,25 @@ describe('List View Table', () => {
     });
 
     it('should delete multiple files on action click', async () => {
+      server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
       server.use(
-        mockDeleteFilesMutation((req, res, ctx) => {
-          const {projectId, repo, branch, filePaths} = req.variables.args;
-          if (
-            projectId === 'default' &&
-            repo === 'images' &&
-            branch === 'master' &&
-            JSON.stringify(filePaths) ===
-              JSON.stringify(['/AT-AT.png', '/cats/', '/liberty.png'])
-          ) {
-            return res(
-              ctx.data({
-                deleteFiles: '720d471659dc4682a53576fdb637a482',
-              }),
-            );
-          }
-          return res(ctx.errors(['file does not exist']));
-        }),
+        rest.post<string, Empty>(
+          '/api/pfs_v2.API/ModifyFile',
+          async (req, res, ctx) => {
+            const body = await req.text();
+            const expected =
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"deleteFile":{"path":"/AT-AT.png"}}\n' +
+              '{"deleteFile":{"path":"/cats/"}}\n' +
+              '{"deleteFile":{"path":"/liberty.png"}}';
+            if (body === expected) {
+              return res(ctx.json({}));
+            }
+          },
+        ),
       );
+      server.use(mockFinishCommit());
+
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
       const deleteButton = screen.getByRole('button', {
@@ -207,42 +263,12 @@ describe('List View Table', () => {
     });
 
     it('should not allow file deletion for outputRepos', async () => {
-      server.use(
-        mockRepoWithLinkedPipelineQuery((req, res, ctx) => {
-          const {projectId, id} = req.variables.args;
-          if (projectId === 'default' && id === 'images') {
-            return res(
-              ctx.data({
-                repo: {
-                  branches: [
-                    {
-                      name: 'master',
-                      __typename: 'Branch',
-                    },
-                  ],
-                  createdAt: 1690221504,
-                  description: '',
-                  id: 'images',
-                  name: 'images',
-                  sizeDisplay: '0 B',
-                  sizeBytes: 14783,
-                  access: true,
-                  projectId: 'default',
-                  linkedPipeline: {
-                    id: 'default_pipeline',
-                    name: 'pipeline',
-                    __typename: 'Pipeline',
-                  },
-                  authInfo: null,
-                  __typename: 'Repo',
-                },
-              }),
-            );
-          }
-          return res();
-        }),
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/montage/branch/master/commit/4a83c74809664f899261baccdb47cd90',
       );
-
+      server.use(mockGetMontagePipeline());
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
       const deleteButton = screen.getByRole('button', {
@@ -268,11 +294,6 @@ describe('List View Table', () => {
   });
 
   describe('Download', () => {
-    beforeAll(() => {
-      process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
-      process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'false';
-    });
-
     it('should disable the download button until selections are made', async () => {
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
@@ -304,162 +325,97 @@ describe('List View Table', () => {
 
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
 
+      // using .* regex for the "Change" column of the table
       const hamburger = screen.getByRole('button', {
-        name: /at-at\.png - 80\.59 kb/i,
+        name: /at-at\.png.*80\.59 kb/i,
       });
       await click(hamburger);
       const downloadButton = within(hamburger).getByText(/Download/i);
       await click(downloadButton);
 
       expect(spy).toHaveBeenLastCalledWith(
-        'http://localhost/download/default/images/master/4a83c74809664f899261baccdb47cd90/AT-AT.png',
+        '/proxyForward/pfs/default/images/4a83c74809664f899261baccdb47cd90/AT-AT.png',
       );
     });
 
-    describe('Port Forward', () => {
-      beforeAll(() => {
-        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = '';
+    it('should download multiple files on action click', async () => {
+      const spy = jest.spyOn(window, 'open');
+
+      server.use(
+        mockEncode(['/AT-AT.png', '/cats/', '/json_nested_arrays.json']),
+      );
+
+      render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+
+      const downloadButton = screen.getByRole('button', {
+        name: /download selected items/i,
       });
 
-      it('should disable multi file download', async () => {
-        render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+      expect(downloadButton).toBeDisabled();
 
-        const downloadButton = screen.getByRole('button', {
-          name: /download selected items/i,
-        });
-
-        expect(downloadButton).toBeDisabled();
-
-        await click(
-          screen.getByRole('cell', {
-            name: /at-at\.png/i,
-          }),
-        );
-        await click(
-          screen.getByRole('cell', {
-            name: /cats/i,
-          }),
-        );
-        await click(
-          screen.getByRole('cell', {
-            name: /liberty\.png/i,
-          }),
-        );
-        expect(downloadButton).toBeDisabled();
-
-        await hover(downloadButton);
-        expect(
-          screen.getByText(
-            'Enable proxy to download multiple files at once. This feature is not available with your current configuration.',
-          ),
-        ).toBeInTheDocument();
-      });
-
-      it('should disable single file download for large files', async () => {
-        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = '';
-
-        render(<ListViewTable files={MOCK_IMAGES_FILES} />);
-
-        const hamburger = screen.getByRole('button', {
-          name: /json_nested_arrays\.json - 200 mb/i,
-        });
-        await click(hamburger);
-
-        const downloadButton = within(hamburger).getByText(
-          /download \(file too large to download\)/i,
-        );
-        expect(downloadButton.closest('button')).toBeDisabled();
-      });
+      await click(
+        screen.getByRole('cell', {
+          name: /at-at\.png/i,
+        }),
+      );
+      await click(
+        screen.getByRole('cell', {
+          name: /cats/i,
+        }),
+      );
+      await click(
+        screen.getByRole('cell', {
+          name: /json_nested_arrays\.json/i,
+        }),
+      );
+      expect(downloadButton).toBeEnabled();
+      await click(downloadButton);
+      expect(spy).toHaveBeenLastCalledWith(
+        '/proxyForward/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
+      );
     });
 
-    describe('Proxy', () => {
-      beforeEach(() => {
-        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST = 'localhost';
-        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = '';
+    it('should allow download for large files using zip', async () => {
+      const spy = jest.spyOn(window, 'open');
+
+      server.use(mockEncode(['/json_nested_arrays.json']));
+
+      render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+
+      // using .* regex for the "Change" column of the table
+      const hamburger = screen.getByRole('button', {
+        name: /json_nested_arrays\.json.*200\.01 mb/i,
+      });
+      await click(hamburger);
+
+      const downloadButton = within(hamburger).getByText(/Download Zip/i);
+
+      await click(downloadButton);
+      expect(spy).toHaveBeenLastCalledWith(
+        '/proxyForward/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
+      );
+    });
+
+    it('should generate a download link', async () => {
+      const spy = jest.spyOn(window, 'open');
+
+      server.use(mockEncode(['/json_nested_arrays.json']));
+
+      render(<ListViewTable files={MOCK_IMAGES_FILES} />);
+
+      // using .* regex for the "Change" column of the table
+      const hamburger = screen.getByRole('button', {
+        name: /json_nested_arrays\.json.*200\.01 mb/i,
       });
 
-      it('should download multiple files on action click', async () => {
-        const spy = jest.spyOn(window, 'open');
+      await click(hamburger);
 
-        server.use(
-          mockFileDownload([
-            '/AT-AT.png',
-            '/cats/',
-            '/json_nested_arrays.json',
-          ]),
-        );
+      const downloadButton = within(hamburger).getByText(/Download Zip/i);
 
-        render(<ListViewTable files={MOCK_IMAGES_FILES} />);
-
-        const downloadButton = screen.getByRole('button', {
-          name: /download selected items/i,
-        });
-
-        expect(downloadButton).toBeDisabled();
-
-        await click(
-          screen.getByRole('cell', {
-            name: /at-at\.png/i,
-          }),
-        );
-        await click(
-          screen.getByRole('cell', {
-            name: /cats/i,
-          }),
-        );
-        await click(
-          screen.getByRole('cell', {
-            name: /json_nested_arrays\.json/i,
-          }),
-        );
-        expect(downloadButton).toBeEnabled();
-        await click(downloadButton);
-        expect(spy).toHaveBeenLastCalledWith(
-          'http://localhost/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
-        );
-      });
-
-      it('should allow download for large files using zip', async () => {
-        const spy = jest.spyOn(window, 'open');
-
-        server.use(mockFileDownload(['/json_nested_arrays.json']));
-
-        render(<ListViewTable files={MOCK_IMAGES_FILES} />);
-
-        const hamburger = screen.getByRole('button', {
-          name: /json_nested_arrays\.json - 200 mb/i,
-        });
-        await click(hamburger);
-
-        const downloadButton = within(hamburger).getByText(/Download Zip/i);
-
-        await click(downloadButton);
-        expect(spy).toHaveBeenLastCalledWith(
-          'http://localhost/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
-        );
-      });
-
-      it('should generate a download link with TLS enabled', async () => {
-        process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS = 'true';
-
-        const spy = jest.spyOn(window, 'open');
-
-        server.use(mockFileDownload(['/json_nested_arrays.json']));
-
-        render(<ListViewTable files={MOCK_IMAGES_FILES} />);
-
-        const hamburger = screen.getByRole('button', {
-          name: /json_nested_arrays\.json - 200 mb/i,
-        });
-        await click(hamburger);
-
-        const downloadButton = within(hamburger).getByText(/Download Zip/i);
-
-        await click(downloadButton);
-        expect(spy).toHaveBeenLastCalledWith(
-          'https://localhost/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
-        );
-      });
+      await click(downloadButton);
+      expect(spy).toHaveBeenLastCalledWith(
+        '/proxyForward/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
+      );
     });
   });
 });

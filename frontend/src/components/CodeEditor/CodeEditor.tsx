@@ -17,16 +17,21 @@ import styles from './CodeEditor.module.css';
 import {
   clusterDefaultsSchema as defaultClusterDefaultsSchema,
   createPipelineRequestSchema as defaultCreatePipelineRequestSchema,
+  projectDefaultsSchema as defaultProjectDefaultsSchema,
 } from './schemas';
 import {useJsonSchema} from './useJsonSchema';
 
 const schemaMapper: Record<
-  'createPipelineRequest' | 'clusterDefaults',
+  'createPipelineRequest' | 'clusterDefaults' | 'projectDefaults',
   {url: string; fallback: JSONSchema7}
 > = {
   clusterDefaults: {
     url: 'pps_v2/ClusterDefaults.schema.json',
     fallback: defaultClusterDefaultsSchema,
+  },
+  projectDefaults: {
+    url: 'pps_v2/ProjectDefaults.schema.json',
+    fallback: defaultProjectDefaultsSchema,
   },
   createPipelineRequest: {
     url: 'pps_v2/CreatePipelineRequest.schema.json',
@@ -45,7 +50,7 @@ type CodePreviewProps = {
   initialDoc?: string;
   loading: boolean;
   onChange?: (val: string) => void;
-  schema?: 'createPipelineRequest' | 'clusterDefaults';
+  schema?: 'createPipelineRequest' | 'clusterDefaults' | 'projectDefaults';
   dataTestid?: string;
 };
 const CodeEditor: React.FC<CodePreviewProps> = ({
@@ -70,7 +75,7 @@ const CodeEditor: React.FC<CodePreviewProps> = ({
   );
 
   useEffect(() => {
-    if (!codeEditorRef.current) return;
+    if (!codeEditorRef.current || loading) return;
 
     const editorView = editorViewRef.current;
 
@@ -102,7 +107,7 @@ const CodeEditor: React.FC<CodePreviewProps> = ({
     return () => {
       editorView?.destroy();
     };
-  }, [initialDoc, onChange, jsonSchemaIn, schema]);
+  }, [initialDoc, onChange, jsonSchemaIn, schema, loading]);
 
   // update editor on source changes
   useEffect(() => {

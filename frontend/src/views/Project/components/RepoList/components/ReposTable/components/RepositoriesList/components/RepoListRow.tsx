@@ -1,10 +1,19 @@
-import {ReposWithCommitQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {CommitInfo, RepoInfo} from '@dash-frontend/api/pfs';
+import {
+  useRepoActionsMenu,
+  RepoActionsModals,
+} from '@dash-frontend/components/RepoActionsMenu';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {Table} from '@pachyderm/components';
+import {
+  getStandardDateFromUnixSeconds,
+  getUnixSecondsFromISOString,
+} from '@dash-frontend/lib/dateTime';
+import formatBytes from '@dash-frontend/lib/formatBytes';
+import hasRepoReadPermissions from '@dash-frontend/lib/hasRepoReadPermissions';
+import {SkeletonBodyText, Table, ButtonLink} from '@pachyderm/components';
 
 import useRepoListRow from './hooks/useRepoListRow';
 
@@ -12,19 +21,28 @@ const NO_ACCESS_TOOLTIP =
   "You currently don't have permission to view this repo. To change your permission level, contact your admin.";
 
 type RepoListRowProps = {
-  repo: ReposWithCommitQuery['repos'][number];
+  repo: RepoInfo;
 };
 
 const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
+  const repoId = repo?.repo?.name || '';
+  const {
+    deleteRepoModalOpen,
+    setDeleteModalOpen,
+    onDropdownMenuSelect,
+    menuItems,
+    onMenuOpen,
+  } = useRepoActionsMenu(repoId);
   const {
     projectId,
-    generateIconItems,
-    onOverflowMenuSelect,
     rolesModalOpen,
+    openRolesModal,
     closeRolesModal,
-    editRolesPermission,
-    checkRolesPermission,
-  } = useRepoListRow(repo?.id || '');
+    hasRepoEditRoles,
+    lastCommit,
+    lastCommitLoading,
+    checkPermissions,
+  } = useRepoListRow(repo);
   const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
 
   const addSelection = (value: string) => {
@@ -39,16 +57,15 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
     }
   };
 
-  const getLastCommitTimestamp = (
-    repo: ReposWithCommitQuery['repos'][number],
-  ) => {
-    if (!repo || !repo.lastCommit) return 'N/A';
+  const getLastCommitTimestamp = (commit?: CommitInfo) => {
+    if (!commit) return 'N/A';
 
     const lastCommitDate =
-      repo?.lastCommit?.finished && repo?.lastCommit?.finished > 0
-        ? getStandardDate(repo?.lastCommit?.finished)
-        : null;
-    const lastCommitId = `${repo.lastCommit.id.slice(0, 6)}...`;
+      commit?.finished &&
+      getStandardDateFromUnixSeconds(
+        getUnixSecondsFromISOString(commit?.finished),
+      );
+    const lastCommitId = `${commit?.commit?.id?.slice(0, 6)}...`;
 
     let formatString = '';
     if (lastCommitDate) formatString += `${lastCommitDate}; `;
@@ -57,43 +74,62 @@ const RepoListRow: React.FC<RepoListRowProps> = ({repo}) => {
     return formatString;
   };
 
+  const access = hasRepoReadPermissions(repo?.authInfo?.permissions);
+
   return (
     <Table.Row
       data-testid="RepoListRow__row"
-      onClick={repo?.access ? () => addSelection(repo?.id || '') : undefined}
-      isSelected={searchParams.selectedRepos?.includes(repo?.id || '')}
-      hasRadio={repo?.access}
-      hasLock={!repo?.access}
-      aria-disabled={!repo?.access}
-      lockedTooltipText={!repo?.access ? NO_ACCESS_TOOLTIP : undefined}
-      overflowMenuItems={generateIconItems(repo?.lastCommit?.id)}
-      dropdownOnSelect={onOverflowMenuSelect(repo)}
-      openOnClick={checkRolesPermission}
+      onClick={access ? () => addSelection(repoId) : undefined}
+      isSelected={searchParams.selectedRepos?.includes(repoId)}
+      hasRadio={access}
+      hasLock={!access}
+      aria-disabled={!access}
+      lockedTooltipText={!access ? NO_ACCESS_TOOLTIP : undefined}
+      overflowMenuItems={menuItems}
+      dropdownOnSelect={onDropdownMenuSelect}
+      openOnClick={onMenuOpen}
     >
-      <Table.DataCell>{repo?.name}</Table.DataCell>
-      <Table.DataCell width={120}>{repo?.sizeDisplay || '-'}</Table.DataCell>
-      <Table.DataCell width={210}>
-        {repo?.createdAt && repo?.createdAt > 0
-          ? getStandardDate(repo?.createdAt)
+      <Table.DataCell>{repo?.repo?.name}</Table.DataCell>
+      <Table.DataCell width={120}>
+        {formatBytes(repo?.details?.sizeBytes ?? repo?.sizeBytesUpperBound)}
+      </Table.DataCell>
+      <Table.DataCell width={120}>
+        {repo?.created
+          ? getStandardDateFromUnixSeconds(
+              getUnixSecondsFromISOString(repo?.created),
+            )
           : '-'}
       </Table.DataCell>
       <Table.DataCell width={240}>
-        {getLastCommitTimestamp(repo)}
+        {lastCommitLoading ? (
+          <SkeletonBodyText />
+        ) : (
+          getLastCommitTimestamp(lastCommit)
+        )}
       </Table.DataCell>
       <Table.DataCell>{repo?.description}</Table.DataCell>
-      {repo?.authInfo?.rolesList && (
+      {repo?.authInfo?.roles && (
         <Table.DataCell>
-          {repo?.authInfo?.rolesList?.join(', ') || 'None'}
+          <ButtonLink onClick={openRolesModal}>
+            {repo?.authInfo?.roles?.join(', ') || 'None'}{' '}
+          </ButtonLink>
         </Table.DataCell>
       )}
 
-      {repo?.authInfo?.rolesList && rolesModalOpen && (
+      <RepoActionsModals
+        repoId={repoId}
+        deleteRepoModalOpen={deleteRepoModalOpen}
+        setDeleteModalOpen={setDeleteModalOpen}
+      />
+
+      {repo?.authInfo?.roles && rolesModalOpen && (
         <RepoRolesModal
           show={rolesModalOpen}
           onHide={closeRolesModal}
           projectName={projectId}
-          repoName={repo?.id}
-          readOnly={!editRolesPermission}
+          repoName={repoId}
+          readOnly={!hasRepoEditRoles}
+          checkPermissions={checkPermissions}
         />
       )}
     </Table.Row>

@@ -1,19 +1,45 @@
-import {QueryFunctionOptions} from '@apollo/client';
-import {JobQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {useJobQuery} from '@dash-frontend/generated/hooks';
-import {JOBS_POLL_INTERVAL_MS} from 'constants/pollIntervals';
+import {Project} from '@dash-frontend/api/pfs';
+import {Job, Pipeline, inspectJob} from '@dash-frontend/api/pps';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useJob = (args: JobQueryArgs, opts?: QueryFunctionOptions) => {
-  const {data, error, loading} = useJobQuery({
-    variables: {args},
-    pollInterval: JOBS_POLL_INTERVAL_MS,
-    skip: opts?.skip,
+export type JobArgs = {
+  id?: Job['id'];
+  pipelineName: Pipeline['name'];
+  projectId: Project['name'];
+};
+
+export const useJob = (
+  {id, pipelineName, projectId}: JobArgs,
+  enabled = true,
+) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.job({
+      projectId: projectId,
+      pipelineId: pipelineName,
+      jobId: id,
+    }),
+    queryFn: () =>
+      inspectJob({
+        job: {
+          id,
+          pipeline: {
+            name: pipelineName,
+            project: {
+              name: projectId,
+            },
+          },
+        },
+        details: true,
+      }),
+    enabled,
   });
 
-  return {
-    error,
-    job: data?.job,
-    loading,
-  };
+  return {job: data, loading, error: getErrorMessage(error)};
 };

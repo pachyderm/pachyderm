@@ -1,21 +1,38 @@
-import {DatumState, mockDatumQuery} from '@graphqlTypes';
-import {render, waitFor, within, screen} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  within,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  mockEmptyGetAuthorize,
-  mockGetJob5CDatum05,
-  mockGetJob5CDatums,
-  mockGetMontageJob_5C,
-  mockGetMontageJobs,
-  mockGetMontagePipeline,
-  mockGetVersionInfo,
-  buildDatum,
-  mockGetJob5CDatumCH,
+  DatumInfo,
+  DatumState,
+  InspectDatumRequest,
+  InspectJobRequest,
+  JobInfo,
+} from '@dash-frontend/api/pps';
+import {
+  mockGetEnterpriseInfoInactive,
   mockGetSpoutPipeline,
   mockGetServicePipeline,
+  mockEmptyGetAuthorize,
+  mockGetVersionInfo,
+  mockGetMontagePipeline,
+  mockInspectJobMontage5C,
+  buildJob,
+  mockGetMontageJob5C,
+  mockGetMontageJobs,
+  mockGetJob5CDatum05,
+  mockGetJob5CDatums,
+  mockGetJob5CDatumCH,
+  buildDatum,
 } from '@dash-frontend/mocks';
 import {mockEmptyGetLogs} from '@dash-frontend/mocks/logs';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
@@ -42,17 +59,30 @@ describe('Datum Viewer', () => {
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
     server.use(mockGetMontagePipeline());
-    server.use(mockGetMontageJob_5C());
+    server.use(mockGetMontageJob5C());
+    server.use(mockInspectJobMontage5C());
     server.use(mockGetMontageJobs());
     server.use(mockGetJob5CDatums());
     server.use(mockGetJob5CDatum05());
     server.use(mockEmptyGetLogs());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
 
   describe('on close', () => {
     it('should route user back to pipeline view on close', async () => {
+      server.use(
+        rest.post<InspectJobRequest, Empty, JobInfo>(
+          '/api/pps_v2.API/InspectJob',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body?.job?.id === '23b9af7d5d4343219bc8e02ff44cd55a') {
+              return res(ctx.json(buildJob({})));
+            }
+          },
+        ),
+      );
       window.history.replaceState(
         {},
         '',
@@ -70,6 +100,17 @@ describe('Datum Viewer', () => {
     });
 
     it('should route user back to job view on close', async () => {
+      server.use(
+        rest.post<InspectJobRequest, Empty, JobInfo>(
+          '/api/pps_v2.API/InspectJob',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body?.job?.id === '23b9af7d5d4343219bc8e02ff44cd55a') {
+              return res(ctx.json(buildJob({})));
+            }
+          },
+        ),
+      );
       window.history.replaceState(
         {},
         '',
@@ -100,7 +141,7 @@ describe('Datum Viewer', () => {
 
       expect(await screen.findByText('Success')).toBeVisible();
 
-      const runtimeDropDown = await screen.findByText('6 s');
+      const runtimeDropDown = await screen.findByText('Cumulative Time: 6 s');
       expect(runtimeDropDown).toBeVisible();
       userEvent.click(runtimeDropDown);
       expect(await screen.findByText('1 s')).toBeVisible();
@@ -119,31 +160,48 @@ describe('Datum Viewer', () => {
       expect(
         await within(codeSpec).findAllByText((node) => node.includes('edges')),
       ).toHaveLength(2); // Allow code element to load
-      await waitFor(() => document.querySelectorAll('.cm-cursor-primary')); // wait for cursor to appear
-      expect(codeSpec).toMatchSnapshot();
+
+      const deepCloneCodeSpec = codeSpec.cloneNode(true);
+      // Remove the blinking cusror if it is present
+      const cursors = (deepCloneCodeSpec as HTMLElement).querySelectorAll(
+        '.cm-cursor-primary',
+      );
+      cursors.forEach((cursor) => cursor.remove());
+
+      expect(deepCloneCodeSpec).toMatchSnapshot();
     });
 
     it('should render N/A when the runtime data is not available', async () => {
       server.use(
-        mockDatumQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              datum: buildDatum({
-                id: '05b864850d01075385e7872e7955fbf710d0e4af0bd73dcf232034a2e39295a7',
-                jobId: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-                requestedJobId: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-                state: DatumState.SUCCESS,
-              }),
-            }),
-          );
-        }),
+        rest.post<InspectDatumRequest, Empty, DatumInfo>(
+          '/api/pps_v2.API/InspectDatum',
+          (_req, res, ctx) =>
+            res(
+              ctx.json(
+                buildDatum({
+                  datum: {
+                    id: '05b864850d01075385e7872e7955fbf710d0e4af0bd73dcf232034a2e39295a7',
+                    job: {
+                      id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+                    },
+                  },
+                  state: DatumState.SUCCESS,
+                }),
+              ),
+            ),
+        ),
       );
       render(<JobDatumViewer />);
-      const runtimeDropDown = await screen.findByText('N/A');
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      const runtimeDropDown = screen.getByRole('button', {
+        name: /cumulative time/i,
+      });
       expect(runtimeDropDown).toBeVisible();
       userEvent.click(runtimeDropDown);
       await screen.findByText('Download'); // Allow dropdown to finish loading
-      expect(await screen.findAllByText('N/A')).toHaveLength(4);
+      expect(await screen.findAllByText('N/A')).toHaveLength(3);
     });
 
     it('should render a skipped datums details', async () => {
@@ -164,27 +222,7 @@ describe('Datum Viewer', () => {
       expect(
         await screen.findByText('14291af7da4a4143b8ae12eba16d4661'),
       ).toBeVisible();
-      expect(await screen.findByText('2 s')).toBeVisible();
-    });
-
-    it('should allow users to open the rerun pipeline modal', async () => {
-      render(<JobDatumViewer />);
-
-      const rightPanel = screen.getByTestId('SidePanel__right');
-      await click(
-        within(rightPanel).getByRole('button', {
-          name: /rerun pipeline/i,
-        }),
-      );
-
-      const modal = (await screen.findAllByRole('dialog'))[1];
-      expect(modal).toBeInTheDocument();
-
-      expect(
-        within(modal).getByRole('heading', {
-          name: 'Rerun Pipeline: default/montage',
-        }),
-      ).toBeInTheDocument();
+      expect(await screen.findByText('Cumulative Time: 3 s')).toBeVisible();
     });
   });
 
@@ -201,10 +239,13 @@ describe('Datum Viewer', () => {
     it('should hide the left panel', async () => {
       render(<PipelineDatumViewer />);
       await screen.findByTestId('SidePanel__right');
-      expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
+      });
     });
 
     it('should show pipeline info in the right panel', async () => {
+      server.use(mockGetSpoutPipeline());
       render(<PipelineDatumViewer />);
 
       expect(await screen.findByText('Running')).toBeVisible();
@@ -225,10 +266,13 @@ describe('Datum Viewer', () => {
     it('should hide the left panel', async () => {
       render(<PipelineDatumViewer />);
       await screen.findByTestId('SidePanel__right');
-      expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
+      await waitFor(() => {
+        expect(screen.queryByTestId('SidePanel__left')).not.toBeInTheDocument();
+      });
     });
 
     it('should show pipeline info in the right panel', async () => {
+      server.use(mockGetServicePipeline());
       render(<PipelineDatumViewer />);
 
       expect(await screen.findByText('Running')).toBeVisible();

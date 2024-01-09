@@ -11,9 +11,10 @@ import styles from './SideNav.module.css';
 type Props = {
   children?: React.ReactNode;
   breakpoint: number;
+  loading?: boolean;
 };
 
-const SideNav: React.FC<Props> = ({children, breakpoint}) => {
+const SideNav: React.FC<Props> = ({children, breakpoint, loading}) => {
   const [minimized, setMinimized] = useState(false);
   const isMobile = useBreakpoint(breakpoint);
 
@@ -45,7 +46,7 @@ const SideNav: React.FC<Props> = ({children, breakpoint}) => {
 
   return (
     <SideNavContext.Provider value={sideNavContext}>
-      <nav data-testid="SideNav__nav" className={className}>
+      <nav data-testid="SideNav__nav" className={className} aria-busy={loading}>
         {children}
 
         {!isMobile && (

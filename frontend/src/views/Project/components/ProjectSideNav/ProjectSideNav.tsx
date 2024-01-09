@@ -1,16 +1,20 @@
-import {Permission, ResourceType} from '@graphqlTypes';
 import React from 'react';
 import {useHistory} from 'react-router-dom';
 
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
+import {
+  Permission,
+  ResourceType,
+  useAuthorize,
+} from '@dash-frontend/hooks/useAuthorize';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {
   projectReposRoute,
   projectPipelinesRoute,
   lineageRoute,
   projectJobsRoute,
   createPipelineRoute,
+  projectConfigRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {
   SideNav,
@@ -24,6 +28,7 @@ import {
   Dropdown,
   ChevronRightSVG,
   Icon,
+  TechCodeSVG,
 } from '@pachyderm/components';
 import {MEDIUM} from 'constants/breakpoints';
 
@@ -44,20 +49,24 @@ const ProjectSideNav: React.FC = () => {
     isOpen: userRolesModalOpen,
   } = useModal(false);
   const {projectId} = useUrlState();
-  const {isAuthorizedAction: editProjectRoleIsAuthorizedAction, isAuthActive} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
-      resource: {type: ResourceType.PROJECT, name: projectId},
-    });
-  const {isAuthorizedAction: createRepoIsAuthorizedAction} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_CREATE_REPO],
-      resource: {type: ResourceType.PROJECT, name: projectId},
-    });
+  const {
+    isAuthActive,
+    loading: authorizeLoading,
+    hasProjectModifyBindings: hasProjectEditRoles,
+    hasProjectCreateRepo,
+    hasProjectSetDefaults,
+  } = useAuthorize({
+    permissions: [
+      Permission.PROJECT_MODIFY_BINDINGS,
+      Permission.PROJECT_CREATE_REPO,
+      Permission.PROJECT_SET_DEFAULTS,
+    ],
+    resource: {type: ResourceType.PROJECT, name: projectId},
+  });
 
   return (
     <div className={styles.base}>
-      <SideNav breakpoint={MEDIUM}>
+      <SideNav breakpoint={MEDIUM} loading={authorizeLoading}>
         <SideNav.SideNavList>
           <SideNav.SideNavItem
             IconSVG={DirectionsSVG}
@@ -67,7 +76,7 @@ const ProjectSideNav: React.FC = () => {
           >
             DAG
           </SideNav.SideNavItem>
-          {createRepoIsAuthorizedAction && (
+          {hasProjectCreateRepo && (
             <Dropdown sideOpen>
               <Dropdown.Button
                 IconSVG={AddCircleSVG}
@@ -110,6 +119,17 @@ const ProjectSideNav: React.FC = () => {
               User Roles
             </SideNav.SideNavItem>
           )}
+          {hasProjectSetDefaults && (
+            <SideNav.SideNavItem
+              IconSVG={TechCodeSVG}
+              to={projectConfigRoute({projectId}, false)}
+              tooltipContent="Project Defaults"
+              className={styles.buttonLink}
+              showIconWhenExpanded
+            >
+              Project Defaults
+            </SideNav.SideNavItem>
+          )}
         </SideNav.SideNavList>
         <SideNav.SideNavList label="Lists">
           <SideNav.SideNavItem
@@ -148,7 +168,7 @@ const ProjectSideNav: React.FC = () => {
             show={userRolesModalOpen}
             onHide={closeUserRolesModal}
             projectName={projectId}
-            readOnly={!editProjectRoleIsAuthorizedAction}
+            readOnly={!hasProjectEditRoles}
           />
         )}
       </SideNav>

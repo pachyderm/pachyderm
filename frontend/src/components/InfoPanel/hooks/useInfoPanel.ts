@@ -1,88 +1,93 @@
-import {DatumFilter} from '@graphqlTypes';
+import isEmpty from 'lodash/isEmpty';
+import parse from 'parse-duration';
 import {useCallback, useMemo} from 'react';
 
-import {useJob} from '@dash-frontend/hooks/useJob';
+import {DatumState, Input} from '@dash-frontend/api/pps';
+import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
+import {useJobOrJobs} from '@dash-frontend/hooks/useJobOrJobs';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
+import {useStopJob} from '@dash-frontend/hooks/useStopJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
-  getStandardDate,
   formatDurationFromSeconds,
+  getStandardDateFromISOString,
+  getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
-import {Input} from '@dash-frontend/lib/types';
+import {DatumFilter, NodeState} from '@dash-frontend/lib/types';
+
+import omitByDeep from './omitByDeep';
 
 const useInfoPanel = () => {
   const {jobId, projectId, pipelineId} = useUrlState();
   const {getPathToDatumLogs} = useLogsNavigation();
   const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
 
-  const {job, loading: jobLoading} = useJob({
+  const {job, loading: jobLoading} = useJobOrJobs({
     id: searchParams.globalIdFilter || jobId,
     pipelineName: pipelineId,
     projectId,
   });
 
-  const started = useMemo(() => {
-    return job?.startedAt ? getStandardDate(job?.startedAt) : 'N/A';
-  }, [job]);
+  const {stopJob, loading: stopJobLoading} = useStopJob();
 
-  const created = useMemo(() => {
-    return job?.createdAt ? getStandardDate(job?.createdAt) : 'N/A';
-  }, [job]);
+  const canStopJob = NodeState.RUNNING === restJobStateToNodeState(job?.state);
 
-  const totalRuntime = useMemo(() => {
-    return job?.finishedAt && job?.startedAt
-      ? formatDurationFromSeconds(job.finishedAt - job.startedAt)
+  const started = getStandardDateFromISOString(job?.started);
+
+  const created = getStandardDateFromISOString(job?.created);
+
+  const totalRuntime =
+    job?.finished && job?.started
+      ? formatDurationFromSeconds(
+          getUnixSecondsFromISOString(job.finished) -
+            getUnixSecondsFromISOString(job.started),
+        )
       : 'N/A';
-  }, [job?.startedAt, job?.finishedAt]);
 
-  const jobDetails = useMemo(() => {
-    const details = JSON.parse(job?.jsonDetails || '{}');
-    return {
-      ...details,
-      dataTotal: details?.dataTotal,
-      datumTries: details?.datumTries,
-      pipelineVersion: details?.pipelineVersion,
-      salt: details?.salt,
-      downloadBytes: details?.stats?.downloadBytes,
-      uploadBytes: details?.stats?.uploadBytes,
-      downloadTime: details?.stats?.downloadTime?.seconds,
-      processTime: details?.stats?.processTime?.seconds,
-      uploadTime: details?.stats?.uploadTime?.seconds,
-    };
-  }, [job?.jsonDetails]);
+  const cumulativeTime = formatDurationFromSeconds(
+    (parse(job?.stats?.downloadTime ?? '', 's') ?? 0) +
+      (parse(job?.stats?.processTime ?? '', 's') ?? 0) +
+      (parse(job?.stats?.uploadTime ?? '', 's') ?? 0),
+  );
 
-  const datumMetrics = useMemo(() => {
+  const datumMetrics = useMemo<
+    {
+      value: string | undefined;
+      label: string;
+      filter: DatumFilter;
+    }[]
+  >(() => {
     return [
       {
         value: job?.dataProcessed,
         label: 'Success',
-        filter: DatumFilter.SUCCESS,
+        filter: DatumState.SUCCESS,
       },
       {
         value: job?.dataSkipped,
         label: 'Skipped',
-        filter: DatumFilter.SKIPPED,
+        filter: DatumState.SKIPPED,
       },
       {
         value: job?.dataFailed,
         label: 'Failed',
-        filter: DatumFilter.FAILED,
+        filter: DatumState.FAILED,
       },
       {
         value: job?.dataRecovered,
         label: 'Recovered',
-        filter: DatumFilter.RECOVERED,
+        filter: DatumState.RECOVERED,
       },
     ];
   }, [job]);
 
   let logsDatumRoute = '';
-  if ((job?.id || jobId) && pipelineId) {
+  if ((job?.job?.id || jobId) && pipelineId) {
     logsDatumRoute = getPathToDatumLogs(
       {
         projectId,
-        jobId: job?.id || jobId,
+        jobId: job?.job?.id || jobId,
         pipelineId: pipelineId,
       },
       [],
@@ -104,75 +109,79 @@ const useInfoPanel = () => {
   const runtimeMetrics = useMemo(() => {
     return [
       {
-        duration:
-          job?.finishedAt && job?.startedAt
-            ? formatDurationFromSeconds(
-                job.finishedAt -
-                  (job.startedAt +
-                    jobDetails.downloadTime +
-                    jobDetails.processTime +
-                    jobDetails.uploadTime),
-              )
-            : 'N/A',
-        label: 'Setup',
-        bytes: undefined,
-      },
-      {
-        duration: formatDurationFromSeconds(jobDetails.downloadTime),
-        bytes: jobDetails?.stats?.downloadBytes,
+        duration: formatDurationFromSeconds(
+          parse(job?.stats?.downloadTime ?? '', 's'),
+        ),
+        bytes: Number(job?.stats?.downloadBytes),
         label: 'Download',
       },
       {
-        duration: formatDurationFromSeconds(jobDetails.processTime),
+        duration: formatDurationFromSeconds(
+          parse(job?.stats?.uploadTime ?? '', 's'),
+        ),
+        bytes: Number(job?.stats?.uploadBytes),
+        label: 'Upload',
+      },
+      {
+        duration: formatDurationFromSeconds(
+          parse(job?.stats?.processTime ?? '', 's'),
+        ),
         label: 'Processing',
         bytes: undefined,
       },
-      {
-        duration: formatDurationFromSeconds(jobDetails.uploadTime),
-        bytes: jobDetails?.stats?.uploadBytes,
-        label: 'Upload',
-      },
     ];
-  }, [jobDetails, job?.finishedAt, job?.startedAt]);
-
-  const getInputRepos = useCallback((input: Input) => {
-    const inputs: {projectId: string; name: string}[] = [];
-    if (input.pfs?.repo) {
-      inputs.push({projectId: input.pfs.project, name: input.pfs.repo});
-    }
-    input.join.forEach((i) => {
-      inputs.push(...getInputRepos(i));
-    });
-    input.group.forEach((i) => {
-      inputs.push(...getInputRepos(i));
-    });
-    input.cross.forEach((i) => {
-      inputs.push(...getInputRepos(i));
-    });
-    input.union.forEach((i) => {
-      inputs.push(...getInputRepos(i));
-    });
-
-    return inputs;
-  }, []);
+  }, [job]);
 
   const inputs = useMemo(() => {
-    if (job?.inputString) {
-      const input = JSON.parse(job?.inputString);
-      return getInputRepos(input);
+    const getInputRepos = (input: Input) => {
+      const inputs: {projectId: string; name: string}[] = [];
+      if (input.pfs?.repo && input.pfs.project) {
+        inputs.push({
+          projectId: input.pfs.project,
+          name: input.pfs.repo,
+        });
+      }
+      input.join?.forEach((i) => {
+        inputs.push(...getInputRepos(i));
+      });
+      input.group?.forEach((i) => {
+        inputs.push(...getInputRepos(i));
+      });
+      input.cross?.forEach((i) => {
+        inputs.push(...getInputRepos(i));
+      });
+      input.union?.forEach((i) => {
+        inputs.push(...getInputRepos(i));
+      });
+
+      return inputs;
+    };
+
+    if (job?.details?.input) {
+      return getInputRepos(job?.details?.input);
     }
     return [];
-  }, [job, getInputRepos]);
+  }, [job]);
 
   const jobConfig = useMemo(() => {
     if (!job) return null;
     else {
-      const transform = {...job.transform};
-      delete transform.__typename;
+      const simplifiedSpec = omitByDeep(
+        {
+          pipelineVersion: job?.pipelineVersion,
+          dataTotal: job?.dataTotal,
+          dataFailed: job?.dataFailed,
+          stats: job?.stats,
+          salt: job?.details?.salt,
+          datumTries: job?.details?.datumTries,
+        },
+        (val, _) => !val || (typeof val === 'object' && isEmpty(val)),
+      );
+
       return {
-        input: JSON.parse(job.inputString || '{}'),
-        transform: JSON.parse(job.transformString || '{}'),
-        details: JSON.parse(job.jsonDetails),
+        input: job?.details?.input || {},
+        transform: job?.details?.transform || {},
+        details: simplifiedSpec || {},
       };
     }
   }, [job]);
@@ -180,7 +189,7 @@ const useInfoPanel = () => {
   return {
     job,
     totalRuntime,
-    jobDetails,
+    cumulativeTime,
     jobLoading,
     started,
     created,
@@ -190,6 +199,9 @@ const useInfoPanel = () => {
     jobConfig,
     logsDatumRoute,
     addLogsQueryParams,
+    stopJob,
+    stopJobLoading,
+    canStopJob,
   };
 };
 

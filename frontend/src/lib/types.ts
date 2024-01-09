@@ -1,6 +1,13 @@
-import {NodeState, NodeType, JobState, PipelineState} from '@graphqlTypes';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import {CSSProperties} from 'react';
+
+import {
+  DatumState,
+  Job,
+  JobInfo,
+  JobState,
+  PipelineState,
+} from '@dash-frontend/api/pps';
 
 export interface ProjectRouteParams {
   projectId: string;
@@ -33,6 +40,22 @@ export type FixedGridRowProps = {
 export enum DagDirection {
   DOWN = 'DOWN',
   RIGHT = 'RIGHT',
+}
+
+export enum NodeState {
+  BUSY = 'BUSY',
+  ERROR = 'ERROR',
+  IDLE = 'IDLE',
+  PAUSED = 'PAUSED',
+  RUNNING = 'RUNNING',
+  SUCCESS = 'SUCCESS',
+}
+
+export enum NodeType {
+  CROSS_PROJECT_REPO = 'CROSS_PROJECT_REPO',
+  EGRESS = 'EGRESS',
+  PIPELINE = 'PIPELINE',
+  REPO = 'REPO',
 }
 
 export type Node = {
@@ -86,10 +109,44 @@ export type PfsInput = {
   repo: string;
   project: string;
 };
-export type Input = {
-  pfs?: PfsInput;
-  join: [Input];
-  group: [Input];
-  cross: [Input];
-  union: [Input];
+
+export type InternalJobSet = {
+  job: Job | undefined;
+  created: string | undefined;
+  started: string | undefined;
+  finished: string | undefined;
+  inProgress: boolean;
+  state: JobState | undefined;
+  jobs: JobInfo[];
 };
+
+export enum FileCommitState {
+  ADDED = 'ADDED',
+  DELETED = 'DELETED',
+  UPDATED = 'UPDATED',
+}
+
+export type FormattedFileDiff = {
+  diffTotals: Record<string, FileCommitState>;
+  diff: {
+    size: number;
+    sizeDisplay: string;
+    filesAdded: {
+      count: number;
+      sizeDelta: number;
+    };
+    filesUpdated: {
+      count: number;
+      sizeDelta: number;
+    };
+    filesDeleted: {
+      count: number;
+      sizeDelta: number;
+    };
+  };
+};
+
+export type DatumFilter = Exclude<
+  DatumState,
+  DatumState.UNKNOWN | DatumState.STARTING
+>;

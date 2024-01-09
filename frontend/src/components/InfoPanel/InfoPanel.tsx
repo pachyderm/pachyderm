@@ -25,6 +25,9 @@ import {
   Tooltip,
   Button,
   SkeletonBodyText,
+  ButtonGroup,
+  StatusStopSVG,
+  JobsSVG,
 } from '@pachyderm/components';
 
 import {Chip} from '../Chip';
@@ -41,7 +44,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
   const {
     job,
     totalRuntime,
-    jobDetails,
+    cumulativeTime,
     jobLoading,
     started,
     created,
@@ -51,6 +54,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
     jobConfig,
     logsDatumRoute,
     addLogsQueryParams,
+    stopJob,
+    stopJobLoading,
+    canStopJob,
   } = useInfoPanel();
 
   return (
@@ -76,15 +82,36 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
                 </span>
               )}
             </div>
-            {!hideReadLogs && (
-              <Button
-                buttonType="ghost"
-                to={logsDatumRoute}
-                disabled={!logsDatumRoute}
-              >
-                Inspect Job
-              </Button>
-            )}
+            <ButtonGroup>
+              {!hideReadLogs && (
+                <Button
+                  buttonType="ghost"
+                  to={logsDatumRoute}
+                  disabled={!logsDatumRoute}
+                  IconSVG={JobsSVG}
+                >
+                  Inspect Job
+                </Button>
+              )}
+              {canStopJob && (
+                <Button
+                  buttonType="ghost"
+                  onClick={() =>
+                    stopJob({
+                      job: {
+                        id: job?.job?.id,
+                        pipeline: job?.job?.pipeline,
+                      },
+                      reason: 'job manually stopped from console',
+                    })
+                  }
+                  disabled={stopJobLoading}
+                  IconSVG={!stopJobLoading ? StatusStopSVG : SpinnerSVG}
+                >
+                  Stop Job
+                </Button>
+              )}
+            </ButtonGroup>
           </div>
         )}
         {jobLoading ? (
@@ -105,10 +132,10 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
                   <CaptionTextSmall>Total Datums</CaptionTextSmall>
                 </div>
                 <Tooltip tooltipText="Pipeline Version">
-                  <div>v: {jobDetails.pipelineVersion}</div>
+                  <div>v: {job?.pipelineVersion}</div>
                 </Tooltip>
               </div>
-              {!job?.finishedAt && (
+              {!job?.finished && (
                 <Chip
                   LeftIconSVG={SpinnerSVG}
                   LeftIconSmall={false}
@@ -160,6 +187,7 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
           started={started}
           created={created}
           totalRuntime={totalRuntime}
+          cumulativeTime={cumulativeTime}
           runtimeMetrics={runtimeMetrics}
         />
       </section>
@@ -191,16 +219,16 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
             loading={jobLoading}
             className={styles.inputs}
           >
-            {job?.pipelineName && (
+            {job?.job?.pipeline?.name && (
               <PipelineLink
                 data-testid="InfoPanel__pipeline"
-                name={job.pipelineName}
+                name={job?.job?.pipeline?.name}
               />
             )}
           </Description>
         </div>
         <div className={styles.inputSection}>
-          {job?.outputCommit && job?.outputBranch && (
+          {job?.outputCommit?.id && job?.outputCommit?.branch?.name && (
             <Description
               term="Output Commit"
               loading={jobLoading}
@@ -209,9 +237,9 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
             >
               <CommitLink
                 data-testid="InfoPanel__commitLink"
-                name={job.outputCommit}
-                branch={job.outputBranch}
-                repoName={job.pipelineName}
+                name={job?.outputCommit?.id}
+                branch={job?.outputCommit?.branch?.name}
+                repoName={job?.job?.pipeline?.name || ''}
               />
             </Description>
           )}

@@ -1,7 +1,10 @@
-import {DatumFilter, NodeState, OriginKind} from '@graphqlTypes';
 import isEmpty from 'lodash/isEmpty';
 import {useCallback, useMemo} from 'react';
 import {useHistory, useLocation} from 'react-router';
+
+import {OriginKind} from '@dash-frontend/api/pfs';
+import {DatumState} from '@dash-frontend/api/pps';
+import {DatumFilter, NodeState} from '@dash-frontend/lib/types';
 
 interface SelectableResource {
   selectedPipelines?: string[] | string;
@@ -10,7 +13,14 @@ interface SelectableResource {
 }
 
 interface ListParams extends SelectableResource {
-  datumFilters?: DatumFilter[];
+  datumFilters?:
+    | DatumFilter[]
+    | Array<
+        | DatumState.FAILED
+        | DatumState.RECOVERED
+        | DatumState.SKIPPED
+        | DatumState.SUCCESS
+      >;
   jobStatus?: NodeState[];
   jobId?: string[];
   pipelineStep?: string[];
@@ -22,7 +32,6 @@ interface ListParams extends SelectableResource {
 }
 export interface UrlState extends ListParams {
   prevPath?: string;
-  tutorialId?: string;
   sortBy?: string;
   globalIdFilter?: string;
 }
@@ -42,7 +51,6 @@ export interface ViewStateLists {
 }
 export interface ViewStateValues {
   prevPath?: string;
-  tutorialId?: string;
   sortBy?: string;
   globalIdFilter?: string;
 }

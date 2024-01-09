@@ -1,17 +1,36 @@
-import {GetRolesQuery, Permission, ResourceType} from '@graphqlTypes';
-
+import {
+  ResourceType,
+  Permission,
+  GetRoleBindingResponse,
+} from '@dash-frontend/api/auth';
 import {ALLOWED_PRINCIPAL_TYPES} from '@dash-frontend/constants/rbac';
-import {GET_AUTHORIZE} from '@dash-frontend/queries/GetAuthorize';
 
-import {Principal, Roles, UserTableRoles} from '../hooks/useRolesModal';
+import {
+  MappedRoleBindings,
+  Principal,
+  Roles,
+  UserTableRoles,
+} from '../hooks/useRolesModal';
 
 // create mapping of Record<string, string[]> for {principal: roles[]},
 // filtering out ignored roles and principals
 export const reduceAndFilterRoleBindings = (
-  roles: GetRolesQuery['getRoles'],
+  roleBindings?: GetRoleBindingResponse,
   roleFilter?: (role: string | null) => boolean,
 ) => {
-  const a = roles?.roleBindings?.reduce(
+  const mappedRoleBindings: MappedRoleBindings = Object.keys(
+    roleBindings?.binding?.entries || {},
+  ).map((principal) => {
+    const roles = Object.keys(
+      roleBindings?.binding?.entries?.[principal].roles || {},
+    ).map((role) => role);
+
+    return {
+      principal,
+      roles,
+    };
+  });
+  const reducedAndFilteredRoleBindings = mappedRoleBindings.reduce(
     (acc: Record<string, string[]>, role) => {
       const principalType = role?.principal.split(':')[0];
       if (
@@ -31,7 +50,8 @@ export const reduceAndFilterRoleBindings = (
     },
     {},
   );
-  return a;
+
+  return reducedAndFilteredRoleBindings;
 };
 
 export const mergeConcat = (a: string[], b: string[]) => {
@@ -109,35 +129,23 @@ export const mapTableRoles = ({
   return sortedChipRoles;
 };
 
-export const getProjectPermissionQueries = (resourceName: string) =>
-  [
+export const getProjectPermissionQueries = (resourceName: string) => ({
+  permissions: [
     Permission.PROJECT_MODIFY_BINDINGS,
     Permission.PROJECT_CREATE,
     Permission.PROJECT_DELETE,
-  ].map((permission) => ({
-    query: GET_AUTHORIZE,
-    variables: {
-      args: {
-        permissionsList: [permission],
-        resource: {type: ResourceType.PROJECT, name: resourceName},
-      },
-    },
-  }));
+  ],
+  resource: {type: ResourceType.PROJECT, name: resourceName},
+});
 
-export const getRepoPermissionQueries = (resourceName: string) =>
-  [
+export const getRepoPermissionQueries = (resourceName: string) => ({
+  permissions: [
     Permission.REPO_MODIFY_BINDINGS,
     Permission.REPO_DELETE,
     Permission.REPO_WRITE,
-  ].map((permission) => ({
-    query: GET_AUTHORIZE,
-    variables: {
-      args: {
-        permissionsList: [permission],
-        resource: {type: ResourceType.PROJECT, name: resourceName},
-      },
-    },
-  }));
+  ],
+  resource: {type: ResourceType.PROJECT, name: resourceName},
+});
 
 export const getPermissionQueries = (
   resourceName: string,
@@ -149,5 +157,5 @@ export const getPermissionQueries = (
   if (resourceType === ResourceType.REPO) {
     return getRepoPermissionQueries(resourceName);
   }
-  return [];
+  return {};
 };

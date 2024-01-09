@@ -9,26 +9,9 @@ const setAccount = async (accountId: string) => {
   window.location.reload();
 };
 
-const setProjectTutorial = (projectId: string, tutorial: string) => {
-  const key = 'active_tutorial';
-  const currentSettings = JSON.parse(
-    localStorage.getItem(`pachyderm-console-${projectId}`) || '{}',
-  );
-  localStorage.setItem(
-    `pachyderm-console-${projectId}`,
-    JSON.stringify({
-      ...currentSettings,
-      [key]: tutorial,
-    }),
-  );
-
-  window.location.reload();
-};
-
 const load = () => {
   (window as unknown as Record<string, unknown>).devtools = {
     setAccount,
-    setProjectTutorial,
   };
 };
 

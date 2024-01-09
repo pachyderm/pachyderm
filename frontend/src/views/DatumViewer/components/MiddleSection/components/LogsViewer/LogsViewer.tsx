@@ -1,6 +1,6 @@
-import {ApolloError} from '@apollo/client';
-import {GetLogsQuery} from '@graphqlTypes';
 import React from 'react';
+
+import {LogMessage} from '@dash-frontend/api/pps';
 
 import LogsBody from './components/LogsBody';
 import LogsListHeader from './components/LogsListHeader';
@@ -8,16 +8,18 @@ import styles from './LogsViewer.module.css';
 
 export type LogsViewerProps = {
   loading: boolean;
-  logs: GetLogsQuery['logs']['items'];
+  logs?: LogMessage[];
   highlightUserLogs: boolean;
   selectedLogsMap: {[key: number]: boolean};
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: number]: boolean}>
   >;
   rawLogs: boolean;
-  error?: ApolloError;
+  error?: string;
+  isPagingError: boolean;
   isSkippedDatum?: boolean;
   page: number;
+  isOverLokiQueryLimit?: boolean;
 };
 
 const LogsViewer: React.FC<LogsViewerProps> = ({
@@ -30,6 +32,8 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
   error,
   isSkippedDatum,
   page,
+  isPagingError,
+  isOverLokiQueryLimit,
 }) => {
   return (
     <div className={styles.base}>
@@ -51,6 +55,8 @@ const LogsViewer: React.FC<LogsViewerProps> = ({
         error={error}
         isSkippedDatum={isSkippedDatum}
         page={page}
+        isPagingError={isPagingError}
+        isOverLokiQueryLimit={isOverLokiQueryLimit}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {useJobsQuery} from '@dash-frontend/generated/hooks';
+import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import RuntimesChart from '@dash-frontend/views/Project/components/RuntimesChart';
 
@@ -14,18 +14,14 @@ const JobsRuntimeChart: React.FC<JobsRuntimeChartProps> = ({
   selectedJobSets,
 }) => {
   const {projectId} = useUrlState();
-  const {data, error, loading} = useJobsQuery({
-    variables: {
-      args: {
-        projectId,
-        jobSetIds: selectedJobSets,
-      },
-    },
+  const {jobs, error, loading} = useJobs({
+    projectName: projectId,
+    jobSetIds: selectedJobSets,
   });
 
   return (
     <RuntimesChart
-      jobs={data?.jobs.items}
+      jobs={jobs}
       loading={loading}
       error={error}
       resource="job"

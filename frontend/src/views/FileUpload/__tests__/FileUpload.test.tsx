@@ -3,7 +3,10 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {mockRepoImages} from '@dash-frontend/mocks';
+import {
+  mockGetEnterpriseInfoInactive,
+  mockRepoImages,
+} from '@dash-frontend/mocks';
 import {
   type,
   withContextProviders,
@@ -26,6 +29,7 @@ describe('views/FileUpload', () => {
   beforeEach(() => {
     server.resetHandlers();
     server.use(mockRepoImages());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());

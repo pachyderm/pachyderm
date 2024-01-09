@@ -1,11 +1,11 @@
-import {JobOverviewFragment, JobSetFieldsFragment, Job} from '@graphqlTypes';
 import classNames from 'classnames';
 import React, {useCallback} from 'react';
 
+import {JobInfo} from '@dash-frontend/api/pps';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ListItem from '@dash-frontend/components/ListItem';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   getJobStateColor,
   getJobStateSVG,
@@ -17,11 +17,11 @@ import {CaretRightSVG, LoadingDots} from '@pachyderm/components';
 import styles from './JobList.module.css';
 
 export type jobListProps = {
-  jobs?: (JobOverviewFragment | JobSetFieldsFragment)[];
+  jobs?: JobInfo[];
   loading: boolean;
   isExpanded: boolean;
   setIsExpanded: React.Dispatch<React.SetStateAction<boolean>>;
-  currentJob?: Job;
+  currentJob?: JobInfo;
 };
 
 const JobList: React.FC<jobListProps> = ({
@@ -36,14 +36,17 @@ const JobList: React.FC<jobListProps> = ({
 
   const deriveState = useCallback(
     (jobId: string) => {
-      if ([urlJobId, currentJob?.id].includes(jobId) && !currentDatumId) {
+      if ([urlJobId, currentJob?.job?.id].includes(jobId) && !currentDatumId) {
         return 'selected';
-      } else if ([urlJobId, currentJob?.id].includes(jobId) && currentDatumId) {
+      } else if (
+        [urlJobId, currentJob?.job?.id].includes(jobId) &&
+        currentDatumId
+      ) {
         return 'highlighted';
       }
       return 'default';
     },
-    [currentDatumId, currentJob?.id, urlJobId],
+    [currentDatumId, currentJob?.job?.id, urlJobId],
   );
 
   const onClick = useCallback(
@@ -56,7 +59,7 @@ const JobList: React.FC<jobListProps> = ({
     [isServiceOrSpout, setIsExpanded, updateSelectedJob],
   );
 
-  if (!loading && !jobs) {
+  if (loading || !jobs) {
     return <LoadingDots />;
   }
 
@@ -75,9 +78,9 @@ const JobList: React.FC<jobListProps> = ({
         jobs.map((job) => (
           <ListItem
             data-testid="JobList__listItem"
-            key={job.id}
-            state={deriveState(job.id)}
-            text={job.createdAt ? getStandardDate(job.createdAt) : 'N/A'}
+            key={job?.job?.id}
+            state={deriveState(job?.job?.id || '')}
+            text={getStandardDateFromISOString(job.created)}
             LeftIconSVG={
               getJobStateSVG(getVisualJobState(job.state)) || undefined
             }
@@ -85,8 +88,8 @@ const JobList: React.FC<jobListProps> = ({
               getJobStateColor(getVisualJobState(job.state)) || undefined
             }
             RightIconSVG={!isServiceOrSpout ? CaretRightSVG : undefined}
-            captionText={job.id}
-            onClick={() => onClick(job.id)}
+            captionText={job?.job?.id}
+            onClick={() => onClick(job?.job?.id || '')}
           />
         ))}
     </div>

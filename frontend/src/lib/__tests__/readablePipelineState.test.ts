@@ -1,5 +1,4 @@
-import {PipelineState} from '@graphqlTypes';
-
+import {PipelineState} from '@dash-frontend/api/pps';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
 
 describe('readablePipelineState', () => {

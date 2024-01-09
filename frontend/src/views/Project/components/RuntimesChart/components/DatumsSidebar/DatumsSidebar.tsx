@@ -1,18 +1,19 @@
-import {JobsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React, {useCallback} from 'react';
 import {useHistory} from 'react-router-dom';
 
+import {JobInfo} from '@dash-frontend/api/pps';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
 import {CaptionTextSmall, Button} from '@pachyderm/components';
 
 import styles from './DatumsSidebar.module.css';
 
 type DatumsSidebarProps = {
-  jobs?: JobsQuery['jobs']['items'];
+  jobs?: JobInfo[];
   onClose: () => void;
   selectedJob: string;
   selectFailedDatumJob: React.Dispatch<React.SetStateAction<string>>;
@@ -29,12 +30,12 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
   const {getPathToDatumLogs} = useLogsNavigation();
 
   const inpectDatumsLink = useCallback(
-    (job: JobsQuery['jobs']['items'][number]) => {
+    (job: JobInfo) => {
       const logsLink = getPathToDatumLogs(
         {
           projectId,
-          jobId: job.id,
-          pipelineId: job.pipelineName,
+          jobId: job?.job?.id || '',
+          pipelineId: job?.job?.pipeline?.name || '',
         },
         [],
       );
@@ -56,19 +57,24 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
       <h5 className={styles.title}>Jobs with failed datums</h5>
       {jobs?.map((job) => (
         <div
-          key={job.id}
+          key={job?.job?.id}
           className={classnames(styles.listItem, {
-            [styles.selected]: job.id === selectedJob,
+            [styles.selected]: job?.job?.id === selectedJob,
           })}
-          onClick={() => handleSelection(job.id)}
-          aria-label={`${job.id} failed datums`}
+          onClick={() => handleSelection(job?.job?.id || '')}
+          aria-label={`${job?.job?.id} failed datums`}
         >
           <CaptionTextSmall className={styles.listItemText}>
-            {job.id.slice(0, 6)}; @{job.pipelineName}
+            {job?.job?.id?.slice(0, 6)}; @{job?.job?.pipeline?.name}
           </CaptionTextSmall>
           <CaptionTextSmall className={styles.listItemText}>
-            {job.dataFailed} Failed {job.dataFailed > 1 ? 'Datums' : 'Datum'};{' '}
-            {getJobRuntime(job.startedAt, job.finishedAt)} Runtime
+            {job.dataFailed} Failed{' '}
+            {Number(job?.dataFailed) > 1 ? 'Datums' : 'Datum'};{' '}
+            {getJobRuntime(
+              getUnixSecondsFromISOString(job.started),
+              getUnixSecondsFromISOString(job.finished),
+            )}{' '}
+            Runtime
           </CaptionTextSmall>
           <Button
             className={styles.button}

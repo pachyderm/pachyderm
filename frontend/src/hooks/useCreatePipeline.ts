@@ -1,19 +1,37 @@
-import {CreatePipelineArgs} from '@graphqlTypes';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 
-import {useCreatePipelineMutation} from '@dash-frontend/generated/hooks';
+import {createPipeline, CreatePipelineV2Request} from '@dash-frontend/api/pps';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useCreatePipeline = (
-  args: CreatePipelineArgs,
-  onCompleted: () => void,
-) => {
-  const [createPipelineMutation, status] = useCreatePipelineMutation({
-    variables: {args},
-    onCompleted,
+type useCreatePipelineArgs = {
+  onSuccess?: () => void;
+  onError?: (error: Error) => void;
+};
+
+const useCreatePipeline = ({onSuccess, onError}: useCreatePipelineArgs) => {
+  const client = useQueryClient();
+  const {
+    mutate: createPipelineMutation,
+    isPending: loading,
+    error,
+    data,
+  } = useMutation({
+    mutationKey: ['createPipeline'],
+    mutationFn: (req: CreatePipelineV2Request) => createPipeline(req),
+    onSuccess: () => {
+      client.invalidateQueries({
+        queryKey: queryKeys.allPipelines,
+      });
+      onSuccess && onSuccess();
+    },
+    onError: (error) => onError && onError(error),
   });
 
   return {
+    createPipelineResponse: data,
     createPipeline: createPipelineMutation,
-    status,
+    error,
+    loading,
   };
 };
 

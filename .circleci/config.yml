@@ -98,16 +98,6 @@ jobs:
       - checkout
       - run: cd frontend && npm ci
       - run: cd frontend && npm run lint:js:no-fix
-  lint-graphql-validate-generation:
-    executor: small-node
-    steps:
-      - checkout
-      - node-install-all
-      - run:
-          name: Generate graphQL types and compare the diff of the generated types.
-          command: |
-            make graphql
-            sh ./scripts/checkTypeChanges.sh
   lint-backend:
     executor: small-node
     steps:
@@ -128,17 +118,6 @@ jobs:
       - run: npm run test --prefix backend -- --coverage
       - codecov/upload:
           file: ./backend/coverage/lcov.info
-  test-backend-integration:
-    resource_class: xlarge
-    machine:
-      image: ubuntu-2004:202111-01
-    steps:
-      - checkout
-      - run: cd backend && npm ci
-      - run-pachyderm-ce
-      - run: npm run integration-test --prefix backend -- --coverage
-      - codecov/upload:
-          file: ./backend/coverage/lcov.info
   test-frontend-components:
     executor: xlarge-node
     steps:
@@ -154,20 +133,6 @@ jobs:
       - codecov/upload:
           file: ./frontend/src/coverage/lcov.info
 
-  test-e2e-mock:
-    resource_class: large
-    machine:
-      image: ubuntu-2004:202201-02
-    steps:
-      - checkout
-      - node-install-all
-      - run:
-          name: Run mock backend Cypress tests
-          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e:local-mock
-      - store_artifacts:
-          path: /tmp/cypress-screenshots
-      - store_artifacts:
-          path: /tmp/cypress-videos
   test-e2e-community-edition:
     resource_class: xlarge
     parallelism: 3
@@ -337,15 +302,12 @@ workflows:
       - lint-backend
       - lint-frontend
       - lint-cypress
-      - lint-graphql-validate-generation
       - build
       - test-backend
-      - test-backend-integration
       - test-frontend-components
       - test-frontend-react
       - test-e2e-community-edition
       - test-e2e-enterprise-edition
-      - test-e2e-mock
 
   storybook-release:
     when:

@@ -1,4 +1,3 @@
-import {Permission, ResourceType} from '@graphqlTypes';
 import React from 'react';
 import Favicon from 'react-favicon';
 import {useHistory} from 'react-router';
@@ -8,8 +7,12 @@ import BrandedTitle from '@dash-frontend/components/BrandedTitle';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
+import {
+  useAuthorize,
+  Permission,
+  ResourceType,
+} from '@dash-frontend/hooks/useAuthorize';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {
   Group,
   DefaultDropdown,
@@ -73,25 +76,21 @@ export const Landing: React.FC = () => {
   const browserHistory = useHistory();
   const {openModal, closeModal, isOpen} = useModal(false);
 
-  const {isAuthorizedAction: isAuthorizedActionCreateProject} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_CREATE],
+  const {hasProjectCreate, hasClusterAuthSetConfig: hasClusterConfig} =
+    useAuthorize({
+      permissions: [
+        Permission.PROJECT_CREATE,
+        Permission.CLUSTER_AUTH_SET_CONFIG,
+      ],
       resource: {type: ResourceType.CLUSTER, name: ''},
     });
 
-  const {isAuthorizedAction: isAuthorizedActionClusterConfig} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.CLUSTER_AUTH_SET_CONFIG],
-      resource: {type: ResourceType.CLUSTER, name: ''},
-    });
-
-  // Tutorial is temporarily disabled because of "Project" Console Support
   return (
     <div className={styles.base}>
       <View data-testid="Landing__view">
         <TabView errorMessage="Error loading projects">
           <TabView.Header heading="Projects">
-            {isAuthorizedActionClusterConfig && (
+            {hasClusterConfig && (
               <Button
                 onClick={() => browserHistory.push(clusterConfigRoute)}
                 buttonType="secondary"
@@ -99,7 +98,7 @@ export const Landing: React.FC = () => {
                 Cluster Defaults
               </Button>
             )}
-            {isAuthorizedActionCreateProject && (
+            {hasProjectCreate && (
               <Button onClick={openModal}>Create Project</Button>
             )}
           </TabView.Header>
@@ -151,9 +150,11 @@ export const Landing: React.FC = () => {
                   <ProjectRow
                     multiProject={multiProject}
                     project={project}
-                    key={project.id}
+                    key={project?.project?.name}
                     setSelectedProject={() => setSelectedProject(project)}
-                    isSelected={project.id === selectedProject?.id}
+                    isSelected={
+                      project?.project?.name === selectedProject?.project?.name
+                    }
                   />
                 ))}
               </Group>

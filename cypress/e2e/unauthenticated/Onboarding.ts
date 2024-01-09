@@ -9,6 +9,7 @@ describe('Onboarding', () => {
   });
 
   after(() => {
+    cy.visit('/');
     cy.exec(`pachctl delete pipelines --all -f --project onboarding`, {
       failOnNonZeroExit: false,
     });

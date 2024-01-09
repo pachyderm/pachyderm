@@ -1,8 +1,9 @@
-import {ReposWithCommitQuery} from '@graphqlTypes';
 import {useEffect} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {RepoInfo} from '@dash-frontend/api/pfs';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   useSort,
   numberComparator,
@@ -11,7 +12,7 @@ import {
 } from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<ReposWithCommitQuery['repos'][number] | null>;
+  [key: string]: SortableItem<RepoInfo>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -19,31 +20,29 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
-      repo?.createdAt || 0,
+    accessor: (repo: RepoInfo) => getUnixSecondsFromISOString(repo?.created),
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
-      repo?.createdAt || 0,
+    accessor: (repo: RepoInfo) => getUnixSecondsFromISOString(repo?.created),
   },
   'Alphabetical: A-Z': {
     name: 'Alphabetical: A-Z',
     func: stringComparator,
-    accessor: (repo: ReposWithCommitQuery['repos'][number]) => repo?.id || '',
+    accessor: (repo: RepoInfo) => repo?.repo?.name || '',
   },
   'Alphabetical: Z-A': {
     name: 'Alphabetical: Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (repo: ReposWithCommitQuery['repos'][number]) => repo?.id || '',
+    accessor: (repo: RepoInfo) => repo?.repo?.name || '',
   },
   Size: {
     name: 'Size',
     func: numberComparator,
-    accessor: (repo: ReposWithCommitQuery['repos'][number]) =>
-      repo?.sizeBytes || 0,
+    accessor: (repo: RepoInfo) =>
+      Number(repo?.details?.sizeBytes ?? repo?.sizeBytesUpperBound ?? 0),
   },
 };
 
@@ -64,7 +63,7 @@ type FormValues = {
 };
 
 type useRepoFiltersProps = {
-  repos?: ReposWithCommitQuery['repos'];
+  repos?: RepoInfo[];
 };
 
 const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
@@ -98,7 +97,11 @@ const useRepoFilters = ({repos = []}: useRepoFiltersProps) => {
   });
 
   useEffect(() => {
-    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+    if (
+      searchParams.sortBy &&
+      sortOptions[searchParams.sortBy] &&
+      comparatorName !== searchParams.sortBy
+    ) {
       setComparator(sortOptions[searchParams.sortBy]);
     }
   });

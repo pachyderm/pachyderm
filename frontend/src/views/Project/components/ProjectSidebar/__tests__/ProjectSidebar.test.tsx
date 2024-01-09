@@ -1,4 +1,3 @@
-import {mockCommitDiffQuery, mockJobQuery, mockRepoQuery} from '@graphqlTypes';
 import {
   render,
   waitFor,
@@ -6,29 +5,43 @@ import {
   screen,
   within,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Permission} from '@dash-frontend/api/auth';
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  buildJob,
+  InspectPipelineRequest,
+  ListJobRequest,
+  JobInfo,
+  JobState,
+  PipelineInfo,
+} from '@dash-frontend/api/pps';
+import {
   mockEmptyGetRoles,
-  mockFalseGetAuthorize,
-  mockGetCommitA4,
-  mockGetCommitC4,
+  mockDiffFile,
   mockGetImageCommits,
-  mockGetMontageJob_5C,
-  mockGetMontageJob_1D,
+  mockRepoImages,
+  mockRepoEdges,
+  mockEmptyCommits,
+  mockGetEnterpriseInfoInactive,
+  mockPipelines,
+  mockRepos,
   mockGetMontagePipeline,
+  mockGetMontageJob5C,
+  mockGetMontageJob1D,
+  mockInspectJobMontage5C,
+  buildJob,
+  buildPipeline,
+  mockRepoMontage,
   mockGetServicePipeline,
   mockGetSpoutPipeline,
-  mockRepoImages,
-  mockRepoMontage,
-  mockTrueGetAuthorize,
-  mockEmptyCommit,
   mockEmptyJob,
+  mockFalseGetAuthorize,
+  mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
-import {mockGetVertices, mockGet4Vertices} from '@dash-frontend/mocks/vertices';
-import {hover, click, withContextProviders} from '@dash-frontend/testHelpers';
+import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
 import ProjectSidebar from '../ProjectSidebar';
 
@@ -41,12 +54,22 @@ describe('ProjectSidebar', () => {
 
   beforeEach(() => {
     server.resetHandlers();
-    server.use(mockGetVertices());
+    server.use(mockPipelines());
+    server.use(mockRepos());
     server.use(mockGetMontagePipeline());
-    server.use(mockGetMontageJob_5C());
-    server.use(mockTrueGetAuthorize());
+    server.use(mockGetMontageJob5C());
+    server.use(mockInspectJobMontage5C());
+    server.use(
+      mockTrueGetAuthorize([
+        Permission.REPO_MODIFY_BINDINGS,
+        Permission.REPO_WRITE,
+        Permission.REPO_READ,
+      ]),
+    );
     server.use(mockRepoImages());
     server.use(mockEmptyGetRoles());
+    server.use(mockGetEnterpriseInfoInactive());
+    server.use(mockGetImageCommits());
   });
 
   afterAll(() => server.close());
@@ -118,23 +141,17 @@ describe('ProjectSidebar', () => {
         }),
       ).toHaveTextContent('Aug 1, 2023; 14:20');
 
-      const runtimeDropdown = within(overviewTab).getByRole('definition', {
-        name: /runtime/i,
+      const runtimeDropdown = within(overviewTab).getByRole('button', {
+        name: /cumulative time/i,
       });
       expect(runtimeDropdown).toHaveTextContent('3 s');
       await click(runtimeDropdown);
 
       expect(
         within(overviewTab).getByRole('definition', {
-          name: /setup/i,
-        }),
-      ).toHaveTextContent('N/A');
-
-      expect(
-        within(overviewTab).getByRole('definition', {
           name: /download/i,
         }),
-      ).toHaveTextContent('N/A');
+      ).toHaveTextContent('1 s');
 
       expect(
         within(overviewTab).getByRole('definition', {
@@ -146,14 +163,14 @@ describe('ProjectSidebar', () => {
         within(overviewTab).getByRole('definition', {
           name: /upload/i,
         }),
-      ).toHaveTextContent('N/A');
+      ).toHaveTextContent('1 s');
 
       expect(
         within(overviewTab).getByRole('link', {name: /images/i}),
       ).toHaveAttribute('href', '/lineage/default/repos/images');
 
       expect(
-        within(overviewTab).getByRole('link', {name: /edges/i}),
+        await within(overviewTab).findByRole('link', {name: /edges/i}),
       ).toHaveAttribute('href', '/lineage/default/repos/edges');
 
       expect(
@@ -173,7 +190,7 @@ describe('ProjectSidebar', () => {
     });
 
     it('should display a specific job overview when a global id filter is applied', async () => {
-      server.use(mockGetMontageJob_1D());
+      server.use(mockGetMontageJob1D());
       window.history.replaceState(
         '',
         '',
@@ -188,7 +205,9 @@ describe('ProjectSidebar', () => {
         screen.getByRole('definition', {name: 'Global ID'}),
       ).toBeInTheDocument();
 
-      expect(screen.getByRole('link', {name: /inspect jobs/i})).toHaveAttribute(
+      expect(
+        screen.getByRole('link', {name: /previous subjobs/i}),
+      ).toHaveAttribute(
         'href',
         '/lineage/default/pipelines/montage/jobs/1dc67e479f03498badcc6180be4ee6ce/logs?globalIdFilter=1dc67e479f03498badcc6180be4ee6ce&prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage%3FglobalIdFilter%3D1dc67e479f03498badcc6180be4ee6ce',
       );
@@ -399,7 +418,7 @@ description: >-
 
       render(<Project />);
       const topLogsLink = await screen.findByRole('link', {
-        name: 'Inspect Jobs',
+        name: 'Previous Subjobs',
       });
       expect(topLogsLink).toHaveAttribute(
         'href',
@@ -428,129 +447,59 @@ description: >-
       );
     });
 
-    it('should display update pipeline button in CE', async () => {
-      render(<Project />);
-
-      expect(
-        await screen.findByRole('heading', {
-          name: 'montage',
-        }),
-      ).toBeInTheDocument();
-
-      const updatePipelineButton = screen.getByRole('button', {
-        name: /update pipeline/i,
-      });
-
-      expect(updatePipelineButton).toBeEnabled();
-    });
-    it('should display update pipeline button when a repoWriter', async () => {
-      server.use(mockTrueGetAuthorize());
-      render(<Project />);
-
-      expect(
-        await screen.findByRole('heading', {
-          name: 'montage',
-        }),
-      ).toBeInTheDocument();
-
-      const updatePipelineButton = screen.getByRole('button', {
-        name: /update pipeline/i,
-      });
-
-      expect(updatePipelineButton).toBeEnabled();
-    });
-    it('should disable update pipeline button when a repoReader', async () => {
-      server.use(mockFalseGetAuthorize());
-      render(<Project />);
-
-      expect(
-        await screen.findByRole('heading', {
-          name: 'montage',
-        }),
-      ).toBeInTheDocument();
-
-      const updatePipelineButton = screen.getByRole('button', {
-        name: /update pipeline/i,
-      });
-
-      expect(updatePipelineButton).toBeDisabled();
-
-      await hover(updatePipelineButton);
-      expect(
-        screen.getByRole('tooltip', {
-          name: /you need at least repowriter to update this\./i,
-          hidden: false,
-        }),
-      ).toBeInTheDocument();
-    });
-
-    it('should disable the delete button when there are downstream pipelines', async () => {
-      server.use(mockGet4Vertices());
-      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
-
-      render(<Project />);
-
-      expect(
-        await screen.findByRole('heading', {name: 'montage'}),
-      ).toBeInTheDocument();
-
-      expect(
-        await screen.findByRole('button', {
-          name: /delete/i,
-        }),
-      ).toBeDisabled();
-    });
-
-    it('should enable the delete button when there are no downstream pipelines', async () => {
-      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
-
-      render(<Project />);
-
-      expect(
-        await screen.findByRole('heading', {
-          name: 'montage',
-        }),
-      ).toBeInTheDocument();
-
-      expect(
-        await screen.findByRole('button', {
-          name: /delete/i,
-        }),
-      ).toBeEnabled();
-    });
-
     it('should show a linked project input node', async () => {
       server.use(
-        mockJobQuery((req, res, ctx) => {
-          return res(
-            ctx.data({
-              job: buildJob({
-                id: '"23b9af7d5d4343219bc8e02ff44cd55a"',
-                inputString: JSON.stringify({
-                  pfs: {
-                    project: 'Multi-Project-Pipeline-B',
-                    name: 'Node_1',
-                    repo: 'Node_1',
-                    repoType: '',
-                    branch: 'master',
-                    commit: '',
-                    glob: '',
-                    joinOn: '',
-                    outerJoin: false,
-                    groupBy: '',
-                    lazy: false,
-                    emptyFiles: false,
-                    s3: false,
+        rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+          '/api/pps_v2.API/InspectPipeline',
+          (req, res, ctx) => {
+            return res(ctx.json(buildPipeline()));
+          },
+        ),
+      );
+      server.use(
+        rest.post<ListJobRequest, Empty, JobInfo[]>(
+          '/api/pps_v2.API/ListJob',
+          (req, res, ctx) => {
+            return res(
+              ctx.json([
+                buildJob({
+                  job: {
+                    id: '23b9af7d5d4343219bc8e02ff44cd55a',
+                    pipeline: {
+                      name: 'Node_2',
+                      project: {
+                        name: 'Multi-Project-Pipeline-A',
+                      },
+                    },
                   },
-                  join: [],
-                  group: [],
-                  cross: [],
-                  union: [],
+                  details: {
+                    input: {
+                      pfs: {
+                        project: 'Multi-Project-Pipeline-B',
+                        name: 'Node_1',
+                        repo: 'Node_1',
+                        repoType: '',
+                        branch: 'master',
+                        commit: '',
+                        glob: '',
+                        joinOn: '',
+                        outerJoin: false,
+                        groupBy: '',
+                        lazy: false,
+                        emptyFiles: false,
+                        s3: false,
+                      },
+                      join: [],
+                      group: [],
+                      cross: [],
+                      union: [],
+                    },
+                  },
                 }),
-              }),
-            }),
-          );
-        }),
+              ]),
+            );
+          },
+        ),
       );
 
       window.history.replaceState(
@@ -565,6 +514,56 @@ description: >-
       expect(
         await screen.findByText('Node_1 (Project Multi-Project-Pipeline-B)'),
       ).toBeInTheDocument();
+    });
+
+    it('should allow users to stop a running job', async () => {
+      server.use(
+        rest.post<ListJobRequest, Empty, JobInfo[]>(
+          '/api/pps_v2.API/ListJob',
+          async (_req, res, ctx) => {
+            return res(
+              ctx.json([
+                buildJob({
+                  state: JobState.JOB_RUNNING,
+                }),
+              ]),
+            );
+          },
+        ),
+      );
+      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
+
+      render(<Project />);
+
+      const overviewTab = await screen.findByRole('tabpanel', {
+        name: /job overview/i,
+      });
+
+      expect(
+        within(overviewTab).getByRole('heading', {name: /running/i}),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).getByRole('button', {name: /stop job/i}),
+      ).toBeInTheDocument();
+    });
+
+    it('should not allow users to stop a finished job', async () => {
+      window.history.replaceState('', '', '/lineage/default/pipelines/montage');
+
+      render(<Project />);
+
+      const overviewTab = await screen.findByRole('tabpanel', {
+        name: /job overview/i,
+      });
+
+      expect(
+        within(overviewTab).getByRole('heading', {name: /success/i}),
+      ).toBeInTheDocument();
+
+      expect(
+        within(overviewTab).queryByRole('button', {name: /stop job/i}),
+      ).not.toBeInTheDocument();
     });
 
     it('should allow users to open the roles modal', async () => {
@@ -583,25 +582,6 @@ description: >-
       expect(await screen.findByRole('dialog')).toBeInTheDocument();
       expect(
         screen.getByText('Set Repo Level Roles: default/montage'),
-      ).toBeInTheDocument();
-    });
-
-    it('should allow users to open the rerun pipeline modal', async () => {
-      render(<Project />);
-
-      await click(
-        await screen.findByRole('button', {
-          name: /rerun pipeline/i,
-        }),
-      );
-
-      const modal = await screen.findByRole('dialog');
-      expect(modal).toBeInTheDocument();
-
-      expect(
-        within(modal).getByRole('heading', {
-          name: 'Rerun Pipeline: default/montage',
-        }),
       ).toBeInTheDocument();
     });
 
@@ -672,13 +652,7 @@ description: >-
 
       expect(
         screen.getByRole('button', {
-          name: /inspect jobs/i,
-        }),
-      ).toBeDisabled();
-
-      expect(
-        screen.getByRole('button', {
-          name: /delete/i,
+          name: /previous subjobs/i,
         }),
       ).toBeDisabled();
 
@@ -710,38 +684,7 @@ description: >-
 
   describe('repos', () => {
     beforeEach(() => {
-      server.use(mockGetCommitA4());
-
-      server.use(
-        mockCommitDiffQuery((req, res, ctx) =>
-          res(
-            ctx.data({
-              commitDiff: {
-                size: 58644,
-                sizeDisplay: '58.65 kB',
-                filesUpdated: {
-                  count: 0,
-                  sizeDelta: 0,
-                  __typename: 'DiffCount',
-                },
-                filesAdded: {
-                  count: 1,
-                  sizeDelta: 58644,
-                  __typename: 'DiffCount',
-                },
-                filesDeleted: {
-                  count: 0,
-                  sizeDelta: 0,
-                  __typename: 'DiffCount',
-                },
-                __typename: 'Diff',
-              },
-            }),
-          ),
-        ),
-      );
-
-      server.use(mockGetImageCommits());
+      server.use(mockDiffFile());
     });
 
     it('should display repo details', async () => {
@@ -769,7 +712,7 @@ description: >-
         }),
       ).toHaveTextContent('Jul 24, 2023; 17:58');
 
-      expect(screen.getAllByText('139.24 kB')).toHaveLength(2);
+      expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
       await screen.findByText('4a83c74809664f899261baccdb47cd90');
       expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
 
@@ -790,18 +733,15 @@ description: >-
 
       const previousCommits = screen.queryAllByTestId('CommitList__commit');
       expect(previousCommits).toHaveLength(2);
-      expect(previousCommits[0]).toHaveTextContent(/4a83c...@master/);
+      expect(previousCommits[0]).toHaveTextContent(/4eb1aa...@master/);
       expect(previousCommits[0]).toHaveTextContent('Jul 24, 2023; 17:58');
-      expect(previousCommits[1]).toHaveTextContent(/c43ff...@master/);
+      expect(previousCommits[1]).toHaveTextContent(/c43fff...@master/);
       expect(previousCommits[1]).toHaveTextContent('Jul 24, 2023; 17:58');
       expect(
-        within(previousCommits[0]).getByRole('link', {
+        within(previousCommits[0]).queryByRole('link', {
           name: 'Inspect Commit',
         }),
-      ).toHaveAttribute(
-        'href',
-        '/lineage/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
-      );
+      ).not.toBeInTheDocument();
       expect(
         within(previousCommits[1]).getByRole('link', {
           name: 'Inspect Commit',
@@ -813,7 +753,6 @@ description: >-
     });
 
     it('should display specific commit details when a global id filter is applied', async () => {
-      server.use(mockGetCommitC4());
       window.history.replaceState(
         '',
         '',
@@ -834,11 +773,11 @@ description: >-
       expect(
         screen.getByRole('definition', {name: 'Global ID Commit Start'}),
       ).toBeInTheDocument();
-      expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
+      expect(await screen.findByText('+ 58.65 kB')).toBeInTheDocument();
 
       expect(
         screen.getByRole('link', {
-          name: 'Inspect Commits',
+          name: 'Previous Commits',
         }),
       ).toHaveAttribute(
         'href',
@@ -858,32 +797,9 @@ description: >-
     });
 
     it('should show no data when the repo has no data', async () => {
-      server.use(
-        mockRepoQuery((req, res, ctx) =>
-          res(
-            ctx.data({
-              repo: {
-                branches: [],
-                createdAt: 1614426189,
-                description: '',
-                id: 'test',
-                name: 'test',
-                sizeDisplay: '0 B',
-                sizeBytes: 0,
-                access: true,
-                projectId: 'Data-Cleaning-Process',
-                authInfo: {
-                  rolesList: ['repoOwner'],
-                  __typename: 'AuthInfo',
-                },
-                __typename: 'Repo',
-              },
-            }),
-          ),
-        ),
-      );
+      server.use(mockEmptyCommits());
 
-      window.history.replaceState('', '', '/lineage/default/repos/test');
+      window.history.replaceState('', '', '/lineage/default/repos/images');
 
       render(<Project />);
 
@@ -905,11 +821,6 @@ description: >-
       );
       expect(docsLink).toHaveAttribute('target', '_blank');
       expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');
-
-      expect(await screen.findByText('Upload files')).toHaveAttribute(
-        'href',
-        '/lineage/default/repos/test/upload',
-      );
     });
 
     it('should not display logs button', async () => {
@@ -919,55 +830,15 @@ description: >-
       expect(screen.queryByText('Read Logs')).not.toBeInTheDocument();
     });
 
-    it('should disable the delete button when there are associated pipelines', async () => {
-      server.use(mockGet4Vertices());
-      window.history.replaceState('', '', '/lineage/default/repos/montage');
-
-      render(<Project />);
-      const deleteButton = await screen.findByTestId('DeleteRepoButton__link');
-      expect(deleteButton).toBeDisabled();
-    });
-
     it('should display a link to repo outputs', async () => {
-      server.use(
-        mockRepoQuery((req, res, ctx) =>
-          res(
-            ctx.data({
-              repo: {
-                branches: [
-                  {
-                    name: 'master',
-                    __typename: 'Branch',
-                  },
-                ],
-                createdAt: 1614126189,
-                description: '',
-                id: 'edges',
-                name: 'edges',
-                sizeDisplay: '0 B',
-                sizeBytes: 0,
-                access: true,
-                projectId: 'Egress-Examples',
-                authInfo: {
-                  rolesList: ['repoOwner'],
-                  __typename: 'AuthInfo',
-                },
-                __typename: 'Repo',
-              },
-            }),
-          ),
-        ),
-      );
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Egress-Examples/repos/edges',
-      );
+      server.use(mockRepoEdges());
+      server.use(mockEmptyCommits());
+      window.history.replaceState('', '', '/lineage/default/repos/edges');
 
       render(
         <Project
           pipelineOutputsMap={{
-            '72c5c060deb29d88c1779a4b57103255fb3e3ffa': [
+            d0e1e9a51269508c3f11c0e64c721c3ea6204838: [
               {
                 id: 'edges_output',
                 name: 'edges_output',
@@ -990,66 +861,33 @@ description: >-
     });
 
     it('should allow users to open the roles modal', async () => {
-      server.use(
-        mockRepoQuery((req, res, ctx) =>
-          res(
-            ctx.data({
-              repo: {
-                branches: [
-                  {
-                    name: 'master',
-                    __typename: 'Branch',
-                  },
-                ],
-                createdAt: 1614126189,
-                description: '',
-                id: 'edges',
-                name: 'edges',
-                sizeDisplay: '0 B',
-                sizeBytes: 0,
-                access: true,
-                projectId: 'Egress-Examples',
-                authInfo: {
-                  rolesList: ['repoOwner'],
-                  __typename: 'AuthInfo',
-                },
-                __typename: 'Repo',
-              },
-            }),
-          ),
-        ),
-      );
-      window.history.replaceState(
-        '',
-        '',
-        '/lineage/Egress-Examples/repos/edges',
-      );
+      window.history.replaceState('', '', '/lineage/default/repos/images');
 
       render(<Project />);
       await click((await screen.findAllByText('Set Roles'))[0]);
 
       expect(
-        screen.getByText('Set Repo Level Roles: Egress-Examples/edges'),
+        screen.getByText('Set Repo Level Roles: default/images'),
       ).toBeInTheDocument();
     });
 
     it('should show a link to file browser for most recent commit', async () => {
-      window.history.replaceState('', '', '/lineage/default/repos/montage');
+      window.history.replaceState('', '', '/lineage/default/repos/images');
 
       render(<Project />);
 
       const fileBrowserLink = await screen.findByRole('link', {
-        name: 'Inspect Commits',
+        name: 'Previous Commits',
       });
       expect(fileBrowserLink).toHaveAttribute(
         'href',
-        '/lineage/default/repos/montage/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fmontage',
+        '/lineage/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
     });
 
     it('should hide commit info if no access and display empty state', async () => {
       server.use(mockFalseGetAuthorize());
-      server.use(mockEmptyCommit());
+      server.use(mockEmptyCommits());
 
       window.history.replaceState('', '', '/lineage/default/repos/images');
       render(<Project />);
@@ -1058,19 +896,7 @@ description: >-
 
       expect(
         screen.getByRole('button', {
-          name: /delete/i,
-        }),
-      ).toBeDisabled();
-
-      expect(
-        screen.getByRole('button', {
-          name: /upload files/i,
-        }),
-      ).toBeDisabled();
-
-      expect(
-        screen.getByRole('button', {
-          name: 'Inspect Commits',
+          name: 'Previous Commits',
         }),
       ).toBeDisabled();
 
@@ -1101,7 +927,7 @@ description: >-
       expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(0);
       expect(
         screen.queryByRole('link', {
-          name: 'Inspect Commits',
+          name: 'Previous Commits',
         }),
       ).not.toBeInTheDocument();
     });

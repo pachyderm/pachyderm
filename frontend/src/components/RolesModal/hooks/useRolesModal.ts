@@ -1,27 +1,29 @@
-import {ResourceType, ModifyRolesArgs} from '@graphqlTypes';
 import mergeWith from 'lodash/mergeWith';
 import {useMemo, useState, useRef, useCallback, useEffect} from 'react';
 
+import {ResourceType, ModifyRoleBindingRequest} from '@dash-frontend/api/auth';
 import {
   PROJECT_ROLES,
   REPO_ROLES,
   IGNORED_CLUSTER_ROLES,
 } from '@dash-frontend/constants/rbac';
-import {
-  useModifyRolesMutation,
-  useGetRolesQuery,
-} from '@dash-frontend/generated/hooks';
-import {GET_ROLES_QUERY} from '@dash-frontend/queries/GetRolesQuery';
+import {useModifyRoleBinding} from '@dash-frontend/hooks/useModifyRoleBinding';
+import {useRoleBinding} from '@dash-frontend/hooks/useRoleBinding';
 
 import {
   reduceAndFilterRoleBindings,
   mergeConcat,
   mapTableRoles,
-  getPermissionQueries,
 } from '../util/rolesUtils';
 
 export type Principal = string;
 export type Roles = string[];
+
+export type MappedRoleBinding = {
+  principal: Principal;
+  roles: Roles;
+};
+export type MappedRoleBindings = MappedRoleBinding[];
 
 export type UserTableRoles = Record<
   Principal,
@@ -48,7 +50,7 @@ const useRolesModal = ({
   const principalFilterRef = useRef<HTMLInputElement>(null);
 
   const [deletedRoles, setDeletedRoles] = useState<
-    Record<Principal, ModifyRolesArgs>
+    Record<Principal, ModifyRoleBindingRequest>
   >({});
 
   useEffect(() => {
@@ -75,57 +77,38 @@ const useRolesModal = ({
       : projectName;
 
   const {
-    data: clusterRolesResponse,
+    roleBinding: clusterRolesResponse,
     loading: clusterRolesLoading,
     error: clusterRolesError,
-  } = useGetRolesQuery({
-    variables: {
-      args: {resource: {name: '', type: ResourceType.CLUSTER}},
-    },
+  } = useRoleBinding({
+    resource: {name: '', type: ResourceType.CLUSTER},
   });
 
   const {
-    data: projectRolesResponse,
+    roleBinding: projectRolesResponse,
     loading: projectRolesLoading,
     error: projectRolesError,
-  } = useGetRolesQuery({
-    variables: {
-      args: {resource: {name: projectName, type: ResourceType.PROJECT}},
-    },
+  } = useRoleBinding({
+    resource: {name: projectName, type: ResourceType.PROJECT},
   });
 
   const {
-    data: repoRolesResponse,
+    roleBinding: repoRolesResponse,
     loading: repoRolesLoading,
     error: repoRolesError,
-  } = useGetRolesQuery({
-    variables: {
-      args: {
-        resource: {
-          name: resourceName,
-          type: ResourceType.REPO,
-        },
-      },
+  } = useRoleBinding(
+    {
+      resource: {name: resourceName, type: ResourceType.REPO},
     },
-    skip: !repoName,
-  });
+    !!repoName,
+  );
 
-  const [
-    modifyRolesMutation,
-    {loading: modifyRolesLoading, error: modifyRolesError},
-  ] = useModifyRolesMutation({
-    awaitRefetchQueries: true,
-    refetchQueries: [
-      {
-        query: GET_ROLES_QUERY,
-        variables: {
-          args: {
-            resource: {name: resourceName, type: resourceType},
-          },
-        },
-      },
-      ...getPermissionQueries(resourceName, resourceType),
-    ],
+  const {
+    modifyRoleBinding,
+    loading: modifyRolesLoading,
+    error: modifyRolesError,
+  } = useModifyRoleBinding({
+    resource: {name: resourceName, type: resourceType},
   });
 
   const loading =
@@ -136,7 +119,7 @@ const useRolesModal = ({
   const clusterRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        clusterRolesResponse?.getRoles,
+        clusterRolesResponse,
         (role) => !!role && !IGNORED_CLUSTER_ROLES.includes(role),
       ),
     [clusterRolesResponse],
@@ -145,7 +128,7 @@ const useRolesModal = ({
   const clusterNotProjectRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        clusterRolesResponse?.getRoles,
+        clusterRolesResponse,
         (role) =>
           !!role &&
           !PROJECT_ROLES.includes(role) &&
@@ -157,7 +140,7 @@ const useRolesModal = ({
   const clusterProjectRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        clusterRolesResponse?.getRoles,
+        clusterRolesResponse,
         (role) =>
           !!role &&
           PROJECT_ROLES.includes(role) &&
@@ -169,7 +152,7 @@ const useRolesModal = ({
   const projectRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        projectRolesResponse?.getRoles,
+        projectRolesResponse,
         (role) => !!role && !IGNORED_CLUSTER_ROLES.includes(role),
       ),
     [projectRolesResponse],
@@ -178,7 +161,7 @@ const useRolesModal = ({
   const projectNotRepoRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        projectRolesResponse?.getRoles,
+        projectRolesResponse,
         (role) =>
           !!role &&
           !REPO_ROLES.includes(role) &&
@@ -190,14 +173,14 @@ const useRolesModal = ({
   const projectRepoRoles = useMemo(
     () =>
       reduceAndFilterRoleBindings(
-        projectRolesResponse?.getRoles,
+        projectRolesResponse,
         (role) => !!role && REPO_ROLES.includes(role),
       ),
     [projectRolesResponse],
   );
 
   const repoRoles = useMemo(
-    () => reduceAndFilterRoleBindings(repoRolesResponse?.getRoles),
+    () => reduceAndFilterRoleBindings(repoRolesResponse),
     [repoRolesResponse],
   );
 
@@ -248,82 +231,82 @@ const useRolesModal = ({
 
   const deleteAllRoles =
     (principal: string, allRoles: string[]) => async () => {
-      await modifyRolesMutation({
-        variables: {
-          args: {
-            resource: {
-              name: resourceName,
-              type: resourceType,
-            },
-            principal,
-            rolesList: [],
+      modifyRoleBinding(
+        {
+          resource: {
+            name: resourceName,
+            type: resourceType,
+          },
+          principal,
+          roles: [],
+        },
+        {
+          onSettled: () => {
+            const updatedDeletedRoles = {...deletedRoles};
+
+            updatedDeletedRoles[principal] = {
+              principal,
+              resource: {
+                name: resourceName,
+                type: resourceType,
+              },
+              roles: allRoles,
+            };
+            setDeletedRoles(updatedDeletedRoles);
           },
         },
-        onCompleted: () => {
-          const updatedDeletedRoles = {...deletedRoles};
-          updatedDeletedRoles[principal] = {
-            principal,
-            resource: {
-              name: resourceName,
-              type: resourceType,
-            },
-            rolesList: allRoles,
-          };
-          setDeletedRoles(updatedDeletedRoles);
-        },
-      });
+      );
     };
 
   const undoDeleteAllRoles = (principal: string) => async () => {
     if (deletedRoles[principal]) {
-      await modifyRolesMutation({
-        variables: {
-          args: deletedRoles[principal],
+      modifyRoleBinding(
+        {
+          ...deletedRoles[principal],
         },
-        onCompleted: () => {
-          const updatedDeletedRoles = {...deletedRoles};
-          delete updatedDeletedRoles[principal];
-          setDeletedRoles(updatedDeletedRoles);
+        {
+          onSettled: () => {
+            const updatedDeletedRoles = {...deletedRoles};
+
+            delete updatedDeletedRoles[principal];
+            setDeletedRoles(updatedDeletedRoles);
+          },
         },
-      });
+      );
     }
   };
 
   const deleteRole =
     (principal: string, allRoles: string[], roleName: string) => async () => {
-      await modifyRolesMutation({
-        variables: {
-          args: {
-            resource: {
-              name: resourceName,
-              type: resourceType,
-            },
-            principal,
-            rolesList: allRoles.filter((r) => r !== roleName),
-          },
+      modifyRoleBinding({
+        resource: {
+          name: resourceName,
+          type: resourceType,
         },
+        principal,
+        roles: allRoles.filter((r) => r !== roleName),
       });
     };
 
   const addSelectedRole =
     (principal: string, allRoles: string[]) => async (role: string) => {
-      await modifyRolesMutation({
-        variables: {
-          args: {
-            resource: {
-              name: resourceName,
-              type: resourceType,
-            },
-            principal,
-            rolesList: allRoles.concat(role),
+      modifyRoleBinding(
+        {
+          resource: {
+            name: resourceName,
+            type: resourceType,
+          },
+          principal,
+          roles: allRoles.concat(role),
+        },
+        {
+          onSettled: () => {
+            const updatedDeletedRoles = {...deletedRoles};
+            delete updatedDeletedRoles[principal];
+            setDeletedRoles(updatedDeletedRoles);
           },
         },
-        onCompleted: () => {
-          const updatedDeletedRoles = {...deletedRoles};
-          delete updatedDeletedRoles[principal];
-          setDeletedRoles(updatedDeletedRoles);
-        },
-      });
+      );
     };
 
   return {

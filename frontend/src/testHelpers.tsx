@@ -1,18 +1,19 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import {SUBSCRIPTION_INTERVAL} from '@dash-backend/constants/subscription';
-import {Account} from '@graphqlTypes';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {act} from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import React, {ReactElement} from 'react';
 import {BrowserRouter} from 'react-router-dom';
 
-import ApolloProvider from '@dash-frontend/providers/ApolloProvider';
+import {getQueryClientConfig} from '@dash-frontend/providers/QueryClientProvider';
 
+import {Account} from './api/auth';
 import LoggedInProvider from './providers/LoggedInProvider';
 
 // Two timeout intervals should ensure that new data
 // is hydrated if render is performed between events
+const SUBSCRIPTION_INTERVAL = 3000;
 export const SUBSCRIPTION_TIMEOUT = SUBSCRIPTION_INTERVAL * 2;
 
 export const withContextProviders = <
@@ -24,12 +25,14 @@ export const withContextProviders = <
 ) => ReactElement<React.ComponentProps<T>>) => {
   // eslint-disable-next-line react/display-name
   return (props: any): any => {
+    const queryClient = new QueryClient(getQueryClientConfig());
+
     return (
       <BrowserRouter>
         <LoggedInProvider>
-          <ApolloProvider>
+          <QueryClientProvider client={queryClient}>
             <Component {...props} />
-          </ApolloProvider>
+          </QueryClientProvider>
         </LoggedInProvider>
       </BrowserRouter>
     );

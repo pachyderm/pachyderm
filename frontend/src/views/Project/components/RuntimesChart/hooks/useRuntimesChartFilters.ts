@@ -1,7 +1,8 @@
-import {JobsQuery} from '@graphqlTypes';
 import {useEffect, useMemo} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {JobInfo} from '@dash-frontend/api/pps';
+import {MultiselectFilter} from '@dash-frontend/components/TableView/components/TableViewFilters/components/DropdownFilter/DropdownFilter';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 
 type FormValues = {
@@ -10,7 +11,7 @@ type FormValues = {
 };
 
 type useRuntimesChartFiltersProps = {
-  jobs?: JobsQuery['jobs']['items'];
+  jobs?: JobInfo[];
 };
 
 const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {
@@ -42,19 +43,19 @@ const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {
     searchParams,
   ]);
 
-  const multiselectFilters = [
+  const multiselectFilters: MultiselectFilter[] = [
     {
       label: 'ID',
       name: 'jobIds',
       noun: 'job ID',
       formatLabel: (val: string) => `${val.slice(0, 6)}...`,
-      values: [...new Set(jobs?.map((job) => job.id))],
+      values: [...new Set(jobs?.map((job) => job?.job?.id || ''))],
     },
     {
       label: 'Pipeline',
       name: 'pipelineSteps',
       noun: 'step',
-      values: [...new Set(jobs?.map((job) => job.pipelineName))],
+      values: [...new Set(jobs?.map((job) => job?.job?.pipeline?.name || ''))],
     },
   ];
 
@@ -76,9 +77,10 @@ const useRuntimesChartFilters = ({jobs = []}: useRuntimesChartFiltersProps) => {
     () =>
       jobs?.filter((job) => {
         return (
-          (!searchParams.jobId || searchParams.jobId.includes(job.id)) &&
+          (!searchParams.jobId ||
+            searchParams.jobId.includes(job?.job?.id || '')) &&
           (!searchParams.pipelineStep ||
-            searchParams.pipelineStep.includes(job.pipelineName))
+            searchParams.pipelineStep.includes(job?.job?.pipeline?.name || ''))
         );
       }),
     [jobs, searchParams.jobId, searchParams.pipelineStep],

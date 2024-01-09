@@ -19,7 +19,7 @@ else
 	DOCKER_TAG = $(CIRCLE_SHA1)
 endif
 
-.PHONY: launch-dev launch-prod setup-auth test graphql install build ci prune-deps circle-docker-build circle-docker-manifest e2e
+.PHONY: launch-dev launch-prod setup-auth test install build ci prune-deps circle-docker-build circle-docker-manifest e2e
 
 bunyan:
 	npm exec --prefix backend bunyan
@@ -57,9 +57,6 @@ clean-deps:
 build:
 	npm run build --prefix ./frontend && npm run build --prefix ./backend
 
-graphql:
-	npm run generate-types && npm run lint --prefix ./backend -- --fix && npm run lint:js --prefix ./frontend -- --fix
-
 test:
 	npm test --prefix ./backend && npm test --prefix ./frontend
 
@@ -78,9 +75,6 @@ e2e-ce: e2e
 
 e2e: 
 	npm run cypress:local
-
-e2e-mock:
-	npm run cypress:local-mock
 
 e2e-auth: 
 	npm run cypress:local-auth

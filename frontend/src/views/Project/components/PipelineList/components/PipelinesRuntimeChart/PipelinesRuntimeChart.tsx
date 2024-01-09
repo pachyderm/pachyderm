@@ -1,6 +1,6 @@
 import React, {useState} from 'react';
 
-import {useJobsByPipelineQuery} from '@dash-frontend/generated/hooks';
+import {useJobsByPipeline} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import RuntimesChart from '@dash-frontend/views/Project/components/RuntimesChart';
 import {ChevronDownSVG, Dropdown} from '@pachyderm/components';
@@ -18,14 +18,11 @@ const PipelinesRuntimeChart: React.FC<PipelinesRuntimeChartProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const [limit, setLimit] = useState(LIMIT_OPTIONS[0]);
-  const {data, error, loading} = useJobsByPipelineQuery({
-    variables: {
-      args: {
-        limit,
-        projectId,
-        pipelineIds: selectedPipelines || [],
-      },
-    },
+
+  const {data, error, loading} = useJobsByPipeline({
+    limit,
+    project: projectId,
+    pipelineIds: selectedPipelines || [],
   });
 
   const viewOptions = (
@@ -50,7 +47,7 @@ const PipelinesRuntimeChart: React.FC<PipelinesRuntimeChartProps> = ({
 
   return (
     <RuntimesChart
-      jobs={data?.jobsByPipeline}
+      jobs={data}
       loading={loading}
       error={error}
       viewOptions={viewOptions}

@@ -9,7 +9,11 @@ import {
 } from '@dash-frontend/components/TableView';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {
+  getStandardDateFromISOString,
+  getUnixSecondsFromISOString,
+} from '@dash-frontend/lib/dateTime';
+import formatBytes from '@dash-frontend/lib/formatBytes';
 import {
   getJobStateIcon,
   getVisualJobState,
@@ -33,10 +37,9 @@ const JobsList: React.FC<JobsListProps> = ({
 }) => {
   const {projectId} = useUrlState();
   const {jobs, loading, error} = useJobs({
-    projectId,
-    jobSetIds: selectedJobSets,
+    projectName: projectId,
     pipelineIds: selectedPipelines,
-    details: false,
+    jobSetIds: selectedJobSets,
   });
   const {
     sortedJobs,
@@ -95,21 +98,21 @@ const JobsList: React.FC<JobsListProps> = ({
             <Table.Body>
               {sortedJobs.map((job) => (
                 <Table.Row
-                  key={`${job.id}-${job.pipelineName}`}
+                  key={`${job?.job?.id}-${job?.job?.pipeline?.name}`}
                   data-testid="JobsList__row"
                   overflowMenuItems={iconItems}
                   dropdownOnSelect={onOverflowMenuSelect(
-                    job.id,
-                    job.pipelineName,
+                    job?.job?.id || '',
+                    job?.job?.pipeline?.name || '',
                   )}
                 >
                   <Table.DataCell width={120}>
-                    {job?.id.slice(0, 6)}...
+                    {job?.job?.id?.slice(0, 6)}...
                   </Table.DataCell>
                   <Table.DataCell>
-                    {getJobStateIcon(getVisualJobState(job.state), true)}
+                    {getJobStateIcon(getVisualJobState(job?.state), true)}
                     {' @'}
-                    {job.pipelineName}
+                    {job?.job?.pipeline?.name}
                     {' v:'}
                     {job.pipelineVersion}
                   </Table.DataCell>
@@ -118,18 +121,21 @@ const JobsList: React.FC<JobsListProps> = ({
                     {getDatumStateBadges(job)}
                   </Table.DataCell>
                   <Table.DataCell width={210}>
-                    {job?.startedAt ? getStandardDate(job?.startedAt) : '-'}
+                    {getStandardDateFromISOString(job?.started)}
                   </Table.DataCell>
                   <Table.DataCell width={120}>
-                    {getJobRuntime(job.startedAt, job.finishedAt)}
+                    {getJobRuntime(
+                      getUnixSecondsFromISOString(job.started),
+                      getUnixSecondsFromISOString(job.finished),
+                    )}
                   </Table.DataCell>
                   <Table.DataCell width={120}>
-                    {job.downloadBytesDisplay}
+                    {formatBytes(job.stats?.downloadBytes)}
                   </Table.DataCell>
                   <Table.DataCell width={120}>
-                    {job.uploadBytesDisplay}
+                    {formatBytes(job.stats?.uploadBytes)}
                   </Table.DataCell>
-                  <Table.DataCell width={90}>{job.restarts}</Table.DataCell>
+                  <Table.DataCell width={90}>{job?.restart}</Table.DataCell>
                 </Table.Row>
               ))}
             </Table.Body>

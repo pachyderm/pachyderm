@@ -1,10 +1,9 @@
-import {ApolloError} from '@apollo/client';
-import {MutationExchangeCodeArgs} from '@graphqlTypes';
+import {useMutation} from '@tanstack/react-query';
 import Cookies from 'js-cookie';
 import noop from 'lodash/noop';
 import {useCallback, useEffect, useMemo} from 'react';
 
-import {useExchangeCodeMutation} from '@dash-frontend/generated/hooks';
+import {authenticate} from '@dash-frontend/api/auth';
 import useAuthConfig from '@dash-frontend/hooks/useAuthConfig';
 
 import useLoggedIn from './useLoggedIn';
@@ -13,46 +12,44 @@ const COOKIE_EXPIRES = 365; // TODO: align with api token expiry
 const IS_DEV = process.env.NODE_ENV === 'development';
 
 interface UseAuthArgs {
-  onError?: (error: ApolloError) => void;
+  onError?: (error: Error) => void;
 }
 
 const useAuth = ({onError = noop}: UseAuthArgs = {}) => {
   const {loggedIn, setLoggedIn} = useLoggedIn();
   const {authConfig, error: authConfigError} = useAuthConfig({
-    skip: loggedIn,
+    enabled: !loggedIn,
   });
-  const [exchangeCodeMutation, {data: codeMutationData, error, loading}] =
-    useExchangeCodeMutation({onError});
+  const {
+    mutate: exchangeCodeMutation,
+    data: codeMutationData,
+    error,
+    isPending: loading,
+  } = useMutation({
+    mutationFn: (code: string) => authenticate(code),
+    onError,
+    throwOnError: false,
+  });
 
   const unauthenticated = useMemo(() => {
     if (authConfig) {
-      return Object.values(authConfig)
-        .filter((val) => val !== 'AuthConfig')
-        .every((val) => val === '');
-    } else return false;
+      return Object.values(authConfig).every((val) => val === '');
+    } else {
+      return false;
+    }
   }, [authConfig]);
 
   const exchangeCode = useCallback(
-    (code: MutationExchangeCodeArgs['code']) => {
-      exchangeCodeMutation({
-        variables: {
-          code,
-        },
-      });
+    (code: string) => {
+      exchangeCodeMutation(code);
     },
     [exchangeCodeMutation],
   );
 
   useEffect(() => {
     if (codeMutationData) {
-      window.localStorage.setItem(
-        'auth-token',
-        codeMutationData.exchangeCode.pachToken,
-      );
-      window.localStorage.setItem(
-        'id-token',
-        codeMutationData.exchangeCode.idToken,
-      );
+      window.localStorage.setItem('auth-token', codeMutationData.pachToken);
+      window.localStorage.setItem('id-token', codeMutationData.idToken);
 
       // We need these cookies to enable file downloads and previews
       Cookies.set(

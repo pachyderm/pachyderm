@@ -1,4 +1,3 @@
-import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React, {
   CSSProperties,
@@ -10,7 +9,8 @@ import React, {
 } from 'react';
 import {areEqual} from 'react-window';
 
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {LogMessage} from '@dash-frontend/api/pps';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {CodeText, PureCheckbox} from '@pachyderm/components';
 
 import styles from './LogRow.module.css';
@@ -19,7 +19,7 @@ type LogRowProps = {
   index: number;
   style: CSSProperties;
   width: number;
-  logs: GetLogsQuery['logs']['items'];
+  logs?: LogMessage[];
   selectedLogsMap: {[key: number]: boolean};
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: number]: boolean}>
@@ -39,9 +39,9 @@ const LogRow: React.FC<LogRowProps> = ({
   setSize,
 }) => {
   const heightRef = useRef<null | HTMLDivElement>(null);
-  const user = logs[index]?.user;
-  const timestamp = logs[index]?.timestamp;
-  const message = logs[index]?.message;
+  const user = logs?.[index]?.user;
+  const timestamp = logs?.[index]?.ts;
+  const message = logs?.[index]?.message;
 
   useEffect(() => {
     if (heightRef.current) {
@@ -51,7 +51,7 @@ const LogRow: React.FC<LogRowProps> = ({
 
   const formattedTimestamp = useMemo(() => {
     if (timestamp) {
-      return getStandardDate(timestamp.seconds);
+      return getStandardDateFromISOString(timestamp);
     }
     return '';
   }, [timestamp]);

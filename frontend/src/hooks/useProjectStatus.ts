@@ -1,16 +1,52 @@
-import {Project} from '@graphqlTypes';
+import {useQuery, useQueryClient} from '@tanstack/react-query';
+import {useCallback} from 'react';
 
-import {PROJECTS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useProjectStatusQuery} from '@dash-frontend/generated/hooks';
+import {Project, ProjectStatus} from '@dash-frontend/api/pfs';
+import {PipelineState} from '@dash-frontend/api/pps';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useProjectStatus = (projectId: Project['id']) => {
-  const {data, ...rest} = useProjectStatusQuery({
-    variables: {id: projectId},
-    pollInterval: PROJECTS_POLL_INTERVAL_MS,
+import {usePipelines} from './usePipelines';
+
+export const useGetProjectStatus = () => {
+  const client = useQueryClient();
+  const getProjectStatus = useCallback(
+    (projectName: Project['name']) => {
+      const result = client.getQueryData<ProjectStatus>(
+        queryKeys.projectStatus({projectId: projectName}),
+      );
+
+      return result;
+    },
+    [client],
+  );
+
+  return getProjectStatus;
+};
+
+export const useProjectStatus = (projectName: Project['name']) => {
+  const {pipelines, loading: pipelinesLoading} = usePipelines(projectName);
+  const {data, error, isLoading} = useQuery({
+    queryKey: queryKeys.projectStatus({projectId: projectName}),
+    queryFn: () => {
+      if (!pipelines?.length) return ProjectStatus.HEALTHY;
+
+      const status = pipelines.some(
+        (pipeline) =>
+          pipeline.state === PipelineState.PIPELINE_CRASHING ||
+          pipeline.state === PipelineState.PIPELINE_FAILURE,
+      )
+        ? ProjectStatus.UNHEALTHY
+        : ProjectStatus.HEALTHY;
+
+      return status;
+    },
+    enabled: !!pipelines,
   });
 
   return {
-    ...rest,
-    projectStatus: data?.projectStatus?.status,
+    error: getErrorMessage(error),
+    loading: isLoading || pipelinesLoading,
+    projectStatus: data,
   };
 };

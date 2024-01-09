@@ -1,7 +1,7 @@
 import React from 'react';
 
 import CommunityEditionBannerProvider from '@dash-frontend/components/CommunityEditionBanner/CommunityEditionBannerProvider';
-import ErrorView from '@dash-frontend/views/ErrorView/GraphQLErrorView';
+import AuthenticatedRouteErrorView from '@dash-frontend/views/ErrorView/AuthenticatedRouteErrorView';
 
 import useAuthenticatedRoute from './hooks/useAuthenticatedRoute';
 
@@ -10,7 +10,7 @@ const AuthenticatedRoute = <T,>(Component: React.ComponentType<T>) => {
     const {error, loggedIn} = useAuthenticatedRoute();
 
     if (error) {
-      return <ErrorView graphQLError={error.graphQLErrors[0]} />;
+      return <AuthenticatedRouteErrorView error={error} />;
     }
 
     if (loggedIn) {

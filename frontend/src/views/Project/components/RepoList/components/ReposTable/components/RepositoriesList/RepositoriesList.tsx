@@ -1,7 +1,6 @@
-import {ApolloError} from '@apollo/client';
-import {ReposWithCommitQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {RepoInfo} from '@dash-frontend/api/pfs';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
@@ -10,10 +9,10 @@ import {Table, LoadingDots} from '@pachyderm/components';
 import RepoListRow from './components/RepoListRow';
 
 type RepositoriesListProps = {
-  error?: ApolloError;
+  error?: string;
   loading: boolean;
   totalReposLength: number;
-  repos?: ReposWithCommitQuery['repos'];
+  repos?: RepoInfo[];
 };
 
 const RepositoriesList: React.FC<RepositoriesListProps> = ({
@@ -67,7 +66,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
             <Table.HeaderCell>Created</Table.HeaderCell>
             <Table.HeaderCell>Last Commit</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>
-            {repos?.[0]?.authInfo?.rolesList && (
+            {repos?.[0]?.authInfo?.roles && (
               <Table.HeaderCell>Roles</Table.HeaderCell>
             )}
             <Table.HeaderCell />
@@ -76,7 +75,7 @@ const RepositoriesList: React.FC<RepositoriesListProps> = ({
 
         <Table.Body>
           {repos.map((repo) => (
-            <RepoListRow key={repo?.id} repo={repo} />
+            <RepoListRow key={repo?.repo?.name} repo={repo} />
           ))}
         </Table.Body>
       </Table>

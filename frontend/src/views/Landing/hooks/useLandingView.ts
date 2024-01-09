@@ -1,12 +1,13 @@
-import {Project} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
 import every from 'lodash/every';
 import reduce from 'lodash/reduce';
 import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import {ProjectInfo} from '@dash-frontend/api/pfs';
 import {useProjects} from '@dash-frontend/hooks/useProjects';
+import {useGetProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   SortableItem,
   useSort,
@@ -15,7 +16,7 @@ import {
 } from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<Project>;
+  [key: string]: SortableItem<ProjectInfo>;
 };
 
 type statusFormType = {
@@ -27,28 +28,33 @@ const sortOptions: sortOptionsType = {
     name: 'Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (project: Project) => project.createdAt?.seconds ?? 0,
+    accessor: (project: ProjectInfo) =>
+      getUnixSecondsFromISOString(project.createdAt),
   },
   Oldest: {
     name: 'Oldest',
     func: numberComparator,
-    accessor: (project: Project) => project.createdAt?.seconds ?? 0,
+    accessor: (project: ProjectInfo) =>
+      getUnixSecondsFromISOString(project.createdAt),
   },
   'Name A-Z': {
     name: 'Name A-Z',
     func: stringComparator,
-    accessor: (project: Project) => project.id.toLowerCase(),
+    accessor: (project: ProjectInfo) =>
+      project.project?.name?.toLowerCase() || '',
   },
   'Name Z-A': {
     name: 'Name Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (project: Project) => project.id.toLowerCase(),
+    accessor: (project: ProjectInfo) =>
+      project.project?.name?.toLowerCase() || '',
   },
 };
 
 export const useLandingView = () => {
   const {projects, loading} = useProjects();
+  const getProjectStatus = useGetProjectStatus();
   const {
     sortedData: sortedProjects,
     setComparator,
@@ -58,14 +64,9 @@ export const useLandingView = () => {
     initialSort: sortOptions['Name A-Z'],
   });
 
-  const [tutorialIntroSeen, setTutorialIntroSeen] = useLocalProjectSettings({
-    projectId: 'account-data',
-    key: 'tutorial_introduction_seen',
-  });
-
   const [searchValue, setSearchValue] = useState('');
   const [sortButtonText, setSortButtonText] = useState('Name A-Z');
-  const [selectedProject, setSelectedProject] = useState<Project>();
+  const [selectedProject, setSelectedProject] = useState<ProjectInfo>();
   const [projectsLoaded, setProjectsLoaded] = useState(false);
 
   const handleSortSelect = useCallback(
@@ -77,10 +78,6 @@ export const useLandingView = () => {
     },
     [comparatorName, setComparator],
   );
-
-  const onIntroductionClose = () => {
-    setTutorialIntroSeen(true);
-  };
 
   const sortDropdown = useMemo(
     () =>
@@ -132,12 +129,11 @@ export const useLandingView = () => {
 
   const filteredProjects = useMemo(() => {
     return sortedProjects.filter((project) => {
-      const projectStatus = project?.status;
+      const projectStatus = getProjectStatus(project?.project?.name);
       const projectStatusIsPending = !projectStatus;
-
       const isNotFilteredOutByStatus = projectStatus && filters[projectStatus];
 
-      const projectName = project.id.toLowerCase();
+      const projectName = project.project?.name?.toLowerCase() || '';
       const isSearchingForProject = projectName.includes(
         searchValue.toLowerCase(),
       );
@@ -146,7 +142,7 @@ export const useLandingView = () => {
         (projectStatusIsPending || isNotFilteredOutByStatus)
       );
     });
-  }, [filters, searchValue, sortedProjects]);
+  }, [searchValue, sortedProjects, getProjectStatus, filters]);
 
   useEffect(() => {
     if (!loading && !projectsLoaded) {
@@ -156,10 +152,9 @@ export const useLandingView = () => {
   }, [loading, filteredProjects, projectsLoaded]);
 
   return {
-    filterStatus,
     filterFormCtx,
+    filterStatus,
     handleSortSelect,
-    loading,
     multiProject: projects.length > 1,
     projects: filteredProjects,
     projectCount: projects.length,
@@ -169,7 +164,5 @@ export const useLandingView = () => {
     selectedProject,
     setSelectedProject,
     sortDropdown,
-    introductionEligible: !tutorialIntroSeen,
-    onIntroductionClose,
   };
 };

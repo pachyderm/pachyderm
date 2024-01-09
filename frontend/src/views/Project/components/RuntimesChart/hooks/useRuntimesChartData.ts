@@ -1,30 +1,35 @@
-import {Job} from '@graphqlTypes';
 import {ChartData} from 'chart.js';
 import {draw} from 'patternomaly';
 import {useMemo, useCallback} from 'react';
+
+import {JobInfo} from '@dash-frontend/api/pps';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 
 import {getChartColor} from '../RuntimesChart';
 
 const SECONDS_IN_HOUR = 60 * 60;
 
-const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
+const useRuntimesChartData = (filteredJobs: JobInfo[], selectedJob: string) => {
   const jobIds = useMemo(
-    () => [...new Set(filteredJobs.map((job: Job) => job.id))],
+    () => [...new Set(filteredJobs.map((job) => job?.job?.id || ''))],
     [filteredJobs],
   );
   const pipelines = useMemo(
-    () => [...new Set(filteredJobs.map((job: Job) => `@${job.pipelineName}`))],
+    () => [
+      ...new Set(filteredJobs.map((job) => `@${job?.job?.pipeline?.name}`)),
+    ],
     [filteredJobs],
   );
 
   // create a reference of jobs where job = jobsCrossReference[jobId][pipeline]
   const jobsCrossReference = useMemo(() => {
-    const jobsCrossReference: Record<string, Record<string, Job>> = {};
-    filteredJobs.forEach((job: Job) => {
-      if (!jobsCrossReference[job.id]) {
-        jobsCrossReference[job.id] = {};
+    const jobsCrossReference: Record<string, Record<string, JobInfo>> = {};
+    filteredJobs.forEach((job) => {
+      if (!jobsCrossReference[job?.job?.id || '']) {
+        jobsCrossReference[job?.job?.id || ''] = {};
       }
-      jobsCrossReference[job.id][`@${job.pipelineName}`] = job;
+      jobsCrossReference[job?.job?.id || ''][`@${job?.job?.pipeline?.name}`] =
+        job;
     });
     return jobsCrossReference;
   }, [filteredJobs]);
@@ -34,8 +39,9 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
       const job = jobsCrossReference[id][step];
       if (job) {
         return (
-          (job.finishedAt || Math.floor(Date.now() / 1000)) -
-          (job.createdAt || 0)
+          (getUnixSecondsFromISOString(job.finished) ||
+            Math.floor(Date.now() / 1000)) -
+          (getUnixSecondsFromISOString(job.created) || 0)
         );
       } else {
         return null;
@@ -48,7 +54,11 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
     () =>
       Math.max(
         ...filteredJobs.map(
-          (job) => getJobDuration(job.id, `@${job.pipelineName}`) || 0,
+          (job) =>
+            getJobDuration(
+              job?.job?.id || '',
+              `@${job?.job?.pipeline?.name}`,
+            ) || 0,
         ),
       ),
     [filteredJobs, getJobDuration],
@@ -81,14 +91,14 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
 
         if (
           jobsCrossReference[id][pipeline] &&
-          jobsCrossReference[id][pipeline].dataFailed > 0
+          Number(jobsCrossReference[id][pipeline]?.dataFailed) > 0
         ) {
           backgroundColors.push(
             draw('zigzag', getChartColor(index, colorOpacity)),
           );
         } else if (
           jobsCrossReference[id][pipeline] &&
-          !jobsCrossReference[id][pipeline].finishedAt
+          !jobsCrossReference[id][pipeline].finished
         ) {
           backgroundColors.push(
             draw('diagonal', getChartColor(index, colorOpacity)),
@@ -120,7 +130,7 @@ const useRuntimesChartData = (filteredJobs: Job[], selectedJob: string) => {
   };
 
   const jobsWithFailedDatums = useMemo(
-    () => filteredJobs?.filter((job) => job.dataFailed > 0),
+    () => filteredJobs?.filter((job) => Number(job?.dataFailed) > 0),
     [filteredJobs],
   );
 

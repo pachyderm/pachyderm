@@ -1,6 +1,7 @@
 import classnames from 'classnames';
 import React from 'react';
 
+import {DatumState} from '@dash-frontend/api/pps';
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
 import RuntimeStats from '@dash-frontend/components/RuntimeStats';
 import {getDatumStateIcon, readableDatumState} from '@dash-frontend/lib/datums';
@@ -14,16 +15,8 @@ type DatumDetailsProps = {
 };
 
 const DatumDetails: React.FC<DatumDetailsProps> = ({className}) => {
-  const {
-    datum,
-    totalRuntime,
-    loading,
-    started,
-    runtimeMetrics,
-    inputSpec,
-    skippedWithPreviousJob,
-    previousJobId,
-  } = useDatumDetails();
+  const {datum, cumulativeTime, loading, started, runtimeMetrics, inputSpec} =
+    useDatumDetails();
 
   return (
     <div
@@ -39,7 +32,7 @@ const DatumDetails: React.FC<DatumDetailsProps> = ({className}) => {
         </div>
       </div>
 
-      {skippedWithPreviousJob && (
+      {datum?.state === DatumState.SKIPPED && (
         <div className={styles.section}>
           <p>
             This datum has been successfully processed in a previous job, has
@@ -51,10 +44,10 @@ const DatumDetails: React.FC<DatumDetailsProps> = ({className}) => {
 
       <div className={styles.section}>
         <RuntimeStats
-          previousJobId={skippedWithPreviousJob ? previousJobId : undefined}
+          datum={datum}
           loading={loading}
           started={started}
-          totalRuntime={totalRuntime}
+          cumulativeTime={cumulativeTime}
           runtimeMetrics={runtimeMetrics}
         />
       </div>

@@ -154,7 +154,10 @@ describe('Dag', () => {
     }).click();
 
     cy.findByRole('button', {
-      name: /delete/i,
+      name: /pipeline actions/i,
+    }).click();
+    cy.findByRole('menuitem', {
+      name: /delete pipeline/i,
     }).click();
     cy.findByRole('dialog').within(() =>
       cy

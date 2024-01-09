@@ -1,16 +1,17 @@
 import {useEffect, useState} from 'react';
 
 import {usePreviousValue} from '@dash-frontend/../components/src';
-import useCommits from '@dash-frontend/hooks/useCommits';
+import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {COMMIT_PAGE_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
 
-const useLeftPanel = () => {
+const useLeftPanel = (selectedCommitId?: string) => {
   const [page, setPage] = useState(1);
   const [cursors, setCursors] = useState<string[]>(['']);
   const [currentCursor, setCurrentCursor] = useState('');
+  const [refetching, setRefetching] = useState(false);
 
-  const {projectId, repoId, branchId, commitId} = useUrlState();
+  const {projectId, repoId, branchId} = useUrlState();
   const previousBranchId = usePreviousValue(branchId);
 
   useEffect(() => {
@@ -27,14 +28,14 @@ const useLeftPanel = () => {
     loading,
     refetch,
   } = useCommits({
+    projectName: projectId,
+    repoName: repoId,
     args: {
-      number: COMMIT_PAGE_SIZE,
-      projectId: projectId,
-      repoName: repoId,
       // We only need to specity branchId when getting the first page
       // this avoids race conditions with pulling branchId from url
-      branchName: !currentCursor ? branchId : null,
+      branchName: !currentCursor ? branchId : undefined,
       commitIdCursor: currentCursor,
+      number: COMMIT_PAGE_SIZE,
     },
   });
 
@@ -54,26 +55,27 @@ const useLeftPanel = () => {
   // first page and deletes a file or a user navigates to "/latest" for a branch.
   useEffect(() => {
     if (page === 1) {
-      refetch({
-        args: {
-          number: COMMIT_PAGE_SIZE,
-          projectId: projectId,
-          repoName: repoId,
-          branchName: !currentCursor ? branchId : null,
-        },
-      });
-      setCursors(['']);
+      const ids = commits?.map((commit) => commit.commit?.id);
+      if (!ids?.find((id) => id === selectedCommitId)) {
+        const reload = async () => {
+          setRefetching(true);
+          await refetch();
+          setRefetching(false);
+          setCursors(['']);
+        };
+        reload();
+      }
     }
-  }, [branchId, currentCursor, page, projectId, refetch, repoId, commitId]);
+  }, [selectedCommitId, page, refetch, commits]);
 
   const contentLength =
-    (cursors.length - 1) * COMMIT_PAGE_SIZE + commits.length;
+    (cursors.length - 1) * COMMIT_PAGE_SIZE + (commits?.length || 0);
 
   const hasNextPage = !!cursor;
 
   return {
     commits,
-    loading,
+    loading: loading || refetching,
     page,
     setPage,
     hasNextPage,

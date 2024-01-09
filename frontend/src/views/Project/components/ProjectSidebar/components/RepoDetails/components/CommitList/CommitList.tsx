@@ -1,8 +1,12 @@
-import {RepoQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {RepoInfo} from '@dash-frontend/api/pfs';
 import {BrandedErrorIcon} from '@dash-frontend/components/BrandedIcon';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {
+  getStandardDateFromISOString,
+  getUnixSecondsFromISOString,
+} from '@dash-frontend/lib/dateTime';
+import formatBytes from '@dash-frontend/lib/formatBytes';
 import {
   LoadingDots,
   CaptionTextSmall,
@@ -17,7 +21,7 @@ const errorMessage = `Unable to load the latest commits`;
 const errorMessageAction = `Your commits have been processed, but we couldn’t fetch a list of them from our end. Please try refreshing this page. If this issue keeps happening, contact our customer team.`;
 
 type CommitListProps = {
-  repo?: RepoQuery['repo'];
+  repo?: RepoInfo;
 };
 
 const CommitList: React.FC<CommitListProps> = ({repo}) => {
@@ -41,7 +45,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
     );
   }
 
-  if (repo?.branches.length === 0 && !commits?.length) {
+  if (repo?.branches?.length === 0 && !commits?.length) {
     return null;
   }
 
@@ -66,31 +70,31 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
           <LoadingDots />
         </div>
       ) : (
-        previousCommits.map((commit) => {
+        previousCommits?.map((commit) => {
           return (
             <div
               className={styles.commit}
-              key={commit.id}
+              key={commit.commit?.id}
               data-testid="CommitList__commit"
             >
               <CaptionTextSmall className={styles.commitText}>
-                {getStandardDate(commit.started)}
+                {getStandardDateFromISOString(commit.started)}
               </CaptionTextSmall>
               <CaptionTextSmall
                 className={styles.commitText}
-              >{`${commit.id.slice(0, 5)}...@${
-                commit.branch?.name
-              } | ${commit.originKind?.toLowerCase()}`}</CaptionTextSmall>
+              >{`${commit.commit?.id?.slice(0, 6)}...@${
+                commit.commit?.branch?.name
+              } | ${commit.origin?.kind?.toLowerCase()}`}</CaptionTextSmall>
               <span className={styles.bottomContent}>
-                <span>{commit.sizeDisplay}</span>
-                {commit.finished > 0 && (
+                <span>{formatBytes(commit.details?.sizeBytes)}</span>
+                {getUnixSecondsFromISOString(commit.finished) > 0 && (
                   <Button
                     buttonType="ghost"
                     to={getPathToFileBrowser({
                       projectId,
                       repoId,
-                      commitId: commit.id,
-                      branchId: commit.branch?.name || '',
+                      commitId: commit.commit?.id || '',
+                      branchId: commit.commit?.branch?.name || '',
                     })}
                   >
                     Inspect Commit

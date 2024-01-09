@@ -1,9 +1,8 @@
 import {useCallback, useState, useRef, useEffect} from 'react';
 import {useForm} from 'react-hook-form';
 
-import {useJobSetLazyQuery} from '@dash-frontend/generated/hooks';
+import {useJobSetLazy} from '@dash-frontend/hooks/useJobSet';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useOutsideClick} from '@pachyderm/components';
 
 type GlobalIdFilterFormValues = {
@@ -12,17 +11,14 @@ type GlobalIdFilterFormValues = {
 
 const useGlobalFilter = () => {
   const {searchParams, updateSearchParamsAndGo} = useUrlQueryState();
-  const {projectId} = useUrlState();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [getJobSet, {data, loading}] = useJobSetLazyQuery();
 
   const globalIdFilter = searchParams.globalIdFilter;
   const formCtx = useForm<GlobalIdFilterFormValues>({
     mode: 'onChange',
     defaultValues: {globalId: globalIdFilter},
   });
-
   const {
     watch,
     setError,
@@ -32,17 +28,23 @@ const useGlobalFilter = () => {
     getFieldState,
     setValue,
   } = formCtx;
-
   const globalIdInput = watch('globalId');
+
+  const {
+    refetch: getJobSet,
+    jobSet,
+    loading,
+    ...rest
+  } = useJobSetLazy(globalIdInput);
 
   const clearFilter = useCallback(() => {
     updateSearchParamsAndGo({
       globalIdFilter: undefined,
     });
-    getJobSet({variables: {args: {projectId, id: ''}}});
+    getJobSet();
     setDropdownOpen(false);
     reset({globalId: ''});
-  }, [getJobSet, projectId, reset, updateSearchParamsAndGo]);
+  }, [getJobSet, reset, updateSearchParamsAndGo]);
 
   const handleSubmit = useCallback(() => {
     const formGlobalId = getValues('globalId');
@@ -54,16 +56,9 @@ const useGlobalFilter = () => {
     ) {
       clearFilter();
     } else if (!fieldState.error) {
-      getJobSet({variables: {args: {projectId, id: getValues('globalId')}}});
+      getJobSet();
     }
-  }, [
-    clearFilter,
-    getFieldState,
-    getJobSet,
-    getValues,
-    globalIdFilter,
-    projectId,
-  ]);
+  }, [clearFilter, getFieldState, getJobSet, getValues, globalIdFilter]);
 
   useEffect(() => {
     if (globalIdFilter) {
@@ -73,29 +68,37 @@ const useGlobalFilter = () => {
 
   // apply viewstate if the jobset id returned jobs
   useEffect(() => {
-    if (data?.jobSet.jobs.length) {
+    if (jobSet?.length && jobSet?.[0]?.job?.id) {
       updateSearchParamsAndGo({
-        globalIdFilter: data?.jobSet.id,
+        globalIdFilter: jobSet[0].job.id,
       });
       setDropdownOpen(false);
     }
-  }, [data, loading, setError, updateSearchParamsAndGo]);
+  }, [jobSet, loading, setError, updateSearchParamsAndGo]);
 
   // set error if we queried for the jobset but no jobs were returned
   useEffect(() => {
-    if (
-      !formState.errors.globalId &&
-      data?.jobSet.id &&
-      data?.jobSet.jobs.length === 0 &&
-      data?.jobSet.id === globalIdInput
-    ) {
-      !loading &&
-        setError('globalId', {
-          type: 'jobsetError',
-          message: 'This Global ID does not exist',
-        });
+    const inCorrectQueryState =
+      rest.isFetched === true &&
+      rest.isRefetching === false &&
+      rest.isSuccess === true &&
+      loading === false;
+    if (!formState.errors.globalId && inCorrectQueryState && !jobSet?.length) {
+      setError('globalId', {
+        type: 'jobsetError',
+        message: 'This Global ID does not exist',
+      });
     }
-  });
+  }, [
+    formState.errors.globalId,
+    globalIdInput,
+    jobSet?.length,
+    loading,
+    rest.isFetched,
+    rest.isRefetching,
+    rest.isSuccess,
+    setError,
+  ]);
 
   const handleOutsideClick = useCallback(() => {
     if (dropdownOpen) {

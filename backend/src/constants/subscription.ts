@@ -1,1 +1,0 @@
-export const SUBSCRIPTION_INTERVAL = 3000;

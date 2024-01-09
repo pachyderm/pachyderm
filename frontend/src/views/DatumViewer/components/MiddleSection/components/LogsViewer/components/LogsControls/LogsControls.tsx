@@ -1,12 +1,12 @@
-import {GetLogsQuery} from '@graphqlTypes';
 import classnames from 'classnames';
 import React, {useEffect, useMemo, useState} from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {LogMessage} from '@dash-frontend/api/pps';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   Button,
   ButtonGroup,
@@ -29,8 +29,7 @@ import styles from './LogsControls.module.css';
 
 type LogsControlsProps = {
   selectedLogsMap: {[key: number]: boolean};
-  logs: GetLogsQuery['logs']['items'];
-
+  logs?: LogMessage[];
   formCtx: UseFormReturn<LogsViewerFormValues>;
 };
 
@@ -56,18 +55,18 @@ const LogsControls: React.FC<LogsControlsProps> = ({
 
   useEffect(() => {
     setDisableExport(
-      logs.length === 0 || !Object.values(selectedLogsMap).includes(true),
+      !logs?.length || !Object.values(selectedLogsMap).includes(true),
     );
-  }, [logs.length, selectedLogsMap]);
+  }, [logs?.length, selectedLogsMap]);
 
   const formatedText = useMemo(() => {
     return Object.entries(selectedLogsMap)
       .reduce((acc: string[], [index, selected]) => {
         if (selected) {
-          const message = logs[Number(index)]?.message;
-          const timestamp = logs[Number(index)]?.timestamp;
+          const message = logs?.[Number(index)]?.message;
+          const timestamp = logs?.[Number(index)]?.ts;
           acc.push(
-            `${timestamp ? getStandardDate(timestamp.seconds) : '-'} ${
+            `${timestamp ? getStandardDateFromISOString(timestamp) : '-'} ${
               message || ''
             }`,
           );

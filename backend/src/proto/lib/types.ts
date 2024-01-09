@@ -1,29 +1,7 @@
 import {Metadata} from '@grpc/grpc-js';
 
-import {
-  BranchObject,
-  CommitObject,
-  CommitSetObject,
-  RepoObject,
-  TriggerObject,
-} from '../builders/pfs';
-import {TimestampObject} from '../builders/protobuf';
-import {
-  CommitState,
-  CreateBranchRequest,
-  CreateRepoRequest,
-  DeleteBranchRequest,
-  DeleteRepoRequest,
-  FinishCommitRequest,
-  InspectCommitSetRequest,
-  ListBranchRequest,
-  ListCommitRequest,
-  ListFileRequest,
-  OriginKind,
-  StartCommitRequest,
-  SubscribeCommitRequest,
-} from '../proto/pfs/pfs_pb';
-import {DatumState} from '../proto/pps/pps_pb';
+import {BranchObject, CommitObject} from '../builders/pfs';
+import {FinishCommitRequest, StartCommitRequest} from '../proto/pfs/pfs_pb';
 
 export interface GRPCPlugin {
   onCall?: (args: {requestName: string}) => void;
@@ -31,54 +9,13 @@ export interface GRPCPlugin {
   onError?: (args: {error: unknown; requestName: string}) => void;
 }
 
-export type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;
+type ServiceHandlerFunction = (...args: never[]) => Promise<unknown>;
 export type ServiceDefinition = Record<string, ServiceHandlerFunction>;
 
 export interface ServiceArgs {
   credentialMetadata: Metadata;
   plugins?: GRPCPlugin[];
 }
-
-export type JobSetQueryArgs = {
-  id: string;
-  projectId: string;
-  details?: boolean;
-};
-
-export type JobQueryArgs = {
-  id: string;
-  projectId: string;
-  pipelineName: string;
-  wait?: boolean;
-};
-
-export type GetLogsRequestArgs = {
-  projectId: string;
-  pipelineName?: string;
-  jobId?: string;
-  datumId?: string;
-  since?: number;
-  follow?: boolean;
-  master?: boolean;
-  limit?: number;
-};
-
-export type ListCommitArgs = {
-  repo: RepoObject;
-  number?: ListCommitRequest.AsObject['number'];
-  reverse?: ListCommitRequest.AsObject['reverse'];
-  all?: ListCommitRequest.AsObject['all'];
-  originKind?: OriginKind;
-  from?: CommitObject;
-  to?: CommitObject;
-  projectId: string;
-  started_time?: TimestampObject;
-};
-
-export type InspectCommitSetArgs = {
-  commitSet: CommitSetObject;
-  wait?: InspectCommitSetRequest.AsObject['wait'];
-};
 
 export type StartCommitRequestArgs = {
   branch: BranchObject;
@@ -93,79 +30,6 @@ export type FinishCommitRequestArgs = {
   description?: FinishCommitRequest.AsObject['description'];
 };
 
-export type CreateRepoRequestArgs = {
-  repo: RepoObject;
-  description?: CreateRepoRequest.AsObject['description'];
-  update?: CreateRepoRequest.AsObject['update'];
-  projectId: string;
-};
-
-export type DeleteRepoRequestArgs = {
-  repo: RepoObject;
-  force?: DeleteRepoRequest.AsObject['force'];
-  projectId: string;
-};
-
-export type InspectCommitRequestArgs = {
-  wait: CommitState;
-  commit: CommitObject;
-};
-
-export type SubscribeCommitRequestArgs = {
-  repo: RepoObject;
-  branch?: SubscribeCommitRequest.AsObject['branch'];
-  state?: CommitState;
-  all?: SubscribeCommitRequest.AsObject['all'];
-  originKind?: OriginKind;
-  from?: CommitObject;
-  projectId: string;
-};
-
-export type ListBranchRequestArgs = {
-  repoName: string;
-  projectId: string;
-  reverse?: ListBranchRequest.AsObject['reverse'];
-};
-
-export type CreateBranchArgs = {
-  head?: CommitObject;
-  branch?: BranchObject;
-  provenance: BranchObject[];
-  trigger?: TriggerObject;
-  newCommitSet: CreateBranchRequest.AsObject['newCommitSet'];
-};
-
-export type DeleteBranchRequestArgs = {
-  branch: BranchObject;
-  force?: DeleteBranchRequest.AsObject['force'];
-};
-
-export type InspectDatumRequestArgs = {
-  id: string;
-  jobId: string;
-  pipelineName: string;
-  projectId: string;
-};
-
-export type ListDatumsRequestArgs = {
-  jobId: string;
-  pipelineName: string;
-  filter?: DatumState[];
-  number?: number;
-  cursor?: string;
-  projectId: string;
-};
-
-export type ListFileArgs = {
-  projectId: string;
-  commitId: string;
-  cursorPath?: string;
-  path?: string;
-  branch: BranchObject;
-  reverse?: ListFileRequest.AsObject['reverse'];
-  number?: ListFileRequest.AsObject['number'];
-};
-
 export type RenewFileSetRequestArgs = {
   fileSetId: string;
   duration?: number;
@@ -174,16 +38,4 @@ export type RenewFileSetRequestArgs = {
 export type AddFileSetRequestArgs = {
   fileSetId: string;
   commit: CommitObject;
-};
-
-export type CreateProjectRequestArgs = {
-  name: string;
-  description?: string;
-  update?: boolean;
-};
-
-export type FindCommitsArgs = {
-  commit: CommitObject;
-  path: string;
-  limit?: number;
 };

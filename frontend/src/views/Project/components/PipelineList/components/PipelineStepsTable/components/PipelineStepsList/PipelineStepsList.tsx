@@ -1,7 +1,7 @@
-import {ApolloError} from '@apollo/client';
-import {Pipeline, ReposQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {RepoInfo} from '@dash-frontend/api/pfs';
+import {PipelineInfo} from '@dash-frontend/api/pps';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
@@ -10,11 +10,11 @@ import {Table, LoadingDots} from '@pachyderm/components';
 import PipelineListRow from './components/PipelineListRow';
 
 type PipelineStepsListProps = {
-  error?: ApolloError;
+  error?: string;
   loading: boolean;
   totalPipelinesLength: number;
-  pipelines?: (Pipeline | null)[];
-  pipelineRepoMap: Record<string, ReposQuery['repos'][0]>;
+  pipelines?: PipelineInfo[];
+  pipelineRepoMap: Record<string, RepoInfo>;
 };
 
 const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
@@ -70,9 +70,8 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
             <Table.HeaderCell>Version</Table.HeaderCell>
             <Table.HeaderCell>Created</Table.HeaderCell>
             <Table.HeaderCell>Description</Table.HeaderCell>
-            {pipelineRepoMap[pipelines?.[0]?.id || '']?.authInfo?.rolesList && (
-              <Table.HeaderCell>Roles</Table.HeaderCell>
-            )}
+            {pipelineRepoMap[pipelines?.[0]?.pipeline?.name || '']?.authInfo
+              ?.roles && <Table.HeaderCell>Roles</Table.HeaderCell>}
             <Table.HeaderCell />
           </Table.Row>
         </Table.Head>
@@ -81,7 +80,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
             return (
               pipeline && (
                 <PipelineListRow
-                  key={pipeline?.id}
+                  key={pipeline.pipeline?.name}
                   pipeline={pipeline}
                   pipelineRepoMap={pipelineRepoMap}
                 />

@@ -1,19 +1,32 @@
-import {useApolloClient} from '@apollo/client';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 
-import {useDeleteRepoMutation} from '@dash-frontend/generated/hooks';
+import {deleteRepo, DeleteRepoRequest} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useDeleteRepo = (onCompleted?: () => void) => {
-  const client = useApolloClient();
-  const [deleteRepo, {loading, error}] = useDeleteRepoMutation({
-    onCompleted: () => {
-      onCompleted && onCompleted();
-      client.cache.reset();
+export const useDeleteRepo = (onSuccess: () => void) => {
+  const client = useQueryClient();
+  const {
+    mutate,
+    isPending: loading,
+    error,
+  } = useMutation({
+    mutationKey: ['deleteRepo'],
+    mutationFn: (req: DeleteRepoRequest) => deleteRepo(req),
+    onSuccess: (_data, variables) => {
+      client.invalidateQueries({
+        queryKey: queryKeys.repos({
+          projectId: variables.repo?.project?.name,
+        }),
+        exact: true,
+      });
+      onSuccess && onSuccess();
     },
   });
 
   return {
-    deleteRepo,
-    error,
+    deleteRepo: mutate,
+    error: getErrorMessage(error),
     loading,
   };
 };

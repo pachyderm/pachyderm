@@ -109,7 +109,7 @@ describe('Landing', () => {
     cy.contains('[role="row"]', /new-project/i).should('not.exist');
   });
 
-  it('should update and apply the cluster config and renegerate a pipeline', () => {
+  it('should update and apply the cluster config and regenerate a pipeline', () => {
     cy.findByRole('button', {
       name: /cluster defaults/i,
       timeout: 12000,
@@ -144,6 +144,48 @@ describe('Landing', () => {
 
     // new setting has been applied
     cy.findByText(`"128Mi"`, {
+      timeout: 12000,
+    });
+  });
+
+  it('should update and apply a project config and regenerate a pipeline', () => {
+    cy.findByRole('button', {
+      name: /default overflow menu/i,
+    }).click();
+
+    cy.findByRole('menuitem', {
+      name: /edit project defaults/i,
+    }).click();
+
+    cy.findByRole('textbox').should('contain.text', 'createPipelineRequest');
+    cy.findByRole('textbox').clear();
+    cy.findByRole('textbox').type(`{
+      "createPipelineRequest": {
+          "resourceRequests": {
+              "cpu": 1,
+              "memory": "128Mi",
+              "disk": "2Gi"`);
+
+    cy.findByRole('button', {
+      name: /continue/i,
+    }).click();
+
+    cy.findByRole('radio', {
+      name: /save project defaults and regenerate pipelines/i,
+    }).click();
+
+    cy.findByText('1 pipeline will be affected');
+
+    cy.findByRole('button', {
+      name: /save/i,
+    }).click();
+
+    cy.findByRole('alert').should('have.text', 'Project defaults saved successfuly');
+
+    cy.visit('/lineage/default/pipelines/edges/spec');
+
+    // new setting has been applied
+    cy.findByText(`"2Gi"`, {
       timeout: 12000,
     });
   });

@@ -13,7 +13,7 @@ type LeftPanelProps = {
 
 const LeftPanel: React.FC<LeftPanelProps> = ({selectedCommitId}) => {
   const {commits, loading, page, setPage, hasNextPage, contentLength} =
-    useLeftPanel();
+    useLeftPanel(selectedCommitId);
 
   const breadCrumbText = `Commit: ${
     selectedCommitId && `${selectedCommitId.slice(0, 6)}...`

@@ -1,10 +1,10 @@
-import usePipelines from '@dash-frontend/hooks/usePipelines';
+import {useAllPipelines} from '@dash-frontend/hooks/useAllPipelines';
 
 export const PIPELINE_LIMIT = 16;
 export const WORKER_LIMIT = 8;
 
 const useCommunityEditionBanner = (expiration?: number) => {
-  const {pipelines} = usePipelines({projectIds: []});
+  const {pipelines} = useAllPipelines();
 
   const pipelineLimitReached =
     !expiration && pipelines && pipelines.length >= PIPELINE_LIMIT;
@@ -13,11 +13,11 @@ const useCommunityEditionBanner = (expiration?: number) => {
     pipelines &&
     pipelines.some((pipeline) => {
       try {
-        return (
-          pipeline?.parallelismSpec && pipeline?.parallelismSpec >= WORKER_LIMIT
-        );
+        return Number(pipeline?.parallelism ?? 0) >= WORKER_LIMIT;
       } catch (e) {
-        console.warn('failed to parse spec for pipeline ' + pipeline?.id);
+        console.warn(
+          'failed to parse spec for pipeline ' + pipeline?.pipeline?.name,
+        );
       }
       return false;
     });

@@ -1,3 +1,4 @@
+import {useQueryClient} from '@tanstack/react-query';
 import {
   DragEventHandler,
   useCallback,
@@ -8,10 +9,11 @@ import {
 import {useForm} from 'react-hook-form';
 import {useHistory} from 'react-router';
 
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import {useCurrentRepo} from '@dash-frontend/hooks/useCurrentRepo';
 import {useLazyFetch} from '@dash-frontend/hooks/useLazyFetch';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import getAllFileEntries from '@dash-frontend/lib/getAllFileEntries';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 import {useModal} from '@pachyderm/components';
 
 import {GLOB_CHARACTERS, ERROR_MESSAGE} from '../lib/constants';
@@ -24,6 +26,7 @@ type FileUploadFormValues = {
 };
 
 const useFileUpload = () => {
+  const client = useQueryClient();
   const formCtx = useForm<FileUploadFormValues>({
     mode: 'onChange',
     defaultValues: {
@@ -78,6 +81,12 @@ const useFileUpload = () => {
     method: 'POST',
     onComplete: () => {
       closeModal();
+      client.invalidateQueries({
+        queryKey: queryKeys.repo({
+          projectId,
+          repoId,
+        }),
+      });
       setTimeout(goBack, 500);
     },
     onError: () => setError(ERROR_MESSAGE),

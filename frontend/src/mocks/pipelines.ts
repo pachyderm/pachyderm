@@ -1,14 +1,19 @@
-import {
-  mockPipelinesQuery,
-  Pipeline,
-  PipelineState,
-  JobState,
-  NodeState,
-  PipelineType,
-  mockPipelineQuery,
-} from '@graphqlTypes';
 import merge from 'lodash/merge';
 import range from 'lodash/range';
+import {rest} from 'msw';
+
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {
+  InspectPipelineRequest,
+  ListPipelineRequest,
+  PipelineInfo,
+  PipelineInfoPipelineType,
+  JobState as PipelineInfoJobState,
+  PipelineState,
+  JobState,
+} from '@dash-frontend/api/pps';
+import {RequestError} from '@dash-frontend/api/utils/error';
+import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
 
 const userSpecJsonEdges = {
   pipeline: {
@@ -93,172 +98,224 @@ const effectiveSpecJsonMontage = {
   },
 };
 
-export const buildPipeline = (pipeline: Partial<Pipeline>): Pipeline => {
-  const defaultPipeline = {
-    id: 'default',
-    name: 'default',
-    description: '',
-    version: 0,
-    createdAt: 0,
+export const buildPipeline = (pipeline: PipelineInfo = {}): PipelineInfo => {
+  const defaultPipeline: PipelineInfo = {
+    pipeline: {name: 'default'},
+    version: '0',
     state: PipelineState.PIPELINE_STANDBY,
-    nodeState: NodeState.SUCCESS,
     stopped: false,
-    type: PipelineType.STANDARD,
-    datumTries: 0,
-    outputBranch: 'master',
-    egress: false,
-    effectiveSpecJson: '{}',
-    userSpecJson: '{}',
-    recentError: '',
-    lastJobState: 'JOB_CREATED',
-    lastJobNodeState: 'RUNNING',
-    datumTimeoutS: null,
-    jobTimeoutS: null,
-    s3OutputRepo: null,
-    parallelismSpec: 0,
-    reason: null,
-    __typename: 'Pipeline',
+    type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
+    lastJobState: PipelineInfoJobState.JOB_CREATED,
+    reason: undefined,
+    __typename: 'PipelineInfo',
   };
+
   return merge(defaultPipeline, pipeline);
 };
 
-const MONTAGE_PIPELINE: Pipeline = buildPipeline({
-  id: 'default_montage',
-  name: 'montage',
-  description:
-    'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
-  version: 1,
-  createdAt: 1690221506,
+const MONTAGE_PIPELINE: PipelineInfo = buildPipeline({
+  pipeline: {
+    name: 'montage',
+    project: {name: 'default'},
+  },
+  details: {
+    description:
+      'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
+    createdAt: '2023-07-24T17:58:26Z',
+    datumTries: '3',
+    outputBranch: 'master',
+    recentError: '',
+    reason: 'Pipeline failed because we have no memory!',
+    input: {
+      cross: [
+        {
+          pfs: {
+            glob: '/',
+            project: 'default',
+            repo: 'images',
+          },
+        },
+        {
+          pfs: {
+            glob: '/',
+            project: 'default',
+            repo: 'edges',
+          },
+        },
+      ],
+    },
+  },
+  version: '1',
   state: PipelineState.PIPELINE_FAILURE,
-  nodeState: NodeState.ERROR,
   stopped: false,
-  recentError: '',
   lastJobState: JobState.JOB_KILLED,
-  lastJobNodeState: NodeState.ERROR,
-  type: PipelineType.STANDARD,
-  datumTimeoutS: null,
-  datumTries: 3,
-  jobTimeoutS: null,
-  outputBranch: 'master',
-  s3OutputRepo: null,
-  egress: false,
+  type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
   effectiveSpecJson: JSON.stringify(effectiveSpecJsonMontage, null, 2),
   userSpecJson: JSON.stringify(userSpecJsonMontage, null, 2),
   reason: 'Pipeline failed because we have no memory!',
-  __typename: 'Pipeline',
 });
 
-const EDGES_PIPELINE: Pipeline = buildPipeline({
-  id: 'default_edges',
-  name: 'edges',
-  description:
-    'A pipeline that performs image edge detection by using the OpenCV library.',
-  version: 1,
-  createdAt: 1690221505,
+const EDGES_PIPELINE: PipelineInfo = buildPipeline({
+  pipeline: {
+    name: 'edges',
+    project: {name: 'default'},
+  },
+  details: {
+    description:
+      'A pipeline that performs image edge detection by using the OpenCV library.',
+    createdAt: '2023-07-24T17:58:25Z',
+    datumTries: '3',
+    outputBranch: 'master',
+    recentError: '',
+    reason: 'Pipeline failed because we have no memory!',
+    input: {
+      pfs: {
+        repo: 'images',
+        project: 'default',
+        glob: '/*',
+      },
+    },
+  },
+  version: '1',
   state: PipelineState.PIPELINE_RUNNING,
-  nodeState: NodeState.IDLE,
+  stopped: false,
   lastJobState: JobState.JOB_CREATED,
-  lastJobNodeState: NodeState.RUNNING,
-  type: PipelineType.STANDARD,
-  datumTries: 3,
-  jobTimeoutS: null,
-  outputBranch: 'master',
-  s3OutputRepo: null,
+  type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
   effectiveSpecJson: JSON.stringify(effectiveSpecJsonEdges, null, 2),
   userSpecJson: JSON.stringify(userSpecJsonEdges, null, 2),
-  __typename: 'Pipeline',
 });
 
-export const ALL_PIPELINES: Pipeline[] = [MONTAGE_PIPELINE, EDGES_PIPELINE];
+export const ALL_PIPELINES: PipelineInfo[] = [MONTAGE_PIPELINE, EDGES_PIPELINE];
 
 export const mockPipelines = () =>
-  mockPipelinesQuery((_req, res, ctx) => {
-    return res(ctx.data({pipelines: ALL_PIPELINES}));
-  });
+  rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+    '/api/pps_v2.API/ListPipeline',
+    async (_req, res, ctx) => {
+      return res(ctx.json(ALL_PIPELINES));
+    },
+  );
 
 export const mockGetMontagePipeline = () =>
-  mockPipelineQuery((req, res, ctx) => {
-    if (
-      req.variables.args.id === 'montage' &&
-      req.variables.args.projectId === 'default'
-    ) {
-      return res(ctx.data({pipeline: MONTAGE_PIPELINE}));
-    } else {
-      return res();
-    }
-  });
+  rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+    '/api/pps_v2.API/InspectPipeline',
+    async (req, res, ctx) => {
+      const args = await req.json();
+      if (
+        args.pipeline.name === 'montage' &&
+        args.pipeline.project.name === 'default'
+      ) {
+        return res(ctx.json(MONTAGE_PIPELINE));
+      } else {
+        return res(ctx.json({}));
+      }
+    },
+  );
 
-const SERVICE_PIPELINE: Pipeline = buildPipeline({
-  id: 'default_edges',
-  name: 'montage',
-  description:
-    'A pipeline that performs image edge detection by using the OpenCV library.',
-  version: 1,
-  createdAt: 1690221505,
+export const mockGetEdgesPipeline = () =>
+  rest.post<ListPipelineRequest, Empty, PipelineInfo>(
+    '/api/pps_v2.API/InspectPipeline',
+    async (_req, res, ctx) => {
+      return res(ctx.json(EDGES_PIPELINE));
+    },
+  );
+
+export const mockHealthyPipelines = () =>
+  rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+    '/api/pps_v2.API/ListPipeline',
+    async (_req, res, ctx) => {
+      return res(ctx.json([buildPipeline(), buildPipeline(), buildPipeline()]));
+    },
+  );
+
+export const mockEmptyInspectPipeline = () =>
+  rest.post<ListPipelineRequest, Empty, RequestError>(
+    '/api/pps_v2.API/InspectPipeline',
+    async (_req, res, ctx) => {
+      return res(
+        ctx.status(404),
+        ctx.json({
+          code: 5,
+          message: 'pipeline was not inspected',
+          details: [],
+        }),
+      );
+    },
+  );
+
+const SERVICE_PIPELINE_INFO = buildPipeline({
+  pipeline: {
+    name: 'montage',
+    project: {name: 'default'},
+  },
+  details: {
+    description:
+      'A pipeline that performs image edge detection by using the OpenCV library.',
+    createdAt: getISOStringFromUnix(1690221505),
+    datumTries: '3',
+    outputBranch: 'master',
+  },
+  version: '1',
   state: PipelineState.PIPELINE_RUNNING,
-  nodeState: NodeState.RUNNING,
   lastJobState: JobState.JOB_SUCCESS,
-  lastJobNodeState: NodeState.IDLE,
-  type: PipelineType.SERVICE,
-  datumTries: 3,
-  jobTimeoutS: null,
-  outputBranch: 'master',
-  s3OutputRepo: null,
-  __typename: 'Pipeline',
+  type: PipelineInfoPipelineType.PIPELINE_TYPE_SERVICE,
 });
 
 export const mockGetServicePipeline = () =>
-  mockPipelineQuery((_req, res, ctx) => {
-    return res(ctx.data({pipeline: SERVICE_PIPELINE}));
-  });
+  rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+    '/api/pps_v2.API/InspectPipeline',
+    (req, res, ctx) => {
+      return res(ctx.json(SERVICE_PIPELINE_INFO));
+    },
+  );
 
-const SPOUT_PIPELINE: Pipeline = buildPipeline({
-  id: 'default_edges',
-  name: 'montage',
-  description:
-    'A pipeline that performs image edge detection by using the OpenCV library.',
-  version: 1,
-  createdAt: 1690221505,
+const SPOUT_PIPELINE_INFO = buildPipeline({
+  pipeline: {
+    name: 'montage',
+    project: {name: 'default'},
+  },
+  details: {
+    createdAt: getISOStringFromUnix(1690221505),
+    datumTries: '3',
+    outputBranch: 'master',
+    description:
+      'A pipeline that performs image edge detection by using the OpenCV library.',
+    recentError: '',
+  },
+  version: '1',
   state: PipelineState.PIPELINE_RUNNING,
-  nodeState: NodeState.RUNNING,
   stopped: false,
-  recentError: '',
-  lastJobState: null,
-  lastJobNodeState: null,
-  type: PipelineType.SPOUT,
-  datumTimeoutS: null,
-  datumTries: 3,
-  jobTimeoutS: null,
-  outputBranch: 'master',
-  s3OutputRepo: null,
-  egress: false,
+  type: PipelineInfoPipelineType.PIPELINE_TYPE_SPOUT,
   reason: '',
-  __typename: 'Pipeline',
 });
 
 export const mockGetSpoutPipeline = () =>
-  mockPipelineQuery((req, res, ctx) => {
-    if (
-      req.variables.args.id === 'montage' &&
-      req.variables.args.projectId === 'default'
-    ) {
-      return res(ctx.data({pipeline: SPOUT_PIPELINE}));
-    } else {
-      return res();
-    }
-  });
+  rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+    '/api/pps_v2.API/InspectPipeline',
+    (req, res, ctx) => {
+      return res(ctx.json(SPOUT_PIPELINE_INFO));
+    },
+  );
 
 export const mockGetManyPipelinesWithManyWorkers = (
   numPipelines = 1,
   numWorkers = 1,
 ) =>
-  mockPipelinesQuery((_req, res, ctx) => {
-    const pipelines = range(0, numPipelines).map((i) => {
-      return buildPipeline({
-        name: `pipeline-${i}`,
-        parallelismSpec: numWorkers,
+  rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+    '/api/pps_v2.API/ListPipeline',
+    (_req, res, ctx) => {
+      const pipelines = range(0, numPipelines).map((i) => {
+        return buildPipeline({
+          pipeline: {name: `pipeline-${i}`},
+          parallelism: String(numWorkers),
+        });
       });
-    });
 
-    return res(ctx.data({pipelines}));
-  });
+      return res(ctx.json(pipelines));
+    },
+  );
+
+export const mockPipelinesEmpty = () =>
+  rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+    '/api/pps_v2.API/ListPipeline',
+    (_req, res, ctx) => res(ctx.json([])),
+  );

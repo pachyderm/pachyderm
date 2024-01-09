@@ -36,6 +36,10 @@ tr.hasPrefixIcon > td:first-of-type {
   cursor: not-allowed;
 }
 
+.dropdownCell {
+  z-index: var(--z-index-dropdown-menu);
+}
+
 .dropdown {
   right: 3.25rem;
   top: 0rem;

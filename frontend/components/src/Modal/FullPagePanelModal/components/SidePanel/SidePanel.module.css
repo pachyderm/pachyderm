@@ -48,9 +48,9 @@
 
 .rightHeading.open {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
 
-  padding-right: 1rem;
+  padding: 0 1rem;
 }
 
 .children {

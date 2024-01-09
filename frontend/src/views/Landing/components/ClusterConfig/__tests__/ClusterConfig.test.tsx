@@ -1,16 +1,22 @@
 import {
-  mockGetClusterDefaultsQuery,
-  mockSetClusterDefaultsMutation,
-} from '@graphqlTypes';
-import {
   render,
   screen,
   waitForElementToBeRemoved,
   within,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {
+  GetClusterDefaultsRequest,
+  GetClusterDefaultsResponse,
+  SetClusterDefaultsRequest,
+  SetClusterDefaultsResponse,
+} from '@dash-frontend/api/pps';
+import {RequestError} from '@dash-frontend/api/utils/error';
+import {mockGetEnterpriseInfoInactive} from '@dash-frontend/mocks';
 import {
   mockClusterDefaultsSchema,
   mockClusterDefaultsSchema404,
@@ -35,11 +41,13 @@ describe('ClusterConfig', () => {
     window.history.replaceState({}, '', '/cluster/defaults');
     server.resetHandlers();
     server.use(mockClusterDefaultsSchema404);
+    server.use(mockGetEnterpriseInfoInactive());
     server.use(
-      mockGetClusterDefaultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            getClusterDefaults: {
+      rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(
+        '/api/pps_v2.API/GetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
               clusterDefaultsJson: JSON.stringify(
                 {
                   createPipelineRequest: {
@@ -49,15 +57,18 @@ describe('ClusterConfig', () => {
                 null,
                 4,
               ),
-            },
-          }),
-        );
-      }),
+            }),
+          );
+        },
+      ),
     );
     server.use(
-      mockSetClusterDefaultsMutation((_req, res, ctx) => {
-        return res(ctx.data({setClusterDefaults: {affectedPipelinesList: []}}));
-      }),
+      rest.post<SetClusterDefaultsRequest, Empty, SetClusterDefaultsResponse>(
+        '/api/pps_v2.API/SetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(ctx.json({affectedPipelines: []}));
+        },
+      ),
     );
   });
 
@@ -65,20 +76,23 @@ describe('ClusterConfig', () => {
 
   it('should display an error if set cluster defaults with regenerate fails', async () => {
     server.use(
-      mockSetClusterDefaultsMutation((req, res, ctx) => {
-        if (req.variables.args.regenerate) {
+      rest.post<
+        SetClusterDefaultsRequest,
+        Empty,
+        RequestError | SetClusterDefaultsResponse
+      >('/api/pps_v2.API/SetClusterDefaults', async (req, res, ctx) => {
+        const {regenerate} = await req.json();
+        if (regenerate === true) {
           return res(
-            ctx.errors([
-              {
-                message: 'invalid cluster defaults JSON',
-                path: ['setClusterDefaults'],
-              },
-            ]),
+            ctx.status(400),
+            ctx.json({
+              code: 3,
+              message: 'invalid cluster defaults JSON',
+              details: [],
+            }),
           );
         } else {
-          return res(
-            ctx.data({setClusterDefaults: {affectedPipelinesList: []}}),
-          );
+          return res(ctx.json({affectedPipelines: []}));
         }
       }),
     );
@@ -86,9 +100,6 @@ describe('ClusterConfig', () => {
     render(<ClusterConfig />);
 
     await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-
-    // fixes flakyness
-    await new Promise((resolve) => setTimeout(resolve, 100));
 
     expect(await screen.findByText(`"resourceRequests"`)).toBeInTheDocument();
 
@@ -132,15 +143,20 @@ describe('ClusterConfig', () => {
 
   it('should display an error if create pipeline dry run fails', async () => {
     server.use(
-      mockSetClusterDefaultsMutation((req, res, ctx) => {
-        if (req.variables.args.dryRun) {
+      rest.post<
+        SetClusterDefaultsRequest,
+        Empty,
+        RequestError | SetClusterDefaultsResponse
+      >('/api/pps_v2.API/SetClusterDefaults', async (req, res, ctx) => {
+        const {dryRun} = await req.json();
+        if (dryRun === true) {
           return res(
-            ctx.errors([
-              {
-                message: 'invalid JSON',
-                path: ['setClusterDefaults'],
-              },
-            ]),
+            ctx.status(400),
+            ctx.json({
+              code: 3,
+              message: 'invalid JSON',
+              details: [],
+            }),
           );
         }
       }),
@@ -243,21 +259,22 @@ describe('ClusterConfig', () => {
     ],
   ])('%p', async (_, mock) => {
     server.resetHandlers();
+    server.use(mockGetEnterpriseInfoInactive());
     server.use(
-      mockGetClusterDefaultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            getClusterDefaults: {
-              clusterDefaultsJson: '{}',
-            },
-          }),
-        );
-      }),
+      rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(
+        '/api/pps_v2.API/GetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(ctx.json({}));
+        },
+      ),
     );
     server.use(
-      mockSetClusterDefaultsMutation((_req, res, ctx) => {
-        return res(ctx.data({setClusterDefaults: {affectedPipelinesList: []}}));
-      }),
+      rest.post<SetClusterDefaultsRequest, Empty, SetClusterDefaultsResponse>(
+        '/api/pps_v2.API/SetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(ctx.json({affectedPipelines: []}));
+        },
+      ),
     );
     server.use(mock);
     render(<ClusterConfig />);

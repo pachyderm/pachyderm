@@ -18,10 +18,10 @@ type RunsTableProps = {
 const RunsTable: React.FC<RunsTableProps> = ({filtersExpanded}) => {
   const {projectId} = useUrlState();
   const {
-    jobSets,
+    jobs: jobSets,
     loading: jobSetsLoading,
     error: jobSetsError,
-  } = useJobSets({projectId});
+  } = useJobSets(projectId);
   const {sortedJobsets, formCtx, staticFilterKeys, clearableFiltersMap} =
     useJobSetFilters({jobSets});
 

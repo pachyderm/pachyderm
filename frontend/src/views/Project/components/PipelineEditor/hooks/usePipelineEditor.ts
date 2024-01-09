@@ -1,16 +1,16 @@
-import {ApolloError} from '@apollo/client';
 import {useState, useEffect, useCallback, useMemo} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
-import {CLUSTER_DEFAULTS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {
-  useCreatePipelineV2Mutation,
-  useGetClusterDefaultsQuery,
-} from '@dash-frontend/generated/hooks';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import useCreatePipeline from '@dash-frontend/hooks/useCreatePipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
+import {useGetClusterDefaults} from '@dash-frontend/hooks/useGetClusterDefaults';
+import {useGetProjectDefaults} from '@dash-frontend/hooks/useGetProjectDefaults';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import formatJSON from '@dash-frontend/lib/formatJSON';
-import {CREATE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {
+  CREATE_PIPELINE_PATH,
+  DUPLICATE_PIPELINE_PATH,
+} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   lineageRoute,
   pipelineRoute,
@@ -18,6 +18,18 @@ import {
 import {getRandomName, useBreakpoint} from '@pachyderm/components';
 
 const usePipelineEditor = (closeUpdateModal: () => void) => {
+  const isCreating = Boolean(
+    useRouteMatch({
+      path: CREATE_PIPELINE_PATH,
+    }),
+  );
+  const isDuplicating = Boolean(
+    useRouteMatch({
+      path: DUPLICATE_PIPELINE_PATH,
+    }),
+  );
+  const isCreatingOrDuplicating = isCreating || isDuplicating;
+
   const {projectId, pipelineId} = useUrlState();
   const browserHistory = useHistory();
   const initialEditorDoc = JSON.stringify(
@@ -41,48 +53,56 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
   const [effectiveSpec, setEffectiveSpec] = useState<string>();
   const [editorTextJSON, setEditorTextJSON] = useState<JSON>();
   const [clusterDefaultsJSON, setClusterDefaultsJSON] = useState<JSON>();
+  const [projectDefaultsJSON, setProjectDefaultsJSON] = useState<JSON>();
   const [error, setError] = useState<string>();
-  const [fullError, setFullError] = useState<ApolloError>();
+  const [fullError, setFullError] = useState<Error>();
   const [isValidJSON, setIsValidJSON] = useState(true);
-  const isCreating = Boolean(
-    useRouteMatch({
-      path: CREATE_PIPELINE_PATH,
-    }),
-  );
-  const {pipeline, loading: pipelineLoading} = useCurrentPipeline({
-    skip: isCreating,
-    fetchPolicy: 'network-only',
-  });
+  const {pipeline, loading: pipelineLoading} = useCurrentPipeline(!isCreating);
 
-  const {data: getClusterData, loading: clusterDefaultsLoading} =
-    useGetClusterDefaultsQuery({
-      onCompleted: () => {
-        setError(undefined);
-        setFullError(undefined);
-      },
-      pollInterval: CLUSTER_DEFAULTS_POLL_INTERVAL_MS,
-    });
+  // cluster defaults
+  const {clusterDefaults: getClusterData, loading: clusterDefaultsLoading} =
+    useGetClusterDefaults();
 
   const clusterDefaults = useMemo(
     () =>
-      getClusterData?.getClusterDefaults?.clusterDefaultsJson
-        ? formatJSON(getClusterData?.getClusterDefaults?.clusterDefaultsJson)
+      getClusterData?.clusterDefaultsJson
+        ? formatJSON(getClusterData?.clusterDefaultsJson)
         : '',
-    [getClusterData?.getClusterDefaults?.clusterDefaultsJson],
+    [getClusterData?.clusterDefaultsJson],
   );
 
   useEffect(() => {
     const clusterDefaultsJson = JSON.parse(
-      getClusterData?.getClusterDefaults?.clusterDefaultsJson || '{}',
+      getClusterData?.clusterDefaultsJson || '{}',
     );
     setClusterDefaultsJSON(clusterDefaultsJson?.createPipelineRequest);
-  }, [getClusterData?.getClusterDefaults?.clusterDefaultsJson]);
+  }, [getClusterData?.clusterDefaultsJson]);
 
-  const [
-    createPipelineDryRun,
-    {data: createDryData, loading: effectiveSpecLoading},
-  ] = useCreatePipelineV2Mutation({
-    onCompleted: () => {
+  // project defaults
+  const {projectDefaults: getProjectData, loading: projectDefaultsLoading} =
+    useGetProjectDefaults({project: {name: projectId}});
+
+  const projectDefaults = useMemo(
+    () =>
+      getProjectData?.projectDefaultsJson
+        ? formatJSON(getProjectData?.projectDefaultsJson)
+        : '',
+    [getProjectData?.projectDefaultsJson],
+  );
+
+  useEffect(() => {
+    const projectDefaultsJson = JSON.parse(
+      getProjectData?.projectDefaultsJson || '{}',
+    );
+    setProjectDefaultsJSON(projectDefaultsJson?.createPipelineRequest);
+  }, [getProjectData?.projectDefaultsJson]);
+
+  const {
+    createPipeline: createPipelineDryRun,
+    createPipelineResponse: createDryData,
+    loading: effectiveSpecLoading,
+  } = useCreatePipeline({
+    onSuccess: () => {
       setError(undefined);
       setFullError(undefined);
     },
@@ -92,37 +112,31 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     },
   });
 
-  const [createPipeline, {loading: createLoading}] =
-    useCreatePipelineV2Mutation({
-      onCompleted: () => {
-        setError(undefined);
-        setFullError(undefined);
-        browserHistory.push(lineageRoute({projectId}));
-      },
-      onError: (error) => {
-        closeUpdateModal();
-        setError(
-          isCreating
-            ? 'Unable to create pipeline'
-            : 'Unable to update pipeline',
-        );
-        setFullError(error);
-      },
-    });
+  const {createPipeline, loading: createLoading} = useCreatePipeline({
+    onSuccess: () => {
+      setError(undefined);
+      setFullError(undefined);
+      browserHistory.push(lineageRoute({projectId}));
+    },
+    onError: (error) => {
+      closeUpdateModal();
+      setError(
+        isCreatingOrDuplicating
+          ? 'Unable to create pipeline'
+          : 'Unable to update pipeline',
+      );
+      setFullError(error);
+    },
+  });
 
   useEffect(() => {
     // update effective spec from createPipelineDryRun result
-    if (createDryData?.createPipelineV2.effectiveCreatePipelineRequestJson) {
+    if (createDryData?.effectiveCreatePipelineRequestJson) {
       setEffectiveSpec(
-        formatJSON(
-          createDryData?.createPipelineV2.effectiveCreatePipelineRequestJson,
-        ),
+        formatJSON(createDryData?.effectiveCreatePipelineRequestJson),
       );
     }
-  }, [
-    createDryData?.createPipelineV2.effectiveCreatePipelineRequestJson,
-    effectiveSpec,
-  ]);
+  }, [createDryData?.effectiveCreatePipelineRequestJson, effectiveSpec]);
 
   useEffect(() => {
     // check if valid json on editorText change and trigger dry run
@@ -131,19 +145,21 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
       setIsValidJSON(true);
       !pipelineLoading &&
         createPipelineDryRun({
-          variables: {
-            args: {
-              createPipelineRequestJson: editorText,
-              dryRun: true,
-              update: !isCreating,
-            },
-          },
+          createPipelineRequestJson: editorText,
+          dryRun: true,
+          update: !isCreatingOrDuplicating,
         });
       setEditorTextJSON(editorTextJSON);
     } catch {
       setIsValidJSON(false);
     }
-  }, [createPipelineDryRun, editorText, isCreating, pipelineLoading]);
+  }, [
+    createPipelineDryRun,
+    editorText,
+    isCreating,
+    isCreatingOrDuplicating,
+    pipelineLoading,
+  ]);
 
   useEffect(() => {
     if (isMobile) {
@@ -151,23 +167,36 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     }
   }, [isMobile]);
 
-  // Pre-load pipeline spec if updating a pipeline
+  // Pre-load pipeline spec if updating or duplicating a pipeline
   useEffect(() => {
     if (!pipelineLoading && pipeline?.userSpecJson) {
-      const newSpec = formatJSON(pipeline?.userSpecJson || '{}');
+      let newSpec = '';
+      if (isDuplicating) {
+        const basePipeline = JSON.parse(pipeline?.userSpecJson || '{}');
+        const newPipeline = JSON.stringify({
+          ...basePipeline,
+          pipeline: {
+            ...basePipeline.pipeline,
+            name: `${basePipeline.pipeline.name}_copy`,
+          },
+        });
+        newSpec = formatJSON(newPipeline);
+      } else {
+        newSpec = formatJSON(pipeline?.userSpecJson || '{}');
+      }
       setEditorText(newSpec);
       setInitialDoc(newSpec);
     }
-  }, [pipeline?.userSpecJson, pipelineLoading]);
+  }, [isDuplicating, pipeline?.userSpecJson, pipelineLoading]);
 
   const goToLineage = useCallback(
     () =>
       browserHistory.push(
-        isCreating
+        isCreatingOrDuplicating
           ? lineageRoute({projectId})
           : pipelineRoute({projectId, pipelineId}),
       ),
-    [browserHistory, isCreating, pipelineId, projectId],
+    [browserHistory, isCreatingOrDuplicating, pipelineId, projectId],
   );
 
   const prettifyJSON = useCallback(() => {
@@ -193,7 +222,7 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
 
   const isChangingName = useMemo(() => {
     try {
-      if (effectiveSpec && !isCreating) {
+      if (effectiveSpec && !isCreatingOrDuplicating) {
         const spec = JSON.parse(effectiveSpec);
         const pipelineName = spec.pipeline.name;
 
@@ -205,7 +234,7 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     } catch {
       return undefined;
     }
-  }, [effectiveSpec, isCreating, pipelineId]);
+  }, [effectiveSpec, isCreatingOrDuplicating, pipelineId]);
 
   return {
     editorText,
@@ -222,8 +251,11 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     clusterDefaults,
     clusterDefaultsJSON,
     clusterDefaultsLoading,
+    projectDefaults,
+    projectDefaultsJSON,
+    projectDefaultsLoading,
     pipelineLoading,
-    isCreating,
+    isCreatingOrDuplicating,
     splitView,
     setSplitView,
     isChangingProject,

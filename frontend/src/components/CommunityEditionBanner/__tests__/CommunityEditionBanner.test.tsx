@@ -1,8 +1,10 @@
-import {mockPipelinesQuery} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {ListPipelineRequest, PipelineInfo} from '@dash-frontend/api/pps';
 import {
   mockGetEnterpriseInfo,
   mockGetEnterpriseInfoInactive,
@@ -85,16 +87,16 @@ describe('CommunityEditionBanner', () => {
 
   it('should show total pipelines across projects', async () => {
     server.use(
-      mockPipelinesQuery((req, res, ctx) => {
-        // Component should always be sending an empty array of project ids
-        if (req.variables.args.projectIds.length > 0) {
-          res(ctx.data({pipelines: []}));
-        }
+      rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+        '/api/pps_v2.API/ListPipeline',
+        (req, res, ctx) => {
+          if (req.body.projects?.length) {
+            return res(ctx.json([]));
+          }
 
-        return res(
-          ctx.data({pipelines: [buildPipeline({}), buildPipeline({})]}),
-        );
-      }),
+          return res(ctx.json([buildPipeline(), buildPipeline()]));
+        },
+      ),
     );
 
     render(<CommunityEditionBanner />);

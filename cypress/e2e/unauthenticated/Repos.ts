@@ -42,10 +42,9 @@ describe('Repos', () => {
 
   it('should allow a user to cancel an upload', () => {
     cy.findByText('TestRepo', {timeout: 12000}).click();
-    cy.waitUntil(() =>
-      cy.findByLabelText('Upload Files').should('not.be.disabled'),
-    );
-    cy.findByLabelText('Upload Files').click();
+
+    cy.findByRole('button', {name: 'Repo Actions'}).click();
+    cy.findByRole('menuitem', {name: 'Upload Files'}).click();
     cy.findByText('For large file uploads via CTL');
 
     cy.fixture('AT-AT.png', null).as('file');
@@ -70,10 +69,8 @@ describe('Repos', () => {
 
   it('should upload a file for the specified path, branch, message, and files', () => {
     cy.findByText('TestRepo', {timeout: 12000}).click();
-    cy.waitUntil(() =>
-      cy.findByLabelText('Upload Files').should('not.be.disabled'),
-    );
-    cy.findByLabelText('Upload Files').click();
+    cy.findByRole('button', {name: 'Repo Actions'}).click();
+    cy.findByRole('menuitem', {name: 'Upload Files'}).click();
 
     cy.fixture('AT-AT.png', null).as('file1');
 
@@ -108,7 +105,7 @@ describe('Repos', () => {
     cy.findByText('New').should('exist');
     cy.findByText('@test').should('exist');
 
-    cy.findByRole('link', {name: 'Inspect Commits'}).click();
+    cy.findByRole('link', {name: 'Previous Commits'}).click();
 
     cy.findAllByText('initial images').should('exist');
     cy.findByText('image_store').should('exist');
@@ -116,10 +113,8 @@ describe('Repos', () => {
 
   it('should allow a user to upload images and not append files, and view differences between commits', () => {
     cy.findByText('TestRepo', {timeout: 12000}).click();
-    cy.waitUntil(() =>
-      cy.findByLabelText('Upload Files').should('not.be.disabled'),
-    );
-    cy.findByLabelText('Upload Files').click();
+    cy.findByRole('button', {name: 'Repo Actions'}).click();
+    cy.findByRole('menuitem', {name: 'Upload Files'}).click();
     cy.findByText('For large file uploads via CTL');
 
     cy.fixture('AT-AT.png', null).as('file1');
@@ -154,7 +149,8 @@ describe('Repos', () => {
     cy.findByText('2');
     cy.findByText('New');
 
-    cy.findByLabelText('Upload Files').click();
+    cy.findByRole('button', {name: 'Repo Actions'}).click();
+    cy.findByRole('menuitem', {name: 'Upload Files'}).click();
     cy.findByText('For large file uploads via CTL');
 
     cy.waitUntil(() =>
@@ -181,7 +177,10 @@ describe('Repos', () => {
 
   it('should allow a user to delete a repo', () => {
     cy.findByText('TestRepo', {timeout: 12000}).click();
-    cy.findByTestId('DeleteRepoButton__link').click();
+
+    cy.findByRole('button', {name: 'Repo Actions'}).click();
+    cy.findByRole('menuitem', {name: 'Delete Repo'}).click();
+
     cy.findByText('Delete').click();
     cy.findByText('TestRepo').should('not.exist');
   });

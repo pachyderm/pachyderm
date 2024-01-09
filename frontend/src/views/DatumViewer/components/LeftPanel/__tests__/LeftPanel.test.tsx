@@ -1,32 +1,38 @@
 import {
-  DatumFilter,
-  DatumState,
-  JobState,
-  mockDatumSearchQuery,
-  mockDatumsQuery,
-  mockJobQuery,
-  mockJobsQuery,
-} from '@graphqlTypes';
-import {render, screen} from '@testing-library/react';
+  render,
+  screen,
+  waitForElementToBeRemoved,
+  within,
+} from '@testing-library/react';
 import isEqual from 'lodash/isEqual';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  mockEmptyGetAuthorize,
-  mockGetVersionInfo,
-  buildDatum,
-  buildJob,
-  MOCK_EMPTY_DATUMS,
-  mockEmptyDatumsQuery,
-  mockGetMontagePipeline,
-  mockGetMontageJob_5C,
-  mockGetMontageJobs,
-  mockGetJob5CDatums,
-  JOB_5C_DATUM_05,
-  mockGetJob5CDatum05,
+  DatumInfo,
+  DatumState,
+  InspectJobRequest,
+  JobInfo,
+  JobState,
+  ListDatumRequest,
+  ListJobRequest,
+} from '@dash-frontend/api/pps';
+import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
+import {
   generatePagingDatums,
+  mockGetEnterpriseInfoInactive,
+  mockGetVersionInfo,
+  mockGetMontagePipeline,
+  mockGetJob5CDatum05,
+  mockGetMontageJobs,
+  buildJob,
+  mockGetJob5CDatums,
+  mockEmptyDatums,
+  buildDatum,
+  MONTAGE_JOB_INFO_5C,
+  mockEmptyGetAuthorize,
 } from '@dash-frontend/mocks';
 import {click, type, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -50,10 +56,20 @@ describe('Datum Viewer Left Panel', () => {
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
     server.use(mockGetMontagePipeline());
-    server.use(mockGetMontageJob_5C());
+    server.use(
+      rest.post<InspectJobRequest, Empty, JobInfo>(
+        '/api/pps_v2.API/InspectJob',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          if (body?.job?.pipeline?.project?.name === 'default') {
+            return res(ctx.json(MONTAGE_JOB_INFO_5C));
+          }
+        },
+      ),
+    );
     server.use(mockGetMontageJobs());
     server.use(mockGetJob5CDatums());
-    server.use(mockGetJob5CDatum05());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -61,12 +77,12 @@ describe('Datum Viewer Left Panel', () => {
   describe('Jobs', () => {
     it('should format job timestamp correctly', async () => {
       render(<LeftPanel />);
-
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      const view = screen.getByTestId('JobList__list');
+      expect(within(view).getAllByText(/aug 1, 2023; 14:20/i)).toHaveLength(2);
       expect(
-        (await screen.findAllByTestId('JobList__listItem'))[0],
-      ).toHaveTextContent(
-        `${getStandardDate(1690899649)}1dc67e479f03498badcc6180be4ee6ce`,
-      );
+        within(view).getByText(/5c1aa9bc87dd411ba5a1be0c80a3ebc2/i),
+      ).toBeInTheDocument();
     });
 
     it('should load jobs and select job from url', async () => {
@@ -87,43 +103,58 @@ describe('Datum Viewer Left Panel', () => {
 
     it('should sort jobs by status', async () => {
       server.use(
-        mockJobsQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              jobs: {
-                items: [
+        rest.post<ListJobRequest, Empty, JobInfo[]>(
+          '/api/pps_v2.API/ListJob',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body?.projects?.[0]?.name === 'default') {
+              return res(
+                ctx.json([
                   buildJob({
-                    id: '23b9af7d5d4343219bc8e02ff44cd55a',
+                    job: {
+                      id: '23b9af7d5d4343219bc8e02ff44cd55a',
+                      pipeline: {
+                        name: 'montage',
+                      },
+                    },
                     state: JobState.JOB_SUCCESS,
-                    createdAt: 1616533099,
-                    pipelineName: 'montage',
+                    created: getISOStringFromUnix(1616533099),
                   }),
                   buildJob({
-                    id: '33b9af7d5d4343219bc8e02ff44cd55a',
+                    job: {
+                      id: '33b9af7d5d4343219bc8e02ff44cd55a',
+                      pipeline: {
+                        name: 'montage',
+                      },
+                    },
                     state: JobState.JOB_FAILURE,
-                    createdAt: 1614126190,
-                    pipelineName: 'montage',
+                    created: getISOStringFromUnix(1614126190),
                   }),
                   buildJob({
-                    id: '7798fhje5d4343219bc8e02ff4acd33a',
+                    job: {
+                      id: '7798fhje5d4343219bc8e02ff4acd33a',
+                      pipeline: {
+                        name: 'montage',
+                      },
+                    },
                     state: JobState.JOB_FINISHING,
-                    createdAt: 1614125000,
-                    pipelineName: 'montage',
+                    created: getISOStringFromUnix(1614125000),
                   }),
                   buildJob({
-                    id: 'o90du4js5d4343219bc8e02ff4acd33a',
+                    job: {
+                      id: 'o90du4js5d4343219bc8e02ff4acd33a',
+                      pipeline: {
+                        name: 'montage',
+                      },
+                    },
                     state: JobState.JOB_KILLED,
-                    createdAt: 1614123000,
-                    pipelineName: 'montage',
+                    created: getISOStringFromUnix(1614123000),
                   }),
-                ],
-                cursor: null,
-                hasNextPage: false,
-                __typename: 'PageableJob',
-              },
-            }),
-          );
-        }),
+                ]),
+              );
+            }
+          },
+        ),
       );
 
       render(<LeftPanel />);
@@ -158,7 +189,7 @@ describe('Datum Viewer Left Panel', () => {
 
     it('should load correct empty states for datums list', async () => {
       window.history.replaceState({}, '', basePath);
-      server.use(mockEmptyDatumsQuery());
+      server.use(mockEmptyDatums());
 
       render(<LeftPanel />);
 
@@ -204,32 +235,30 @@ describe('Datum Viewer Left Panel', () => {
         `${basePath}/datum/01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155?datumFilters=FAILED,SKIPPED`,
       );
       server.use(
-        mockDatumsQuery((req, res, ctx) => {
-          if (
-            isEqual(req.variables.args.filter, [
-              DatumFilter.FAILED,
-              DatumFilter.SKIPPED,
-            ])
-          ) {
-            return res(
-              ctx.data({
-                datums: {
-                  items: [
-                    buildDatum({
+        rest.post<ListDatumRequest, Empty, DatumInfo[]>(
+          '/api/pps_v2.API/ListDatum',
+          async (req, res, ctx) => {
+            const jsonReq = await req.json();
+            if (
+              isEqual(jsonReq.filter.state, [
+                DatumState.FAILED,
+                DatumState.SKIPPED,
+              ])
+            ) {
+              return res(
+                ctx.json([
+                  buildDatum({
+                    datum: {
                       id: '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
-                      requestedJobId: '23b9af7d5d4343219bc8e02ff44cd55a',
-                      state: DatumState.FAILED,
-                    }),
-                  ],
-                  cursor: null,
-                  hasNextPage: false,
-                  __typename: 'PageableDatum',
-                },
-              }),
-            );
-          }
-          return res(ctx.data(MOCK_EMPTY_DATUMS));
-        }),
+                    },
+                    state: DatumState.FAILED,
+                  }),
+                ]),
+              );
+            }
+            return res(ctx.json([]));
+          },
+        ),
       );
 
       render(<LeftPanel />);
@@ -251,48 +280,40 @@ describe('Datum Viewer Left Panel', () => {
       );
 
       server.use(
-        mockDatumsQuery((req, res, ctx) => {
-          if (isEqual(req.variables.args.filter, [DatumFilter.FAILED])) {
-            return res(
-              ctx.data({
-                datums: {
-                  items: [
-                    buildDatum({
-                      id: '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
-                      requestedJobId: '23b9af7d5d4343219bc8e02ff44cd55a',
-                      state: DatumState.FAILED,
-                    }),
-                  ],
-                  cursor: null,
-                  hasNextPage: false,
-                  __typename: 'PageableDatum',
-                },
-              }),
-            );
-          }
-          return res(
-            ctx.data({
-              datums: {
-                items: [
+        rest.post<ListDatumRequest, Empty, DatumInfo[]>(
+          '/api/pps_v2.API/ListDatum',
+          async (req, res, ctx) => {
+            const jsonReq = await req.json();
+            if (isEqual(jsonReq.filter.state, [DatumState.FAILED])) {
+              return res(
+                ctx.json([
                   buildDatum({
-                    id: '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
-                    requestedJobId: '23b9af7d5d4343219bc8e02ff44cd55a',
+                    datum: {
+                      id: '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
+                    },
                     state: DatumState.FAILED,
                   }),
-
-                  buildDatum({
+                ]),
+              );
+            }
+            return res(
+              ctx.json([
+                buildDatum({
+                  datum: {
+                    id: '01db2bed340f91bc778ad9792d694f6f665e1b0dd9c7059d4f27493c1fe86155',
+                  },
+                  state: DatumState.FAILED,
+                }),
+                buildDatum({
+                  datum: {
                     id: '006fdb9ba8a1afa805823336f4a280fd5c0b5c169ec48af78d07cecb96f8f14f',
-                    requestedJobId: '23b9af7d5d4343219bc8e02ff44cd55a',
-                    state: DatumState.SUCCESS,
-                  }),
-                ],
-                cursor: null,
-                hasNextPage: false,
-                __typename: 'PageableDatum',
-              },
-            }),
-          );
-        }),
+                  },
+                  state: DatumState.SUCCESS,
+                }),
+              ]),
+            );
+          },
+        ),
       );
 
       render(<LeftPanel />);
@@ -316,18 +337,7 @@ describe('Datum Viewer Left Panel', () => {
     });
 
     it('should allow users to search for a datum', async () => {
-      server.use(
-        mockDatumSearchQuery((req, res, ctx) => {
-          if (
-            req.variables.args.id ===
-            '05b864850d01075385e7872e7955fbf710d0e4af0bd73dcf232034a2e39295a7'
-          ) {
-            return res(ctx.data({datumSearch: JOB_5C_DATUM_05}));
-          }
-          return res(ctx.data({datumSearch: null}));
-        }),
-      );
-
+      server.use(mockGetJob5CDatum05());
       render(<LeftPanel />);
 
       const search = await screen.findByTestId('DatumList__search');
@@ -363,69 +373,58 @@ describe('Datum Viewer Left Panel', () => {
 
     it('should allow a user to page through the datum list', async () => {
       server.use(
-        mockJobQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              job: buildJob({
-                id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-                state: JobState.JOB_SUCCESS,
-                pipelineName: 'montage',
-                finishedAt: 1690899618,
-                dataProcessed: 100,
-                dataSkipped: 0,
-                dataFailed: 0,
-                dataTotal: 100,
-                dataRecovered: 0,
-              }),
-            }),
-          );
-        }),
+        rest.post<InspectJobRequest, Empty, JobInfo>(
+          '/api/pps_v2.API/InspectJob',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body?.job?.id === '5c1aa9bc87dd411ba5a1be0c80a3ebc2') {
+              return res(
+                ctx.json(
+                  buildJob({
+                    job: {
+                      id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+                      pipeline: {name: 'montage'},
+                    },
+                    state: JobState.JOB_SUCCESS,
+                    finished: getISOStringFromUnix(1690899618),
+                    dataProcessed: '100',
+                    dataSkipped: '0',
+                    dataFailed: '0',
+                    dataTotal: '100',
+                    dataRecovered: '0',
+                  }),
+                ),
+              );
+            }
+          },
+        ),
       );
 
       const datums = generatePagingDatums({n: 100});
 
       server.use(
-        mockDatumsQuery((req, res, ctx) => {
-          const {cursor, limit} = req.variables.args;
+        rest.post<ListDatumRequest, Empty, DatumInfo[]>(
+          '/api/pps_v2.API/ListDatum',
+          async (req, res, ctx) => {
+            const {paginationMarker, number} = await req.json();
 
-          if (limit === 50 && !cursor) {
-            return res(
-              ctx.data({
-                datums: {
-                  items: datums.slice(0, 50),
-                  cursor: datums[49].id,
-                  hasNextPage: true,
-                },
-              }),
-            );
-          }
+            if (Number(number) === 51 && !paginationMarker) {
+              return res(ctx.json(datums.slice(0, 51)));
+            }
 
-          if (limit === 50 && cursor === datums[49].id) {
-            return res(
-              ctx.data({
-                datums: {
-                  items: datums.slice(50),
-                  cursor: null,
-                  hasNextPage: null,
-                },
-              }),
-            );
-          }
+            if (
+              Number(number) === 51 &&
+              paginationMarker === datums[49].datum?.id
+            ) {
+              return res(ctx.json(datums.slice(50)));
+            }
 
-          return res(
-            ctx.data({
-              datums: {
-                items: datums,
-                cursor: null,
-                hasNextPage: null,
-              },
-            }),
-          );
-        }),
+            return res(ctx.json(datums));
+          },
+        ),
       );
 
       render(<LeftPanel />);
-      const forwards = (await screen.findAllByTestId('Pager__forward'))[0];
       const backwards = (await screen.findAllByTestId('Pager__backward'))[0];
 
       expect(
@@ -439,7 +438,11 @@ describe('Datum Viewer Left Panel', () => {
       expect(foundDatums[49]).toHaveTextContent(
         '49a0000000000000000000000000000000000000000000000000000000000000',
       );
+
+      const forwards = (await screen.findAllByTestId('Pager__forward'))[0];
+      expect(forwards).toBeEnabled();
       await click(forwards);
+
       expect(
         await screen.findByText('Datums 51 - 100 of 100'),
       ).toBeInTheDocument();
@@ -455,23 +458,31 @@ describe('Datum Viewer Left Panel', () => {
 
     it('should calculate total number of datums for filtered datum list', async () => {
       server.use(
-        mockJobQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              job: buildJob({
-                id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-                state: JobState.JOB_SUCCESS,
-                pipelineName: 'montage',
-                finishedAt: 1690899618,
-                dataProcessed: 2,
-                dataRecovered: 0,
-                dataSkipped: 1,
-                dataFailed: 1,
-                dataTotal: 4,
-              }),
-            }),
-          );
-        }),
+        rest.post<InspectJobRequest, Empty, JobInfo>(
+          '/api/pps_v2.API/InspectJob',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body?.job?.id === '5c1aa9bc87dd411ba5a1be0c80a3ebc2') {
+              return res(
+                ctx.json(
+                  buildJob({
+                    job: {
+                      id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+                      pipeline: {name: 'montage'},
+                    },
+                    state: JobState.JOB_SUCCESS,
+                    finished: getISOStringFromUnix(1690899618),
+                    dataProcessed: '2',
+                    dataRecovered: '0',
+                    dataSkipped: '1',
+                    dataFailed: '1',
+                    dataTotal: '4',
+                  }),
+                ),
+              );
+            }
+          },
+        ),
       );
 
       render(<LeftPanel />);
@@ -488,20 +499,25 @@ describe('Datum Viewer Left Panel', () => {
 
     it('should display loading message for datum info if job is not finshed', async () => {
       server.use(
-        mockJobQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              job: buildJob({
-                id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
-                state: JobState.JOB_RUNNING,
-                pipelineName: 'montage',
-                finishedAt: null,
-              }),
-            }),
-          );
-        }),
+        rest.post<InspectJobRequest, Empty, JobInfo>(
+          '/api/pps_v2.API/InspectJob',
+          (_req, res, ctx) => {
+            return res(
+              ctx.json(
+                buildJob({
+                  job: {
+                    id: '5c1aa9bc87dd411ba5a1be0c80a3ebc2',
+                    pipeline: {name: 'montage'},
+                  },
+                  state: JobState.JOB_RUNNING,
+                }),
+              ),
+            );
+          },
+        ),
       );
       render(<LeftPanel />);
+
       expect(
         await screen.findByTestId('DatumList__processing'),
       ).toHaveTextContent('Processing — datums are being processed.');

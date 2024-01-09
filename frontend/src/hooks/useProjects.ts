@@ -1,15 +1,22 @@
-import {PROJECTS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useProjectsQuery} from '@dash-frontend/generated/hooks';
+import {useQuery} from '@tanstack/react-query';
+
+import {listProject} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
 export const useProjects = () => {
-  const {data, error, loading, refetch} = useProjectsQuery({
-    pollInterval: PROJECTS_POLL_INTERVAL_MS,
+  const {
+    data,
+    error,
+    isLoading: loading,
+  } = useQuery({
+    queryKey: queryKeys.projects,
+    queryFn: () => listProject(),
   });
 
   return {
-    error,
-    projects: data?.projects || [],
+    error: getErrorMessage(error),
     loading,
-    refetch,
+    projects: data ?? [],
   };
 };

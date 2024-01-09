@@ -1,10 +1,10 @@
-import {Commit} from '@graphqlTypes';
 import React from 'react';
 
 import {SimplePager} from '@dash-frontend/../components/src/Pager';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ListItem from '@dash-frontend/components/ListItem';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {CommitInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {COMMIT_PAGE_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
 import {
   CaretRightSVG,
@@ -20,7 +20,7 @@ import useCommitList from './hooks/useCommitList';
 
 export type CommitListProps = {
   selectedCommitId?: string;
-  commits?: Commit[];
+  commits?: CommitInfo[];
   loading: boolean;
   page: number;
   setPage: React.Dispatch<React.SetStateAction<number>>;
@@ -92,19 +92,22 @@ const CommitList: React.FC<CommitListProps> = ({
         <LoadingDots />
       ) : displayCommits && displayCommits.length !== 0 ? (
         displayCommits.map((commit) => {
-          const selected = commit.id === selectedCommitId;
+          const selected = commit.commit?.id === selectedCommitId;
           const onClick = () =>
             !selected
-              ? updateSelectedCommit(commit.id, commit.branch?.name)
+              ? updateSelectedCommit(
+                  commit.commit?.id || '',
+                  commit.commit?.branch?.name,
+                )
               : null;
           return (
             <ListItem
               data-testid="CommitList__listItem"
-              key={commit.id}
+              key={commit.commit?.id}
               state={selected ? 'selected' : 'default'}
-              text={getStandardDate(commit.started)}
+              text={getStandardDateFromISOString(commit.started)}
               RightIconSVG={CaretRightSVG}
-              captionText={commit.id}
+              captionText={commit.commit?.id}
               onClick={onClick}
               role="listitem"
             />

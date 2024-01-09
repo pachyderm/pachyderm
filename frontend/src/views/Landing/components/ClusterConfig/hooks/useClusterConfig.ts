@@ -1,46 +1,46 @@
-import {ApolloError} from '@apollo/client';
 import {useState, useEffect, useCallback} from 'react';
 import {useHistory} from 'react-router';
 
-import {
-  useGetClusterDefaultsQuery,
-  useSetClusterDefaultsMutation,
-} from '@dash-frontend/generated/hooks';
+import {useGetClusterDefaults} from '@dash-frontend/hooks/useGetClusterDefaults';
+import {useSetClusterDefaults} from '@dash-frontend/hooks/useSetClusterDefaults';
 import formatJSON from '@dash-frontend/lib/formatJSON';
-import {GET_CLUSTER_DEFAULTS} from '@dash-frontend/queries/GetClusterDefaults';
 
 const useClusterConfig = () => {
   const browserHistory = useHistory();
   const [editorText, setEditorText] = useState<string>();
   const [initialEditorDoc, setInitialEditorDoc] = useState<string>();
   const [error, setError] = useState<string>();
-  const [fullError, setFullError] = useState<ApolloError>();
+  const [fullError, setFullError] = useState<Error | null>();
   const [unsavedChanges, setUnsavedChanges] = useState(false);
   const [isValidJSON, setIsValidJSON] = useState(true);
 
-  const {data: getClusterData, loading: getClusterLoading} =
-    useGetClusterDefaultsQuery({
-      onCompleted: (res) => {
-        const resJSON = formatJSON(
-          res.getClusterDefaults?.clusterDefaultsJson || '{}',
-        );
-        setInitialEditorDoc(resJSON);
-        setEditorText(resJSON);
-      },
-      onError: (fullError) => {
-        setFullError(fullError);
-        setError('Unable to fetch cluster defaults');
-      },
-    });
+  const {
+    clusterDefaults,
+    loading: getClusterLoading,
+    error: queryError,
+  } = useGetClusterDefaults();
+
+  useEffect(() => {
+    if (queryError) {
+      setFullError(queryError);
+      setError('Unable to fetch cluster defaults');
+    }
+  }, [queryError]);
+
+  useEffect(() => {
+    const resJSON = formatJSON(clusterDefaults?.clusterDefaultsJson || '{}');
+    setInitialEditorDoc(resJSON);
+    setEditorText(resJSON);
+  }, [clusterDefaults]);
 
   const checkIfChanged = useCallback(
-    (editorText: string) => {
+    (editorText?: string) => {
       const trimmedEditorDefaults = (editorText || '').replace(
         /[\t\s\n]+/g,
         '',
       );
       const trimmedSavedDefaults = (
-        getClusterData?.getClusterDefaults?.clusterDefaultsJson || ''
+        clusterDefaults?.clusterDefaultsJson || ''
       ).replace(/[\t\s\n]+/g, '');
 
       if (
@@ -53,10 +53,7 @@ const useClusterConfig = () => {
         setUnsavedChanges(false);
       }
     },
-    [
-      getClusterData?.getClusterDefaults?.clusterDefaultsJson,
-      getClusterLoading,
-    ],
+    [clusterDefaults?.clusterDefaultsJson, getClusterLoading],
   );
 
   const prettifyJSON = useCallback(() => {
@@ -64,25 +61,26 @@ const useClusterConfig = () => {
     setEditorText(formattedString);
   }, [editorText]);
 
-  const [
-    setClusterDefaultsMutation,
-    {
-      data: setClusterResponse,
-      loading: setClusterLoading,
-      error: setClusterError,
-    },
-  ] = useSetClusterDefaultsMutation({
-    refetchQueries: [GET_CLUSTER_DEFAULTS],
-    onCompleted: () => setUnsavedChanges(false),
-    onError: (fullError) => {
-      setFullError(fullError);
+  const {
+    setClusterDefaults: setClusterDefaultsMutation,
+    setClusterDefaultsResponse: setClusterResponse,
+    loading: setClusterLoading,
+    error: setClusterError,
+  } = useSetClusterDefaults({
+    onSuccess: () => setUnsavedChanges(false),
+    onError: (error: Error) => {
+      setFullError(error);
       setError('Unable to set cluster defaults');
     },
   });
 
-  const [setClusterDryRunMutation] = useSetClusterDefaultsMutation({
-    onError: (fullError) => {
-      setFullError(fullError);
+  const {setClusterDefaults: setClusterDryRunMutation} = useSetClusterDefaults({
+    onSuccess: () => {
+      setError(undefined);
+      checkIfChanged(editorText);
+    },
+    onError: (error: Error) => {
+      setFullError(error);
       setError('Unable to generate cluster defaults');
     },
   });
@@ -94,16 +92,8 @@ const useClusterConfig = () => {
         JSON.parse(editorText);
         setIsValidJSON(true);
         setClusterDryRunMutation({
-          variables: {
-            args: {
-              clusterDefaultsJson: editorText,
-              dryRun: true,
-            },
-          },
-          onCompleted: () => {
-            setError(undefined);
-            checkIfChanged(editorText);
-          },
+          clusterDefaultsJson: editorText,
+          dryRun: true,
         });
       } catch {
         setIsValidJSON(false);

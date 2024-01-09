@@ -4,8 +4,6 @@
     "baseUrl": "./src",
     "types": ["wicg-entries-api", "wicg-file-system-access", "vite/client", "vite-plugin-svgr/client"],
     "paths": {
-      "@graphqlTypes": [ "../../backend/src/generated/types.ts" ],
-      "@dash-backend/*": ["../../backend/src/*"],
       "@dash-frontend/*": ["./*"],
       "@pachyderm/components": ["../components/src"],
       "@pachyderm/components/*": ["../components/src/*"]

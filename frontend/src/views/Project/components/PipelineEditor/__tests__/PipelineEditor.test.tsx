@@ -1,21 +1,28 @@
 import {
-  mockGetClusterDefaultsQuery,
-  mockCreatePipelineV2Mutation,
-  mockProjectQuery,
-} from '@graphqlTypes';
-import {
   render,
   screen,
   waitForElementToBeRemoved,
   within,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {InspectProjectRequest, ProjectInfo} from '@dash-frontend/api/pfs';
+import {
+  GetClusterDefaultsRequest,
+  GetClusterDefaultsResponse,
+  CreatePipelineV2Request,
+  CreatePipelineV2Response,
+  GetProjectDefaultsRequest,
+  GetProjectDefaultsResponse,
+} from '@dash-frontend/api/pps';
+import {RequestError} from '@dash-frontend/api/utils/error';
 import {
   mockGetVersionInfo,
-  mockEmptyProjectDetails,
   mockGetMontagePipeline,
+  mockGetEnterpriseInfo,
 } from '@dash-frontend/mocks';
 import {
   mockCreatePipelineRequestSchema,
@@ -46,44 +53,74 @@ describe('PipelineEditor', () => {
     window.history.replaceState({}, '', '/lineage/default/create/pipeline');
     server.resetHandlers();
     server.use(mockGetVersionInfo());
-    server.use(mockEmptyProjectDetails());
     server.use(mockCreatePipelineRequestSchema);
     server.use(mockGetMontagePipeline());
+    server.use(mockGetEnterpriseInfo());
     server.use(
-      mockProjectQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            project: {
-              id: 'default',
+      rest.post<InspectProjectRequest, Empty, ProjectInfo>(
+        '/api/pfs_v2.API/InspectProject',
+        async (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              project: {name: 'default'},
               description: '',
-              createdAt: {nanos: 0, seconds: 0},
-            },
-          }),
-        );
-      }),
+              createdAt: '2017-07-14T02:40:20.000Z',
+            }),
+          );
+        },
+      ),
     );
     server.use(
-      mockGetClusterDefaultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            getClusterDefaults: {
-              clusterDefaultsJson:
-                '{\n    "createPipelineRequest": {\n        "resourceRequests": {\n            "cpu": 1,\n            "memory": "128Mi",\n            "disk": "1Gi"\n        }\n    }\n}',
-            },
-          }),
-        );
-      }),
+      rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(
+        '/api/pps_v2.API/GetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              clusterDefaultsJson: JSON.stringify(
+                {
+                  createPipelineRequest: {
+                    resourceRequests: {cpu: 1, memory: '128Mi', disk: '1Gi'},
+                  },
+                },
+                null,
+                4,
+              ),
+            }),
+          );
+        },
+      ),
     );
     server.use(
-      mockCreatePipelineV2Mutation((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            createPipelineV2: {
+      rest.post<GetProjectDefaultsRequest, Empty, GetProjectDefaultsResponse>(
+        '/api/pps_v2.API/GetProjectDefaults',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              projectDefaultsJson: JSON.stringify(
+                {
+                  createPipelineRequestProject: {
+                    resourceRequests: {disk: '2Gi'},
+                  },
+                },
+                null,
+                4,
+              ),
+            }),
+          );
+        },
+      ),
+    );
+    server.use(
+      rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
+        '/api/pps_v2.API/CreatePipelineV2',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
               effectiveCreatePipelineRequestJson: '{\n  "effectiveSpec": {}\n}',
-            },
-          }),
-        );
-      }),
+            }),
+          );
+        },
+      ),
     );
   });
 
@@ -91,18 +128,22 @@ describe('PipelineEditor', () => {
 
   it('should display an error if create pipeline dry run fails', async () => {
     server.use(
-      mockCreatePipelineV2Mutation((req, res, ctx) => {
-        if (req.variables.args.dryRun) {
-          return res(
-            ctx.errors([
-              {
+      rest.post<CreatePipelineV2Request, Empty, RequestError>(
+        '/api/pps_v2.API/CreatePipelineV2',
+        async (req, res, ctx) => {
+          const {dryRun} = await req.json();
+          if (dryRun) {
+            return res(
+              ctx.status(400),
+              ctx.json({
+                code: 3,
                 message: 'Invalid JSON',
-                path: ['createPipelineV2'],
-              },
-            ]),
-          );
-        }
-      }),
+                details: [],
+              }),
+            );
+          }
+        },
+      ),
     );
 
     render(<PipelineEditor />);
@@ -122,23 +163,25 @@ describe('PipelineEditor', () => {
 
   it('should display an error if create pipeline fails', async () => {
     server.use(
-      mockCreatePipelineV2Mutation((req, res, ctx) => {
-        if (!req.variables.args.dryRun) {
+      rest.post<
+        CreatePipelineV2Request,
+        Empty,
+        RequestError | CreatePipelineV2Response
+      >('/api/pps_v2.API/CreatePipelineV2', async (req, res, ctx) => {
+        const {dryRun} = await req.json();
+        if (!dryRun) {
           return res(
-            ctx.errors([
-              {
-                message: 'Invalid JSON',
-                path: ['createPipelineV2'],
-              },
-            ]),
+            ctx.status(400),
+            ctx.json({
+              code: 3,
+              message: 'Invalid JSON',
+              details: [],
+            }),
           );
         } else {
           return res(
-            ctx.data({
-              createPipelineV2: {
-                effectiveCreatePipelineRequestJson:
-                  '{\n  "effectiveSpec": {}\n}',
-              },
+            ctx.json({
+              effectiveCreatePipelineRequestJson: '{\n  "effectiveSpec": {}\n}',
             }),
           );
         }
@@ -169,18 +212,28 @@ describe('PipelineEditor', () => {
     ).toBeEnabled();
   });
 
-  it('should display cluster defaults and effective spec tabs', async () => {
+  it('should display cluster defaults, project defaults and effective spec tabs', async () => {
     render(<PipelineEditor />);
 
     expect(await screen.findByText(`"effectiveSpec"`)).toBeVisible();
     expect(
       await screen.findByText(`"createPipelineRequest"`),
     ).not.toBeVisible();
+    expect(
+      await screen.findByText(`"createPipelineRequestProject"`),
+    ).not.toBeVisible();
 
     await click(screen.getByRole('tab', {name: /cluster defaults/i}));
 
     expect(await screen.findByText(`"effectiveSpec"`)).not.toBeVisible();
     expect(await screen.findByText(`"createPipelineRequest"`)).toBeVisible();
+
+    await click(screen.getByRole('tab', {name: /project defaults/i}));
+
+    expect(await screen.findByText(`"effectiveSpec"`)).not.toBeVisible();
+    expect(
+      await screen.findByText(`"createPipelineRequestProject"`),
+    ).toBeVisible();
   });
 
   it('should allow the user to return to the lineage page', async () => {
@@ -284,10 +337,11 @@ describe('PipelineEditor', () => {
 
   it('should have the Effective Spec Dynamic Icons extension working', async () => {
     server.use(
-      mockGetClusterDefaultsQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            getClusterDefaults: {
+      rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(
+        '/api/pps_v2.API/GetClusterDefaults',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
               clusterDefaultsJson: JSON.stringify(
                 {
                   createPipelineRequest: {
@@ -298,16 +352,17 @@ describe('PipelineEditor', () => {
                 null,
                 4,
               ),
-            },
-          }),
-        );
-      }),
+            }),
+          );
+        },
+      ),
     );
     server.use(
-      mockCreatePipelineV2Mutation((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            createPipelineV2: {
+      rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
+        '/api/pps_v2.API/CreatePipelineV2',
+        (_req, res, ctx) => {
+          return res(
+            ctx.json({
               effectiveCreatePipelineRequestJson: JSON.stringify({
                 pipeline: {
                   name: 'whatever',
@@ -315,10 +370,10 @@ describe('PipelineEditor', () => {
                 transform: {cmd: ['python']},
                 description: 'override',
               }),
-            },
-          }),
-        );
-      }),
+            }),
+          );
+        },
+      ),
     );
 
     render(<PipelineEditor />);
@@ -386,9 +441,6 @@ describe('PipelineEditor', () => {
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      // fixes flakyness
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
       expect(await screen.findByText(`"montage"`)).toBeInTheDocument();
 
       await click(screen.getByRole('button', {name: /update pipeline/i}));
@@ -402,23 +454,26 @@ describe('PipelineEditor', () => {
 
     it('should close the confirmation modal and display an error if update fails', async () => {
       server.use(
-        mockCreatePipelineV2Mutation((req, res, ctx) => {
-          if (!req.variables.args.dryRun) {
+        rest.post<
+          CreatePipelineV2Request,
+          Empty,
+          RequestError | CreatePipelineV2Response
+        >('/api/pps_v2.API/CreatePipelineV2', async (req, res, ctx) => {
+          const {dryRun} = await req.json();
+          if (!dryRun) {
             return res(
-              ctx.errors([
-                {
-                  message: 'Invalid JSON',
-                  path: ['createPipelineV2'],
-                },
-              ]),
+              ctx.status(400),
+              ctx.json({
+                code: 3,
+                message: 'Invalid JSON',
+                details: [],
+              }),
             );
           } else {
             return res(
-              ctx.data({
-                createPipelineV2: {
-                  effectiveCreatePipelineRequestJson:
-                    '{\n  "effectiveSpec": {}\n}',
-                },
+              ctx.json({
+                effectiveCreatePipelineRequestJson:
+                  '{\n  "effectiveSpec": {}\n}',
               }),
             );
           }
@@ -447,22 +502,23 @@ describe('PipelineEditor', () => {
 
     it('should warn the user if the pipeline name or project was changed', async () => {
       server.use(
-        mockCreatePipelineV2Mutation((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              createPipelineV2: {
+        rest.post<CreatePipelineV2Request, Empty, CreatePipelineV2Response>(
+          '/api/pps_v2.API/CreatePipelineV2',
+          (_req, res, ctx) => {
+            return res(
+              ctx.json({
                 effectiveCreatePipelineRequestJson: `{
-                      "pipeline": {
-                        "project": {
-                          "name": "notdefault"
-                        },
-                        "name": "notmontage"
-                      }
-                    }`,
-              },
-            }),
-          );
-        }),
+                  "pipeline": {
+                    "project": {
+                      "name": "notdefault"
+                    },
+                    "name": "notmontage"
+                  }
+                }`,
+              }),
+            );
+          },
+        ),
       );
 
       render(<PipelineEditor />);
@@ -485,6 +541,27 @@ describe('PipelineEditor', () => {
         within(await screen.findByRole('dialog')).getByRole('heading', {
           name: 'Update Pipeline',
         }),
+      ).toBeInTheDocument();
+    });
+  });
+  describe('Duplicate Pipeline', () => {
+    beforeEach(() => {
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/default/duplicate/pipeline/montage',
+      );
+    });
+
+    it('should load an existing pipeline spec', async () => {
+      render(<PipelineEditor />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      expect(await screen.findByText(`"montage_copy"`)).toBeInTheDocument();
+
+      expect(
+        screen.getByRole('button', {name: /create pipeline/i}),
       ).toBeInTheDocument();
     });
   });

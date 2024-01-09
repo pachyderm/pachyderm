@@ -1,18 +1,30 @@
-import {render, waitFor, screen} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {GetLogsRequest} from '@dash-frontend/api/pps';
+import {
+  StreamingRequestError,
+  streamingError,
+} from '@dash-frontend/api/utils/error';
 import useDownloadText from '@dash-frontend/hooks/useDownloadText';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   mockEmptyGetAuthorize,
+  mockGetEnterpriseInfoInactive,
   mockGetJob5CDatum05,
   mockGetJob5CDatumCH,
-  mockGetMontageJob_5C,
   mockGetMontagePipeline,
   mockGetServicePipeline,
   mockGetSpoutPipeline,
   mockGetVersionInfo,
+  mockInspectJobMontage5C,
 } from '@dash-frontend/mocks';
 import {mockEmptyGetLogs, mockGetLogs} from '@dash-frontend/mocks/logs';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
@@ -60,8 +72,9 @@ describe('Datum Viewer Middle Section', () => {
     server.resetHandlers();
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
+    server.use(mockGetEnterpriseInfoInactive());
     server.use(mockGetMontagePipeline());
-    server.use(mockGetMontageJob_5C());
+    server.use(mockInspectJobMontage5C());
     server.use(mockGetJob5CDatum05());
     server.use(mockGetLogs());
   });
@@ -75,15 +88,38 @@ describe('Datum Viewer Middle Section', () => {
       await screen.findByText('No logs found for this time range.');
     });
 
+    it('should display an error when requesting too long of a log time', async () => {
+      server.use(
+        rest.post<GetLogsRequest, Empty, StreamingRequestError>(
+          '/api/pps_v2.API/GetLogs',
+          (_req, res, ctx) =>
+            streamingError(
+              res,
+              ctx,
+              {
+                code: 2,
+                message:
+                  'error response from loki: 400 Bad Request (body: "the query time range exceeds the limit (query length: 744h0m7.016s, limit: 721h0m0s)")',
+                details: [],
+              },
+              400,
+            ),
+        ),
+      );
+      render(<MiddleSection />);
+      await screen.findByText('Log Retrieval Limitation');
+      await screen.findByText(/The logs for this job exceed the system's/);
+    });
+
     it('should display logs', async () => {
       render(<MiddleSection />);
       const rows = await screen.findAllByTestId('LogRow__base');
       expect(rows).toHaveLength(7);
       expect(rows[0]).toHaveTextContent(
-        `${getStandardDate(1690919093)} started process datum set task`,
+        `Dec 1, 2023; 21:29 started process datum set task`,
       );
       expect(rows[6]).toHaveTextContent(
-        `${getStandardDate(1690919095)} finished process datum set task`,
+        `Dec 1, 2023; 21:30 finished process datum set task`,
       );
     });
 
@@ -212,21 +248,27 @@ describe('Datum Viewer Middle Section', () => {
     it('should display correct Spout Pipeline header', async () => {
       server.use(mockGetSpoutPipeline());
       render(<MiddleSection />);
-      expect(
-        await screen.findByTestId('MiddleSection__title'),
-      ).toHaveTextContent('Pipeline logs formontage');
+      await waitFor(async () => {
+        expect(
+          await screen.findByTestId('MiddleSection__title'),
+        ).toHaveTextContent('Pipeline logs formontage');
+      });
     });
 
     it('should display correct Service Pipeline header', async () => {
       server.use(mockGetServicePipeline());
       render(<MiddleSection />);
-      expect(
-        await screen.findByTestId('MiddleSection__title'),
-      ).toHaveTextContent('Pipeline logs formontage');
+      await waitFor(async () => {
+        expect(
+          await screen.findByTestId('MiddleSection__title'),
+        ).toHaveTextContent('Pipeline logs formontage');
+      });
     });
 
     it('export options should download and copy selected logs', async () => {
       render(<MiddleSection />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
       const downloadButton = await screen.findByRole('button', {
         name: 'Download selected logs',
@@ -240,14 +282,16 @@ describe('Datum Viewer Middle Section', () => {
 
       expect(copyButton).toBeDisabled();
       expect(downloadButton).toBeDisabled();
+
+      expect(rows[3]).not.toBeChecked();
       await click(rows[3]);
+      expect(rows[3]).toBeChecked();
 
       expect(copyButton).toBeEnabled();
       expect(downloadButton).toBeEnabled();
 
-      const selectedLogs = `${getStandardDate(
-        1690919094,
-      )} montage: no decode delegate for this image format \`' @ error/constitute.c/ReadImage/740.`;
+      const selectedLogs =
+        "Dec 1, 2023; 21:29 montage: no decode delegate for this image format `' @ error/constitute.c/ReadImage/740.";
 
       expect(navigator.clipboard.writeText).toHaveBeenCalledTimes(0);
       await click(copyButton);

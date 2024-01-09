@@ -1,7 +1,8 @@
-import {DatumFilter} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
 import React from 'react';
 
+import {DatumState} from '@dash-frontend/api/pps';
+import {DatumFilter} from '@dash-frontend/lib/types';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 import {logsViewerJobRoute} from '@dash-frontend/views/Project/utils/routes';
 
@@ -71,7 +72,7 @@ describe('useLogsNavigation', () => {
       jobId: '2345',
       pipelineId: 'montage',
     };
-    const datumFilter = [DatumFilter.SUCCESS];
+    const datumFilter = [DatumState.SUCCESS];
     window.history.pushState('', '', backPath);
 
     render(<NavigationToComponent args={args} datumFilter={datumFilter} />);

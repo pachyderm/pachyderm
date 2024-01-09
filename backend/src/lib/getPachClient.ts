@@ -1,6 +1,6 @@
-import errorPlugin from '@dash-backend/grpc/plugins/errorPlugin';
-import loggingPlugin from '@dash-backend/grpc/plugins/loggingPlugin';
+import errorPlugin from '@dash-backend/lib/errorPlugin';
 import baseLogger from '@dash-backend/lib/log';
+import loggingPlugin from '@dash-backend/lib/loggingPlugin';
 import {pachydermClient} from '@dash-backend/proto';
 
 import {generateConsoleTraceUuid} from './generateTrace';

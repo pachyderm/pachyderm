@@ -3,6 +3,7 @@ import cloneDeep from 'lodash/cloneDeep';
 
 import {rawClusterDefaultsSchema} from './ClusterDefaults.schema.json';
 import {rawCreatePipelineRequestSchema} from './CreatePipelineRequest.schema.json';
+import {rawProjectDefaultsSchema} from './ProjectDefaults.schema.json';
 
 /** Type guard that narrows the type correctly. */
 function hasKey<T extends object>(
@@ -57,6 +58,10 @@ export const fixSchema = (
 
 export const clusterDefaultsSchema: JSONSchema7 = fixSchema(
   rawClusterDefaultsSchema,
+);
+
+export const projectDefaultsSchema: JSONSchema7 = fixSchema(
+  rawProjectDefaultsSchema,
 );
 
 export const createPipelineRequestSchema: JSONSchema7 = fixSchema(

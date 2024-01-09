@@ -63,11 +63,10 @@ describe('Repo / Pipeline table', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      cy.findByRole('link', {
-        name: /upload files/i,
-      });
-      cy.findByRole('button', {
-        name: /delete/i,
+      
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {
+        name: /delete repo/i,
       })
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
@@ -80,27 +79,25 @@ describe('Repo / Pipeline table', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/viper/repos/isolatedRepo');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.enabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.enabled');
     });
 
     cy.visit('/lineage/viper/pipelines/pipeline1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByRole('status', {timeout: 15000}).should('not.exist'); // Wait for details to load
       cy.findByText(/your roles/).should('not.exist');
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.enabled');
+      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete pipeline/i}).should('be.enabled');
     });
 
     // Pipelines table
@@ -119,8 +116,6 @@ describe('Repo / Pipeline table', () => {
       name: /pipeline1/i,
     }).within(() => {
       cy.findByRole('cell', {name: /none/i}).should('not.exist');
-      cy.findByTestId('DropdownButton__button').click();
-      cy.findByRole('menuitem', {name: /roles/i}).should('not.exist');
     });
 
     // Repos table
@@ -138,8 +133,6 @@ describe('Repo / Pipeline table', () => {
       name: /repo1/i,
     }).within(() => {
       cy.findByRole('cell', {name: /none/i}).should('not.exist');
-      cy.findByTestId('DropdownButton__button').click();
-      cy.findByRole('menuitem', {name: /roles/i}).should('not.exist');
     });
   });
 });

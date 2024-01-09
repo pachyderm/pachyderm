@@ -1,7 +1,7 @@
 import React from 'react';
 
 import ConfigFilePreview from '@dash-frontend/components/ConfigFilePreview';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import {SkeletonBodyText} from '@pachyderm/components';
 
 import styles from './PipelineSpec.module.css';
@@ -17,7 +17,6 @@ const PipelineSpec = () => {
         <>
           <ConfigFilePreview
             allowMinimize
-            allowUpdate
             title="Effective Spec"
             config={JSON.parse(pipeline?.effectiveSpecJson || '{}')}
             aria-label="Effective Spec"

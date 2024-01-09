@@ -1,14 +1,15 @@
-import {DatumFilter} from '@graphqlTypes';
 import classnames from 'classnames';
 import capitalize from 'lodash/capitalize';
 import xor from 'lodash/xor';
 import React from 'react';
 import {UseFormReturn} from 'react-hook-form';
 
+import {DatumState} from '@dash-frontend/api/pps';
 import {Chip, ChipGroup} from '@dash-frontend/components/Chip';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {readableDatumState} from '@dash-frontend/lib/datums';
+import {DatumFilter} from '@dash-frontend/lib/types';
 import {
   CaptionTextSmall,
   CloseSVG,
@@ -23,7 +24,12 @@ import {DatumFilterFormValues} from '../../hooks/useLeftPanel';
 
 import styles from './Filter.module.css';
 
-export const datumFilters = Object.values(DatumFilter);
+export const datumFilters: DatumFilter[] = [
+  DatumState.FAILED,
+  DatumState.RECOVERED,
+  DatumState.SKIPPED,
+  DatumState.SUCCESS,
+];
 
 export type FilterProps = {
   formCtx: UseFormReturn<DatumFilterFormValues>;

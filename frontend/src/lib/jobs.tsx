@@ -1,7 +1,7 @@
-import {JobState} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {JobState} from '@dash-frontend/api/pps';
 import {
   formatDurationFromSeconds,
   formatDurationFromSecondsToNow,
@@ -70,8 +70,7 @@ export const readableJobState = (jobState: JobState | string) => {
   return capitalize(state);
 };
 
-// should match job state mappings from backend/src/lib/nodeStateMappers
-export const getVisualJobState = (state: JobState): JobVisualState => {
+export const getVisualJobState = (state?: JobState): JobVisualState => {
   switch (state) {
     case JobState.JOB_SUCCESS:
     case JobState.JOB_CREATED:

@@ -1,7 +1,7 @@
-import {NodeState} from '@graphqlTypes';
 import {render, screen, act} from '@testing-library/react';
 import React from 'react';
 
+import {NodeState} from '@dash-frontend/lib/types';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import useUrlQueryState from '../useUrlQueryState';

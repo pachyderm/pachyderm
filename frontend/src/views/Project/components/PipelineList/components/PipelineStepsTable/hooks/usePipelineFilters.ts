@@ -1,8 +1,14 @@
-import {Pipeline, NodeState, PipelinesQuery} from '@graphqlTypes';
 import {useEffect, useMemo} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {PipelineInfo} from '@dash-frontend/api/pps';
+import {
+  restJobStateToNodeState,
+  restPipelineStateToNodeState,
+} from '@dash-frontend/api/utils/nodeStateMappers';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
+import {NodeState} from '@dash-frontend/lib/types';
 import {
   useSort,
   stringComparator,
@@ -11,7 +17,7 @@ import {
 } from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<Pipeline | null>;
+  [key: string]: SortableItem<PipelineInfo>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -19,29 +25,31 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (pipeline: Pipeline | null) => pipeline?.createdAt || 0,
+    accessor: (pipeline: PipelineInfo) =>
+      getUnixSecondsFromISOString(pipeline?.details?.createdAt),
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (pipeline: Pipeline | null) => pipeline?.createdAt || 0,
+    accessor: (pipeline: PipelineInfo) =>
+      getUnixSecondsFromISOString(pipeline?.details?.createdAt),
   },
   'Alphabetical: A-Z': {
     name: 'Alphabetical: A-Z',
     func: stringComparator,
-    accessor: (pipeline: Pipeline | null) => pipeline?.name || '',
+    accessor: (pipeline: PipelineInfo) => pipeline?.pipeline?.name || '',
   },
   'Alphabetical: Z-A': {
     name: 'Alphabetical: Z-A',
     reverse: true,
     func: stringComparator,
-    accessor: (pipeline: Pipeline | null) => pipeline?.name || '',
+    accessor: (pipeline: PipelineInfo) => pipeline?.pipeline?.name || '',
   },
   'Job Status': {
     name: 'Job Status',
     reverse: true,
     func: stringComparator,
-    accessor: (pipeline: Pipeline | null) => pipeline?.lastJobState || '',
+    accessor: (pipeline: PipelineInfo) => pipeline?.lastJobState || '',
   },
 };
 
@@ -89,7 +97,7 @@ type FormValues = {
 };
 
 type usePipelineFiltersProps = {
-  pipelines?: PipelinesQuery['pipelines'];
+  pipelines?: PipelineInfo[];
 };
 
 const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
@@ -164,12 +172,16 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
           searchParams.pipelineState &&
           searchParams.pipelineState.length > 0
         ) {
-          included = searchParams.pipelineState.includes(pipeline.nodeState);
+          included = searchParams.pipelineState.includes(
+            restPipelineStateToNodeState(pipeline.state),
+          );
         }
         if (searchParams.jobStatus && searchParams.jobStatus.length > 0) {
           included =
-            !!pipeline?.lastJobNodeState &&
-            searchParams.jobStatus.includes(pipeline.lastJobNodeState);
+            !!restJobStateToNodeState(pipeline?.lastJobState) &&
+            searchParams.jobStatus.includes(
+              restJobStateToNodeState(pipeline?.lastJobState),
+            );
         }
         return included;
       }),
@@ -187,7 +199,11 @@ const usePipelineFilters = ({pipelines = []}: usePipelineFiltersProps) => {
   });
 
   useEffect(() => {
-    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+    if (
+      searchParams.sortBy &&
+      sortOptions[searchParams.sortBy] &&
+      comparatorName !== searchParams.sortBy
+    ) {
       setComparator(sortOptions[searchParams.sortBy]);
     }
   });

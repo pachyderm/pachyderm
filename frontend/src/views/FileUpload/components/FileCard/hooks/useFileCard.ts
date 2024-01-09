@@ -1,4 +1,3 @@
-import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import {useCallback, useEffect, useReducer, useState} from 'react';
 
 import {useFileDetails} from '@dash-frontend/components/CodePreview';
@@ -17,6 +16,7 @@ type UseFileCardProps = {
   uploadError: boolean;
 };
 
+const GRPC_MAX_MESSAGE_LENGTH = 1024 * 1024 * 20; // 20 MiB
 const CHUNK_SIZE = GRPC_MAX_MESSAGE_LENGTH;
 
 type UploadState = {

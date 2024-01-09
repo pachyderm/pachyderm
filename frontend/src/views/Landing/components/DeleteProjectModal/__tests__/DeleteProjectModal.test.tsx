@@ -1,5 +1,5 @@
-import {mockDeleteProjectAndResourcesMutation} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
@@ -28,14 +28,12 @@ describe('DeleteProjectModal', () => {
 
   it('should display an error message if mutation fails', async () => {
     server.use(
-      mockDeleteProjectAndResourcesMutation((_req, res, ctx) => {
+      rest.post('/api/pps_v2.API/DeletePipelines', (_req, res, ctx) => {
         return res(
-          ctx.errors([
-            {
-              message: 'unable to delete project',
-              path: ['deleteProject'],
-            },
-          ]),
+          ctx.status(400),
+          ctx.json({
+            message: 'unable to delete project',
+          }),
         );
       }),
     );

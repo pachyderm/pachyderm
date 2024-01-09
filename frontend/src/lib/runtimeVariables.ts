@@ -36,31 +36,3 @@ export const getDisableTelemetry = () => {
 
   return disableTelemetry === 'true';
 };
-
-export const getProxyHostName = () => {
-  let proxyHost = '';
-  if (window.pachDashConfig) {
-    proxyHost =
-      window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
-  } else {
-    proxyHost = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_HOST || '';
-  }
-
-  return proxyHost;
-};
-
-export const getProxyEnabled = () => {
-  return getProxyHostName() !== '';
-};
-
-export const getTlsEnabled = () => {
-  let tlsEnabled = false;
-  if (window.pachDashConfig) {
-    tlsEnabled =
-      window.pachDashConfig.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
-  } else {
-    tlsEnabled = process.env.REACT_APP_RUNTIME_PACHYDERM_PUBLIC_TLS === 'true';
-  }
-
-  return tlsEnabled;
-};

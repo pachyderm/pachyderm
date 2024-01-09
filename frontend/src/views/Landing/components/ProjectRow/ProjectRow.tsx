@@ -1,14 +1,21 @@
-import {Permission, Project, ResourceType} from '@graphqlTypes';
 import classNames from 'classnames';
 import noop from 'lodash/noop';
 import React from 'react';
 import {useHistory} from 'react-router';
 
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
+import {ProjectInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import {
+  useAuthorizeLazy,
+  Permission,
+  ResourceType,
+} from '@dash-frontend/hooks/useAuthorize';
 import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
-import {useVerifiedAuthorizationLazy} from '@dash-frontend/hooks/useVerifiedAuthorizationLazy';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
-import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
+import {
+  lineageRoute,
+  projectConfigRoute,
+} from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
   DefaultDropdown,
@@ -27,7 +34,7 @@ import styles from './ProjectRow.module.css';
 
 type ProjectRowProps = {
   multiProject: boolean;
-  project: Project;
+  project: ProjectInfo;
   isSelected: boolean;
   setSelectedProject: () => void;
 };
@@ -38,7 +45,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   isSelected = false,
   setSelectedProject = noop,
 }) => {
-  const {projectStatus} = useProjectStatus(project.id);
+  const {projectStatus} = useProjectStatus(project.project?.name || '');
   const browserHistory = useHistory();
   const {
     openModal: openRolesModal,
@@ -57,36 +64,28 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   } = useModal(false);
 
   const {
-    checkRolesPermission: checkRolesPermissionDeleteProject,
-    isAuthorizedAction: deleteProjectIsAuthorizedAction,
-  } = useVerifiedAuthorizationLazy({
-    permissionsList: [Permission.PROJECT_DELETE],
-    resource: {type: ResourceType.PROJECT, name: project.id},
-  });
-
-  const {
-    checkRolesPermission: checkRolesPermissionEditProject,
-    isAuthorizedAction: editProjectIsAuthorizedAction,
-  } = useVerifiedAuthorizationLazy({
-    permissionsList: [Permission.PROJECT_CREATE],
-    resource: {type: ResourceType.PROJECT, name: project.id},
-  });
-
-  const {
-    checkRolesPermission: checkRolesPermissionEditProjectRole,
-    isAuthorizedAction: editProjectRoleIsAuthorizedAction,
+    checkPermissions,
     isAuthActive,
-  } = useVerifiedAuthorizationLazy({
-    permissionsList: [Permission.PROJECT_MODIFY_BINDINGS],
-    resource: {type: ResourceType.PROJECT, name: project.id},
+    hasProjectDelete,
+    hasProjectCreate,
+    hasProjectModifyBindings,
+    hasProjectSetDefaults,
+  } = useAuthorizeLazy({
+    permissions: [
+      Permission.PROJECT_DELETE,
+      Permission.PROJECT_CREATE,
+      Permission.PROJECT_MODIFY_BINDINGS,
+      Permission.PROJECT_SET_DEFAULTS,
+    ],
+    resource: {type: ResourceType.PROJECT, name: project.project?.name || ''},
   });
 
   const onClick = () =>
-    browserHistory.push(lineageRoute({projectId: project.id}));
+    browserHistory.push(lineageRoute({projectId: project.project?.name || ''}));
 
   const overflowMenuItems: DropdownItem[] = [];
 
-  if (editProjectIsAuthorizedAction)
+  if (hasProjectCreate)
     overflowMenuItems.push({
       id: 'edit-project-info',
       content: 'Edit Project Info',
@@ -96,13 +95,20 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   if (isAuthActive)
     overflowMenuItems.push({
       id: 'edit-project-roles',
-      content: editProjectRoleIsAuthorizedAction
+      content: hasProjectModifyBindings
         ? 'Edit Project Roles'
         : 'View Project Roles',
       closeOnClick: true,
     });
 
-  if (deleteProjectIsAuthorizedAction)
+  if (hasProjectSetDefaults)
+    overflowMenuItems.push({
+      id: 'project-defaults',
+      content: 'Edit Project Defaults',
+      closeOnClick: true,
+    });
+
+  if (hasProjectDelete)
     overflowMenuItems.push({
       id: 'delete-project',
       content: 'Delete Project',
@@ -119,6 +125,11 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
         return null;
       case 'delete-project':
         openDeleteModal();
+        return null;
+      case 'project-defaults':
+        browserHistory.push(
+          projectConfigRoute({projectId: project.project?.name || ''}),
+        );
         return null;
       default:
         return null;
@@ -137,13 +148,13 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
       >
         <Group vertical className={styles.gap10}>
           <Group justify="between" align="baseline" spacing={16}>
-            <h5>{project.id}</h5>
+            <h5>{project.project?.name || ''}</h5>
             <Group spacing={8}>
               <Button
                 buttonType="secondary"
                 onClick={onClick}
                 className={styles.button}
-                aria-label={`View project ${project.id}`}
+                aria-label={`View project ${project.project?.name || ''}`}
               >
                 <span>View</span>
                 <span className={styles.responsiveHide}> Project</span>
@@ -151,18 +162,14 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
               <DefaultDropdown
                 items={overflowMenuItems}
                 onSelect={onSelect}
-                aria-label={`${project.id} overflow menu`}
+                aria-label={`${project.project?.name || ''} overflow menu`}
                 buttonOpts={{
                   hideChevron: true,
                   IconSVG: OverflowSVG,
                   buttonType: 'ghost',
                 }}
                 menuOpts={{pin: 'right'}}
-                openOnClick={() => {
-                  checkRolesPermissionDeleteProject();
-                  checkRolesPermissionEditProject();
-                  checkRolesPermissionEditProjectRole();
-                }}
+                openOnClick={checkPermissions}
               />
             </Group>
           </Group>
@@ -177,10 +184,10 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
                 data-testid="ProjectRow__status"
               />
             </Info>
-            {project.createdAt?.seconds && (
+            {project.createdAt && (
               <Info header="Created On" headerId="created-date">
                 <span data-testid="ProjectRow__created">
-                  {getStandardDate(project.createdAt?.seconds || 0)}
+                  {getStandardDateFromISOString(project.createdAt)}
                 </span>
               </Info>
             )}
@@ -199,7 +206,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
         <UpdateProjectModal
           show={updateModalIsOpen}
           onHide={closeUpdateModal}
-          projectName={project.id}
+          projectName={project.project?.name || ''}
           description={project.description}
         />
       )}
@@ -207,15 +214,15 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
         <DeleteProjectModal
           show={deleteModalIsOpen}
           onHide={closeDeleteModal}
-          projectName={project.id}
+          projectName={project.project?.name || ''}
         />
       )}
       {rolesModalOpen && (
         <ProjectRolesModal
           show={rolesModalOpen}
           onHide={closeRolesModal}
-          projectName={project.id}
-          readOnly={!editProjectRoleIsAuthorizedAction}
+          projectName={project.project?.name || ''}
+          readOnly={!hasProjectModifyBindings}
         />
       )}
     </>

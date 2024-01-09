@@ -91,9 +91,8 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/viper/repos/isolatedRepo');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
-      cy.findByRole('button', {
-        name: /delete/i,
-      })
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i})
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
     });
@@ -102,17 +101,15 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/viper/repos/repo1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/viper/repos/pipeline1');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/viper/pipelines/pipeline1');
@@ -125,9 +122,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('button', {
       name: /pipeline1/i,
     }).within(() => {
-      cy.findByRole('cell', {name: /reporeader/i});
-      cy.findByTestId('DropdownButton__button').click();
-      cy.findByRole('menuitem', {name: /see all roles/i}).click();
+      cy.findByText(/reporeader/i).click({force: true});
     });
     cy.findByRole('heading', {
       name: 'Repo Level Roles: viper/pipeline1',
@@ -151,9 +146,7 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('button', {
       name: /repo1/i,
     }).within(() => {
-      cy.findByRole('cell', {name: /reporeader/i});
-      cy.findByTestId('DropdownButton__button').click();
-      cy.findByRole('menuitem', {name: /see all roles/i}).click();
+      cy.findByText(/reporeader/i).click({force: true});
     });
     cy.findByRole('heading', {
       name: 'Repo Level Roles: viper/repo1',
@@ -201,18 +194,15 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
 
-      cy.findByRole('button', {
-        name: /upload files/i,
-      })
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i})
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoWriter to upload files.');
 
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByRole('button', {
-        name: /delete/i,
-      })
+      cy.findByRole('menuitem', {name: /delete repo/i})
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
     });
@@ -222,13 +212,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
 
-      cy.findAllByRole('link', {
-        name: /upload files/i,
-      });
-
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i});
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
 
       cy.findByRole('button', {
         name: /see all roles/i,
@@ -245,13 +231,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
 
-      cy.findAllByRole('link', {
-        name: /upload files/i,
-      });
-
-      cy.findByRole('button', {
-        name: /delete/i,
-      });
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i});
+      cy.findByRole('menuitem', {name: /delete repo/i});
 
       cy.findByRole('button', {
         name: /set roles/i,
@@ -268,8 +250,9 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/hornet/pipelines/pipeline1-reader');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
-      cy.findByRole('button', {
-        name: /delete/i,
+      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('menuitem', {
+        name: /delete pipeline/i,
       })
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
@@ -279,15 +262,14 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.visit('/lineage/hornet/pipelines/pipeline2-writer');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
-      cy.findByRole('button', {
-        name: /delete/i,
-      })
-        .should('be.disabled')
-        .trigger('mouseenter', {force: true});
+      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('menuitem', {
+        name: /delete pipeline/i,
+      }).should('be.disabled');
 
       cy.findByRole('button', {
         name: /see all roles via repo/i,
-      }).click();
+      }).click({force: true});
     });
     cy.findByRole('heading', {
       name: 'Repo Level Roles: hornet/pipeline2-writer',
@@ -295,18 +277,18 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('dialog').within(() => {
       cy.findByRole('button', {name: /done/i}).click();
     });
-    cy.findByText('You need at least repoOwner to delete this.');
 
     cy.visit('/lineage/hornet/pipelines/pipeline3-owner');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
-      cy.findByRole('button', {
-        name: /delete/i,
+      cy.findByRole('button', {name: 'Pipeline Actions'}).click();
+      cy.findByRole('menuitem', {
+        name: /delete pipeline/i,
       }).should('be.enabled');
 
       cy.findByRole('button', {
         name: /set roles via repo/i,
-      }).click();
+      }).click({force: true});
     });
     cy.findByRole('heading', {
       name: 'Set Repo Level Roles: hornet/pipeline3-owner',
@@ -320,18 +302,15 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoReader/i);
 
-      cy.findByRole('button', {
-        name: /upload files/i,
-      })
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i})
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
     });
     cy.findByText('You need at least repoWriter to upload files.');
 
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
-      cy.findByRole('button', {
-        name: /delete/i,
-      })
+      cy.findByRole('menuitem', {name: /delete repo/i})
         .should('be.disabled')
         .trigger('mouseenter', {force: true});
     });
@@ -341,26 +320,18 @@ describe('Repo / Pipeline table and DAG view', () => {
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoWriter/i);
 
-      cy.findAllByRole('link', {
-        name: /upload files/i,
-      });
-
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i});
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/hornet/repos/pipeline3-owner');
     cy.findByRole('region', {name: 'project-sidebar'}).within(() => {
       cy.findByText(/repoOwner/i);
 
-      cy.findAllByRole('link', {
-        name: /upload files/i,
-      });
-
-      cy.findByRole('button', {
-        name: /delete/i,
-      });
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /upload files/i});
+      cy.findByRole('menuitem', {name: /delete repo/i});
     });
   });
 
@@ -384,9 +355,8 @@ describe('Repo / Pipeline table and DAG view', () => {
       cy.findByText(
         /clusterAdmin, projectOwner, repoOwner, repoReader, repoWriter/i,
       );
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/raptor/repos/isolatedRepo');
@@ -394,9 +364,8 @@ describe('Repo / Pipeline table and DAG view', () => {
       cy.findByText(
         /clusterAdmin, projectOwner, repoOwner, repoReader, repoWriter/i,
       );
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.enabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.enabled');
     });
 
     cy.visit('/lineage/raptor/repos/pipeline1');
@@ -404,9 +373,8 @@ describe('Repo / Pipeline table and DAG view', () => {
       cy.findByText(
         /clusterAdmin, projectOwner, repoOwner, repoReader, repoWriter/i,
       );
-      cy.findByRole('button', {
-        name: /delete/i,
-      }).should('be.disabled');
+      cy.findByRole('button', {name: 'Repo Actions'}).click();
+      cy.findByRole('menuitem', {name: /delete repo/i}).should('be.disabled');
     });
 
     cy.visit('/lineage/raptor/pipelines/pipeline1');

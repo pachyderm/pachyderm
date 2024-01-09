@@ -2,7 +2,7 @@
   --tableview-header-offset: 13.5rem;
   max-height: calc(100vh - var(--tableview-header-offset));
   overflow-y: scroll;
-  padding-bottom: 12rem;
+  padding-bottom: 18rem;
 }
 
 .hasPager {

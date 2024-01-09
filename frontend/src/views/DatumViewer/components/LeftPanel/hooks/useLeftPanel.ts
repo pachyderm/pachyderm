@@ -1,7 +1,7 @@
-import {JobState} from '@graphqlTypes';
 import {useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {JobState} from '@dash-frontend/api/pps';
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
@@ -9,7 +9,7 @@ export type DatumFilterFormValues = {
   jobs: string;
 };
 
-export const jobSortOrder = (state: JobState) => {
+export const jobSortOrder = (state?: JobState) => {
   switch (state) {
     case JobState.JOB_SUCCESS:
     case JobState.JOB_CREATED:
@@ -23,6 +23,7 @@ export const jobSortOrder = (state: JobState) => {
     case JobState.JOB_KILLED:
     case JobState.JOB_UNRUNNABLE:
       return 1;
+    case JobState.JOB_STATE_UNKNOWN:
     default:
       return 4;
   }
@@ -42,8 +43,8 @@ const useLeftPanel = () => {
 
   const {jobs, loading} = useJobs({
     limit: 30,
-    pipelineId,
-    projectId,
+    pipelineIds: [pipelineId],
+    projectName: projectId,
   });
 
   const {watch} = formCtx;
@@ -51,7 +52,7 @@ const useLeftPanel = () => {
 
   const sortedJobs = useMemo(
     () =>
-      jobsSort === 'status'
+      jobs && jobsSort === 'status'
         ? [...jobs].sort((a, b) => {
             const aState = jobSortOrder(a.state);
             const bState = jobSortOrder(b.state);

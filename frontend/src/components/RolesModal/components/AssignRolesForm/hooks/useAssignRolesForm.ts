@@ -1,11 +1,9 @@
-import {ResourceType, ModifyRolesArgs} from '@graphqlTypes';
 import {useState, useRef} from 'react';
 
-import {useModifyRolesMutation} from '@dash-frontend/generated/hooks';
-import {GET_ROLES_QUERY} from '@dash-frontend/queries/GetRolesQuery';
+import {ModifyRoleBindingRequest, ResourceType} from '@dash-frontend/api/auth';
+import {useModifyRoleBinding} from '@dash-frontend/hooks/useModifyRoleBinding';
 
 import {UserTableRoles} from '../../../hooks/useRolesModal';
-import {getPermissionQueries} from '../../../util/rolesUtils';
 import {USER_TYPES} from '../AssignRolesForm';
 
 const useAssignRolesForm = (
@@ -13,9 +11,9 @@ const useAssignRolesForm = (
   resourceType: ResourceType,
   availableRoles: string[],
   userTableRoles: UserTableRoles,
-  deletedRoles: Record<string, ModifyRolesArgs>,
+  deletedRoles: Record<string, ModifyRoleBindingRequest>,
   setDeletedRoles: React.Dispatch<
-    React.SetStateAction<Record<string, ModifyRolesArgs>>
+    React.SetStateAction<Record<string, ModifyRoleBindingRequest>>
   >,
 ) => {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -24,18 +22,8 @@ const useAssignRolesForm = (
   const [role, setRole] = useState(availableRoles[0]);
   const [validationError, setValidationError] = useState('');
 
-  const [modifyRolesMutation, {loading, error}] = useModifyRolesMutation({
-    refetchQueries: [
-      {
-        query: GET_ROLES_QUERY,
-        variables: {
-          args: {
-            resource: {name: resourceName, type: resourceType},
-          },
-        },
-      },
-      ...getPermissionQueries(resourceName, resourceType),
-    ],
+  const {modifyRoleBinding, loading, error} = useModifyRoleBinding({
+    resource: {name: resourceName, type: resourceType},
   });
 
   const onSubmit = async () => {
@@ -50,26 +38,26 @@ const useAssignRolesForm = (
     }
     setValidationError('');
 
-    await modifyRolesMutation({
-      variables: {
-        args: {
-          resource: {
-            name: resourceName,
-            type: resourceType,
-          },
-          principal: user,
-          rolesList: [
-            ...(userTableRoles[user] || {unlockedRoles: []}).unlockedRoles,
-            role,
-          ],
+    modifyRoleBinding(
+      {
+        resource: {
+          name: resourceName,
+          type: resourceType,
+        },
+        principal: user,
+        roles: [
+          ...(userTableRoles[user] || {unlockedRoles: []}).unlockedRoles,
+          role,
+        ],
+      },
+      {
+        onSettled: () => {
+          const updatedDeletedRoles = {...deletedRoles};
+          delete updatedDeletedRoles[user];
+          setDeletedRoles(updatedDeletedRoles);
         },
       },
-      onCompleted: () => {
-        const updatedDeletedRoles = {...deletedRoles};
-        delete updatedDeletedRoles[user];
-        setDeletedRoles(updatedDeletedRoles);
-      },
-    });
+    );
 
     setEmail('');
     if (userType === 'allClusterUsers') {

@@ -1,13 +1,15 @@
 import capitalize from 'lodash/capitalize';
+import parse from 'parse-duration';
 import React from 'react';
 
 import Description from '@dash-frontend/components/Description';
 import PipelineStateComponent from '@dash-frontend/components/PipelineState';
 import {RepoLink} from '@dash-frontend/components/ResourceLink';
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
+import readablePipelineType from '@dash-frontend/lib/readablePipelineType';
 
 import styles from './PipelineInfo.module.css';
 
@@ -39,38 +41,43 @@ const PipelineInfo: React.FC = () => {
       )}
 
       <Description term="Pipeline Type" loading={loading}>
-        {capitalize(pipeline?.type)}
+        {capitalize(readablePipelineType(pipeline?.type))}
       </Description>
 
       {!isServiceOrSpout && (
         <>
           <Description term="Datum Timeout" loading={loading}>
-            {pipeline?.datumTimeoutS
-              ? `${pipeline.datumTimeoutS} seconds`
+            {pipeline?.details?.datumTimeout
+              ? `${parse(pipeline?.details?.datumTimeout, 's')} seconds`
               : 'N/A'}
           </Description>
 
           <Description term="Datum Tries" loading={loading}>
-            {pipeline?.datumTries}
+            {pipeline?.details?.datumTries}
           </Description>
 
           <Description term="Job Timeout" loading={loading}>
-            {pipeline?.jobTimeoutS ? `${pipeline.jobTimeoutS} seconds` : 'N/A'}
+            {pipeline?.details?.jobTimeout
+              ? `${parse(pipeline.details?.jobTimeout, 's')} seconds`
+              : 'N/A'}
           </Description>
         </>
       )}
       <Description term="Output Branch" loading={loading}>
-        {pipeline?.outputBranch}
+        {pipeline?.details?.outputBranch}
       </Description>
 
       {!isServiceOrSpout && (
         <>
           <Description term="Egress" loading={loading}>
-            {pipeline?.egress ? 'Yes' : 'No'}
+            {pipeline?.details?.egress ? 'Yes' : 'No'}
           </Description>
 
           <Description term="S3 Output Repo" loading={loading}>
-            {pipeline?.s3OutputRepo || 'N/A'}
+            {(pipeline?.details?.s3Out &&
+              pipeline?.pipeline &&
+              `s3://${pipeline?.pipeline.name}`) ||
+              'N/A'}
           </Description>
         </>
       )}

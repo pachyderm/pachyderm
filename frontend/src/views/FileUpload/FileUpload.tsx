@@ -111,11 +111,14 @@ const FileUpload: React.FC = () => {
                     id="branch"
                     initialValue={branches.length > 0 ? branches[0] : ''}
                   >
-                    {branches.map((branch) => (
-                      <Select.Option value={branch} key={branch}>
-                        {branch}
-                      </Select.Option>
-                    ))}
+                    {branches.map(
+                      (branch) =>
+                        branch && (
+                          <Select.Option value={branch} key={branch}>
+                            {branch}
+                          </Select.Option>
+                        ),
+                    )}
                   </Select>
                 </div>
                 <div>

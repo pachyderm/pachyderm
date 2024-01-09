@@ -20,32 +20,10 @@ baseConfig.testEnvironment = 'node';
 
 module.exports = {
   projects: [
-    // TODO: add a no-mock test type.
     {
-      displayName: 'mock-server',
+      displayName: 'test',
       ...baseConfig,
-      testMatch: [
-        '**/__tests__/**/*.test.ts',
-        '!**/__tests__/**/*.network-mock.test.ts',
-      ],
-      setupFilesAfterEnv: ['./setupTests.ts'],
-    },
-    {
-      displayName: 'network-mock-test',
-      ...baseConfig,
-      testMatch: ['**/__tests__/**/*.network-mock.test.ts'],
-      setupFilesAfterEnv: ['./setupTestsNetworkMock.ts'],
-    },
-    {
-      displayName: 'integration-test',
-      ...baseConfig,
-      testMatch: ['**/__tests__/**/*.integration.ts'],
-      setupFilesAfterEnv: [],
-    },
-    {
-      displayName: 'unit-test',
-      ...baseConfig,
-      testMatch: ['**/__tests__/**/*.unit.ts'],
+      testMatch: ['**/__tests__/**/*.test.ts'],
       setupFilesAfterEnv: [],
     },
   ],

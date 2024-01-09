@@ -1,5 +1,6 @@
-import {ResourceType} from '@graphqlTypes';
-import React, {FunctionComponent} from 'react';
+import React, {FunctionComponent, useEffect} from 'react';
+
+import {ResourceType} from '@dash-frontend/api/auth';
 
 import {RolesModal} from '../RolesModal';
 
@@ -9,6 +10,7 @@ type RepoRolesModalProps = {
   projectName: string;
   repoName: string;
   readOnly?: boolean;
+  checkPermissions?: () => void;
 };
 
 const RepoRolesModal: FunctionComponent<RepoRolesModalProps> = ({
@@ -17,10 +19,15 @@ const RepoRolesModal: FunctionComponent<RepoRolesModalProps> = ({
   projectName,
   repoName,
   readOnly,
+  checkPermissions,
 }) => {
   const disclaimerText =
     'Pipelines inherit the roles of the output repo, which means users will have the same level of access to both.';
   const readOnlyText = 'You need at least repoOwner to edit roles';
+
+  useEffect(() => {
+    checkPermissions && checkPermissions();
+  }, [checkPermissions]);
 
   return (
     <RolesModal

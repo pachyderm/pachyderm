@@ -5,8 +5,8 @@ import React from 'react';
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
 import {
   mockGetVersionInfo,
-  mockGetAccountAuth,
   mockGetEnterpriseInfo,
+  mockGetEnterpriseInfoInactive,
 } from '@dash-frontend/mocks';
 import {withContextProviders, loginUser} from '@dash-frontend/testHelpers';
 
@@ -25,6 +25,7 @@ describe('ErrorStateSupportLink', () => {
     window.localStorage.clear();
     server.resetHandlers();
     server.use(mockGetVersionInfo());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -36,7 +37,6 @@ describe('ErrorStateSupportLink', () => {
   });
 
   it('should show an email link if enterprise is active', async () => {
-    server.use(mockGetAccountAuth());
     server.use(mockGetEnterpriseInfo());
     loginUser();
 

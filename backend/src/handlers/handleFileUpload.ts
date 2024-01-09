@@ -5,15 +5,13 @@ import cors from 'cors';
 import {NextFunction, Request, Response, Router} from 'express';
 import PQueue from 'p-queue';
 
-import isServiceError from '@dash-backend/grpc/utils/isServiceError';
 import {GRPC_MAX_MESSAGE_LENGTH} from '@dash-backend/lib/constants';
 import FileUploads, {upload} from '@dash-backend/lib/FileUploads';
 import getPachClientAndAttachHeaders from '@dash-backend/lib/getPachClient';
+import isServiceError from '@dash-backend/lib/isServiceError';
 import baseLogger from '@dash-backend/lib/log';
 import {Commit, STREAM_OVERHEAD_LENGTH} from '@dash-backend/proto';
 import {FileSet} from '@dash-backend/proto/services/pfs/clients/FileSet';
-
-const {PACHD_ADDRESS} = process.env;
 
 type FileUploadBody = {
   deleteFile: boolean;
@@ -51,12 +49,7 @@ const uploadStart = async (
   const authToken = req.cookies.dashAuthToken;
   const {path, branch, repo, description, projectId} = req.body;
 
-  if (!PACHD_ADDRESS) {
-    res.status(401);
-    next('You do not have permission to upload files');
-  }
-
-  if (!isTest && !authToken && PACHD_ADDRESS) {
+  if (!isTest && !authToken) {
     try {
       const pachClient = getPachClientAndAttachHeaders({
         requestId: req.header('x-request-id') || '',
@@ -99,11 +92,6 @@ const uploadFinish = async (
   next: NextFunction,
 ) => {
   const authToken = req.cookies.dashAuthToken;
-
-  if (!PACHD_ADDRESS) {
-    res.status(401);
-    next('You do not have permission to upload files');
-  }
 
   const pachClient = getPachClientAndAttachHeaders({
     requestId: req.header('x-request-id') || '',
@@ -206,10 +194,6 @@ const uploadChunk = async (
   let fileName = '';
 
   const authToken = req.cookies.dashAuthToken;
-
-  if (!PACHD_ADDRESS) {
-    return res.status(401).send('You do not have permission to upload files');
-  }
 
   const pachClient = getPachClientAndAttachHeaders({
     requestId: req.header('x-request-id') || '',

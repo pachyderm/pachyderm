@@ -6,7 +6,11 @@ import {
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {mockGetAllJobsets, mockEmptyJobsets} from '@dash-frontend/mocks';
+import {
+  mockGetEnterpriseInfoInactive,
+  mockGetAllJobs,
+  mockEmptyJob,
+} from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import JobSetListComponent from '../JobSetList';
@@ -20,7 +24,8 @@ describe('JobSet Jobs List', () => {
 
   beforeAll(() => {
     server.listen();
-    server.use(mockGetAllJobsets());
+    server.use(mockGetAllJobs());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   beforeEach(() => {
@@ -100,8 +105,8 @@ describe('JobSet Jobs List', () => {
 
     jobs = screen.getAllByTestId('RunsList__row');
     expect(jobs[0]).toHaveTextContent('cf302e9203874015be2d453d75864721');
-    expect(jobs[1]).toHaveTextContent('bc322db1b24c4d16873e1a4db198b5c9');
-    expect(jobs[2]).toHaveTextContent('5c1aa9bc87dd411ba5a1be0c80a3ebc2');
+    expect(jobs[1]).toHaveTextContent('5c1aa9bc87dd411ba5a1be0c80a3ebc2');
+    expect(jobs[2]).toHaveTextContent('bc322db1b24c4d16873e1a4db198b5c9');
     expect(jobs[3]).toHaveTextContent('a4423427351e42aabc40c1031928628e');
   });
 
@@ -133,7 +138,7 @@ describe('JobSet Jobs List', () => {
   });
 
   it('should display an empty state', async () => {
-    server.use(mockEmptyJobsets());
+    server.use(mockEmptyJob());
 
     render(<JobSetList />);
 

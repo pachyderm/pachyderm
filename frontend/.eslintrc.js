@@ -28,28 +28,7 @@ module.exports = {
     fetchMock: true,
     process: true,
   },
-  overrides: [
-    {
-      files: ['./src/queries/*'],
-      processor: '@graphql-eslint/graphql',
-      extends: ['eslint:recommended'],
-      env: {
-        node: true,
-        es6: true,
-      },
-    },
-    {
-      files: ['*.graphqls'],
-      parser: '@graphql-eslint/eslint-plugin',
-      plugins: ['@graphql-eslint'],
-      rules: {
-        '@graphql-eslint/no-anonymous-operations': 'error',
-      },
-      parserOptions: {
-        schema: '../backend/src/schema.graphqls',
-      },
-    },
-  ],
+  overrides: [],
   rules: {
     'import/default': 'off',
     'import/named': 'off',

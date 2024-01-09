@@ -84,7 +84,11 @@ const Row: React.FC<RowProps> = ({
       >
         {children}
         {overflowMenuItems && (
-          <DataCell sticky isSelected={isSelected}>
+          <DataCell
+            sticky
+            isSelected={isSelected}
+            className={styles.dropdownCell}
+          >
             <DefaultDropdown
               openOnClick={openOnClick}
               items={overflowMenuItems}

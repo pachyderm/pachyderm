@@ -1,9 +1,9 @@
-import {JobState, ProjectDetailsQuery} from '@graphqlTypes';
 import classNames from 'classnames';
 import React from 'react';
 import {Link} from 'react-router-dom';
 
-import {getDurationToNow} from '@dash-frontend/lib/dateTime';
+import {JobInfo, JobState} from '@dash-frontend/api/pps';
+import {getDurationToNowFromISOString} from '@dash-frontend/lib/dateTime';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import {useSelectedRunRoute} from '@dash-frontend/views/Project/utils/routes';
 import {ArrowRightSVG, Group, Icon} from '@pachyderm/components';
@@ -11,14 +11,14 @@ import {ArrowRightSVG, Group, Icon} from '@pachyderm/components';
 import styles from './JobListItem.module.css';
 
 type JobListItemProps = {
-  job: ProjectDetailsQuery['projectDetails']['jobSets'][0];
+  job: JobInfo;
   projectId: string;
 };
 
 const JobListItem: React.FC<JobListItemProps> = ({job, projectId}) => {
   const jobRoute = useSelectedRunRoute({
     projectId,
-    jobId: job.id,
+    jobId: job.job?.id,
     pipelineId: '',
   });
 
@@ -31,12 +31,14 @@ const JobListItem: React.FC<JobListItemProps> = ({job, projectId}) => {
         })}
       >
         <Group className={styles.innerContent} spacing={8}>
-          <span className={classNames(styles.jobStatus, styles[job.state])}>
-            {readableJobState(job.state)}
+          <span
+            className={classNames(styles.jobStatus, styles[job.state || ''])}
+          >
+            {job.state ? readableJobState(job.state) : null}
           </span>
           <span className={styles.timestamp}>
-            {job.createdAt
-              ? `Created ${getDurationToNow(job.createdAt, true)}`
+            {job.created
+              ? `Created ${getDurationToNowFromISOString(job.created, true)}`
               : 'Creating...'}
           </span>
 

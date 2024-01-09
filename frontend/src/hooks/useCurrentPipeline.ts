@@ -1,32 +1,48 @@
-import {QueryFunctionOptions} from '@apollo/client';
-import {PipelineType} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import usePipeline from './usePipeline';
+import {
+  inspectPipeline,
+  PipelineInfoPipelineType,
+} from '@dash-frontend/api/pps';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
+
 import useUrlState from './useUrlState';
 
-const useCurrentPipeline = (opts?: QueryFunctionOptions) => {
+export const useCurrentPipeline = (enabled = true) => {
   const {pipelineId, projectId} = useUrlState();
-  const {pipeline, loading} = usePipeline(
-    {
-      id: pipelineId,
-      projectId,
-    },
-    opts,
-  );
+  const {
+    data: pipeline,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.pipeline({projectId, pipelineId}),
+    queryFn: () =>
+      inspectPipeline({
+        pipeline: {
+          project: {
+            name: projectId,
+          },
+          name: pipelineId,
+        },
+        details: true,
+      }),
+    enabled,
+  });
 
   const isServiceOrSpout =
-    pipeline?.type === PipelineType.SERVICE ||
-    pipeline?.type === PipelineType.SPOUT;
+    pipeline?.type === PipelineInfoPipelineType.PIPELINE_TYPE_SERVICE ||
+    pipeline?.type === PipelineInfoPipelineType.PIPELINE_TYPE_SPOUT;
 
-  const isSpout = pipeline?.type === PipelineType.SPOUT;
+  const isSpout =
+    pipeline?.type === PipelineInfoPipelineType.PIPELINE_TYPE_SPOUT;
 
   return {
     pipeline,
     loading,
+    error: getErrorMessage(error),
     isServiceOrSpout,
     isSpout,
     pipelineType: pipeline?.type,
   };
 };
-
-export default useCurrentPipeline;

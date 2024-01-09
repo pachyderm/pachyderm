@@ -1,9 +1,12 @@
-import {mockJobSetQuery, JobState} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {mockGetJobSet_1D, JOBSET_1D} from '@dash-frontend/mocks';
+import {
+  mockGetJobSet1D,
+  mockGetEnterpriseInfoInactive,
+  mockEmptyJobSet,
+} from '@dash-frontend/mocks';
 import {click, type, withContextProviders} from '@dash-frontend/testHelpers';
 
 import GlobalFilter from '..';
@@ -19,7 +22,8 @@ describe('Global ID Filter', () => {
 
   beforeEach(() => {
     window.history.replaceState({}, '', '/');
-    server.use(mockGetJobSet_1D());
+    server.use(mockGetJobSet1D());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -40,24 +44,7 @@ describe('Global ID Filter', () => {
   });
 
   it('should reject invalid jobset IDs', async () => {
-    server.use(
-      mockJobSetQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            jobSet: {
-              id: 'aaaaaaaaaaaa4aaaaaaaaaaaaaaaaaaa',
-              state: JobState.JOB_SUCCESS,
-              createdAt: null,
-              startedAt: null,
-              finishedAt: null,
-              inProgress: false,
-              jobs: [],
-              __typename: 'JobSet',
-            },
-          }),
-        );
-      }),
-    );
+    server.use(mockEmptyJobSet());
 
     render(<GlobalIDFilter />);
 
@@ -90,33 +77,6 @@ describe('Global ID Filter', () => {
   });
 
   it('should clear an applied global filter', async () => {
-    server.use(
-      mockJobSetQuery((req, res, ctx) => {
-        const {id} = req.variables.args;
-        if (id === '1dc67e479f03498badcc6180be4ee6ce') {
-          return res(
-            ctx.data({
-              jobSet: JOBSET_1D,
-            }),
-          );
-        }
-        return res(
-          ctx.data({
-            jobSet: {
-              id: '',
-              state: JobState.JOB_SUCCESS,
-              createdAt: null,
-              startedAt: null,
-              finishedAt: null,
-              inProgress: false,
-              jobs: [],
-              __typename: 'JobSet',
-            },
-          }),
-        );
-      }),
-    );
-
     render(<GlobalIDFilter />);
 
     await click(screen.getByRole('button', {name: 'Filter by Global ID'}));

@@ -2,7 +2,7 @@ import classnames from 'classnames';
 import noop from 'lodash/noop';
 import React, {ButtonHTMLAttributes, useRef} from 'react';
 
-import {Group, Icon} from '@pachyderm/components';
+import {Group, Icon, Tooltip} from '@pachyderm/components';
 
 import useDropdownMenuItem from '../../hooks/useDropdownMenuItem';
 
@@ -17,6 +17,7 @@ export interface DropdownMenuItemProps
   buttonStyle?: 'default' | 'tertiary';
   IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
   topBorder?: boolean;
+  tooltipText?: string;
 }
 
 export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
@@ -30,6 +31,7 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   buttonStyle = 'default',
   IconSVG,
   topBorder,
+  tooltipText,
   ...rest
 }) => {
   const ref = useRef<HTMLButtonElement>(null);
@@ -51,26 +53,33 @@ export const DropdownMenuItem: React.FC<DropdownMenuItemProps> = ({
   }
 
   return (
-    <button
-      ref={ref}
-      data-testid="DropdownMenuItem__button"
-      role="menuitem"
-      type="button"
-      className={classes}
-      onClick={(e) => handleClick(e)}
-      onKeyDown={handleKeyDown}
-      tabIndex={-1}
-      {...rest}
+    <Tooltip
+      tooltipText={tooltipText}
+      disabled={!tooltipText}
+      allowedPlacements={['left-start', 'right-end']}
+      noSpanWrapper
     >
-      <Group spacing={IconSVG && 8} align="center">
-        {IconSVG && (
-          <Icon small color={buttonStyle !== 'tertiary' ? 'black' : 'white'}>
-            <IconSVG />
-          </Icon>
-        )}
-        {children}
-      </Group>
-    </button>
+      <button
+        ref={ref}
+        data-testid="DropdownMenuItem__button"
+        role="menuitem"
+        type="button"
+        className={classes}
+        onClick={(e) => handleClick(e)}
+        onKeyDown={handleKeyDown}
+        tabIndex={-1}
+        {...rest}
+      >
+        <Group spacing={IconSVG && 8} align="center">
+          {IconSVG && (
+            <Icon small color={buttonStyle !== 'tertiary' ? 'black' : 'white'}>
+              <IconSVG />
+            </Icon>
+          )}
+          {children}
+        </Group>
+      </button>
+    </Tooltip>
   );
 };
 

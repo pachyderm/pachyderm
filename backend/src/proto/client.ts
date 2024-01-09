@@ -1,13 +1,8 @@
 import {Metadata} from '@grpc/grpc-js';
 
 import {GRPCPlugin, ServiceDefinition} from './lib/types';
-import adminServiceRpcHandler from './services/admin';
 import authServiceRpcHandler from './services/auth';
-import enterpriseServiceRpcHandler from './services/enterprise';
-import licenseServiceRpcHandler from './services/license';
 import pfsServiceRpcHandler from './services/pfs';
-import ppsServiceRpcHandler from './services/pps';
-import versionServiceRpcHandler from './services/version';
 
 interface ClientArgs {
   authToken?: string;
@@ -77,12 +72,7 @@ const apiClientRequestWrapper = ({
 
   const enrichedServices = {
     pfs: pfsServiceRpcHandler({credentialMetadata, plugins}),
-    pps: ppsServiceRpcHandler({credentialMetadata}),
     auth: authServiceRpcHandler({credentialMetadata}),
-    admin: adminServiceRpcHandler({credentialMetadata}),
-    version: versionServiceRpcHandler(),
-    enterprise: enterpriseServiceRpcHandler({credentialMetadata}),
-    license: licenseServiceRpcHandler({credentialMetadata}),
   };
   bindPluginsToServices(enrichedServices, plugins);
 

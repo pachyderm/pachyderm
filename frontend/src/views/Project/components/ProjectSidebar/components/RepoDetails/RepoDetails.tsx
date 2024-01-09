@@ -10,9 +10,10 @@ import ExpandableText from '@dash-frontend/components/ExpandableText';
 import GlobalIdCopy from '@dash-frontend/components/GlobalIdCopy';
 import RepoRolesModal from '@dash-frontend/components/RepoRolesModal';
 import {PipelineLink} from '@dash-frontend/components/ResourceLink';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {InputOutputNodesMap} from '@dash-frontend/lib/types';
 import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {fileUploadRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   SkeletonDisplayText,
   CaptionTextSmall,
@@ -20,10 +21,12 @@ import {
   useModal,
   Group,
   Button,
+  Link,
+  Icon,
+  UploadSVG,
 } from '@pachyderm/components';
 
 import Title from '../Title';
-import UploadFilesButton from '../UploadFilesButton';
 
 import CommitDetails from './components/CommitDetails';
 import CommitList from './components/CommitList';
@@ -44,9 +47,10 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
     diffLoading,
     projectId,
     repoId,
-    editRolesPermission,
+    hasRepoEditRoles,
     getPathToFileBrowser,
-    repoReadPermission,
+    hasRepoRead,
+    hasRepoWrite,
     globalId,
   } = useRepoDetails();
   const {
@@ -57,12 +61,12 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
 
   const pipelineOutputs = useMemo(() => {
     const repoNodeName = objectHash({
-      project: repo?.projectId,
-      name: repo?.name,
+      project: repo?.repo?.project?.name,
+      name: repo?.repo?.name,
     });
 
     return pipelineOutputsMap[repoNodeName] || [];
-  }, [pipelineOutputsMap, repo?.name, repo?.projectId]);
+  }, [pipelineOutputsMap, repo?.repo?.name, repo?.repo?.project?.name]);
 
   if (!currentRepoLoading && repoError) {
     return (
@@ -85,19 +89,19 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         {currentRepoLoading ? (
           <SkeletonDisplayText data-testid="RepoDetails__repoNameSkeleton" />
         ) : (
-          <Title>{repo?.name}</Title>
+          <Title>{repo?.repo?.name}</Title>
         )}
         {repo?.description && (
           <div className={styles.description}>{repo?.description}</div>
         )}
         <Switch>
           <Route path={LINEAGE_REPO_PATH} exact>
-            {repo?.authInfo?.rolesList && (
+            {repo?.authInfo?.roles && (
               <Description loading={currentRepoLoading} term="Your Roles">
                 <Group spacing={8}>
-                  {repo?.authInfo?.rolesList.join(', ') || 'None'}
+                  {repo?.authInfo?.roles.join(', ') || 'None'}
                   <ButtonLink onClick={openRolesModal}>
-                    {editRolesPermission ? 'Set Roles' : 'See All Roles'}
+                    {hasRepoEditRoles ? 'Set Roles' : 'See All Roles'}
                   </ButtonLink>
                 </Group>
               </Description>
@@ -116,7 +120,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
           term="Repo Created"
           error={repoError}
         >
-          {repo ? getStandardDate(repo.createdAt) : 'N/A'}
+          {repo ? getStandardDateFromISOString(repo.created) : 'N/A'}
         </Description>
         <Switch>
           <Route path={LINEAGE_REPO_PATH} exact>
@@ -129,7 +133,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                     : 'Global ID Commit Start'
                 }`}
               >
-                {commit ? getStandardDate(commit.started) : 'N/A'}
+                {commit ? getStandardDateFromISOString(commit.started) : 'N/A'}
               </Description>
             )}
             {(currentRepoLoading || commit) && commit?.description && (
@@ -149,17 +153,17 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 loading={currentRepoLoading}
                 term={!globalId ? 'Most Recent Commit ID' : 'Global ID'}
               >
-                {commit ? <GlobalIdCopy id={commit.id} /> : 'N/A'}
+                {commit ? <GlobalIdCopy id={commit.commit?.id || ''} /> : 'N/A'}
               </Description>
             )}
 
-            {repo?.authInfo?.rolesList && rolesModalOpen && (
+            {repo?.authInfo?.roles && rolesModalOpen && (
               <RepoRolesModal
                 show={rolesModalOpen}
                 onHide={closeRolesModal}
                 projectName={projectId}
                 repoName={repoId}
-                readOnly={!editRolesPermission}
+                readOnly={!hasRepoEditRoles}
               />
             )}
           </Route>
@@ -175,8 +179,8 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
       </div>
 
       {!currentRepoLoading &&
-        repoReadPermission &&
-        (!commit || repo?.branches.length === 0) && (
+        hasRepoRead &&
+        (!commit || repo?.branches?.length === 0) && (
           <>
             <EmptyState
               title={<>This repo doesn&apos;t have any data</>}
@@ -191,10 +195,20 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                 pathWithoutDomain: '/prepare-data/ingest-data/',
               }}
             />
-            <UploadFilesButton link />
+            {hasRepoWrite && (
+              <Link
+                className={styles.link}
+                to={fileUploadRoute({projectId, repoId})}
+              >
+                Upload files
+                <Icon small color="inherit">
+                  <UploadSVG className={styles.linkIcon} />
+                </Icon>
+              </Link>
+            )}
           </>
         )}
-      {!currentRepoLoading && !repoReadPermission && (
+      {!currentRepoLoading && !hasRepoRead && (
         <EmptyState
           title={<>{`You don't have permission to view this repo`}</>}
           noAccess
@@ -211,7 +225,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         />
       )}
 
-      {commit?.id && (
+      {commit?.commit?.id && (
         <>
           <CaptionTextSmall className={styles.commitDetailsLabel}>
             <Switch>
@@ -223,8 +237,8 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                     to={getPathToFileBrowser({
                       projectId,
                       repoId,
-                      commitId: commit.id,
-                      branchId: commit.branch?.name || '',
+                      commitId: commit.commit.id,
+                      branchId: commit.commit.branch?.name || '',
                     })}
                     disabled={!commit}
                     aria-label="Inspect Commit"
@@ -239,8 +253,7 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
           <CommitDetails
             commit={commit}
             diffLoading={diffLoading}
-            commitDiff={commitDiff?.commitDiff}
-            repo={repo}
+            commitDiff={commitDiff?.diff}
           />
         </>
       )}

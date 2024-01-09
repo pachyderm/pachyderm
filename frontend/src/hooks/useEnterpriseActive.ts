@@ -1,16 +1,19 @@
-import {EnterpriseState} from '@graphqlTypes';
+import {State} from '@dash-frontend/api/enterprise';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
 
-import {useGetEnterpriseInfoQuery} from '@dash-frontend/generated/hooks';
-
+import {useEnterpriseState} from './useEnterpriseState';
 import useLoggedIn from './useLoggedIn';
 
 export const useEnterpriseActive = (disableCheck = false) => {
   const {loggedIn} = useLoggedIn();
-  const {data, loading} = useGetEnterpriseInfoQuery({
-    skip: disableCheck || !loggedIn,
+  const {enterpriseState, error, loading} = useEnterpriseState({
+    enabled: !disableCheck || loggedIn,
   });
-  const enterpriseActive =
-    data?.enterpriseInfo.state === EnterpriseState.ACTIVE;
+  const enterpriseActive = enterpriseState?.state === State.ACTIVE;
 
-  return {loading, enterpriseActive};
+  return {
+    enterpriseActive,
+    error: getErrorMessage(error),
+    loading,
+  };
 };

@@ -1,18 +1,20 @@
-import {PipelineType, mockPipelineQuery} from '@graphqlTypes';
 import {
   render,
   within,
   screen,
   waitForElementToBeRemoved,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  buildPipeline,
-  mockEmptyGetAuthorize,
-  mockGetMontagePipeline,
-} from '@dash-frontend/mocks';
+  InspectPipelineRequest,
+  PipelineInfo,
+  PipelineInfoPipelineType,
+} from '@dash-frontend/api/pps';
+import {buildPipeline, mockGetMontagePipeline} from '@dash-frontend/mocks';
 import {withContextProviders} from '@dash-frontend/testHelpers';
 
 import PipelineInfoComponent from '../PipelineInfo';
@@ -24,7 +26,10 @@ describe('PipelineInfo', () => {
 
   beforeAll(() => {
     server.listen();
-    server.use(mockEmptyGetAuthorize());
+  });
+
+  beforeEach(() => {
+    server.resetHandlers();
     server.use(mockGetMontagePipeline());
   });
 
@@ -89,25 +94,64 @@ describe('PipelineInfo', () => {
     );
 
     server.use(
-      mockPipelineQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            pipeline: buildPipeline({
-              s3OutputRepo: 'http://an/internet/link',
-              type: PipelineType.STANDARD,
-              egress: true,
-            }),
-          }),
-        );
-      }),
+      rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+        '/api/pps_v2.API/InspectPipeline',
+        (req, res, ctx) => {
+          return res(
+            ctx.json(
+              buildPipeline({
+                details: {
+                  s3Out: true,
+                },
+                type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
+              }),
+            ),
+          );
+        },
+      ),
     );
 
     render(<PipelineInfo />);
 
-    expect(await screen.findByLabelText('Egress')).toHaveTextContent('Yes');
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+    expect(await screen.findByLabelText('Egress')).toHaveTextContent('No');
     expect(screen.getByLabelText('S3 Output Repo')).toHaveTextContent(
-      `http://an/internet/link`,
+      `s3://default`,
     );
+  });
+
+  it('shows an egress when an egress object is present', async () => {
+    window.history.replaceState(
+      '',
+      '',
+      `/lineage/default/pipelines/doesnt-matter`,
+    );
+
+    server.use(
+      rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+        '/api/pps_v2.API/InspectPipeline',
+        (req, res, ctx) => {
+          return res(
+            ctx.json(
+              buildPipeline({
+                details: {
+                  egress: {uRL: 'foobar'},
+                },
+                type: PipelineInfoPipelineType.PIPELINE_TYPE_TRANSFORM,
+              }),
+            ),
+          );
+        },
+      ),
+    );
+
+    render(<PipelineInfo />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+    expect(await screen.findByLabelText('Egress')).toHaveTextContent('Yes');
+    expect(screen.getByLabelText('S3 Output Repo')).toHaveTextContent('N/A');
   });
 
   it('hides items for a service pipeline', async () => {
@@ -118,20 +162,24 @@ describe('PipelineInfo', () => {
     );
 
     server.use(
-      mockPipelineQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            pipeline: buildPipeline({
-              name: 'service-pipeline',
-              s3OutputRepo: 'http://an/internet/link',
-              type: PipelineType.SERVICE,
-            }),
-          }),
-        );
-      }),
+      rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+        '/api/pps_v2.API/InspectPipeline',
+        (req, res, ctx) => {
+          return res(
+            ctx.json(
+              buildPipeline({
+                type: PipelineInfoPipelineType.PIPELINE_TYPE_SERVICE,
+                details: {outputBranch: 'master'},
+              }),
+            ),
+          );
+        },
+      ),
     );
 
     render(<PipelineInfo />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     expect(await screen.findByLabelText('Output Repo')).toHaveTextContent(
       'service-pipeline',
@@ -153,18 +201,24 @@ describe('PipelineInfo', () => {
     );
 
     server.use(
-      mockPipelineQuery((_req, res, ctx) => {
-        return res(
-          ctx.data({
-            pipeline: buildPipeline({
-              name: 'spout-pipeline',
-              type: PipelineType.SPOUT,
-            }),
-          }),
-        );
-      }),
+      rest.post<InspectPipelineRequest, Empty, PipelineInfo>(
+        '/api/pps_v2.API/InspectPipeline',
+        (req, res, ctx) => {
+          return res(
+            ctx.json(
+              buildPipeline({
+                details: {outputBranch: 'master'},
+                type: PipelineInfoPipelineType.PIPELINE_TYPE_SPOUT,
+              }),
+            ),
+          );
+        },
+      ),
     );
+
     render(<PipelineInfo />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     expect(await screen.findByLabelText('Output Repo')).toHaveTextContent(
       'spout-pipeline',

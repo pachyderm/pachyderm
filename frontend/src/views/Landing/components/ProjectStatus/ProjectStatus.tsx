@@ -1,7 +1,7 @@
-import {ProjectStatus as ProjectStatusEnum} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {ProjectStatus as ProjectStatusEnum} from '@dash-frontend/api/pfs';
 import {Group, Circle} from '@pachyderm/components';
 
 type ProjectStatusType = {

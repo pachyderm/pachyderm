@@ -1,4 +1,10 @@
-import {formatDistanceToNowStrict, fromUnixTime, format} from 'date-fns';
+import {
+  formatDistanceToNowStrict,
+  fromUnixTime,
+  format,
+  parseISO,
+  formatISO,
+} from 'date-fns';
 
 export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; H:mm';
 
@@ -14,6 +20,7 @@ export const getDurationToNow = (unixSeconds: number, addSuffix = false) => {
 // ex: 1 day 6 h 13 mins, 6 h 13 mins 35s
 export const formatDurationFromSeconds = (seconds?: number) => {
   if (!seconds && seconds !== 0) return 'N/A';
+  if (seconds > 0 && seconds < 1) return seconds.toFixed(4) + ' s';
 
   let secondsLeft = seconds;
   let formatString = '';
@@ -38,7 +45,7 @@ export const formatDurationFromSeconds = (seconds?: number) => {
 
   // only show seconds if the value is smaller than 1 hour
   if (seconds < SECONDS_IN_HOUR) {
-    formatString += `${secondsLeft} s`;
+    formatString += `${secondsLeft.toFixed(0)} s`;
   }
 
   return formatString.trim();
@@ -51,8 +58,58 @@ export const formatDurationFromSecondsToNow = (pastTimeSeconds: number) => {
   return formatDurationFromSeconds(unixNow - pastTimeSeconds);
 };
 
-// Mar 20, 2023; 13:49
-export const getStandardDate = (unixSeconds: number) => {
-  if (unixSeconds === -1) return '-';
+/**
+ * Converts from unix seconds to our display format.
+ *
+ * Example:
+ * 1690221506 => Mar 20, 2023; 13:49
+ */
+export const getStandardDateFromUnixSeconds = (unixSeconds: number) => {
+  if (unixSeconds === -1) return 'N/A';
+
   return format(fromUnixTime(unixSeconds), STANDARD_DATE_FORMAT);
+};
+
+/**
+ * Converts from unix seconds to ISO
+ *
+ * Example:
+ * 1690221506 => 2023-09-27T08:20:55.707925Z
+ **/
+export const getISOStringFromUnix = (unixSeconds: number) => {
+  if (unixSeconds === -1) return undefined;
+
+  return formatISO(fromUnixTime(unixSeconds));
+};
+
+/**
+ * Converts ISO string to our display format.
+ *
+ * Example:
+ * 2023-09-27T08:20:55.707925Z => Sep 09, 2023; 4:20
+ **/
+export const getStandardDateFromISOString = (date?: string) => {
+  if (!date) return 'N/A';
+
+  return format(parseISO(date), STANDARD_DATE_FORMAT);
+};
+
+/**
+ * Converts ISO string to unix seconds
+ *
+ * Examples:
+ *
+ * 2023-09-27T08:20:55Z        => 1695802855
+ *
+ * 2023-09-27T08:20:55.707925Z => 1695802855
+ */
+export const getUnixSecondsFromISOString = (date?: string) => {
+  return date ? Math.floor(parseISO(date).getTime() / 1000) : 0;
+};
+
+export const getDurationToNowFromISOString = (
+  date: string,
+  addSuffix = false,
+) => {
+  return formatDistanceToNowStrict(parseISO(date), {addSuffix});
 };

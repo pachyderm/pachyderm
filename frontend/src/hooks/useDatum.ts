@@ -1,19 +1,31 @@
-import {QueryFunctionOptions} from '@apollo/client';
-import {DatumQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {useDatumQuery} from '@dash-frontend/generated/hooks';
+import {InspectDatumRequest, inspectDatum} from '@dash-frontend/api/pps';
+import {isErrorWithMessage, isUnknown} from '@dash-frontend/api/utils/error';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useDatum = (args: DatumQueryArgs, opts?: QueryFunctionOptions) => {
-  const {data, error, loading} = useDatumQuery({
-    variables: {args},
-    skip: opts?.skip,
+export const useDatum = (req: InspectDatumRequest, enabled = true) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.datum({
+      projectId: req.datum?.job?.pipeline?.project?.name,
+      pipelineId: req.datum?.job?.pipeline?.name,
+      jobId: req.datum?.job?.id,
+      datumId: req.datum?.id,
+    }),
+    throwOnError: (e) =>
+      !(
+        isUnknown(e) &&
+        isErrorWithMessage(e) &&
+        e?.message.includes('not found in job')
+      ),
+    queryFn: () => inspectDatum(req),
+    enabled,
   });
 
-  return {
-    error,
-    datum: data?.datum,
-    loading,
-  };
+  return {datum: data, loading, error: getErrorMessage(error)};
 };
-
-export default useDatum;

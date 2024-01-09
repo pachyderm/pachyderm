@@ -1,36 +1,21 @@
-import {FileCommitState} from '@graphqlTypes';
 import classnames from 'classnames';
-import capitalize from 'lodash/capitalize';
 import range from 'lodash/range';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
 import {
   Button,
   CaptionTextSmall,
-  Link,
-  CaptionText,
   SkeletonDisplayText,
 } from '@pachyderm/components';
 
+import FileHistoryItem from './components/FileHistoryItem';
 import styles from './FileHistory.module.css';
 import useFileHistory from './hooks/useFileHistory';
 
 const FileHistory: React.FC = () => {
-  const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
-
-  const {
-    findCommits,
-    loading,
-    commitList,
-    getPathToFileBrowser,
-    dateRange,
-    disableSearch,
-    lazyQueryArgs,
-    error,
-  } = useFileHistory();
+  const {findCommits, loading, commitList, dateRange, disableSearch, error} =
+    useFileHistory();
 
   if (error) {
     return (
@@ -49,45 +34,7 @@ const FileHistory: React.FC = () => {
       <CaptionTextSmall>File Versions</CaptionTextSmall>
       <div className={styles.list} data-testid="FileHistory__commitList">
         {commitList?.map((commit) => (
-          <Link
-            key={commit.id}
-            className={classnames(styles.listItem, styles.link, {
-              [styles.selected]: commit.id === commitId,
-            })}
-            to={
-              commit.commitAction !== FileCommitState.DELETED
-                ? getPathToFileBrowser({
-                    projectId,
-                    repoId: repoId,
-                    commitId: commit.id,
-                    branchId,
-                    filePath,
-                  })
-                : undefined
-            }
-          >
-            <div className={styles.dateAndIdWrapper}>
-              <div className={styles.dateAndStatus}>
-                <span>{getStandardDate(commit.started)}</span>
-                <CaptionTextSmall
-                  className={classnames({
-                    [styles.deleted]:
-                      commit.commitAction === FileCommitState.DELETED,
-                  })}
-                >
-                  {capitalize(commit.commitAction || '-')}
-                </CaptionTextSmall>
-              </div>
-              <div className={styles.textWrapper}>
-                <CaptionText className={styles.commitId}>
-                  {commit.id}
-                </CaptionText>
-              </div>
-            </div>
-            {commit.description && (
-              <div className={styles.description}>{commit.description}</div>
-            )}
-          </Link>
+          <FileHistoryItem key={commit.commit?.id} commit={commit} />
         ))}
 
         {loading && (
@@ -125,7 +72,7 @@ const FileHistory: React.FC = () => {
             disabled={disableSearch}
             buttonType="secondary"
             className={styles.button}
-            onClick={() => findCommits(lazyQueryArgs)}
+            onClick={() => findCommits()}
           >
             Load older file versions
           </Button>

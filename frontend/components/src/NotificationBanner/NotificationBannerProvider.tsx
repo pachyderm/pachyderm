@@ -23,7 +23,7 @@ const NotificationBannerProvider = ({
     (
       content: React.ReactNode,
       type: Notification['type'] = 'success',
-      duration = 3000,
+      duration = 6000,
     ) => {
       const id = uniqueId();
       setNotifications([...notifications, {id, content, duration, type}]);

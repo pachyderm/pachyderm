@@ -1,13 +1,14 @@
-import {render, screen} from '@testing-library/react';
+import {render, screen, waitFor} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Permission} from '@dash-frontend/api/auth';
 import {
+  mockRepos,
   mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockTrueGetAuthorize,
   mockGetVersionInfo,
-  mockRepos,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
@@ -74,6 +75,18 @@ describe('project sidenav', () => {
 
       expect(window.location.pathname).toBe('/lineage/default/create/pipeline');
     });
+
+    it('project defaults should route users to pipeline creation', async () => {
+      render(<ProjectSideNav />);
+
+      await click(
+        screen.getByRole('link', {
+          name: /project defaults/i,
+        }),
+      );
+
+      expect(window.location.pathname).toBe('/project/default/defaults');
+    });
   });
 
   describe('Create Permissions', () => {
@@ -83,14 +96,28 @@ describe('project sidenav', () => {
       expect(
         await screen.findByRole('button', {name: /create/i}),
       ).toBeEnabled();
+
+      expect(
+        screen.getByRole('link', {name: /project defaults/i}),
+      ).toBeEnabled();
     });
 
     it('appears as a project writer', async () => {
-      server.use(mockTrueGetAuthorize());
+      server.use(
+        mockTrueGetAuthorize([
+          Permission.PROJECT_MODIFY_BINDINGS,
+          Permission.PROJECT_CREATE_REPO,
+          Permission.PROJECT_SET_DEFAULTS,
+        ]),
+      );
       render(<ProjectSideNav />);
 
       expect(
         await screen.findByRole('button', {name: /create/i}),
+      ).toBeEnabled();
+
+      expect(
+        screen.getByRole('link', {name: /project defaults/i}),
       ).toBeEnabled();
     });
 
@@ -98,10 +125,19 @@ describe('project sidenav', () => {
       server.use(mockFalseGetAuthorize());
       render(<ProjectSideNav />);
 
-      expect(await screen.findByText('DAG')).toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.getByRole('navigation')).toHaveAttribute(
+          'aria-busy',
+          'false',
+        ),
+      );
 
       expect(
         screen.queryByRole('button', {name: /create/i}),
+      ).not.toBeInTheDocument();
+
+      expect(
+        screen.queryByRole('link', {name: /project defaults/i}),
       ).not.toBeInTheDocument();
     });
   });

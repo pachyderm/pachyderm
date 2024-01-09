@@ -1,49 +1,87 @@
-import {FileQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {useGetFilesQuery} from '@dash-frontend/generated/hooks';
+import {listFilesPaged} from '@dash-frontend/api/pfs';
+import {isUnknown} from '@dash-frontend/api/utils/error';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
 type UseFilesArgs = {
-  args: FileQueryArgs;
-  skip?: boolean;
+  number?: number;
+  reverse?: boolean;
+  cursorPath?: string;
 };
 
-export const useFiles = ({
-  args: {
-    projectId,
-    commitId = 'master',
-    path = '/',
-    repoName,
-    branchName,
-    limit,
-    cursorPath,
-    reverse,
-  },
-  skip,
-}: UseFilesArgs) => {
-  // TODO: This might be better as a lazy query with options
-  const {data, error, loading} = useGetFilesQuery({
-    variables: {
-      args: {
-        projectId,
-        commitId,
-        path,
-        repoName,
-        branchName,
-        limit,
-        cursorPath,
-        reverse,
-      },
+type UseFiles = {
+  projectName: string;
+  repoName: string;
+  branchName: string;
+  commitId?: string;
+  path?: string;
+  args: UseFilesArgs;
+};
+
+export const useFiles = (
+  {projectName, repoName, branchName, commitId, path, args}: UseFiles,
+  enabled = true,
+) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.files<UseFilesArgs>({
+      projectId: projectName,
+      repoId: repoName,
+      branchName,
+      commitId,
+      path,
+      args,
+    }),
+    enabled: enabled,
+    throwOnError: (e) => !isUnknown(e),
+    queryFn: () => {
+      return listFilesPaged({
+        file: {
+          commit: {
+            id: commitId,
+            branch: {
+              name: branchName,
+              repo: {
+                name: repoName,
+                type: 'user',
+                project: {
+                  name: projectName,
+                },
+              },
+            },
+          },
+          path: path,
+        },
+        paginationMarker: {
+          commit: {
+            id: commitId,
+            branch: {
+              name: branchName,
+              repo: {
+                name: repoName,
+                type: 'user',
+                project: {
+                  name: projectName,
+                },
+              },
+            },
+          },
+          path: args.cursorPath,
+        },
+        reverse: args.reverse,
+        number: args.number ? String(args.number) : undefined,
+      });
     },
-    skip,
   });
 
   return {
-    error,
-    files: data?.files,
+    ...data,
     loading,
-    hasNextPage: data?.files.hasNextPage,
-    cursor: data?.files.cursor,
+    error: getErrorMessage(error),
   };
 };
-
-export default useFiles;

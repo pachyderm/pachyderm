@@ -1,59 +1,69 @@
-import {FoundCommit} from '@graphqlTypes';
+import objectHash from 'object-hash';
 import {useEffect, useMemo, useState} from 'react';
 
-import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
-import useFindCommits from '@dash-frontend/hooks/useFindCommits';
+import {CommitInfo} from '@dash-frontend/api/pfs';
+import {useFindCommits} from '@dash-frontend/hooks/useFindCommits';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 
 const useFileHistory = () => {
   const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
-  const {getPathToFileBrowser} = useFileBrowserNavigation();
+  const [commitCursors, setCommitCursors] = useState<string[]>([]);
+  const [commitList, setCommitList] = useState<CommitInfo[]>([]);
 
-  const [hasCalledFind, setHasCalledFind] = useState(false);
-  const [commitList, setCommitList] = useState<FoundCommit[]>([]);
+  const req = useMemo(
+    () => ({
+      start: {
+        id:
+          commitCursors.length > 0
+            ? commitCursors[commitCursors.length - 1]
+            : commitId,
+        branch: {
+          name: branchId,
+          repo: {name: repoId, project: {name: projectId}, type: 'user'},
+        },
+      },
+      filePath: `/${filePath}`,
+    }),
+    [branchId, commitCursors, commitId, filePath, projectId, repoId],
+  );
 
-  const {findCommits, commits, loading, hasNextPage, cursor, error} =
-    useFindCommits();
+  const {findCommits, commits, cursor, loading, error} = useFindCommits(req);
 
   useEffect(() => {
     if (commits && !loading) {
-      setHasCalledFind(true);
-      setCommitList((prev) => [...prev, ...commits]);
+      setCommitList((prev) => ({...prev, [objectHash(req)]: commits}));
+      if (cursor && !commitCursors.includes(cursor))
+        setCommitCursors((commitCursors) => [...commitCursors, cursor]);
     }
-  }, [commits, loading]);
+  }, [cursor, commits, loading, req, commitCursors]);
 
-  const lazyQueryArgs = {
-    variables: {
-      args: {
-        projectId,
-        repoId,
-        filePath: `/${filePath}`,
-        commitId: cursor ? cursor : commitId,
-        branchId,
-      },
-    },
-  };
+  const flatCommits = useMemo(
+    () => Object.values(commitList).flat(),
+    [commitList],
+  );
 
   const dateRange = useMemo(() => {
-    return commitList.length !== 0
-      ? `${getStandardDate(commitList[0]?.started)} - ${
-          commitList &&
-          getStandardDate(commitList[commitList.length - 1]?.started)
+    return flatCommits.length !== 0
+      ? `${getStandardDateFromISOString(flatCommits[0]?.started)} - ${
+          flatCommits &&
+          getStandardDateFromISOString(
+            flatCommits[flatCommits.length - 1]?.started,
+          )
         }`
       : null;
-  }, [commitList]);
+  }, [flatCommits]);
 
-  const disableSearch = !hasCalledFind ? false : !hasNextPage;
+  // disable search if we have loaded all the pages possible and the last request did return a cursor
+  const disableSearch =
+    Object.values(commitList).length >= commitCursors.length + 1;
 
   return {
     findCommits,
     loading,
-    commitList,
-    getPathToFileBrowser,
+    commitList: flatCommits,
     dateRange,
     disableSearch,
-    lazyQueryArgs,
     error,
   };
 };

@@ -1,21 +1,26 @@
-import {mockCommitSearchQuery, mockGetCommitsQuery} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {Empty} from '@dash-frontend/api/googleTypes';
 import {
-  COMMIT_4A,
-  COMMIT_C4,
+  CommitInfo,
+  InspectCommitRequest,
+  ListCommitRequest,
+} from '@dash-frontend/api/pfs';
+import {RequestError} from '@dash-frontend/api/utils/error';
+import {getStandardDateFromUnixSeconds} from '@dash-frontend/lib/dateTime';
+import {
+  COMMIT_INFO_4A,
+  COMMIT_INFO_C4,
   generatePagingCommits,
-  mockEmptyGetAuthorize,
+  mockGetEnterpriseInfoInactive,
   mockGetImageCommits,
-  mockGetVersionInfo,
-} from '@dash-frontend/mocks';
-import {
   mockGetBranches,
   mockGetBranchesMasterOnly,
-} from '@dash-frontend/mocks/branches';
+  mockGetVersionInfo,
+} from '@dash-frontend/mocks';
 import {click, type, withContextProviders} from '@dash-frontend/testHelpers';
 
 import {default as LeftPanelComponent} from '../LeftPanel';
@@ -31,10 +36,10 @@ describe('Left Panel', () => {
 
   beforeEach(() => {
     server.resetHandlers();
-    server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
     server.use(mockGetImageCommits());
     server.use(mockGetBranchesMasterOnly());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -43,13 +48,15 @@ describe('Left Panel', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4eb1aa567dab483f93a109db4641ee75',
+      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
     );
     render(<LeftPanel />);
     expect(
       (await screen.findAllByTestId('CommitList__listItem'))[0],
     ).toHaveTextContent(
-      `${getStandardDate(1690221505)}4eb1aa567dab483f93a109db4641ee75`,
+      `${getStandardDateFromUnixSeconds(
+        1690221505,
+      )}4a83c74809664f899261baccdb47cd90`,
     );
   });
 
@@ -82,12 +89,24 @@ describe('Left Panel', () => {
     );
 
     server.use(
-      mockCommitSearchQuery((req, res, ctx) => {
-        if (req.variables.args.id === '4a83c74809664f899261baccdb47cd90') {
-          return res(ctx.data({commitSearch: COMMIT_4A}));
-        }
-        return res(ctx.data({commitSearch: null}));
-      }),
+      rest.post<InspectCommitRequest, Empty, CommitInfo | RequestError>(
+        '/api/pfs_v2.API/InspectCommit',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.commit.id === '4a83c74809664f899261baccdb47cd90') {
+            return res(ctx.json(COMMIT_INFO_4A));
+          }
+
+          return res(
+            ctx.status(404),
+            ctx.json({
+              code: 5,
+              message: 'not found',
+              details: [],
+            }),
+          );
+        },
+      ),
     );
 
     render(<LeftPanel />);
@@ -120,20 +139,16 @@ describe('Left Panel', () => {
   it('should allow users to switch branches', async () => {
     server.use(mockGetBranches());
     server.use(
-      mockGetCommitsQuery((req, res, ctx) => {
-        if (req.variables.args.branchName === 'master') {
-          return res(
-            ctx.data({
-              commits: {items: [COMMIT_4A], cursor: null, parentCommit: null},
-            }),
-          );
-        }
-        return res(
-          ctx.data({
-            commits: {items: [COMMIT_C4], cursor: null, parentCommit: null},
-          }),
-        );
-      }),
+      rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+        '/api/pfs_v2.API/ListCommit',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          if (body.to.branch.name === 'master') {
+            return res(ctx.json([COMMIT_INFO_4A]));
+          }
+          return res(ctx.json([COMMIT_INFO_C4]));
+        },
+      ),
     );
 
     window.history.replaceState(
@@ -166,54 +181,27 @@ describe('Left Panel', () => {
   it('should allow a user to page through the commit list', async () => {
     const commits = generatePagingCommits({n: 100});
     server.use(
-      mockGetCommitsQuery((req, res, ctx) => {
-        const {commitIdCursor, number} = req.variables.args;
-        if (number === 50 && !commitIdCursor) {
-          return res(
-            ctx.data({
-              commits: {
-                items: commits.slice(0, 50),
-                cursor: null,
-                parentCommit: commits[50].id,
-              },
-            }),
-          );
-        }
+      rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+        '/api/pfs_v2.API/ListCommit',
+        async (req, res, ctx) => {
+          const body = await req.json();
+          const {number, to} = body;
 
-        if (number === 50 && commitIdCursor === commits[50].id) {
-          return res(
-            ctx.data({
-              commits: {
-                items: commits.slice(50, 100),
-                cursor: null,
-                parentCommit: null,
-              },
-            }),
-          );
-        }
+          if (Number(number) === 51 && !to.id) {
+            return res(ctx.json(commits.slice(0, 51)));
+          }
 
-        if (number === 50 && !commitIdCursor) {
-          return res(
-            ctx.data({
-              commits: {
-                items: commits,
-                cursor: null,
-                parentCommit: null,
-              },
-            }),
-          );
-        }
+          if (Number(number) === 51 && to.id === commits[50].commit?.id) {
+            return res(ctx.json(commits.slice(50, 100)));
+          }
 
-        return res(
-          ctx.data({
-            commits: {
-              items: commits,
-              cursor: null,
-              parentCommit: null,
-            },
-          }),
-        );
-      }),
+          if (Number(number) === 51 && !to.id) {
+            return res(ctx.json(commits));
+          }
+
+          return res(ctx.json(commits));
+        },
+      ),
     );
 
     window.history.replaceState(
@@ -228,13 +216,17 @@ describe('Left Panel', () => {
     expect(backwards).toBeDisabled();
     expect(forwards).toBeEnabled();
     let foundCommits = await screen.findAllByTestId('CommitList__listItem');
-    expect(foundCommits[0]).toHaveTextContent(commits[0].id);
-    expect(foundCommits[49]).toHaveTextContent(commits[49].id);
+    expect(foundCommits[0]).toHaveTextContent(commits[0].commit?.id || 'FAIL');
+    expect(foundCommits[49]).toHaveTextContent(
+      commits[49].commit?.id || 'FAIL',
+    );
     await click(forwards);
     expect(await screen.findByText('Commits 51 - 100')).toBeInTheDocument();
     foundCommits = await screen.findAllByTestId('CommitList__listItem');
-    expect(foundCommits[0]).toHaveTextContent(commits[50].id);
-    expect(foundCommits[49]).toHaveTextContent(commits[99].id);
+    expect(foundCommits[0]).toHaveTextContent(commits[50].commit?.id || 'FAIL');
+    expect(foundCommits[49]).toHaveTextContent(
+      commits[99].commit?.id || 'FAIL',
+    );
     expect(backwards).toBeEnabled();
     expect(forwards).toBeDisabled();
   });

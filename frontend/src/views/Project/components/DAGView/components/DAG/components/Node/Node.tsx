@@ -1,10 +1,13 @@
-import {NodeState, NodeType} from '@graphqlTypes';
 import classNames from 'classnames';
 import React, {SVGProps} from 'react';
 
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
-import {Node as GraphQLNode} from '@dash-frontend/lib/types';
+import {
+  NodeState,
+  NodeType,
+  Node as GraphQLNode,
+} from '@dash-frontend/lib/types';
 import {
   NODE_INPUT_REPO,
   NODE_HEIGHT,
@@ -39,7 +42,7 @@ const NodeStateIcon = ({state, ...rest}: NodeIconProps) => {
     case NodeState.BUSY:
       return <SpinnerSVG {...rest} />;
     case NodeState.PAUSED:
-      return <StatusPausedSVG {...rest} />;
+      return <StatusPausedSVG color="var(--pachyderm-yellow)" {...rest} />;
     case NodeState.IDLE:
     case NodeState.SUCCESS:
       return <StatusCheckmarkSVG color="var(--icon-green)" {...rest} />;

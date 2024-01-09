@@ -8,7 +8,8 @@ import {
   TableViewPaginationWrapper,
   TableViewWrapper,
 } from '@dash-frontend/components/TableView';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
+import formatBytes from '@dash-frontend/lib/formatBytes';
 import {Table, Form, Pager} from '@pachyderm/components';
 
 import useCommitsList, {
@@ -83,23 +84,28 @@ const CommitsList: React.FC<CommitsListProps> = ({
                 </Table.Row>
               </Table.Head>
               <Table.Body>
-                {commits.map((commit) => (
+                {commits?.map((commit) => (
                   <Table.Row
-                    key={`${commit.id}-${commit.repoName}`}
+                    key={`${commit.commit?.id}-${commit?.commit?.repo?.name}`}
                     data-testid="CommitsList__row"
                     overflowMenuItems={iconItems}
                     dropdownOnSelect={onOverflowMenuSelect(commit)}
                   >
-                    <Table.DataCell>{`@${commit.repoName}`}</Table.DataCell>
+                    <Table.DataCell>{`@${commit.commit?.repo?.name}`}</Table.DataCell>
                     <Table.DataCell width={210}>
-                      {getStandardDate(commit?.finished)}
+                      {getStandardDateFromISOString(commit?.finished)}
                     </Table.DataCell>
-                    <Table.DataCell width={330}>{commit?.id}</Table.DataCell>
+                    <Table.DataCell width={330}>
+                      {commit?.commit?.id}
+                    </Table.DataCell>
                     <Table.DataCell>
-                      {commit?.branch?.name || '-'}
+                      {commit?.commit?.branch?.name || '-'}
                     </Table.DataCell>
                     <Table.DataCell width={120}>
-                      {commit.sizeDisplay}
+                      {formatBytes(
+                        commit?.details?.sizeBytes ??
+                          commit?.sizeBytesUpperBound,
+                      )}
                     </Table.DataCell>
                     <Table.DataCell>{commit.description}</Table.DataCell>
                   </Table.Row>
@@ -110,6 +116,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
         )}
       </Form>
       {!loading &&
+        commits &&
         commits?.length > 0 &&
         (hasNextPage || cursors.length > 1) && (
           <TableViewPaginationWrapper>

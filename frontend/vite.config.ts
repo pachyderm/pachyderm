@@ -56,7 +56,13 @@ export default defineConfig({
         target: 'http://localhost:80',
         changeOrigin: true,
       },
+
+      '/api': 'http://localhost:80',
+      '/auth': 'http://localhost:3000',
+      '/encode': 'http://localhost:3000',
+      '/proxyForward': 'http://localhost:3000',
     },
+
     port: 4000,
   },
   // This changes the out put dir from dist to build

@@ -1,4 +1,5 @@
 import classnames from 'classnames';
+import merge from 'lodash/merge';
 import React from 'react';
 
 import CodePreview, {CodePreviewProps} from './CodePreview';
@@ -9,14 +10,26 @@ import {createEffectiveSpecDecorationMap} from './utils/createEffectiveSpecDecor
 type EffectiveSpecPreviewProps = {
   userSpecJSON: JSON | undefined;
   clusterDefaultsJSON?: JSON;
+  projectDefaultsJSON?: JSON;
 };
 
 const EffectiveSpecPreview: React.FC<
   Omit<CodePreviewProps, 'extension'> & EffectiveSpecPreviewProps
-> = ({userSpecJSON, clusterDefaultsJSON, className, ...rest}) => {
+> = ({
+  userSpecJSON,
+  clusterDefaultsJSON,
+  projectDefaultsJSON,
+  className,
+  ...rest
+}) => {
+  const mergedPipelineDefaults = merge(
+    clusterDefaultsJSON,
+    projectDefaultsJSON,
+  );
+
   const userOverrides = createEffectiveSpecDecorationMap(
     userSpecJSON as unknown as Record<string, unknown>,
-    clusterDefaultsJSON as unknown as Record<string, unknown>,
+    mergedPipelineDefaults as unknown as Record<string, unknown>,
   );
 
   return (

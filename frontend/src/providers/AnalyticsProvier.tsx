@@ -2,9 +2,9 @@ import * as Sentry from '@sentry/react';
 import React from 'react';
 import {identify, page, track} from 'rudder-sdk-js';
 
-import useAccount from '@dash-frontend/hooks/useAccount';
-import useAdminInfo from '@dash-frontend/hooks/useAdminInfo';
+import {useAccount} from '@dash-frontend/hooks/useAccount';
 import useAuth from '@dash-frontend/hooks/useAuth';
+import {useInspectCluster} from '@dash-frontend/hooks/useInspectCluster';
 import {getDisableTelemetry} from '@dash-frontend/lib/runtimeVariables';
 import {useAnalytics} from '@pachyderm/components';
 
@@ -20,13 +20,13 @@ const AnalyticsProvider = ({children}: {children?: React.ReactNode}) => {
 
 const AnalyticsProviderEnabled = ({children}: {children?: React.ReactNode}) => {
   const {loggedIn} = useAuth();
-  const {account} = useAccount({skip: !loggedIn});
-  const {clusterId} = useAdminInfo({skip: !loggedIn});
+  const {account} = useAccount(loggedIn);
+  const {cluster} = useInspectCluster(loggedIn);
   const analytics = useAnalytics({
     createdAt: Date.now(),
     email: account?.email,
     id: account?.id,
-    clusterId: clusterId || undefined,
+    clusterId: cluster?.id,
     provider: {
       identify,
       page,

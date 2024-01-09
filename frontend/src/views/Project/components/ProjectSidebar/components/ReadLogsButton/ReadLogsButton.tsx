@@ -1,11 +1,11 @@
 import React from 'react';
 
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import {useJob} from '@dash-frontend/hooks/useJob';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
+import {useJobOrJobs} from '@dash-frontend/hooks/useJobOrJobs';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {Button, PipelineSVG} from '@pachyderm/components';
+import {Button, NavigationHistorySVG} from '@pachyderm/components';
 
 interface ReadLogsButtonProps {
   omitIcon?: boolean;
@@ -17,17 +17,15 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
   const {isServiceOrSpout} = useCurrentPipeline();
   const {getPathToJobLogs, getPathToLatestJobLogs} = useLogsNavigation();
 
-  const buttonText = !isServiceOrSpout ? 'Inspect Jobs' : 'Read Logs';
+  const buttonText = !isServiceOrSpout ? 'Previous Subjobs' : 'Read Logs';
 
-  const {job} = useJob(
+  const {job} = useJobOrJobs(
     {
       projectId,
       pipelineName: pipelineId,
       id: searchParams.globalIdFilter,
     },
-    {
-      skip: !pipelineId,
-    },
+    !!pipelineId,
   );
 
   let logsLink = '';
@@ -37,19 +35,19 @@ const ReadLogsButton: React.FC<ReadLogsButtonProps> = ({omitIcon = false}) => {
       projectId,
       pipelineId: pipelineId,
     });
-  } else if (jobId || job?.id) {
+  } else if (jobId || job?.job?.id) {
     logsLink = getPathToJobLogs({
       projectId,
-      jobId: jobId || job?.id || '',
+      jobId: jobId || job?.job?.id || '',
       pipelineId: pipelineId,
     });
   }
 
   return (
     <Button
-      buttonType="secondary"
+      buttonType="primary"
       disabled={!logsLink}
-      IconSVG={!omitIcon ? PipelineSVG : undefined}
+      IconSVG={!omitIcon ? NavigationHistorySVG : undefined}
       to={logsLink}
       name={buttonText}
     >

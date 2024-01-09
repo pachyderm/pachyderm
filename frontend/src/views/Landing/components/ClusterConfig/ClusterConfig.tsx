@@ -2,6 +2,7 @@ import React from 'react';
 
 import CodeEditor from '@dash-frontend/components/CodeEditor';
 import CodeEditorInfoBar from '@dash-frontend/components/CodeEditorInfoBar';
+import ConfirmConfigModal from '@dash-frontend/components/ConfirmConfigModal';
 import View from '@dash-frontend/components/View';
 import {
   Group,
@@ -14,7 +15,6 @@ import {
 } from '@pachyderm/components';
 
 import styles from './ClusterConfig.module.css';
-import ConfirmConfigModal from './components/ConfirmConfigModal';
 import useClusterConfig from './hooks/useClusterConfig';
 
 type ClusterConfigProps = {
@@ -74,16 +74,16 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
             buttonType="primary"
             iconPosition="end"
             onClick={() =>
-              setClusterDefaultsMutation({
-                variables: {
-                  args: {
-                    clusterDefaultsJson: editorText,
-                    regenerate: true,
-                    dryRun: true,
-                  },
+              setClusterDefaultsMutation(
+                {
+                  clusterDefaultsJson: editorText,
+                  regenerate: true,
+                  dryRun: true,
                 },
-                onCompleted: openApplyConfigModal,
-              })
+                {
+                  onSuccess: openApplyConfigModal,
+                },
+              )
             }
           >
             Continue
@@ -92,7 +92,7 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
       </Group>
       <div className={styles.editor}>
         <CodeEditorInfoBar
-          error={error}
+          errorMessage={error}
           fullError={fullError}
           fullErrorModalTitle="Cluster Defaults Error"
           unsavedChanges={unsavedChanges}
@@ -112,6 +112,7 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
 
       {applyConfigModalOpen && (
         <ConfirmConfigModal
+          level="Cluster"
           show={applyConfigModalOpen}
           loading={setClusterLoading}
           onHide={closeApplyConfigModal}
@@ -122,29 +123,27 @@ const ClusterConfig: React.FC<ClusterConfigProps> = ({triggerNotification}) => {
             regenerate: boolean;
             reprocess: boolean;
           }) =>
-            setClusterDefaultsMutation({
-              variables: {
-                args: {
-                  clusterDefaultsJson: editorText,
-                  regenerate,
-                  reprocess,
+            setClusterDefaultsMutation(
+              {
+                clusterDefaultsJson: editorText,
+                regenerate,
+                reprocess,
+              },
+              {
+                onSuccess: () => {
+                  closeApplyConfigModal();
+                  setUnsavedChanges(false);
+                  goToLanding();
+                  triggerNotification &&
+                    triggerNotification(
+                      'Cluster defaults saved successfuly',
+                      'success',
+                    );
                 },
               },
-              onCompleted: () => {
-                closeApplyConfigModal();
-                setUnsavedChanges(false);
-                goToLanding();
-                triggerNotification &&
-                  triggerNotification(
-                    'Cluster defaults saved successfuly',
-                    'success',
-                  );
-              },
-            })
+            )
           }
-          affectedPipelines={
-            setClusterResponse?.setClusterDefaults.affectedPipelinesList
-          }
+          affectedPipelines={setClusterResponse?.affectedPipelines || []}
         />
       )}
 

@@ -1,12 +1,15 @@
-import {NodeState, JobsQuery} from '@graphqlTypes';
 import {useEffect, useMemo} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {JobInfo} from '@dash-frontend/api/pps';
+import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
+import {NodeState} from '@dash-frontend/lib/types';
 import {useSort, numberComparator, SortableItem} from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<JobsQuery['jobs']['items'][number]>;
+  [key: string]: SortableItem<JobInfo>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -14,12 +17,12 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (job: JobsQuery['jobs']['items'][number]) => job?.createdAt || 0,
+    accessor: (job: JobInfo) => getUnixSecondsFromISOString(job?.created),
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (job: JobsQuery['jobs']['items'][number]) => job?.createdAt || 0,
+    accessor: (job: JobInfo) => getUnixSecondsFromISOString(job?.created),
   },
 };
 
@@ -56,7 +59,7 @@ type FormValues = {
 };
 
 type useJobsFiltersProps = {
-  jobs?: JobsQuery['jobs']['items'];
+  jobs?: JobInfo[];
 };
 
 const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
@@ -106,19 +109,19 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       name: 'jobIds',
       noun: 'job ID',
       formatLabel: (val: string) => `${val.slice(0, 6)}...`,
-      values: [...new Set(jobs?.map((job) => job.id))],
+      values: [...new Set(jobs?.map((job) => job?.job?.id || ''))],
     },
     {
       label: 'Pipeline',
       name: 'pipelineSteps',
       noun: 'step',
-      values: [...new Set(jobs?.map((job) => job.pipelineName))],
+      values: [...new Set(jobs?.map((job) => job?.job?.pipeline?.name || ''))],
     },
     {
       label: 'Pipeline Version',
       name: 'pipelineVersions',
       noun: 'version',
-      values: [...new Set(jobs?.map((job) => job.pipelineVersion.toString()))],
+      values: [...new Set(jobs?.map((job) => job?.pipelineVersion || ''))],
     },
   ];
 
@@ -159,14 +162,17 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
       jobs?.filter((job) => {
         return (
           (!searchParams.jobStatus ||
-            searchParams.jobStatus.includes(job.nodeState)) &&
-          (!searchParams.jobId || searchParams.jobId.includes(job.id)) &&
+            searchParams.jobStatus.includes(
+              restJobStateToNodeState(job.state),
+            )) &&
+          (!searchParams.jobId ||
+            searchParams.jobId.includes(job?.job?.id || '')) &&
           (!searchParams.pipelineStep ||
-            searchParams.pipelineStep.includes(job.pipelineName)) &&
+            searchParams.pipelineStep.includes(
+              job?.job?.pipeline?.name || '',
+            )) &&
           (!searchParams.pipelineVersion ||
-            searchParams.pipelineVersion.includes(
-              job.pipelineVersion.toString(),
-            ))
+            searchParams.pipelineVersion.includes(job?.pipelineVersion || ''))
         );
       }),
     [
@@ -189,7 +195,11 @@ const useJobsListFilters = ({jobs = []}: useJobsFiltersProps) => {
   });
 
   useEffect(() => {
-    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+    if (
+      searchParams.sortBy &&
+      sortOptions[searchParams.sortBy] &&
+      comparatorName !== searchParams.sortBy
+    ) {
       setComparator(sortOptions[searchParams.sortBy]);
     }
   });

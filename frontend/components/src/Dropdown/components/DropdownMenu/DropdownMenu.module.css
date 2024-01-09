@@ -95,10 +95,9 @@
   visibility: hidden;
   transform-origin: top;
   z-index: var(--z-index-dropdown-menu);
-  overflow: hidden;
   box-shadow: 1px 1px 3px var(--dropshadow-grey);
   max-height: 33rem;
-  overflow-y: auto;
+  overflow: visible;
   top: 1rem;
 }
 
@@ -138,7 +137,7 @@
 }
 
 .close.openUpwards:not(.sideOpen) {
-    transform: var(--open-menu-upwards);
+  transform: var(--open-menu-upwards);
   animation: slide-down-close 0.1s linear;
 }
 

@@ -1,17 +1,25 @@
-import {
-  ProjectStatus,
-  mockGetAuthorizeQuery,
-  Permission,
-  mockDeleteProjectAndResourcesMutation,
-} from '@graphqlTypes';
 import {render, waitFor, within, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Permission} from '@dash-frontend/api/auth';
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {
+  DeleteProjectRequest,
+  DeleteReposRequest,
+  DeleteReposResponse,
+} from '@dash-frontend/api/pfs';
+import {
+  DeletePipelinesRequest,
+  DeletePipelinesResponse,
+} from '@dash-frontend/api/pps';
 import {
   mockFalseGetAuthorize,
   mockEmptyGetRoles,
-  mockHealthyProjectStatus,
+  mockHealthyPipelines,
+  mockGetEnterpriseInfoInactive,
+  mockTrueGetAuthorize,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -29,9 +37,8 @@ describe('ProjectRow RBAC', () => {
     return (
       <ProjectRowComponent
         project={{
-          id: 'ProjectA',
+          project: {name: 'ProjectA'},
           description: 'A description for project a',
-          status: ProjectStatus.HEALTHY,
         }}
         isSelected={true}
         multiProject={true}
@@ -41,8 +48,9 @@ describe('ProjectRow RBAC', () => {
   });
 
   beforeAll(() => {
-    server.use(mockHealthyProjectStatus());
+    server.use(mockHealthyPipelines());
     server.listen();
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   afterAll(() => server.close());
@@ -72,36 +80,58 @@ describe('ProjectRow RBAC', () => {
         name: /edit project info/i,
       }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('menuitem', {
+        name: /edit project defaults/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('should allow a user to delete a project with permission', async () => {
+    server.use(mockTrueGetAuthorize([Permission.PROJECT_DELETE]));
     server.use(
-      mockGetAuthorizeQuery((req, res, ctx) => {
-        const deleteAuth = req.variables.args.permissionsList.includes(
-          Permission.PROJECT_DELETE,
-        );
-        return res(
-          ctx.data({
-            getAuthorize: {
-              satisfiedList: [],
-              missingList: [],
-              authorized: deleteAuth ? true : false,
-              principal: 'email@user.com',
-            },
-          }),
-        );
-      }),
+      rest.post<DeletePipelinesRequest, Empty, DeletePipelinesResponse>(
+        '/api/pps_v2.API/DeletePipelines',
+        (req, res, ctx) => {
+          if (req.body.projects?.[0].name === 'ProjectA') {
+            return res(
+              ctx.json({
+                pipelines: [{name: 'Pipeline 1'}],
+              }),
+            );
+          }
+
+          return res(ctx.status(400), ctx.json({}));
+        },
+      ),
     );
     server.use(
-      mockDeleteProjectAndResourcesMutation((req, res, ctx) => {
-        if (req.variables.args.name === 'ProjectA') {
-          return res(
-            ctx.data({
-              deleteProjectAndResources: true,
-            }),
-          );
-        } else return res(ctx.errors([]));
-      }),
+      rest.post<DeleteReposRequest, Empty, DeleteReposResponse>(
+        '/api/pfs_v2.API/DeleteRepos',
+        (req, res, ctx) => {
+          if (req.body.projects?.[0].name === 'ProjectA') {
+            return res(
+              ctx.json({
+                repos: [{name: 'Repo 1'}],
+              }),
+            );
+          }
+
+          return res(ctx.status(400), ctx.json({}));
+        },
+      ),
+    );
+    server.use(
+      rest.post<DeleteProjectRequest, Empty, Empty>(
+        '/api/pfs_v2.API/DeleteProject',
+        (req, res, ctx) => {
+          if (req.body.project?.name === 'ProjectA') {
+            return res(ctx.json({}));
+          }
+
+          return res(ctx.status(400), ctx.json({}));
+        },
+      ),
     );
 
     render(<ProjectRow />);
@@ -149,23 +179,7 @@ describe('ProjectRow RBAC', () => {
   });
 
   it('should allow a user to update a project with permission', async () => {
-    server.use(
-      mockGetAuthorizeQuery((req, res, ctx) => {
-        const createAuth = req.variables.args.permissionsList.includes(
-          Permission.PROJECT_CREATE,
-        );
-        return res(
-          ctx.data({
-            getAuthorize: {
-              satisfiedList: [],
-              missingList: [],
-              authorized: createAuth ? true : false,
-              principal: 'email@user.com',
-            },
-          }),
-        );
-      }),
-    );
+    server.use(mockTrueGetAuthorize([Permission.PROJECT_CREATE]));
 
     render(<ProjectRow />);
 
@@ -190,23 +204,7 @@ describe('ProjectRow RBAC', () => {
 
   it('should allow a user to update roles with permission', async () => {
     server.use(mockEmptyGetRoles());
-    server.use(
-      mockGetAuthorizeQuery((req, res, ctx) => {
-        const rolesAuth = req.variables.args.permissionsList.includes(
-          Permission.PROJECT_MODIFY_BINDINGS,
-        );
-        return res(
-          ctx.data({
-            getAuthorize: {
-              satisfiedList: [],
-              missingList: [],
-              authorized: rolesAuth ? true : false,
-              principal: 'email@user.com',
-            },
-          }),
-        );
-      }),
-    );
+    server.use(mockTrueGetAuthorize([Permission.PROJECT_MODIFY_BINDINGS]));
 
     render(<ProjectRow />);
 
@@ -229,5 +227,24 @@ describe('ProjectRow RBAC', () => {
         name: 'Set Project Level Roles: ProjectA',
       }),
     ).toBeInTheDocument();
+  });
+
+  it('should route users to project defaults with permission', async () => {
+    server.use(mockTrueGetAuthorize([Permission.PROJECT_SET_DEFAULTS]));
+
+    render(<ProjectRow />);
+
+    await click(
+      screen.getByRole('button', {
+        name: 'ProjectA overflow menu',
+      }),
+    );
+    await click(
+      await screen.findByRole('menuitem', {
+        name: /edit project defaults/i,
+      }),
+    );
+
+    expect(window.location.pathname).toBe('/project/ProjectA/defaults');
   });
 });

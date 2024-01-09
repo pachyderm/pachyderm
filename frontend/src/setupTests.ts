@@ -1,14 +1,11 @@
-import 'cross-fetch';
 import '@testing-library/jest-dom';
+import 'cross-fetch/polyfill';
 
 import {randomBytes} from 'crypto';
 
 import {configure} from '@testing-library/react';
-import {enableFetchMocks} from 'jest-fetch-mock';
 
 configure({asyncUtilTimeout: 5000});
-
-enableFetchMocks();
 
 Object.defineProperty(window, 'crypto', {
   value: {
@@ -87,5 +84,48 @@ window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
 // DISABLE POLLING FOR MSW TESTS
 process.env.REACT_APP_POLLING = '0';
+process.env.REACT_APP_RELEASE_VERSION = 'test';
+
+interface InitReq extends RequestInit {
+  pathPrefix?: string;
+}
+
+jest.mock('./generated/proto/fetch.pb.ts', () => ({
+  async fetchStreamingRequest(path: string, callback?: any, init?: InitReq) {
+    const {pathPrefix, ...req} = init || {};
+    const url = pathPrefix ? `${pathPrefix}${path}` : path;
+    const result = await fetch(url, req);
+
+    if (!result.ok) {
+      const resp = await result.json();
+      if (typeof resp === 'object' && 'error' in resp) {
+        throw resp.error;
+      }
+      throw resp;
+    }
+
+    const items = await result.json();
+
+    if (!callback) return;
+
+    for (const item of items) {
+      callback(item);
+    }
+  },
+  async fetchReq(path: string, init?: InitReq) {
+    const {pathPrefix, ...req} = init || {};
+
+    const url = pathPrefix ? `${pathPrefix}${path}` : path;
+
+    return fetch(url, req).then((r) =>
+      r.json().then((body) => {
+        if (!r.ok) {
+          throw body;
+        }
+        return body;
+      }),
+    );
+  },
+}));
 
 jest.setTimeout(10_000);

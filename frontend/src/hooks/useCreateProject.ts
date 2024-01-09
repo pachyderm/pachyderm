@@ -1,27 +1,27 @@
-import {CreateProjectArgs} from '@graphqlTypes';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 
-import {useCreateProjectMutation} from '@dash-frontend/generated/hooks';
+import {createProject, CreateProjectRequest} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useCreateProject = (onCompleted?: () => void) => {
-  const [createProjectMutation, mutationResult] = useCreateProjectMutation({
-    onCompleted,
-    update(cache, {data}) {
-      if (!data) return;
-      cache.modify({
-        fields: {
-          projects(existingProjects) {
-            return [...existingProjects, data.createProject];
-          },
-        },
-      });
+export const useCreateProject = (onSettled?: () => void) => {
+  const client = useQueryClient();
+  const {
+    mutate,
+    isPending: loading,
+    error,
+  } = useMutation({
+    mutationKey: ['createProject'],
+    mutationFn: (req: CreateProjectRequest) => createProject(req),
+    onSuccess: () => {
+      client.invalidateQueries({queryKey: queryKeys.projects, exact: true});
     },
+    onSettled,
   });
 
   return {
-    createProject: (args: CreateProjectArgs) =>
-      createProjectMutation({variables: {args}}),
-    ...mutationResult,
+    createProject: mutate,
+    loading,
+    error: getErrorMessage(error),
   };
 };
-
-export default useCreateProject;

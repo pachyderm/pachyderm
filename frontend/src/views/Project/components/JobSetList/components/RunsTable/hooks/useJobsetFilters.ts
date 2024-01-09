@@ -1,13 +1,15 @@
-import {NodeState, JobSetsQuery} from '@graphqlTypes';
 import intersection from 'lodash/intersection';
 import {useEffect, useMemo} from 'react';
 import {useForm} from 'react-hook-form';
 
+import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
+import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
+import {InternalJobSet, NodeState} from '@dash-frontend/lib/types';
 import {useSort, numberComparator, SortableItem} from '@pachyderm/components';
 
 type sortOptionsType = {
-  [key: string]: SortableItem<JobSetsQuery['jobSets']['items'][number]>;
+  [key: string]: SortableItem<InternalJobSet>;
 };
 
 const sortOptions: sortOptionsType = {
@@ -15,14 +17,14 @@ const sortOptions: sortOptionsType = {
     name: 'Created: Newest',
     reverse: true,
     func: numberComparator,
-    accessor: (jobset: JobSetsQuery['jobSets']['items'][number]) =>
-      jobset?.createdAt || 0,
+    accessor: (jobset: InternalJobSet) =>
+      getUnixSecondsFromISOString(jobset?.created),
   },
   'Created: Oldest': {
     name: 'Created: Oldest',
     func: numberComparator,
-    accessor: (jobset: JobSetsQuery['jobSets']['items'][number]) =>
-      jobset?.createdAt || 0,
+    accessor: (jobset: InternalJobSet) =>
+      getUnixSecondsFromISOString(jobset?.created),
   },
 };
 
@@ -56,7 +58,7 @@ type FormValues = {
 };
 
 type useJobSetsFiltersProps = {
-  jobSets?: JobSetsQuery['jobSets']['items'];
+  jobSets?: InternalJobSet[];
 };
 
 const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
@@ -100,7 +102,9 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
     () =>
       jobSets?.filter((jobSet) => {
         let included = true;
-        const jobStates = jobSet.jobs.map((job) => job.nodeState);
+        const jobStates = jobSet.jobs.map((job) =>
+          restJobStateToNodeState(job.state),
+        );
 
         if (!jobSet?.state) {
           return false;
@@ -126,7 +130,11 @@ const useJobSetFilters = ({jobSets = []}: useJobSetsFiltersProps) => {
   });
 
   useEffect(() => {
-    if (searchParams.sortBy && comparatorName !== searchParams.sortBy) {
+    if (
+      searchParams.sortBy &&
+      sortOptions[searchParams.sortBy] &&
+      comparatorName !== searchParams.sortBy
+    ) {
       setComparator(sortOptions[searchParams.sortBy]);
     }
   });

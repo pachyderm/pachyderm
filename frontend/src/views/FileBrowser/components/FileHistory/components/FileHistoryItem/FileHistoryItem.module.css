@@ -1,0 +1,96 @@
+.listItem {
+  border: 1px solid var(--border-grey);
+  border-bottom: 0;
+
+  display: flex;
+  min-height: 3rem;
+  padding: 0.25rem 0.5rem 0.25rem 1rem;
+}
+
+.listItem:first-child {
+  border-top-right-radius: 3px;
+  border-top-left-radius: 3px;
+}
+
+.listItem:last-child {
+  border-bottom-left-radius: 3px;
+  border-bottom-right-radius: 3px;
+  border-bottom: solid 1px var(--line-grey);
+}
+
+.link {
+  flex-direction: column;
+  cursor: pointer;
+  user-select: none;
+  color: var(--pachyderm-black);
+}
+
+.link:active,
+.link:hover,
+.link:focus {
+  color: var(--pachyderm-black);
+}
+
+.link:not([href]) {
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+.selected {
+  background-color: var(--cyan-10);
+  border: 1px solid var(--cyan);
+  border-left: 0.25rem solid var(--cyan);
+  padding-left: calc(0.75rem + 1px);
+}
+
+.selected + .link {
+  border-top: 0;
+}
+
+.link:first-of-type.selected {
+  border-top: solid 1px var(--cyan);
+}
+
+.link:last-of-type.selected {
+  border-bottom: solid 1px var(--cyan);
+}
+
+.dateAndIdWrapper {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.textWrapper {
+  display: flex;
+  align-items: center;
+}
+
+.dateAndStatus {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.commitId {
+  max-width: 4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.description {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.deleted {
+  color: var(--error-red);
+}
+
+.skeletonDisplayText {
+  height: 1.375rem;
+  width: 5rem;
+  margin-bottom: 0;
+}

@@ -1,53 +1,54 @@
-import {File} from '@graphqlTypes';
-import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
-import {useDeleteFilesMutation} from '@dash-frontend/generated/hooks';
-import useCurrentRepoWithLinkedPipeline from '@dash-frontend/hooks/useCurrentRepoWithLinkedPipeline';
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
+import useDeleteFiles from '@dash-frontend/hooks/useDeleteFiles';
+import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useModal} from '@pachyderm/components';
 
-const useFileDelete = (file: File) => {
+const useFileDelete = (file: FileInfo) => {
   const {
     openModal: openDeleteModal,
     closeModal,
     isOpen: deleteModalOpen,
   } = useModal(false);
   const {repoId, branchId, projectId} = useUrlState();
-  const [deleteFilesMutation, {loading: deleteLoading, error}] =
-    useDeleteFilesMutation();
-  const {loading: repoLoading, repo} = useCurrentRepoWithLinkedPipeline();
+
+  const {loading: pipelineLoading, pipeline} = usePipeline({
+    pipeline: {
+      name: repoId,
+      project: {name: projectId},
+    },
+  });
+
   const browserHistory = useHistory();
 
-  const deleteFile = useCallback(async () => {
-    const deleteCommit = await deleteFilesMutation({
-      variables: {
-        args: {
-          filePaths: [file.path],
-          repo: repoId,
-          branch: branchId,
-          projectId,
-        },
-      },
-    });
-    deleteCommit.data?.deleteFiles &&
+  const {
+    deleteFiles: deleteHook,
+    loading: deleteLoading,
+    error,
+  } = useDeleteFiles({
+    onSuccess: (id) => {
       browserHistory.push(
         fileBrowserRoute({
           repoId,
           branchId,
           projectId,
-          commitId: deleteCommit.data?.deleteFiles,
+          commitId: id,
         }),
       );
-  }, [
-    branchId,
-    browserHistory,
-    deleteFilesMutation,
-    file.path,
-    projectId,
-    repoId,
-  ]);
+    },
+  });
+
+  const deleteFile = () => {
+    deleteHook({
+      filePaths: [file.file?.path || ''],
+      repoId: repoId,
+      branchId: branchId,
+      projectId,
+    });
+  };
 
   return {
     deleteModalOpen,
@@ -56,7 +57,7 @@ const useFileDelete = (file: File) => {
     deleteFile,
     loading: deleteLoading,
     error,
-    deleteDisabled: Boolean(repo?.linkedPipeline) || repoLoading,
+    deleteDisabled: Boolean(pipeline) || pipelineLoading,
   };
 };
 

@@ -1,19 +1,45 @@
-import {ReposQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {REPO_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useReposQuery} from '@dash-frontend/generated/hooks';
+import {listRepo, Project} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useRepos = (args: ReposQueryArgs) => {
-  const {data, error, loading} = useReposQuery({
-    variables: {args},
-    pollInterval: REPO_POLL_INTERVAL_MS,
+export const useRepos = (projectName: Project['name'], enabled = true) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.repos({projectId: projectName}),
+    queryFn: () => listRepo({projects: [{name: projectName}], type: 'user'}),
+    enabled,
   });
 
   return {
-    repos: data?.repos,
-    error,
     loading,
+    repos: data,
+    error: getErrorMessage(error),
   };
 };
 
-export default useRepos;
+export const useReposLazy = (projectName: Project['name']) => {
+  const {
+    data,
+    isLoading: loading,
+    isFetched,
+    error,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.repos({projectId: projectName}),
+    queryFn: () => listRepo({projects: [{name: projectName}], type: 'user'}),
+    enabled: false,
+  });
+
+  return {
+    getRepos: refetch,
+    loading,
+    repos: data,
+    isFetched,
+    error: getErrorMessage(error),
+  };
+};

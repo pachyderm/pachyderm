@@ -1,11 +1,12 @@
-import {JobsQuery, DatumFilter} from '@graphqlTypes';
 import React, {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
+import {DatumState, JobInfo} from '@dash-frontend/api/pps';
 import IconBadge from '@dash-frontend/components/IconBadge';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {DatumFilter} from '@dash-frontend/lib/types';
 import {lineageRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   StatusCheckmarkSVG,
@@ -19,7 +20,7 @@ import {
 import styles from '../../JobSetList/components/RunsTable/components/RunsList/RunsList.module.css';
 
 type DatumBadgeProps = {
-  count: number;
+  count?: string;
   tooltip: string;
   color: 'red' | 'green' | 'black';
   IconSVG: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
@@ -85,7 +86,7 @@ const useRunsList = () => {
   ];
 
   const getDatumStateBadges = useCallback(
-    (job: JobsQuery['jobs']['items'][number]) => {
+    (job: JobInfo) => {
       const Badge: React.FC<DatumBadgeProps> = ({
         count,
         tooltip,
@@ -108,7 +109,7 @@ const useRunsList = () => {
           );
         };
 
-        return count > 0 ? (
+        return Number(count) > 0 ? (
           <IconBadge
             aria-label={tooltip}
             color={color}
@@ -119,7 +120,11 @@ const useRunsList = () => {
                 <CaptionTextSmall>Click to inspect</CaptionTextSmall>
               </>
             }
-            to={datumLogsLink(job.id, job.pipelineName, filter)}
+            to={datumLogsLink(
+              job?.job?.id || '',
+              job?.job?.pipeline?.name || '',
+              filter,
+            )}
           >
             {count}
           </IconBadge>
@@ -133,28 +138,28 @@ const useRunsList = () => {
             color="green"
             IconSVG={StatusCheckmarkSVG}
             tooltip="Processed datums"
-            filter={DatumFilter.SUCCESS}
+            filter={DatumState.SUCCESS}
           />
           <Badge
             count={job.dataFailed}
             color="red"
             IconSVG={StatusWarningSVG}
             tooltip="Failed datums"
-            filter={DatumFilter.FAILED}
+            filter={DatumState.FAILED}
           />
           <Badge
             count={job.dataSkipped}
             color="black"
             IconSVG={StatusSkipSVG}
             tooltip="Skipped datums"
-            filter={DatumFilter.SKIPPED}
+            filter={DatumState.SKIPPED}
           />
           <Badge
             count={job.dataRecovered}
             color="black"
             IconSVG={StatusUpdatedSVG}
             tooltip="Recovered datums"
-            filter={DatumFilter.RECOVERED}
+            filter={DatumState.RECOVERED}
           />
         </span>
       );

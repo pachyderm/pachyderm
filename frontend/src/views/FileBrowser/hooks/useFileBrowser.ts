@@ -1,7 +1,7 @@
 import {useMemo, useCallback, useState, useEffect} from 'react';
 import {useHistory} from 'react-router';
 
-import useCommits from '@dash-frontend/hooks/useCommits';
+import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import {useFiles} from '@dash-frontend/hooks/useFiles';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -28,20 +28,20 @@ const useFileBrowser = () => {
   const path = `/${filePath}`;
   const isDirectory = path.endsWith('/');
   const isRoot = path === '/';
-
+  // Users can enter the file browser with or without a commitId (/latest). This
+  // call is to retrieve the latest commit when users are on the /latest path.
   const {
     commits,
     loading: commitsLoading,
     error: commitsError,
   } = useCommits({
+    projectName: projectId,
+    repoName: repoId,
     args: {
-      projectId: projectId,
-      repoName: repoId,
       branchName: branchId,
       commitIdCursor: commitId || '',
       number: 1,
     },
-    fetchPolicy: 'no-cache',
   });
 
   useEffect(() => {
@@ -51,32 +51,33 @@ const useFileBrowser = () => {
     }
   }, [branchId, commitId, filePath, previousCommitId, previousFilePath]);
 
-  const selectedCommitId = !commitId ? commits[0]?.id : commitId;
-  const isCommitOpen = commits[0] ? commits[0].finished === -1 : true;
+  const selectedCommitId = commitId || commits?.[0]?.commit?.id;
+  const isCommitOpen = !commits?.[0]?.finished;
 
   const {
     files,
     loading: filesLoading,
     error: filesError,
     cursor,
-    hasNextPage,
-  } = useFiles({
-    args: {
-      projectId,
+  } = useFiles(
+    {
+      projectName: projectId,
       commitId: commitId ? commitId : '',
       path: path || '/',
       branchName: branchId,
       repoName: repoId,
-      limit: isDirectory ? pageSize : undefined,
-      cursorPath: cursors[page - 1],
+      args: {
+        cursorPath: cursors[page - 1] || undefined,
+        number: isDirectory ? pageSize : undefined,
+      },
     },
-    skip: isCommitOpen,
-  });
+    !isCommitOpen,
+  );
 
   const updatePage = useCallback(
     (page: number) => {
-      if (cursor && page + 1 > cursors.length) {
-        setCursors((arr) => [...arr, cursor]);
+      if (cursor?.file?.path && page + 1 > cursors.length) {
+        setCursors((arr) => [...arr, cursor?.file?.path || '']);
       }
       setPage(page);
     },
@@ -86,7 +87,15 @@ const useFileBrowser = () => {
   const fileToPreview = useMemo(() => {
     const hasFileType = path.slice(path.lastIndexOf('.') + 1) !== '';
 
-    return hasFileType && files?.files.find((file) => file.path === path);
+    return (
+      hasFileType &&
+      files?.find((file) => {
+        if (!file.file?.path) {
+          return false;
+        }
+        return file.file.path === path;
+      })
+    );
   }, [path, files]);
 
   const handleHide = useCallback(() => {
@@ -119,7 +128,7 @@ const useFileBrowser = () => {
     handleHide,
     handleBackNav,
     isOpen,
-    files: files?.files || [],
+    files: files || [],
     loading: commitsLoading || filesLoading,
     error: commitsError || filesError,
     fileToPreview,
@@ -131,7 +140,7 @@ const useFileBrowser = () => {
     page,
     updatePage,
     cursors,
-    hasNextPage,
+    hasNextPage: !!cursor,
     isCommitOpen,
   };
 };

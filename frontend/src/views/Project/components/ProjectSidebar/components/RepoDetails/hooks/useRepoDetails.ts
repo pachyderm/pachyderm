@@ -1,12 +1,17 @@
-import {Permission, ResourceType} from '@graphqlTypes';
+import {useMemo} from 'react';
 
-import {useCommitDiffQuery} from '@dash-frontend/generated/hooks';
-import useCommit from '@dash-frontend/hooks/useCommit';
-import useCurrentRepo from '@dash-frontend/hooks/useCurrentRepo';
+import {
+  Permission,
+  ResourceType,
+  useAuthorize,
+} from '@dash-frontend/hooks/useAuthorize';
+import {useCommitDiff} from '@dash-frontend/hooks/useCommitDiff';
+import {useCommits} from '@dash-frontend/hooks/useCommits';
+import {useCurrentRepo} from '@dash-frontend/hooks/useCurrentRepo';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
+import formatDiff from '@dash-frontend/lib/formatDiff';
 
 const useRepoDetails = () => {
   const {repoId, projectId, commitId} = useUrlState();
@@ -15,44 +20,63 @@ const useRepoDetails = () => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
 
   const {
-    commit,
+    commits,
     loading: commitLoading,
     error: commitError,
-  } = useCommit({
+  } = useCommits({
+    projectName: projectId,
+    repoName: repoId,
     args: {
-      projectId,
-      repoName: repoId,
-      id: searchParams.globalIdFilter || commitId || '',
+      commitIdCursor: searchParams.globalIdFilter || commitId || '',
+      number: 1,
     },
   });
+
+  const commit = commits && commits[0];
+
   const {
-    data: commitDiff,
+    fileDiff,
     loading: diffLoading,
     error: diffError,
-  } = useCommitDiffQuery({
-    variables: {
-      args: {
-        projectId,
-        commitId: commit?.id,
-        branchName: commit?.branch?.name,
-        repoName: commit?.repoName,
+  } = useCommitDiff(
+    {
+      newFile: {
+        commit: {
+          id: commit?.commit?.id,
+          repo: {
+            name: commit?.commit?.repo?.name,
+            project: {
+              name: projectId,
+            },
+            type: 'user',
+          },
+          branch: {
+            name: commit?.commit?.branch?.name,
+          },
+        },
+        path: '/',
       },
     },
-    skip: !commit || commit.finished === -1,
-  });
+    Boolean(commit && commit.finished),
+  );
 
-  const {isAuthorizedAction: editRolesPermission} = useVerifiedAuthorization({
-    permissionsList: [Permission.REPO_MODIFY_BINDINGS],
-    resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
-  });
+  const formattedDiff = useMemo(() => formatDiff(fileDiff || []), [fileDiff]);
 
-  const {isAuthorizedAction: repoReadPermission} = useVerifiedAuthorization({
-    permissionsList: [Permission.REPO_READ],
+  const {
+    hasRepoModifyBindings: hasRepoEditRoles,
+    hasRepoRead,
+    hasRepoWrite,
+  } = useAuthorize({
+    permissions: [
+      Permission.REPO_MODIFY_BINDINGS,
+      Permission.REPO_READ,
+      Permission.REPO_WRITE,
+    ],
     resource: {type: ResourceType.REPO, name: `${projectId}/${repoId}`},
   });
 
   const currentRepoLoading =
-    repoLoading || commitLoading || repoId !== repo?.id;
+    repoLoading || commitLoading || repoId !== repo?.repo?.name;
 
   return {
     projectId,
@@ -61,13 +85,14 @@ const useRepoDetails = () => {
     commit,
     currentRepoLoading,
     commitError,
-    commitDiff,
+    commitDiff: formattedDiff,
     diffLoading,
     diffError,
     repoError,
-    editRolesPermission,
+    hasRepoEditRoles,
     getPathToFileBrowser,
-    repoReadPermission,
+    hasRepoRead,
+    hasRepoWrite,
     globalId: searchParams.globalIdFilter,
   };
 };

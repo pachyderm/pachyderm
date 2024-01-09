@@ -1,4 +1,3 @@
-import {mockJobsByPipelineQuery} from '@graphqlTypes';
 import {
   render,
   screen,
@@ -6,10 +5,16 @@ import {
   waitForElementToBeRemoved,
   act,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {MOCK_MONTAGE_JOBS, MOCK_EDGES_JOBS} from '@dash-frontend/mocks';
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {JobInfo, ListJobRequest} from '@dash-frontend/api/pps';
+import {
+  MOCK_MONTAGE_JOBS_INFO,
+  MOCK_EDGES_JOBS_INFO,
+} from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import RuntimesChartComponent from '../PipelinesRuntimeChart';
@@ -28,26 +33,30 @@ describe('Pipelines Runtimes Chart', () => {
 
   beforeAll(() => {
     server.listen();
-    server.use(
-      mockJobsByPipelineQuery((req, res, ctx) => {
-        const {limit} = req.variables.args;
-        if (limit === 3) {
-          return res(
-            ctx.data({
-              jobsByPipeline: [
-                ...MOCK_MONTAGE_JOBS.slice(0, 3),
-                ...MOCK_EDGES_JOBS.slice(0, 3),
-              ],
-            }),
-          );
-        }
 
-        return res(
-          ctx.data({
-            jobsByPipeline: [...MOCK_MONTAGE_JOBS, ...MOCK_EDGES_JOBS],
-          }),
-        );
-      }),
+    server.use(
+      rest.post<ListJobRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/ListJob',
+        async (req, res, ctx) => {
+          const body = await req.json();
+
+          if (
+            body?.['pipeline']?.['name'] === 'edges' &&
+            body?.number === '3'
+          ) {
+            return res(ctx.json([...MOCK_EDGES_JOBS_INFO.slice(0, 3)]));
+          } else if (
+            body?.['pipeline']?.['name'] === 'montage' &&
+            body?.number === '3'
+          ) {
+            return res(ctx.json([...MOCK_MONTAGE_JOBS_INFO.slice(0, 3)]));
+          } else if (body?.['pipeline']?.['name'] === 'edges') {
+            return res(ctx.json(MOCK_EDGES_JOBS_INFO));
+          } else if (body?.['pipeline']?.['name'] === 'montage') {
+            return res(ctx.json(MOCK_MONTAGE_JOBS_INFO));
+          }
+        },
+      ),
     );
   });
 

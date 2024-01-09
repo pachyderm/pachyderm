@@ -1,7 +1,7 @@
 import {useCallback} from 'react';
 import {useHistory} from 'react-router';
 
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -24,7 +24,7 @@ const useDatumViewer = (onCloseRoute: string) => {
       pipelineName: pipelineId,
       projectId,
     },
-    {skip: !jobId},
+    !!jobId,
   );
 
   const onClose = useCallback(() => {
@@ -36,6 +36,7 @@ const useDatumViewer = (onCloseRoute: string) => {
   return {
     onClose,
     isOpen,
+    pipelineId,
     jobId,
     datumId,
     job,

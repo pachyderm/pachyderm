@@ -1,7 +1,7 @@
-import {ResourceType, ModifyRolesArgs} from '@graphqlTypes';
 import classNames from 'classnames';
 import React from 'react';
 
+import {ModifyRoleBindingRequest, ResourceType} from '@dash-frontend/api/auth';
 import {
   Label,
   DefaultDropdown,
@@ -24,9 +24,9 @@ type AssignRolesFormProps = {
   resourceType: ResourceType.PROJECT | ResourceType.REPO;
   resourceName: string;
   userTableRoles: UserTableRoles;
-  deletedRoles: Record<string, ModifyRolesArgs>;
+  deletedRoles: Record<string, ModifyRoleBindingRequest>;
   setDeletedRoles: React.Dispatch<
-    React.SetStateAction<Record<string, ModifyRolesArgs>>
+    React.SetStateAction<Record<string, ModifyRoleBindingRequest>>
   >;
 };
 

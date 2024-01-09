@@ -1,121 +1,180 @@
-import {
-  File,
-  FileCommitState,
-  GetFilesQuery,
-  mockGetFilesQuery,
-  FileType,
-  mockDeleteFilesMutation,
-  mockFileDownloadQuery,
-} from '@graphqlTypes';
 import merge from 'lodash/merge';
+import {rest} from 'msw';
 
-export const buildFile = (file: Partial<File>): File => {
-  const defaultFile = {
-    committed: null,
-    commitId: 'default',
-    download: null,
-    hash: '',
-    path: '',
-    repoName: 'images',
-    sizeBytes: 0,
-    sizeDisplay: '0 B',
-    type: FileType.FILE,
-    commitAction: null,
-    __typename: 'File',
+import {Empty, CODES} from '@dash-frontend/api/googleTypes';
+import {
+  EncodeArchiveUrlRequest,
+  EncodeArchiveUrlResponse,
+  FileInfo,
+  FileType,
+  ListFileRequest,
+} from '@dash-frontend/api/pfs';
+import {RequestError} from '@dash-frontend/api/utils/error';
+export const buildFile = (file: FileInfo) => {
+  const defaultFile: FileInfo = {
+    __typename: 'FileInfo',
   };
 
   return merge(defaultFile, file);
 };
 
-export const MOCK_EMPTY_FILES: GetFilesQuery = {
-  files: {
-    files: [],
-    cursor: null,
-    hasNextPage: false,
-    __typename: 'PageableFile',
-  },
-};
-
-export const MOCK_IMAGES_FILES: File[] = [
+export const MOCK_IMAGES_FILES: FileInfo[] = [
   buildFile({
-    commitId: '4a83c74809664f899261baccdb47cd90',
-    repoName: 'images',
-    path: '/AT-AT.png',
-    sizeBytes: 80590,
-    sizeDisplay: '80.59 kB',
-    download:
-      'http://localhost/download/default/images/master/4a83c74809664f899261baccdb47cd90/AT-AT.png',
+    file: {
+      commit: {
+        repo: {
+          name: 'images',
+          type: 'user',
+          project: {
+            name: 'default',
+          },
+        },
+        id: '4a83c74809664f899261baccdb47cd90',
+        branch: {
+          repo: {
+            name: 'images',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+          },
+          name: 'master',
+        },
+      },
+      path: '/AT-AT.png',
+      datum: 'default',
+    },
+    fileType: FileType.FILE,
+    committed: '2023-11-08T18:12:19.363338Z',
+    sizeBytes: '80590',
   }),
   buildFile({
-    commitId: '4a83c74809664f899261baccdb47cd90',
-    repoName: 'images',
-    path: '/liberty.png',
-    commitAction: FileCommitState.ADDED,
-    sizeBytes: 58650,
-    sizeDisplay: '58.65 kB',
-    download:
-      'http://localhost/download/default/images/master/4a83c74809664f899261baccdb47cd90/liberty.png',
+    file: {
+      commit: {
+        repo: {
+          name: 'images',
+          type: 'user',
+          project: {
+            name: 'default',
+          },
+        },
+        id: '4a83c74809664f899261baccdb47cd90',
+        branch: {
+          repo: {
+            name: 'images',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+          },
+          name: 'master',
+        },
+      },
+      path: '/liberty.png',
+      datum: 'default',
+    },
+    fileType: FileType.FILE,
+    committed: '2023-11-08T18:12:19.363338Z',
+    sizeBytes: '58650',
   }),
   buildFile({
-    commitId: '4a83c74809664f899261baccdb47cd90',
-    repoName: 'images',
-    path: '/cats/',
+    file: {
+      commit: {
+        repo: {
+          name: 'images',
+          type: 'user',
+          project: {
+            name: 'default',
+          },
+        },
+        id: '4a83c74809664f899261baccdb47cd90',
+        branch: {
+          repo: {
+            name: 'images',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+          },
+          name: 'master',
+        },
+      },
+      path: '/cats/',
+      datum: 'default',
+    },
+    fileType: FileType.DIR,
+    committed: '2023-11-08T18:12:19.363338Z',
+    sizeBytes: '58650',
   }),
   buildFile({
-    commitId: '4a83c74809664f899261baccdb47cd90',
-    repoName: 'images',
-    path: '/json_nested_arrays.json',
-    sizeBytes: 2e8,
-    sizeDisplay: '200 MB',
+    file: {
+      commit: {
+        repo: {
+          name: 'images',
+          type: 'user',
+          project: {
+            name: 'default',
+          },
+        },
+        id: '4a83c74809664f899261baccdb47cd90',
+        branch: {
+          repo: {
+            name: 'images',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+          },
+          name: 'master',
+        },
+      },
+      path: '/json_nested_arrays.json',
+      datum: 'default',
+    },
+    fileType: FileType.FILE,
+    committed: '2023-11-08T18:12:19.363338Z',
+    sizeBytes: '200000001',
   }),
 ];
 
 export const mockEmptyFiles = () =>
-  mockGetFilesQuery((_req, res, ctx) => {
-    return res(ctx.data(MOCK_EMPTY_FILES));
-  });
+  rest.post<ListFileRequest, Empty, FileInfo[]>(
+    '/api/pfs_v2.API/ListFile',
+    (_req, res, ctx) => res(ctx.json([])),
+  );
 
 export const mockErrorFiles = () =>
-  mockGetFilesQuery((_req, res, ctx) => {
-    return res(ctx.errors(['error retrieving files']));
-  });
+  rest.post<ListFileRequest, never, RequestError>(
+    '/api/pfs_v2.API/ListFile',
+    (_req, res, ctx) =>
+      res(
+        ctx.status(500),
+        ctx.json({
+          code: CODES.Unknown,
+          message: 'made up error',
+        }),
+      ),
+  );
 
 export const mockImagesFiles = () =>
-  mockGetFilesQuery((req, res, ctx) => {
-    const {projectId, repoName, branchName, commitId, path} =
-      req.variables.args;
-
-    if (
-      projectId === 'default' &&
-      repoName === 'images' &&
-      branchName === 'master' &&
-      commitId === '4a83c74809664f899261baccdb47cd90'
-    ) {
-      if (path === '/cats/') {
-        return res(
-          ctx.data({
-            files: {
-              files: [],
-              cursor: null,
-              hasNextPage: false,
-              __typename: 'PageableFile',
-            },
-          }),
-        );
+  rest.post<ListFileRequest, Empty, FileInfo[]>(
+    '/api/pfs_v2.API/ListFile',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (
+        body.file.commit.branch.repo.project.name === 'default' &&
+        body.file.commit.branch.repo.name === 'images' &&
+        body.file.commit.branch.name === 'master' &&
+        body.file.commit.id === '4a83c74809664f899261baccdb47cd90'
+      ) {
+        if (body.file.path === '/cats/') {
+          return res(ctx.json([]));
+        }
+        return res(ctx.json(MOCK_IMAGES_FILES));
       }
-      return res(
-        ctx.data({
-          files: {
-            files: MOCK_IMAGES_FILES,
-            cursor: null,
-            hasNextPage: false,
-            __typename: 'PageableFile',
-          },
-        }),
-      );
-    }
-    return res();
-  });
+      return res(ctx.json([]));
+    },
+  );
 
 type generateFilesArgs = {
   n: number;
@@ -128,35 +187,60 @@ export const generatePagingFiles = ({
   repoName = 'repo',
   commitId = 'master',
 }: generateFilesArgs) => {
-  const commits: File[] = [];
+  const commits: FileInfo[] = [];
 
   for (let id = 0; id < n; id++) {
     commits.push(
-      buildFile({commitId: commitId, repoName: repoName, path: `/${id}.png`}),
+      buildFile({
+        file: {
+          commit: {
+            repo: {
+              name: repoName,
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: commitId,
+            branch: {
+              repo: {
+                name: repoName,
+                type: 'user',
+                project: {
+                  name: 'default',
+                },
+              },
+              name: 'master',
+            },
+          },
+          path: `/${id}.png`,
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '80590',
+      }),
     );
   }
   return commits;
 };
 
-export const mockDeleteFiles = () =>
-  mockDeleteFilesMutation((_req, res, ctx) => {
-    return res(ctx.data({deleteFiles: 'deleted'}));
-  });
-
-export const mockFileDownload = (files: string[]) =>
-  mockFileDownloadQuery((req, res, ctx) => {
-    const {projectId, repoId, commitId, paths} = req.variables.args;
-    if (
-      projectId === 'default' &&
-      repoId === 'images' &&
-      commitId === '4a83c74809664f899261baccdb47cd90' &&
-      JSON.stringify(paths) === JSON.stringify(files)
-    ) {
-      return res(
-        ctx.data({
-          fileDownload: '/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
-        }),
-      );
-    }
-    return res(ctx.errors(['error generating download link']));
-  });
+export const mockEncode = (files: string[]) =>
+  rest.post<EncodeArchiveUrlRequest, Empty, EncodeArchiveUrlResponse>(
+    '/encode/archive',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (
+        body.projectId === 'default' &&
+        body.repoId === 'images' &&
+        body.commitId === '4a83c74809664f899261baccdb47cd90' &&
+        JSON.stringify(body.paths) === JSON.stringify(files)
+      ) {
+        return res(
+          ctx.json({
+            url: '/proxyForward/archive/gCACFAwASxxgccGkVzh2qIdHkwutaaoJDgD.zip',
+          }),
+        );
+      }
+      return res(ctx.json({url: ''}));
+    },
+  );

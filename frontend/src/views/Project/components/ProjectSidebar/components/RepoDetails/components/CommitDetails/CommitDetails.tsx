@@ -1,15 +1,15 @@
-import formatBytes from '@dash-backend/lib/formatBytes';
-import {RepoQuery, CommitQuery, CommitDiffQuery} from '@graphqlTypes';
 import React from 'react';
 
+import {CommitInfo} from '@dash-frontend/api/pfs';
+import formatBytes from '@dash-frontend/lib/formatBytes';
+import {FormattedFileDiff} from '@dash-frontend/lib/types';
 import {CaptionTextSmall, LoadingDots} from '@pachyderm/components';
 
 import styles from './CommitDetails.module.css';
 
 type CommitDetailsProps = {
-  repo?: RepoQuery['repo'];
-  commit: CommitQuery['commit'];
-  commitDiff?: CommitDiffQuery['commitDiff'];
+  commit: CommitInfo;
+  commitDiff?: FormattedFileDiff['diff'];
   diffLoading: boolean;
 };
 
@@ -37,13 +37,13 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
   ];
 
   const parentCommitSize = formatBytes(
-    commit.sizeBytes - (commitDiff?.size || 0),
+    Number(commit.details?.sizeBytes || 0) - (commitDiff?.size || 0),
   );
 
   return (
     <div className={styles.base}>
       <div className={styles.commitCardHeader}>
-        {commit.sizeDisplay}
+        {formatBytes(commit.details?.sizeBytes)}
         <CaptionTextSmall>
           {parentCommitSize}{' '}
           {commitDiff?.size !== 0 && (
@@ -57,7 +57,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
         </CaptionTextSmall>
       </div>
       <div className={styles.commitCardHeader}>
-        <CaptionTextSmall>@{commit.branch?.name}</CaptionTextSmall>
+        <CaptionTextSmall>@{commit.commit?.branch?.name}</CaptionTextSmall>
       </div>
       <div className={styles.commitCardBody}>
         {diffLoading && (
@@ -78,7 +78,7 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
                 >
                   {' '}
                   ({getDeltaSymbol(sizeDelta, true)}
-                  {formatBytes(sizeDelta || 0).replace('-', '')})
+                  {formatBytes(sizeDelta).replace('-', '')})
                 </CaptionTextSmall>
               </div>
               <CaptionTextSmall>{label}</CaptionTextSmall>

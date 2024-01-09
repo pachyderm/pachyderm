@@ -1,8 +1,8 @@
-import {Commit} from '@graphqlTypes';
 import {useCallback, useEffect} from 'react';
 import {useHistory} from 'react-router';
 
-import useCommits from '@dash-frontend/hooks/useCommits';
+import {CommitInfo} from '@dash-frontend/api/pfs';
+import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useTimestampPagination from '@dash-frontend/hooks/useTimestampPagination';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
@@ -28,12 +28,12 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
   } = useTimestampPagination(COMMITS_DEFAULT_PAGE_SIZE);
 
   const {commits, loading, error, cursor} = useCommits({
+    projectName: projectId,
+    repoName: selectedRepo,
     args: {
-      projectId,
-      repoName: selectedRepo,
-      number: pageSize,
+      cursor: cursors && cursors[page - 1],
       reverse: reverseOrder,
-      cursor: cursors[page - 1],
+      number: pageSize,
     },
   });
   const hasNextPage = !!cursor;
@@ -69,25 +69,22 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
     );
   };
 
-  const inspectCommitRedirect = (commit: Commit) => {
-    const fileBrowserLink = getPathToFileBrowser(
-      {
-        projectId,
-        repoId: commit.repoName,
-        commitId: commit.id,
-        branchId: commit.branch?.name || 'default',
-      },
-      true,
-    );
+  const inspectCommitRedirect = (commitInfo: CommitInfo) => {
+    const fileBrowserLink = getPathToFileBrowser({
+      projectId,
+      repoId: commitInfo.commit?.repo?.name || '',
+      commitId: commitInfo.commit?.id || '',
+      branchId: commitInfo.commit?.branch?.name || 'default',
+    });
     browserHistory.push(fileBrowserLink);
   };
 
-  const onOverflowMenuSelect = (commit: Commit) => (id: string) => {
+  const onOverflowMenuSelect = (commitInfo: CommitInfo) => (id: string) => {
     switch (id) {
       case 'apply-run':
-        return globalIdRedirect(commit.id);
+        return globalIdRedirect(commitInfo.commit?.id || '');
       case 'inspect-commit':
-        return inspectCommitRedirect(commit);
+        return inspectCommitRedirect(commitInfo);
       default:
         return null;
     }

@@ -1,18 +1,36 @@
-import {CreateRepoArgs} from '@graphqlTypes';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 
-import {useCreateRepoMutation} from '@dash-frontend/generated/hooks';
+import {createRepo, CreateRepoRequest} from '@dash-frontend/api/pfs';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useCreateRepo = (onCompleted?: () => void) => {
-  const [createRepoMutation, {loading, error}] = useCreateRepoMutation({
-    onCompleted,
+type useCreateRepoArgs = {
+  onSuccess?: () => void;
+};
+
+export const useCreateRepo = ({onSuccess}: useCreateRepoArgs) => {
+  const client = useQueryClient();
+  const {
+    mutate,
+    isPending: loading,
+    error,
+  } = useMutation({
+    mutationKey: ['createRepo'],
+    mutationFn: (req: CreateRepoRequest) => createRepo(req),
+    onSuccess: (_data, variables) => {
+      client.invalidateQueries({
+        queryKey: queryKeys.repos({
+          projectId: variables.repo?.project?.name,
+        }),
+        exact: true,
+      });
+      onSuccess && onSuccess();
+    },
   });
 
   return {
-    createRepo: (args: CreateRepoArgs) =>
-      createRepoMutation({variables: {args}}),
+    createRepo: mutate,
     loading,
-    error,
+    error: getErrorMessage(error),
   };
 };
-
-export default useCreateRepo;

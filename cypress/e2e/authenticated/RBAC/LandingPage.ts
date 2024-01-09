@@ -4,6 +4,7 @@ beforeEach(() => {
 });
 
 after(() => {
+  cy.visit('/');
   cy.exec('echo "pizza" | pachctl auth use-auth-token');
   cy.deleteReposAndPipelines();
 });

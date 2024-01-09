@@ -1,30 +1,30 @@
-import {mockGetFilesQuery} from '@graphqlTypes';
 import {
   render,
   screen,
+  waitFor,
   waitForElementToBeRemoved,
   within,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {FileInfo, ListFileRequest} from '@dash-frontend/api/pfs';
 import {
   mockEmptyCommitDiff,
   mockEmptyGetAuthorize,
-  mockGetCommitA4,
-  mockGetCommitsA4Only,
+  mockGetEnterpriseInfoInactive,
   mockGetImageCommits,
-  mockGetVersionInfo,
   mockRepoImages,
-  mockRepoImagesWithLinkedPipeline,
-} from '@dash-frontend/mocks';
-import {mockGetBranches} from '@dash-frontend/mocks/branches';
-import {
+  mockGetBranches,
   generatePagingFiles,
   mockEmptyFiles,
   mockErrorFiles,
   mockImagesFiles,
-} from '@dash-frontend/mocks/files';
+  mockEmptyInspectPipeline,
+  mockGetVersionInfo,
+} from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
 import FileBrowserComponent from '../FileBrowser';
@@ -46,15 +46,15 @@ describe('File Browser', () => {
       '',
       '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
     );
-    server.use(mockGetBranches());
-    server.use(mockRepoImages());
-    server.use(mockRepoImagesWithLinkedPipeline());
-    server.use(mockGetCommitA4());
-    server.use(mockEmptyCommitDiff());
-    server.use(mockImagesFiles());
-    server.use(mockGetCommitsA4Only());
     server.use(mockGetVersionInfo());
     server.use(mockEmptyGetAuthorize());
+    server.use(mockGetBranches());
+    server.use(mockRepoImages());
+    server.use(mockEmptyCommitDiff());
+    server.use(mockImagesFiles());
+    server.use(mockGetImageCommits());
+    server.use(mockGetEnterpriseInfoInactive());
+    server.use(mockEmptyInspectPipeline());
   });
 
   afterAll(() => server.close());
@@ -175,6 +175,7 @@ describe('File Browser', () => {
       await screen.findByText('Folder: cats');
       await click(screen.getByRole('button', {name: 'Back'}));
 
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
       expect(screen.getByText('Commit files for')).toBeInTheDocument();
       expect(window.location.pathname).toBe(
         '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/',
@@ -225,63 +226,33 @@ describe('File Browser', () => {
         commitId: '4a83c74809664f899261baccdb47cd90',
       });
       server.use(
-        mockGetFilesQuery((req, res, ctx) => {
-          const {projectId, repoName, branchName, commitId, cursorPath, limit} =
-            req.variables.args;
-          if (
-            projectId === 'default' &&
-            repoName === 'images' &&
-            branchName === 'master' &&
-            commitId === '4a83c74809664f899261baccdb47cd90'
-          ) {
-            if (limit === 50 && !cursorPath) {
-              return res(
-                ctx.data({
-                  files: {
-                    files: files.slice(0, 50),
-                    cursor: files[50].path,
-                    hasNextPage: true,
-                  },
-                }),
-              );
+        rest.post<ListFileRequest, Empty, FileInfo[]>(
+          '/api/pfs_v2.API/ListFile',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (
+              body.file.commit.branch.repo.project.name === 'default' &&
+              body.file.commit.branch.repo.name === 'images' &&
+              body.file.commit.branch.name === 'master' &&
+              body.file.commit.id === '4a83c74809664f899261baccdb47cd90'
+            ) {
+              if (Number(body.number) === 51 && !body.paginationMarker.path) {
+                return res(ctx.json(files.slice(0, 51)));
+              }
+              if (
+                Number(body.number) === 51 &&
+                body.paginationMarker.path === files[49].file?.path
+              ) {
+                return res(ctx.json(files.slice(50)));
+              }
+              if (Number(body.number) === 51 && !body.paginationMarker.path) {
+                return res(ctx.json(files));
+              }
+              return res(ctx.json(files));
             }
-
-            if (limit === 50 && cursorPath === files[50].path) {
-              return res(
-                ctx.data({
-                  files: {
-                    files: files.slice(50),
-                    cursor: null,
-                    hasNextPage: false,
-                  },
-                }),
-              );
-            }
-
-            if (limit === 50 && !cursorPath) {
-              return res(
-                ctx.data({
-                  files: {
-                    files: files,
-                    cursor: null,
-                    hasNextPage: false,
-                  },
-                }),
-              );
-            }
-
-            return res(
-              ctx.data({
-                files: {
-                  files: files,
-                  cursor: null,
-                  hasNextPage: false,
-                },
-              }),
-            );
-          }
-          return res();
-        }),
+            return res(ctx.json([]));
+          },
+        ),
       );
     });
 
@@ -299,6 +270,7 @@ describe('File Browser', () => {
       expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
       await click(within(pager).getByTestId('Pager__forward'));
 
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
       foundFiles = screen.getAllByTestId('FileTableRow__row');
       expect(foundFiles).toHaveLength(5);
       expect(foundFiles[0]).toHaveTextContent('50.png');
@@ -315,7 +287,9 @@ describe('File Browser', () => {
     it('should allow users to update page size', async () => {
       render(<FileBrowser />);
 
-      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      await waitFor(() =>
+        expect(screen.queryAllByRole('status')).toHaveLength(0),
+      );
 
       let foundFiles = screen.getAllByTestId('FileTableRow__row');
       expect(foundFiles).toHaveLength(50);
@@ -327,6 +301,9 @@ describe('File Browser', () => {
       await click(within(pager).getByTestId('DropdownButton__button'));
       await click(within(pager).getByText(100));
 
+      await waitFor(() =>
+        expect(screen.queryAllByRole('status')).toHaveLength(0),
+      );
       pager = screen.getByTestId('Pager__pager');
       expect(within(pager).getByTestId('Pager__forward')).toBeDisabled();
       expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();

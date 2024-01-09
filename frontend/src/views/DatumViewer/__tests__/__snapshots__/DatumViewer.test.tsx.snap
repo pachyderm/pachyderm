@@ -963,12 +963,7 @@ exports[`Datum Viewer Right Panel should render the root key of input spec 1`] =
             aria-hidden="true"
             class="cm-layer cm-layer-above cm-cursorLayer"
             style="z-index: 150; animation-duration: 1200ms;"
-          >
-            <div
-              class="cm-cursor cm-cursor-primary"
-              style="left: 0px; top: 0px; height: 0px;"
-            />
-          </div>
+          />
           <div
             aria-hidden="true"
             class="cm-layer cm-selectionLayer"

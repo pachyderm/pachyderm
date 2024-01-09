@@ -105,16 +105,16 @@ const DatumList: React.FC<DatumListProps> = ({setIsExpanded}) => {
       </div>
       {loading ? (
         <LoadingDots />
-      ) : datums.length !== 0 ? (
-        datums.map((datum) => (
+      ) : datums?.length !== 0 ? (
+        datums?.map((datum) => (
           <ListItem
             data-testid="DatumList__listItem"
-            key={datum.id}
-            state={currentDatumId === datum.id ? 'selected' : 'default'}
+            key={datum?.datum?.id}
+            state={currentDatumId === datum?.datum?.id ? 'selected' : 'default'}
             LeftIconSVG={getDatumStateSVG(datum.state) || undefined}
             leftIconColor={getDatumStateColor(datum.state) || undefined}
-            text={datum.id}
-            onClick={() => onDatumClick(datum.id)}
+            text={datum?.datum?.id}
+            onClick={() => onDatumClick(datum?.datum?.id || '')}
           />
         ))
       ) : (

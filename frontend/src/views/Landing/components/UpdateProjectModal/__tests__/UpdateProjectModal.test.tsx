@@ -1,5 +1,5 @@
-import {mockUpdateProjectMutation} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
@@ -29,14 +29,12 @@ describe('UpdateProjectModal', () => {
 
   it('should display an error message if mutation fails', async () => {
     server.use(
-      mockUpdateProjectMutation((_req, res, ctx) => {
+      rest.post('/api/pfs_v2.API/CreateProject', (_req, res, ctx) => {
         return res(
-          ctx.errors([
-            {
-              message: 'unable to update project',
-              path: ['updateProject'],
-            },
-          ]),
+          ctx.status(400),
+          ctx.json({
+            message: 'unable to update project',
+          }),
         );
       }),
     );

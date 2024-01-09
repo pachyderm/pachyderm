@@ -25,6 +25,7 @@ type TooltipProps = {
   noWrap?: boolean;
   children?: React.ReactNode;
   allowedPlacements?: Array<Placement>;
+  noSpanWrapper?: boolean;
 };
 
 const Tooltip: React.FC<TooltipProps> = ({
@@ -33,6 +34,7 @@ const Tooltip: React.FC<TooltipProps> = ({
   children,
   noWrap = false,
   allowedPlacements,
+  noSpanWrapper,
   className,
 }) => {
   const arrowRef = useRef(null);
@@ -58,6 +60,10 @@ const Tooltip: React.FC<TooltipProps> = ({
   });
 
   const {getReferenceProps, getFloatingProps} = useInteractions([hover]);
+
+  if (disabled && noSpanWrapper) {
+    return <>{children}</>;
+  }
 
   if (disabled) {
     return <span>{children}</span>;

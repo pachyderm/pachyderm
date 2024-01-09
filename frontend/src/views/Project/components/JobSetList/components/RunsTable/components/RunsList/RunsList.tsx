@@ -1,14 +1,17 @@
-import {ApolloError} from '@apollo/client';
-import {JobSetsQuery, NodeState} from '@graphqlTypes';
 import React from 'react';
 
+import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import IconBadge from '@dash-frontend/components/IconBadge';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {
+  getStandardDateFromISOString,
+  getUnixSecondsFromISOString,
+} from '@dash-frontend/lib/dateTime';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
+import {InternalJobSet, NodeState} from '@dash-frontend/lib/types';
 import {
   Table,
   StatusDotsSVG,
@@ -20,17 +23,15 @@ import useRunsList from './hooks/useRunsList';
 import styles from './RunsList.module.css';
 
 type RunsListProps = {
-  error?: ApolloError;
+  error?: string;
   totalJobsetsLength: number;
-  jobSets?: JobSetsQuery['jobSets']['items'];
+  jobSets?: InternalJobSet[];
 };
 
-const getJobStateBadges = (
-  jobSet: JobSetsQuery['jobSets']['items'][number],
-) => {
+const getJobStateBadges = (jobSet: InternalJobSet) => {
   const nodeStates = jobSet.jobs.reduce(
     (acc, job) => {
-      acc[job.nodeState] += 1;
+      acc[restJobStateToNodeState(job.state)] += 1;
       return acc;
     },
     {
@@ -126,16 +127,20 @@ const RunsList: React.FC<RunsListProps> = ({
         <Table.Body aria-label="runs list">
           {jobSets.map((jobSet) => (
             <Table.Row
-              key={jobSet?.id}
+              key={jobSet?.job?.id}
               data-testid="RunsList__row"
-              onClick={() => addSelection(jobSet?.id || '')}
-              isSelected={searchParams.selectedJobs?.includes(jobSet?.id || '')}
+              onClick={() => addSelection(jobSet?.job?.id || '')}
+              isSelected={searchParams.selectedJobs?.includes(
+                jobSet?.job?.id || '',
+              )}
               hasCheckbox
               overflowMenuItems={iconItems}
-              dropdownOnSelect={onOverflowMenuSelect(jobSet?.id || '')}
+              dropdownOnSelect={onOverflowMenuSelect(jobSet?.job?.id || '')}
             >
               <Table.DataCell width={210}>
-                {jobSet?.createdAt ? getStandardDate(jobSet?.createdAt) : '-'}
+                {jobSet?.created
+                  ? getStandardDateFromISOString(jobSet?.created)
+                  : '-'}
               </Table.DataCell>
               <Table.DataCell width={320}>
                 {`${jobSet?.jobs.length} Job${
@@ -144,9 +149,12 @@ const RunsList: React.FC<RunsListProps> = ({
                 {getJobStateBadges(jobSet)}
               </Table.DataCell>
               <Table.DataCell width={90}>
-                {getJobRuntime(jobSet.startedAt, jobSet.finishedAt)}
+                {getJobRuntime(
+                  getUnixSecondsFromISOString(jobSet.started),
+                  getUnixSecondsFromISOString(jobSet.finished),
+                )}
               </Table.DataCell>
-              <Table.DataCell>{jobSet?.id}</Table.DataCell>
+              <Table.DataCell>{jobSet?.job?.id}</Table.DataCell>
             </Table.Row>
           ))}
         </Table.Body>

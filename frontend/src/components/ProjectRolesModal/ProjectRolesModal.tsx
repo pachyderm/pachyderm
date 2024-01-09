@@ -1,5 +1,6 @@
-import {ResourceType} from '@graphqlTypes';
 import React, {FunctionComponent} from 'react';
+
+import {ResourceType} from '@dash-frontend/api/auth';
 
 import {RolesModal} from '../RolesModal';
 

@@ -1,14 +1,19 @@
-import {DatumState} from '@graphqlTypes';
 import {useMemo} from 'react';
 
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import useDatum from '@dash-frontend/hooks/useDatum';
+import {DatumState} from '@dash-frontend/api/pps';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
+import {useDatum} from '@dash-frontend/hooks/useDatum';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useMiddleSection = () => {
   const {projectId, jobId, pipelineId, datumId} = useUrlState();
-  const {pipeline, pipelineType, isServiceOrSpout} = useCurrentPipeline();
+  const {
+    pipeline,
+    pipelineType,
+    isServiceOrSpout,
+    loading: pipelineLoading,
+  } = useCurrentPipeline();
 
   const {job, loading: loadingJob} = useJob(
     {
@@ -16,20 +21,26 @@ const useMiddleSection = () => {
       pipelineName: pipelineId,
       projectId,
     },
-    {skip: !pipelineType || isServiceOrSpout},
+    !!pipelineType && !isServiceOrSpout,
   );
 
   const {datum, loading: loadingDatum} = useDatum(
     {
-      id: datumId,
-      jobId,
-      pipelineId,
-      projectId,
+      datum: {
+        id: datumId,
+        job: {
+          id: jobId,
+          pipeline: {
+            name: pipelineId,
+            project: {name: projectId},
+          },
+        },
+      },
     },
-    {skip: datumId === ''},
+    datumId !== '',
   );
 
-  const currentJobId = jobId || job?.id;
+  const currentJobId = jobId || job?.job?.id;
 
   const {headerText, headerValue} = useMemo(() => {
     if (isServiceOrSpout) {
@@ -47,17 +58,18 @@ const useMiddleSection = () => {
     }
   }, [datumId, isServiceOrSpout, currentJobId, pipelineId]);
 
-  const startTime = isServiceOrSpout ? pipeline?.createdAt : job?.createdAt;
+  const startTime = isServiceOrSpout
+    ? pipeline?.details?.createdAt
+    : job?.created;
 
   const isSkippedDatum = datum?.state === DatumState.SKIPPED;
 
   return {
     jobId: currentJobId,
-    job,
     headerText,
     headerValue,
     startTime,
-    loading: loadingJob || loadingDatum,
+    loading: loadingJob || loadingDatum || pipelineLoading,
     isSkippedDatum,
     isServiceOrSpout,
   };

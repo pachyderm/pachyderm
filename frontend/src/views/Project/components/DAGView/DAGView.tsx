@@ -1,14 +1,16 @@
-import {ApolloError} from '@apollo/client';
-import {Permission, ResourceType} from '@graphqlTypes';
 import classnames from 'classnames';
 import React from 'react';
 
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {NO_DAG_MESSAGE} from '@dash-frontend/components/EmptyState/constants/EmptyStateConstants';
 import View from '@dash-frontend/components/View';
+import {
+  useAuthorize,
+  Permission,
+  ResourceType,
+} from '@dash-frontend/hooks/useAuthorize';
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {DagDirection, Dags} from '@dash-frontend/lib/types';
 import GlobalFilter from '@dash-frontend/views/Project/components/DAGView/components/GlobalFilter';
 import {
@@ -50,7 +52,7 @@ const MARKERS = [
 type DAGViewProps = {
   dags: Dags | undefined;
   loading: boolean;
-  error: ApolloError | string | undefined;
+  error: string | undefined;
 };
 
 const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
@@ -76,17 +78,23 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   );
 
   const {projectId} = useUrlState();
-  const {isAuthorizedAction: createRepoIsAuthorizedAction} =
-    useVerifiedAuthorization({
-      permissionsList: [Permission.PROJECT_CREATE_REPO],
-      resource: {type: ResourceType.PROJECT, name: projectId},
-    });
 
   const {openModal, closeModal, isOpen} = useModal(false);
 
   const isResponsive = useBreakpoint(EXTRA_LARGE);
   const noDags = dags && dags.nodes.length === 0 && dags.links.length === 0;
   const totalNodes = dags?.nodes.length || 0;
+
+  const {hasAllPermissions: hasProjectCreateRepo} = useAuthorize(
+    {
+      permissions: [Permission.PROJECT_CREATE_REPO],
+      resource: {
+        type: ResourceType.PROJECT,
+        name: projectId,
+      },
+    },
+    noDags,
+  );
 
   const RotateSVGComponent = () => {
     return (
@@ -249,7 +257,7 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           title={''}
           message={NO_DAG_MESSAGE}
           renderButton={
-            createRepoIsAuthorizedAction ? (
+            hasProjectCreateRepo ? (
               <Button onClick={openModal}>Create Your First Repo</Button>
             ) : (
               <Tooltip tooltipText="You need at least projectWriter to create a repo.">

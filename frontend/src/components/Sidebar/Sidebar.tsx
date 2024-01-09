@@ -2,22 +2,18 @@ import classnames from 'classnames';
 import React, {HTMLAttributes} from 'react';
 import {Route} from 'react-router';
 
+import PipelineActionsMenu from '@dash-frontend/components/PipelineActionsMenu';
+import RepoActionsMenu from '@dash-frontend/components/RepoActionsMenu';
 import {DEFAULT_SIDEBAR_SIZE} from '@dash-frontend/hooks/useSidebarInfo';
-import DeletePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeletePipelineButton';
-import DeleteRepoButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/DeleteRepoButton';
 import InspectCommitsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/InspectCommitsButton';
 import ReadLogsButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/ReadLogsButton';
-import UpdatePipelineButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UpdatePipelineButton';
-import UploadFilesButton from '@dash-frontend/views/Project/components/ProjectSidebar/components/UploadFilesButton';
 import {
   PROJECT_PATH,
   LINEAGE_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
 } from '@dash-frontend/views/Project/constants/projectPaths';
-import {Button, ButtonGroup, CloseSVG} from '@pachyderm/components';
-
-import {RerunPipelineButton} from '../RerunPipelineModal';
+import {Button, ButtonGroup, CloseSVG, Group} from '@pachyderm/components';
 
 import useSidebar from './hooks/useSidebar';
 import styles from './Sidebar.module.css';
@@ -45,6 +41,8 @@ const Sidebar: React.FC<SidebarProps> = ({
     throttleMouseEvent,
     applyMousePosition,
     onDragEnd,
+    pipelineId,
+    repoId,
   } = useSidebar();
 
   return (
@@ -88,31 +86,30 @@ const Sidebar: React.FC<SidebarProps> = ({
           <div className={styles.sideBarToolbar}>
             <ButtonGroup>
               <Route path={LINEAGE_PIPELINE_PATH}>
-                <ReadLogsButton />
+                <Group spacing={8}>
+                  <ReadLogsButton />
+                  <PipelineActionsMenu pipelineId={pipelineId} />
+                </Group>
               </Route>
               <Route path={LINEAGE_REPO_PATH}>
-                <InspectCommitsButton />
+                <Group spacing={8}>
+                  <InspectCommitsButton />
+                  <RepoActionsMenu repoId={repoId} />
+                </Group>
               </Route>
             </ButtonGroup>
             <ButtonGroup>
-              <Route path={LINEAGE_REPO_PATH}>
-                <UploadFilesButton />
-                <DeleteRepoButton />
+              <Route path={[LINEAGE_PIPELINE_PATH, LINEAGE_REPO_PATH]}>
+                {onClose && (
+                  <Button
+                    IconSVG={CloseSVG}
+                    onClick={onClose}
+                    aria-label="Close sidebar"
+                    color="black"
+                    buttonType="ghost"
+                  />
+                )}
               </Route>
-              <Route path={LINEAGE_PIPELINE_PATH}>
-                <RerunPipelineButton />
-                <UpdatePipelineButton />
-                <DeletePipelineButton />
-              </Route>
-              {onClose && (
-                <Button
-                  IconSVG={CloseSVG}
-                  onClick={onClose}
-                  aria-label="Close sidebar"
-                  color="black"
-                  buttonType="ghost"
-                />
-              )}
             </ButtonGroup>
           </div>
         </Route>

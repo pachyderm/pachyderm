@@ -1,4 +1,11 @@
-import {mockGetEnterpriseInfoQuery, EnterpriseState} from '@graphqlTypes';
+import {rest} from 'msw';
+
+import {
+  GetStateRequest,
+  GetStateResponse,
+  State,
+} from '@dash-frontend/api/enterprise';
+import {Empty} from '@dash-frontend/api/googleTypes';
 
 export const getFutureTimeStamp = (days = 30) => {
   const currentDate = new Date();
@@ -8,62 +15,55 @@ export const getFutureTimeStamp = (days = 30) => {
   return Math.floor(currentDate.getTime() / 1000);
 };
 
+export const getFutureISO = (days = 30) => {
+  const currentDate = new Date();
+
+  currentDate.setDate(currentDate.getDate() + days);
+
+  return currentDate.toISOString();
+};
+
 export const mockGetEnterpriseInfo = () =>
-  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        enterpriseInfo: {
-          state: EnterpriseState.ACTIVE,
-          expiration: getFutureTimeStamp(),
-        },
-      }),
-    );
-  });
+  rest.post<GetStateRequest, Empty, GetStateResponse>(
+    '/api/enterprise_v2.API/GetState',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          activationCode: '',
+          state: State.ACTIVE,
+          info: {
+            expires: getFutureISO(),
+          },
+        }),
+      );
+    },
+  );
 
 export const mockGetEnterpriseInfoInactive = () =>
-  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        enterpriseInfo: {
-          state: EnterpriseState.NONE,
-          expiration: -1,
-        },
-      }),
-    );
-  });
+  rest.post<GetStateRequest, Empty, GetStateResponse>(
+    '/api/enterprise_v2.API/GetState',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          activationCode: '',
+          state: State.NONE,
+        }),
+      );
+    },
+  );
 
 export const mockGetEnterpriseInfoExpiring = () =>
-  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        enterpriseInfo: {
-          state: EnterpriseState.ACTIVE,
-          expiration: getFutureTimeStamp(1),
-        },
-      }),
-    );
-  });
-
-export const mockGetEnterpriseInfoExpired = () =>
-  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        enterpriseInfo: {
-          state: EnterpriseState.EXPIRED,
-          expiration: -1,
-        },
-      }),
-    );
-  });
-
-export const mockGetEnterpriseInfoHeartbeatFailed = () =>
-  mockGetEnterpriseInfoQuery((_req, res, ctx) => {
-    return res(
-      ctx.data({
-        enterpriseInfo: {
-          state: EnterpriseState.HEARTBEAT_FAILED,
-          expiration: -1,
-        },
-      }),
-    );
-  });
+  rest.post<GetStateRequest, Empty, GetStateResponse>(
+    '/api/enterprise_v2.API/GetState',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({
+          activationCode: '',
+          state: State.ACTIVE,
+          info: {
+            expires: getFutureISO(1),
+          },
+        }),
+      );
+    },
+  );

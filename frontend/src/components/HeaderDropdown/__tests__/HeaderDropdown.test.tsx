@@ -1,13 +1,13 @@
-import {mockGetAccountQuery} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {account} from '@dash-frontend/api/auth';
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
 import {
   mockGetVersionInfo,
-  mockGetAccountAuth,
   mockGetEnterpriseInfo,
+  mockGetEnterpriseInfoInactive,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -16,6 +16,14 @@ import {
 } from '@dash-frontend/testHelpers';
 
 import HeaderDropdownComponent from '../HeaderDropdown';
+
+jest.mock('@dash-frontend/api/auth', () => ({
+  account: jest.fn(() => ({
+    id: 'unauthenticated',
+    email: '',
+    name: 'User',
+  })),
+}));
 
 describe('HeaderDropdown', () => {
   const server = setupServer();
@@ -26,7 +34,6 @@ describe('HeaderDropdown', () => {
     window.localStorage.clear();
     server.resetHandlers();
     server.use(mockGetVersionInfo());
-    server.use(mockGetAccountAuth());
     server.use(mockGetEnterpriseInfo());
   });
 
@@ -42,6 +49,12 @@ describe('HeaderDropdown', () => {
     });
 
     it('should show account name, versions, and copyright', async () => {
+      jest.mocked(account).mockResolvedValue({
+        id: '1234567890',
+        email: '',
+        name: 'User Test',
+      });
+
       render(<HeaderDropdown />);
 
       await click(
@@ -56,19 +69,11 @@ describe('HeaderDropdown', () => {
     });
 
     it("should display the user's email as a fallback", async () => {
-      server.use(
-        mockGetAccountQuery((_req, res, ctx) => {
-          return res(
-            ctx.data({
-              account: {
-                email: 'email@user.com',
-                id: 'TestUsername',
-                name: '',
-              },
-            }),
-          );
-        }),
-      );
+      jest.mocked(account).mockResolvedValue({
+        id: '1234567890',
+        email: 'email@user.com',
+        name: '',
+      });
 
       render(<HeaderDropdown />);
 
@@ -104,6 +109,7 @@ describe('HeaderDropdown', () => {
     beforeEach(() => {
       server.resetHandlers();
       server.use(mockGetVersionInfo());
+      server.use(mockGetEnterpriseInfoInactive());
     });
 
     it('should direct users to slack if enterprise is inactive', async () => {

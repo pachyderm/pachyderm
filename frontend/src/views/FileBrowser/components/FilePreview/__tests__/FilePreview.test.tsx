@@ -3,11 +3,15 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {FileType} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
+  mockGetEnterpriseInfo,
   buildFile,
-  mockDeleteFiles,
-  mockRepoWithNullLinkedPipeline,
-  mockRepoWithLinkedPipeline,
+  mockStartCommit,
+  mockFinishCommit,
+  mockGetMontagePipeline,
+  mockEmptyInspectPipeline,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -27,7 +31,8 @@ describe('File Preview', () => {
 
   beforeEach(() => {
     server.resetHandlers();
-    server.use(mockRepoWithLinkedPipeline());
+    server.use(mockGetEnterpriseInfo());
+    server.use(mockEmptyInspectPipeline());
   });
 
   afterAll(() => server.close());
@@ -39,22 +44,50 @@ describe('File Preview', () => {
       fullFileName = '',
     ) => {
       const fileName = fullFileName || `file.${ext}`;
+
       const file = buildFile({
-        download: `/download/${fileName}`,
-        path: `/${fileName}`,
-        repoName: 'file',
+        file: {
+          commit: {
+            repo: {
+              name: 'file',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '252d1850a5fa484ca7320ce1091cf483',
+            branch: {
+              repo: {
+                name: 'file',
+                type: 'user',
+                project: {
+                  name: 'default',
+                },
+              },
+              name: 'master',
+            },
+          },
+          path: `/${fileName}`,
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '80588',
       });
 
       server.use(
-        rest.get(`/download/${fileName}`, (_req, res, ctx) => {
-          return res(ctx.text(contents));
-        }),
+        rest.get(
+          `/proxyForward/pfs/default/file/252d1850a5fa484ca7320ce1091cf483/${fileName}`,
+          (_req, res, ctx) => {
+            return res(ctx.text(contents));
+          },
+        ),
       );
 
       window.history.replaceState(
         {},
         '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+        `/project/default/repos/file/branch/master/commit/252d1850a5fa484ca7320ce1091cf483/${fileName}`,
       );
 
       render(<FilePreview file={file} />);
@@ -108,7 +141,10 @@ describe('File Preview', () => {
 
       expect(
         await screen.findByTestId(`FilePreviewContent__${name}`),
-      ).toHaveAttribute('src', `/download/file.${ext}`);
+      ).toHaveAttribute(
+        'src',
+        `/proxyForward/pfs/default/file/252d1850a5fa484ca7320ce1091cf483/file.${ext}`,
+      );
     });
 
     it.each(['yml', 'yaml'])('should render a %s file', async (ext) => {
@@ -147,7 +183,10 @@ describe('File Preview', () => {
 
       expect(
         await screen.findByTestId(`FilePreviewContent__xml`),
-      ).toHaveAttribute('src', '/download/file.xml');
+      ).toHaveAttribute(
+        'src',
+        '/proxyForward/pfs/default/file/252d1850a5fa484ca7320ce1091cf483/file.xml',
+      );
 
       const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
 
@@ -162,7 +201,10 @@ describe('File Preview', () => {
 
       expect(
         await screen.findByTestId(`FilePreviewContent__image`),
-      ).toHaveAttribute('src', '/download/file.svg');
+      ).toHaveAttribute(
+        'src',
+        '/proxyForward/pfs/default/file/252d1850a5fa484ca7320ce1091cf483/file.svg',
+      );
 
       const viewSourceButton = screen.getByTestId('Switch__buttonThumb');
 
@@ -298,15 +340,39 @@ describe('File Preview', () => {
 
     it('should render a message when the file type cannot be rendered', async () => {
       const file = buildFile({
-        download: '/download/data.unsupported',
-        path: 'data.unsupported',
-        repoName: 'unsupported',
+        file: {
+          commit: {
+            repo: {
+              name: 'unsupported',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '252d1850a5fa484ca7320ce1091cf483',
+            branch: {
+              repo: {
+                name: 'lots-of-commits',
+                type: 'user',
+                project: {
+                  name: 'default',
+                },
+              },
+              name: 'master',
+            },
+          },
+          path: '/data.unsupported',
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '80588',
       });
 
       window.history.replaceState(
         {},
         '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -322,23 +388,48 @@ describe('File Preview', () => {
 
       const viewRawLink = await screen.findByText('View Raw');
 
-      expect(viewRawLink).toHaveAttribute('href', '/download/data.unsupported');
+      expect(viewRawLink).toHaveAttribute(
+        'href',
+        '/proxyForward/pfs/default/lots-of-commits/252d1850a5fa484ca7320ce1091cf483/data.unsupported',
+      );
       expect(viewRawLink).toHaveAttribute('target', '_blank');
     });
 
     it('should render a message when the file is too large to be rendered', async () => {
       const file = buildFile({
-        download: null,
-        path: 'data.txt',
-        repoName: 'text',
-        sizeBytes: 5000000,
-        sizeDisplay: '5 MB',
+        file: {
+          commit: {
+            repo: {
+              name: 'text',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '252d1850a5fa484ca7320ce1091cf483',
+            branch: {
+              repo: {
+                name: 'text',
+                type: 'user',
+                project: {
+                  name: 'default',
+                },
+              },
+              name: 'master',
+            },
+          },
+          path: '/data.txt',
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '500000000',
       });
 
       window.history.replaceState(
         {},
         '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -353,16 +444,39 @@ describe('File Preview', () => {
 
     it('should render file metadata', async () => {
       const file = buildFile({
-        download: '/download/image.png',
-        path: '/image.png',
-        repoName: 'image',
-        sizeDisplay: '58.65 kB',
+        file: {
+          commit: {
+            repo: {
+              name: 'image',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '252d1850a5fa484ca7320ce1091cf483',
+            branch: {
+              repo: {
+                name: 'image',
+                type: 'user',
+                project: {
+                  name: 'default',
+                },
+              },
+              name: 'master',
+            },
+          },
+          path: '/image.png',
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '58650',
       });
 
       window.history.replaceState(
         {},
         '',
-        `/project/default/repos/${file.repoName}/branch/master/commit/${file.commitId}${file.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -378,10 +492,33 @@ describe('File Preview', () => {
 
   describe('File Preview Actions', () => {
     const file = buildFile({
-      download: '/download/image.png',
-      path: '/image.png',
-      repoName: 'image',
-      sizeDisplay: '58.65 kB',
+      file: {
+        commit: {
+          repo: {
+            name: 'image',
+            type: 'user',
+            project: {
+              name: 'default',
+            },
+          },
+          id: '252d1850a5fa484ca7320ce1091cf483',
+          branch: {
+            repo: {
+              name: 'image',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            name: 'master',
+          },
+        },
+        path: '/image.png',
+        datum: 'default',
+      },
+      fileType: FileType.FILE,
+      committed: '2023-11-08T18:12:19.363338Z',
+      sizeBytes: '58650',
     });
 
     window.history.replaceState(
@@ -400,7 +537,7 @@ describe('File Preview', () => {
       );
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/image/branch/master/commit/default/',
+        '/project/default/repos/image/branch/master/commit/252d1850a5fa484ca7320ce1091cf483/',
       );
     });
 
@@ -411,12 +548,17 @@ describe('File Preview', () => {
       await click((await screen.findAllByText('Copy Path'))[0]);
 
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        'image@master=default:/image.png',
+        'image@master=252d1850a5fa484ca7320ce1091cf483:/image.png',
       );
     });
 
     it('should not allow file deletion for output repos', async () => {
-      server.use(mockRepoWithLinkedPipeline());
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/montage/branch/master/commit/default/image.png',
+      );
+      server.use(mockGetMontagePipeline());
       render(<FilePreview file={file} />);
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
@@ -424,8 +566,28 @@ describe('File Preview', () => {
     });
 
     it('should delete file on action click', async () => {
-      server.use(mockRepoWithNullLinkedPipeline());
-      server.use(mockDeleteFiles());
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/image/branch/master/commit/default/image.png',
+      );
+      server.use(mockEmptyInspectPipeline());
+      server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
+      server.use(
+        rest.post<string, Empty>(
+          '/api/pfs_v2.API/ModifyFile',
+          async (req, res, ctx) => {
+            const body = await req.text();
+            const expected =
+              '{"setCommit":{"repo":{"name":"images","type":"user","project":{"name":"default"},"__typename":"Repo"},"id":"720d471659dc4682a53576fdb637a482","branch":{"repo":{"name":"images","type":"user","project":{"name":"default"}},"name":"master"},"__typename":"Commit"}}\n' +
+              '{"deleteFile":{"path":"/image.png"}}';
+            if (body === expected) {
+              return res(ctx.json({}));
+            }
+          },
+        ),
+      );
+      server.use(mockFinishCommit());
 
       render(<FilePreview file={file} />);
 
@@ -439,7 +601,7 @@ describe('File Preview', () => {
       // The delete is finished after navigating to the new commit
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/default/repos/image/branch/master/commit/deleted/',
+          '/project/default/repos/image/branch/master/commit/720d471659dc4682a53576fdb637a482/',
         ),
       );
     });

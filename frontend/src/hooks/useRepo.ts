@@ -1,19 +1,16 @@
-import {RepoQueryArgs} from '@graphqlTypes';
+import {useQuery} from '@tanstack/react-query';
 
-import {REPO_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
-import {useRepoQuery} from '@dash-frontend/generated/hooks';
+import {InspectRepoRequest, inspectRepo} from '@dash-frontend/api/pfs';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useRepo = (args: RepoQueryArgs) => {
-  const {data, error, loading} = useRepoQuery({
-    variables: {args},
-    pollInterval: REPO_POLL_INTERVAL_MS,
+export const useRepo = (req: InspectRepoRequest) => {
+  const {data, isLoading, error} = useQuery({
+    queryKey: queryKeys.repo({
+      projectId: req.repo?.project?.name,
+      repoId: req.repo?.name,
+    }),
+    queryFn: () => inspectRepo(req),
   });
 
-  return {
-    repo: data?.repo,
-    error,
-    loading,
-  };
+  return {repo: data, loading: isLoading, error};
 };
-
-export default useRepo;

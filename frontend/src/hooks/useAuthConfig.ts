@@ -1,14 +1,25 @@
-import {useAuthConfigQuery} from '@dash-frontend/generated/hooks';
+import {useQuery} from '@tanstack/react-query';
+
+import {config} from '@dash-frontend/api/auth';
 
 interface UseAuthConfigArgs {
-  skip?: boolean;
+  enabled?: boolean;
 }
 
-const useAuthConfig = ({skip = false}: UseAuthConfigArgs = {}) => {
-  const {data, loading, error} = useAuthConfigQuery({skip});
+const useAuthConfig = ({enabled = true}: UseAuthConfigArgs = {}) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: ['authConfig'],
+    queryFn: () => config(),
+    enabled,
+    throwOnError: false,
+  });
 
   return {
-    authConfig: data?.authConfig,
+    authConfig: data,
     loading,
     error,
   };

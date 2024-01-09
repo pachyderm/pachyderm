@@ -1,8 +1,11 @@
-import {mockCreateProjectMutation} from '@graphqlTypes';
 import {render, screen} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {ListProjectRequest} from '@dash-frontend/api/pfs';
+import {RequestError} from '@dash-frontend/api/utils/error';
 import {mockProjects} from '@dash-frontend/mocks';
 import {withContextProviders, type, click} from '@dash-frontend/testHelpers';
 
@@ -38,16 +41,19 @@ describe('CreateProjectModal', () => {
 
   it('should display an error message if mutation fails', async () => {
     server.use(
-      mockCreateProjectMutation((_req, res, ctx) => {
-        return res(
-          ctx.errors([
-            {
+      rest.post<ListProjectRequest, Empty, RequestError>(
+        '/api/pfs_v2.API/CreateProject',
+        (_req, res, ctx) => {
+          return res(
+            ctx.status(400),
+            ctx.json({
+              code: 11,
               message: 'unable to create project',
-              path: ['createProject'],
-            },
-          ]),
-        );
-      }),
+              details: [],
+            }),
+          );
+        },
+      ),
     );
     render(<CreateProjectModal />);
 

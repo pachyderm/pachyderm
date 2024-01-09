@@ -1,27 +1,25 @@
-import {
-  ProjectStatus,
-  mockCreateProjectMutation,
-  mockUpdateProjectMutation,
-  mockProjectStatusQuery,
-} from '@graphqlTypes';
-import {render, within, screen} from '@testing-library/react';
+import {render, within, screen, waitFor} from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Permission} from '@dash-frontend/api/auth';
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {
+  ListPipelineRequest,
+  PipelineInfo,
+  PipelineState,
+} from '@dash-frontend/api/pps';
 import {
   mockProjects,
-  mockEmptyProjectDetails,
   mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockGetVersionInfo,
   mockTrueGetAuthorize,
+  buildPipeline,
+  mockGetEnterpriseInfo,
 } from '@dash-frontend/mocks';
-import {
-  withContextProviders,
-  click,
-  type,
-  clear,
-} from '@dash-frontend/testHelpers';
+import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
 import {Landing as LandingComponent} from '../Landing';
 
@@ -39,25 +37,37 @@ describe('Landing', () => {
   beforeEach(() => {
     server.resetHandlers();
     server.use(mockEmptyGetAuthorize());
+    server.use(mockGetEnterpriseInfo());
     server.use(mockGetVersionInfo());
     server.use(mockProjects());
     server.use(
-      mockProjectStatusQuery((req, res, ctx) => {
-        return res(
-          ctx.data({
-            projectStatus: {
-              __typename: 'Project',
-              id: req.variables.id,
-              status:
-                req.variables.id !== 'ProjectC'
-                  ? ProjectStatus.HEALTHY
-                  : ProjectStatus.UNHEALTHY,
-            },
-          }),
-        );
+      rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
+        '/api/pps_v2.API/ListPipeline',
+        (req, res, ctx) => {
+          if (req.body.projects?.[0].name === 'ProjectC') {
+            return res(
+              ctx.json([
+                buildPipeline({
+                  state: PipelineState.PIPELINE_FAILURE,
+                }),
+              ]),
+            );
+          }
+
+          return res(ctx.json([buildPipeline()]));
+        },
+      ),
+    );
+    server.use(
+      rest.post('/api/pfs_v2.API/ListRepo', (_req, res, ctx) => {
+        return res(ctx.json([]));
       }),
     );
-    server.use(mockEmptyProjectDetails());
+    server.use(
+      rest.post('/api/pps_v2.API/ListJob', (_req, res, ctx) => {
+        return res(ctx.json([]));
+      }),
+    );
   });
 
   afterAll(() => server.close());
@@ -72,7 +82,12 @@ describe('Landing', () => {
     });
 
     it('appears as a Cluster Admin', async () => {
-      server.use(mockTrueGetAuthorize());
+      server.use(
+        mockTrueGetAuthorize([
+          Permission.PROJECT_CREATE,
+          Permission.CLUSTER_AUTH_SET_CONFIG,
+        ]),
+      );
       render(<Landing />);
 
       expect(
@@ -129,8 +144,12 @@ describe('Landing', () => {
       }),
     ).toBeInTheDocument();
 
-    expect(screen.getAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(2);
-    expect(screen.getAllByTestId('ProjectStatus__UNHEALTHY')).toHaveLength(1);
+    expect(await screen.findAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(
+      2,
+    );
+    expect(
+      await screen.findAllByTestId('ProjectStatus__UNHEALTHY'),
+    ).toHaveLength(1);
 
     expect(screen.getAllByText(/A description for project/)).toHaveLength(3);
   });
@@ -303,6 +322,12 @@ describe('Landing', () => {
   it('should allow the user to filter projects by status', async () => {
     render(<Landing />);
     const projects = await screen.findByTestId('Landing__view');
+
+    // Have to wait for everything to load first
+    await waitFor(async () => {
+      expect(screen.getAllByTestId('ProjectStatus__HEALTHY')).toHaveLength(2);
+    });
+
     expect(
       await within(projects).findAllByTestId('ProjectStatus__HEALTHY'),
     ).toHaveLength(2);
@@ -373,159 +398,5 @@ describe('Landing', () => {
         name: /create project/i,
       }),
     ).not.toBeInTheDocument();
-  });
-
-  describe('Create Project Modal', () => {
-    beforeAll(() => {
-      server.use(mockEmptyGetAuthorize());
-    });
-
-    it('should create a project', async () => {
-      server.use(
-        mockCreateProjectMutation((req, res, ctx) => {
-          const {args} = req.variables;
-          return res(
-            ctx.data({
-              createProject: {
-                id: args.name,
-                description: args.description,
-                status: ProjectStatus.HEALTHY,
-                createdAt: {seconds: 1600000000, nanos: 248610000},
-                __typename: 'Project',
-              },
-            }),
-          );
-        }),
-      );
-
-      render(<Landing />);
-
-      const createButton = await screen.findByText('Create Project');
-      await click(createButton);
-
-      const modal = screen.getByRole('dialog');
-      const nameInput = await within(modal).findByLabelText('Name', {
-        exact: false,
-      });
-      const descriptionInput = await within(modal).findByLabelText(
-        'Description (optional)',
-        {
-          exact: false,
-        },
-      );
-
-      await type(nameInput, 'New-Project');
-      await type(descriptionInput, 'description text');
-
-      expect(screen.queryByText('New-Project')).not.toBeInTheDocument();
-
-      await click(within(modal).getByText('Create'));
-      expect(
-        await screen.findByRole('heading', {
-          name: /new-project/i,
-        }),
-      ).toBeInTheDocument();
-    });
-  });
-
-  describe('UpdateProjectModal', () => {
-    it('should update a project description with no text then with text', async () => {
-      server.use(
-        mockUpdateProjectMutation((req, res, ctx) => {
-          const {args} = req.variables;
-          return res(
-            ctx.data({
-              updateProject: {
-                id: args.name,
-                description: args.description,
-                __typename: 'Project',
-              },
-            }),
-          );
-        }),
-      );
-      render(<Landing />);
-
-      // wait for page to populate
-      expect(await screen.findByText('ProjectA')).toBeInTheDocument();
-
-      // open the modal on the correct row
-      expect(screen.queryByRole('dialog')).toBeNull();
-      expect(
-        screen.queryByRole('menuitem', {
-          name: /edit project info/i,
-        }),
-      ).toBeNull();
-      await click(
-        screen.getByRole('button', {
-          name: /projecta overflow menu/i,
-        }),
-      );
-      const menuItem = await screen.findByRole('menuitem', {
-        name: /edit project info/i,
-      });
-      expect(menuItem).toBeVisible();
-      await click(menuItem);
-
-      const modal = await screen.findByRole('dialog');
-      expect(modal).toBeInTheDocument();
-
-      const descriptionInput = await within(modal).findByRole('textbox', {
-        name: /description/i,
-      });
-      expect(descriptionInput).toHaveValue('A description for project a'); // Element should be prepopulated with the existing description.
-
-      await clear(descriptionInput);
-
-      await click(
-        within(modal).getByRole('button', {
-          name: /confirm changes/i,
-        }),
-      );
-      const row = screen.getByRole('row', {
-        name: /projecta/i,
-      });
-      expect(await within(row).findByText('N/A')).toBeInTheDocument();
-
-      // reopen it to edit and save some data
-      expect(
-        screen.queryByRole('menuitem', {
-          name: /edit project info/i,
-        }),
-      ).toBeNull();
-      await click(
-        screen.getByRole('button', {
-          name: /projecta overflow menu/i,
-        }),
-      );
-      const menuItem2 = await screen.findByRole('menuitem', {
-        name: /edit project info/i,
-      });
-      expect(menuItem2).toBeVisible();
-      await click(menuItem2);
-
-      const modal2 = await screen.findByRole('dialog');
-      expect(modal2).toBeInTheDocument();
-
-      const descriptionInput2 = await within(modal2).findByRole('textbox', {
-        name: /description/i,
-      });
-      expect(descriptionInput2).toHaveValue('');
-
-      await clear(descriptionInput2);
-      await type(descriptionInput2, 'new desc');
-
-      await click(
-        within(modal2).getByRole('button', {
-          name: /confirm changes/i,
-        }),
-      );
-
-      const row2 = await screen.findByRole('row', {
-        name: /projecta/i,
-      });
-
-      expect(await within(row2).findByText('new desc')).toBeInTheDocument();
-    });
   });
 });

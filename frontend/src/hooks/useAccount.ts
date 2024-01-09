@@ -1,32 +1,24 @@
-import {useEffect} from 'react';
+import {useQuery} from '@tanstack/react-query';
 
-import {useGetAccountQuery} from '@dash-frontend/generated/hooks';
-import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import {getRandomName} from '@pachyderm/components';
-interface useAccountArgs {
-  skip?: boolean;
-}
+import {account} from '@dash-frontend/api/auth';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-const useAccount = ({skip = false}: useAccountArgs = {}) => {
-  const {data, error, loading} = useGetAccountQuery({skip});
-  const [tutorialId, setTutorialData] = useLocalProjectSettings({
-    projectId: 'account-data',
-    key: 'tutorial_id',
+export const useAccount = (enabled = true) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.account,
+    queryFn: () => account(),
+    enabled,
   });
 
-  useEffect(() => {
-    if (!tutorialId) {
-      setTutorialData(getRandomName());
-    }
-  }, [setTutorialData, tutorialId]);
-
   return {
-    error,
-    account: data?.account,
-    displayName: data?.account.name || data?.account.email,
+    error: getErrorMessage(error),
+    account: data,
     loading,
-    tutorialId: tutorialId,
+    displayName: data?.name || data?.email,
   };
 };
-
-export default useAccount;

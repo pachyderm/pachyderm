@@ -1,15 +1,13 @@
 import {useMemo} from 'react';
 
-import {useGenerateDagsSubscription} from '@dash-frontend/hooks/useGenerateDagsSubscription';
+import {useDAGData} from '@dash-frontend/hooks/useDAGData';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
-import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, InputOutputNodesMap} from '@dash-frontend/lib/types';
 
 import {NODE_HEIGHT, NODE_WIDTH} from './../../../constants/nodeSizes';
 
 export const useDAG = () => {
-  const {searchParams} = useUrlQueryState();
   const {projectId} = useUrlState();
   const [dagDirectionSetting] = useLocalProjectSettings({
     projectId,
@@ -18,9 +16,7 @@ export const useDAG = () => {
 
   const dagDirection = dagDirectionSetting || DagDirection.DOWN;
 
-  const {dags, loading, error} = useGenerateDagsSubscription({
-    jobSetId: searchParams.globalIdFilter || undefined,
-    projectId,
+  const {dags, loading, error} = useDAGData({
     nodeHeight: NODE_HEIGHT,
     nodeWidth: NODE_WIDTH,
     direction: dagDirection,

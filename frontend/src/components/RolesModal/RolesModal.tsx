@@ -1,7 +1,7 @@
-import {ResourceType} from '@graphqlTypes';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
+import {ResourceType} from '@dash-frontend/api/auth';
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import {REPO_ROLES, ALL_ROLES} from '@dash-frontend/constants/rbac';
 import {
@@ -79,7 +79,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
         resourceType,
       )} Level Roles: ${resourceName}`}
       loading={loading}
-      errorMessage={error?.message || modifyRolesError?.message}
+      errorMessage={error || modifyRolesError}
       actionable
       hideConfirm
       mode="Long"
@@ -180,7 +180,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
                       !deletedRoles[principal] &&
                       userTableRoles[principal].unlockedRoles.length > 0 && (
                         <Tooltip
-                          tooltipText={`Delete all 
+                          tooltipText={`Delete all
                           ${resourceType.toLowerCase()} roles`}
                         >
                           <Icon

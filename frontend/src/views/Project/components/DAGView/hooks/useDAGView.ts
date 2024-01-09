@@ -248,7 +248,7 @@ export const useDAGView = (
     if (!skipCenterOnSelect) {
       const centerNodeSelection = select<SVGGElement, Node>(
         `#GROUP_${objectHash({
-          project: currentProject?.id,
+          project: currentProject?.project?.name,
           name: selectedNode,
         })}`,
       );
@@ -292,7 +292,7 @@ export const useDAGView = (
     interacted,
     reset,
     skipCenterOnSelect,
-    currentProject?.id,
+    currentProject?.project?.name,
   ]);
 
   // reset interaction on empty canvas
@@ -364,7 +364,7 @@ export const useDAGView = (
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
     graphExtents,
-    projectName: currentProject?.id,
+    projectName: currentProject?.project?.name,
     searchParams,
   };
 };

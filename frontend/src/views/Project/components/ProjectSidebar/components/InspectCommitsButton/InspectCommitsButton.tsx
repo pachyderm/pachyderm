@@ -1,41 +1,44 @@
 import React from 'react';
 
-import useCommit from '@dash-frontend/hooks/useCommit';
+import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {Button, RepoSVG} from '@pachyderm/components';
+import {Button, NavigationHistorySVG} from '@pachyderm/components';
 
 const InspectCommitsButton: React.FC = () => {
   const {getPathToFileBrowser} = useFileBrowserNavigation();
   const {searchParams} = useUrlQueryState();
   const {repoId, projectId} = useUrlState();
 
-  const {commit} = useCommit({
+  const {commits} = useCommits({
+    projectName: projectId,
+    repoName: repoId,
     args: {
-      projectId,
-      repoName: repoId,
-      id: searchParams.globalIdFilter || '',
+      commitIdCursor: searchParams.globalIdFilter || '',
+      number: 1,
     },
   });
 
+  const commit = commits && commits[0];
+
   return (
     <Button
-      buttonType="secondary"
-      IconSVG={RepoSVG}
+      buttonType="primary"
+      IconSVG={NavigationHistorySVG}
       to={
         commit
           ? getPathToFileBrowser({
               projectId,
               repoId: repoId,
-              commitId: commit.id,
-              branchId: commit.branch?.name || 'default',
+              commitId: commit.commit?.id || '',
+              branchId: commit.commit?.branch?.name || 'default',
             })
           : ''
       }
       disabled={!commit}
     >
-      Inspect Commits
+      Previous Commits
     </Button>
   );
 };

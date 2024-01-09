@@ -106,16 +106,6 @@ npm run components:test Button
 
 If you want to only run one of the tests outlined above refer to the `package.json` found in the subdirectory `frontend` or `backend`.
 
-**To run the backend integration tests:**
-
-1. [Run and port-forward a local Pachyderm cluster](./README_Pachyderm.md) in either Enterprise or Community Edition.
-1. Run the following commands
-
-```bash
-cd backend
-npm run integration-test
-```
-
 ### E2E tests
 
 We use Cypress for E2E tests.
@@ -127,11 +117,6 @@ There are three distinct sets of tests. They run against:
 1. The mock backend.
 
 Before running one of the above sets of tests you must configure your local pachyderm and console setup to match what the test is expecting to test against.
-
-**To run the mock test suite:**
-
-1. Run `make launch-mock`
-1. Run `npm run cypress:local-mock`
 
 **Otherwise, to run either of the authenticated (Enterprise)or unauthenticated (Community Edition) test suites:**
 
@@ -154,16 +139,6 @@ make e2e-auth
    ```bash
    make e2e
    ```
-
-## Graphql & TypeScript type generation
-
-`graphql-codegen` is leveraged in this project to generate both type definitions and client-side code for Console's GraphQL resources based on this codebase's graphql documents. [Find out more about type generation here](./README_Development.md).
-
-To update the generated types, run:
-
-```bash
-make graphql
-```
 
 ## Running the production server
 

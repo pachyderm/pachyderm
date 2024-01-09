@@ -1,4 +1,5 @@
 export * from './auth';
+export * from './branches';
 export * from './commits';
 export * from './datums';
 export * from './enterprise';

@@ -1,19 +1,49 @@
-import {useApolloClient} from '@apollo/client';
+import {useMutation, useQueryClient} from '@tanstack/react-query';
 
-import {useRerunPipelineMutation} from '@dash-frontend/generated/hooks';
+import {rerunPipeline, RerunPipelineRequest} from '@dash-frontend/api/pps';
+import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useRerunPipeline = (onCompleted?: () => void) => {
-  const client = useApolloClient();
-  const [rerunPipeline, {loading, error}] = useRerunPipelineMutation({
-    onCompleted: () => {
-      onCompleted && onCompleted();
-      client.cache.reset();
+import {useJobsArgs} from './useJobs';
+
+export const useRerunPipeline = (onSettled?: () => void) => {
+  const client = useQueryClient();
+  const {
+    mutate,
+    error,
+    isPending: loading,
+  } = useMutation({
+    mutationKey: ['rerunPipeline'],
+    mutationFn: (req: RerunPipelineRequest) => {
+      return rerunPipeline(req);
     },
+    onSuccess: (_data, variables) => {
+      const projectId = variables.pipeline?.project?.name;
+      const pipelineId = variables.pipeline?.name;
+      client.invalidateQueries({
+        queryKey: queryKeys.pipeline({
+          projectId,
+          pipelineId,
+        }),
+        exact: true,
+      });
+      client.invalidateQueries({
+        queryKey: queryKeys.jobs<useJobsArgs>({
+          projectId,
+          args: {
+            limit: 1,
+            pipelineIds: [pipelineId || ''],
+            projectName: projectId,
+          },
+        }),
+      });
+    },
+    onSettled,
   });
 
   return {
-    rerunPipeline,
-    error,
+    rerunPipeline: mutate,
+    error: getErrorMessage(error),
     loading,
   };
 };

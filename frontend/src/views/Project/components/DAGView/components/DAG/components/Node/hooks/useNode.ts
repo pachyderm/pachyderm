@@ -1,11 +1,10 @@
-import {NodeType} from '@graphqlTypes';
 import {select} from 'd3-selection';
 import {useCallback, useEffect, useMemo} from 'react';
 import {useHistory} from 'react-router';
 
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {Node} from '@dash-frontend/lib/types';
+import {NodeType, Node} from '@dash-frontend/lib/types';
 import useDAGRouteController from '@dash-frontend/views/Project/components/DAGView/hooks/useDAGRouteController';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {

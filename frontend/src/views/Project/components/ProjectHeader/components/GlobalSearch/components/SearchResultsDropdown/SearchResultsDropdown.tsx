@@ -95,10 +95,10 @@ const SearchResultsDropdown: React.FC = () => {
             {searchResults.repos.map((repo) => {
               return (
                 <SearchResultItem
-                  key={repo.name}
-                  title={repo.name}
+                  key={repo.repo?.name}
+                  title={repo.repo?.name || ''}
                   searchValue={debouncedValue}
-                  onClick={() => repoOnClick(repo.name)}
+                  onClick={() => repoOnClick(repo.repo?.name || '')}
                 >
                   <SecondaryAction linkText={'See Commits'} />
                 </SearchResultItem>
@@ -126,10 +126,10 @@ const SearchResultsDropdown: React.FC = () => {
             {searchResults.pipelines.map((pipeline) => {
               return (
                 <SearchResultItem
-                  key={pipeline.name}
-                  title={pipeline.name}
+                  key={pipeline.pipeline?.name}
+                  title={pipeline.pipeline?.name || ''}
                   searchValue={debouncedValue}
-                  onClick={() => pipelineOnClick(pipeline.name)}
+                  onClick={() => pipelineOnClick(pipeline.pipeline?.name || '')}
                 />
               );
             })}
@@ -155,10 +155,10 @@ const SearchResultsDropdown: React.FC = () => {
           </div>
           <div className={styles.resultsContainer}>
             <SearchResultItem
-              key={jobSet.id}
-              title={jobSet.id}
+              key={jobSet?.[0]?.job?.id}
+              title={jobSet?.[0]?.job?.id || ''}
               searchValue={debouncedValue}
-              onClick={() => jobSetOnClick(jobSet.id)}
+              onClick={() => jobSetOnClick(jobSet[0].job?.id || '')}
             />
           </div>
         </>

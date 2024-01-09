@@ -1,7 +1,7 @@
-import {GetLogsQuery} from '@graphqlTypes';
 import fill from 'lodash/fill';
 import React, {useCallback, useEffect, useState} from 'react';
 
+import {LogMessage} from '@dash-frontend/api/pps';
 import {PureCheckbox} from '@pachyderm/components';
 
 import styles from './LogsListHeader.module.css';
@@ -12,7 +12,7 @@ type LogsListHeaderProps = {
   setSelectedLogsMap: React.Dispatch<
     React.SetStateAction<{[key: number]: boolean}>
   >;
-  logs: GetLogsQuery['logs']['items'];
+  logs?: LogMessage[];
   loading: boolean;
 };
 
@@ -25,7 +25,7 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
   const [selectAllCheckbox, setSelectAllCheckbox] = useState(false);
 
   useEffect(() => {
-    if (logs.length === 0) {
+    if (!logs?.length) {
       setSelectAllCheckbox(false);
     }
     if (Object.values(selectedLogsMap).includes(false)) {
@@ -34,16 +34,16 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
     if (rawLogs) {
       setSelectAllCheckbox(false);
     }
-  }, [logs.length, rawLogs, selectedLogsMap]);
+  }, [logs?.length, rawLogs, selectedLogsMap]);
 
   const onSelectAll = useCallback(() => {
     if (!selectAllCheckbox) {
-      setSelectedLogsMap(Object.assign({}, fill(Array(logs.length), true)));
+      setSelectedLogsMap(Object.assign({}, fill(Array(logs?.length), true)));
     } else {
       setSelectedLogsMap({});
     }
     setSelectAllCheckbox(!selectAllCheckbox);
-  }, [logs.length, selectAllCheckbox, setSelectedLogsMap]);
+  }, [logs?.length, selectAllCheckbox, setSelectedLogsMap]);
   return (
     <div className={styles.bodyHeader}>
       {!rawLogs && (
@@ -54,7 +54,7 @@ const LogsListHeader: React.FC<LogsListHeaderProps> = ({
                 className={styles.checkbox}
                 data-testid="LogsListHeader__select_all"
                 selected={selectAllCheckbox}
-                disabled={logs.length === 0}
+                disabled={!logs?.length}
                 onChange={onSelectAll}
               />
             )}

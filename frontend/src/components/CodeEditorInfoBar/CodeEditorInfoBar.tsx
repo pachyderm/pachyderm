@@ -1,4 +1,3 @@
-import {ApolloError} from '@apollo/client';
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
@@ -6,9 +5,7 @@ import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import CodePreview from '@dash-frontend/components/CodePreview';
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
-import getServerErrorMessage, {
-  getGRPCCode,
-} from '@dash-frontend/lib/errorHandling';
+import getErrorMessage, {getGRPCCode} from '@dash-frontend/lib/getErrorMessage';
 import {
   Group,
   Icon,
@@ -24,8 +21,8 @@ import {
 import styles from './CodeEditorInfoBar.module.css';
 
 type CodeEditorInfoBarProps = {
-  error?: ApolloError | string;
-  fullError?: ApolloError;
+  errorMessage?: string;
+  fullError?: Error | null;
   fullErrorModalTitle?: string;
   unsavedChanges?: boolean;
   invalidJSON?: boolean;
@@ -34,7 +31,7 @@ type CodeEditorInfoBarProps = {
 };
 
 const CodeEditorInfoBar: React.FC<CodeEditorInfoBarProps> = ({
-  error,
+  errorMessage,
   fullError,
   fullErrorModalTitle,
   unsavedChanges,
@@ -45,9 +42,6 @@ const CodeEditorInfoBar: React.FC<CodeEditorInfoBarProps> = ({
   const {isOpen, openModal, closeModal} = useModal();
   const {enterpriseActive} = useEnterpriseActive();
 
-  const readableError = capitalize(
-    String(typeof error === 'string' ? error : getServerErrorMessage(error)),
-  );
   const grpcCode = getGRPCCode(fullError);
 
   return (
@@ -61,12 +55,12 @@ const CodeEditorInfoBar: React.FC<CodeEditorInfoBarProps> = ({
             <span role="alert">Invalid JSON</span>
           </>
         )}
-        {!invalidJSON && error && (
+        {!invalidJSON && errorMessage && (
           <>
             <Icon small color="red">
               <StatusWarningSVG />
             </Icon>
-            <span role="alert">{readableError}</span>
+            <span role="alert">{capitalize(errorMessage)}</span>
             {fullError && (
               <ButtonLink
                 small
@@ -78,7 +72,7 @@ const CodeEditorInfoBar: React.FC<CodeEditorInfoBarProps> = ({
             )}
           </>
         )}
-        {!error && !invalidJSON && unsavedChanges && (
+        {!errorMessage && !invalidJSON && unsavedChanges && (
           <>
             <Icon small color="yellow">
               <StatusWarningSVG />
@@ -122,10 +116,10 @@ const CodeEditorInfoBar: React.FC<CodeEditorInfoBarProps> = ({
               <ErrorText>{grpcCode}</ErrorText>
             </div>
           )}
-          {readableError}
+          {capitalize(errorMessage)}
           <CodePreview
             className={styles.fullError}
-            source={getServerErrorMessage(fullError)}
+            source={getErrorMessage(fullError)}
             language="json"
             wrapText
           />

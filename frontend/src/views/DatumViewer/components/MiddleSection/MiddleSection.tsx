@@ -33,6 +33,8 @@ const MiddleSection = () => {
     refetch,
     page,
     setPage,
+    isPagingError,
+    isOverLokiQueryLimit,
   } = useLogsViewer(isSkippedDatum, startTime, jobId);
 
   return (
@@ -65,6 +67,8 @@ const MiddleSection = () => {
           error={error}
           isSkippedDatum={isSkippedDatum}
           page={page}
+          isPagingError={isPagingError}
+          isOverLokiQueryLimit={isOverLokiQueryLimit}
         />
         {!isSkippedDatum && (
           <LogsFooter

@@ -1,6 +1,10 @@
-import {GraphQLError} from 'graphql';
 import {useMemo} from 'react';
 import {useLocation} from 'react-router';
+
+import {
+  isErrorWithDetails,
+  isErrorWithMessage,
+} from '@dash-frontend/api/utils/error';
 
 export enum ErrorViewType {
   NOT_FOUND = 'NOT_FOUND',
@@ -9,7 +13,7 @@ export enum ErrorViewType {
   GENERIC = 'GENERIC',
 }
 
-const useErrorView = (graphQLError?: GraphQLError) => {
+const useErrorView = (error?: unknown) => {
   const {pathname} = useLocation();
 
   const errorType = useMemo(() => {
@@ -17,18 +21,20 @@ const useErrorView = (graphQLError?: GraphQLError) => {
       return ErrorViewType.NOT_FOUND;
     }
 
-    if (graphQLError?.extensions.code === ErrorViewType.UNAUTHENTICATED) {
-      return ErrorViewType.UNAUTHENTICATED;
-    }
+    if (isErrorWithMessage(error)) {
+      if (error.message.toLowerCase().includes('authentication error')) {
+        return ErrorViewType.UNAUTHENTICATED;
+      }
 
-    if (graphQLError?.extensions.code === ErrorViewType.NOT_FOUND) {
-      return ErrorViewType.RESOURCE_NOT_FOUND;
+      if (error.message.toLowerCase().includes('not found')) {
+        return ErrorViewType.RESOURCE_NOT_FOUND;
+      }
     }
 
     const errorType = ErrorViewType.GENERIC;
 
     return errorType;
-  }, [graphQLError?.extensions.code, pathname]);
+  }, [error, pathname]);
 
   const errorMessage = useMemo(() => {
     switch (errorType) {
@@ -43,9 +49,9 @@ const useErrorView = (graphQLError?: GraphQLError) => {
     }
   }, [errorType]);
 
-  const errorDetails = graphQLError?.extensions?.exception?.stacktrace
-    ? graphQLError?.extensions?.exception?.stacktrace[0]
-    : String(graphQLError?.extensions?.details);
+  const errorDetails = isErrorWithDetails(error)
+    ? error.details.reduce((acc, curr) => (acc = acc + '\n' + curr))
+    : undefined;
 
   return {errorType, errorMessage, errorDetails};
 };

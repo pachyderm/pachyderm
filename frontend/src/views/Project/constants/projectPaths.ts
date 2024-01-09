@@ -38,10 +38,12 @@ export const LINEAGE_JOB_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/jobs/:jobId
 export const LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH = `/lineage/:projectId/jobs/:jobId/pipeline/:pipelineId/logs/datum/:datumId?`;
 
 export const CLUSTER_CONFIG = `/cluster/defaults`;
+export const PROJECT_CONFIG_PATH = `/project/:projectId/defaults`;
 export const CREATE_PIPELINE_PATH = `/lineage/:projectId/create/pipeline`;
 export const UPDATE_PIPELINE_PATH = `/lineage/:projectId/update/pipeline/:pipelineId`;
+export const DUPLICATE_PIPELINE_PATH = `/lineage/:projectId/duplicate/pipeline/:pipelineId`;
 
-export const PROJECT_PATHS = [
+export const PROJECT_SIDENAV_PATHS = [
   LINEAGE_PATH,
   LINEAGE_REPO_PATH,
   LINEAGE_PIPELINE_PATH,
@@ -66,6 +68,12 @@ export const PROJECT_PATHS = [
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_JOB_LOGS_VIEWER_JOB_PATH,
   LINEAGE_JOB_LOGS_VIEWER_DATUM_PATH,
+];
+
+export const PROJECT_PATHS = [
+  PROJECT_CONFIG_PATH,
   CREATE_PIPELINE_PATH,
   UPDATE_PIPELINE_PATH,
+  DUPLICATE_PIPELINE_PATH,
+  ...PROJECT_SIDENAV_PATHS
 ];

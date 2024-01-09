@@ -1,6 +1,6 @@
-import {File} from '@graphqlTypes';
 import React from 'react';
 
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
   Table,
   Button,
@@ -16,20 +16,18 @@ import useListViewTable from './hooks/useListViewTable';
 import styles from './ListViewTable.module.css';
 
 type ListViewTableProps = {
-  files: File[];
+  files: FileInfo[];
 };
 
 const SELECT_FILES_DELETE = 'Select one or more files to multi-delete files';
 const SELECT_FILES_DOWNLOAD =
   'Select one or more files to multi-download files';
 const OUTPUT_REPO = 'You cannot delete files in an output repo';
-const PROXY_NEEDED =
-  'Enable proxy to download multiple files at once. This feature is not available with your current configuration.';
 
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
   const {
     repoId,
-    repoLoading,
+    pipelineLoading,
     branchId,
     selectedFiles,
     addSelection,
@@ -40,13 +38,11 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
     deleteLoading,
     deleteError,
     downloadSelected,
-    proxyEnabled,
     noFilesSelected,
     isOutputRepo,
   } = useListViewTable();
 
-  const downloadDisabled = !proxyEnabled || noFilesSelected;
-  const deleteDisabled = isOutputRepo || repoLoading || noFilesSelected;
+  const deleteDisabled = isOutputRepo || pipelineLoading || noFilesSelected;
 
   return (
     <>
@@ -69,18 +65,18 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
         </Tooltip>
 
         <Tooltip
-          tooltipText={!proxyEnabled ? PROXY_NEEDED : SELECT_FILES_DOWNLOAD}
-          disabled={!downloadDisabled}
+          tooltipText={SELECT_FILES_DOWNLOAD}
+          disabled={!noFilesSelected}
         >
           <span>
             <Button
               IconSVG={DownloadSVG}
               onClick={downloadSelected}
-              disabled={downloadDisabled}
+              disabled={noFilesSelected}
               buttonType="ghost"
               color="black"
               aria-label="Download selected items"
-              className={downloadDisabled && styles.disabledButton}
+              className={noFilesSelected && styles.disabledButton}
             />
           </span>
         </Tooltip>
@@ -99,7 +95,7 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
             {files.map((file) => (
               <FileTableRow
                 file={file}
-                key={file.path}
+                key={file.file?.path}
                 selectedFiles={selectedFiles}
                 addSelection={addSelection}
               />
@@ -117,7 +113,7 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
           confirmText="Delete"
           onConfirm={deleteFiles}
           loading={deleteLoading}
-          errorMessage={deleteError?.message}
+          errorMessage={deleteError}
         >
           <ul className={styles.modalList}>
             {selectedFiles.map((file) => (

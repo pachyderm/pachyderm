@@ -2,21 +2,23 @@ import {Server} from 'http';
 import {AddressInfo} from 'net';
 import path from 'path';
 
-import Analytics from '@rudderstack/rudder-sdk-node';
 import * as Sentry from '@sentry/node';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import {renderFile} from 'ejs';
 import express, {Express, urlencoded, json} from 'express';
 
-import gqlServer from '@dash-backend/gqlServer';
-import handleFileDownload from '@dash-backend/handlers/handleFileDownload';
 import log from '@dash-backend/lib/log';
 
-import createWebsocketServer from './createWebsocketServer';
+import {
+  exchangeCode,
+  getAuthAccount,
+  getAuthConfig,
+} from './handlers/handleAuth';
+import {encodeArchiveUrl} from './handlers/handleEncodeArchiveUrl';
 import uploadsRouter from './handlers/handleFileUpload';
+import proxyForward from './handlers/handleProxyForward';
 import fileUploads from './lib/FileUploads';
-import retryAnalyticsContext from './lib/retryAnalyticsContext';
 
 const PORT = process.env.GRAPHQL_PORT || '3000';
 const FE_BUILD_DIRECTORY =
@@ -61,7 +63,7 @@ const attachWebServer = (app: Express) => {
   });
 };
 
-const attachFileHandlers = (app: Express) => {
+const attachFileHandlerHeaders = (app: Express) => {
   app.use((_req, res, next) => {
     if (
       process.env.NODE_ENV === 'development' ||
@@ -74,49 +76,26 @@ const attachFileHandlers = (app: Express) => {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
     next();
   });
-
-  app.use(cookieParser());
-  app.use('/upload', uploadsRouter);
-  app.get(
-    '/download/:projectId/:repoName/:branchName/:commitId/*',
-    handleFileDownload,
-  );
-};
-
-const attachAnalytics = async () => {
-  if (!process.env.NODE_RUDDERSTACK_ID) {
-    return;
-  }
-  const analyticsClient = new Analytics(
-    process.env.NODE_RUDDERSTACK_ID,
-    'https://pachyderm-dataplane.rudderstack.com/v1/batch',
-  );
-  try {
-    const {anonymousId, expiration, enterpriseState} =
-      await retryAnalyticsContext();
-
-    if (anonymousId) {
-      // Gather info about the cluster on launch
-      analyticsClient.track({
-        event: 'cluster_info',
-        anonymousId,
-        properties: {
-          expiration,
-          enterpriseState,
-        },
-      });
-    }
-  } catch {
-    return;
-  }
 };
 
 const createServer = () => {
+  if (!process.env.PACHD_ADDRESS) {
+    throw new Error("Can't start server missing PACHD_ADDRESS");
+  }
+
   const app = express();
   app.use(json({limit: '500kb'}));
   app.use(urlencoded({extended: true}));
+  app.use(cookieParser());
 
-  attachFileHandlers(app);
+  app.use('/upload', uploadsRouter);
+  app.post('/auth/account', getAuthAccount);
+  app.get('/auth/config', getAuthConfig);
+  app.post('/auth/exchange', exchangeCode);
+  app.post('/encode/archive', encodeArchiveUrl);
+  app.get('/proxyForward/*', proxyForward);
+
+  attachFileHandlerHeaders(app);
 
   if (process.env.NODE_ENV !== 'development') {
     attachWebServer(app);
@@ -129,13 +108,10 @@ const createServer = () => {
         tracesSampleRate: 0.5,
       });
     }
-    attachAnalytics();
   }
 
   return {
     start: async () => {
-      await gqlServer.start();
-      gqlServer.applyMiddleware({app});
       return new Promise<string>((res) => {
         app.locals.server = app.listen(PORT, () => {
           const address: AddressInfo = app.locals.server.address();
@@ -145,15 +121,7 @@ const createServer = () => {
           log.info(
             `Server ready at ${
               process.env.NODE_ENV === 'production' ? 'https' : 'http'
-            }://${host}:${port}${gqlServer.graphqlPath}`,
-          );
-
-          createWebsocketServer(app.locals.server);
-
-          log.info(
-            `Websocket server ready at ${
-              process.env.NODE_ENV === 'production' ? 'wss' : 'ws'
-            }://${host}:${port}${gqlServer.graphqlPath}`,
+            }://${host}:${port}`,
           );
 
           res(String(address.port));

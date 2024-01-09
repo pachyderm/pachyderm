@@ -1,10 +1,12 @@
-import {Permission, ResourceType} from '@graphqlTypes';
-
-import useCurrentPipeline from '@dash-frontend/hooks/useCurrentPipeline';
-import {useJob} from '@dash-frontend/hooks/useJob';
+import {
+  Permission,
+  ResourceType,
+  useAuthorize,
+} from '@dash-frontend/hooks/useAuthorize';
+import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
+import {useJobOrJobs} from '@dash-frontend/hooks/useJobOrJobs';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {useVerifiedAuthorization} from '@dash-frontend/hooks/useVerifiedAuthorization';
 import {LINEAGE_PIPELINE_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 
 const usePipelineDetails = () => {
@@ -16,28 +18,22 @@ const usePipelineDetails = () => {
     isServiceOrSpout,
     isSpout,
   } = useCurrentPipeline();
-  const {job, loading: jobsLoading} = useJob(
+  const {job, loading: jobsLoading} = useJobOrJobs(
     {
       projectId,
       pipelineName: pipelineId,
       id: searchParams.globalIdFilter || '',
     },
-    {
-      skip: isSpout || !pipeline || pipelineLoading,
-    },
+    !isSpout && !!pipeline && !pipelineLoading,
   );
 
-  const {isAuthorizedAction: editRolesPermission} = useVerifiedAuthorization({
-    permissionsList: [Permission.REPO_MODIFY_BINDINGS],
+  const {
+    hasRepoModifyBindings: hasRepoEditRoles,
+    hasRepoRead: hasPipelineRead,
+  } = useAuthorize({
+    permissions: [Permission.REPO_MODIFY_BINDINGS, Permission.REPO_READ],
     resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineId}`},
   });
-
-  const {isAuthorizedAction: pipelineReadPermission} = useVerifiedAuthorization(
-    {
-      permissionsList: [Permission.REPO_READ],
-      resource: {type: ResourceType.REPO, name: `${projectId}/${pipelineId}`},
-    },
-  );
 
   const tabsBasePath = LINEAGE_PIPELINE_PATH;
 
@@ -50,8 +46,8 @@ const usePipelineDetails = () => {
     isServiceOrSpout,
     isSpout,
     tabsBasePath,
-    editRolesPermission,
-    pipelineReadPermission,
+    hasRepoEditRoles,
+    hasPipelineRead,
     globalId: searchParams.globalIdFilter,
   };
 };

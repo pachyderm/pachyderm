@@ -1,4 +1,3 @@
-import {ApolloError} from '@apollo/client';
 import {useEffect, useMemo} from 'react';
 import {useLocation} from 'react-router';
 
@@ -24,7 +23,7 @@ const useAuthenticatedRoute = () => {
   const error = useMemo(
     () =>
       exchangeCodeError ||
-      (loginWindowError && new ApolloError({errorMessage: loginWindowError})) ||
+      (loginWindowError && new Error(loginWindowError)) ||
       authConfigError,
     [authConfigError, exchangeCodeError, loginWindowError],
   );

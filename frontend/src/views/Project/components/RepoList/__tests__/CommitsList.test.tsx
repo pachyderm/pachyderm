@@ -1,16 +1,18 @@
-import {mockGetCommitsQuery} from '@graphqlTypes';
 import {
   render,
   waitForElementToBeRemoved,
   screen,
   within,
 } from '@testing-library/react';
+import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
+import {Empty} from '@dash-frontend/api/googleTypes';
+import {CommitInfo, ListCommitRequest} from '@dash-frontend/api/pfs';
 import {
   mockGetImageCommits,
-  mockEmptyGetAuthorize,
+  mockGetEnterpriseInfoInactive,
   generatePagingCommits,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
@@ -26,8 +28,8 @@ describe('Repo Commits List', () => {
 
   beforeAll(() => {
     server.listen();
-    server.use(mockEmptyGetAuthorize());
     server.use(mockGetImageCommits());
+    server.use(mockGetEnterpriseInfoInactive());
   });
 
   beforeEach(async () => {
@@ -94,55 +96,30 @@ describe('Repo Commits List', () => {
     beforeAll(() => {
       const commits = generatePagingCommits({n: 30});
       server.use(
-        mockGetCommitsQuery((req, res, ctx) => {
-          const {cursor, number} = req.variables.args;
+        rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+          '/api/pfs_v2.API/ListCommit',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            const {number, startedTime} = body;
 
-          if (number === 15 && !cursor) {
-            return res(
-              ctx.data({
-                commits: {
-                  items: commits.slice(0, 15),
-                  cursor: {seconds: 15, nanos: 0},
-                  parentCommit: null,
-                },
-              }),
-            );
-          }
+            if (Number(number) === 16 && !startedTime) {
+              return res(ctx.json(commits.slice(0, 16)));
+            }
 
-          if (number === 15 && cursor?.seconds === 15) {
-            return res(
-              ctx.data({
-                commits: {
-                  items: commits.slice(15, 30),
-                  cursor: null,
-                  parentCommit: null,
-                },
-              }),
-            );
-          }
+            if (
+              Number(number) === 16 &&
+              startedTime === '1970-01-01T00:00:14Z'
+            ) {
+              return res(ctx.json(commits.slice(15, 31)));
+            }
 
-          if (number === 50 && !cursor) {
-            return res(
-              ctx.data({
-                commits: {
-                  items: commits,
-                  cursor: null,
-                  parentCommit: null,
-                },
-              }),
-            );
-          }
+            if (Number(number) === 51 && !startedTime) {
+              return res(ctx.json(commits));
+            }
 
-          return res(
-            ctx.data({
-              commits: {
-                items: commits,
-                cursor: null,
-                parentCommit: null,
-              },
-            }),
-          );
-        }),
+            return res(ctx.json(commits));
+          },
+        ),
       );
     });
 
@@ -170,8 +147,11 @@ describe('Repo Commits List', () => {
       expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
       await click(within(pager).getByTestId('Pager__forward'));
 
+      expect(await screen.findByText('item 15')).toBeInTheDocument();
       commits = screen.getAllByTestId('CommitsList__row');
       expect(commits).toHaveLength(15);
+      expect(commits[0]).toHaveTextContent('item 15');
+      commits = screen.getAllByTestId('CommitsList__row');
       expect(commits[0]).toHaveTextContent('item 15');
       expect(commits[14]).toHaveTextContent('item 29');
 
@@ -192,6 +172,8 @@ describe('Repo Commits List', () => {
         screen.queryByTestId('CommitsList__loadingDots'),
       );
 
+      expect(await screen.findByText('item 0')).toBeInTheDocument();
+
       let commits = screen.getAllByTestId('CommitsList__row');
       expect(commits).toHaveLength(15);
 
@@ -202,6 +184,7 @@ describe('Repo Commits List', () => {
       await click(within(pager).getByTestId('DropdownButton__button'));
       await click(within(pager).getByText(50));
 
+      expect(await screen.findByText('item 16')).toBeInTheDocument();
       commits = screen.getAllByTestId('CommitsList__row');
       expect(commits).toHaveLength(30);
     });

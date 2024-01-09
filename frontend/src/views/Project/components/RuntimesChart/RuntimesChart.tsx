@@ -1,5 +1,3 @@
-import {ApolloError} from '@apollo/client';
-import {JobsQuery, Job} from '@graphqlTypes';
 import {
   Chart as ChartJS,
   ChartOptions,
@@ -14,6 +12,7 @@ import React, {useRef, useCallback, useMemo, useState} from 'react';
 import {getElementAtEvent} from 'react-chartjs-2';
 import {useHistory} from 'react-router-dom';
 
+import {JobInfo} from '@dash-frontend/api/pps';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
 import {
@@ -23,7 +22,10 @@ import {
 import {MAX_FILTER_HEIGHT_REM} from '@dash-frontend/components/TableView/components/TableViewFilters/TableViewFilters';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getStandardDate} from '@dash-frontend/lib/dateTime';
+import {
+  getStandardDateFromUnixSeconds,
+  getUnixSecondsFromISOString,
+} from '@dash-frontend/lib/dateTime';
 import {Form, Button} from '@pachyderm/components';
 
 import BarChart from './components/BarChart';
@@ -47,9 +49,9 @@ ChartJS.register(
 );
 
 type RuntimesChartProps = {
-  jobs?: JobsQuery['jobs']['items'];
+  jobs?: JobInfo[];
   loading: boolean;
-  error?: ApolloError;
+  error?: string;
   resource: 'job' | 'pipeline';
   viewOptions?: JSX.Element;
   filtersExpanded: boolean;
@@ -261,8 +263,8 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
             <div className={styles.legend}>
               {Object.keys(jobsCrossReference).map((jobId, index) => {
                 const oldestJob = Math.min(
-                  ...Object.values(jobsCrossReference[jobId]).map(
-                    (job: Job) => job.createdAt || 0,
+                  ...Object.values(jobsCrossReference[jobId]).map((job) =>
+                    getUnixSecondsFromISOString(job.created),
                   ),
                 );
                 return (
@@ -273,7 +275,7 @@ const RuntimesChart: React.FC<RuntimesChartProps> = ({
                         backgroundColor: getChartColor(index),
                       }}
                     />
-                    {oldestJob && getStandardDate(oldestJob)};{' '}
+                    {oldestJob && getStandardDateFromUnixSeconds(oldestJob)};{' '}
                     {jobId.slice(0, 6)}
                     ...
                   </div>

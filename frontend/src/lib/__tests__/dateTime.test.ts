@@ -5,7 +5,9 @@ import {
   getDurationToNow,
   formatDurationFromSeconds,
   formatDurationFromSecondsToNow,
-  getStandardDate,
+  getStandardDateFromUnixSeconds,
+  getISOStringFromUnix,
+  getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
 
 describe('getDurationToNow', () => {
@@ -45,6 +47,12 @@ describe('formatDurationFromSeconds', () => {
     const result = formatDurationFromSeconds(seconds);
     expect(result).toBe('13 mins 35 s');
   });
+
+  it('returns the correct format when duration is shorter than 1 second', () => {
+    const seconds = 0.1234567;
+    const result = formatDurationFromSeconds(seconds);
+    expect(result).toBe('0.1235 s');
+  });
 });
 
 describe('formatDurationFromSecondsToNow', () => {
@@ -58,7 +66,7 @@ describe('formatDurationFromSecondsToNow', () => {
 describe('getStandardDate', () => {
   it('returns the date in the correct format', () => {
     const unixSeconds = Date.now() / 1000 - 2 * SECONDS_IN_HOUR; // two hours ago
-    const result = getStandardDate(unixSeconds);
+    const result = getStandardDateFromUnixSeconds(unixSeconds);
     // This regular expression matches a string that has the following pattern:
     // A capital letter followed by two lowercase letters, which represents an abbreviation of a month name (e.g. Jan, Feb, Mar, etc.).
     // A space character.
@@ -70,5 +78,22 @@ describe('getStandardDate', () => {
     // A colon character.
     // Two digits representing the minute (e.g. 00, 30).
     expect(result).toMatch(/[A-Z][a-z]{2} \d{1,2}, \d{4}; \d{1,2}:\d{2}/);
+  });
+});
+
+describe('getISOStringFromUnix', () => {
+  it('returns an ISO string given unix seconds', () => {
+    expect(getISOStringFromUnix(1690221506)).toBe('2023-07-24T17:58:26Z');
+  });
+});
+
+describe('getTimeFromISOString', () => {
+  it('returns unix seconds given an ISO string', () => {
+    expect(getUnixSecondsFromISOString('2023-07-24T17:58:38Z')).toBe(
+      1690221518,
+    );
+    expect(getUnixSecondsFromISOString('2023-09-27T08:20:55.707925Z')).toBe(
+      1695802855,
+    );
   });
 });

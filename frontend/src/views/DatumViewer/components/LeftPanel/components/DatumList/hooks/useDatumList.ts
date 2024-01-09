@@ -1,19 +1,13 @@
-import {getApolloContext} from '@apollo/client';
-import {DatumFilter} from '@graphqlTypes';
-import React, {
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-  useContext,
-} from 'react';
+import React, {useCallback, useEffect, useState, useMemo} from 'react';
 
 import {usePreviousValue} from '@dash-frontend/../components/src';
-import useDatums from '@dash-frontend/hooks/useDatums';
-import useDatumSearch from '@dash-frontend/hooks/useDatumSearch';
+import {DatumState} from '@dash-frontend/api/pps';
+import {useDatum} from '@dash-frontend/hooks/useDatum';
+import {useDatumsPaged} from '@dash-frontend/hooks/useDatums';
 import {useJob} from '@dash-frontend/hooks/useJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {DatumFilter} from '@dash-frontend/lib/types';
 import {
   DATUM_ID_LENGTH,
   DATUM_LIST_PAGE_SIZE,
@@ -44,8 +38,6 @@ const useDatumList = (
 
   const isSearchValid = searchValue.length === DATUM_ID_LENGTH;
 
-  const {client} = useContext(getApolloContext());
-
   const clearSearch = () => {
     setSearchValue('');
     setSearchedDatumId('');
@@ -65,14 +57,22 @@ const useDatumList = (
     }
   }, [isSearchValid, searchValue]);
 
-  const {datum: searchedDatum, loading: searchLoading} = useDatumSearch(
+  const {datum: searchedDatum, loading: searchLoading} = useDatum(
     {
-      projectId,
-      pipelineId,
-      jobId: currentJobId,
-      id: searchedDatumId,
+      datum: {
+        id: searchedDatumId,
+        job: {
+          id: currentJobId,
+          pipeline: {
+            name: pipelineId,
+            project: {
+              name: projectId,
+            },
+          },
+        },
+      },
     },
-    {skip: !isSearchValid},
+    isSearchValid,
   );
 
   const {job} = useJob({
@@ -81,14 +81,14 @@ const useDatumList = (
     projectId,
   });
 
-  const isProcessing = job && !job.finishedAt;
+  const isProcessing = !job?.finished;
   const wasProcessing = usePreviousValue(isProcessing);
   const datumMetrics = useMemo<DatumFilterObject>(() => {
     return {
-      [DatumFilter.SUCCESS]: job?.dataProcessed ?? 0,
-      [DatumFilter.SKIPPED]: job?.dataSkipped ?? 0,
-      [DatumFilter.FAILED]: job?.dataFailed ?? 0,
-      [DatumFilter.RECOVERED]: job?.dataRecovered ?? 0,
+      [DatumState.SUCCESS]: Number(job?.dataProcessed) || 0,
+      [DatumState.SKIPPED]: Number(job?.dataSkipped) || 0,
+      [DatumState.FAILED]: Number(job?.dataFailed) || 0,
+      [DatumState.RECOVERED]: Number(job?.dataRecovered) || 0,
     };
   }, [job]);
 
@@ -104,13 +104,21 @@ const useDatumList = (
     return Object.values(datumMetrics).reduce((a, b) => a + b, 0);
   }, [datumMetrics, searchParams.datumFilters]);
 
-  const {datums, cursor, hasNextPage, loading, refetch} = useDatums({
-    projectId,
-    pipelineId,
-    jobId: currentJobId,
-    filter: searchParams.datumFilters as DatumFilter[],
-    limit: DATUM_LIST_PAGE_SIZE,
-    cursor: currentCursor,
+  const {datums, cursor, hasNextPage, loading, refetch} = useDatumsPaged({
+    job: {
+      id: currentJobId,
+      pipeline: {
+        name: pipelineId,
+        project: {
+          name: projectId,
+        },
+      },
+    },
+    filter: {
+      state: searchParams.datumFilters as DatumState[],
+    },
+    number: String(DATUM_LIST_PAGE_SIZE),
+    paginationMarker: currentCursor,
   });
 
   const refresh = useCallback(() => {
@@ -119,31 +127,8 @@ const useDatumList = (
     setCursors(['']);
     setCurrentCursor('');
 
-    const cleared = client?.cache.evict({
-      id: 'ROOT_QUERY',
-      fieldName: 'datums',
-    });
-    if (cleared) {
-      client?.cache.gc();
-      refetch({
-        args: {
-          projectId,
-          pipelineId,
-          jobId: currentJobId,
-          filter: searchParams.datumFilters as DatumFilter[],
-          limit: DATUM_LIST_PAGE_SIZE,
-          cursor: '',
-        },
-      });
-    }
-  }, [
-    client?.cache,
-    currentJobId,
-    pipelineId,
-    projectId,
-    refetch,
-    searchParams.datumFilters,
-  ]);
+    refetch();
+  }, [refetch]);
 
   useEffect(() => {
     refresh();
@@ -168,14 +153,14 @@ const useDatumList = (
   const showNoSearchResults = !searchLoading && isSearchValid && !searchedDatum;
 
   const pageCount =
-    job?.finishedAt && totalDatums
+    job?.finished && totalDatums
       ? Math.ceil(totalDatums / DATUM_LIST_PAGE_SIZE)
       : undefined;
 
   const contentLength =
-    job?.finishedAt && totalDatums
+    job?.finished && totalDatums
       ? totalDatums
-      : (cursors.length - 1) * DATUM_LIST_PAGE_SIZE + datums.length;
+      : (cursors.length - 1) * DATUM_LIST_PAGE_SIZE + (datums?.length ?? 0);
 
   return {
     datums: displayDatums,

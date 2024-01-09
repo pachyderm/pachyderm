@@ -1,8 +1,8 @@
 import React from 'react';
 
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
-import {useGetVersionInfoQuery} from '@dash-frontend/generated/hooks';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
+import {useVersion} from '@dash-frontend/hooks/useVersion';
 import {
   CaptionTextSmall,
   HamburgerSVG,
@@ -17,15 +17,16 @@ type HeaderDropdownProps = {
   errorPage?: boolean;
 };
 
+const CONSOLE_VERSION = process.env.REACT_APP_RELEASE_VERSION;
+
 const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
   const {enterpriseActive} = useEnterpriseActive(errorPage);
-  const {data: version} = useGetVersionInfoQuery({skip: errorPage});
-
-  const pachdVersion = version?.versionInfo.pachdVersion;
-  const pachdVersionString = pachdVersion
-    ? `${pachdVersion.major}.${pachdVersion.minor}.${pachdVersion.micro}${pachdVersion.additional}`
+  const {version} = useVersion({enabled: !errorPage});
+  const consoleVersion = CONSOLE_VERSION;
+  const pachdVersionString = version
+    ? `${version.major}.${version.minor}.${version.micro}${version.additional}`
     : 'unknown';
-  const emailLinkWithPrefill = `${EMAIL_SUPPORT}?subject=Console%20Support&body=Console%20version:%20${version?.versionInfo.consoleVersion}%0APachd%20version:%20${pachdVersionString}`;
+  const emailLinkWithPrefill = `${EMAIL_SUPPORT}?subject=Console%20Support&body=Console%20version:%20${CONSOLE_VERSION}%0APachd%20version:%20${pachdVersionString}`;
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {
@@ -49,10 +50,8 @@ const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
       <Dropdown.Menu pin="right" className={styles.menu}>
         <Account />
         <div className={styles.versions}>
-          {version?.versionInfo.consoleVersion && (
-            <div>Console {version?.versionInfo.consoleVersion}</div>
-          )}
-          {pachdVersion && <div>Pachd {pachdVersionString}</div>}
+          {consoleVersion && <div>Console {consoleVersion}</div>}
+          {version && <div>Pachd {pachdVersionString}</div>}
         </div>
         <Dropdown.MenuItem
           id="support"

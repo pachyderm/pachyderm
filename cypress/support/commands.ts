@@ -155,6 +155,7 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
 });
 
 Cypress.Commands.add('deleteReposAndPipelines', () => {
+  cy.visit('/');
   return (
     cy
       // These two commands are only needed for tests that reuse default
@@ -165,35 +166,38 @@ Cypress.Commands.add('deleteReposAndPipelines', () => {
 });
 
 Cypress.Commands.add('deleteProjects', (keepDefaultProject = true) => {
-  cy
-    // Remove all projects except for default
-    .exec('pachctl list projects --raw')
-    .then((res) => {
-      // this gives us an invalid array of objects
-      const repairedString = jsonrepair(`[${res.stdout}]`);
-      let projects = JSON.parse(repairedString)
-        .map((el) => el.project.name)
-        .filter((project) => !!project);
+  cy.visit('/');
+  return (
+    cy
+      // Remove all projects except for default
+      .exec('pachctl list projects --raw')
+      .then((res) => {
+        // this gives us an invalid array of objects
+        const repairedString = jsonrepair(`[${res.stdout}]`);
+        let projects = JSON.parse(repairedString)
+          .map((el) => el.project.name)
+          .filter((project) => !!project);
 
-      if (keepDefaultProject) {
-        projects = projects.filter(
-          (project) => project.toLowerCase() !== 'default',
-        );
-      }
+        if (keepDefaultProject) {
+          projects = projects.filter(
+            (project) => project.toLowerCase() !== 'default',
+          );
+        }
 
-      if (projects.length !== 0) cy.log('Deleting projects', projects);
-      else
-        cy.log(
-          `No projects to delete${
-            keepDefaultProject && ' (ignoring default)'
-          }.`,
-        );
+        if (projects.length !== 0) cy.log('Deleting projects', projects);
+        else
+          cy.log(
+            `No projects to delete${
+              keepDefaultProject && ' (ignoring default)'
+            }.`,
+          );
 
-      projects.forEach((project) => {
-        // yes will keep entering y. This prompt can ask for a y/N twice.
-        cy.exec(`yes | pachctl delete project ${project}`);
-      });
-    });
+        projects.forEach((project) => {
+          // yes will keep entering y. This prompt can ask for a y/N twice.
+          cy.exec(`yes | pachctl delete project ${project}`);
+        });
+      })
+  );
 });
 
 Cypress.Commands.add('isInViewport', (element) => {

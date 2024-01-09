@@ -1,7 +1,7 @@
-import {Job} from '@graphqlTypes';
 import React from 'react';
 import {Route} from 'react-router-dom';
 
+import {JobInfo} from '@dash-frontend/api/pps';
 import {
   PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,
@@ -24,7 +24,7 @@ import useLeftPanel from './hooks/useLeftPanel';
 import styles from './LeftPanel.module.css';
 
 type LeftPanelProps = {
-  job?: Job;
+  job?: JobInfo;
 };
 
 const LeftPanel: React.FC<LeftPanelProps> = ({job}) => {

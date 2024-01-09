@@ -1,6 +1,6 @@
 import {credentials} from '@grpc/grpc-js';
 
-export const createCredentials = (ssl: boolean) => {
+const createCredentials = (ssl: boolean) => {
   if (ssl === false) {
     return credentials.createInsecure();
   }

@@ -33,8 +33,8 @@ const PipelineDetails: React.FC = () => {
     tabsBasePath,
     projectId,
     pipelineId,
-    editRolesPermission,
-    pipelineReadPermission,
+    hasRepoEditRoles,
+    hasPipelineRead,
     globalId,
   } = usePipelineDetails();
   const {
@@ -55,40 +55,46 @@ const PipelineDetails: React.FC = () => {
           {pipelineAndJobloading ? (
             <SkeletonDisplayText />
           ) : (
-            <Title>{pipeline?.name}</Title>
+            <Title>{pipeline?.pipeline?.name}</Title>
           )}
-          {pipeline?.description && (
-            <div className={styles.description}>{pipeline?.description}</div>
+          {pipeline?.details?.description && (
+            <div className={styles.description}>
+              {pipeline?.details?.description}
+            </div>
           )}
-          {repo?.authInfo?.rolesList && (
+          {repo?.authInfo?.roles && (
             <Description term="Your Roles" loading={pipelineAndJobloading}>
               <Group spacing={8}>
-                {repo?.authInfo?.rolesList.join(', ') || 'None'}
+                {repo?.authInfo?.roles.join(', ') || 'None'}
                 <ButtonLink onClick={openRolesModal}>
-                  {editRolesPermission
+                  {hasRepoEditRoles
                     ? 'Set Roles via Repo'
                     : 'See All Roles via Repo'}
                 </ButtonLink>{' '}
               </Group>
             </Description>
           )}
-          {!isSpout && pipelineReadPermission && (
+          {!isSpout && hasPipelineRead && (
             <>
               <Description
                 term={globalId ? 'Global ID' : 'Most Recent Job ID'}
                 loading={pipelineAndJobloading}
               >
-                {lastJob?.id ? <GlobalIdCopy id={lastJob?.id} /> : 'N/A'}
+                {lastJob?.job?.id ? (
+                  <GlobalIdCopy id={lastJob?.job?.id} />
+                ) : (
+                  'N/A'
+                )}
               </Description>
             </>
           )}
-          {repo?.authInfo?.rolesList && rolesModalOpen && (
+          {repo?.authInfo?.roles && rolesModalOpen && (
             <RepoRolesModal
               show={rolesModalOpen}
               onHide={closeRolesModal}
               projectName={projectId}
               repoName={pipelineId}
-              readOnly={!editRolesPermission}
+              readOnly={!hasRepoEditRoles}
             />
           )}
         </div>
@@ -114,7 +120,7 @@ const PipelineDetails: React.FC = () => {
             </Tabs.TabsHeader>
             {!isServiceOrSpout && (
               <Tabs.TabPanel id={TAB_ID.JOB}>
-                {pipelineReadPermission ? (
+                {hasPipelineRead ? (
                   <InfoPanel className={styles.paddingUnset} />
                 ) : (
                   <EmptyState

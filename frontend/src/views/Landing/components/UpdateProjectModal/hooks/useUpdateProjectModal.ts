@@ -2,7 +2,7 @@ import isEmpty from 'lodash/isEmpty';
 import {useCallback, useEffect} from 'react';
 import {useForm} from 'react-hook-form';
 
-import {useUpdateProjectMutation} from '@dash-frontend/generated/hooks';
+import {useUpdateProject} from '@dash-frontend/hooks/useUpdateProject';
 
 type UpdateProjectFormValues = {
   description: string;
@@ -14,10 +14,11 @@ const useUpdateProjectModal = (
   description?: string | null,
   onHide?: () => void,
 ) => {
-  const [updateProjectMutation, {loading: updateProjectLoading, error}] =
-    useUpdateProjectMutation({
-      onCompleted: onHide,
-    });
+  const {
+    updateProject,
+    loading: updateProjectLoading,
+    error,
+  } = useUpdateProject(onHide);
 
   const formCtx = useForm<UpdateProjectFormValues>({
     mode: 'onChange',
@@ -40,25 +41,27 @@ const useUpdateProjectModal = (
   const handleSubmit = useCallback(
     async (values: UpdateProjectFormValues) => {
       try {
-        await updateProjectMutation({
-          variables: {
-            args: {
-              name: projectName || '',
-              description: values.description,
+        updateProject(
+          {
+            project: {
+              name: projectName,
             },
+            ...values,
           },
-        });
-        reset();
+          {
+            onSuccess: () => reset(),
+          },
+        );
       } catch (e) {
         return;
       }
     },
-    [updateProjectMutation, projectName, reset],
+    [updateProject, projectName, reset],
   );
 
   return {
     formCtx,
-    error: error?.message,
+    error: error,
     handleSubmit,
     isFormComplete,
     loading: updateProjectLoading,

@@ -1,5 +1,3 @@
-import fs from 'fs';
-
 import {ClientWritableStream} from '@grpc/grpc-js';
 import {BytesValue} from 'google-protobuf/google/protobuf/wrappers_pb';
 
@@ -77,36 +75,10 @@ export class FileClient<T> {
     return this;
   }
 
-  putFileFromURL(path: string, url: string, append = false) {
-    if (!append) this.deleteFile(path);
-
-    const addFile = new AddFile()
-      .setPath(path)
-      .setUrl(new AddFile.URLSource().setUrl(url));
-    this.stream.write(new ModifyFileRequest().setAddFile(addFile));
-    return this;
-  }
-
-  putFileFromFilepath(sourcePath: string, destPath: string, append = false) {
-    if (!append) this.deleteFile(destPath);
-
-    const data = fs.readFileSync(sourcePath, {});
-    return this.putFileFromBytes(destPath, data);
-  }
-
   deleteFile(path: string) {
     this.stream.write(
       new ModifyFileRequest().setDeleteFile(deleteFileFromObject({path})),
     );
-    return this;
-  }
-
-  deleteFiles(paths: string[]) {
-    for (const path of paths) {
-      this.stream.write(
-        new ModifyFileRequest().setDeleteFile(deleteFileFromObject({path})),
-      );
-    }
     return this;
   }
 

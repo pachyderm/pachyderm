@@ -2,7 +2,6 @@ import './index.module.css';
 
 export {default as generatePathWithSearch} from './lib/generatePathWithSearch';
 export {default as getRandomName} from './lib/getRandomName';
-export {default as sentryLink} from './lib/sentryLink';
 export * from './lib/analytics';
 export {default as useLoginWindow} from './hooks/useLoginWindow';
 export {default as useOutsideClick} from './hooks/useOutsideClick';
@@ -51,4 +50,3 @@ export * from './Tabs';
 export * from './Text';
 export * from './TextArea';
 export * from './Tooltip';
-export * from './TutorialModal';
