@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "transforms",
+    srcs = [
+        "sqlingest.go",
+        "transforms.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/transforms",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachsql",
+        "//src/internal/sdata",
+        "//src/internal/secrets",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "transforms_test",
+    srcs = ["sqlingest_test.go"],
+    embed = [":transforms"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/randutil",
+        "//src/internal/testutil",
+        "@com_github_stretchr_testify//require",
+    ],
+)

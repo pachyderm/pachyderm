@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "auth",
+    srcs = [
+        "handler.go",
+        "interceptor.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/server/auth",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//peer",
+        "@org_uber_go_zap//:zap",
+    ],
+)

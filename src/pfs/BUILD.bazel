@@ -1,0 +1,53 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pfs",
+    srcs = [
+        "pfs.go",
+        "pfs.pb.go",
+        "pfs.pb.gw.go",
+        "pfs.pb.validate.go",
+        "pfs.pb.zap.go",
+        "pfs_grpc.pb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/pfs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/internal/ancestry",
+        "//src/internal/errors",
+        "//src/internal/pachhash",
+        "//src/protoextensions",
+        "//src/task",
+        "@com_github_envoyproxy_protoc_gen_validate//validate",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//grpclog",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/durationpb",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+        "@org_golang_google_protobuf//types/known/wrapperspb",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+go_test(
+    name = "pfs_test",
+    srcs = ["pfs_test.go"],
+    embed = [":pfs"],
+    deps = ["@com_github_stretchr_testify//require"],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

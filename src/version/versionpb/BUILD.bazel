@@ -1,0 +1,44 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "versionpb",
+    srcs = [
+        "version.go",
+        "version.pb.go",
+        "version.pb.gw.go",
+        "version.pb.validate.go",
+        "version.pb.zap.go",
+        "version_grpc.pb.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/version/versionpb",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
+        "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//grpclog",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_golang_x_mod//semver",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+go_test(
+    name = "versionpb_test",
+    srcs = ["version_test.go"],
+    embed = [":versionpb"],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

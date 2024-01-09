@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pfs",
+    srcs = [
+        "iface.go",
+        "pfs.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pfs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/transactionenv/txncontext",
+        "//src/pfs",
+        "@org_golang_google_genproto_googleapis_rpc//errdetails",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_test(
+    name = "pfs_test",
+    srcs = ["pfs_test.go"],
+    embed = [":pfs"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/require",
+        "//src/pfs",
+        "@org_golang_google_grpc//status",
+    ],
+)

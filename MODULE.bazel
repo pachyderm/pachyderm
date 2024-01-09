@@ -3,12 +3,15 @@ module(
     repo_name = "com_github_pachyderm_pachyderm",
 )
 
-bazel_dep(name = "rules_go", version = "0.44.1")
+bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "jsonnet_go", version = "0.20.0")
+bazel_dep(name = "rules_go", version = "0.44.1")
+bazel_dep(name = "rules_oci", version = "1.5.1")
+bazel_dep(name = "rules_python", version = "0.27.1")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
-
-bazel_dep(name = "jsonnet_go", version = "0.20.0")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.download(
@@ -70,6 +73,42 @@ go_deps.gazelle_override(
         "gazelle:proto disable_global",
     ],
     path = "github.com/chrusty/protoc-gen-jsonschema",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/dexidp/dex",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/dexidp/dex/api/v2",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/docker/docker",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/grpc-ecosystem/go-grpc-middleware",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/opentracing/basictracer-go",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "sourcegraph.com/sourcegraph/appdash",
 )
 
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
@@ -275,8 +314,28 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "com_github_yelp_dumb_init_aarch64_linux",
+    "com_github_yelp_dumb_init_x86_64_linux",
     "org_uber_go_gopatch_aarch64_linux",
     "org_uber_go_gopatch_aarch64_macos",
     "org_uber_go_gopatch_x86_64_linux",
     "org_uber_go_gopatch_x86_64_macos",
+)
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+oci.pull(
+    name = "distroless",
+    digest = "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+    image = "gcr.io/distroless/static-debian12",  # nonroot tag
+    platforms = [
+        "linux/amd64",
+        "linux/arm64/v8",
+    ],
+)
+use_repo(oci, "distroless")
+
+python = use_extension("@rules_python//python:extensions.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12.1",
 )

@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "serde",
+    srcs = [
+        "decoder.go",
+        "interface.go",
+        "json_encoder.go",
+        "yaml_encoder.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/serde",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/protoutil",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "serde_test",
+    srcs = ["serde_test.go"],
+    embed = [":serde"],
+    deps = ["//src/internal/require"],
+)

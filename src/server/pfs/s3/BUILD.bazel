@@ -1,0 +1,58 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "s3",
+    srcs = [
+        "auth.go",
+        "bucket.go",
+        "driver.go",
+        "error.go",
+        "multipart.go",
+        "object.go",
+        "s3.go",
+        "service.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pfs/s3",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/internal/ancestry",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/errutil",
+        "//src/internal/grpcutil",
+        "//src/internal/log",
+        "//src/internal/pfsdb",
+        "//src/internal/uuid",
+        "//src/pfs",
+        "//src/server/pfs",
+        "@com_github_gorilla_mux//:mux",
+        "@com_github_pachyderm_ohmyglob//:ohmyglob",
+        "@com_github_pachyderm_s2//:s2",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "s3_test",
+    srcs = [
+        "driver_test.go",
+        "master_test.go",
+        "project_master_test.go",
+        "util_test.go",
+        "worker_test.go",
+    ],
+    embed = [":s3"],
+    pure = "on",
+    deps = [
+        "//src/internal/client",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "@com_github_minio_minio_go_v6//:minio-go",
+    ],
+)

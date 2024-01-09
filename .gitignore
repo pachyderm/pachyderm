@@ -76,8 +76,5 @@ __pycache__
 tests_to_run.csv
 
 # Bazel
-bazel-bin
-bazel-out
-bazel-pachyderm
-bazel-testlogs
+bazel-*
 .bazelrc.local

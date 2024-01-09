@@ -1,0 +1,20 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "config",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/config",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/enterprise",
+        "//src/internal/cmdutil",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachctl",
+        "//src/server/cmd/pachctl/shell",
+        "@com_github_c_bata_go_prompt//:go-prompt",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)

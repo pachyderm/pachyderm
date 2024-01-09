@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "weblinker",
+    srcs = ["weblinker.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/weblinker",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/version",
+        "//src/version/versionpb",
+    ],
+)
+
+go_test(
+    name = "weblinker_test",
+    srcs = ["weblinker_test.go"],
+    embed = [":weblinker"],
+    deps = ["//src/version/versionpb"],
+)

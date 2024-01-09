@@ -1,0 +1,48 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "grpcutil",
+    srcs = [
+        "addr.go",
+        "buffer.go",
+        "error.go",
+        "iter.go",
+        "server.go",
+        "stream.go",
+        "testclient.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/grpcutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/middleware/logging",
+        "//src/internal/pctx",
+        "//src/internal/stream",
+        "//src/internal/tls",
+        "@com_github_docker_go_units//:go-units",
+        "@com_github_grpc_ecosystem_go_grpc_prometheus//:go-grpc-prometheus",
+        "@com_github_stretchr_testify//require",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//encoding/gzip",
+        "@org_golang_google_grpc//keepalive",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_grpc//test/bufconn",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/wrapperspb",
+        "@org_golang_x_sync//errgroup",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "grpcutil_test",
+    srcs = ["addr_test.go"],
+    embed = [":grpcutil"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/require",
+    ],
+)

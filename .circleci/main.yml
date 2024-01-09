@@ -1585,26 +1585,55 @@ jobs:
           command: |
             pip3 install -r requirements.txt
             PACHD_ADDRESS=$(minikube ip):30080 python3 -m pytest
-  bazel-tests:
-    resource_class: medium
+  bazel-style-tests:
+    resource_class: xlarge
     docker:
       - image: debian:stable
         entrypoint: /bin/bash
+    working_directory: /code
     steps:
       - run: apt update
-      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential python3
       - checkout
       - run: |
           pushd /tmp
           wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
           chmod a+x bazelisk-linux-amd64
           ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
+          useradd bazel -m
+          chown bazel -R /code
           popd
-      - run: bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
-      - run: git diff --exit-code
-      - run: bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
+      - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto'
+      - run: su bazel -c 'git diff --exit-code'
+      - run: su bazel -c 'bazel run --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle'
+      - run: su bazel -c 'git diff --exit-code'
+      - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test'
+      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
       - store_test_results:
-          path: "bazel-testlogs/"
+          path: /tmp/bazel-testlogs/
+  bazel-tests:
+    resource_class: xlarge
+    docker:
+      - image: debian:stable
+        entrypoint: /bin/bash
+    working_directory: /code
+    steps:
+      - run: apt update
+      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential python3
+      - checkout
+      - run: |
+          pushd /tmp
+          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
+          chmod a+x bazelisk-linux-amd64
+          ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
+          useradd bazel -m
+          chown bazel -R /code
+          popd
+      - setup_remote_docker
+      - run: su bazel -c 'bazel test --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:all'
+      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
 
 workflows:
   functional-tests:
@@ -1614,12 +1643,13 @@ workflows:
       - build-docker-images:
           enableCoverage: true
       - test-go
+      - bazel-tests
       - integration-tests
   linting:
     when: << pipeline.parameters.run-core-jobs >>
     jobs:
       - check-prettier
-      - bazel-tests
+      - bazel-style-tests
       - jsonnet-lint
       - govulncheck
       - static-go-checks

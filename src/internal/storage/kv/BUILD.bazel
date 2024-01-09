@@ -1,0 +1,48 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "kv",
+    srcs = [
+        "filesystem.go",
+        "kv.go",
+        "lru_cache.go",
+        "memory.go",
+        "obj_adapter.go",
+        "obj_adapter2.go",
+        "pool.go",
+        "prefixed.go",
+        "semaphored.go",
+        "testsuite.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/storage/kv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/miscutil",
+        "//src/internal/obj",
+        "//src/internal/pacherr",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/stream",
+        "//src/internal/uuid",
+        "@com_github_google_btree//:btree",
+        "@com_github_hashicorp_golang_lru_v2//simplelru",
+        "@dev_gocloud//blob",
+        "@dev_gocloud//gcerrors",
+        "@org_golang_x_exp//slices",
+        "@org_golang_x_sync//semaphore",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "kv_test",
+    srcs = ["kv_test.go"],
+    embed = [":kv"],
+    deps = [
+        "//src/internal/obj",
+        "//src/internal/require",
+        "@dev_gocloud//blob/fileblob",
+    ],
+)

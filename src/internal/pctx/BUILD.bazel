@@ -1,0 +1,32 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pctx",
+    srcs = [
+        "cancel.go",
+        "context.go",
+        "doc.go",
+        "testing.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pctx",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/meters",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zaptest",
+    ],
+)
+
+go_test(
+    name = "pctx_test",
+    srcs = [
+        "context_test.go",
+        "examples_test.go",
+    ],
+    embed = [":pctx"],
+    deps = [
+        "//src/internal/log",
+        "//src/internal/meters",
+    ],
+)

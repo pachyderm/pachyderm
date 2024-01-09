@@ -1,0 +1,46 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "server",
+    srcs = [
+        "api_server.go",
+        "col.go",
+        "env.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/license/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/enterprise",
+        "//src/internal/collection",
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/license",
+        "//src/internal/log",
+        "//src/internal/middleware/auth",
+        "//src/internal/pachconfig",
+        "//src/internal/pachsql",
+        "//src/internal/protoutil",
+        "//src/internal/random",
+        "//src/license",
+        "//src/server/enterprise",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "server_test",
+    srcs = ["license_test.go"],
+    pure = "on",
+    deps = [
+        "//src/auth",
+        "//src/enterprise",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/protoutil",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/license",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

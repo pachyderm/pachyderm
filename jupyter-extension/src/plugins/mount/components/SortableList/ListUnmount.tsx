@@ -25,7 +25,7 @@ const ListUnmount: React.FC<ListUnmountProps> = ({
   const [disabled, setDisabled] = useState<boolean>(false);
   const [authorized, setAuthorized] = useState<boolean>(false);
   const hasBranches = item?.branches?.length > 0;
-  const buttonText = 'Mount';
+  const buttonText = 'Load';
 
   useEffect(() => {
     setAuthorized(item.authorization !== 'none');

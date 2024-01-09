@@ -13,3 +13,9 @@ echo "GIT_TREE_STATUS $git_tree_status"
 
 most_recent_tag=$(git tag -l 'v*' --sort=creatordate | tail -n1)
 echo "STABLE_VERSION $most_recent_tag"
+
+# TODO(jrockway): Read these from the git tags when the branch is named "2.x".
+echo "STABLE_APP_VERSION 2.9.0"
+
+additional_version=$(git diff-index --quiet HEAD -- && echo "-${commit_sha}" || echo "-${commit_sha}+dirty")
+echo "STABLE_ADDITIONAL_VERSION $additional_version"

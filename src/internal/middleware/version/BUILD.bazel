@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "version",
+    srcs = ["interceptor.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/version",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/version",
+        "@org_golang_google_grpc//:grpc",
+    ],
+)

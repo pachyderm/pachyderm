@@ -1,0 +1,46 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pfsload",
+    srcs = [
+        "client.go",
+        "commit.go",
+        "env.go",
+        "file.go",
+        "fuzz.go",
+        "modification.go",
+        "pfsload.pb.go",
+        "pfsload.pb.validate.go",
+        "pfsload.pb.zap.go",
+        "specification.go",
+        "validator.go",
+        "worker.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pfsload",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/auth",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/randutil",
+        "//src/internal/storage/fileset",
+        "//src/internal/task",
+        "//src/pfs",
+        "//src/protoextensions",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_golang_x_sync//errgroup",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)
