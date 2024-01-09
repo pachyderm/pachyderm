@@ -206,7 +206,7 @@ def upload_environment(
                 commit.put_file_from_file(path="/requirements.txt", file=reqs_file)
         for external_file in config.external_files:
             with open(external_file, "rb") as external_file_data:
-                commit.put_file_from_file(path=f'/{external_file}', file=external_file_data)
+                commit.put_file_from_file(path=f'/{os.path.basename(external_file)}', file=external_file_data)
         commit.put_file_from_bytes(
             path="/entrypoint.py", data=entrypoint_script.encode("utf-8")
         )
@@ -281,7 +281,7 @@ class PPSClient:
         
         for external_file in config.external_files:
             if not os.path.exists(external_file):
-                raise HTTPError(status_code=400, reason=f'external file {external_file} could not be found in the directory of the Jupyter notebook')
+                raise HTTPError(status_code=400, reason=f'external file {os.path.basename(external_file)} could not be found in the directory of the Jupyter notebook')
 
         script, _resources = self.nbconvert.from_filename(str(path))
 
