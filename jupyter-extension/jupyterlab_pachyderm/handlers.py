@@ -420,7 +420,7 @@ class PPSCreateHandler(BaseHandler):
         except Exception as e:
             if isinstance(e, tornado.web.HTTPError):
                 # Common case: only way to print the "reason" field of HTTPError
-                get_logger().error(f"Couldn't create pipeline: {e.reason}")
+                get_logger().error(f"couldn't create pipeline: {e.reason}")
             get_logger().error(
                 "\n".join(traceback.format_exception(type(e), value=e, tb=None))
             )
@@ -437,7 +437,7 @@ class PPSCreateHandler(BaseHandler):
         except Exception as e:
             if isinstance(e, tornado.web.HTTPError):
                 # Common case: only way to print the "reason" field of HTTPError
-                get_logger().error(f"Couldn't create pipeline: {e.reason}")
+                get_logger().error(f"couldn't create pipeline: {e.reason}")
             get_logger().error(
                 "\n".join(traceback.format_exception(type(e), value=e, tb=None))
             )
