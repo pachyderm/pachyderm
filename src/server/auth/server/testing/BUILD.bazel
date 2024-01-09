@@ -7,7 +7,6 @@ go_test(
     size = "small",
     srcs = ["admin_test.go"],
     shard_count = 4,
-    tags = ["cpu:8"],
     deps = [
         ":testing",
         "//src/auth",
@@ -27,7 +26,6 @@ go_test(
     srcs = ["auth_test.go"],
     pure = "on",
     shard_count = 4,
-    tags = ["cpu:8"],
     deps = [
         ":testing",
         "//src/auth",
@@ -60,7 +58,6 @@ go_test(
     size = "small",
     srcs = ["config_test.go"],
     pure = "on",
-    tags = ["cpu:8"],
     deps = [
         "//src/auth",
         "//src/identity",

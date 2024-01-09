@@ -7,7 +7,6 @@ go_test(
     srcs = ["fuzz_provenance_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
-    tags = ["cpu:8"],
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",
@@ -42,7 +41,6 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":testing"],
     shard_count = 10,
-    tags = ["cpu:8"],
     deps = [
         "//src/auth",
         "//src/enterprise",

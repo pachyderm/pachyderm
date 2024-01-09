@@ -112,7 +112,6 @@ go_test(
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     pure = "on",
-    tags = ["cpu:8"],
     deps = [
         "//src/admin",
         "//src/internal/client",
