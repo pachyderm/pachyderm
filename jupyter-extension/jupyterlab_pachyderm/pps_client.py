@@ -72,7 +72,7 @@ class PpsConfig:
 
         external_files = []
         external_files_str = config.get("external_files")
-        if isinstance(external_files_str, str):
+        if external_files_str:
             for external_file in external_files_str.strip().split(','):
                 external_files.append(os.path.join(notebook_directory, external_file.strip()))
 
