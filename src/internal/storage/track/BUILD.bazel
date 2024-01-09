@@ -24,8 +24,8 @@ go_library(
 go_test(
     name = "track_test",
     size = "small",
-    tags = ["cpu:8"],
     srcs = ["postgres_tracker_test.go"],
+    tags = ["cpu:8"],
     deps = [
         ":track",
         "//src/internal/dbutil",
