@@ -27,7 +27,7 @@ pfs:
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
-const placeholderExternalFiles = 'library1.py,library2.py'
+const placeholderExternalFiles = 'library1.py,library2.py';
 const placeholderProject = 'default';
 
 const Pipeline: React.FC<PipelineProps> = ({
