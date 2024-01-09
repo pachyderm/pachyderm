@@ -537,8 +537,18 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     )
 
 
-def test_pps_validation_errors(dev_server, notebook_path):
+def test_pps_last_modified_time_not_specified_validation(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
+    assert r.status_code == 400, r.text
+    assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
+
+def test_pps_external_files_do_not_exist_validation(dev_server, notebook_path):
+    client, repo, pipeline = simple_pachyderm_env   
+    with client.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
+        client.pfs.put_file_from_bytes(commit=commit, path="/data", data=b"data")
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
     assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
