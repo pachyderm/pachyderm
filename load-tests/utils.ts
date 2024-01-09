@@ -20,6 +20,12 @@ import {GET_FILES_QUERY} from '@queries/GetFilesQuery';
 
 const IDP_URL = 'https://hub-e2e-testing.us.auth0.com';
 const DEX_URL = 'http://localhost:4000';
+const URL = 'http://localhost:3000';
+
+const JOB_ID = '4f89627c0d7447418cf46fb8f463f26f';
+const PIPELINE = 'dag-0-pipeline-0';
+const REPO = 'repo-0';
+const PROJECT = 'default';
 
 export enum Operation {
   getAccount = 'getAccount',
@@ -63,24 +69,24 @@ const QUERIES: QueryMap = {
   },
   [Operation.project]: {
     query: GET_PROJECT_QUERY,
-    variables: {id: 'default'},
+    variables: {id: PROJECT},
   },
   [Operation.projectDetails]: {
     query: GET_PROJECT_DETAILS_QUERY,
-    variables: {args: {projectId: 'default'}},
+    variables: {args: {projectId: PROJECT}},
   },
   [Operation.jobSets]: {
     query: JOB_SETS_QUERY,
     variables: {
-      args: {projectId: 'default'},
+      args: {projectId: PROJECT},
     },
   },
   [Operation.jobSet]: {
     query: JOB_SET_QUERY,
     variables: {
       args: {
-        // need ID
-        projectId: 'default',
+        id: JOB_ID,
+        projectId: PROJECT,
       },
     },
   },
@@ -88,30 +94,30 @@ const QUERIES: QueryMap = {
     query: JOB_QUERY,
     variables: {
       args: {
-        // need ID
-        pipelineName: 'dag-0-pipeline-0',
-        projectId: 'default',
+        id: JOB_ID,
+        pipelineName: PIPELINE,
+        projectId: PROJECT,
       },
     },
   },
   [Operation.repos]: {
     query: GET_REPOS_QUERY,
     variables: {
-      args: {projectId: 'default'},
+      args: {projectId: PROJECT},
     },
   },
   [Operation.repo]: {
     query: GET_REPO_QUERY,
     variables: {
-      args: {projectId: 'default', id: 'repo-0'},
+      args: {projectId: PROJECT, id: REPO},
     },
   },
   [Operation.getCommits]: {
     query: GET_COMMITS_QUERY,
     variables: {
       args: {
-        projectId: 'default',
-        repoName: 'repo-0',
+        projectId: PROJECT,
+        repoName: REPO,
         branchName: 'master',
         number: 100,
       },
@@ -125,8 +131,8 @@ const QUERIES: QueryMap = {
     query: GET_PIPELINE_QUERY,
     variables: {
       args: {
-        id: 'dag-0-pipeline-0',
-        projectId: 'default',
+        id: PIPELINE,
+        projectId: PROJECT,
       },
     },
   },
@@ -134,8 +140,8 @@ const QUERIES: QueryMap = {
     query: JOBS_QUERY,
     variables: {
       args: {
-        pipelineId: 'dag-0-pipeline-0',
-        projectId: 'default',
+        pipelineId: PIPELINE,
+        projectId: PROJECT,
       },
     },
   },
@@ -146,8 +152,8 @@ const QUERIES: QueryMap = {
         branchName: 'master',
         commitId: '^',
         path: '/',
-        projectId: 'default',
-        repoName: 'repo-0',
+        projectId: PROJECT,
+        repoName: REPO,
       },
     },
   },
@@ -269,7 +275,7 @@ const makeGraphqlRequest = (
   variables = {},
 ): RefinedResponse<any> => {
   const response = http.post(
-    'http://localhost:3000/graphql',
+    URL + '/graphql',
     JSON.stringify({
       operationName,
       variables,
