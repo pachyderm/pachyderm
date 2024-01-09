@@ -5,6 +5,7 @@ package workflowfuzz
 import (
 	"context"
 	"flag"
+	"fmt"
 	"math/rand"
 	"path"
 	"regexp"
@@ -23,23 +24,29 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-const namespace = "fuzz-cluster-1"
-const useSucccessValWeight = 1
+const (
+	namespace            = "fuzz-cluster-1"
+	useSucccessValWeight = .7
+	maxRepeatedCount     = 10
+	// usNilWeight          = .2
+)
 
 var (
 	run               = flag.Bool("testgen.run", true, "be default, don't run workflow data generation") // DNJ TODO - just hide in test harness? set back to false at least
 	alphaNumericRegex = regexp.MustCompile(`^[a-zA-Z0-9]*$`)
-	successInputs     = map[string][]interface{}{}
+	successInputs     = map[string][]protoreflect.Value{}
 )
 
-var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // TODO - make own rangeRPC function from rpc_fuzz_test
+var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // DNJ TODO - make own rangeRPC function from rpc_fuzz_test? at least move list of apis to separate input file(s)
 	pfs.File_pfs_pfs_proto: {
 		pfs.API_CreateRepo_FullMethodName,
 		pfs.API_CreateProject_FullMethodName,
 		pfs.API_DeleteRepo_FullMethodName,
-		pfs.API_DeleteProject_FullMethodName,
+		pfs.API_DeleteProject_FullMethodName, // DNJ TODO - weighting?
 		pfs.API_InspectProjectV2_FullMethodName,
 		pfs.API_InspectRepo_FullMethodName,
+		pfs.API_ListRepo_FullMethodName,
+		pfs.API_ListBranch_FullMethodName,
 	},
 }
 
@@ -102,46 +109,78 @@ func randString(r *rand.Rand, minlength int, maxLength int) string {
 	return characters.String()
 }
 
-type generator func(genData) interface{}
+type generator func(genData) protoreflect.Value
 
-func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]interface{}) *dynamicpb.Message { // DNJ TODO - generics maybe?
+func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]protoreflect.Value) *dynamicpb.Message { // DNJ TODO - generics maybe?
 	msg := dynamicpb.NewMessage(msgDesc)
 	// DNJ TODO Inject and save successful field values
-	defaultGenerators := map[protoreflect.Kind]generator{
-		protoreflect.BoolKind:    func(gen genData) interface{} { return gen.r.Float32() < .5 }, // DNJ TODO - Generics and/or pass context for error?
-		protoreflect.StringKind:  func(gen genData) interface{} { return randString(gen.r, 0, 5) },
-		protoreflect.MessageKind: func(gen genData) interface{} { return inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs) },
+	// DNJ TODO type enum?
+	defaultGenerators := map[protoreflect.Kind]generator{ // DNJ TODO - full custom inputs, how to handle for specific fields? Maybe do my own hash with field name or have a field name map of generators that is checlked first?
+		protoreflect.BoolKind: func(gen genData) protoreflect.Value {
+			return protoreflect.ValueOf(gen.r.Float32() < .5)
+		}, // DNJ TODO - Generics and/or pass context for error?
+		protoreflect.StringKind: func(gen genData) protoreflect.Value {
+			return protoreflect.ValueOf(randString(gen.r, 0, 5))
+		},
+		protoreflect.MessageKind: func(gen genData) protoreflect.Value {
+			return protoreflect.ValueOf(inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs))
+		},
 	}
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
 		field := msgDesc.Fields().Get(i)
-		var fieldVal interface{}
-		log.Info(ctx, "DNJ TODO setting field", zap.String("field", string(field.FullName())), zap.String("msg", string(msgDesc.FullName()))) // DNJ TODO repeated fields
-		if successVals, ok := potentialInputs[string(field.FullName())]; ok &&                                                                // DNJ TODO figure out input naming
+		var fieldVal protoreflect.Value
+		// DNJ TODO repeated fields
+		// if msgDesc.Name() == "DeleteRepo" {
+		log.Info(ctx, "DNJ TODO fields input", zap.String("field", string(field.FullName())), zap.String("msg", string(msgDesc.FullName())))
+		// }
+		if successVals, ok := potentialInputs[string(field.FullName())]; ok && // DNJ TODO figure out input naming
 			r.Float32() < useSucccessValWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
-			log.Info(ctx, "DNJ TODO setting field success", zap.Any("field", field), zap.Any("fieldVal", fieldVal))
+			log.Info(ctx, "DNJ TODO setting field success", zap.Any("field", field.FullName()), zap.Any("fieldVal", fieldVal))
 		} else {
 			gen := genData{r: r, field: field}
-			fieldVal = defaultGenerators[field.Kind()](gen)
+			if string(field.Name()) == "type" { // DNJ TODO - make type an enum? handle more generically with generators? This cannot be in final code...
+				fieldVal = protoreflect.ValueOf("user")
+			} else if field.IsList() { // fall-back to normal assignment if 1 or fewer selected
+				count := r.Intn(maxRepeatedCount)
+				vals := msg.NewField(field).List()
+				for i := 0; i < count; i++ {
+					vals.Append(defaultGenerators[field.Kind()](gen))
+				}
+				fieldVal = protoreflect.ValueOf(vals)
+			} else {
+				fieldVal = defaultGenerators[field.Kind()](gen)
+				log.Info(ctx, "DNJ TODO setting field generated", zap.Any("field", field.Name()), zap.Any("fieldVal", fieldVal), zap.Any("msg", string(msgDesc.FullName())))
+			}
 		}
-		msg.Set(field, protoreflect.ValueOf(fieldVal))
+		log.Info(ctx, "DNJ TODO setting field val", zap.Any("field", field.FullName()), zap.Any("fieldVal", fieldVal), zap.Any("fieldVal2", fmt.Sprintf("%#v", fieldVal)))
+		msg.Set(field, fieldVal)
 	}
 	return msg
 }
-func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]interface{}) {
-	msg.Range(func(field protoreflect.FieldDescriptor, val protoreflect.Value) bool {
-		log.Info(ctx, "DNJ TODO adding field", zap.Any("field", field), zap.Any("field val", val.Interface()))
+func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]protoreflect.Value) {
+	// DNJ TODO expander
+	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
+		log.Info(ctx, "DNJ TODO storing field", zap.Any("field", field.FullName()), zap.Any("field val", fieldVal))
 		fieldName := string(field.FullName())
-		fieldVal := val.Interface()
 		if vals, ok := out[fieldName]; ok {
 			vals = append(vals, fieldVal) // DNJ TODO - test
 		} else {
-			out[fieldName] = []interface{}{fieldVal} // DNJ TODO repeated fields
+			out[fieldName] = []protoreflect.Value{fieldVal} // DNJ TODO repeated fields
 		}
-		if field.Kind() == protoreflect.MessageKind { // handle sub messages
-			subMsg, ok := fieldVal.(*dynamicpb.Message)
-			log.Info(ctx, "DNJ TODO sub msg", zap.Any("submsg", subMsg))
-			if ok { //should always be ok because of the .Kind() check
+		if field.Kind() == protoreflect.MessageKind { // handle sub messages as well as saving the whole message
+			subMsg, ok := fieldVal.Interface().(*dynamicpb.Message)
+			if subMsg == nil || !ok {
+				log.Info(ctx, "DNJ TODO sub msg DOING THE THING *****",
+					zap.Any("msg", msg.String()),
+					zap.Any("FIELD", field.FullName()),
+					zap.Any("fieldVal", fieldVal),
+					zap.Any("fieldVal", fmt.Sprintf("%#v", fieldVal)),
+				)
+			}
+			// log.Info(ctx, "DNJ TODO sub msg DOING THE THING 2 ", zap.Bool("OK", ok), zap.Any("FIELD", field.FullName()), zap.Any("fieldVal", fieldVal))
+			// log.Info(ctx, "DNJ TODO sub msg", zap.Any("submsg", subMsg.String()))
+			if ok { //should always be ok because of the .Kind() check, but Go compiler can't know that
 				storeSuccessVals(ctx, subMsg, out)
 			}
 		}
@@ -159,7 +198,7 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TOD
 		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
 			log.Info(ctx, "Invoke grpc method err", zap.String("method name", fullName), zap.Error(err))
 		} else {
-			log.Info(ctx, "successful rpc call, saving fields for re-use", zap.String("method name", fullName))
+			log.Info(ctx, "successful rpc call, saving fields for re-use", zap.String("method name", fullName), zap.String("input", input.String()))
 			storeSuccessVals(ctx, input, successInputs)
 			storeSuccessVals(ctx, reply, successInputs)
 		}
@@ -172,7 +211,8 @@ func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
 	if !*run {
 		f.Skip()
 	}
-	l := log.InitBatchLogger("/tmp/FuzzGrpc.log") //fmt.Sprintf("/tmp/FuzzGrpcLog-%d", os.Getpid()))
+	// We need a file logger since Go runs Fuzz in seperate procs
+	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
 	c := getSharedCluster(f)
 	// for i := 0; i < 100; i++ {
@@ -181,7 +221,6 @@ func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
 	// }
 	f.Fuzz(func(t *testing.T, seed int64) {
 		fuzzGrpc(ctx, c, seed)
-		l(nil)
 	})
-
+	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
 }
