@@ -50,6 +50,7 @@ go_test(
     ],
     embed = [":cmds"],
     pure = "on",
+    tags = ["cpu:8"],
     deps = [
         "//src/admin",
         "//src/internal/dockertestenv",

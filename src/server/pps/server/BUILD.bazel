@@ -125,6 +125,7 @@ go_test(
     ],
     embed = [":server"],
     pure = "on",
+    tags = ["cpu:8"],
     deps = [
         "//src/internal/backoff",
         "//src/internal/client",

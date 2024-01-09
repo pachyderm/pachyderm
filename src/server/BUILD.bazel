@@ -10,6 +10,7 @@ go_test(
     ],
     data = glob(["testdata/**"]),
     pure = "on",
+    tags = ["cpu:8"],
     deps = [
         "//src/admin",
         "//src/auth",

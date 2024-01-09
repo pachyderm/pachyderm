@@ -44,6 +44,7 @@ go_test(
         "projects_test.go",
         "repos_test.go",
     ],
+    tags = ["cpu:8"],
     deps = [
         ":pfsdb",
         "//src/internal/client",

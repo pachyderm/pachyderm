@@ -60,6 +60,7 @@ go_test(
     size = "small",
     srcs = ["config_test.go"],
     pure = "on",
+    tags = ["cpu:8"],
     deps = [
         "//src/auth",
         "//src/identity",
