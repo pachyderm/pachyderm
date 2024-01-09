@@ -549,9 +549,7 @@ def test_pps_external_files_do_not_exist_validation(
 ):
     _client, repo, _companion_repo, pipeline = simple_pachyderm_env
 
-    # Specifying 'fakefile.py' when no such file exists is what forces the error asserted at the end of this test
-    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'fakefile.py')
-
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'does_not_exist.py')
     notebook_path.write_text(new_notebook_data)
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
@@ -561,7 +559,7 @@ def test_pps_external_files_do_not_exist_validation(
     
     assert r.status_code == 400
     assert r.json()["message"] == 'Bad Request'
-    assert r.json()["reason"] == 'external file fakefile.py could not be found in the directory of the Jupyter notebook'
+    assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
 
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_uploads_external_files(
