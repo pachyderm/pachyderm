@@ -17,8 +17,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
@@ -47,6 +49,9 @@ var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // DNJ TODO - ma
 		pfs.API_InspectRepo_FullMethodName,
 		pfs.API_ListRepo_FullMethodName,
 		pfs.API_ListBranch_FullMethodName,
+	},
+	pps.File_pps_pps_proto: {
+		pps.API_CreatePipeline_FullMethodName,
 	},
 }
 
@@ -122,6 +127,12 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 		protoreflect.StringKind: func(gen genData) protoreflect.Value {
 			return protoreflect.ValueOf(randString(gen.r, 0, 5))
 		},
+		protoreflect.Int64Kind: func(gen genData) protoreflect.Value {
+			return protoreflect.ValueOf(gen.r.Int63n(20) - 10)
+		},
+		protoreflect.FloatKind: func(gen genData) protoreflect.Value {
+			return protoreflect.ValueOf(gen.r.Float32()*2 - 1)
+		},
 		protoreflect.MessageKind: func(gen genData) protoreflect.Value {
 			return protoreflect.ValueOf(inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs))
 		},
@@ -129,39 +140,59 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
 		field := msgDesc.Fields().Get(i)
 		var fieldVal protoreflect.Value
-		// DNJ TODO repeated fields
-		// if msgDesc.Name() == "DeleteRepo" {
-		log.Info(ctx, "DNJ TODO fields input", zap.String("field", string(field.FullName())), zap.String("msg", string(msgDesc.FullName())))
-		// }
 		if successVals, ok := potentialInputs[string(field.FullName())]; ok && // DNJ TODO figure out input naming
 			r.Float32() < useSucccessValWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
-			log.Info(ctx, "DNJ TODO setting field success", zap.Any("field", field.FullName()), zap.Any("fieldVal", fieldVal))
 		} else {
-			gen := genData{r: r, field: field}
-			if string(field.Name()) == "type" { // DNJ TODO - make type an enum? handle more generically with generators? This cannot be in final code...
+			gen := genData{r: r, field: field}                         // DNJ TODO gen is a bad name.
+			if string(field.Name()) == "type" && field.Enum() == nil { // DNJ TODO - make type an enum? handle more generically with generators? This cannot be in final code...
 				fieldVal = protoreflect.ValueOf("user")
 			} else if field.IsList() { // fall-back to normal assignment if 1 or fewer selected
 				count := r.Intn(maxRepeatedCount)
 				vals := msg.NewField(field).List()
 				for i := 0; i < count; i++ {
-					vals.Append(defaultGenerators[field.Kind()](gen))
+					v := getDataForType(ctx, gen, defaultGenerators)
+					if v.IsValid() {
+						vals.Append(v)
+					} else {
+						log.Info(ctx, "Value in a list was not valid! ignoring.",
+							zap.Any("field", field.FullName()),
+							zap.Any("value", v.Interface()))
+					}
 				}
 				fieldVal = protoreflect.ValueOf(vals)
+			} else if field.IsMap() {
+				log.Info(ctx, "Map message type not yet implemented in value generation",
+					zap.Any("field", field.FullName()))
 			} else {
-				fieldVal = defaultGenerators[field.Kind()](gen)
-				log.Info(ctx, "DNJ TODO setting field generated", zap.Any("field", field.Name()), zap.Any("fieldVal", fieldVal), zap.Any("msg", string(msgDesc.FullName())))
+				fieldVal = getDataForType(ctx, gen, defaultGenerators)
 			}
 		}
-		log.Info(ctx, "DNJ TODO setting field val", zap.Any("field", field.FullName()), zap.Any("fieldVal", fieldVal), zap.Any("fieldVal2", fmt.Sprintf("%#v", fieldVal)))
-		msg.Set(field, fieldVal)
+		if fieldVal.IsValid() {
+			// log.Info(ctx, "Setting field val for input",
+			// 	zap.Any("field", field.FullName()),
+			// 	zap.Any("fieldVal", fieldVal.Interface()))
+			msg.Set(field, fieldVal)
+		}
 	}
 	return msg
 }
+
+func getDataForType(ctx context.Context, gen genData, generators map[protoreflect.Kind]generator) protoreflect.Value {
+	genFunc, ok := generators[gen.field.Kind()]
+	if ok {
+		return genFunc(gen)
+	} else {
+		log.Info(ctx, "Input generator not provided for requested data type.",
+			zap.Any("field", gen.field.FullName()),
+			zap.Any("data type", gen.field.Kind()))
+		return protoreflect.ValueOf(nil)
+	}
+}
+
 func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]protoreflect.Value) {
 	// DNJ TODO expander
 	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
-		log.Info(ctx, "DNJ TODO storing field", zap.Any("field", field.FullName()), zap.Any("field val", fieldVal))
 		fieldName := string(field.FullName())
 		if vals, ok := out[fieldName]; ok {
 			vals = append(vals, fieldVal) // DNJ TODO - test
@@ -170,23 +201,28 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 		}
 		if field.Kind() == protoreflect.MessageKind { // handle sub messages as well as saving the whole message
 			subMsg, ok := fieldVal.Interface().(*dynamicpb.Message)
-			if subMsg == nil || !ok {
-				log.Info(ctx, "DNJ TODO sub msg DOING THE THING *****",
-					zap.Any("msg", msg.String()),
-					zap.Any("FIELD", field.FullName()),
-					zap.Any("fieldVal", fieldVal),
-					zap.Any("fieldVal", fmt.Sprintf("%#v", fieldVal)),
-				)
-			}
-			// log.Info(ctx, "DNJ TODO sub msg DOING THE THING 2 ", zap.Bool("OK", ok), zap.Any("FIELD", field.FullName()), zap.Any("fieldVal", fieldVal))
-			// log.Info(ctx, "DNJ TODO sub msg", zap.Any("submsg", subMsg.String()))
-			if ok { //should always be ok because of the .Kind() check, but Go compiler can't know that
+			if field.IsList() {
+				list := fieldVal.List()
+				for i := 0; i < list.Len(); i++ {
+					listMsg, ok := list.Get(i).Message().(*dynamicpb.Message)
+					if !ok {
+						log.Info(ctx, "Storing a list of message values, but a the message was not a valid dynamicpb.Message", // DNJ TODO -error?
+							zap.Any("field", field.FullName()),
+							zap.Any("msg", list.Get(i).String()))
+					} else {
+						storeSuccessVals(ctx, listMsg, out)
+					}
+				}
+			} else if field.IsMap() {
+				log.Info(ctx, "Saving the Map message type not yet implemented",
+					zap.Any("field", field.FullName()))
+			} else if ok { // just a single message to recurse through
 				storeSuccessVals(ctx, subMsg, out)
 			}
 		}
 		return true // always continue since there's no error case
 	})
-	// t.Logf("DNJ TODO %#v", out)
+
 }
 
 func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TODO - can and/or should this be public?
@@ -196,9 +232,17 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TOD
 		reply := dynamicpb.NewMessage(md.Output())
 		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name())) // DNJ TODO move to rpc fuzz test and make function for this.
 		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
-			log.Info(ctx, "Invoke grpc method err", zap.String("method name", fullName), zap.Error(err))
+			log.Info(ctx, "Invoke grpc method err",
+				zap.String("method name", fullName),
+				zap.String("input", input.String()),
+				zap.Error(err),
+			)
 		} else {
-			log.Info(ctx, "successful rpc call, saving fields for re-use", zap.String("method name", fullName), zap.String("input", input.String()))
+			log.Info(ctx, "successful rpc call, saving fields for re-use",
+				zap.String("method name", fullName),
+				zap.String("input", input.String()),
+				zap.String("reply", reply.String()),
+			)
 			storeSuccessVals(ctx, input, successInputs)
 			storeSuccessVals(ctx, reply, successInputs)
 		}
@@ -221,6 +265,11 @@ func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
 	// }
 	f.Fuzz(func(t *testing.T, seed int64) {
 		fuzzGrpc(ctx, c, seed)
+		log.Info(ctx, "Stored input", zap.String("success inputs", fmt.Sprintf("%#v", successInputs)))
 	})
 	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
+	//DNJ TODO validation in Fuzz()?
+	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
+		require.NoError(f, err, "fsck should not error after fuzzing")
+	}
 }
