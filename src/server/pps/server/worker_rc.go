@@ -477,7 +477,13 @@ func (kd *kubeDriver) workerPodSpec(ctx context.Context, options *workerOptions,
 				Resources: v1.ResourceRequirements{
 					Requests: v1.ResourceList{},
 				},
-				VolumeMounts:    userVolumeMounts,
+				VolumeMounts: userVolumeMounts,
+				Ports: []v1.ContainerPort{
+					{
+						Name:          "metrics-user",
+						ContainerPort: workerstats.PrometheusPort,
+					},
+				},
 				SecurityContext: userSecurityCtx,
 			},
 			{
