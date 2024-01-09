@@ -30,6 +30,8 @@ export type usePipelineResponse = {
   setResourceSpec: (input: string) => void;
   requirements: string;
   setRequirements: (input: string) => void;
+  externalFiles: string;
+  setExternalFiles: (input: string) => void;
   callCreatePipeline: () => Promise<void>;
   currentNotebook: string;
   errorMessage: string;
@@ -51,6 +53,7 @@ export const usePipeline = (
   const [gpuMode, setGpuMode] = useState(GpuMode.None);
   const [resourceSpec, setResourceSpec] = useState('');
   const [requirements, setRequirements] = useState('');
+  const [externalFiles, setExternalFiles] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   const [responseMessage, setResponseMessage] = useState('');
   const [currentNotebook, setCurrentNotebook] = useState('None');
@@ -64,6 +67,7 @@ export const usePipeline = (
       ppsContext?.metadata?.config.pipeline.project?.name ?? '',
     );
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
+    setExternalFiles(ppsContext?.metadata?.config.external_files ?? '');
     setResponseMessage('');
     if (ppsContext?.metadata?.config.input_spec) {
       setInputSpec(ppsContext.metadata.config.input_spec);
@@ -137,6 +141,7 @@ export const usePipeline = (
         pipeline: {name: pipelineName, project: {name: pipelineProject}},
         image: imageName,
         requirements: requirements,
+        external_files: externalFiles,
         input_spec: inputSpec,
         port: pipelinePort,
         gpu_mode: gpuMode,
@@ -163,6 +168,8 @@ export const usePipeline = (
     setResourceSpec,
     requirements,
     setRequirements,
+    externalFiles,
+    setExternalFiles,
     callCreatePipeline,
     currentNotebook,
     errorMessage,

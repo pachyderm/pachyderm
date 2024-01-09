@@ -27,6 +27,7 @@ pfs:
   glob: /*
 `;
 const placeholderRequirements = './requirements.txt';
+const placeholderExternalFiles = 'library1.py,library2.py'
 const placeholderProject = 'default';
 
 const Pipeline: React.FC<PipelineProps> = ({
@@ -54,6 +55,8 @@ const Pipeline: React.FC<PipelineProps> = ({
     setResourceSpec,
     requirements,
     setRequirements,
+    externalFiles,
+    setExternalFiles,
     callCreatePipeline,
     currentNotebook,
     errorMessage,
@@ -170,6 +173,25 @@ const Pipeline: React.FC<PipelineProps> = ({
           }}
           disabled={loading}
           placeholder={placeholderRequirements}
+        ></input>
+      </div>
+      <div className="pachyderm-pipeline-input-wrapper">
+        <label
+          className="pachyderm-pipeline-input-label"
+          htmlFor="external-files"
+        >
+          External Files:{'  '}
+        </label>
+        <input
+          className="pachyderm-pipeline-input"
+          data-testid="Pipeline__inputExternalFiles"
+          name="externalFiles"
+          value={externalFiles}
+          onChange={(e: any) => {
+            setExternalFiles(e.target.value);
+          }}
+          disabled={loading}
+          placeholder={placeholderExternalFiles}
         ></input>
       </div>
       <div className="pachyderm-pipeline-input-wrapper">
@@ -307,4 +329,7 @@ ${
   );
 };
 
+// TODO errors:
+// {"Couldn't create pipeline: External file library1.py could not be found in the directory of the Jupyter notebook."}
+// {"Couldn't create pipeline: 'library1.py|library2.py' is not a comma separated list of files which is expected for External Files."}
 export default Pipeline;
