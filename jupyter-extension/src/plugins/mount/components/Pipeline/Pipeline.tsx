@@ -329,7 +329,4 @@ ${
   );
 };
 
-// TODO errors:
-// {"Couldn't create pipeline: External file library1.py could not be found in the directory of the Jupyter notebook."}
-// {"Couldn't create pipeline: 'library1.py|library2.py' is not a comma separated list of files which is expected for External Files."}
 export default Pipeline;
