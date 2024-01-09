@@ -8,9 +8,12 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/alessio/shellescape"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
@@ -185,8 +188,20 @@ func (p *Pachctl) CommandTemplate(ctx context.Context, scriptTemplate string, da
 // RunCommand runs command in sh (rather than bash), returning the combined
 // stdout & stderr.
 func (p Pachctl) RunCommand(ctx context.Context, command string) (string, error) {
+	env := os.Environ()
+
+	// Adjust PATH to point at pachctl if it's in the runfiles for this invocation.
+	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+		for i, entry := range env {
+			if strings.HasPrefix(entry, "PATH=") {
+				oldPath := entry[len("PATH="):]
+				env[i] = fmt.Sprintf("PATH=%s:%s", filepath.Dir(pachctl), oldPath)
+			}
+		}
+	}
+
 	cmd := exec.CommandContext(ctx, "/bin/sh", "-c", command)
-	cmd.Env = append(os.Environ(), fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
+	cmd.Env = append(env, fmt.Sprintf(`PACH_CONFIG=%s`, shellescape.Quote(p.configPath)))
 	b, err := cmd.CombinedOutput()
 	return string(b), err
 }

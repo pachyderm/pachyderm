@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"unicode"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -77,6 +78,11 @@ func dedent(cmd string) string {
 // makes debugging failures much easier (i.e. you get an error message
 // rather than "exit status 1")
 func Command(name string, args ...string) *exec.Cmd {
+	if name == "pachctl" {
+		if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+			name = pachctl
+		}
+	}
 	cmd := exec.Command(name, args...)
 	cmd.Stderr = os.Stderr
 	// for convenience, simulate hitting "enter" after any prompt. This can easily

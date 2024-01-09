@@ -4,29 +4,42 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
+	"strings"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
 func writeBashPrelude(w io.Writer) error {
-	formats := []string{bashPrelude, "\n", matchTest, "\n"}
-	formatArgs := [][]any{{}, {}, {}, {}}
+	var path []string
 
-	if matchBin, ok := bazel.FindBinary("//src/testing/match", "match"); ok {
+	// prelude
+	if _, err := w.Write([]byte(bashPrelude + "\n")); err != nil {
+		return errors.Wrap(err, "write bash prelude")
+	}
+
+	// runfiles
+	if match, ok := bazel.FindBinary("//src/testing/match", "match"); ok {
 		// Running with Bazel; stick built-for-this-invocation match binary in $PATH in the
 		// generated prelude.  It is unlikely that Bazel will be misconfigured; the match
 		// binary is a data dependency of this file, so if this code is running, match is in
 		// the runfiles directory.
-		formats = []string{bashPrelude, "\n", matchPath, "\n", matchTest, "\n"}
-		formatArgs = [][]any{{}, {}, {filepath.Dir(matchBin)}, {}, {}, {}}
+		path = append(path, filepath.Dir(match))
 	}
-	for i, f := range formats {
-		args := formatArgs[i]
-		if _, err := fmt.Fprintf(w, f, args...); err != nil {
-			return errors.Wrapf(err, "format prelude (fmt.Printf(%v, %v)", f, args)
+	if pachctl, ok := bazel.FindBinary("//src/server/cmd/pachctl", "pachctl"); ok {
+		path = append(path, filepath.Dir(pachctl))
+	}
+	if len(path) > 0 {
+		if _, err := fmt.Fprintf(w, matchPathFormat+"\n", strings.Join(path, ":")); err != nil {
+			return errors.Wrap(err, "write $PATH override")
 		}
 	}
+
+	// match tester
+	if _, err := w.Write([]byte(matchTest + "\n")); err != nil {
+		return errors.Wrap(err, "write `match` tester")
+	}
+
 	return nil
 }
 
@@ -42,13 +55,15 @@ pipeerr=141 # typical error code returned by unix utils when SIGPIPE is raised
 function yes {
 	/usr/bin/yes || test "$?" -eq "${pipeerr}"
 }
-export -f yes # use in subshells too`
+export -f yes # use in subshells too
+`
 
-	matchPath = `PATH=$PATH:%s`
+	matchPathFormat = `PATH=%s:$PATH`
 
 	matchTest = `which match >/dev/null || {
 	echo "You must have 'match' installed to run these tests. Please run:" >&2
 	echo "  go install ./src/testing/match" >&2
 	exit 1
-}`
+}
+`
 )

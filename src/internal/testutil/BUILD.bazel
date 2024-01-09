@@ -17,7 +17,10 @@ go_library(
         "pachctl.go",
         "testutil.go",
     ],
-    data = ["//src/testing/match"],
+    data = [
+        "//src/server/cmd/pachctl",
+        "//src/testing/match",
+    ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutil",
     visibility = ["//src:__subpackages__"],
     deps = [

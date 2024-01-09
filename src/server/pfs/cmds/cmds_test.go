@@ -398,11 +398,11 @@ func TestDiffFile(t *testing.T) {
 		pachctl create project {{.otherProject}}
 		pachctl create repo {{.repo}} --project {{.otherProject}}
 
-                echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
+		echo "foo" | pachctl put file {{.repo}}@master:/data --project {{.otherProject}}
 
-                pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
+		pachctl diff file {{.repo}}@master:/data {{.repo}}@master:/data --project {{.project}} \
 			--old-project {{.otherProject}} | match -- '-foo'
-                `,
+		`,
 		"repo", tu.UniqueString("TestDiffFile-repo"),
 		"project", tu.UniqueString("TestDiffFile-project"),
 		"otherProject", tu.UniqueString("TestDiffFile-project"),
@@ -634,7 +634,7 @@ func TestDeleteAllReposAllProjects(t *testing.T) {
 		pachctl create project {{.project2}}
 		pachctl create repo {{.repo}} --project {{.project2}}
 		pachctl delete repo --all --all-projects
-		if [ $(pachctl list repo --all-projects | wc -l) -ne 1]; then exit 1; fi
+		if [ $(pachctl list repo --all-projects | wc -l) -ne 1 ]; then exit 1; fi
 		`,
 		"project", tu.UniqueString("project"),
 		"project2", tu.UniqueString("project2"),
@@ -819,10 +819,10 @@ func TestInspectProject(t *testing.T) {
 	require.True(t, strings.Contains(output, `Defaults: {}`), "pachctl inspect project must include defaults")
 
 	output, err = p.RunCommand(ctx, `echo '{"createPipelineRequest": {"datumTries": 14}}' | pachctl update defaults --project default`)
-	require.NoError(t, err, "pachctl update project defaults  must succeed:\n", output)
+	require.NoError(t, err, "pachctl update project defaults must succeed:\n%s", output)
 
 	output, err = p.RunCommand(ctx, `pachctl inspect defaults --project default`)
-	require.NoError(t, err, "pachctl inspect defaults must succeed:\n", output)
+	require.NoError(t, err, "pachctl inspect defaults must succeed:\n%s", output)
 
 	output, err = p.RunCommand(ctx, "pachctl inspect project default")
 	require.NoError(t, err, "pachctl inspect project default must succeed")
