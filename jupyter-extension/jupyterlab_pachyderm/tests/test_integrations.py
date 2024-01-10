@@ -565,6 +565,34 @@ def test_pps_external_files_do_not_exist_validation(
     assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
 
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_external_files_exists_in_another_directory_validation(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
+
+    notebook_directory = TEST_NOTEBOOK.parent
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'world/hello.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+
+    try:
+        notebook_directory.joinpath("world").mkdir()
+        notebook_directory.joinpath("world/hello.py").write_text("print('hello')")
+        time.sleep(5)
+
+        r = requests.put(
+            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+        )
+        
+        assert r.status_code == 400
+        assert r.json()["message"] == 'Bad Request'
+        assert r.json()["reason"] == 'external file hello.py could not be found in the directory of the Jupyter notebook'
+    finally:
+        notebook_directory.joinpath("world/hello.py").unlink()
+        notebook_directory.joinpath("world").rmdir()
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_uploads_external_files(
     dev_server, simple_pachyderm_env, notebook_path
 ):
@@ -597,8 +625,8 @@ def test_pps_uploads_external_files(
         with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/world.py')) as pfs_file:
             assert pfs_file.read().decode() == "print('world')"
     finally:
-        os.remove(TEST_NOTEBOOK.with_name("hello.py"))
-        os.remove(TEST_NOTEBOOK.with_name("world.py"))
+        TEST_NOTEBOOK.with_name("hello.py").unlink()
+        TEST_NOTEBOOK.with_name("world.py").unlink()
 
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_reuse_pipeline_name_different_project(
