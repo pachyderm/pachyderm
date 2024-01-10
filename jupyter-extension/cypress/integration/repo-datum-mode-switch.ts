@@ -16,12 +16,11 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'repo: images');
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it('mounted repos appear in datum input spec and again when switching back', () => {
-    cy.findAllByText('Mount').first().click();
+    cy.findAllByText('Load').first().click();
     cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 2);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 2);
 
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
@@ -29,7 +28,7 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'cross:');
     cy.findByTestId('Datum__back').click();
 
-    cy.findAllByText('Unmount').should('have.length', 2);
+    cy.findAllByText('Unload').should('have.length', 2);
     cy.wait(3000);
     cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
@@ -39,8 +38,8 @@ describe('switching between repo and datum mode', () => {
 
   it.skip('modifying input spec saves and restores it when back in datum mode', () => {
     cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
 
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
@@ -52,12 +51,11 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'a');
     cy.findByTestId('Datum__back').click();
 
-    cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('Unmount').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
+    cy.findAllByText('Unload').first().click();
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
       .should('contain', 'a');
   });
-*/
 });
