@@ -4,7 +4,7 @@ describe('switching between repo and datum mode', () => {
     cy.isAppReady();
     cy.unmountAllRepos();
     cy.openMountPlugin();
-    cy.findAllByText('Mount');
+    cy.findAllByText('Load');
     cy.wait(3000);
   });
 
