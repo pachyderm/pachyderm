@@ -26,15 +26,15 @@ describe('mount', () => {
       .should('eq', '/ pfs/default_images/');
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it("should correctly mount a repo's branch", () => {
     cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
     cy.findAllByText('default_images_branch').first().click();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
+  /* TODO: tests must be updated for the new FUSE-less impl
   it('should open mounted directory in the file browser on click', () => {
     cy.findAllByText('Mount').first().click();
     cy.findAllByText('Unmount').should('have.length', 1);
