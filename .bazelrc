@@ -1,17 +1,27 @@
 try-import %workspace%/.bazelrc.local
 
-build --bes_results_url=https://app.buildbuddy.io/invocation/
-build --bes_backend=grpcs://remote.buildbuddy.io
-build --build_metadata=REPO_URL=https://github.com/pachyderm/pachyderm
-build --workspace_status_command=$(pwd)/workspace_status.sh
-build --remote_cache=grpcs://pachyderm.buildbuddy.io
-build --remote_timeout=3600
-build --experimental_remote_cache_compression
-build --remote_build_event_upload=minimal
-build --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
-build --nolegacy_important_outputs
-build --stamp
-build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote,OCIImage=+no-remote
+# For developers with working HTTP/2, allow use of a remote cache.  (CI uses the remote cache.)
+build:remotecache --bes_results_url=https://app.buildbuddy.io/invocation/
+build:remotecache --bes_backend=grpcs://remote.buildbuddy.io
+build:remotecache --build_metadata=REPO_URL=https://github.com/pachyderm/pachyderm
+build:remotecache --remote_cache=grpcs://pachyderm.buildbuddy.io
+build:remotecache --remote_timeout=3600
+build:remotecache --experimental_remote_cache_compression
+build:remotecache --remote_build_event_upload=minimal
+build:remotecache --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
+build:remotecache --nolegacy_important_outputs
 
+# This is only relevant for remote caching, but using the same value of modify_execution_info allows
+# sharing the analysis cache between local and remotecache builds, saving time when you switch the
+# flag.
+build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote-cache,OCIImage=+no-remote-cache
+
+# Common build options.
+build --workspace_status_command=$(pwd)/workspace_status.sh
+build --stamp
+
+# Common options.
 common --test_env=ENT_ACT_CODE
+
+# --config=race for running tests with the race detector.
 test:race --@rules_go//go/config:race
