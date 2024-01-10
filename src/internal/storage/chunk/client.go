@@ -67,17 +67,34 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if err := c.renewer.Add(ctx, chunkID); err != nil {
 		return nil, err
 	}
+	key := chunkKey(chunkID, gen)
 	if !needUpload {
+		if err := c.errIfNotExists(ctx, key); err != nil {
+			return nil, err
+		}
 		return chunkID, nil
 	}
-	key := chunkKey(chunkID, gen)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
 		return nil, errors.EnsureStack(err)
+	}
+	if err := c.errIfNotExists(ctx, key); err != nil {
+		return nil, err
 	}
 	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
 	}
 	return chunkID, nil
+}
+
+func (c *trackedClient) errIfNotExists(ctx context.Context, key []byte) error {
+	ok, err := c.store.Exists(ctx, key)
+	if err != nil {
+		return errors.Wrap(err, "checking chunk existence")
+	}
+	if !ok {
+		return errors.Errorf("chunk %s does not exist after attempting to upload it to the backend.", string(key))
+	}
+	return nil
 }
 
 // beforeUpload checks the table in postgres to see if a chunk with chunkID already exists.
