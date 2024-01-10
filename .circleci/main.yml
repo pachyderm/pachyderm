@@ -1604,10 +1604,10 @@ jobs:
           chown bazel -R /code
           popd
       - run: su bazel -c 'bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto'
-      - run: su bazel -c 'git checkout BAZEL.module.lock' # For OSX-only changes.
+      - run: su bazel -c 'git checkout MODULE.bazel.lock' # For OSX-only changes.
       - run: su bazel -c 'git diff --exit-code'
       - run: su bazel -c 'bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle'
-      - run: su bazel -c 'git checkout BAZEL.module.lock' # For OSX-only changes.
+      - run: su bazel -c 'git checkout MODULE.bazel.lock' # For OSX-only changes.
       - run: su bazel -c 'git diff --exit-code'
       - run: su bazel -c 'bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test'
       - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
