@@ -14,11 +14,10 @@ describe('mount', () => {
     cy.findAllByText('Load').should('have.length', 1);
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it('file browser should show correct breadcrumbs', () => {
     cy.findByText('/ pfs').should('have.length', 2);
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
     cy.findAllByText('default_images').first().click();
 
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
@@ -27,6 +26,7 @@ describe('mount', () => {
       .should('eq', '/ pfs/default_images/');
   });
 
+  /* TODO: tests must be updated for the new FUSE-less impl
   it("should correctly mount a repo's branch", () => {
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Mount').first().click();
