@@ -34,17 +34,16 @@ describe('mount', () => {
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it('should open mounted directory in the file browser on click', () => {
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
     cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
   });
 
   it('file browser should show correct right click actions', () => {
-    cy.findByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
     cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').first().rightclick();
     cy.get('ul.lm-Menu-content.p-Menu-content')
@@ -57,9 +56,9 @@ describe('mount', () => {
   });
 
   it('file browser should have loading attribute', () => {
-    cy.findByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
     cy.findAllByText('default_images').first().click();
     cy.get('ul.jp-DirListing-content[loading]').should('have.length', 1);
-  });*/
+  });
 });
