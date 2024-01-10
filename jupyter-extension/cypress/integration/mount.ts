@@ -4,14 +4,14 @@ describe('mount', () => {
     cy.isAppReady();
     cy.unmountAllRepos();
     cy.openMountPlugin();
-    cy.findAllByText('Mount');
+    cy.findAllByText('Load');
     cy.wait(3000);
   });
 
   it('should mount and unmount pachyderm repos', () => {
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').first().click();
-    cy.findAllByText('Mount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').first().click();
+    cy.findAllByText('Load').should('have.length', 1);
   });
 
   /* TODO: tests must be updated for the new FUSE-less impl
