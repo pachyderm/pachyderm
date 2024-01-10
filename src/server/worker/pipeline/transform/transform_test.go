@@ -1,4 +1,4 @@
-package transform
+package transform_test
 
 import (
 	"archive/tar"
@@ -28,6 +28,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/pipeline/transform"
 )
 
 func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.ConfigOption, pipelineInfo *pps.PipelineInfo) *testEnv {
@@ -113,7 +114,7 @@ func setupPachAndWorker(ctx context.Context, t *testing.T, dbConfig pachconfig.C
 	require.NoError(t, err)
 	eg.Go(func() error {
 		err := backoff.RetryUntilCancel(testEnv.driver.PachClient().Ctx(), func() error {
-			return Worker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &Status{})
+			return transform.ProcessingWorker(testEnv.driver.PachClient().Ctx(), testEnv.driver, testEnv.logger, &transform.Status{})
 		}, &backoff.ZeroBackOff{}, func(err error, d time.Duration) error {
 			testEnv.logger.Logf("worker failed, retrying immediately, err: %v", err)
 			return nil
@@ -225,10 +226,10 @@ func mockJobFromCommit(t *testing.T, env *testEnv, pi *pps.PipelineInfo, commit 
 	})
 
 	eg, ctx := errgroup.WithContext(ctx)
-	reg, err := newRegistry(env.driver, env.logger)
+	reg, err := transform.NewRegistry(env.driver, env.logger)
 	require.NoError(t, err)
 	eg.Go(func() error {
-		_ = reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
+		_ = reg.StartJob(proto.Clone(jobInfo).(*pps.JobInfo))
 		return nil
 	})
 	return ctx, jobInfo

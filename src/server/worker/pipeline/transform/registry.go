@@ -43,7 +43,7 @@ type registry struct {
 // TODO:
 // Prometheus stats? (previously in the driver, which included testing we should reuse if possible)
 // capture logs (reuse driver tests and reintroduce tagged logger).
-func newRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
+func NewRegistry(driver driver.Driver, logger logs.TaggedLogger) (*registry, error) {
 	// Determine the maximum number of concurrent tasks we will allow
 	concurrency, err := driver.ExpectedNumWorkers()
 	if err != nil {
@@ -99,7 +99,7 @@ func (reg *registry) killJob(pj *pendingJob, reason string) error {
 	return errors.EnsureStack(err)
 }
 
-func (reg *registry) startJob(jobInfo *pps.JobInfo) (retErr error) {
+func (reg *registry) StartJob(jobInfo *pps.JobInfo) (retErr error) {
 	reg.limiter.Acquire()
 	defer func() {
 		// TODO(2.0 optional): The error handling during job setup needs more work.
