@@ -352,7 +352,7 @@ class ConfigHandler(BaseHandler):
         try:
             self.client = Client.from_pachd_address(address, root_certs=cas)
             cluster_status = self.cluster_status
-            get_logger().debug(f" ClusterStatus: {cluster_status}")
+            get_logger().info(f"({address}) cluster status: {cluster_status}")
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",
@@ -369,7 +369,6 @@ class ConfigHandler(BaseHandler):
                 write_config(self.client.address, self.client.root_certs, None)
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
-                raise tornado.web.HTTPError(500, f"Error writing local config: {e}.")
 
         payload = {"cluster_status": cluster_status, "pachd_address": self.client.address}
         await self.finish(json.dumps(payload))
