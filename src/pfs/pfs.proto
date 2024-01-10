@@ -525,6 +525,7 @@ message CreateFileSetResponse {
 
 message GetFileSetRequest {
   Commit commit = 1;
+  bool diff_only = 2;
 }
 
 message AddFileSetRequest {

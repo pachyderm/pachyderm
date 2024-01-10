@@ -7,6 +7,9 @@
                 "commit": {
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
+                },
+                "diffOnly": {
+                    "type": "boolean"
                 }
             },
             "additionalProperties": false,

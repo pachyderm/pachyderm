@@ -7984,6 +7984,9 @@
       "properties": {
         "commit": {
           "$ref": "#/definitions/pfs_v2Commit"
+        },
+        "diffOnly": {
+          "type": "boolean"
         }
       }
     },

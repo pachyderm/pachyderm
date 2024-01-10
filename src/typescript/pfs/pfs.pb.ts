@@ -438,6 +438,7 @@ export type CreateFileSetResponse = {
 
 export type GetFileSetRequest = {
   commit?: Commit
+  diffOnly?: boolean
 }
 
 export type AddFileSetRequest = {
