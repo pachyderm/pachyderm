@@ -37,7 +37,7 @@ class PpsConfig:
 
         Raises ValueError if required field is not specified.
         """
-        notebook_directory = os.path.dirname(notebook_path)
+        notebook_directory = notebook_path.parent
         notebook_path = Path(notebook_path)
         notebook_data = json.loads(notebook_path.read_bytes())
 
@@ -71,7 +71,7 @@ class PpsConfig:
         requirements = config.get("requirements")
 
         external_files = []
-        external_files_str = config.get("external_files")
+        external_files_str = config.get("external_files", "").strip()
         if external_files_str:
             for external_file in external_files_str.strip().split(','):
                 external_files.append(os.path.join(notebook_directory, external_file.strip()))

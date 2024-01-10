@@ -591,8 +591,7 @@ def test_pps_uploads_external_files(
         )
         commits = [info.commit.id for info in client.pfs.list_commit(repo=companion_repo)]
         assert len(commits) == 1
-        file_uri = f'{companion_repo.project.name}/{companion_repo.name}@{commits[0]}:'
-        print(file_uri)
+        file_uri = f'{companion_repo.name}@{commits[0]}:'
         with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/hello.py')) as pfs_file:
             assert pfs_file.read().decode() == "print('hello')"
         with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/world.py')) as pfs_file:
