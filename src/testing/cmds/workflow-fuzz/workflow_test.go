@@ -30,6 +30,7 @@ const (
 	namespace            = "fuzz-cluster-1"
 	useSucccessValWeight = .7
 	maxRepeatedCount     = 10
+	maxProtoDepth        = 50
 	// usNilWeight          = .2
 )
 
