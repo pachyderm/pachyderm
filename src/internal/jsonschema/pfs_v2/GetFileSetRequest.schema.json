@@ -8,8 +8,13 @@
                     "$ref": "#/definitions/pfs_v2.Commit",
                     "additionalProperties": false
                 },
-                "diffOnly": {
-                    "type": "boolean"
+                "type": {
+                    "enum": [
+                        "TOTAL",
+                        "DIFF"
+                    ],
+                    "type": "string",
+                    "title": "File Set Type"
                 }
             },
             "additionalProperties": false,

@@ -9430,7 +9430,7 @@ func (m *GetFileSetRequest) validate(all bool) error {
 		}
 	}
 
-	// no validation rules for DiffOnly
+	// no validation rules for Type
 
 	if len(errors) > 0 {
 		return GetFileSetRequestMultiError(errors)

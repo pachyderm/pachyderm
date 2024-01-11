@@ -5590,6 +5590,14 @@
         }
       }
     },
+    "GetFileSetRequestFileSetType": {
+      "type": "string",
+      "enum": [
+        "TOTAL",
+        "DIFF"
+      ],
+      "default": "TOTAL"
+    },
     "PauseStatusResponsePauseStatus": {
       "type": "string",
       "enum": [
@@ -7985,8 +7993,8 @@
         "commit": {
           "$ref": "#/definitions/pfs_v2Commit"
         },
-        "diffOnly": {
-          "type": "boolean"
+        "type": {
+          "$ref": "#/definitions/GetFileSetRequestFileSetType"
         }
       }
     },
