@@ -24,3 +24,13 @@ sh_binary(
     ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
+
+sh_binary(
+    name = "run",
+    srcs = ["run.sh"],
+    data = [
+        ":Dockerfile",
+        ":version",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

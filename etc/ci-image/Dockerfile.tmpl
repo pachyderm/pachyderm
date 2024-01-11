@@ -9,7 +9,8 @@ ENV DEBIAN_FRONTEND=noninteractive \
     PAGER=cat
 
 # Core deps
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     ca-certificates-java \
     python3 \
@@ -20,8 +21,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     wget \
+    git \
     && \
-    locale-gen en_US.UTF-8 && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd --gid=1002 circleci && \
     useradd --uid=1001 --gid=circleci --create-home circleci && \
@@ -29,7 +30,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep && \
     sudo -u circleci mkdir /home/circleci/project && \
     sudo -u circleci mkdir /home/circleci/bin && \
-    sudo -u circleci mkdir -p /home/circleci/.local/bin
+    sudo -u circleci mkdir -p /home/circleci/.local/bin && \
+    sudo -u circleci git config --global --add safe.directory /home/circleci/project
 
 # Docker (but just the client, for remote execution)
 RUN install -m 0755 -d /etc/apt/keyrings && \
@@ -49,12 +51,13 @@ RUN wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazel
     mv "bazelisk-linux-$(dpkg --print-architecture)" /usr/bin/bazel && \
     chmod a+x /usr/bin/bazel
 
-# Install the Bazel version that the workspace needs at the current time.
-RUN USE_BAZEL_VERSION={BAZEL_VERSION} bazel version
-
+# Environment that CI jobs will run in.
 ENV PATH=/home/circleci/bin:/home/circleci/.local/bin:$PATH \
 	LANG=en_US.UTF-8 \
 	LANGUAGE=en_US:en \
-	LC_ALL=en_US.UTF-8
+        LC_ALL=en_US.UTF-8
 USER circleci
 WORKDIR /home/circleci/project
+
+# Install the Bazel version that the workspace needs at the current time.
+RUN USE_BAZEL_VERSION={BAZEL_VERSION} bazel version
