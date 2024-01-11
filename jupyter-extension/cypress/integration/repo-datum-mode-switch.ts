@@ -36,7 +36,7 @@ describe('switching between repo and datum mode', () => {
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
-  it.skip('modifying input spec saves and restores it when back in datum mode', () => {
+  it('modifying input spec saves and restores it when back in datum mode', () => {
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Load').first().click();
     cy.findAllByText('Unload').should('have.length', 1);
