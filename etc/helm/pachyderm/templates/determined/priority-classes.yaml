@@ -8,7 +8,7 @@ value: 1000000
 preemptionPolicy: Never
 globalDefault: false
 description: "This priority class should be used for Determined system pods only."
-{{ end }}
+{{- end }}
 ---
 {{- if .Values.determined.createNonNamespacedObjects }}
 apiVersion: scheduling.k8s.io/v1
