@@ -92,7 +92,7 @@ func GetWorkspaces(ctx context.Context, dc det.DeterminedClient, workspaces []st
 func CreateWorkspace(ctx context.Context, dc det.DeterminedClient, workspace string) (*workspacev1.Workspace, error) {
 	w, err := dc.PostWorkspace(ctx, &det.PostWorkspaceRequest{Name: workspace})
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "post determined workspace %q", workspace)
 	}
 	return w.Workspace, nil
 }
