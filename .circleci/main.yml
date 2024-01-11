@@ -811,7 +811,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install '.[dev]'
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -972,7 +972,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install '.[dev]'
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -1014,7 +1014,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install '.[dev]'
       - run:
           name: Init .pypirc
           command: |
@@ -1042,7 +1042,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install '.[dev]'
       - run:
           name: Init .pypirc
           command: |

@@ -8,11 +8,11 @@ from pathlib import Path
 from textwrap import dedent
 from typing import Optional, Union
 
-from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs, pps
 from nbconvert import PythonExporter
 from tornado.web import HTTPError
 
+from jupyterlab_pachyderm.pachyderm_sdk import Client
+from jupyterlab_pachyderm.pachyderm_sdk.api import pfs, pps
 from .log import get_logger
 
 METADATA_KEY = "pachyderm_pps"

@@ -2,14 +2,14 @@ import datetime
 import grpc
 from jupyter_server.services.contents.filemanager import FileContentsManager
 import mimetypes
-from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs, pps, auth
 import os
 from pathlib import Path
 from tornado import web
 import typing
 import shutil
 
+from jupyterlab_pachyderm.pachyderm_sdk import Client
+from jupyterlab_pachyderm.pachyderm_sdk.api import pfs, pps, auth
 from .env import PFS_MOUNT_DIR
 from .log import get_logger
 
