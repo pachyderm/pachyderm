@@ -777,7 +777,7 @@ func (a *apiServer) CreateFileSet(server pfs.API_CreateFileSetServer) (retErr er
 }
 
 func (a *apiServer) GetFileSet(ctx context.Context, req *pfs.GetFileSetRequest) (resp *pfs.CreateFileSetResponse, retErr error) {
-	if req.DiffOnly {
+	if req.Type == pfs.GetFileSetRequest_DIFF {
 		diff, err := a.driver.commitStore.GetDiffFileSet(ctx, req.Commit)
 		if err != nil {
 			return nil, err
