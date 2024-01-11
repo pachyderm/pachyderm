@@ -13,5 +13,5 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 # --- end runfiles.bash initialization v3 ---
 
 docker buildx build - --load --tag=pachyderm/ci-runner:"$(cat "$(rlocation _main/etc/ci-image/version)")" < "$(rlocation _main/etc/ci-image/Dockerfile)" --tag=pachyderm/ci-runner:latest
-exec docker run -it -v $BUILD_WORKSPACE_DIRECTORY:/home/circleci/project:ro \
+exec docker run -it -v "$BUILD_WORKSPACE_DIRECTORY":/home/circleci/project:ro \
      pachyderm/ci-runner:latest
