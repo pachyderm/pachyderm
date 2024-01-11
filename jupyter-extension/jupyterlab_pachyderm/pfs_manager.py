@@ -13,6 +13,8 @@ import shutil
 from .env import PFS_MOUNT_DIR
 from .log import get_logger
 
+DEFAULT_DATETIME = datetime.datetime.utcfromtimestamp(0)
+
 
 class ContentModel(typing.TypedDict):
     name: str
@@ -305,8 +307,8 @@ class PFSManager(FileContentsManager):
             name="",
             path="/",
             type="directory",
-            created=datetime.datetime.min,
-            last_modified=datetime.datetime.min,
+            created=DEFAULT_DATETIME,
+            last_modified=DEFAULT_DATETIME,
             content=content_model,
             mimetype=None,
             format=format,
@@ -424,7 +426,7 @@ class DatumManager(FileContentsManager):
         self._datum_list = list()
         self._dirs = set()
         self._datum_index = 0
-        self._mount_time = datetime.datetime.min
+        self._mount_time = DEFAULT_DATETIME
         self._input = None
         self._download_dir = None
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
@@ -741,8 +743,8 @@ class DatumManager(FileContentsManager):
             name="",
             path="/",
             type="directory",
-            created=datetime.datetime.min,
-            last_modified=datetime.datetime.min,
+            created=DEFAULT_DATETIME,
+            last_modified=DEFAULT_DATETIME,
             content=content_model,
             mimetype=None,
             format=format,
