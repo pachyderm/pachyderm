@@ -32,8 +32,8 @@ func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 			b:  &bytes.Buffer{},
 		}
 		next.ServeHTTP(bw, r)
-		if bw.statusCode >= 400 {
-			log.Error(ctx, "ID token endpoint failed - skipping provisioning", zap.Int("statusCode", bw.statusCode))
+		if bw.statusCode >= 300 {
+			log.Error(ctx, "skip provisioning during login", zap.Int("statusCode", bw.statusCode))
 			return
 		}
 		ps, err := w.provisioners(ctx)
@@ -135,7 +135,7 @@ func (br *bufferResponseWriter) Write(b []byte) (int, error) {
 	if err != nil {
 		return i, errors.Wrap(err, "write to response writer")
 	}
-	i, err = br.b.Write(b)
+	_, err = br.b.Write(b)
 	return i, errors.Wrap(err, "write to buffered response writer")
 }
 
@@ -145,7 +145,9 @@ func (br *bufferResponseWriter) Header() http.Header {
 
 func (br *bufferResponseWriter) WriteHeader(statusCode int) {
 	br.rw.WriteHeader(statusCode)
-	br.statusCode = statusCode
+	if br.statusCode != 0 {
+		br.statusCode = statusCode
+	}
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
