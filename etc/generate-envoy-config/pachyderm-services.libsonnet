@@ -165,6 +165,12 @@
           cluster: 'pachd-http',
           idle_timeout: '600s',
           timeout: '604800s',
+          upgrade_configs: [
+            {
+              enabled: true,
+              upgrade_type: 'websocket',
+            },
+          ],
         },
       },
     ],

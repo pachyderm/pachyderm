@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/restgateway"
+	"github.com/tmc/grpc-websocket-proxy/wsproxy"
 	"go.uber.org/zap"
 )
 
@@ -61,7 +62,7 @@ func New(ctx context.Context, port uint16, pachClientFactory func(ctx context.Co
 	if err != nil {
 		return nil, errors.Wrap(err, "init rest gateway mux")
 	}
-	mux.Handle("/api/", http.StripPrefix("/api", gwmux))
+	mux.Handle("/api/", http.StripPrefix("/api", wsproxy.WebsocketProxy(gwmux)))
 	log.Info(ctx, "completed grpc gateway rest api registrations")
 
 	return &Server{

@@ -31,3 +31,9 @@ etcd:
 postgresql:
   service:
     type: NodePort
+
+proxy:
+  enabled: true # only needed if < 2.6
+  host: 127.0.0.1
+  service:
+    type: LoadBalancer

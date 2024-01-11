@@ -2627,6 +2627,7 @@ func RegisterAPIHandlerClient(ctx context.Context, mux *runtime.ServeMux, client
 	})
 
 	mux.Handle("POST", pattern_API_ListRepo_0, func(w http.ResponseWriter, req *http.Request, pathParams map[string]string) {
+		grpclog.Info("here")
 		ctx, cancel := context.WithCancel(req.Context())
 		defer cancel()
 		inboundMarshaler, outboundMarshaler := runtime.MarshalerForRequest(mux, req)
@@ -2637,7 +2638,9 @@ func RegisterAPIHandlerClient(ctx context.Context, mux *runtime.ServeMux, client
 			runtime.HTTPError(ctx, mux, outboundMarshaler, w, req, err)
 			return
 		}
+		grpclog.Info("Before request")
 		resp, md, err := request_API_ListRepo_0(annotatedContext, inboundMarshaler, client, req, pathParams)
+		grpclog.Info(resp)
 		annotatedContext = runtime.NewServerMetadataContext(annotatedContext, md)
 		if err != nil {
 			runtime.HTTPError(annotatedContext, mux, outboundMarshaler, w, req, err)
