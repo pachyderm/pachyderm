@@ -32,7 +32,12 @@ automatically update the next time you run a Bazel command. You shouldn't need t
 Bazelisk, but feel free of course.
 
 Note: you will need a C++ compiler installed. `apt install build-essential` on Debian, or do the
-xcode dance on Mac OS. The C++ compiler is used to build some internal Bazel tools.
+xcode dance on Mac OS. The C++ compiler is used to build some internal Bazel tools like the shell
+script wrapper.
+
+Note: you will need a Python 3 interpreter installed as `python3`. `apt install python3` on Debian.
+This is because `rules_python` uses the host `python3` to find the version of Python installed via
+`rules_python` in `MODULE.bazel`.
 
 ### Setup at Pachyderm
 
@@ -41,14 +46,39 @@ your pachyderm.io Google account:
 
 https://pachyderm.buildbuddy.io/join/
 
-From there, you'll get an API key. Add a line to `.bazelrc.local` like this:
+From there, you'll get an API key. Add lines to `.bazelrc.local` like this:
 
+    build --config=remotecache
     build --remote_header=x-buildbuddy-api-key=<key>
 
-Then you will be using our shared cache, and your invocation URLs will be shareable with your
-teammates. Note that this feature leaks your username, hostname, and the names of environment
-variables (but not the values!) on your workstation to other team members. If any of those are
-work-inappropriate, maybe fix that before you add your key!
+Then you will be using our shared cache, and your invocation URLs (which contain build logs, test
+logs, profiles, etc.) will be share-able with your teammates.
+
+Note: this feature leaks your username, hostname, and the names of environment variables (but not
+the values!) on your workstation to other team members. If any of those are work-inappropriate,
+maybe fix that before you add your key!
+
+### Setup in the office
+
+If you work in the office, you won't be able to use the remote cache. GRPC is disallowed on the
+network and the remote cache uses GRPC.
+
+You will also need to tell Bazel to trust the TLS MITM certificate, as the build will download
+dependencies from the Internet. On Debian or Ubuntu, install `ca-certificates-java`, add the MITM
+proxy's certificate file to `/etc/ssl/certs`, then run `sudo update-ca-certficates`.
+`update-ca-certificates` copies all certs in `/etc/ssl/certs` into the Java "trust store", which is
+how Java programs (which Bazel is) get trusted certs. Then tell Bazel to use the system trust store
+by adding to `/etc/bazelrc` or `$HOME/.bazelrc`:
+
+    startup --host_jvm_args=-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts \
+            --host_jvm_args=-Djavax.net.ssl.trustStorePassword=changeit
+
+(Yes, it appears that you need a password to read certs on your own system, and the password is
+literally `changeit`.)
+
+Note that just grabbing a Java trust store with the MITM certificate isn't sufficient. `bazelisk`
+downloads `bazel` whenever we use a new version of Bazel, and `bazelisk` is written in Go, which
+needs the cert in `/etc/ssl/certs`.
 
 ## Use
 
@@ -150,6 +180,9 @@ go_deps.gazelle_override(
 To find more of these to add, do something like:
 
     bazel query 'somepath("...", "@rules_go//proto:protoc")'
+
+(Note that ... is 3 literal dots, it's not a suggestion to type something else. The first argument
+is the "Universe" in which to search for dependencies.)
 
 To find even more, do something like:
 
