@@ -35,6 +35,9 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2204:2023.04.2
+  ci_runner_image:
+    type: string
+    default: docker.io/pachyderm/ci-runner:20240111-8785e910198c73c384125822774df1e5cf200866
   go-version:
     type: string
     default: "1.21.5"
@@ -1588,7 +1591,7 @@ jobs:
   bazel-style-tests:
     resource_class: xlarge
     docker:
-      - image: docker.io/pachyderm/ci-runner:20240111-77dd2fb4d97eb96ea0180c76ff9194c2ac402e5f
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
       - checkout
       - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
@@ -1604,7 +1607,7 @@ jobs:
   bazel-tests:
     resource_class: xlarge
     docker:
-      - image: docker.io/pachyderm/ci-runner:20240111-77dd2fb4d97eb96ea0180c76ff9194c2ac402e5f
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
       - checkout
       - setup_remote_docker
