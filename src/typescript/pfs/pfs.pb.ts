@@ -51,6 +51,11 @@ export enum Delimiter {
   CSV = "CSV",
 }
 
+export enum GetFileSetRequestFileSetType {
+  TOTAL = "TOTAL",
+  DIFF = "DIFF",
+}
+
 export enum SQLDatabaseEgressFileFormatType {
   UNKNOWN = "UNKNOWN",
   CSV = "CSV",
@@ -438,7 +443,7 @@ export type CreateFileSetResponse = {
 
 export type GetFileSetRequest = {
   commit?: Commit
-  diffOnly?: boolean
+  type?: GetFileSetRequestFileSetType
 }
 
 export type AddFileSetRequest = {

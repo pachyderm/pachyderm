@@ -725,7 +725,7 @@ func (x *GetFileSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("commit", x.Commit)
-	enc.AddBool("diff_only", x.DiffOnly)
+	enc.AddString("type", x.Type.String())
 	return nil
 }
 
