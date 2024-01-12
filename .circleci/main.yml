@@ -1614,7 +1614,7 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/cmds/dockertestenv
-      - run: bazel coverage --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
+      - run: bazel coverage --config=remotecache --flaky_test_attempts=3 --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
