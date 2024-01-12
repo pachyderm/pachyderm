@@ -260,10 +260,14 @@ func withEnterprise(host, rootToken string, issuerPort, clientPort int) *helm.Op
 		SetValues: map[string]string{
 			"pachd.enterpriseLicenseKeySecretName": licenseKeySecretName,
 			"pachd.rootToken":                      rootToken,
+
+			// what is proxy.host for? It tells Envoy how it's reachable; why does
+			// Envoy care?
+			"proxy.host": fmt.Sprintf("%s:%v", host, clientPort),
 			// TODO: make these ports configurable to support IDP Login in parallel deployments
 			"oidc.userAccessibleOauthIssuerHost": fmt.Sprintf("%s:%v", host, issuerPort),
-			"oidc.issuerURI":                     fmt.Sprintf("http://pachd:%v/dex", issuerPort),
-			"proxy.host":                         fmt.Sprintf("%s:%v", host, clientPort),
+
+			"oidc.issuerURI": fmt.Sprintf("http://pachd:%v/dex", issuerPort),
 			// to test that the override works
 			"global.postgresql.identityDatabaseFullNameOverride": "dexdb",
 		},
