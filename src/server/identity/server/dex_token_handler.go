@@ -32,7 +32,7 @@ func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 			b:  &bytes.Buffer{},
 		}
 		next.ServeHTTP(bw, r)
-		if bw.statusCode >= 300 {
+		if bw.statusCode >= 400 {
 			log.Error(ctx, "skip provisioning during login", zap.Int("statusCode", bw.statusCode))
 			return
 		}
