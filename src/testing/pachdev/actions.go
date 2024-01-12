@@ -16,8 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/cluster"
 	"sigs.k8s.io/kind/pkg/cmd"
 	"sigs.k8s.io/kind/pkg/log"
@@ -118,7 +118,7 @@ type DeployOperation struct {
 }
 
 // Option is the type of optional values passed to NewDeployOp
-type Option func(*DeployOperation) error
+type Option func(*DeploymentOptions) error
 
 // WithPachVersion is an option for NewDeployOp that sets the version of the
 // Pachyderm instance that will be deployed. The argument can be any released
@@ -130,24 +130,24 @@ type Option func(*DeployOperation) error
 //   - nightly (indicating that the most recent nightly release of Pachyderm
 //     should be deployed)
 func WithPachVersion(v string) Option {
-	return func(op *DeployOperation) error {
-		op.PachVersion = v
+	return func(opts *DeploymentOptions) error {
+		opts.PachVersion = v
 		return nil
 	}
 }
 
+// WithObjectStorage is an option for NewDeployOp that sets the object storage
+// to be used by the new Pachyderm cluster (either "minio" or "local")
 func WithObjectStorage(v string) Option {
-	// WithPachVersion is an option for NewDeployOp that sets the version of the
-	// Pachyderm instance that will be deployed.
-	return func(op *DeployOperation) error {
-		op.PachVersion = v
+	return func(opts *DeploymentOptions) error {
+		opts.ObjectStorage = v
 		return nil
 	}
 }
 
 func NewDeployOperation(verbose bool, opts ...Option) (*DeployOperation, error) {
 	result := &DeployOperation{
-		opts: &DeploymentOpts{
+		opts: &DeploymentOptions{
 			PachVersion:   "local",
 			ObjectStorage: "minio",
 		},
@@ -171,7 +171,9 @@ func (op *DeployOperation) KubeClient() *kubernetes.Clientset {
 	}
 
 	// Load the Kubernetes configuration from the default location
-	config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	loader := genericclioptions.NewConfigFlags(true)
+	// config, err := clientcmd.BuildConfigFromFlags("", clientcmd.RecommendedHomeFile)
+	config, err := loader.ToRESTConfig()
 	if err != nil {
 		op.err = errors.Wrap(err, "could not load kubernetes config")
 	}
@@ -217,7 +219,7 @@ func (op *DeployOperation) PachClient() *client.APIClient {
 
 	pachctlCfg := &pachctl.Config{}
 	var err error
-	op.pachClient, err = pachctlCfg.NewOnUserMachine(op.Ctx(), false)
+	op.pachClient, err = pachctlCfg.NewOnUserMachine(context.Background(), false)
 	if err != nil {
 		op.err = errors.Wrap(err, "could not create Pachyderm client")
 	}
@@ -249,7 +251,7 @@ func (op *DeployOperation) KindProvider() *cluster.Provider {
 // helmChartSource is a helper for K8sManifest that returns the location of the
 // Pachyderm helm chart it should use.
 func (op *DeployOperation) helmChartSource() string {
-	if op.PachVersion == "latest" {
+	if op.opts.PachVersion == "latest" {
 		// // TODO(msteffen): this codepath has no automated tests. Maybe set up
 		// // mock GitHub? (has worked in the past, and I bet the releases endpoint
 		// // is simple)
@@ -263,14 +265,15 @@ func (op *DeployOperation) helmChartSource() string {
 		// return fmt.Sprintf("https://github.com/pachyderm/helmchart/releases/download/pachyderm-%s/pachyderm-%s.tgz", *release.TagName, *release.TagName)
 		panic("not implemented")
 	}
-	if op.PachVersion == "nightly" {
+	if op.opts.PachVersion == "nightly" {
 		// look up from dockerhub or something, somehow
 		panic("not implemented")
 	}
-	if op.PachVersion == "local" {
+	if op.opts.PachVersion == "local" {
 		return "./etc/helm/pachyderm"
 	}
-	panic("do not know how to get helm chart for pachVersion " + op.PachVersion)
+	panic("do not know how to get helm chart for pachVersion " + op.opts.PachVersion)
+	return ""
 }
 
 // getHelmArgs is a helper for K8sManifest that returns the arguments it should
@@ -286,7 +289,7 @@ func (op *DeployOperation) getHelmArgs() []string {
 		"--set", "pachd.rootToken=iamroot",
 	}
 
-	if op.ObjectStorage == "minio" {
+	if op.opts.ObjectStorage == "minio" {
 		args = append(args,
 			"--set", "deployTarget=custom",
 			"--set", "pachd.storage.backend=MINIO",
@@ -297,7 +300,7 @@ func (op *DeployOperation) getHelmArgs() []string {
 			"--set-string", "pachd.storage.minio.signature=",
 			"--set-string", "pachd.storage.minio.secure=false",
 		)
-	} else if op.ObjectStorage == "local" {
+	} else if op.opts.ObjectStorage == "local" {
 		args = append(args,
 			"--set", "deployTarget=LOCAL",
 		)
@@ -345,7 +348,7 @@ func (op *DeployOperation) getImages() ([]string, error) {
 	yamlDocs := []io.Reader{
 		strings.NewReader(op.K8sManifest()),
 	}
-	if op.ObjectStorage == "minio" {
+	if op.opts.ObjectStorage == "minio" {
 		minioManifest, err := os.Open("etc/testing/minio.yaml")
 		if err != nil {
 			op.err = errors.Wrap(err, "could not read minio manifest to load minio image")
@@ -382,7 +385,7 @@ func (op *DeployOperation) getImages() ([]string, error) {
 			}
 			for el := l.Front(); el != nil; el = el.Next() {
 				image := el.Value.(*yqlib.CandidateNode).Value
-				if strings.Contains(image, "pachyderm/pachd") && op.PachVersion == "local" {
+				if strings.Contains(image, "pachyderm/pachd") && op.opts.PachVersion == "local" {
 					continue // this will be built and pushed in a different fn
 				}
 				images = append(images, image)
@@ -408,9 +411,13 @@ func (op *DeployOperation) getImages() ([]string, error) {
 	return images, nil
 }
 
-func (op *DeployOperation) getOldPachVersion() (string, error) {
+func (op *DeployOperation) getValues() string {
+	return "Not implemented"
+}
+
+func (op *DeployOperation) getOldPachVersion(ctx context.Context) (string, error) {
 	// Call the 'Version' API to get the Pachyderm version
-	resp, err := op.PachClient().GetVersion(op.Ctx(), &emptypb.Empty{})
+	resp, err := op.PachClient().GetVersion(ctx, &emptypb.Empty{})
 	if err != nil {
 		return "", err
 	}

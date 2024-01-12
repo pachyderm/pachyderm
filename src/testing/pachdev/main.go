@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -85,11 +86,10 @@ func getImagesCmd() *cobra.Command {
 		Use:   "images",
 		Short: "List all images that this tool references when deploying a Pachyderm test cluster",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			op, err := NewDeployOp(verbose)
+			op, err := NewDeployOperation(verbose)
 			if err != nil {
 				return err
 			}
-			defer op.Cancel()
 			images, err := op.getImages()
 			if err != nil {
 				return err
@@ -107,11 +107,10 @@ func getValuesCmd() *cobra.Command {
 		Use:   "print values",
 		Short: "List all helm values that this tool uses when deploying a Pachyderm test cluster with the Pachyderm helm chart",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			op, err := NewDeployOp(verbose)
+			op, err := NewDeployOperation(verbose)
 			if err != nil {
 				return err
 			}
-			defer op.Cancel()
 			images, err := op.getImages()
 			if err != nil {
 				return err
@@ -129,25 +128,19 @@ func getOldValuesCmd() *cobra.Command {
 		Use:   "print old values",
 		Short: "List all helm values that this tool uses when deploying a Pachyderm test cluster with the Pachyderm helm chart",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			op, err := NewDeployOp(verbose)
-			if err != nil {
-				return err
-			}
-			defer op.Cancel()
-			images, err := op.GetValues(&DeployOpts{
-				Namespace: "pachyderm"
-				Enterprise: true,
-				Console: true,
-				AuthUser: "authuser",
-
-			})
-			if err != nil {
-				return err
-			}
-			for _, i := range images {
-				fmt.Printf("%v\n", i)
-			}
-			return nil
+			return errors.New("Not implemented")
+			// op, err := NewDeployOperation(verbose)
+			// if err != nil {
+			// 	return err
+			// }
+			// images, err := op.GetValues(&DeploymentOptions{})
+			// if err != nil {
+			// 	return err
+			// }
+			// for _, i := range images {
+			// 	fmt.Printf("%v\n", i)
+			// }
+			// return nil
 		},
 	}
 }
