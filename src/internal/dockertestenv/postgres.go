@@ -12,8 +12,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
@@ -78,14 +76,13 @@ func (dbc DBConfig) PachConfigOption(c *pachconfig.Configuration) {
 // The environment will be torn down at the end of the test.
 func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
-		ctx     = pctx.Background("testDB")
 		dbName  = testutil.GenerateEphemeralDBName(t)
 		dexName = testutil.UniqueString("dex")
 	)
-	err := backoff.Retry(func() error {
-		return ensureDBEnv(t, ctx)
-	}, backoff.NewConstantBackOff(time.Second*3))
-	require.NoError(t, err, "DB should be created")
+	// err := backoff.Retry(func() error {
+	// 	return EnsureDBEnv(ctx)
+	// }, backoff.NewConstantBackOff(time.Second*3))
+	// require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
@@ -142,7 +139,7 @@ var spawnLock sync.Mutex
 // TODO: use the docker client, instead of the bash script
 // TODO: use the bitnami pg_bouncer image
 // TODO: look into https://github.com/ory/dockertest
-func ensureDBEnv(t testing.TB, ctx context.Context) error {
+func EnsureDBEnv(ctx context.Context) error {
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
 	timeout := 30 * time.Second
@@ -199,7 +196,6 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		)
 		if err != nil {
-			t.Logf("error connecting to db: %v", err)
 			return err
 		}
 		defer db.Close()
