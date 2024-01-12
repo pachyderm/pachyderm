@@ -4,7 +4,10 @@ load("@rules_go//go:def.bzl", "go_library")
 
 licenses(["notice"])
 
-exports_files(["LICENSE"])
+exports_files([
+    "LICENSE",
+    ".bazelversion",
+])
 
 # Conifigure supported architectures.  Note that some architectures are only supported for tooling
 # reasons; you can run protoc Windows, but you can't run Pachyderm or pachctl on Windows.  Which

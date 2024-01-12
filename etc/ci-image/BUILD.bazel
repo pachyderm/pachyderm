@@ -1,0 +1,36 @@
+genrule(
+    name = "dockerfile_with_bazelversion",
+    srcs = [
+        "Dockerfile.tmpl",
+        "//:.bazelversion",
+    ],
+    outs = ["Dockerfile"],
+    cmd = "sed -e s/{BAZEL_VERSION}/$$(cat .bazelversion)/ ./etc/ci-image/Dockerfile.tmpl > $@",
+)
+
+genrule(
+    name = "version",
+    outs = ["version"],
+    cmd = "grep STABLE_CI_RUNNER_IMAGE_VERSION bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@",
+    stamp = 1,
+)
+
+sh_binary(
+    name = "push",
+    srcs = ["push.sh"],
+    data = [
+        ":Dockerfile",
+        ":version",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+sh_binary(
+    name = "run",
+    srcs = ["run.sh"],
+    data = [
+        ":Dockerfile",
+        ":version",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
