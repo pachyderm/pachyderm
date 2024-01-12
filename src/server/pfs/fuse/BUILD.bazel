@@ -54,7 +54,10 @@ go_test(
     ],
     embed = [":fuse"],
     pure = "on",
-    tags = ["no-sandbox"],  # fusermount cannot run in bazel test sandbox
+    tags = [
+        "manual",
+        "no-sandbox",
+    ],  # fusermount cannot run in bazel test sandbox or docker
     deps = [
         "//src/auth",
         "//src/internal/client",
