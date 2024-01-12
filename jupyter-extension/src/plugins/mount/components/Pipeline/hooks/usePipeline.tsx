@@ -69,7 +69,7 @@ export const usePipeline = (
     setRequirements(ppsContext?.metadata?.config.requirements ?? '');
     setExternalFiles(ppsContext?.metadata?.config.external_files ?? '');
     setResponseMessage('');
-    setInputSpec(ppsContext?.metadata?.config.input_spec ?? '')
+    setInputSpec(ppsContext?.metadata?.config.input_spec ?? '');
     setCurrentNotebook(ppsContext?.notebookModel?.name ?? 'None');
     setPipelinePort(ppsContext?.metadata?.config.port ?? '');
     setGpuMode(ppsContext?.metadata?.config.gpu_mode ?? GpuMode.None);
