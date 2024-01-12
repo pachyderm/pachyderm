@@ -88,6 +88,7 @@ export const usePipeline = (
     pipelineProject,
     imageName,
     requirements,
+    externalFiles,
     inputSpec,
     pipelinePort,
     gpuMode,
