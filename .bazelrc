@@ -21,9 +21,10 @@ build --workspace_status_command=$(pwd)/workspace_status.sh
 build --stamp
 
 # Common options.
-common --test_env=ENT_ACT_CODE
-build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote-cache,OCIImage=+no-remote-cache
 common --test_env=ENT_ACT_CODE # Tests need this to active Pachyderm enterprise.
 common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
+
+# Cover all packages.
+coverage --instrumentation_filter="^//" --combined_report=lcov
 
 test:race --@rules_go//go/config:race
