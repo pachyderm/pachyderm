@@ -41,6 +41,7 @@ go_test(
     data = glob(["testdata/**"]),
     embed = [":testing"],
     shard_count = 10,
+    tags = ["cpu:8"],
     deps = [
         "//src/auth",
         "//src/enterprise",
