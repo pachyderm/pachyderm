@@ -26,6 +26,9 @@ func newDockerClient() docker.APIClient {
 }
 
 func getDockerHost() string {
+	// if e := os.Getenv("DOCKER_MACHINE_NAME"); e != "" {
+	// 	return e
+	// }
 	// client := newDockerClient()
 	// defer client.Close()
 	// host := client.DaemonHost()
@@ -37,7 +40,7 @@ func getDockerHost() string {
 	// 	return "127.0.0.1"
 	// }
 	// return u.Hostname()
-	return "localhost"
+	return "172.17.0.1"
 }
 
 type containerSpec struct {
