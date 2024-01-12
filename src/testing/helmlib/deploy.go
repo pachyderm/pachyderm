@@ -1,24 +1,23 @@
 package helmlib
 
 import (
+	"bytes"
 	"context"
-	"crypto/x509"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"os"
 	"strings"
-	"time"
 
-	"github.com/gruntwork-io/terratest/modules/helm"
-	"github.com/gruntwork-io/terratest/modules/k8s"
+	helm "helm.sh/helm/v3/pkg/action"
+	helmvals "helm.sh/helm/v3/pkg/cli/values"
 	v1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 const (
@@ -26,6 +25,13 @@ const (
 
 	MinioEndpoint = "minio.default.svc.cluster.local:9000"
 	MinioBucket   = "pachyderm-test"
+
+	// licenseKeySecretName is the name of the k8s secret that's created to hold
+	// the new cluster's enterprise license key
+	licenseKeySecretName = "enterprise-license-key-secret"
+
+	configMapName      = "test-pach-helm-opts"
+	configMapHashField = "helm-opts-hash"
 
 	DefaultPachdNodePort = 30650
 )
@@ -115,36 +121,59 @@ type DeploymentOpts struct {
 	// ValuesFiles    []string
 }
 
-// stack is sort of analogous to Go's builtin 'append' function for slices, but
-// for to *helm.Options. The right argument ("top", for clarity) is "appended"
+// Stack is sort of analogous to Go's builtin 'append' function for slices, but
+// for to *helm.Options. The right argument ("uppers", for clarity) is "appended"
 // to the left("bottom")--it overwrites any helm values in "bottom" that
 // conflict, and adds any helm values that aren't set.
-func Stack(first *helm.Options, rest ...*helm.Options) *helm.Options {
-	out := &helm.Options{
-		SetValues:    make(map[string]string),
-		SetStrValues: make(map[string]string),
-	}
-	for _, src := range append([]*helm.Options{first}, rest...) {
-		if src.KubectlOptions != nil {
-			out.KubectlOptions = &k8s.KubectlOptions{Namespace: src.KubectlOptions.Namespace}
-		}
-		if src.Version != "" {
-			out.Version = src.Version
-		}
-		for k, v := range src.SetValues {
-			out.SetValues[k] = v
-		}
-		for k, v := range src.SetStrValues {
-			out.SetStrValues[k] = v
+//
+// N.B. this is similar to mergeMaps
+// (https://github.com/helm/helm/blob/27921d062f520357303309ca959a129bc49a4abc/pkg/cli/values/options.go#L108)
+// in the helm library, but that function is private.
+func Stack(bottom map[string]interface{}, uppers ...map[string]interface{}) map[string]interface{} {
+	out := make(map[string]interface{})
+	for _, src := range append([]*helm.Options{bottom}, uppers...) {
+		for k, srcV := range src {
+			outV, ok := out[k]
+			if !ok {
+				out[k] = srcV
+				continue
+			}
+			srcVMap, srcVIsMap := srcV.(map[string]interface{})
+			outVMap, outVIsMap := outV.(map[string]interface{})
+			if !srcVIsMap || !outVIsMap {
+				out[k] = srcV
+				continue
+			}
+			out[k] = Stack(outV, srcV)
 		}
 	}
 	return out
 }
 
-func BaseOptions(namespace string) *helm.Options {
-	return &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
-		SetValues: map[string]string{
+func Stack2(bottom *helmvals.Options, uppers ...*helmvals.Options) *helmvals.Options {
+	out := &helmvals.Options{}
+	out := make(map[string]interface{})
+	for _, src := range append([]*helm.Options{bottom}, uppers...) {
+		for k, srcV := range src {
+			outV, ok := out[k]
+			if !ok {
+				out[k] = srcV
+				continue
+			}
+			srcVMap, srcVIsMap := srcV.(map[string]interface{})
+			outVMap, outVIsMap := outV.(map[string]interface{})
+			if !srcVIsMap || !outVIsMap {
+				out[k] = srcV
+				continue
+			}
+			out[k] = Stack(outV, srcV)
+		}
+	}
+	return out
+}
+func BaseOptions(namespace string) map[string]interface{} {
+	opts, err := &helmvals.Options{
+		Values: map[string]string{
 			"pachd.clusterDeploymentID":           "dev",
 			"pachd.resources.requests.cpu":        "250m",
 			"pachd.resources.requests.memory":     "512M",
@@ -161,12 +190,16 @@ func BaseOptions(namespace string) *helm.Options {
 			"etcd.storageSize":                    "5Gi",
 			"pachw.resources.requests.cpu":        "250m",
 		},
+	}.MergeValues(nil)
+	if err != nil {
+		panic("error parsing BaseOptions values: " + err.Error())
 	}
+	return opts
 }
 
-func WithPachd(image string) *helm.Options {
-	return &helm.Options{
-		SetValues: map[string]string{
+func WithPachd(image string) map[string]interface{} {
+	opts, err := &helmvals.Options{
+		Values: map[string]string{
 			"pachd.image.tag":    image,
 			"pachd.service.type": "ClusterIP",
 			// For tests, traffic from outside the cluster is routed through the
@@ -202,26 +235,33 @@ func WithPachd(image string) *helm.Options {
 			"pachd.storage.minio.id":       "minioadmin",
 			"pachd.storage.minio.secret":   "minioadmin",
 		},
-		SetStrValues: map[string]string{
+		StringValues: map[string]string{
 			"pachd.storage.minio.signature": "",
 			"pachd.storage.minio.secure":    "false",
 		},
+	}.MergeValues(nil)
+	if err != nil {
+		panic("error parsing WithPachd values: " + err.Error())
 	}
+	return opts
 }
 
-func WithoutProxy() *helm.Options {
-	return &helm.Options{
-		SetValues: map[string]string{
+func WithoutProxy() map[string]interface{} {
+	opts, err := &helmvals.Options{
+		Values: map[string]string{
 			"proxy.enabled": "false",
 			// See comment above re. proxy.service.type for an explanation.
 			"pachd.service.type": "NodePort",
 		},
+	}.MergeValues(nil)
+	if err != nil {
+		panic("error parsing WithoutProxy values: " + err.Error())
 	}
 }
 
-func WithLocalStorage() *helm.Options {
-	return &helm.Options{
-		SetValues: map[string]string{
+func WithLocalStorage() map[string]interface{} {
+	opts, err := &helmvals.Options{
+		Values: map[string]string{
 			"deployTarget":          "LOCAL",
 			"pachd.storage.backend": "LOCAL",
 			// Unset minio options
@@ -230,16 +270,19 @@ func WithLocalStorage() *helm.Options {
 			"pachd.storage.minio.id":       "",
 			"pachd.storage.minio.secret":   "",
 		},
-		SetStrValues: map[string]string{
+		StringValues: map[string]string{
 			"pachd.storage.minio.signature": "",
 			"pachd.storage.minio.secure":    "",
 		},
+	}.MergeValues(nil)
+	if err != nil {
+		panic("error parsing WithLocalStorage values: " + err.Error())
 	}
 }
 
-func WithLoki() *helm.Options {
-	return &helm.Options{
-		SetValues: map[string]string{
+func WithLoki() map[string]interface{} {
+	opts, err := &helmvals.Options{
+		Values: map[string]string{
 			"pachd.lokiDeploy":  "true",
 			"pachd.lokiLogging": "true",
 			// See note in 'withPachd' re. hard-coding ServiceType to NodePort.
@@ -264,6 +307,9 @@ func WithLoki() *helm.Options {
 			"loki-stack.promtail.initContainer[0].securityContext.privileged": "true",
 			"loki-stack.persistence.size":                                     "5Gi",
 		},
+	}.MergeValues(nil).MergeValues(nil)
+	if err != nil {
+		panic("error parsing WithLoki values: " + err.Error())
 	}
 }
 
@@ -274,7 +320,7 @@ func WithLoki() *helm.Options {
 //   - helmlib factors out the helm-value specific parts of that from from the
 //     parts that create kubernetes resources (such as the enterprise secret),
 //     finding/using the right helm chart based on the Pachyderm version, etc.
-func (opts *DeploymentOpts) GetHelmValues() *helm.Options {
+func (opts *DeploymentOpts) GetHelmValues() map[string]interface{} {
 	helmOpts := BaseOptions(opts.Namespace)
 
 	// if opts.Enterprise {
@@ -308,8 +354,8 @@ func (opts *DeploymentOpts) GetHelmValues() *helm.Options {
 		helmOpts = Stack(helmOpts, WithLoki())
 	}
 	if opts.DisableAuth {
-		helmOpts = Stack(helmOpts, &helm.Options{
-			SetValues: map[string]string{
+		helmOpts = Stack(helmOpts, &helmvals.Options{
+			Values: map[string]string{
 				"pachd.activateAuth": "false",
 			},
 		})
@@ -318,7 +364,7 @@ func (opts *DeploymentOpts) GetHelmValues() *helm.Options {
 		helmOpts = Stack(helmOpts, WithoutProxy())
 	}
 	if opts.ValueOverrides != nil {
-		helmOpts = Stack(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
+		helmOpts = Stack(helmOpts, &helmvals.Options{Values: opts.ValueOverrides})
 	}
 	// if opts.TLS {
 	// 	pachAddress.Secured = true
@@ -327,40 +373,65 @@ func (opts *DeploymentOpts) GetHelmValues() *helm.Options {
 	return helmOpts
 }
 
-func pachClient(ctx context.Context, kubeClient *kubernetes.Clientset, namespace, authUser string, certpool *x509.CertPool) (*client.APIClient, error) {
-	var c *client.APIClient
-
-	// retry connecting if it doesn't immediately work
-	if err := backoff.Retry(func() error {
-		var err error
-		opts := []client.Option{client.WithDialTimeout(10 * time.Second)}
-		if certpool != nil {
-			opts = append(opts, client.WithCertPool(certpool))
-		}
-		c, err = client.NewFromPachdAddress(pctx.TODO(), pachAddress, opts...)
-		if err != nil {
-			return errors.Wrapf(err, "failed to initialize pach client")
-		}
-		// Ensure that pachd is really ready to receive requests.
-		if _, err := c.InspectCluster(); err != nil {
-			return errors.Wrapf(grpcutil.ScrubGRPC(err), "failed to inspect cluster on port %v", pachAddress.Port)
-		}
-		return nil
-	}, backoff.RetryEvery(3*time.Second).For(50*time.Second)); err != nil {
-		return nil, errors.Wrapf(err, "failed to connect to pachd")
-	}
-	if authUser != "" {
-		c = testutil.AuthenticateClient(t, c, authUser)
-	}
-	return c
+func (opts *DeploymentOpts) GetHelmChartPath() string {
+	return "etc/helm/pachyderm" // TODO(msteffen): fix
 }
 
-// Reuse looks for an existing, previously-deployed Pachyderm cluster with the
-// given DeploymentOpts and, if one is found, returns a pach client connected to
-// that cluster. See 'Create()', 'Upgrade()' and 'Delete()'--like those
-// operations, this uses the value in opts.PachVersion to decide what helm chart
-// to use. Like those and like GetHelmValues, this contains code from
-// `putRelease`.
+// getConfigMapOptsHash is copied from minikubetestenv/deploy.go. It reads teh
+// ConfigMap that this library creates alongside each pachyderm deployment, for
+// the purpose of determined whether that deployment can be reused. This version
+// is a helper called by Reuse below
+func (opts *DeploymentOpts) getConfigMapOptsHash(ctx context.Context, kubeClient *kubernetes.Clientset) []byte {
+	configMap, err := kubeClient.CoreV1().ConfigMaps(opts.Namespace).Get(ctx, configMapName, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return []byte{}
+	}
+	return configMap.BinaryData[configMapHashField]
+}
+
+// deletes the existing configmap and writes the new hel opts to this one
+func (opts *DeploymentOpts) createConfigMap(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	// delete prior config map, if any
+	err := kubeClient.CoreV1().ConfigMaps(opts.Namespace).Delete(ctx, configMapName, *metav1.NewDeleteOptions(0))
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return errors.Wrap(err, "error deleting ConfigMap")
+	}
+	hash, err := opts.hash()
+	if err != nil {
+		return errors.Wrap(err, "error hashing helm chart values for ConfigMap")
+	}
+	_, err = kubeClient.CoreV1().ConfigMaps(opts.Namespace).Create(ctx, &v1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      configMapName,
+			Namespace: opts.Namespace,
+			Labels:    map[string]string{"suite": "pachyderm"},
+		},
+		BinaryData: map[string][]byte{
+			configMapHashField: hash,
+		},
+	}, metav1.CreateOptions{})
+	return err
+}
+
+func (opts *DeploymentOpts) hash() ([]byte, error) { // return string for consistency with configMap data
+	// we don't need to deserialize, we just use this to check differences, so just save a hash
+	// Note: lists in the helm values might be ordered differently, causing
+	// functionally identical helm values to hash differently, but there are not
+	// many list fields that we actively use that would be different in practice
+	//
+	optsHash := sha256.New()
+	err := json.NewEncoder(optsHash).Encode(opts.GetHelmValues())
+	if err != nil {
+		// annoying that we have to handle this, but I don't see how to avoid it
+		return nil, err
+	}
+	// Per https://pkg.go.dev/hash#Hash, hash.Write() never returns an error
+	optsHash.Write([]byte(opts.GetHelmChartPath()))
+	return optsHash.Sum(nil), nil
+}
+
+// Exists returns true if an existing, previously-deployed Pachyderm cluster is
+// up in the given k8s cluster and was created with the same DeploymentOpts.
 //
 // General note on structure here:
 //   - there's a lot of logging in putRelease that happens while waiting e.g.
@@ -368,7 +439,7 @@ func pachClient(ctx context.Context, kubeClient *kubernetes.Clientset, namespace
 //     library, I went with the pattern of breaking things up, so that
 //     minikubetestenv would still have the for loop and the log line, but much of
 //     the body of the for loop would be in here. E.g. we expect callers to call
-//     Reuse() and then, if that errors, call Create(). This avoids teh need to
+//     Reuse() and then, if that errors, call Create(). This avoids the need to
 //     log "no cluster found, create cluster..." anywhere in this library, as that
 //     will now naturally happen in the caller. Likewise, we added Status(), so
 //     instead of having to log "waiting for cluster to come up..." every second,
@@ -377,114 +448,103 @@ func pachClient(ctx context.Context, kubeClient *kubernetes.Clientset, namespace
 //
 // TODO(msteffen) the enterprise secret *can* also be passed via helm value.
 // Should this tool do that instead?
-func Reuse(ctx context.Context, kubeClient *kubernetes.Clientset, opts *DeploymentOpts) (*client.APIClient, error) {
-	previousOptsHash := getOptsConfigMapData(t, ctx, op.GetKubeClient(), namespace)
-	pachdExists, err := checkForPachd(t, ctx, op.GetKubeClient(), namespace, opts.EnterpriseServer)
-	require.NoError(t, err)
-	if !pachdExists && previousOptsHash != nil {
-		// In case somehow a config map got left without a corresponding installed
-		// release. Cleanup *shouldn't* let this happen, but in case something
-		// failed, check pachd for sanity.
-		// delete config map
-	}
-	return pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
-}
-
-func Create(ctx context.Context, kubeClient *kubernetes.Clientset, opts *DeploymentOpts) (*client.APIClient, error) {
-	if !opts.DisableEnterprise {
-		if err := createSecretEnterpriseKeySecret(ctx, op.kubeClient, opts.Namespace); err != nil {
-			return nil, err
-		}
-	}
-	if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
-		require.NoErrorWithinTRetry(t,
-			time.Minute,
-			func() error {
-				deleteRelease(t, context.Background(), namespace, op.GetKubeClient())
-				return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
-			})
-	}
-}
-
-func Upgrade(ctx context.Context, kubeClient *kubernetes.Clientset, opts *DeploymentOpts) (*client.APIClient, error) {
-	require.NoErrorWithinTRetry(t,
-		time.Minute,
-		func() error {
-			return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
-		})
-}
-func Delete(ctx context.Context, kubeClient *kubernetes.Clientset, opts *DeploymentOpts) (*client.APIClient, error) {
-	options := &helm.Options{
-		KubectlOptions: &k8s.KubectlOptions{Namespace: namespace},
-	}
-	mu.Lock()
-	err := helm.DeleteE(t, options, namespace, true)
-	// op.client = pachClient(t, pachAddress, opts.AuthUser, namespace)
-	// Don't know how to do this part of what minikubetestenv does.
-	// t.Cleanup(func() {
-	// 	collectMinikubeCodeCoverage(t, pClient, opts.ValueOverrides)
-	// })
-	return op
-}
-
-type DeployStatus bool
-
-const (
-	NotReady DeployStatus = false
-	Ready                 = true
-)
-
-func (op *DeployOperation) Status(ctx context.Context) error {
-	// createOptsConfigMap(ctx, op.kubeClient, op.opts.Namespace, helmOpts, chartPath)
-
-	// wait for pachd
-	label := "suite=pachyderm,app=pachd"
-	pachds, err := op.kubeClient.CoreV1().Pods(op.opts.Namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+func (opts *DeploymentOpts) Exists(ctx context.Context, kubeClient *kubernetes.Clientset) (bool, error) {
+	previousOptsHash := opts.getConfigMapOptsHash(ctx, kubeClient)
+	status, err := opts.Status()
 	if err != nil {
-		return errors.Wrap(err, "error on pod list")
+		return false, errors.Wrap(err, "error getting pachd status while attempting to reuse pachd cluster")
 	}
-	// var unacceptablePachds []string
-	// var acceptablePachds []string
-	var good int
-	for _, p := range pachds.Items {
-		if p.Status.Phase == v1.PodRunning && strings.HasSuffix(p.Spec.Containers[0].Image, ":"+opts.PachVersion) && p.Status.ContainerStatuses[0].Ready {
-			good++
-			// acceptablePachds = append(acceptablePachds, fmt.Sprintf("%v: image=%v status=%s", p.Name, p.Spec.Containers[0].Image, formatPodStatus(p.Status)))
-		} // else {
-		// unacceptablePachds = append(unacceptablePachds, fmt.Sprintf("%v: image=%v status=%s", p.Name, p.Spec.Containers[0].Image, formatPodStatus(p.Status)))
-		// }
+	currentOptsHash, err := opts.hash()
+	if err != nil {
+		return false, errors.Wrap(err, "error getting helm values hash while attempting to reuse pachd cluster")
 	}
-	// if len(acceptablePachds) > 0 && (len(unacceptablePachds) == 0) {
-	if good == len(pachds.Items) {
-		return nil
-	}
-	return errors.Errorf("deployment in progress; pachd pods ready: %d / %d",
-		good, len(pachds.Items))
-	// return errors.Errorf("deployment in progress; pachds ready: %d / %d \nun-ready pachds: %v",
-	// 	len(acceptablePachds), len(acceptablePachds)+len(unacceptablePachds),
-	// 	strings.Join(unacceptablePachds, "; "),
-	// )
-
-	// if !opts.DisableLoki {
-	// 	waitForLoki(t, pachAddress.Host, int(pachAddress.Port)+9)
-	// }
-	// waitForPgbouncer(ctx)
-	// waitForPostgres(ctx)
-	// if opts.Determined {
-	// 	waitForDetermined(ctx)
-	// }
-	return nil
+	return status.PachdPodsCreated > 0 && bytes.Equal(previousOptsHash, currentOptsHash), nil
 }
 
-func createSecretEnterpriseKeySecret(ctx context.Context, kubeClient *kubernetes.Clientset, ns string) error {
-	_, err := kubeClient.CoreV1().Secrets(ns).Create(ctx, &v1.Secret{
+func (opts *DeploymentOpts) createSecretEnterpriseKeySecret(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	// TODO(msteffen) this duplicates testutil.GetTestEnterpriseCode(). We can't
+	// call that function from here, though, as 1. it's under src/internal, and 2.
+	// it requires a *testing.T.
+	enterpriseCode, exists := os.LookupEnv("ENT_ACT_CODE")
+	if !exists {
+		return errors.New("enterprise activation code not found; env var \"ENT_ACT_CODE\" is not set")
+	}
+	_, err := kubeClient.CoreV1().Secrets(opts.Namespace).Create(ctx, &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: licenseKeySecretName},
 		StringData: map[string]string{
-			"enterprise-license-key": testutil.GetTestEnterpriseCode(t),
+			"enterprise-license-key": enterpriseCode,
 		},
 	}, metav1.CreateOptions{})
 	if err != nil && strings.Contains(err.Error(), "already exists") {
 		return nil
 	}
 	return err
+}
+
+func helmLog(format string, v ...interface{}) {
+	fmt.Printf("[helm/debug] "+format+"\n", v...)
+}
+
+func (opts *DeploymentOpts) Create(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	if !opts.DisableEnterprise {
+		if err := opts.createSecretEnterpriseKeySecret(ctx, kubeClient); err != nil {
+			return err
+		}
+	}
+	cfg := &helm.Configuration{}
+	cfg.Init(nil, opts.Namespace, "" /* =	"secret" */, helmLog)
+	install := helm.NewInstall()
+	// TODO(msteffen) fix
+	// if err := helm.InstallE(helmOpts, opts.GetHelmChartPath(), opts.Namespace); err != nil {
+	// 	deleteRelease(t, context.Background(), opts.Namespace, op.GetKubeClient())
+	// 	return errors.EnsureStack(helm.InstallE(t, helmOpts, opts.GetHelmChartPath(), opts.Namespace))
+	// }
+}
+
+func (opts *DeploymentOpts) Upgrade(ctx context.Context, kubeClient *kubernetes.Clientset) error {
+	// TODO(msteffen) fix
+	// return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
+}
+
+func (opts *DeploymentOpts) Delete(ctx context.Context, kubeClient *kubernetes.Clientset) (retErr error) {
+	// TODO(msteffen) fix
+	// retErr = helm.DeleteE(t, options, namespace, true)
+	retErr = kubeClient.CoreV1().ConfigMaps(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"})
+	retErr = kubeClient.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, *metav1.NewDeleteOptions(0), metav1.ListOptions{LabelSelector: "suite=pachyderm"})
+	return
+}
+
+type StatusInfo struct {
+	PachdPodsCreated int
+	PachdPodsReady   int
+	PachPvcs         int
+}
+
+func (opts *DeploymentOpts) Status() (StatusInfo, error) {
+	result := &StatusInfo{}
+	label := "app=pachd"
+	if opts.EnterpriseServer {
+		label = "app=pach-enterprise"
+	}
+	pachds, err := kubeClient.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: label})
+	if !k8serrors.IsNotFound(err) && err != nil {
+		return false, errors.Wrap(err, "error listing pachd pods")
+	} else if err == nil {
+		for _, p := range pachds.Items {
+			if !strings.HasSuffix(p.Spec.Containers[0].Image, ":"+version) {
+				continue
+			}
+			result.PachdPodsCreated++
+			if p.Status.Phase == v1.PodRunning && p.Status.ContainerStatuses[0].Ready {
+				result.PachdPodsReady++
+			}
+		}
+	}
+	pachPvcs, err := kubeClient.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{LabelSelector: "suite=pachyderm"})
+	if !k8serrors.IsNotFound(err) && err != nil {
+		return errors.Wrap(err, "error listing Pachyderm PVCs")
+	} else if err == nil {
+		result.PachPvcs = len(pachPvcs.Items)
+	}
+	return result
 }
