@@ -63,6 +63,7 @@ global:
 
 determined:
   enabled: false
+  detVersion: "0.26.7"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -125,6 +126,11 @@ determined:
   # the non-namespaced objects are created.
   createNonNamespacedObjects: true
 
+  # Integration with Pachyderm. Change the pachyderm address only if determined and pachyderm are deployed in different namespaces.
+  integrations:
+    pachyderm:
+      address: "" # Defaults to grpc://pachd.<releaseNamespace>.svc.cluster.local:30650
+
   # External ca.crt injection certificate/s secret name
   # Command to create the ca cert secret:
   #     kubectl create secret generic <external ca cert secret name, e.g., ext-ca-cert> --from-file=<ca.crt or ca bundle filename> -n <namespace>
@@ -179,6 +185,8 @@ determined:
     clientSecretName: ""
     authenticationClaim: ""
     scimAuthenticationAttribute: ""
+    autoProvisionUsers: false
+    groupsClaimName: ""
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely

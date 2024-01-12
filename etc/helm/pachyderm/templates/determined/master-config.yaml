@@ -93,7 +93,17 @@ stringData:
       {{- if .Values.determined.oidc.scimAuthenticationAttribute }}
       scim_authentication_attribute: {{ .Values.determined.oidc.scimAuthenticationAttribute }}
       {{- end }}
+      {{- if .Values.determined.oidc.autoProvisionUsers }}
+      auto_provision_users: {{ .Values.determined.oidc.autoProvisionUsers }}
+      {{- end }}
+      {{- if .Values.determined.oidc.groupsClaimName }}
+      groups_claim_name: {{ .Values.determined.oidc.groupsClaimName }}
+      {{- end }}
     {{- end }}
+
+    integrations:
+      pachyderm:
+        address: {{ include "pachyderm.pachdAddress" . | quote }}
 
     {{- if .Values.determined.scim }}
     scim:
