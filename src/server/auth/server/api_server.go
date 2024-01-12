@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"google.golang.org/protobuf/proto"
+	"sigs.k8s.io/yaml"
 
 	"go.uber.org/zap"
 
@@ -851,7 +851,6 @@ func (a *apiServer) GetPermissions(ctx context.Context, req *auth.GetPermissions
 }
 
 func (a *apiServer) GetPermissionsInTransaction(txnCtx *txncontext.TransactionContext, req *auth.GetPermissionsRequest) (*auth.GetPermissionsResponse, error) {
-
 	callerInfo, err := txnCtx.WhoAmI()
 	if err != nil {
 		return nil, err
@@ -875,7 +874,6 @@ func (a *apiServer) getPermissionsForPrincipalInTransaction(txnCtx *txncontext.T
 		Roles:       request.rolesForResourceType(req.Resource.Type),
 		Permissions: request.satisfiedForResourceType(req.Resource.Type),
 	}, nil
-
 }
 
 // WhoAmI implements the protobuf auth.WhoAmI RPC
