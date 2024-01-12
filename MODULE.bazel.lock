@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "d024a09560c21063d3149b6e11249a2f8887160acc0f62414e143bd7effa1ee1",
+  "moduleFileHash": "ad243f052b6216421b531ac5bbe3c02ca304f7e47af991716286219c2a9ce8f1",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -92,7 +92,6 @@
             "com_github_felixge_httpsnoop": "com_github_felixge_httpsnoop",
             "com_github_fsnotify_fsnotify": "com_github_fsnotify_fsnotify",
             "com_github_fsouza_go_dockerclient": "com_github_fsouza_go_dockerclient",
-            "com_github_ghodss_yaml": "com_github_ghodss_yaml",
             "com_github_go_logr_zapr": "com_github_go_logr_zapr",
             "com_github_go_sql_driver_mysql": "com_github_go_sql_driver_mysql",
             "com_github_golang_protobuf": "com_github_golang_protobuf",
@@ -524,7 +523,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 284,
+            "line": 283,
             "column": 32
           },
           "imports": {
@@ -574,7 +573,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 325,
+            "line": 324,
             "column": 20
           },
           "imports": {
@@ -596,7 +595,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 326,
+                "line": 325,
                 "column": 9
               }
             }
@@ -610,7 +609,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 337,
+            "line": 336,
             "column": 23
           },
           "imports": {},
@@ -625,7 +624,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 338,
+                "line": 337,
                 "column": 17
               }
             }
