@@ -34,41 +34,48 @@ var (
 )
 
 type acquireSettings struct {
-	SkipLoki         bool
-	TLS              bool
-	EnterpriseMember bool
-	CertPool         *x509.CertPool
-	ValueOverrides   map[string]string
-	UseNewCluster    bool
+	skipLoki          bool
+	tls               bool
+	enterpriseMember  bool
+	certPool          *x509.CertPool
+	valueOverrides    map[string]string
+	useNewCluster     bool
+	installPrometheus bool
 }
 
 type Option func(*acquireSettings)
 
 var SkipLokiOption Option = func(as *acquireSettings) {
-	as.SkipLoki = true
+	as.skipLoki = true
 }
 
 var WithTLS Option = func(as *acquireSettings) {
-	as.TLS = true
+	as.tls = true
 }
 
 func WithCertPool(pool *x509.CertPool) Option {
 	return func(as *acquireSettings) {
-		as.CertPool = pool
+		as.certPool = pool
 	}
 }
 
 func WithValueOverrides(v map[string]string) Option {
 	return func(as *acquireSettings) {
-		as.ValueOverrides = v
+		as.valueOverrides = v
 	}
 }
 
 var EnterpriseMemberOption Option = func(as *acquireSettings) {
-	as.EnterpriseMember = true
+	as.enterpriseMember = true
 }
 var UseNewClusterOption Option = func(as *acquireSettings) {
-	as.UseNewCluster = true
+	as.useNewCluster = true
+}
+
+func WithPrometheus() Option {
+	return func(as *acquireSettings) {
+		as.installPrometheus = true
+	}
 }
 
 type managedCluster struct {
@@ -91,11 +98,11 @@ func (cf *ClusterFactory) assignClient(assigned string, mc *managedCluster) {
 func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 	return &DeployOpts{
 		PortOffset:         uint16(clusterIdx * 150),
-		UseLeftoverCluster: *useLeftoverClusters && !as.UseNewCluster,
-		DisableLoki:        as.SkipLoki,
-		TLS:                as.TLS,
-		CertPool:           as.CertPool,
-		ValueOverrides:     as.ValueOverrides,
+		UseLeftoverCluster: *useLeftoverClusters && !as.useNewCluster,
+		DisableLoki:        as.skipLoki,
+		TLS:                as.tls,
+		CertPool:           as.certPool,
+		ValueOverrides:     as.valueOverrides,
 	}
 }
 
@@ -185,7 +192,7 @@ func AcquireCluster(t testing.TB, opts ...Option) (*client.APIClient, string) {
 	t.Cleanup(func() { // must come after assignment to run cleanmup with code coverage before the lease is removed.
 		clusterFactory.mu.Lock()
 		if mc := clusterFactory.managedClusters[assigned]; mc != nil {
-			collectMinikubeCodeCoverage(t, mc.client, mc.settings.ValueOverrides)
+			collectMinikubeCodeCoverage(t, mc.client, mc.settings.valueOverrides)
 			if *cleanupDataAfter {
 				deleteAll(t, mc.client)
 			}
