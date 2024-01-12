@@ -11,18 +11,19 @@ ENV DEBIAN_FRONTEND=noninteractive \
 # Core deps
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     apt-get update && apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    build-essential \
     ca-certificates \
     ca-certificates-java \
-    python3 \
-    build-essential \
-    locales \
-    sudo \
-    apt-transport-https \
     curl \
-    gnupg \
-    wget \
-    openssh-client \
     git \
+    gnupg \
+    lcov \
+    locales \
+    openssh-client \
+    python3 \
+    sudo \
+    wget \
     && \
     rm -rf /var/lib/apt/lists/* && \
     groupadd --gid=1002 circleci && \
