@@ -1601,8 +1601,9 @@ jobs:
       - run: git checkout MODULE.bazel.lock # For OSX-only changes.
       - run: git diff --exit-code
       - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test
-      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
-        when: always
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
   bazel-tests:
@@ -1613,8 +1614,9 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: bazel coverage --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
-      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
-        when: always
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
