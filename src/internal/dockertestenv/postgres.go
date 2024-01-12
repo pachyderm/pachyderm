@@ -142,7 +142,7 @@ var spawnLock sync.Mutex
 func EnsureDBEnv(ctx context.Context) error {
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
-	timeout := 30 * time.Second
+	timeout := 120 * time.Second
 	ctx, cf := context.WithTimeout(ctx, timeout)
 	defer cf()
 
@@ -196,10 +196,10 @@ func EnsureDBEnv(ctx context.Context) error {
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "connect to db")
 		}
 		defer db.Close()
-		return errors.EnsureStack(db.PingContext(ctx))
+		return errors.Wrap(db.PingContext(ctx), "ping db")
 	}, backoff.RetryEvery(time.Second), func(err error, _ time.Duration) error {
 		return nil
 	})
