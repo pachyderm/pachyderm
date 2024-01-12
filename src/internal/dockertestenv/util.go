@@ -3,7 +3,6 @@ package dockertestenv
 import (
 	"context"
 	"io"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -27,17 +26,18 @@ func newDockerClient() docker.APIClient {
 }
 
 func getDockerHost() string {
-	client := newDockerClient()
-	defer client.Close()
-	host := client.DaemonHost()
-	u, err := url.Parse(host)
-	if err != nil {
-		panic(err)
-	}
-	if u.Scheme == "unix" {
-		return "127.0.0.1"
-	}
-	return u.Hostname()
+	// client := newDockerClient()
+	// defer client.Close()
+	// host := client.DaemonHost()
+	// u, err := url.Parse(host)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// if u.Scheme == "unix" {
+	// 	return "127.0.0.1"
+	// }
+	// return u.Hostname()
+	return "localhost"
 }
 
 type containerSpec struct {
