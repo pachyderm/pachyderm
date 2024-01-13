@@ -113,7 +113,7 @@ go_test(
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     pure = "on",
-    shard_count = 4,
+    shard_count = 8,
     deps = [
         "//src/admin",
         "//src/internal/client",
