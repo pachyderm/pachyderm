@@ -40,7 +40,7 @@ go_test(
     srcs = ["server_test.go"],
     data = glob(["testdata/**"]),
     embed = [":testing"],
-    shard_count = 10,
+    shard_count = 8,
     tags = ["cpu:8"],
     deps = [
         "//src/auth",

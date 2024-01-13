@@ -23,6 +23,7 @@ go_test(
 
 go_test(
     name = "auth_test",
+    size = "small",
     srcs = ["auth_test.go"],
     pure = "on",
     shard_count = 4,

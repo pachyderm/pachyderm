@@ -109,10 +109,11 @@ go_library(
 
 go_test(
     name = "cmds_test",
+    size = "small",
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     pure = "on",
-    shard_count = 6,
+    shard_count = 4,
     deps = [
         "//src/admin",
         "//src/internal/client",
