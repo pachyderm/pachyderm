@@ -161,7 +161,7 @@ func ensureDBEnv(t testing.TB, ctx context.Context) error {
 			30228: 5432,
 		},
 		Image: "postgres:13.0-alpine",
-		Cmd:   []string{"postgres", "-c", "max_connections=500"},
+		Cmd:   []string{"postgres", "-c", "max_connections=500", "-c", "fsync=off"},
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}
