@@ -233,3 +233,21 @@ whether or not it affected anything.
 
 Pulumi eventually depends on github.com/cloudflare/circl, which will require this workaround:
 https://github.com/bazelbuild/bazel-gazelle/issues/1421#issuecomment-1424075874
+
+### Profiling
+
+Sometimes you want a whole-system profile of some tests running or something. Build the Go binaries
+in debug mode with `-c dbg` to get the symbols, and run the tests outside of the Bazel sandbox with
+`--spawn_strategy=local` so that `hotspot` can later find the binaries to inspect.
+
+For example, to see what is making a database-based test slow, pick one at random and run 64 copies
+at the same time:
+
+    perf record -F 99 -e cpu-clock -ag -- bazel test //src/server/auth/server/testing:auth_test -c dbg \
+    --test_filter=TestListRepoNotLoggedInError --runs_per_test=64 --jobs=64 --local_test_jobs=64
+
+Then look at `perf.out` with `hotspot`:
+
+    hotspot perf.out
+
+This did not help with debugging database speed, but I wanted to document it anyway.
