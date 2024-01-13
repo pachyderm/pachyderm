@@ -18,7 +18,7 @@ go_library(
         "testutil.go",
     ],
     data = [
-        "//src/server/cmd/pachctl",
+        "//src/server/cmd/pachctl:pachctl_nostamp",
         "//src/testing/match",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutil",
