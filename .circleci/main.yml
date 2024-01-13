@@ -1622,11 +1622,6 @@ jobs:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
           file: bazel-out/_coverage/_coverage_report.dat
-      - run:
-          command: genhtml --no-branch-coverage --no-function-coverage --dark-mode --output genhtml bazel-out/_coverage/_coverage_report.dat
-          when: always
-      - store_artifacts:
-          path: genhtml
 
 workflows:
   functional-tests:
