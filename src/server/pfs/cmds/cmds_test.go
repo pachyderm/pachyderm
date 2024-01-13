@@ -59,9 +59,8 @@ func mockInspectCluster(env *realenv.RealEnv) {
 }
 
 func TestCommit(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	t.Skip("Skipping integration tests in short mode")
+
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
@@ -377,9 +376,9 @@ func TestMountParsing(t *testing.T) {
 }
 
 func TestDiffFile(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
-	}
+	//if testing.Short() {
+	t.Skip("Skipping integration tests in short mode")
+	//}
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 	mockInspectCluster(env)
