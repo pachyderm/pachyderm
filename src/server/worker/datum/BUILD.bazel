@@ -61,6 +61,7 @@ go_test(
     ],
     embed = [":datum"],
     pure = "on",
+    shard_count = 4,
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",

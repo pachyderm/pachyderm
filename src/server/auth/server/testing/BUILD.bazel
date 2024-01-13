@@ -26,7 +26,7 @@ go_test(
     size = "small",
     srcs = ["auth_test.go"],
     pure = "on",
-    shard_count = 4,
+    shard_count = 6,
     deps = [
         ":testing",
         "//src/auth",
