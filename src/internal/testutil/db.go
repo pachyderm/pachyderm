@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -34,6 +35,11 @@ func OpenDBURL(t testing.TB, u pachsql.URL, password string) *pachsql.DB {
 
 // CreateEphemeralDB creates a new database using db with a lifetime scoped to the test t.
 func CreateEphemeralDB(t testing.TB, db *pachsql.DB, dbName string) {
+	start := time.Now()
+	t.Logf("create database %v at %v", dbName, start.String())
+	defer func() {
+		t.Logf("database %v created in %v", dbName, time.Since(start).String())
+	}()
 	_, err := db.Exec(`CREATE DATABASE ` + dbName)
 	require.NoError(t, err)
 	if cleanup {

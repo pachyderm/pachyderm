@@ -79,6 +79,11 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 		dbName  = testutil.GenerateEphemeralDBName(t)
 		dexName = testutil.UniqueString("dex")
 	)
+	start := time.Now()
+	t.Logf("started creating databases at %v", start.String())
+	defer func() {
+		t.Logf("databases created in %v", time.Since(start).String())
+	}()
 	// err := backoff.Retry(func() error {
 	// 	return EnsureDBEnv(ctx)
 	// }, backoff.NewConstantBackOff(time.Second*3))
@@ -158,7 +163,7 @@ func EnsureDBEnv(ctx context.Context) error {
 			30228: 5432,
 		},
 		Image: "postgres:13.0-alpine",
-		Cmd:   []string{"postgres", "-c", "max_connections=500"},
+		Cmd:   []string{"postgres", "-c", "max_connections=500", "-c", "fsync=off"},
 	}); err != nil {
 		return errors.EnsureStack(err)
 	}

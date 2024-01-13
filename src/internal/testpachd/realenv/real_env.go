@@ -11,6 +11,7 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	units "github.com/docker/go-units"
 	"go.uber.org/zap"
@@ -87,6 +88,11 @@ type RealEnv struct {
 //
 // *Deprecated: Use pachd.NewTestPachd instead.
 func NewRealEnv(ctx context.Context, t testing.TB, customOpts ...pachconfig.ConfigOption) *RealEnv {
+	start := time.Now()
+	t.Logf("creating realenv at %v", start.String())
+	defer func() {
+		t.Logf("created realenv in %v", time.Since(start))
+	}()
 	return newRealEnv(ctx, t, false, testpachd.AuthMiddlewareInterceptor, customOpts...)
 }
 
