@@ -73,7 +73,8 @@ go_test(
         "prefetcher_test.go",
     ],
     embed = [":fileset"],
-    tags = ["cpu:8"],
+    shard_count = 8,
+    tags = ["cpu:4"],
     deps = [
         "//src/internal/dockertestenv",
         "//src/internal/errors",
