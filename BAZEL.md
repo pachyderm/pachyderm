@@ -1,20 +1,15 @@
 # Bazel
 
 You may have noticed some `BUILD.bazel` files throughout the repository. We are in the process of
-building everything here with [Bazel](https://bazel.build/), so that day 1 setup is simplified, and
-so that test tooling can be shared between languages.
+building everything here with [Bazel](https://bazel.build/), so that day 1 setup is simplified and
+so that test tooling can be shared between languages. We also want to cache tests so that editing
+README.md doesn't involve running all of our Go tests.
 
-Right now, only proto generation requires Bazel. In the future, everything will be possible to work
-on with normal Go tools, but it will also be possible to use Bazel. It is likely that most
-Pachyderm-specific development tasks, like deploying a dev environment and syncing your code changes
-to it, will require Bazel. We'll probably also use it for CI, because of the test result caching.
-But, because people depend on `github.com/pachyderm/pachyderm/v2` with "go get", we can never fully
-convert to only using Bazel as the build system. Rather, we will use both Bazel and go.mod for the
-foreseeable future. Hence, we check in all of our generated code.
-
-Additionally, the relase process will also use `goreleaser` for a short while.
-
-TL;DR: Bazel is strictly an overlay unless you actively work on this codebase day-to-day.
+Currently, Bazel is only for environment setup, `make proto`, and Go tests that don't require
+Kubernetes. Because people depend on installing `github.com/pachyderm/pachyderm/v2` with "go get",
+we can never fully convert to only using Bazel as the build system. Rather, we will use both Bazel
+and `go.mod` for the foreseeable future. Hence, we check in all of our generated code, and you can
+use `go test` for everything if you hate Bazel for some reason.
 
 ## Setup
 
@@ -34,6 +29,13 @@ Bazelisk, but feel free of course.
 Note: you will need a C++ compiler installed. `apt install build-essential` on Debian, or do the
 xcode dance on Mac OS. The C++ compiler is used to build some internal Bazel tools like the shell
 script wrapper.
+
+Note: Every time you update Mac OS, you need to run
+`/usr/sbin/softwareupdate --install-rosetta --agree-to-license`. Some of our dependencies don't
+build `darwin_arm64` binaries, and we fall back to `darwin_amd64` binaries. Rosetta is what lets
+M1/M2/M3 Macs run `amd64` binaries. You will see `Bad CPU type in executable` if Rosetta isn't
+working. (You may need to run `bazel shutdown` after installing Rosetta, though this is only
+suggested by Apple and doesn't appear to be required 100% of the time.)
 
 Note: you will need a Python 3 interpreter installed as `python3`. `apt install python3` on Debian.
 This is because `rules_python` uses the host `python3` to find the version of Python installed via
@@ -82,6 +84,12 @@ needs the cert in `/etc/ssl/certs`.
 
 ## Use
 
+## Write Go code
+
+Writing Go code works like it always did. Your editor can understand the entire source tree without
+any help. Whenever you add or delete files, or change dependencies, run `bazel run //:gazelle` to
+update the associated BUILD files for Bazel.
+
 ## Regenerating protos
 
 Right now, `make proto` calls out to `bazel run //:make_proto` to generate the Go protos. When you
@@ -123,6 +131,10 @@ of the test logs for failing tests. They are also available in the BuildBuddy UI
 For more Go details, see
 https://github.com/bazelbuild/rules_go/blob/master/docs/go/core/rules.md#go_test
 
+In the past, many tests had dependencies on a freshly-built `pachctl` or `match` binary. This is not
+the case if you run the tests with Bazel; Bazel automatically includes the version of those binaries
+based on your working tree in the test's environment.
+
 ### Run one test case
 
 `bazel test //the:test --test_filter=TestCaseIWantToRun`
@@ -163,9 +175,6 @@ in sync. If you forget to run this, nothing will work, so it's unlikely that you
 To run pachctl, `bazel run //:pachctl`. You can also build the binary and copy it to $PATH, if you
 like. After `bazel run //:pachctl` or `bazel build //:pachctl`, it will be in
 `bazel-bin/src/server/cmd/pachctl/pachctl_/pachctl`.
-
-This version of pachctl has the current version number, based on `workspace_status.sh`, baked into
-it. Thus, `pachctl version` on the binary will lead you to the exact code it was built with!
 
 ## Hints
 
@@ -251,3 +260,14 @@ Then look at `perf.out` with `hotspot`:
     hotspot perf.out
 
 This did not help with debugging database speed, but I wanted to document it anyway.
+
+### ssh-ing to CI
+
+Sometimes your tests will fail in CI, but not on your workstation. Traditionally, you would click
+"Rerun with SSH" in Circle. You can still do that, but you can also `bazel run //etc/ci-image:run`
+to be placed in a shell that is configured identically to CI; CI uses the same Docker image. Your
+current working copy of Pachyderm will be mounted in `/home/circleci/project`, just like CI. You can
+edit files on your workstation and they are immediately there; it's just a read-only bind mount. You
+can run `git` or `bazel` inside this environment as well. While converting to Bazel, I've had a lot
+of weird failures on CI, and this has always solved them without wasting time waiting for CI to
+restart!
