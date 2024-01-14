@@ -122,3 +122,8 @@ alias(
     name = "pachctl",
     actual = "//src/server/cmd/pachctl",
 )
+
+test_suite(
+    name = "privileged_tests",
+    tests = ["//src/server/pfs/fuse:fuse_test"],
+)

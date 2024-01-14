@@ -1622,6 +1622,27 @@ jobs:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
           file: bazel-out/_coverage/_coverage_report.dat
+  bazel-privileged-tests:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - run: |
+          docker run \
+          -e ENT_ACT_CODE \
+          -v /home/circleci/project \
+          --privileged \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel coverage --config=remotecache --flaky_test_attempts=3 --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //:privileged_tests
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
+      - codecov/upload:
+          file: bazel-out/_coverage/_coverage_report.dat
 
 workflows:
   functional-tests:
@@ -1631,6 +1652,7 @@ workflows:
       - build-docker-images:
           enableCoverage: true
       - bazel-tests
+      - bazel-privileged-test
       - integration-tests
   linting:
     when: << pipeline.parameters.run-core-jobs >>
