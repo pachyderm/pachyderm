@@ -1643,15 +1643,10 @@ jobs:
           --flaky_test_attempts=3 \
           --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //:privileged_tests
-      - run:
-          command: cp -a $(bazel --output_base=/home/circleci/out info bazel-testlogs) /tmp/bazel-testlogs
-          when: always
-      - run:
-          command: cp -a $(bazel --output_base=/home/circleci/out info bazel-out)/_coverage/_coverage_report.dat /tmp/coverage.dat
       - store_test_results:
-          path: /tmp/bazel-testlogs/
+          path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
       - codecov/upload:
-          file: /tmp/coverage.dat
+          file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
 
 workflows:
   functional-tests:
