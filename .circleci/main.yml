@@ -1628,10 +1628,11 @@ jobs:
       image: << pipeline.parameters.machine_image >>
     steps:
       - checkout
+      - run: cd /home/circleci/project
       - run: |
           docker run \
           -e ENT_ACT_CODE \
-          -v /home/circleci/project \
+          -v /home/circleci/project:/home/circleci/project \
           --privileged \
           << pipeline.parameters.ci_runner_image >> \
           bazel coverage --config=remotecache --flaky_test_attempts=3 --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
