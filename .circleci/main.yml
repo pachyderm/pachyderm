@@ -1652,7 +1652,7 @@ workflows:
       - build-docker-images:
           enableCoverage: true
       - bazel-tests
-      - bazel-privileged-test
+      - bazel-privileged-tests
       - integration-tests
   linting:
     when: << pipeline.parameters.run-core-jobs >>
