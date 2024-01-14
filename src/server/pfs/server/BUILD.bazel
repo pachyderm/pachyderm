@@ -114,7 +114,6 @@ go_test(
     embed = [":server"],
     tags = [
         "external",
-        "manual",
     ],
     deps = [
         "//src/internal/obj",

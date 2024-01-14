@@ -22,6 +22,23 @@ build --stamp
 
 # Common options.
 common --test_env=ENT_ACT_CODE # Tests need this to active Pachyderm enterprise.
+common --test_env=AMAZON_CLIENT_ID
+common --test_env=AMAZON_CLIENT_SECRET
+common --test_env=AMAZON_CLIENT_BUCKET
+common --test_env=AMAZON_CLIENT_REGION
+common --test_env=ECS_CLIENT_ID
+common --test_env=ECS_CLIENT_SECRET
+common --test_env=ECS_CLIENT_BUCKET
+common --test_env=ECS_CLIENT_CUSTOM_ENDPOINT
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_CREDS
+common --test_env=GOOGLE_CLIENT_HMAC_ID
+common --test_env=GOOGLE_CLIENT_HMAC_SECRET
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_REGION
+common --test_env=MICROSOFT_CLIENT_ID
+common --test_env=MICROSOFT_CLIENT_SECRET
+common --test_env=MICROSOFT_CLIENT_CONTAINER
 common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
 
 # Cover all packages.
