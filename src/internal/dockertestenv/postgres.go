@@ -10,9 +10,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"go.uber.org/zap"
 )
 
 const (
@@ -76,18 +80,14 @@ func (dbc DBConfig) PachConfigOption(c *pachconfig.Configuration) {
 // The environment will be torn down at the end of the test.
 func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
+		ctx     = pctx.TestContext(t)
 		dbName  = testutil.GenerateEphemeralDBName(t)
 		dexName = testutil.UniqueString("dex")
 	)
-	start := time.Now()
-	t.Logf("started creating databases at %v", start.String())
-	defer func() {
-		t.Logf("databases created in %v", time.Since(start).String())
-	}()
-	// err := backoff.Retry(func() error {
-	// 	return EnsureDBEnv(ctx)
-	// }, backoff.NewConstantBackOff(time.Second*3))
-	// require.NoError(t, err, "DB should be created")
+	err := backoff.Retry(func() error {
+		return EnsureDBEnv(ctx)
+	}, backoff.NewConstantBackOff(time.Second*3))
+	require.NoError(t, err, "DB should be created")
 	db := testutil.OpenDB(t,
 		dbutil.WithMaxOpenConns(1),
 		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
@@ -201,6 +201,7 @@ func EnsureDBEnv(ctx context.Context) error {
 			dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
 		)
 		if err != nil {
+			log.Info(ctx, "failed to connect to database; retrying", zap.Error(err))
 			return errors.Wrap(err, "connect to db")
 		}
 		defer db.Close()
