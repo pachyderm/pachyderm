@@ -1,5 +1,5 @@
 genrule(
-    name = "dockerfile_with_bazelversion",
+    name = "gen_dockerfile_with_bazelversion",
     srcs = [
         "Dockerfile.tmpl",
         "//:.bazelversion",
@@ -9,7 +9,7 @@ genrule(
 )
 
 genrule(
-    name = "version",
+    name = "gen_version",
     outs = ["version"],
     cmd = "grep STABLE_CI_RUNNER_IMAGE_VERSION bazel-out/stable-status.txt | cut -d ' ' -f 2 > $@",
     stamp = 1,
