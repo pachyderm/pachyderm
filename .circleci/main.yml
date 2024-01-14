@@ -1629,21 +1629,29 @@ jobs:
     steps:
       - checkout
       - run: cd /home/circleci/project
+      - run: mkdir /home/circleci/out
       - run: |
           docker run \
           -e ENT_ACT_CODE \
+          -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           --privileged \
           << pipeline.parameters.ci_runner_image >> \
-          bazel coverage --config=remotecache --flaky_test_attempts=3 --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          bazel \
+          --output_base=/home/circleci/out coverage \
+          --config=remotecache \
+          --flaky_test_attempts=3 \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //:privileged_tests
       - run:
-          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          command: cp -a $(bazel --output_base=/home/circleci/out info bazel-testlogs) /tmp/bazel-testlogs
           when: always
+      - run:
+          command: cp -a $(bazel --output_base=/home/circleci/out info bazel-out)/_coverage/_coverage_report.dat /tmp/coverage.dat
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
-          file: bazel-out/_coverage/_coverage_report.dat
+          file: /tmp/coverage.dat
 
 workflows:
   functional-tests:
