@@ -1,5 +1,11 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 
+filegroup(
+    name = "testdata",
+    data = glob(["testdata/**"]),
+    visibility = ["//src/server/pfs/server:__pkg__"],
+)
+
 # gazelle:go_test file
 go_test(
     name = "fuzz_provenance_test",
