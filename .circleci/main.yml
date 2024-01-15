@@ -1613,9 +1613,13 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/cmds/dockertestenv
+      - run: |
+          DOCKER_MACHINE_NAME=172.17.0.1 \
+          bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
       - run: |
           SKIP_DOCKER_POSTGRES_CREATE=1 \
+          DOCKER_MACHINE_NAME=172.17.0.1 \
           bazel \
           coverage \
           --flaky_test_attempts=3 \
