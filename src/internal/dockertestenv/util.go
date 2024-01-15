@@ -54,6 +54,11 @@ type containerSpec struct {
 // image should be the name of an image e.g. minio/minio:latest
 // portMap is a mapping from host ports to container ports.  The image/values of this mapping are taken implicitly to be the exposed container ports.
 func ensureContainer(ctx context.Context, dclient docker.APIClient, containerName string, spec containerSpec) error {
+	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
+	if got, want := os.Getenv("SKIP_DOCKER_CREATE"), "1"; got == want {
+		log.Info(ctx, "not atttempting to create docker container; SKIP_DOCKER_CREATE=1")
+		return nil
+	}
 	imageName := spec.Image
 	portMap := spec.PortMap
 	if cjson, err := dclient.ContainerInspect(ctx, containerName); err != nil {

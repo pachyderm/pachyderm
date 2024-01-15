@@ -22,6 +22,7 @@ build --stamp
 
 # Common options.
 common --test_env=ENT_ACT_CODE # Tests need this to active Pachyderm enterprise.
+common --test_env=SKIP_DOCKER_CREATE
 common --test_env=AMAZON_CLIENT_ID
 common --test_env=AMAZON_CLIENT_SECRET
 common --test_env=AMAZON_CLIENT_BUCKET
