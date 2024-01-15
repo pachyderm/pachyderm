@@ -3,6 +3,7 @@ package dockertestenv
 import (
 	"context"
 	"io"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -26,21 +27,20 @@ func newDockerClient() docker.APIClient {
 }
 
 func getDockerHost() string {
-	// if e := os.Getenv("DOCKER_MACHINE_NAME"); e != "" {
-	// 	return e
-	// }
-	// client := newDockerClient()
-	// defer client.Close()
-	// host := client.DaemonHost()
-	// u, err := url.Parse(host)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// if u.Scheme == "unix" {
-	// 	return "127.0.0.1"
-	// }
-	// return u.Hostname()
-	return "172.17.0.1"
+	if e := os.Getenv("DOCKER_MACHINE_NAME"); e != "" {
+		return e
+	}
+	client := newDockerClient()
+	defer client.Close()
+	host := client.DaemonHost()
+	u, err := url.Parse(host)
+	if err != nil {
+		panic(err)
+	}
+	if u.Scheme == "unix" {
+		return "127.0.0.1"
+	}
+	return u.Hostname()
 }
 
 type containerSpec struct {
@@ -54,11 +54,6 @@ type containerSpec struct {
 // image should be the name of an image e.g. minio/minio:latest
 // portMap is a mapping from host ports to container ports.  The image/values of this mapping are taken implicitly to be the exposed container ports.
 func ensureContainer(ctx context.Context, dclient docker.APIClient, containerName string, spec containerSpec) error {
-	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
-	if got, want := os.Getenv("SKIP_DOCKER_CREATE"), "1"; got == want {
-		log.Info(ctx, "not atttempting to create docker container; SKIP_DOCKER_CREATE=1")
-		return nil
-	}
 	imageName := spec.Image
 	portMap := spec.PortMap
 	if cjson, err := dclient.ContainerInspect(ctx, containerName); err != nil {

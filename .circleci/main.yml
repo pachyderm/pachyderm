@@ -1614,7 +1614,14 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/cmds/dockertestenv
-      - run: bazel coverage --config=remotecache --flaky_test_attempts=3 --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} ...
+      - run: |
+          SKIP_DOCKER_POSTGRES_CREATE=1 \
+          bazel \
+          coverage \
+          --flaky_test_attempts=3 \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          ...
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
@@ -1648,7 +1655,8 @@ jobs:
       - run: |
           docker run \
           -e ENT_ACT_CODE \
-          -e SKIP_DOCKER_CREATE=1 \
+          -e SKIP_DOCKER_POSTGRES_CREATE=1 \
+          -e DOCKER_MACHINE_NAME=172.17.0.1 \
           -v /home/circleci/out:/home/circleci/out \
           -v /home/circleci/project:/home/circleci/project \
           --privileged \

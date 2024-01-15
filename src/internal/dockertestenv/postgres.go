@@ -3,6 +3,7 @@ package dockertestenv
 
 import (
 	"context"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -145,6 +146,12 @@ var spawnLock sync.Mutex
 // TODO: use the bitnami pg_bouncer image
 // TODO: look into https://github.com/ory/dockertest
 func EnsureDBEnv(ctx context.Context) error {
+	// bazel run //src/testing/cmd/dockertestenv creates these for many CI runs.
+	if got, want := os.Getenv("SKIP_DOCKER_POSTGRES_CREATE"), "1"; got == want {
+		log.Info(ctx, "not attempting to create docker container; SKIP_DOCKER_POSTGRES_CREATE=1")
+		return nil
+	}
+
 	spawnLock.Lock()
 	defer spawnLock.Unlock()
 	timeout := 120 * time.Second
