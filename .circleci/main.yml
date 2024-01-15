@@ -1643,7 +1643,7 @@ jobs:
           --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //src/testing/cmds/dockertestenv
       # Start database containers.
-      - run: /home/circleci/out/execroot/_main/bazel-out/src/testing/cmds/dockertestenv/_dockertestenv/dockertestenv
+      - run: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/bin/src/testing/cmds/dockertestenv/dockertestenv_/dockertestenv
       # Run tests without needing to talk to the Docker daemon during the tests.
       - run: |
           docker run \
