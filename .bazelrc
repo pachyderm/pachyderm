@@ -14,7 +14,7 @@ build:remotecache --nolegacy_important_outputs
 # This is only relevant for remote caching, but using the same value of modify_execution_info allows
 # sharing the analysis cache between local and remotecache builds, saving time when you switch the
 # flag.
-build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote-cache,OCIImage=+no-remote-cache
+build --modify_execution_info=PackageTar=+no-remote,ConvertStatusToJson=+no-remote,Jq=+no-remote,CopyFile=+no-remote,OCIImage=+no-remote-cache
 
 # Common build options.
 build --workspace_status_command=$(pwd)/workspace_status.sh
