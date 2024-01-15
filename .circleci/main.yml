@@ -1630,6 +1630,21 @@ jobs:
       - checkout
       - run: cd /home/circleci/project
       - run: mkdir /home/circleci/out
+      # Build the thing to start the database containers.
+      - run: |
+          docker run \
+          -v /home/circleci/out:/home/circleci/out \
+          -v /home/circleci/project:/home/circleci/project \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel \
+          --output_base=/home/circleci/out \
+          build \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
+      # Start database containers.
+      - run: /home/circleci/out/execroot/_main/bazel-out/src/testing/cmds/dockertestenv/_dockertestenv/dockertestenv
+      # Run tests without needing to talk to the Docker daemon during the tests.
       - run: |
           docker run \
           -e ENT_ACT_CODE \
@@ -1638,9 +1653,10 @@ jobs:
           --privileged \
           << pipeline.parameters.ci_runner_image >> \
           bazel \
-          --output_base=/home/circleci/out coverage \
-          --config=remotecache \
+          --output_base=/home/circleci/out \
+          coverage \
           --flaky_test_attempts=3 \
+          --config=remotecache \
           --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
           //:privileged_tests
       - store_test_results:
