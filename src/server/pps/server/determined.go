@@ -10,7 +10,7 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/userv1"
 	"github.com/determined-ai/determined/proto/pkg/workspacev1"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/detutil"
+	detutil "github.com/pachyderm/pachyderm/v2/src/internal/determined"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -24,8 +24,8 @@ import (
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func (a *apiServer) getDetConfig() detutil.DetConfig {
-	return detutil.DetConfig{
+func (a *apiServer) getDetConfig() detutil.Config {
+	return detutil.Config{
 		MasterURL: a.env.Config.DeterminedURL,
 		Username:  a.env.Config.DeterminedUsername,
 		Password:  a.env.Config.DeterminedPassword,
@@ -33,24 +33,27 @@ func (a *apiServer) getDetConfig() detutil.DetConfig {
 	}
 }
 
-func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline, workspaces []string, pipPassword string, whoami string) error {
-	config := detutil.DetConfig{
-		MasterURL: a.env.Config.DeterminedURL,
-		Username:  a.env.Config.DeterminedUsername,
-		Password:  a.env.Config.DeterminedPassword,
-		TLS:       a.env.Config.DeterminedTLS,
-	}
+func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline, workspaces []string, pipPassword string, whoami string) (retErr error) {
 	var cf context.CancelFunc
 	ctx, cf = context.WithTimeout(ctx, 60*time.Second)
 	defer cf()
 	errCnt := 0
 	// right now the entire integration is specifc to auth, so first check that auth is active
 	if err := backoff.RetryUntilCancel(ctx, func() error {
-		dc, ctx, cf, err := detutil.NewInClusterDetClient(ctx, config)
+		dc, cf, err := detutil.NewClient(ctx, a.env.Config.DeterminedURL, a.env.Config.DeterminedTLS)
 		if err != nil {
 			return errors.Wrap(err, "set up in cluster determined client")
 		}
-		defer cf()
+		defer func() {
+			if err := cf(); err != nil {
+				retErr = errors.Join(retErr, err)
+			}
+		}()
+		token, err := detutil.MintToken(ctx, dc, a.env.Config.DeterminedUsername, a.env.Config.DeterminedPassword)
+		if err != nil {
+			return errors.Wrapf(err, "mint determined token for user", a.env.Config.DeterminedUsername)
+		}
+		ctx = detutil.AddToken(ctx, token)
 		detWorkspaces, err := detutil.GetWorkspaces(ctx, dc, workspaces)
 		if err != nil {
 			return err
@@ -90,18 +93,27 @@ type pipelineGetter interface {
 	ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error
 }
 
-func gcDetUsers(ctx context.Context, config detutil.DetConfig, period time.Duration, pipGetter pipelineGetter, secrets corev1.SecretInterface) {
+func gcDetUsers(ctx context.Context, config detutil.Config, period time.Duration, pipGetter pipelineGetter, secrets corev1.SecretInterface) {
 	if config.MasterURL == "" {
 		log.Info(ctx, "Determined not configured. Skipping Determined user garbage collection.")
 		return
 	}
 	log.Info(ctx, "Starting Determined user garbage collection.")
-	err := backoff.RetryUntilCancel(ctx, func() error {
-		dc, detCtx, cf, err := detutil.NewInClusterDetClient(ctx, config)
+	err := backoff.RetryUntilCancel(ctx, func() (retErr error) {
+		dc, cf, err := detutil.NewClient(ctx, config.MasterURL, config.TLS)
 		if err != nil {
 			return errors.Wrap(err, "setup in cluster determined client for garbage collection")
 		}
-		defer cf()
+		defer func() {
+			if err := cf(); err != nil {
+				retErr = errors.Join(retErr, err)
+			}
+		}()
+		token, err := detutil.MintToken(ctx, dc, config.Username, config.Password)
+		if err != nil {
+			return errors.Wrapf(err, "mint determined token for user %q", config.Username)
+		}
+		detCtx := detutil.AddToken(ctx, token)
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {

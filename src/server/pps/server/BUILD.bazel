@@ -30,7 +30,7 @@ go_library(
         "//src/internal/collection",
         "//src/internal/config",
         "//src/internal/cronutil",
-        "//src/internal/detutil",
+        "//src/internal/determined",
         "//src/internal/dlock",
         "//src/internal/errors",
         "//src/internal/errutil",

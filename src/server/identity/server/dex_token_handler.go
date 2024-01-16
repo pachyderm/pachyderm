@@ -10,12 +10,13 @@ import (
 
 	"go.uber.org/zap"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/determined"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 )
 
 type tokenResp struct {
-	IdToken string `json:"id_token"`
+	IDToken string `json:"id_token"`
 }
 
 type idToken struct {
@@ -27,13 +28,13 @@ type idToken struct {
 func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 	return func(rw http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
-		bw := &bufferResponseWriter{
+		rrw := &recordResponseWriter{
 			rw: rw,
-			b:  &bytes.Buffer{},
+			b:  new(bytes.Buffer),
 		}
-		next.ServeHTTP(bw, r)
-		if bw.statusCode >= 400 {
-			log.Error(ctx, "skip provisioning during login", zap.Int("statusCode", bw.statusCode))
+		next.ServeHTTP(rrw, r)
+		if rrw.statusCode >= 400 {
+			log.Error(ctx, "skip provisioning during login", zap.Int("statusCode", rrw.statusCode))
 			return
 		}
 		ps, err := w.provisioners(ctx)
@@ -44,7 +45,7 @@ func (w *dexWeb) idTokenHandler(next http.Handler) http.HandlerFunc {
 		if len(ps) == 0 {
 			return
 		}
-		token, err := idTokenFromBytes(ctx, bw.b.Bytes())
+		token, err := idTokenFromBytes(ctx, rrw.b.Bytes())
 		if err != nil {
 			log.Error(ctx, "failed to extract ID token from bytes", zap.Error(err))
 			return
@@ -108,14 +109,14 @@ func idTokenFromBytes(ctx context.Context, b []byte) (*idToken, error) {
 		log.Error(ctx, msg, zap.Error(err))
 		return nil, errors.Wrap(err, msg)
 	}
-	tok, err := base64.RawStdEncoding.DecodeString(jwtPayload(resp.IdToken))
+	tok, err := base64.RawStdEncoding.DecodeString(jwtPayload(resp.IDToken))
 	if err != nil {
 		msg := "failed to base64 decode ID token"
 		log.Error(ctx, msg, zap.Error(err),
-			zap.String("token", resp.IdToken))
+			zap.String("token", resp.IDToken))
 		return nil, errors.Wrap(err, msg)
 	}
-	token := &idToken{}
+	token := new(idToken)
 	if err := json.Unmarshal(tok, token); err != nil {
 		msg := "failed to unmarshal /token response"
 		log.Error(ctx, msg, zap.Error(err))
@@ -124,36 +125,36 @@ func idTokenFromBytes(ctx context.Context, b []byte) (*idToken, error) {
 	return token, nil
 }
 
-type bufferResponseWriter struct {
+type recordResponseWriter struct {
 	b          *bytes.Buffer
 	rw         http.ResponseWriter
 	statusCode int
 }
 
-func (br *bufferResponseWriter) Write(b []byte) (int, error) {
-	i, err := br.rw.Write(b)
+func (rrw *recordResponseWriter) Write(b []byte) (int, error) {
+	i, err := rrw.rw.Write(b)
 	if err != nil {
 		return i, errors.Wrap(err, "write to response writer")
 	}
-	_, err = br.b.Write(b)
+	_, err = rrw.b.Write(b)
 	return i, errors.Wrap(err, "write to buffered response writer")
 }
 
-func (br *bufferResponseWriter) Header() http.Header {
-	return br.rw.Header()
+func (rrw *recordResponseWriter) Header() http.Header {
+	return rrw.rw.Header()
 }
 
-func (br *bufferResponseWriter) WriteHeader(statusCode int) {
-	br.rw.WriteHeader(statusCode)
-	if br.statusCode != 0 {
-		br.statusCode = statusCode
+func (rrw *recordResponseWriter) WriteHeader(statusCode int) {
+	rrw.rw.WriteHeader(statusCode)
+	if rrw.statusCode != 0 {
+		rrw.statusCode = statusCode
 	}
 }
 
 func (w *dexWeb) provisioners(ctx context.Context) ([]provisioner, error) {
 	var ps []provisioner
 	if w.env.Config.DeterminedURL != "" {
-		d, err := newDeterminedProvisioner(ctx, determinedConfig{
+		d, err := newDeterminedProvisioner(ctx, determined.Config{
 			MasterURL: w.env.Config.DeterminedURL,
 			Username:  w.env.Config.DeterminedUsername,
 			Password:  w.env.Config.DeterminedPassword,

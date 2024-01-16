@@ -11,7 +11,7 @@ import (
 	"github.com/determined-ai/determined/proto/pkg/workspacev1"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/detutil"
+	det "github.com/pachyderm/pachyderm/v2/src/internal/determined"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -46,19 +46,18 @@ func TestDeterminedUserSync(t *testing.T) {
 	// collect initial determined users list
 	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
 	ctx := pctx.TestContext(t)
-	dc, ctx, cf, err := detutil.NewInClusterDetClient(ctx, detutil.DetConfig{
-		MasterURL: detUrl.String(),
-		Username:  "admin",
-		Password:  "",
-	})
+	dc, cf, err := det.NewClient(ctx, detUrl.String(), false)
 	require.NoError(t, err)
-	defer cf()
-	previous, err := detutil.GetUsers(ctx, dc)
+	defer require.NoError(t, cf())
+	token, err := det.MintToken(ctx, dc, "admin", "")
+	require.NoError(t, err)
+	ctx = det.AddToken(ctx, token)
+	previous, err := det.GetUsers(ctx, dc)
 	require.NoError(t, err)
 	// login to pachyderm with mock user
 	mockIDPLogin(t, c)
 	// assert that after logging into pachyderm, a determined user is created
-	current, err := detutil.GetUsers(ctx, dc)
+	current, err := det.GetUsers(ctx, dc)
 	require.NoError(t, err)
 	require.Equal(t, len(previous)+1, len(current), "the new pipeline has created an additional service user in Determined")
 
@@ -89,19 +88,18 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	// Log in and create a non-admin user with the kilgore email from pachyderm.
 	// The user should already exist in Determined due to the user synching system.
 	detUrl := minikubetestenv.DetNodeportHttpUrl(t, ns)
-	dc, ctx, cf, err := detutil.NewInClusterDetClient(ctx, detutil.DetConfig{
-		MasterURL: detUrl.String(),
-		Username:  "admin",
-		Password:  "",
-	})
+	dc, cf, err := det.NewClient(ctx, detUrl.String(), false)
 	require.NoError(t, err)
-	defer cf()
+	defer require.NoError(t, cf())
+	token, err := det.MintToken(ctx, dc, "admin", "")
+	require.NoError(t, err)
+	ctx = det.AddToken(ctx, token)
 	repoName := "images"
 	pipelineName := "edges"
 	workspaceName := "pach-test-workspace"
-	workspace, err := detutil.CreateWorkspace(ctx, dc, workspaceName)
+	workspace, err := det.CreateWorkspace(ctx, dc, workspaceName)
 	require.NoError(t, err)
-	previous, err := detutil.GetUsers(ctx, dc)
+	previous, err := det.GetUsers(ctx, dc)
 	require.NoError(t, err)
 	var user *userv1.User
 	for _, u := range previous {
@@ -111,9 +109,9 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		}
 	}
 	require.NotEqual(t, user, nil)
-	role, err := detutil.GetRole(ctx, dc, "Editor")
+	role, err := det.GetRole(ctx, dc, "Editor")
 	require.NoError(t, err)
-	require.NoError(t, detutil.AssignRole(ctx, dc, user.Id, role.RoleId, []*workspacev1.Workspace{workspace}))
+	require.NoError(t, det.AssignRole(ctx, dc, user.Id, role.RoleId, []*workspacev1.Workspace{workspace}))
 	// create repo and pipeline that should make the determined service user
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repoName))
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -135,7 +133,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 		},
 	)
 	require.NoError(t, err)
-	current, err := detutil.GetUsers(ctx, dc)
+	current, err := det.GetUsers(ctx, dc)
 	require.NoError(t, err)
 	require.Equal(t, len(previous)+1, len(current), "the new pipeline has created an additional service user in Determined")
 	// once a pipeline is deleted the users should eventually be cleaned up in determined
@@ -143,7 +141,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	require.NoError(t, err)
 	previous = current
 	require.NoErrorWithinTRetryConstant(t, 2*time.Minute, func() error {
-		current, err = detutil.GetUsers(ctx, dc)
+		current, err = det.GetUsers(ctx, dc)
 		require.NoError(t, err)
 		if len(previous)-1 == len(current) {
 			return errors.Errorf("the new pipeline has created an additional service user in Determined")

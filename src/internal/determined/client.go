@@ -1,4 +1,4 @@
-package detutil
+package determined
 
 import (
 	"context"
@@ -19,35 +19,30 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
-type DetConfig struct {
+type Config struct {
 	MasterURL string
 	Username  string
 	Password  string
 	TLS       bool
 }
 
-func NewInClusterDetClient(ctx context.Context, cfg DetConfig) (det.DeterminedClient, context.Context, context.CancelFunc, error) {
+func NewClient(ctx context.Context, masterURL string, withTLS bool) (client det.DeterminedClient, close func() error, retErr error) {
 	tlsOpt := grpc.WithTransportCredentials(insecure.NewCredentials())
-	if cfg.TLS {
+	if withTLS {
 		tlsOpt = grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
 			InsecureSkipVerify: true,
 		}))
 	}
-	determinedURL, err := url.Parse(cfg.MasterURL)
+	determinedURL, err := url.Parse(masterURL)
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "parsing determined url %q", cfg.MasterURL)
+		return nil, nil, errors.Wrapf(err, "parsing determined url %q", masterURL)
 	}
 	conn, err := grpc.DialContext(ctx, determinedURL.Host, tlsOpt, grpc.WithStreamInterceptor(mlc.LogStream), grpc.WithUnaryInterceptor(mlc.LogUnary))
 	if err != nil {
-		return nil, nil, nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
+		return nil, nil, errors.Wrapf(err, "dialing determined at %q", determinedURL.Host)
 	}
 	dc := det.NewDeterminedClient(conn)
-	tok, err := mintDeterminedToken(ctx, dc, cfg.Username, cfg.Password)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	ctx = metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", tok))
-	return dc, ctx, func() { conn.Close() }, nil
+	return dc, conn.Close, nil
 }
 
 func GetRole(ctx context.Context, dc det.DeterminedClient, name string) (*rbacv1.Role, error) {
@@ -97,7 +92,8 @@ func CreateWorkspace(ctx context.Context, dc det.DeterminedClient, workspace str
 	return w.Workspace, nil
 }
 
-func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username, password string) (string, error) {
+// MintToken returns a context with a determined token loaded into its Metadata
+func MintToken(ctx context.Context, dc det.DeterminedClient, username, password string) (string, error) {
 	loginResp, err := dc.Login(ctx, &det.LoginRequest{
 		Username: username,
 		Password: password,
@@ -106,6 +102,10 @@ func mintDeterminedToken(ctx context.Context, dc det.DeterminedClient, username,
 		return "", errors.Wrap(err, "login as determined user")
 	}
 	return loginResp.Token, nil
+}
+
+func AddToken(ctx context.Context, token string) context.Context {
+	return metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", token))
 }
 
 func GetUsers(ctx context.Context, dc det.DeterminedClient) ([]*userv1.User, error) {
