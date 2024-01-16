@@ -31,7 +31,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		AuthUser:   auth.RootUser,
 		Enterprise: true,
 		PortOffset: portOffset,
-		Determined: true,
+		Determined: false, // Disable dual determined tests without new test infra
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
