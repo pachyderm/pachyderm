@@ -40,7 +40,7 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 ## Community
 Keep up to date and get Pachyderm support via:
 - [![Twitter](https://img.shields.io/twitter/follow/pachyderminc?style=social)](https://twitter.com/pachyderminc) Follow us on Twitter.
-- [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io) Join our community [Slack Channel](https://slack.pachyderm.io) to get help from the Pachyderm team and other users.
+- [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io) Join our community [Slack Channel](https://www.pachyderm.com/slack) to get help from the Pachyderm team and other users.
 
 ## Contributing
 To get started, sign the [Contributor License Agreement](https://cla-assistant.io/pachyderm/pachyderm).
