@@ -1,5 +1,3 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
-
 filegroup(
     name = "all_protos",
     srcs = glob(["**/*.proto"]) + [
@@ -36,22 +34,4 @@ filegroup(
         "//src/worker:protos",
     ],
     visibility = ["//src/proto:__pkg__"],
-)
-
-go_library(
-    name = "src_lib",
-    srcs = ["foo.go"],
-    importpath = "github.com/pachyderm/pachyderm/v2/src",
-    visibility = ["//visibility:private"],
-    deps = [
-        "//src/internal/errors",
-        "//src/pfs",
-        "@com_github_gogo_protobuf//proto",
-    ],
-)
-
-go_binary(
-    name = "src",
-    embed = [":src_lib"],
-    visibility = ["//visibility:public"],
 )
