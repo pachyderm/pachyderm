@@ -6,7 +6,7 @@
 [![GitHub license](https://img.shields.io/badge/license-Pachyderm-blue)](https://github.com/pachyderm/pachyderm/blob/master/LICENSE)
 [![GoDoc](https://godoc.org/github.com/pachyderm/pachyderm?status.svg)](https://pkg.go.dev/github.com/pachyderm/pachyderm/v2/src/client)
 [![Go Report Card](https://goreportcard.com/badge/github.com/pachyderm/pachyderm)](https://goreportcard.com/report/github.com/pachyderm/pachyderm)
-[![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io)
+[![Slack Status](https://img.shields.io/badge/slack-pachyderm-brightgreen.svg?logo=slack)](https://www.pachyderm.com/slack)
 [![CLA assistant](https://cla-assistant.io/readme/badge/pachyderm/pachyderm)](https://cla-assistant.io/pachyderm/pachyderm)
 
 # Pachyderm – Automate data transformations with data versioning and lineage
@@ -40,7 +40,7 @@ If you'd like to see some examples and learn about core use cases for Pachyderm:
 ## Community
 Keep up to date and get Pachyderm support via:
 - [![Twitter](https://img.shields.io/twitter/follow/pachyderminc?style=social)](https://twitter.com/pachyderminc) Follow us on Twitter.
-- [![Slack Status](https://badge.slack.pachyderm.io/badge.svg)](https://slack.pachyderm.io) Join our community [Slack Channel](https://slack.pachyderm.io) to get help from the Pachyderm team and other users.
+- [![Slack Status](https://img.shields.io/badge/slack-pachyderm-brightgreen.svg?logo=slack)](https://www.pachyderm.com/slack) Join our community [Slack Channel](https://www.pachyderm.com/slack) to get help from the Pachyderm team and other users.
 
 ## Contributing
 To get started, sign the [Contributor License Agreement](https://cla-assistant.io/pachyderm/pachyderm).
