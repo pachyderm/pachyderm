@@ -92,7 +92,6 @@ func CreateWorkspace(ctx context.Context, dc det.DeterminedClient, workspace str
 	return w.Workspace, nil
 }
 
-// MintToken returns a context with a determined token loaded into its Metadata
 func MintToken(ctx context.Context, dc det.DeterminedClient, username, password string) (string, error) {
 	loginResp, err := dc.Login(ctx, &det.LoginRequest{
 		Username: username,
