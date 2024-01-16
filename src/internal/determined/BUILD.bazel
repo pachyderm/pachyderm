@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "detutil",
+    srcs = ["util.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/detutil",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/middleware/logging/client",
+        "@com_github_determined_ai_determined_proto//pkg/apiv1",
+        "@com_github_determined_ai_determined_proto//pkg/rbacv1",
+        "@com_github_determined_ai_determined_proto//pkg/userv1",
+        "@com_github_determined_ai_determined_proto//pkg/workspacev1",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//metadata",
+    ],
+)
+
+go_library(
+    name = "determined",
+    srcs = ["client.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/determined",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/middleware/logging/client",
+        "@com_github_determined_ai_determined_proto//pkg/apiv1",
+        "@com_github_determined_ai_determined_proto//pkg/rbacv1",
+        "@com_github_determined_ai_determined_proto//pkg/userv1",
+        "@com_github_determined_ai_determined_proto//pkg/workspacev1",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//metadata",
+    ],
+)
