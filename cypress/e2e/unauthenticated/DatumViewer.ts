@@ -1,22 +1,19 @@
 describe('DatumViewer', () => {
   beforeEach(() => {
     cy.deleteReposAndPipelines();
+    cy.multiLineExec(`
+      pachctl create repo data
+      echo "gibberish" | pachctl put file data@master:badImage.png
+      echo '{"pipeline": {"name": "lots-of-logs"},"description": "generate lots of logs","transform": {"cmd": ["bash"],"stdin": ["for (( i=0; i<=1500; i++)) do echo \\"log-$i\\"; done"]},"input": {"pfs": {"glob": "/*","repo": "data"}}}'  | pachctl create pipeline
+    `);
     cy.visit('/');
   });
 
+  after(() => {
+    cy.deleteReposAndPipelines();
+  });
+
   describe('Logs', () => {
-    beforeEach(() => {
-      cy.multiLineExec(`
-        pachctl create repo data
-        echo "gibberish" | pachctl put file data@master:badImage.png
-        echo '{"pipeline": {"name": "lots-of-logs"},"description": "generate lots of logs","transform": {"cmd": ["bash"],"stdin": ["for (( i=0; i<=1500; i++)) do echo \\"log-$i\\"; done"]},"input": {"pfs": {"glob": "/*","repo": "data"}}}'  | pachctl create pipeline
-      `);
-    });
-
-    after(() => {
-      cy.deleteReposAndPipelines();
-    });
-
     it('should page logs', () => {
       cy.visit('/lineage/default/pipelines/lots-of-logs');
 
@@ -51,6 +48,13 @@ describe('DatumViewer', () => {
       cy.get('@forward').should('be.disabled');
       cy.get('@backward').should('be.enabled');
       cy.get('@refresh').should('be.enabled');
+    });
+
+    it('should page load logs page without job id', () => {
+      cy.visit('/lineage/default/pipelines/lots-of-logs/logs');
+      cy.findByRole('link', {
+        name: /1 success/i,
+      });
     });
   });
 });

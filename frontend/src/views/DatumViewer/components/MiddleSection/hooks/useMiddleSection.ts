@@ -4,6 +4,7 @@ import {DatumState} from '@dash-frontend/api/pps';
 import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import {useDatum} from '@dash-frontend/hooks/useDatum';
 import {useJob} from '@dash-frontend/hooks/useJob';
+import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 const useMiddleSection = () => {
@@ -15,14 +16,25 @@ const useMiddleSection = () => {
     loading: pipelineLoading,
   } = useCurrentPipeline();
 
-  const {job, loading: loadingJob} = useJob(
+  const {jobs: _jobs, loading: loadingJobs} = useJobs(
+    {
+      limit: 1,
+      pipelineIds: [pipelineId],
+      projectName: projectId,
+    },
+    !jobId,
+  );
+
+  const {job: _job, loading: loadingJob} = useJob(
     {
       id: jobId,
       pipelineName: pipelineId,
       projectId,
     },
-    !!pipelineType && !isServiceOrSpout,
+    !!pipelineType && !isServiceOrSpout && !!jobId,
   );
+
+  const job = _job || _jobs?.[0];
 
   const {datum, loading: loadingDatum} = useDatum(
     {
@@ -69,7 +81,7 @@ const useMiddleSection = () => {
     headerText,
     headerValue,
     startTime,
-    loading: loadingJob || loadingDatum || pipelineLoading,
+    loading: loadingJob || loadingJobs || loadingDatum || pipelineLoading,
     isSkippedDatum,
     isServiceOrSpout,
   };
