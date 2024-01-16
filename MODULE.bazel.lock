@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "ad243f052b6216421b531ac5bbe3c02ca304f7e47af991716286219c2a9ce8f1",
+  "moduleFileHash": "0d935f0dce87e18da9a2a27de0c5889ec9035cd92b9749b9404e7eaa5f1f34f9",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -94,6 +94,7 @@
             "com_github_fsouza_go_dockerclient": "com_github_fsouza_go_dockerclient",
             "com_github_go_logr_zapr": "com_github_go_logr_zapr",
             "com_github_go_sql_driver_mysql": "com_github_go_sql_driver_mysql",
+            "com_github_gogo_protobuf": "com_github_gogo_protobuf",
             "com_github_golang_protobuf": "com_github_golang_protobuf",
             "com_github_google_btree": "com_github_google_btree",
             "com_github_google_go_cmp": "com_github_google_go_cmp",
@@ -523,7 +524,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 283,
+            "line": 284,
             "column": 32
           },
           "imports": {
@@ -573,7 +574,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 324,
+            "line": 325,
             "column": 20
           },
           "imports": {
@@ -595,7 +596,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 325,
+                "line": 326,
                 "column": 9
               }
             }
@@ -609,7 +610,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 336,
+            "line": 337,
             "column": 23
           },
           "imports": {},
@@ -624,7 +625,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 337,
+                "line": 338,
                 "column": 17
               }
             }
@@ -3499,7 +3500,7 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "f81ea0d6cc3e7da1536e222e223b1401d4c51a8d219710c9fbb284f3ba8f7a64",
+          "@@//:go.mod": "3daaf9762856489ba6cabff50c1e0b60154bec82aa744d35d3b6d7b377b808a1",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.44.1//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@//:go.sum": "f5dff5cc0a790d66a6599d04eb6bdb24b9fc0a4c6ad3a965abdd38657a5b1e56",
@@ -9815,6 +9816,7 @@
             "io_k8s_sigs_yaml",
             "com_github_alessio_shellescape",
             "com_github_fsnotify_fsnotify",
+            "com_github_gogo_protobuf",
             "com_github_google_shlex"
           ],
           "explicitRootModuleDirectDevDeps": [],

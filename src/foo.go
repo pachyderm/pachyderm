@@ -98,7 +98,7 @@ func validateExistingDAGs(cis []*pfs.CommitInfo) error {
 			if d.Origin.Kind == 4 {
 				aliasCount++
 			}
-			commitSet = d.Commit.ID
+			commitSet = d.Commit.Id
 			if d.ParentCommit != nil {
 				if _, ok := dups[oldCommitKey(d.ParentCommit)]; ok {
 					seen[oldCommitKey(d.Commit)] = struct{}{}
@@ -128,11 +128,11 @@ func repoKey(repo *pfs.Repo) string {
 }
 
 func oldCommitKey(commit *pfs.Commit) string {
-	return branchKey(commit.Branch) + "=" + commit.ID
+	return branchKey(commit.Branch) + "=" + commit.Id
 }
 
 func commitBranchlessKey(commit *pfs.Commit) string {
-	return repoKey(commit.Branch.Repo) + "@" + commit.ID
+	return repoKey(commit.Branch.Repo) + "@" + commit.Id
 }
 
 func branchKey(branch *pfs.Branch) string {
