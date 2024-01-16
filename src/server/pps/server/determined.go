@@ -53,7 +53,7 @@ func (a *apiServer) hookDeterminedPipeline(ctx context.Context, p *pps.Pipeline,
 		if err != nil {
 			return errors.Wrapf(err, "mint determined token for user", a.env.Config.DeterminedUsername)
 		}
-		ctx = detutil.AddToken(ctx, token)
+		ctx = detutil.WithToken(ctx, token)
 		detWorkspaces, err := detutil.GetWorkspaces(ctx, dc, workspaces)
 		if err != nil {
 			return err
@@ -113,7 +113,7 @@ func gcDetUsers(ctx context.Context, config detutil.Config, period time.Duration
 		if err != nil {
 			return errors.Wrapf(err, "mint determined token for user %q", config.Username)
 		}
-		detCtx := detutil.AddToken(ctx, token)
+		detCtx := detutil.WithToken(ctx, token)
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {

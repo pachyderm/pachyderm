@@ -67,7 +67,7 @@ func newDeterminedProvisioner(ctx context.Context, config detutil.Config) (provi
 }
 
 func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*user, error) {
-	ctx = detutil.AddToken(ctx, d.token)
+	ctx = detutil.WithToken(ctx, d.token)
 	u, err := d.dc.GetUserByUsername(ctx, &det.GetUserByUsernameRequest{Username: name})
 	if err != nil {
 		err = errors.Wrapf(err, "get determined user %q", name)
@@ -99,7 +99,7 @@ func (d *determinedProvisioner) findUser(ctx context.Context, name string) (*use
 }
 
 func (d *determinedProvisioner) createUser(ctx context.Context, usr *user) (*user, error) {
-	ctx = detutil.AddToken(ctx, d.token)
+	ctx = detutil.WithToken(ctx, d.token)
 	u, err := d.dc.PostUser(ctx, &det.PostUserRequest{User: &userv1.User{
 		Username:    usr.name,
 		Active:      true,
@@ -114,7 +114,7 @@ func (d *determinedProvisioner) createUser(ctx context.Context, usr *user) (*use
 }
 
 func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*group, error) {
-	ctx = detutil.AddToken(ctx, d.token)
+	ctx = detutil.WithToken(ctx, d.token)
 	g, err := d.dc.GetGroups(ctx, &det.GetGroupsRequest{Name: name, Limit: 500})
 	if err != nil {
 		return nil, errNotFound{err: errors.Wrapf(err, "failed to find determiend group %v", name)}
@@ -126,7 +126,7 @@ func (d *determinedProvisioner) findGroup(ctx context.Context, name string) (*gr
 }
 
 func (d *determinedProvisioner) createGroup(ctx context.Context, grp *group) (*group, error) {
-	ctx = detutil.AddToken(ctx, d.token)
+	ctx = detutil.WithToken(ctx, d.token)
 	g, err := d.dc.CreateGroup(ctx, &det.CreateGroupRequest{Name: grp.name})
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create determiend group %v", grp.name)
@@ -135,7 +135,7 @@ func (d *determinedProvisioner) createGroup(ctx context.Context, grp *group) (*g
 }
 
 func (d *determinedProvisioner) setUserGroups(ctx context.Context, usr *user, groups []*group) error {
-	ctx = detutil.AddToken(ctx, d.token)
+	ctx = detutil.WithToken(ctx, d.token)
 	gIds := make(map[int32]struct{})
 	for _, g := range groups {
 		gIds[g.id] = struct{}{}

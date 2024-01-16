@@ -51,7 +51,7 @@ func TestDeterminedUserSync(t *testing.T) {
 	defer require.NoError(t, cf())
 	token, err := det.MintToken(ctx, dc, "admin", "")
 	require.NoError(t, err)
-	ctx = det.AddToken(ctx, token)
+	ctx = det.WithToken(ctx, token)
 	previous, err := det.GetUsers(ctx, dc)
 	require.NoError(t, err)
 	// login to pachyderm with mock user
@@ -93,7 +93,7 @@ func TestDeterminedInstallAndIntegration(t *testing.T) {
 	defer require.NoError(t, cf())
 	token, err := det.MintToken(ctx, dc, "admin", "")
 	require.NoError(t, err)
-	ctx = det.AddToken(ctx, token)
+	ctx = det.WithToken(ctx, token)
 	repoName := "images"
 	pipelineName := "edges"
 	workspaceName := "pach-test-workspace"

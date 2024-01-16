@@ -104,7 +104,7 @@ func MintToken(ctx context.Context, dc det.DeterminedClient, username, password 
 	return loginResp.Token, nil
 }
 
-func AddToken(ctx context.Context, token string) context.Context {
+func WithToken(ctx context.Context, token string) context.Context {
 	return metadata.AppendToOutgoingContext(ctx, "x-user-token", fmt.Sprintf("Bearer %s", token))
 }
 
