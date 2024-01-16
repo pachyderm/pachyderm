@@ -641,6 +641,17 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
+func determinedPriorityClassesExist(t testing.TB, ctx context.Context, kubeClient *kube.Clientset) bool {
+	pcs, err := kubeClient.SchedulingV1().PriorityClasses().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "finding determined priorityclasses")
+	for _, pc := range pcs.Items {
+		if pc.Name == "determined-medium-priority" || pc.Name == "determined-system-priority" {
+			return true
+		}
+	}
+	return false
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, f helmPutE, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -685,6 +696,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
 		require.NoError(t, err, "Error templating determined values temp file")
 		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after
+		if determinedPriorityClassesExist(t, ctx, kubeClient) {                     // installing on a seperate namespace with determined means we can't make priority classes
+			opts.ValueOverrides["determined.createNonNamespacedObjects"] = "false"
+		}
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset
