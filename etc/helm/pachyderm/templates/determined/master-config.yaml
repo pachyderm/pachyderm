@@ -82,7 +82,7 @@ stringData:
     {{- if .Values.determined.enterpriseEdition }}
     {{- if .Values.determined.oidc }}
     oidc:
-      enabled: {{ .Values.determined.oidc.enabled | default true }}
+      enabled: {{ .Values.determined.oidc.enabled | default false }}
       provider: {{ default .Values.determined.oidc.provider "dex"}}
       idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.oidc.idpRecipientUrl }}
       idp_sso_url: {{ default .Values.determined.oidc.idpSsoUrl (include "pachyderm.issuerURI" . | quote) }}
@@ -97,7 +97,7 @@ stringData:
 
     {{- if .Values.determined.scim }}
     scim:
-      enabled: {{ .Values.determined.scim.enabled | default true }}
+      enabled: {{ .Values.determined.scim.enabled | default false }}
       auth:
         type: {{ required "A valid authentication type is required!" .Values.determined.scim.auth.type }}
         {{- if eq .Values.determined.scim.auth.type "basic" }}
