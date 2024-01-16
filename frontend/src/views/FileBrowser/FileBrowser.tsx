@@ -26,7 +26,7 @@ import styles from './FileBrowser.module.css';
 import useFileBrowser from './hooks/useFileBrowser';
 
 const FileBrowser: React.FC = () => {
-  const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
+  const {repoId, projectId, filePath, commitId} = useUrlState();
   const browserHistory = useHistory();
 
   const {
@@ -39,6 +39,7 @@ const FileBrowser: React.FC = () => {
     isDirectory,
     isRoot,
     selectedCommitId,
+    selectedCommitBranchName,
     handleBackNav,
     pageSize,
     setPageSize,
@@ -53,7 +54,6 @@ const FileBrowser: React.FC = () => {
     browserHistory.push(
       fileBrowserRoute({
         repoId,
-        branchId,
         projectId,
         commitId,
       }),
@@ -69,7 +69,10 @@ const FileBrowser: React.FC = () => {
         <LeftPanel selectedCommitId={selectedCommitId} />
         <FullPagePanelModal.Body>
           <div className={styles.base}>
-            <FileHeader commitId={selectedCommitId} />
+            <FileHeader
+              commitId={selectedCommitId}
+              selectedCommitBranchName={selectedCommitBranchName}
+            />
             {!fileToPreview && !loading && (
               <div className={styles.header}>
                 <div data-testid="FileBrowser__title">

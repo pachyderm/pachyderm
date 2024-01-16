@@ -2,6 +2,7 @@ import React, {useMemo, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {useBranches} from '@dash-frontend/hooks/useBranches';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {fileBrowserLatestRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
@@ -16,7 +17,9 @@ import styles from './BranchSelect.module.css';
 
 const BranchSelect: React.FC = () => {
   const browserHistory = useHistory();
-  const {projectId, repoId, branchId} = useUrlState();
+  const {projectId, repoId} = useUrlState();
+  const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
+
   const [searchFilter, setSearchFilter] = useState('');
 
   const {branches} = useBranches({
@@ -26,12 +29,21 @@ const BranchSelect: React.FC = () => {
 
   const updateSelectedBranch = (selectedBranchId?: string) => {
     setSearchFilter('');
+
+    const params = selectedBranchId
+      ? {
+          branchId: `${selectedBranchId}`,
+        }
+      : {branchId: undefined};
+
     browserHistory.push(
-      fileBrowserLatestRoute({
-        projectId,
-        repoId,
-        branchId: selectedBranchId || 'default',
-      }),
+      `${fileBrowserLatestRoute(
+        {
+          projectId,
+          repoId,
+        },
+        false,
+      )}?${getUpdatedSearchParams(params, false)}`,
     );
   };
 
@@ -47,7 +59,9 @@ const BranchSelect: React.FC = () => {
 
   return (
     <Dropdown className={styles.base}>
-      <Dropdown.Button>{branchId}</Dropdown.Button>
+      <Dropdown.Button>
+        {searchParams.branchId || 'Viewing all commits'}
+      </Dropdown.Button>
       <Dropdown.Menu className={styles.menu}>
         <div className={styles.search}>
           <Icon className={styles.searchIcon} small>
@@ -71,16 +85,33 @@ const BranchSelect: React.FC = () => {
           )}
         </div>
 
-        {(filteredBranches || []).map((value) => (
+        {searchParams.branchId && (
           <Dropdown.MenuItem
             closeOnClick
-            onClick={() => updateSelectedBranch(value?.branch?.name)}
-            key={value?.branch?.name}
-            id={value?.branch?.name || 'default'}
+            onClick={() => updateSelectedBranch(undefined)}
+            key="AllCommits"
+            id="AllCommits"
           >
-            {value?.branch?.name}
+            View all commits
           </Dropdown.MenuItem>
-        ))}
+        )}
+
+        {(filteredBranches || []).map((value) => {
+          if (!value?.branch?.name) {
+            return null;
+          }
+
+          return (
+            <Dropdown.MenuItem
+              closeOnClick
+              onClick={() => updateSelectedBranch(value?.branch?.name)}
+              key={value?.branch?.name}
+              id={value?.branch?.name}
+            >
+              {value?.branch?.name}
+            </Dropdown.MenuItem>
+          );
+        })}
       </Dropdown.Menu>
     </Dropdown>
   );

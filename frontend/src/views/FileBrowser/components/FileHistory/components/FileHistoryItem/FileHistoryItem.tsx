@@ -20,7 +20,7 @@ import useFileHistoryItem from './hooks/useFileHistoryItem';
 type FileHistoryItemProps = {commit: CommitInfo};
 
 const FileHistoryItem: React.FC<FileHistoryItemProps> = ({commit}) => {
-  const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
+  const {repoId, projectId, filePath, commitId} = useUrlState();
 
   const {loading, commitAction} = useFileHistoryItem(commit);
 
@@ -35,7 +35,6 @@ const FileHistoryItem: React.FC<FileHistoryItemProps> = ({commit}) => {
               projectId,
               repoId: repoId,
               commitId: commit.commit?.id || '',
-              branchId,
               filePath,
             })
           : undefined

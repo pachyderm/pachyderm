@@ -74,7 +74,6 @@ const useCommitsList = (selectedRepo: string, reverseOrder: boolean) => {
       projectId,
       repoId: commitInfo.commit?.repo?.name || '',
       commitId: commitInfo.commit?.id || '',
-      branchId: commitInfo.commit?.branch?.name || 'default',
     });
     browserHistory.push(fileBrowserLink);
   };

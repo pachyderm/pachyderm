@@ -32,15 +32,11 @@ const useCommitList = (commits?: CommitInfo[]) => {
 
   const displayCommits = searchedCommit ? [searchedCommit] : commits;
 
-  const updateSelectedCommit = (
-    selectedCommitId: string,
-    selectedBranchId?: string,
-  ) => {
+  const updateSelectedCommit = (selectedCommitId: string) => {
     browserHistory.push(
       fileBrowserRoute({
         projectId,
         repoId,
-        branchId: selectedBranchId || '',
         commitId: selectedCommitId,
       }),
     );

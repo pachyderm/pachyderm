@@ -24,6 +24,7 @@ import {
   mockImagesFiles,
   mockEmptyInspectPipeline,
   mockGetVersionInfo,
+  mockGetImageCommitsNoBranch,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -44,7 +45,7 @@ describe('File Browser', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90',
     );
     server.use(mockGetVersionInfo());
     server.use(mockEmptyGetAuthorize());
@@ -64,7 +65,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/images/branch/master/latest',
+        '/project/default/repos/images/latest',
       );
       render(<FileBrowser />);
       const selectedCommit = (
@@ -86,7 +87,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe',
+        '/project/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe',
       );
       render(<FileBrowser />);
 
@@ -136,6 +137,7 @@ describe('File Browser', () => {
   describe('Middle Section', () => {
     it('should display commit id and branch, and copy path on click', async () => {
       render(<FileBrowser />);
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
       expect(
         screen.getByText('Commit: 4a83c74809664f899261baccdb47cd90'),
@@ -152,6 +154,20 @@ describe('File Browser', () => {
       );
     });
 
+    it('should display commit id only if there is no branch', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/images/latest',
+      );
+      server.use(mockGetImageCommitsNoBranch());
+      render(<FileBrowser />);
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      expect(screen.getByTestId('FileHeader__path')).toHaveTextContent(
+        'Repository.../Commit: g2bb3e50cd124b76840145a8c18f8892',
+      );
+    });
+
     it('should navigate to file preview on action click', async () => {
       render(<FileBrowser />);
 
@@ -161,7 +177,7 @@ describe('File Browser', () => {
       await click((await screen.findAllByText('Preview'))[0]);
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
+        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
       );
     });
 
@@ -169,7 +185,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/cats%2F/',
+        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/cats%2F/',
       );
       render(<FileBrowser />);
       await screen.findByText('Folder: cats');
@@ -178,7 +194,7 @@ describe('File Browser', () => {
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
       expect(screen.getByText('Commit files for')).toBeInTheDocument();
       expect(window.location.pathname).toBe(
-        '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/',
+        '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/',
       );
     });
 
@@ -188,7 +204,7 @@ describe('File Browser', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/images/branch/master/commit/4eb1aa567dab483f93a109db4641ee75/',
+        '/project/default/repos/images/commit/4eb1aa567dab483f93a109db4641ee75/',
       );
       render(<FileBrowser />);
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
@@ -231,9 +247,8 @@ describe('File Browser', () => {
           async (req, res, ctx) => {
             const body = await req.json();
             if (
-              body.file.commit.branch.repo.project.name === 'default' &&
-              body.file.commit.branch.repo.name === 'images' &&
-              body.file.commit.branch.name === 'master' &&
+              body.file.commit.repo.project.name === 'default' &&
+              body.file.commit.repo.name === 'images' &&
               body.file.commit.id === '4a83c74809664f899261baccdb47cd90'
             ) {
               if (Number(body.number) === 51 && !body.paginationMarker.path) {

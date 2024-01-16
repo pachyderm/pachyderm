@@ -30,7 +30,7 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
   selectedFiles,
   addSelection,
 }) => {
-  const {repoId, branchId, projectId} = useUrlState();
+  const {repoId, projectId} = useUrlState();
 
   const {
     deleteModalOpen,
@@ -60,9 +60,10 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
             },
             type: 'user',
           },
-          branch: {
-            name: branchId,
-          },
+          //: Double check but commit id should be enough here
+          // branch: {
+          //   name: branchId,
+          // },
         },
         path: file.file?.path,
       },

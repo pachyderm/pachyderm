@@ -1,24 +1,24 @@
 import {useCallback} from 'react';
 
 import {encodeArchiveUrl} from '@dash-frontend/api/pfs';
-import useUrlState from '@dash-frontend/hooks/useUrlState';
 
-const useArchiveDownload = () => {
-  const {repoId, commitId, branchId, projectId} = useUrlState();
-
+const useArchiveDownload = (
+  projectId: string,
+  repoId: string,
+  commitOrBranchId: string,
+) => {
   const archiveDownload = useCallback(
     async (paths: string[]) => {
-      const identifier = commitId ? commitId : branchId;
       const downloadResponse = await encodeArchiveUrl({
         projectId,
         repoId,
-        commitId: identifier,
+        commitId: commitOrBranchId,
         paths: paths,
       });
 
       window.open(downloadResponse.url);
     },
-    [branchId, commitId, projectId, repoId],
+    [commitOrBranchId, projectId, repoId],
   );
 
   return {archiveDownload};

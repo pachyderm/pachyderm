@@ -1,9 +1,13 @@
 import React from 'react';
+import {useRouteMatch} from 'react-router-dom';
 
 import {CommitInfo} from '@dash-frontend/api/pfs';
+import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import formatBytes from '@dash-frontend/lib/formatBytes';
 import {FormattedFileDiff} from '@dash-frontend/lib/types';
-import {CaptionTextSmall, LoadingDots} from '@pachyderm/components';
+import {LINEAGE_REPO_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
+import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
+import {CaptionTextSmall, Link, LoadingDots} from '@pachyderm/components';
 
 import styles from './CommitDetails.module.css';
 
@@ -28,6 +32,13 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
   commitDiff,
   diffLoading,
 }) => {
+  const {getPathToFileBrowser} = useFileBrowserNavigation();
+
+  const isLineageRepoRoute = useRouteMatch({
+    path: LINEAGE_REPO_PATH,
+    exact: true,
+  });
+
   if (!commit) return null;
 
   const diffFiles = [
@@ -39,6 +50,15 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
   const parentCommitSize = formatBytes(
     Number(commit.details?.sizeBytes || 0) - (commitDiff?.size || 0),
   );
+
+  const parentCommitLinkText = `${commit.parentCommit?.id?.slice(0, 6)}...${
+    commit.commit?.branch?.name ? `@${commit.commit?.branch?.name}` : ''
+  }`;
+  const parentCommitParams = {
+    projectId: commit.commit?.repo?.project?.name || '',
+    repoId: commit.commit?.repo?.name || '',
+    commitId: commit.parentCommit?.id || '',
+  };
 
   return (
     <div className={styles.base}>
@@ -57,7 +77,21 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
         </CaptionTextSmall>
       </div>
       <div className={styles.commitCardHeader}>
-        <CaptionTextSmall>@{commit.commit?.branch?.name}</CaptionTextSmall>
+        {commit.parentCommit?.id && (
+          <div className={styles.parentCommit}>
+            <CaptionTextSmall>Parent Commit</CaptionTextSmall>
+            <Link
+              to={
+                isLineageRepoRoute
+                  ? getPathToFileBrowser(parentCommitParams)
+                  : fileBrowserRoute(parentCommitParams)
+              }
+              aria-label="Inspect Parent Commit"
+            >
+              {parentCommitLinkText}
+            </Link>
+          </div>
+        )}
       </div>
       <div className={styles.commitCardBody}>
         {diffLoading && (

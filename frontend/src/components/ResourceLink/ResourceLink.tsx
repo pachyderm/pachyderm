@@ -16,7 +16,6 @@ type ResourceLinkProps = {
 };
 
 interface CommitLinkProps extends ResourceLinkProps {
-  branch: string;
   repoName: string;
 }
 
@@ -79,7 +78,6 @@ export const PipelineLink: React.FC<ResourceLinkProps> = ({name, ...rest}) => {
 
 export const CommitLink: React.FC<CommitLinkProps> = ({
   name,
-  branch,
   repoName,
   ...rest
 }) => {
@@ -88,7 +86,6 @@ export const CommitLink: React.FC<CommitLinkProps> = ({
   const path = getPathToFileBrowser({
     projectId,
     commitId: name,
-    branchId: branch,
     repoId: repoName,
   });
 

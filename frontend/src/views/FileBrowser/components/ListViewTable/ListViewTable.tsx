@@ -23,6 +23,8 @@ const SELECT_FILES_DELETE = 'Select one or more files to multi-delete files';
 const SELECT_FILES_DOWNLOAD =
   'Select one or more files to multi-download files';
 const OUTPUT_REPO = 'You cannot delete files in an output repo';
+const NO_BRANCH =
+  'You cannot delete files from a commit that is not associated with a branch';
 
 const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
   const {
@@ -40,17 +42,21 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
     downloadSelected,
     noFilesSelected,
     isOutputRepo,
-  } = useListViewTable();
+  } = useListViewTable(files);
 
-  const deleteDisabled = isOutputRepo || pipelineLoading || noFilesSelected;
+  const deleteDisabled =
+    isOutputRepo || pipelineLoading || noFilesSelected || !branchId;
 
+  let tooltipText = SELECT_FILES_DELETE;
+  if (isOutputRepo) {
+    tooltipText = OUTPUT_REPO;
+  } else if (!branchId) {
+    tooltipText = NO_BRANCH;
+  }
   return (
     <>
       <Group spacing={8} className={styles.headerButtons}>
-        <Tooltip
-          tooltipText={isOutputRepo ? OUTPUT_REPO : SELECT_FILES_DELETE}
-          disabled={!deleteDisabled}
-        >
+        <Tooltip tooltipText={tooltipText} disabled={!deleteDisabled}>
           <span>
             <Button
               IconSVG={TrashSVG}
@@ -107,6 +113,7 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
         <BasicModal
           show={deleteModalOpen}
           onHide={closeModal}
+          //TODO: UPDATE
           headerContent={`Are you sure you want to delete the selected items from ${repoId}@${branchId}?`}
           actionable
           mode="Small"

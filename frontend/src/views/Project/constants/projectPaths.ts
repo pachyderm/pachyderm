@@ -8,9 +8,9 @@ export const PROJECT_RUNS_JOB_PATH = '/project/:projectId/jobs/subjobs?';
 export const PROJECT_FILE_UPLOAD_PATH =
   '/project/:projectId/repos/:repoId/upload';
 export const PROJECT_FILE_BROWSER_PATH =
-  '/project/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath?/';
+  '/project/:projectId/repos/:repoId/commit/:commitId/:filePath?/';
 export const PROJECT_FILE_BROWSER_PATH_LATEST =
-  '/project/:projectId/repos/:repoId/branch/:branchId/latest';
+  '/project/:projectId/repos/:repoId/latest';
 
 export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/project/:projectId/logs/pipelines/:pipelineId/logs`;
 export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH = `/project/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
@@ -27,9 +27,9 @@ export const LINEAGE_FILE_UPLOAD_PATH =
   '/lineage/:projectId/repos/:repoId/upload';
 
 export const LINEAGE_FILE_BROWSER_PATH =
-  '/lineage/:projectId/repos/:repoId/branch/:branchId/commit/:commitId/:filePath?/';
+  '/lineage/:projectId/repos/:repoId/commit/:commitId/:filePath?/';
 export const LINEAGE_FILE_BROWSER_PATH_LATEST =
-  '/lineage/:projectId/repos/:repoId/branch/:branchId/latest';
+  '/lineage/:projectId/repos/:repoId/latest';
 
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
@@ -75,5 +75,5 @@ export const PROJECT_PATHS = [
   CREATE_PIPELINE_PATH,
   UPDATE_PIPELINE_PATH,
   DUPLICATE_PIPELINE_PATH,
-  ...PROJECT_SIDENAV_PATHS
+  ...PROJECT_SIDENAV_PATHS,
 ];

@@ -34,6 +34,7 @@ export interface UrlState extends ListParams {
   prevPath?: string;
   sortBy?: string;
   globalIdFilter?: string;
+  branchId?: string;
 }
 export interface ViewStateLists {
   selectedPipelines?: string[];
@@ -53,6 +54,7 @@ export interface ViewStateValues {
   prevPath?: string;
   sortBy?: string;
   globalIdFilter?: string;
+  branchId?: string;
 }
 export interface ViewState extends ViewStateValues, ViewStateLists {}
 

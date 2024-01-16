@@ -4,6 +4,7 @@ import {useHistory} from 'react-router';
 import {useCommits} from '@dash-frontend/hooks/useCommits';
 import useFileBrowserNavigation from '@dash-frontend/hooks/useFileBrowserNavigation';
 import {useFiles} from '@dash-frontend/hooks/useFiles';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
   repoRoute,
@@ -15,7 +16,10 @@ import {FILE_DEFAULT_PAGE_SIZE} from '../constants/FileBrowser';
 
 const useFileBrowser = () => {
   const browserHistory = useHistory();
-  const {repoId, commitId, branchId, filePath, projectId} = useUrlState();
+  const {repoId, commitId, filePath, projectId} = useUrlState();
+  const {
+    searchParams: {branchId},
+  } = useUrlQueryState();
   const {closeModal, isOpen} = useModal(true);
   const {getPathFromFileBrowser} = useFileBrowserNavigation();
   const previousCommitId = usePreviousValue(commitId);
@@ -52,6 +56,8 @@ const useFileBrowser = () => {
   }, [branchId, commitId, filePath, previousCommitId, previousFilePath]);
 
   const selectedCommitId = commitId || commits?.[0]?.commit?.id;
+  const selectedCommitBranchName = commits?.[0]?.commit?.branch?.name;
+
   const isCommitOpen = !commits?.[0]?.finished;
 
   const {
@@ -62,9 +68,9 @@ const useFileBrowser = () => {
   } = useFiles(
     {
       projectName: projectId,
-      commitId: commitId ? commitId : '',
+      // if we are on the /latest path we can reference the selected commit
+      commitId: commitId ? commitId : selectedCommitId,
       path: path || '/',
-      branchName: branchId,
       repoName: repoId,
       args: {
         cursorPath: cursors[page - 1] || undefined,
@@ -116,7 +122,6 @@ const useFileBrowser = () => {
     browserHistory.push(
       fileBrowserRoute({
         repoId,
-        branchId,
         projectId,
         commitId,
         filePath: parentPath === '/' ? undefined : parentPath,
@@ -135,6 +140,7 @@ const useFileBrowser = () => {
     isDirectory,
     isRoot,
     selectedCommitId,
+    selectedCommitBranchName,
     pageSize,
     setPageSize,
     page,

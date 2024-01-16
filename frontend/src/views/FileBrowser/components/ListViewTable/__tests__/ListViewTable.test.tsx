@@ -22,7 +22,11 @@ import {
   mockGetVersionInfo,
   mockStartCommit,
 } from '@dash-frontend/mocks';
-import {MOCK_IMAGES_FILES, mockEncode} from '@dash-frontend/mocks/files';
+import {
+  MOCK_IMAGES_FILES,
+  buildFile,
+  mockEncode,
+} from '@dash-frontend/mocks/files';
 import {click, hover, withContextProviders} from '@dash-frontend/testHelpers';
 
 import {default as ListViewTableComponent} from '../ListViewTable';
@@ -44,7 +48,7 @@ describe('List View Table', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90',
     );
     server.use(mockGetVersionInfo());
     server.use(mockEmptyCommitDiff());
@@ -120,7 +124,7 @@ describe('List View Table', () => {
 
     await click(screen.getByText('AT-AT.png'));
     expect(window.location.pathname).toBe(
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png/',
     );
   });
 
@@ -129,7 +133,7 @@ describe('List View Table', () => {
 
     await click(screen.getByText('cats'));
     expect(window.location.pathname).toBe(
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/cats%2F/',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/cats%2F/',
     );
   });
 
@@ -140,7 +144,7 @@ describe('List View Table', () => {
     await click((await screen.findAllByText('Copy Path'))[0]);
 
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-      'images@master=4a83c74809664f899261baccdb47cd90:/AT-AT.png',
+      'images@4a83c74809664f899261baccdb47cd90:/AT-AT.png',
     );
   });
 
@@ -197,7 +201,7 @@ describe('List View Table', () => {
       await click(deleteConfirm);
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/images/branch/master/commit/720d471659dc4682a53576fdb637a482/',
+        '/project/default/repos/images/commit/720d471659dc4682a53576fdb637a482/',
       );
     });
 
@@ -258,7 +262,7 @@ describe('List View Table', () => {
       await click(deleteConfirm);
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/images/branch/master/commit/720d471659dc4682a53576fdb637a482/',
+        '/project/default/repos/images/commit/720d471659dc4682a53576fdb637a482/',
       );
     });
 
@@ -266,7 +270,7 @@ describe('List View Table', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/montage/branch/master/commit/4a83c74809664f899261baccdb47cd90',
+        '/project/default/repos/montage/commit/4a83c74809664f899261baccdb47cd90',
       );
       server.use(mockGetMontagePipeline());
       render(<ListViewTable files={MOCK_IMAGES_FILES} />);
@@ -286,6 +290,58 @@ describe('List View Table', () => {
       await hover(deleteButton);
       expect(
         screen.getByText('You cannot delete files in an output repo'),
+      ).toBeInTheDocument();
+
+      await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    });
+
+    it('should not allow file deletion for commits without branches', async () => {
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/montage/commit/4a83c74809664f899261baccdb47cd90',
+      );
+
+      const noBranchFile = buildFile({
+        file: {
+          commit: {
+            repo: {
+              name: 'images',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '4a83c74809664f899261baccdb47cd90',
+          },
+          path: '/AT-AT.png',
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '80590',
+      });
+
+      render(<ListViewTable files={[noBranchFile]} />);
+
+      const deleteButton = screen.getByRole('button', {
+        name: /delete selected items/i,
+      });
+      expect(deleteButton).toBeDisabled();
+
+      await click(
+        screen.getByRole('cell', {
+          name: /at-at\.png/i,
+        }),
+      );
+
+      expect(deleteButton).toBeDisabled();
+      await hover(deleteButton);
+      expect(
+        screen.getByText(
+          'You cannot delete files from a commit that is not associated with a branch',
+        ),
       ).toBeInTheDocument();
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);

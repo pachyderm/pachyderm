@@ -12,6 +12,7 @@ import {
   mockFinishCommit,
   mockGetMontagePipeline,
   mockEmptyInspectPipeline,
+  mockGetImageCommitsNoBranch,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -87,7 +88,7 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        `/project/default/repos/file/branch/master/commit/252d1850a5fa484ca7320ce1091cf483/${fileName}`,
+        `/project/default/repos/file/commit/252d1850a5fa484ca7320ce1091cf483/${fileName}`,
       );
 
       render(<FilePreview file={file} />);
@@ -343,7 +344,7 @@ describe('File Preview', () => {
         file: {
           commit: {
             repo: {
-              name: 'unsupported',
+              name: 'lots-of-commits',
               type: 'user',
               project: {
                 name: 'default',
@@ -372,7 +373,7 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -429,7 +430,7 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -476,7 +477,7 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/branch/${file.file?.commit?.branch?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
+        `/project/${file.file?.commit?.repo?.project?.name}/repos/${file.file?.commit?.repo?.name}/commit/${file.file?.commit?.id}${file.file?.path}`,
       );
 
       render(<FilePreview file={file} />);
@@ -524,7 +525,7 @@ describe('File Preview', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/image/branch/master/commit/default/image.png',
+      '/project/default/repos/image/commit/default/image.png',
     );
 
     it('should navigate to parent path on button link', async () => {
@@ -537,7 +538,7 @@ describe('File Preview', () => {
       );
 
       expect(window.location.pathname).toBe(
-        '/project/default/repos/image/branch/master/commit/252d1850a5fa484ca7320ce1091cf483/',
+        '/project/default/repos/image/commit/252d1850a5fa484ca7320ce1091cf483/',
       );
     });
 
@@ -548,7 +549,7 @@ describe('File Preview', () => {
       await click((await screen.findAllByText('Copy Path'))[0]);
 
       expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
-        'image@master=252d1850a5fa484ca7320ce1091cf483:/image.png',
+        'image@252d1850a5fa484ca7320ce1091cf483:/image.png',
       );
     });
 
@@ -556,9 +557,42 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/montage/branch/master/commit/default/image.png',
+        '/project/default/repos/montage/commit/default/image.png',
       );
       server.use(mockGetMontagePipeline());
+      render(<FilePreview file={file} />);
+
+      await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
+      expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+    });
+
+    it('should not allow file deletion for commits with no branch', async () => {
+      const file = buildFile({
+        file: {
+          commit: {
+            repo: {
+              name: 'image',
+              type: 'user',
+              project: {
+                name: 'default',
+              },
+            },
+            id: '252d1850a5fa484ca7320ce1091cf483',
+          },
+          path: '/image.png',
+          datum: 'default',
+        },
+        fileType: FileType.FILE,
+        committed: '2023-11-08T18:12:19.363338Z',
+        sizeBytes: '58650',
+      });
+
+      window.history.replaceState(
+        {},
+        '',
+        '/project/default/repos/montage/commit/default/image.png',
+      );
+      server.use(mockGetImageCommitsNoBranch());
       render(<FilePreview file={file} />);
 
       await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
@@ -569,7 +603,7 @@ describe('File Preview', () => {
       window.history.replaceState(
         {},
         '',
-        '/project/default/repos/image/branch/master/commit/default/image.png',
+        '/project/default/repos/image/commit/default/image.png',
       );
       server.use(mockEmptyInspectPipeline());
       server.use(mockStartCommit('720d471659dc4682a53576fdb637a482'));
@@ -601,7 +635,7 @@ describe('File Preview', () => {
       // The delete is finished after navigating to the new commit
       await waitFor(() =>
         expect(window.location.pathname).toBe(
-          '/project/default/repos/image/branch/master/commit/720d471659dc4682a53576fdb637a482/',
+          '/project/default/repos/image/commit/720d471659dc4682a53576fdb637a482/',
         ),
       );
     });

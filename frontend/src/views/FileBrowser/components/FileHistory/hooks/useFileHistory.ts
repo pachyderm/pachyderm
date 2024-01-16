@@ -7,7 +7,7 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 
 const useFileHistory = () => {
-  const {repoId, branchId, projectId, filePath, commitId} = useUrlState();
+  const {repoId, projectId, filePath, commitId} = useUrlState();
   const [commitCursors, setCommitCursors] = useState<string[]>([]);
   const [commitList, setCommitList] = useState<CommitInfo[]>([]);
 
@@ -19,13 +19,13 @@ const useFileHistory = () => {
             ? commitCursors[commitCursors.length - 1]
             : commitId,
         branch: {
-          name: branchId,
-          repo: {name: repoId, project: {name: projectId}, type: 'user'},
+          //TODO: Remove branch once core fixes
         },
+        repo: {name: repoId, project: {name: projectId}, type: 'user'},
       },
       filePath: `/${filePath}`,
     }),
-    [branchId, commitCursors, commitId, filePath, projectId, repoId],
+    [commitCursors, commitId, filePath, projectId, repoId],
   );
 
   const {findCommits, commits, cursor, loading, error} = useFindCommits(req);

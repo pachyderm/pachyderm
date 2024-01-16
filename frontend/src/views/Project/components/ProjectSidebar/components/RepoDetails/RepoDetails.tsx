@@ -178,36 +178,34 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
         </Switch>
       </div>
 
-      {!currentRepoLoading &&
-        hasRepoRead &&
-        (!commit || repo?.branches?.length === 0) && (
-          <>
-            <EmptyState
-              title={<>This repo doesn&apos;t have any data</>}
-              message={
-                <>
-                  This is normal for new repositories. If you are interested in
-                  learning more:
-                </>
-              }
-              linkToDocs={{
-                text: 'View our documentation about managing data',
-                pathWithoutDomain: '/prepare-data/ingest-data/',
-              }}
-            />
-            {hasRepoWrite && (
-              <Link
-                className={styles.link}
-                to={fileUploadRoute({projectId, repoId})}
-              >
-                Upload files
-                <Icon small color="inherit">
-                  <UploadSVG className={styles.linkIcon} />
-                </Icon>
-              </Link>
-            )}
-          </>
-        )}
+      {!currentRepoLoading && hasRepoRead && !commit && (
+        <>
+          <EmptyState
+            title={<>This repo doesn&apos;t have any data</>}
+            message={
+              <>
+                This is normal for new repositories. If you are interested in
+                learning more:
+              </>
+            }
+            linkToDocs={{
+              text: 'View our documentation about managing data',
+              pathWithoutDomain: '/prepare-data/ingest-data/',
+            }}
+          />
+          {hasRepoWrite && (
+            <Link
+              className={styles.link}
+              to={fileUploadRoute({projectId, repoId})}
+            >
+              Upload files
+              <Icon small color="inherit">
+                <UploadSVG className={styles.linkIcon} />
+              </Icon>
+            </Link>
+          )}
+        </>
+      )}
       {!currentRepoLoading && !hasRepoRead && (
         <EmptyState
           title={<>{`You don't have permission to view this repo`}</>}
@@ -238,7 +236,6 @@ const RepoDetails: React.FC<RepoDetailsProps> = ({pipelineOutputsMap = {}}) => {
                       projectId,
                       repoId,
                       commitId: commit.commit.id,
-                      branchId: commit.commit.branch?.name || '',
                     })}
                     disabled={!commit}
                     aria-label="Inspect Commit"

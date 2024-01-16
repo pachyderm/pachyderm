@@ -39,7 +39,6 @@ describe('useFileBrowserNavigation', () => {
       projectId: 'projectA',
       repoId: 'repoA',
       commitId: '1234',
-      branchId: 'master',
       filePath: '/cats',
     };
     window.history.pushState('', '', backPath);
@@ -49,7 +48,7 @@ describe('useFileBrowserNavigation', () => {
       screen.getByText(
         `path to file browser: /project/${args.projectId}/repos/${
           args.repoId
-        }/branch/${args.branchId}/commit/${args.commitId}/${encodeURIComponent(
+        }/commit/${args.commitId}/${encodeURIComponent(
           args.filePath,
         )}/?prevPath=${encodeURIComponent(backPath)}`,
       ),
@@ -59,7 +58,7 @@ describe('useFileBrowserNavigation', () => {
   it('should get the correct path from the file browser', async () => {
     const backPath = '/backupPath';
     const path =
-      '/project/projectA/repos/repoA/branch/master/commit/1234/%2Fcats/?prevPath=%2Fproject%2FprojectA%2Frepos%2FrepoA';
+      '/project/projectA/repos/repoA/commit/1234/%2Fcats/?prevPath=%2Fproject%2FprojectA%2Frepos%2FrepoA';
     window.history.pushState('', '', path);
 
     render(<NavigationFromComponent backupPath={backPath} />);
@@ -70,8 +69,7 @@ describe('useFileBrowserNavigation', () => {
 
   it('should get the correct backup path from the file browser if prevPath is not available', async () => {
     const backPath = '/backupPath';
-    const path =
-      '/project/projectA/repos/repoA/branch/master/commit/1234/%2Fcats/';
+    const path = '/project/projectA/repos/repoA/commit/1234/%2Fcats/';
     window.history.pushState('', '', path);
 
     render(<NavigationFromComponent backupPath={backPath} />);

@@ -40,6 +40,7 @@ import {
   mockEmptyJob,
   mockFalseGetAuthorize,
   mockTrueGetAuthorize,
+  mockGetImageCommitsNoBranch,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -183,7 +184,7 @@ describe('ProjectSidebar', () => {
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/montage/branch/master/commit/5c1aa9bc87dd411ba5a1be0c80a3ebc2/?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
+        '/lineage/default/repos/montage/commit/5c1aa9bc87dd411ba5a1be0c80a3ebc2/?prevPath=%2Flineage%2Fdefault%2Fpipelines%2Fmontage',
       );
 
       expect(within(overviewTab).getAllByText(/"joinOn"/)).toHaveLength(2);
@@ -715,6 +716,7 @@ description: >-
       expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
       await screen.findByText('4a83c74809664f899261baccdb47cd90');
       expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
+      await screen.findByText('4eb1aa...@master');
 
       await waitFor(() =>
         expect(
@@ -728,7 +730,7 @@ description: >-
         })[0],
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+        '/lineage/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
 
       const previousCommits = screen.queryAllByTestId('CommitList__commit');
@@ -748,8 +750,60 @@ description: >-
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+        '/lineage/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
+    });
+
+    it('should display repo details for commit without branch', async () => {
+      window.history.replaceState('', '', '/lineage/default/repos/images');
+
+      server.use(mockGetImageCommitsNoBranch());
+
+      render(<Project />);
+
+      await screen.findByRole('heading', {name: 'images'});
+
+      expect(
+        screen.getByRole('definition', {
+          name: /commit message/i,
+        }),
+      ).toHaveTextContent('I deleted this branch');
+
+      expect(
+        screen.getByRole('definition', {
+          name: /repo created/i,
+        }),
+      ).toHaveTextContent('Jul 24, 2023; 17:58');
+
+      expect(
+        screen.getByRole('definition', {
+          name: /most recent commit start/i,
+        }),
+      ).toHaveTextContent('Jul 24, 2023; 17:58');
+
+      expect(await screen.findByText('139.24 kB')).toBeInTheDocument();
+      await screen.findByText('g2bb3e50cd124b76840145a8c18f8892');
+      expect(screen.getByText('+ 58.65 kB')).toBeInTheDocument();
+      await screen.findByText('73fe17...');
+
+      await waitFor(() =>
+        expect(
+          screen.queryByTestId('CommitList__loadingdots'),
+        ).not.toBeInTheDocument(),
+      );
+
+      expect(
+        screen.getAllByRole('link', {
+          name: 'Inspect Commit',
+        })[0],
+      ).toHaveAttribute(
+        'href',
+        '/lineage/default/repos/images/commit/g2bb3e50cd124b76840145a8c18f8892/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+      );
+      const previousCommits = screen.queryAllByTestId('CommitList__commit');
+      expect(previousCommits).toHaveLength(1);
+      expect(previousCommits[0]).toHaveTextContent(/73fe17.../);
+      expect(previousCommits[0]).toHaveTextContent('Jul 24, 2023; 17:58');
     });
 
     it('should display specific commit details when a global id filter is applied', async () => {
@@ -781,7 +835,7 @@ description: >-
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
+        '/lineage/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
       );
 
       expect(
@@ -790,7 +844,7 @@ description: >-
         }),
       ).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
+        '/lineage/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/?globalIdFilter=c43fffd650a24b40b7d9f1bf90fcfdbe&prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages%3FglobalIdFilter%3Dc43fffd650a24b40b7d9f1bf90fcfdbe',
       );
 
       expect(screen.queryAllByTestId('CommitList__commit')).toHaveLength(0);
@@ -881,7 +935,7 @@ description: >-
       });
       expect(fileBrowserLink).toHaveAttribute(
         'href',
-        '/lineage/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
+        '/lineage/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/?prevPath=%2Flineage%2Fdefault%2Frepos%2Fimages',
       );
     });
 

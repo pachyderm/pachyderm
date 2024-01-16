@@ -99,7 +99,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
                       {commit?.commit?.id}
                     </Table.DataCell>
                     <Table.DataCell>
-                      {commit?.commit?.branch?.name || '-'}
+                      {commit?.commit?.branch?.name}
                     </Table.DataCell>
                     <Table.DataCell width={120}>
                       {formatBytes(

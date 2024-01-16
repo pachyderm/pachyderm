@@ -69,7 +69,7 @@ describe('Repo Commits List', () => {
     await click((await screen.findAllByText('Inspect commit'))[2]);
 
     expect(window.location.pathname).toBe(
-      '/project/default/repos/images/branch/master/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/',
+      '/project/default/repos/images/commit/c43fffd650a24b40b7d9f1bf90fcfdbe/',
     );
   });
 

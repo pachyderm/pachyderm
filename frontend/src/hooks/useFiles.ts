@@ -14,14 +14,13 @@ type UseFilesArgs = {
 type UseFiles = {
   projectName: string;
   repoName: string;
-  branchName: string;
   commitId?: string;
   path?: string;
   args: UseFilesArgs;
 };
 
 export const useFiles = (
-  {projectName, repoName, branchName, commitId, path, args}: UseFiles,
+  {projectName, repoName, commitId, path, args}: UseFiles,
   enabled = true,
 ) => {
   const {
@@ -32,7 +31,6 @@ export const useFiles = (
     queryKey: queryKeys.files<UseFilesArgs>({
       projectId: projectName,
       repoId: repoName,
-      branchName,
       commitId,
       path,
       args,
@@ -44,14 +42,11 @@ export const useFiles = (
         file: {
           commit: {
             id: commitId,
-            branch: {
-              name: branchName,
-              repo: {
-                name: repoName,
-                type: 'user',
-                project: {
-                  name: projectName,
-                },
+            repo: {
+              name: repoName,
+              type: 'user',
+              project: {
+                name: projectName,
               },
             },
           },
@@ -60,14 +55,11 @@ export const useFiles = (
         paginationMarker: {
           commit: {
             id: commitId,
-            branch: {
-              name: branchName,
-              repo: {
-                name: repoName,
-                type: 'user',
-                project: {
-                  name: projectName,
-                },
+            repo: {
+              name: repoName,
+              type: 'user',
+              project: {
+                name: projectName,
               },
             },
           },

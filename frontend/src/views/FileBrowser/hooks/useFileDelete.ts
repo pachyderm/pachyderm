@@ -13,8 +13,8 @@ const useFileDelete = (file: FileInfo) => {
     closeModal,
     isOpen: deleteModalOpen,
   } = useModal(false);
-  const {repoId, branchId, projectId} = useUrlState();
-
+  const {repoId, projectId} = useUrlState();
+  const branchId = file.file?.commit?.branch?.name || undefined;
   const {loading: pipelineLoading, pipeline} = usePipeline({
     pipeline: {
       name: repoId,
@@ -33,7 +33,6 @@ const useFileDelete = (file: FileInfo) => {
       browserHistory.push(
         fileBrowserRoute({
           repoId,
-          branchId,
           projectId,
           commitId: id,
         }),
@@ -45,7 +44,7 @@ const useFileDelete = (file: FileInfo) => {
     deleteHook({
       filePaths: [file.file?.path || ''],
       repoId: repoId,
-      branchId: branchId,
+      branchId: branchId || '',
       projectId,
     });
   };

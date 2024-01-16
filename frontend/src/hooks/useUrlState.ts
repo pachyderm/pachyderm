@@ -19,14 +19,12 @@ const useUrlState = () => {
   const projectId = getDecodedRouteParam(match, 'projectId');
   const repoId = getDecodedRouteParam(match, 'repoId');
   const pipelineId = getDecodedRouteParam(match, 'pipelineId');
-  const branchId = getDecodedRouteParam(match, 'branchId');
   const commitId = getDecodedRouteParam(match, 'commitId');
   const filePath = getDecodedRouteParam(match, 'filePath');
   const jobId = getDecodedRouteParam(match, 'jobId');
   const datumId = getDecodedRouteParam(match, 'datumId');
 
   return {
-    branchId,
     projectId,
     repoId,
     pipelineId,

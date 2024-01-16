@@ -162,9 +162,8 @@ export const mockImagesFiles = () =>
     async (req, res, ctx) => {
       const body = await req.json();
       if (
-        body.file.commit.branch.repo.project.name === 'default' &&
-        body.file.commit.branch.repo.name === 'images' &&
-        body.file.commit.branch.name === 'master' &&
+        body.file.commit.repo.project.name === 'default' &&
+        body.file.commit.repo.name === 'images' &&
         body.file.commit.id === '4a83c74809664f899261baccdb47cd90'
       ) {
         if (body.file.path === '/cats/') {

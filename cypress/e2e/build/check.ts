@@ -9,7 +9,7 @@ describe('Docker Build', () => {
       `pachctl create repo images
       echo "hello, this is a text file" | pachctl put file images@master:data.txt -f -
       `,
-    ).visit('/lineage/default/repos/images/branch/master/latest');
+    ).visit('/lineage/default/repos/images/latest');
     cy.findByText('data.txt').click();
 
     cy.findByText('hello, this is a text file').should('exist');

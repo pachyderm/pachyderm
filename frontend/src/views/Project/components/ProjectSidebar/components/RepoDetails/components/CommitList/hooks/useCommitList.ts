@@ -17,7 +17,7 @@ const useCommitList = (repo?: RepoInfo) => {
         number: COMMIT_LIMIT,
       },
     },
-    !repo || repo.branches?.length === 0,
+    !repo,
   );
   const [, ...previousCommits] = commits || [];
 

@@ -32,7 +32,6 @@ const InspectCommitsButton: React.FC = () => {
               projectId,
               repoId: repoId,
               commitId: commit.commit?.id || '',
-              branchId: commit.commit?.branch?.name || 'default',
             })
           : ''
       }

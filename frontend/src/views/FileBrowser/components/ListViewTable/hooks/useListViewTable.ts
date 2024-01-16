@@ -1,6 +1,7 @@
 import {useCallback, useEffect, useState} from 'react';
 import {useHistory} from 'react-router';
 
+import {FileInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import useDeleteFiles from '@dash-frontend/hooks/useDeleteFiles';
 import {usePipeline} from '@dash-frontend/hooks/usePipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
@@ -8,8 +9,11 @@ import useArchiveDownload from '@dash-frontend/views/FileBrowser/hooks/useArchiv
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useModal} from '@pachyderm/components';
 
-const useListViewTable = () => {
-  const {repoId, branchId, projectId, filePath} = useUrlState();
+const useListViewTable = (files: FileInfo[]) => {
+  const {repoId, projectId, filePath} = useUrlState();
+  const commitId = files[0]?.file?.commit?.id || '';
+  const branchId = files[0]?.file?.commit?.branch?.name || '';
+
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
   const browserHistory = useHistory();
 
@@ -55,7 +59,6 @@ const useListViewTable = () => {
       browserHistory.push(
         fileBrowserRoute({
           repoId,
-          branchId,
           projectId,
           commitId: id,
         }),
@@ -67,12 +70,12 @@ const useListViewTable = () => {
     deleteHook({
       filePaths: selectedFiles,
       repoId: repoId,
-      branchId: branchId,
+      branchId: branchId || '',
       projectId,
     });
   };
 
-  const {archiveDownload} = useArchiveDownload();
+  const {archiveDownload} = useArchiveDownload(projectId, repoId, commitId);
 
   const downloadSelected = useCallback(async () => {
     await archiveDownload(selectedFiles);

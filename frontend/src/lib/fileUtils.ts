@@ -7,13 +7,12 @@ export const getDownloadLink = (file: FileInfo) => {
     file.fileType !== FileType.DIR &&
     (Number(file.sizeBytes) || 0) <= FILE_DOWNLOAD_LIMIT
   ) {
-    const repoName = file.file?.commit?.branch?.repo?.name;
-    const branchName = file.file?.commit?.branch?.name;
+    const repoName = file.file?.commit?.repo?.name;
     const commitId = file.file?.commit?.id;
     const filePath = file.file?.path;
-    const projectId = file.file?.commit?.branch?.repo?.project?.name;
+    const projectId = file.file?.commit?.repo?.project?.name;
 
-    if (repoName && branchName && commitId && filePath) {
+    if (repoName && commitId && filePath) {
       return `/proxyForward/pfs/${projectId}/${repoName}/${commitId}${filePath}`;
     }
   }

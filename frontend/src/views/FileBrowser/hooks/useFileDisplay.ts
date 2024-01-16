@@ -7,11 +7,10 @@ import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {useClipboardCopy} from '@pachyderm/components';
 
 const useFileDisplay = (file: FileInfo) => {
-  const {repoId, branchId, projectId} = useUrlState();
+  const {repoId, projectId} = useUrlState();
   const {parsedFilePath} = useFileDetails(file.file?.path || '');
   const filePath = fileBrowserRoute({
     repoId,
-    branchId,
     projectId,
     commitId: file.file?.commit?.id || '',
     // remove forward slash from path for route
@@ -19,7 +18,7 @@ const useFileDisplay = (file: FileInfo) => {
   });
 
   const {copy} = useClipboardCopy(
-    `${repoId}@${branchId}=${file.file?.commit?.id || ''}:${file.file?.path}`,
+    `${repoId}@${file.file?.commit?.id || ''}:${file.file?.path}`,
   );
 
   const fileType = useMemo(() => {

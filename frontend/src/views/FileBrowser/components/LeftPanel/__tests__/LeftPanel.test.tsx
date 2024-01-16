@@ -48,7 +48,7 @@ describe('Left Panel', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90',
     );
     render(<LeftPanel />);
     expect(
@@ -64,7 +64,7 @@ describe('Left Panel', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/XYZ',
+      '/project/default/repos/images/commit/XYZ',
     );
     render(<LeftPanel selectedCommitId={'c43fffd650a24b40b7d9f1bf90fcfdbe'} />);
     const selectedCommit = (
@@ -85,7 +85,7 @@ describe('Left Panel', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4eb1aa567dab483f93a109db4641ee75',
+      '/project/default/repos/images/commit/4eb1aa567dab483f93a109db4641ee75',
     );
 
     server.use(
@@ -136,14 +136,14 @@ describe('Left Panel', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('should allow users to switch branches', async () => {
+  it('should allow users to switch branches and default to all commits for the /latest path', async () => {
     server.use(mockGetBranches());
     server.use(
       rest.post<ListCommitRequest, Empty, CommitInfo[]>(
         '/api/pfs_v2.API/ListCommit',
         async (req, res, ctx) => {
           const body = await req.json();
-          if (body.to.branch.name === 'master') {
+          if (body.to?.branch?.name === 'test') {
             return res(ctx.json([COMMIT_INFO_4A]));
           }
           return res(ctx.json([COMMIT_INFO_C4]));
@@ -151,30 +151,27 @@ describe('Left Panel', () => {
       ),
     );
 
-    window.history.replaceState(
-      {},
-      '',
-      '/lineage/default/repos/images/branch/master/latest',
-    );
+    window.history.replaceState({}, '', '/lineage/default/repos/images/latest');
     render(<LeftPanel />);
 
     const dropdown = await screen.findByTestId('DropdownButton__button');
 
-    expect(dropdown).toHaveTextContent('master');
+    expect(dropdown).toHaveTextContent('Viewing all commits');
     let selectedCommit = (
       await screen.findAllByTestId('CommitList__listItem')
     )[0];
     expect(selectedCommit).toHaveTextContent(
-      '4a83c74809664f899261baccdb47cd90',
+      'c43fffd650a24b40b7d9f1bf90fcfdbe',
     );
 
     await click(dropdown);
     await click(await screen.findByText('test'));
     expect(dropdown).toHaveTextContent('test');
 
+    expect(window.location.search).toBe('?branchId=test');
     selectedCommit = (await screen.findAllByTestId('CommitList__listItem'))[0];
     expect(selectedCommit).toHaveTextContent(
-      'c43fffd650a24b40b7d9f1bf90fcfdbe',
+      '4a83c74809664f899261baccdb47cd90',
     );
   });
 
@@ -187,15 +184,15 @@ describe('Left Panel', () => {
           const body = await req.json();
           const {number, to} = body;
 
-          if (Number(number) === 51 && !to.id) {
+          if (Number(number) === 51 && !to?.id) {
             return res(ctx.json(commits.slice(0, 51)));
           }
 
-          if (Number(number) === 51 && to.id === commits[50].commit?.id) {
+          if (Number(number) === 51 && to?.id === commits[50].commit?.id) {
             return res(ctx.json(commits.slice(50, 100)));
           }
 
-          if (Number(number) === 51 && !to.id) {
+          if (Number(number) === 51 && !to?.id) {
             return res(ctx.json(commits));
           }
 
@@ -207,9 +204,9 @@ describe('Left Panel', () => {
     window.history.replaceState(
       {},
       '',
-      '/lineage/default/repos/images/branch/master/commit/4eb1aa567dab483f93a109db4641ee75',
+      '/lineage/default/repos/images/commit/4eb1aa567dab483f93a109db4641ee75',
     );
-    render(<LeftPanel />);
+    render(<LeftPanel selectedCommitId={'4eb1aa567dab483f93a109db4641ee75'} />);
     const forwards = await screen.findByTestId('Pager__forward');
     const backwards = await screen.findByTestId('Pager__backward');
     expect(await screen.findByText('Commits 1 - 50')).toBeInTheDocument();

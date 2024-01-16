@@ -20,14 +20,17 @@ const useFileActions = (
   const {copy, fileName, filePath, fileType} = useFileDisplay(file);
   const browserHistory = useHistory();
 
-  const {repoId, branchId, projectId, commitId} = useUrlState();
+  const {repoId, projectId} = useUrlState();
+  const commitId = file.file?.commit?.id || '';
+  const branchId = file.file?.commit?.branch?.name;
+
   const {loading: pipelineLoading, pipeline} = usePipeline({
     pipeline: {
       name: repoId,
       project: {name: projectId},
     },
   });
-  const deleteDisabled = Boolean(pipeline) || pipelineLoading;
+  const deleteDisabled = Boolean(pipeline) || pipelineLoading || !branchId;
 
   const downloadLink = getDownloadLink(file);
 
@@ -38,7 +41,6 @@ const useFileActions = (
     browserHistory.push(
       fileBrowserRoute({
         repoId,
-        branchId,
         projectId,
         commitId,
         filePath: parentPath === '/' ? undefined : parentPath,
@@ -46,7 +48,7 @@ const useFileActions = (
     );
   };
 
-  const {archiveDownload} = useArchiveDownload();
+  const {archiveDownload} = useArchiveDownload(projectId, repoId, commitId);
 
   const onMenuSelect = (id: string) => {
     switch (id) {

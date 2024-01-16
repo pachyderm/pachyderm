@@ -94,12 +94,7 @@ const CommitList: React.FC<CommitListProps> = ({
         displayCommits.map((commit) => {
           const selected = commit.commit?.id === selectedCommitId;
           const onClick = () =>
-            !selected
-              ? updateSelectedCommit(
-                  commit.commit?.id || '',
-                  commit.commit?.branch?.name,
-                )
-              : null;
+            !selected ? updateSelectedCommit(commit.commit?.id || '') : null;
           return (
             <ListItem
               data-testid="CommitList__listItem"

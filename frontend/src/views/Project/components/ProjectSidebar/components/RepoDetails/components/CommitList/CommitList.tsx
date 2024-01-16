@@ -45,7 +45,7 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
     );
   }
 
-  if (repo?.branches?.length === 0 && !commits?.length) {
+  if (!commits?.length) {
     return null;
   }
 
@@ -82,8 +82,10 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
               </CaptionTextSmall>
               <CaptionTextSmall
                 className={styles.commitText}
-              >{`${commit.commit?.id?.slice(0, 6)}...@${
+              >{`${commit.commit?.id?.slice(0, 6)}...${
                 commit.commit?.branch?.name
+                  ? `@${commit.commit?.branch?.name}`
+                  : ''
               } | ${commit.origin?.kind?.toLowerCase()}`}</CaptionTextSmall>
               <span className={styles.bottomContent}>
                 <span>{formatBytes(commit.details?.sizeBytes)}</span>
@@ -94,7 +96,6 @@ const CommitList: React.FC<CommitListProps> = ({repo}) => {
                       projectId,
                       repoId,
                       commitId: commit.commit?.id || '',
-                      branchId: commit.commit?.branch?.name || '',
                     })}
                   >
                     Inspect Commit

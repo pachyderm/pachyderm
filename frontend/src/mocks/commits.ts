@@ -59,6 +59,7 @@ export const COMMIT_INFO_4A: CommitInfo = buildCommit({
   details: {
     sizeBytes: '139232',
   },
+  parentCommit: {id: '4eb1aa567dab483f93a109db4641ee75'},
 });
 
 export const COMMIT_INFO_C4: CommitInfo = buildCommit({
@@ -84,6 +85,40 @@ export const IMAGE_COMMITS: CommitInfo[] = [
   COMMIT_INFO_4A,
   COMMIT_INFO_4E,
   COMMIT_INFO_C4,
+];
+
+export const COMMIT_INFO_G2_NO_BRANCH: CommitInfo = buildCommit({
+  commit: {
+    id: 'g2bb3e50cd124b76840145a8c18f8892',
+    repo: {name: 'images', project: {name: 'default'}},
+  },
+  description: 'I deleted this branch',
+  started: '2023-07-24T17:58:25Z',
+  finished: '2023-07-24T17:58:25Z',
+  sizeBytesUpperBound: '139232',
+  details: {
+    sizeBytes: '139232',
+  },
+  parentCommit: {id: '73fe17002aab4126a671c042678a62b2'},
+});
+
+export const COMMIT_INFO_73_NO_BRANCH: CommitInfo = buildCommit({
+  commit: {
+    id: '73fe17002aab4126a671c042678a62b2',
+    repo: {name: 'images', project: {name: 'default'}},
+  },
+  description: 'initial commit',
+  started: '2023-07-24T17:58:25Z',
+  finished: '2023-07-25T21:45:05Z',
+  sizeBytesUpperBound: '58644',
+  details: {
+    sizeBytes: '58644',
+  },
+});
+
+export const IMAGE_COMMITS_NO_BRANCH: CommitInfo[] = [
+  COMMIT_INFO_G2_NO_BRANCH,
+  COMMIT_INFO_73_NO_BRANCH,
 ];
 
 type generateCommitsArgs = {
@@ -164,6 +199,19 @@ export const mockGetImageCommits = () =>
       // regular listCommit response
       if (body.repo.name === 'images' && body.repo.project.name === 'default') {
         return res(ctx.json(IMAGE_COMMITS));
+      }
+      return res(ctx.json([]));
+    },
+  );
+
+export const mockGetImageCommitsNoBranch = () =>
+  rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+    '/api/pfs_v2.API/ListCommit',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      // regular listCommit response
+      if (body.repo.name === 'images' && body.repo.project.name === 'default') {
+        return res(ctx.json(IMAGE_COMMITS_NO_BRANCH));
       }
       return res(ctx.json([]));
     },

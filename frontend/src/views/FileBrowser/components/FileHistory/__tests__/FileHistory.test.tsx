@@ -44,7 +44,7 @@ describe('File History', () => {
     window.history.replaceState(
       {},
       '',
-      '/project/default/repos/images/branch/master/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png',
+      '/project/default/repos/images/commit/4a83c74809664f899261baccdb47cd90/AT-AT.png',
     );
     server.use(mockGetEnterpriseInfoInactive());
     server.use(

@@ -103,7 +103,7 @@ describe('Repos', () => {
     cy.visit('/lineage/default/repos/TestRepo');
     cy.findByText('80.59 kB', {timeout: 30000}).should('exist');
     cy.findByText('New').should('exist');
-    cy.findByText('@test').should('exist');
+    cy.findByText('Parent Commit').should('exist');
 
     cy.findByRole('link', {name: 'Previous Commits'}).click();
 

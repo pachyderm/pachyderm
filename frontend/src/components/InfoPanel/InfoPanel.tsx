@@ -238,7 +238,6 @@ const InfoPanel: React.FC<InfoPanelProps> = ({hideReadLogs, className}) => {
               <CommitLink
                 data-testid="InfoPanel__commitLink"
                 name={job?.outputCommit?.id}
-                branch={job?.outputCommit?.branch?.name}
                 repoName={job?.job?.pipeline?.name || ''}
               />
             </Description>

@@ -2,6 +2,7 @@ import {useEffect, useState} from 'react';
 
 import {usePreviousValue} from '@dash-frontend/../components/src';
 import {useCommits} from '@dash-frontend/hooks/useCommits';
+import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {COMMIT_PAGE_SIZE} from '@dash-frontend/views/FileBrowser/constants/FileBrowser';
 
@@ -11,7 +12,11 @@ const useLeftPanel = (selectedCommitId?: string) => {
   const [currentCursor, setCurrentCursor] = useState('');
   const [refetching, setRefetching] = useState(false);
 
-  const {projectId, repoId, branchId} = useUrlState();
+  const {projectId, repoId} = useUrlState();
+  const {
+    searchParams: {branchId},
+  } = useUrlQueryState();
+
   const previousBranchId = usePreviousValue(branchId);
 
   useEffect(() => {
