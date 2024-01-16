@@ -186,7 +186,6 @@ use_repo(
     "com_github_fsouza_go_dockerclient",
     "com_github_go_logr_zapr",
     "com_github_go_sql_driver_mysql",
-    "com_github_gogo_protobuf",
     "com_github_golang_protobuf",
     "com_github_google_btree",
     "com_github_google_go_cmp",
