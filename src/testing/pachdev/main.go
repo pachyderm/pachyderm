@@ -13,9 +13,10 @@ func restartClusterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "restart cluster",
 		Short: "Restart the entire kind cluster and redeploy Pachyderm",
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Restarting the cluster...")
 			// TODO: Implement 'restart cluster' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -27,6 +28,7 @@ func restartDeploymentCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Restarting Pachyderm...")
 			// TODO: Implement 'restart pach-deployment' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -42,6 +44,7 @@ func restartPachdCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Restarting Pachyderm...")
 			// TODO: Implement 'restart pods' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -54,6 +57,7 @@ func updateDeploymentCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Redeploying Pachyderm...")
 			// TODO: Implement 'update pach-deployment' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -66,6 +70,7 @@ func updatePachdCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Restarting Pachyderm pods...")
 			// TODO: Implement 'update pods' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -78,6 +83,7 @@ func updateImagesCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			fmt.Println("Updating images in kind...")
 			// TODO: Implement 'update images' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -90,6 +96,7 @@ func printImagesCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Listing images...")
 			// TODO: Implement 'list images' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -102,6 +109,7 @@ func printHelmCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Listing values...")
 			// TODO: Implement 'list values' logic
+			panic("Not implemented")
 		},
 	}
 }
@@ -114,6 +122,7 @@ func printManifestCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Println("Printing manifest...")
 			// TODO: Implement 'print manifest' logic
+			panic("Not implemented")
 		},
 	}
 }
