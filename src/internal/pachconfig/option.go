@@ -12,8 +12,13 @@ func ApplyOptions(config *Configuration, opts ...ConfigOption) {
 // config with certain default values overridden via options.
 func ConfigFromOptions(opts ...ConfigOption) *Configuration {
 	result := &Configuration{
-		GlobalConfiguration:             &GlobalConfiguration{},
-		PachdSpecificConfiguration:      &PachdSpecificConfiguration{},
+		GlobalConfiguration: &GlobalConfiguration{},
+		PachdSpecificConfiguration: &PachdSpecificConfiguration{
+			StorageConfiguration: StorageConfiguration{
+				StorageGCPeriod:      0,
+				StorageChunkGCPeriod: 0,
+			},
+		},
 		WorkerSpecificConfiguration:     &WorkerSpecificConfiguration{},
 		EnterpriseSpecificConfiguration: &EnterpriseSpecificConfiguration{},
 	}

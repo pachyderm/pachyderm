@@ -1,6 +1,7 @@
 package pager
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -35,7 +36,14 @@ func Page(noop bool, out io.Writer, run func(out io.Writer) error) error {
 		cmd.Stdin = r
 		cmd.Stdout = out
 		cmd.Stderr = os.Stderr
-		return errors.EnsureStack(cmd.Run())
+		if err := cmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "unable to run pager %q: %v\n", pager[0], err)
+			// Fall back to what amounts to `cat`.
+			if _, err := io.Copy(out, r); err != nil {
+				return errors.EnsureStack(err)
+			}
+		}
+		return nil
 	})
 	return errors.EnsureStack(eg.Wait())
 }

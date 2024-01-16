@@ -43,6 +43,7 @@ go_library(
 
 go_test(
     name = "cmds_test",
+    size = "small",
     srcs = [
         "cmds_realenv_test.go",
         "cmds_simple_test.go",

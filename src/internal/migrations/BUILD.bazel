@@ -17,6 +17,7 @@ go_library(
 
 go_test(
     name = "migrations_test",
+    size = "small",
     srcs = ["migrations_test.go"],
     embed = [":migrations"],
     deps = [

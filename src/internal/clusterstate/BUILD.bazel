@@ -42,6 +42,7 @@ go_library(
 
 go_test(
     name = "clusterstate_test",
+    size = "small",
     srcs = [
         "v2.7.0_test.go",
         "v2.8.0_test.go",

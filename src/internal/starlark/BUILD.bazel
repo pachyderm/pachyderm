@@ -33,6 +33,7 @@ go_library(
 
 go_test(
     name = "starlark_test",
+    size = "small",
     srcs = [
         "reflect_test.go",
         "repl_test.go",

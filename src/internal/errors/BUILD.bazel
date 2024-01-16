@@ -14,6 +14,7 @@ go_library(
 
 go_test(
     name = "errors_test",
+    size = "small",
     srcs = ["multi_test.go"],
     embed = [":errors"],
     deps = ["@com_github_pkg_errors//:errors"],

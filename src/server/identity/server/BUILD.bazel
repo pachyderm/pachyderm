@@ -46,6 +46,7 @@ go_library(
 
 go_test(
     name = "server_test",
+    size = "small",
     srcs = [
         "api_server_test.go",
         "dex_api_test.go",

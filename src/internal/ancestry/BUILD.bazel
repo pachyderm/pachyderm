@@ -10,6 +10,7 @@ go_library(
 
 go_test(
     name = "ancestry_test",
+    size = "small",
     srcs = ["ancestry_test.go"],
     embed = [":ancestry"],
     deps = ["//src/internal/require"],

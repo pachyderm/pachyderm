@@ -126,6 +126,7 @@ func NewDB(opts ...Option) (*pachsql.DB, error) {
 		panic("must specify user")
 	}
 	dsn := getDSN(dbc)
+	log.Info(pctx.TODO(), "connecting to postgres", zap.String("dsn", dsn))
 	db, err := sqlx.Open("pgx", dsn)
 	if err != nil {
 		return nil, errors.EnsureStack(err)
