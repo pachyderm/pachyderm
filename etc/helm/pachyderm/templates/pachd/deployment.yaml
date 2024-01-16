@@ -307,7 +307,7 @@ spec:
               name: {{ default ("pachyderm-console-secret") .Values.console.config.oauthClientSecretSecretName  }}
               key: OAUTH_CLIENT_SECRET
         {{- end }}
-        {{- if and .Values.determined.enabled .Values.determined.enterpriseEdition }}
+        {{- if and .Values.determined.oidc .Values.determined.oidc.enabled }}
         - name: DETERMINED_OAUTH_ID
           value: {{ default "determined" .Values.determined.oidc.clientId }}
         - name: DETERMINED_OAUTH_SECRET
