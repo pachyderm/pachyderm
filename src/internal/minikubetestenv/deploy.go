@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -877,6 +878,36 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			chartPath := localPath(t, "etc", "helm", "charts", "kube-prometheus-stack-55.7.1.tgz")
 			return errors.Wrap(helm.UpgradeE(t, &helm.Options{
 				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus"), "could not upgrade or install Prometheus")
+		})
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			kubeClient.CoreV1().Services(namespace).Delete(ctx, "pachyderm-prometheus-server", metav1.DeleteOptions{})
+			if _, err := kubeClient.CoreV1().Services(namespace).Create(ctx, &v1.Service{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Service",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pachyderm-prometheus-server",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeNodePort,
+					Selector: map[string]string{
+						"app.kubernetes.io/name":      "prometheus",
+						"operator.prometheus.io/name": namespace + "-prometheus-prometheus",
+					},
+					Ports: []v1.ServicePort{
+						{
+							Port:       int32(pachAddress.Port + 10),
+							NodePort:   int32(pachAddress.Port + 10),
+							TargetPort: intstr.FromInt(9090),
+							Name:       "http-web",
+						},
+					},
+				},
+			}, metav1.CreateOptions{}); err != nil {
+				return errors.Wrap(err, "could not create Prometheus server service")
+			}
+			return nil
 		})
 		waitForInstallFinished()
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
