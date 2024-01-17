@@ -17,9 +17,9 @@ go_library(
         "//src/internal/pctx",
         "//src/version",
         "//src/version/versionpb",
-        "@com_github_bazelbuild_rules_go//go/runfiles",
         "@org_golang_google_protobuf//types/known/emptypb",
         "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
     ],
 )
 

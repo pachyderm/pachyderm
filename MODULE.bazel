@@ -163,7 +163,6 @@ use_repo(
     "com_github_aws_aws_lambda_go",
     "com_github_aws_aws_sdk_go",
     "com_github_azure_azure_sdk_for_go",
-    "com_github_bazelbuild_rules_go",
     "com_github_c_bata_go_prompt",
     "com_github_cevaris_ordered_map",
     "com_github_chmduquesne_rollinghash",

@@ -12,6 +12,7 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
+	github.com/bazelbuild/rules_go v0.44.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -118,8 +119,6 @@ require (
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 	sigs.k8s.io/yaml v1.3.0
 )
-
-require github.com/bazelbuild/rules_go v0.44.1
 
 require (
 	cloud.google.com/go v0.110.10 // indirect
