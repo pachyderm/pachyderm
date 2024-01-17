@@ -894,7 +894,8 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus"), "could not upgrade or install Prometheus")
 		})
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			kubeClient.CoreV1().Services(namespace).Delete(ctx, "pachyderm-prometheus-server", metav1.DeleteOptions{})
+			// Try to delete service; not a big deal if it fails because it may not exist, and we will retry shortly anyway.
+			kubeClient.CoreV1().Services(namespace).Delete(ctx, "pachyderm-prometheus-server", metav1.DeleteOptions{}) //nolint:errcheck
 			if _, err := kubeClient.CoreV1().Services(namespace).Create(ctx, &v1.Service{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "Service",

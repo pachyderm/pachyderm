@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -63,8 +64,9 @@ kubectl wait -n {{.namespace}} --for=condition=ready pod -l app.kubernetes.io/na
 	require.NoErrorWithinTRetry(t, time.Minute, func() error {
 		var err error
 		addr := c.GetAddress()
-		resp, err = http.Get(fmt.Sprintf("http://%s:%d/api/v1/query?query=pachyderm_auth_dex_approval_errors_total", addr.Host, addr.Port+10))
-		return err
+		uri := fmt.Sprintf("http://%s:%d/api/v1/query?query=pachyderm_auth_dex_approval_errors_total", addr.Host, addr.Port+10)
+		resp, err = http.Get(uri)
+		return errors.Wrap(err, "could not fetch %s", uri)
 	})
 
 	b, err := io.ReadAll(resp.Body)
