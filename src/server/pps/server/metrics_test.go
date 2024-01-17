@@ -26,7 +26,7 @@ func TestContainerMetrics(t *testing.T) {
 	ctx, cancel := pctx.WithCancel(pctx.TestContext(t))
 	defer cancel()
 	t.Parallel()
-	c, namespace := minikubetestenv.AcquireCluster(t)
+	c, namespace := minikubetestenv.AcquireCluster(t, minikubetestenv.WithPrometheus)
 
 	docsDir := t.TempDir()
 	tmpDir := t.TempDir()
@@ -53,10 +53,8 @@ transform:
     - /pfs/out/
 EOF
 # install prometheus
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
-helm delete {{.namespace}}-prometheus -n {{.namespace}} || true
-helm install {{.namespace}}-prometheus -n {{.namespace}} prometheus-community/kube-prometheus-stack --set namespaceOverride={{.namespace}}
 # install the podmonitor we document for users
 git clone https://github.com/pachyderm/docs-content.git --depth=1 '{{.docsContent}}'
 ## update the spec for this namespace & Helm release

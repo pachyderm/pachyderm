@@ -72,10 +72,8 @@ var UseNewClusterOption Option = func(as *acquireSettings) {
 	as.useNewCluster = true
 }
 
-func WithPrometheus() Option {
-	return func(as *acquireSettings) {
-		as.installPrometheus = true
-	}
+var WithPrometheus Option = func(as *acquireSettings) {
+	as.installPrometheus = true
 }
 
 type managedCluster struct {
@@ -103,6 +101,7 @@ func deployOpts(clusterIdx int, as *acquireSettings) *DeployOpts {
 		TLS:                as.tls,
 		CertPool:           as.certPool,
 		ValueOverrides:     as.valueOverrides,
+		InstallPrometheus:  as.installPrometheus,
 	}
 }
 

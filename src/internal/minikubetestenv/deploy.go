@@ -83,15 +83,16 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset       uint16
-	DisableLoki      bool
-	EnterpriseMember bool
-	EnterpriseServer bool
-	Determined       bool
-	ValueOverrides   map[string]string
-	TLS              bool
-	CertPool         *x509.CertPool
-	ValuesFiles      []string
+	PortOffset        uint16
+	DisableLoki       bool
+	EnterpriseMember  bool
+	EnterpriseServer  bool
+	Determined        bool
+	ValueOverrides    map[string]string
+	TLS               bool
+	CertPool          *x509.CertPool
+	ValuesFiles       []string
+	InstallPrometheus bool
 }
 
 func getLocalImage() string {
@@ -864,13 +865,21 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
 	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, opts.EnterpriseServer)
 	require.NoError(t, err)
-	if mustUpgrade {
+	if mustUpgrade || opts.InstallPrometheus {
 		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
+		// get latest version with: helm pull prometheus-community/kube-prometheus-stack -d etc/helm/charts/
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			fmt.Println("QQQ", "../../../etc/helm/charts/kube-prometheus-stack-55.7.1.tgz")
+			chartPath := localPath(t, "etc", "helm", "charts", "kube-prometheus-stack-55.7.1.tgz")
+			fmt.Println("QQQ", chartPath)
+			return helm.UpgradeE(t, &helm.Options{
+				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus")
+		})
 		waitForInstallFinished()
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
 		!opts.UseLeftoverCluster ||
