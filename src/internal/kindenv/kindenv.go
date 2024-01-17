@@ -3,10 +3,23 @@ package kindenv
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"io"
+	"net/http"
+	"os"
 	"strconv"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"go.uber.org/zap"
+	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
 )
@@ -26,9 +39,6 @@ const (
 //
 // Note: kind treats port numbers as int32, so we do too.  They are actually uint16s.
 type CreateOpts struct {
-	// Name is the name of the cluster and Kubernetes context. "kind-pach-" is prepended unless
-	// the name is empty, in which case "kind-pach" is the name of the cluster.
-	Name string
 	// TestNamespaceCount controls how many K8s tests can run concurrently.
 	TestNamespaceCount int32
 	// ExternalRegistry is the Skopeo path of the local container registry from the host
@@ -42,32 +52,72 @@ type CreateOpts struct {
 	StartingPort int32
 }
 
-// KindName returns the name that Kind uses to refer to this cluster.
-func (o *CreateOpts) KindName() string {
-	if o.Name == "" {
+func named(x string) string {
+	if x == "pach" || x == "" {
 		return "pach"
 	}
-	return "pach-" + o.Name
+	return "pach-" + x
+}
+
+// Cluster represents a Kind cluster.  It may not exist yet.
+type Cluster struct {
+	name     string
+	provider *cluster.Provider
+}
+
+func getKindClusterFromContext() (string, error) {
+	rules := clientcmd.NewDefaultClientConfigLoadingRules()
+	raw, err := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(rules, nil).RawConfig()
+	if err != nil {
+		return "", errors.Wrap(err, "get raw config")
+	}
+	ctx := raw.CurrentContext
+	switch {
+	case ctx == "kind-pach":
+		return "pach", nil
+	case strings.HasPrefix(ctx, "kind-pach-"):
+		return ctx[len("kind-pach-"):], nil
+	}
+	return "", errors.Wrapf(err, "current k8s context %q is not a pachdev environment")
+}
+
+// New creates a new Cluster object, suitable for manipulating the named cluster.  If name is empty,
+// the cluster in the current kubernetes context will be used.
+func New(ctx context.Context, name string) (*Cluster, error) {
+	po, err := cluster.DetectNodeProvider()
+	if err != nil {
+		return nil, errors.Wrap(err, "detect kind node provider")
+	}
+	if po == nil {
+		return nil, errors.New("kind could not detect docker or podman; install docker")
+	}
+	p := cluster.NewProvider(po, cluster.ProviderWithLogger(log.NewKindLogger(pctx.Child(ctx, "kind"))))
+	cluster := &Cluster{provider: p}
+	if name == "" {
+		var err error
+		name, err = getKindClusterFromContext()
+		if err != nil {
+			return nil, errors.Wrap(err, "get cluster name from k8s context")
+		}
+	}
+	cluster.name = named(name)
+	return cluster, nil
 }
 
 // Create creates a new cluster.
-func Create(ctx context.Context, opts *CreateOpts) error {
-	po, err := cluster.DetectNodeProvider()
-	if err != nil {
-		return errors.Wrap(err, "detect kind node provider")
-	}
-	if po == nil {
-		return errors.New("kind could not detect docker or podman; install docker")
-	}
-
+func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
 	// k8s annotations to be applied to the default namespace; this is how we transfer
 	// configuration between tests/dev tools/etc.
-	defaultAnnotations := map[string]string{
-		"io.pachyderm/kindenv-version": strconv.Itoa(version),
+	annotations := map[string]map[string]string{
+		"default": {
+			"dev.pachyderm.io/kindenv-version": strconv.Itoa(version),
+			"dev.pachyderm.io/registry":        opts.ExternalRegistry,
+		},
 	}
 
 	var ports []v1alpha4.PortMapping
 	if opts.BindHTTPPorts {
+		annotations["default"]["dev.pachyderm.io/standard-http-ports"] = "true"
 		ports = append(ports,
 			v1alpha4.PortMapping{
 				ContainerPort: 30080,
@@ -84,15 +134,27 @@ func Create(ctx context.Context, opts *CreateOpts) error {
 	if opts.TestNamespaceCount > 0 && opts.StartingPort == 0 {
 		opts.StartingPort = 30500
 	}
-	for i := int32(0); i < opts.TestNamespaceCount; i++ {
+	for i := int32(0); i < opts.TestNamespaceCount+1; i++ {
+		var nsPorts []string
 		for j := int32(0); j < 10; j++ {
 			port := opts.StartingPort + i*10 + j
+			nsPorts = append(nsPorts, strconv.Itoa(int(port)))
 			ports = append(ports, v1alpha4.PortMapping{
 				ContainerPort: port,
 				HostPort:      port,
 				Protocol:      v1alpha4.PortMappingProtocolTCP,
 			})
 		}
+		var ns map[string]string
+		if i == 0 {
+			ns = annotations["default"]
+		} else {
+			x := make(map[string]string)
+			name := "test-namespace-" + strconv.Itoa(int(i))
+			annotations[name] = x
+			ns = annotations[name]
+		}
+		ns["dev.pachyderm.io/exposed-ports"] = strings.Join(nsPorts, ",")
 	}
 	config := &v1alpha4.Cluster{
 		TypeMeta: v1alpha4.TypeMeta{
@@ -118,16 +180,84 @@ nodeRegistration:
 		},
 	}
 
-	p := cluster.NewProvider(po) // TODO: add logger
-	name := opts.KindName()
-	if err := p.Create(name, cluster.CreateWithNodeImage(nodeImage), cluster.CreateWithV1Alpha4Config(config)); err != nil {
+	if err := c.provider.Create(c.name, cluster.CreateWithNodeImage(nodeImage), cluster.CreateWithV1Alpha4Config(config)); err != nil {
 		return errors.Wrap(err, "create cluster")
 	}
-	cfg, err := p.KubeConfig(name, false)
+
+	kube, err := c.KubeClient(ctx)
 	if err != nil {
-		return errors.Wrap(err, "get config")
+		return errors.Wrap(err, "get kube client")
 	}
-	fmt.Println(defaultAnnotations)
-	fmt.Printf("\n%s\n", cfg)
+
+	// Patch default namespace.
+	log.Info(ctx, "configuring default namespace")
+	patch := map[string]any{"metadata": map[string]map[string]string{"annotations": annotations["default"]}}
+	js, err := json.Marshal(patch)
+	if err != nil {
+		return errors.Wrapf(err, "marshal json for namespace patch")
+	}
+	if _, err := kube.CoreV1().Namespaces().Patch(ctx, "default", types.StrategicMergePatchType, js, v1.PatchOptions{
+		FieldManager: "pachdev",
+	}); err != nil {
+		return errors.Wrap(err, "add default annotations")
+	}
+	delete(annotations, "default")
+
+	for name, a := range annotations {
+		log.Info(ctx, "configuring test-runner namespace", zap.String("namespace", name))
+		ns := &corev1.Namespace{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        name,
+				Annotations: a,
+			},
+		}
+		kube.CoreV1().Namespaces().Create(ctx, ns, v1.CreateOptions{
+			FieldManager: "pachdev",
+		})
+	}
+
+	return nil
+}
+
+// KubeClient gets a Kubernetes API client for the named cluster.
+func (c *Cluster) KubeClient(ctx context.Context) (kubernetes.Interface, error) {
+	f, err := os.CreateTemp("", "pachdev-kubeconfig-*")
+	if err != nil {
+		return nil, errors.Wrap(err, "create tmpfile for config")
+	}
+	cfg, err := c.provider.KubeConfig(c.name, false)
+	if err != nil {
+		return nil, errors.Wrap(err, "get kubeconfig")
+	}
+	if _, err := io.Copy(f, strings.NewReader(cfg)); err != nil {
+		return nil, errors.Wrap(err, "write kubeconfig")
+	}
+	if err := f.Close(); err != nil {
+		return nil, errors.Wrap(err, "close kubeconfig")
+	}
+
+	loadingRules := &clientcmd.ClientConfigLoadingRules{
+		ExplicitPath: f.Name(),
+	}
+	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	config, err := kubeConfig.ClientConfig()
+	if err != nil {
+		return nil, errors.Wrap(err, "load kubeconfig")
+	}
+	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
+		return promutil.InstrumentRoundTripper("kubernetes", rt)
+	}
+	st, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, errors.Wrap(err, "new k8s clientset")
+	}
+	return st, nil
+}
+
+// Delete destroys the cluster.
+func (c *Cluster) Delete(ctx context.Context) error {
+	if err := c.provider.Delete(c.name, ""); err != nil {
+		return errors.Wrap(err, "delete cluster")
+	}
 	return nil
 }

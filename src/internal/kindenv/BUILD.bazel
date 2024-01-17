@@ -7,7 +7,16 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/promutil",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/types",
+        "@io_k8s_client_go//kubernetes",
+        "@io_k8s_client_go//tools/clientcmd",
         "@io_k8s_sigs_kind//pkg/apis/config/v1alpha4",
         "@io_k8s_sigs_kind//pkg/cluster",
+        "@org_uber_go_zap//:zap",
     ],
 )

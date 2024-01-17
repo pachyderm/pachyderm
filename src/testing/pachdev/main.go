@@ -26,7 +26,8 @@ func main() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "If true, show debug-level log messages.")
 
 	// Subcommands.
-	rootCmd.AddCommand(pachdev.CreateKubernetesCmd())
+	rootCmd.AddCommand(pachdev.DeleteClusterCmd())
+	rootCmd.AddCommand(pachdev.CreateClusterCmd())
 
 	// Run a command.
 	log.InitPachctlLogger()

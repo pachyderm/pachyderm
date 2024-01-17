@@ -8,15 +8,47 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func CreateKubernetesCmd() *cobra.Command {
+const DefaultClusterName = "pach"
+
+func DeleteClusterCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "create-cluster",
+		Use:   "delete-cluster [<name>]",
 		Short: "Deploy a local Kubernetes cluster",
-		Args:  cobra.ExactArgs(0),
+		Args:  cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var name string
+			if len(args) > 0 {
+				name = args[0]
+			}
 			ctx := cmd.Context()
-			if err := kindenv.Create(ctx, &kindenv.CreateOpts{
-				Name:               "",
+			cluster, err := kindenv.New(ctx, name)
+			if err != nil {
+				return errors.Wrap(err, "kindenv.New")
+			}
+			if err := cluster.Delete(ctx); err != nil {
+				return errors.Wrap(err, "cluster.Delete")
+			}
+			return nil
+		},
+	}
+}
+
+func CreateClusterCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "create-cluster [<name>]",
+		Short: "Deploy a local Kubernetes cluster",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name := DefaultClusterName
+			if len(args) > 0 {
+				name = args[0]
+			}
+			ctx := cmd.Context()
+			cluster, err := kindenv.New(ctx, name)
+			if err != nil {
+				return errors.Wrap(err, "kindenv.New")
+			}
+			if err := cluster.Create(ctx, &kindenv.CreateOpts{
 				TestNamespaceCount: 3,
 				ExternalRegistry:   "oci:/tmp/zot",
 				BindHTTPPorts:      true,
