@@ -258,6 +258,7 @@ use_repo(
     "io_k8s_client_go",
     "io_k8s_klog_v2",
     "io_k8s_kubectl",
+    "io_k8s_sigs_kind",
     "io_k8s_sigs_yaml",
     "io_k8s_utils",
     "net_starlark_go",

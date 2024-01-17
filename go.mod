@@ -117,7 +117,15 @@ require (
 	k8s.io/klog/v2 v2.80.1
 	k8s.io/kubectl v0.26.0
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
+	sigs.k8s.io/kind v0.20.0
 	sigs.k8s.io/yaml v1.3.0
+)
+
+require (
+	github.com/BurntSushi/toml v1.0.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
+	github.com/pelletier/go-toml v1.9.4 // indirect
 )
 
 require (

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "ad243f052b6216421b531ac5bbe3c02ca304f7e47af991716286219c2a9ce8f1",
+  "moduleFileHash": "da46b911b9b0835e6dd446da1e206fe3d629590dca674f0e64960ec683fef045",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -166,6 +166,7 @@
             "io_k8s_client_go": "io_k8s_client_go",
             "io_k8s_klog_v2": "io_k8s_klog_v2",
             "io_k8s_kubectl": "io_k8s_kubectl",
+            "io_k8s_sigs_kind": "io_k8s_sigs_kind",
             "io_k8s_sigs_yaml": "io_k8s_sigs_yaml",
             "io_k8s_utils": "io_k8s_utils",
             "net_starlark_go": "net_starlark_go",
@@ -523,7 +524,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 283,
+            "line": 284,
             "column": 32
           },
           "imports": {
@@ -573,7 +574,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 324,
+            "line": 325,
             "column": 20
           },
           "imports": {
@@ -595,7 +596,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 325,
+                "line": 326,
                 "column": 9
               }
             }
@@ -609,7 +610,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 336,
+            "line": 337,
             "column": 23
           },
           "imports": {},
@@ -624,7 +625,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 337,
+                "line": 338,
                 "column": 17
               }
             }
@@ -3452,10 +3453,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "081b879d19f2e588b227d8db6ffcb691a5a1a25ac6c3604d6ef6c4caabe1d3bf",
+          "@@//:go.mod": "292944853775ebb1d6236ae4f15f2be11d9633397edae58e0f9a81934e165598",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.44.1//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
-          "@@//:go.sum": "5a36c6eacc60e22e8200a323e0f0340dd4ae34d7bde946c4f756324938ee9d77",
+          "@@//:go.sum": "00fecc95e96079454832b3519bfd9445ca77e471cd6307acefa035e15237dd0e",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@rules_go~0.44.1//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
@@ -4025,6 +4026,22 @@
               "version": "v0.27.0"
             }
           },
+          "io_k8s_sigs_kind": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~io_k8s_sigs_kind",
+              "importpath": "sigs.k8s.io/kind",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:f0sc3v9mQbGnjBUaqSFST1dwIuiikKVGgoTwpoP33a8=",
+              "replace": "",
+              "version": "v0.20.0"
+            }
+          },
           "com_github_munnerz_goautoneg": {
             "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -4523,6 +4540,22 @@
               "sum": "h1:MtMxsa51/r9yyhkyLsVeVt0B+BGQZzpQiTQ4eHZ8bc4=",
               "replace": "",
               "version": "v1.4.0"
+            }
+          },
+          "com_github_evanphx_json_patch_v5": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~com_github_evanphx_json_patch_v5",
+              "importpath": "github.com/evanphx/json-patch/v5",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:b91NhWfaz02IuVxO9faSllyAtNXHMPkC5J8sJCLunww=",
+              "replace": "",
+              "version": "v5.6.0"
             }
           },
           "com_github_cpuguy83_go_md2man_v2": {
@@ -6582,7 +6615,12 @@
                 "io_k8s_klog_v2": "k8s.io/klog/v2",
                 "io_k8s_kubectl": "k8s.io/kubectl",
                 "io_k8s_utils": "k8s.io/utils",
+                "io_k8s_sigs_kind": "sigs.k8s.io/kind",
                 "io_k8s_sigs_yaml": "sigs.k8s.io/yaml",
+                "com_github_burntsushi_toml": "github.com/BurntSushi/toml",
+                "com_github_evanphx_json_patch_v5": "github.com/evanphx/json-patch/v5",
+                "com_github_google_safetext": "github.com/google/safetext",
+                "com_github_pelletier_go_toml": "github.com/pelletier/go-toml",
                 "com_google_cloud_go": "cloud.google.com/go",
                 "com_google_cloud_go_compute": "cloud.google.com/go/compute",
                 "com_google_cloud_go_compute_metadata": "cloud.google.com/go/compute/metadata",
@@ -6849,6 +6887,22 @@
               "sum": "h1:biVzkmvwrH8WK8raXaxBx6fRVTlJILwEwQGL1I/ByEI=",
               "replace": "",
               "version": "v1.0.1-0.20190219062509-6c824513bacc"
+            }
+          },
+          "com_github_burntsushi_toml": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~com_github_burntsushi_toml",
+              "importpath": "github.com/BurntSushi/toml",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:dtDWrepsVPfW9H/4y7dDgFc2MBUSeJhlaDtK13CxFlU=",
+              "replace": "",
+              "version": "v1.0.0"
             }
           },
           "com_github_pulumi_pulumi_kubernetes_sdk_v3": {
@@ -8005,6 +8059,25 @@
               "version": "v1.14.0"
             }
           },
+          "com_github_google_safetext": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~com_github_google_safetext",
+              "importpath": "github.com/google/safetext",
+              "build_directives": [
+                "gazelle:build_file_name BUILD.bazel",
+                "gazelle:build_file_proto_mode disable_global"
+              ],
+              "build_file_generation": "on",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:SJ+NtwL6QaZ21U+IrK7d0gGgpjGGvd2kz+FzTHVzdqI=",
+              "replace": "",
+              "version": "v0.0.0-20220905092116-b49f7bc46da2"
+            }
+          },
           "com_github_xanzy_ssh_agent": {
             "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -8471,6 +8544,22 @@
               "sum": "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
               "replace": "",
               "version": "v0.0.0-20190809123943-df4f5c81cb3b"
+            }
+          },
+          "com_github_pelletier_go_toml": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~com_github_pelletier_go_toml",
+              "importpath": "github.com/pelletier/go-toml",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:tjENF6MfZAg8e4ZmZTeWaWiT2vXtsoO6+iuOjFhECwM=",
+              "replace": "",
+              "version": "v1.9.4"
             }
           },
           "io_k8s_sigs_json": {
@@ -9765,6 +9854,7 @@
             "io_k8s_klog_v2",
             "io_k8s_kubectl",
             "io_k8s_utils",
+            "io_k8s_sigs_kind",
             "io_k8s_sigs_yaml",
             "com_github_alessio_shellescape",
             "com_github_fsnotify_fsnotify",

@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "kindenv",
+    srcs = ["kindenv.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kindenv",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@io_k8s_sigs_kind//pkg/apis/config/v1alpha4",
+        "@io_k8s_sigs_kind//pkg/cluster",
+    ],
+)
