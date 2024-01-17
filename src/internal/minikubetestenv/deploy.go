@@ -874,11 +874,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			})
 		// get latest version with: helm pull prometheus-community/kube-prometheus-stack -d etc/helm/charts/
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
-			fmt.Println("QQQ", "../../../etc/helm/charts/kube-prometheus-stack-55.7.1.tgz")
 			chartPath := localPath(t, "etc", "helm", "charts", "kube-prometheus-stack-55.7.1.tgz")
-			fmt.Println("QQQ", chartPath)
-			return helm.UpgradeE(t, &helm.Options{
-				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus")
+			return errors.Wrap(helm.UpgradeE(t, &helm.Options{
+				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus"), "could not upgrade or install Prometheus")
 		})
 		waitForInstallFinished()
 	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
