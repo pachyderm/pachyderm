@@ -22,6 +22,7 @@ go_library(
 
 go_test(
     name = "renew_test",
+    size = "small",
     srcs = ["string_set_test.go"],
     embed = [":renew"],
     deps = [

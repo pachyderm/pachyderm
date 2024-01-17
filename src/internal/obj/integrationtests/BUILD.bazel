@@ -20,6 +20,10 @@ go_test(
         "minio_test.go",
     ],
     embed = [":integrationtests"],
+    tags = [
+        "external",
+        "manual",
+    ],
     deps = [
         "//src/internal/obj",
         "//src/internal/pctx",

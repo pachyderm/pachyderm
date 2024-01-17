@@ -63,7 +63,7 @@ go_library(
 
 go_test(
     name = "fileset_test",
-    size = "enormous",
+    size = "large",
     srcs = [
         "compaction_test.go",
         "fileset_test.go",
@@ -73,6 +73,8 @@ go_test(
         "prefetcher_test.go",
     ],
     embed = [":fileset"],
+    shard_count = 8,
+    tags = ["cpu:4"],
     deps = [
         "//src/internal/dockertestenv",
         "//src/internal/errors",

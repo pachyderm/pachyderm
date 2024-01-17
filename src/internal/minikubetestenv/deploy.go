@@ -669,6 +669,17 @@ func createSecretDeterminedLogin(t testing.TB, ctx context.Context, kubeClient *
 	require.True(t, err == nil || strings.Contains(err.Error(), "already exists"), "Error '%v' does not contain 'already exists' with Determined login secret setup", err)
 }
 
+func determinedPriorityClassesExist(t testing.TB, ctx context.Context, kubeClient *kube.Clientset) bool {
+	pcs, err := kubeClient.SchedulingV1().PriorityClasses().List(ctx, metav1.ListOptions{})
+	require.NoError(t, err, "finding determined priorityclasses")
+	for _, pc := range pcs.Items {
+		if pc.Name == "determined-medium-priority" || pc.Name == "determined-system-priority" {
+			return true
+		}
+	}
+	return false
+}
+
 // deletes the existing configmap and writes the new hel opts to this one
 func createOptsConfigMap(t testing.TB, ctx context.Context, kubeClient *kube.Clientset, ns string, helmOpts *helm.Options, chartPath string) {
 	err := kubeClient.CoreV1().ConfigMaps(ns).Delete(ctx, helmOptsConfigMap, *metav1.NewDeleteOptions(0))
@@ -778,7 +789,7 @@ func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initi
 }
 
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
-	if opts.CleanupAfter || opts.Determined { // Determined is almost never re-used and uses extra resources, so it is helpful to clean up.
+	if opts.CleanupAfter {
 		t.Cleanup(func() {
 			deleteRelease(t, context.Background(), namespace, kubeClient)
 		})
@@ -821,6 +832,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		err = valuesTemplate.Execute(valuesFile, struct{ K8sNamespace string }{K8sNamespace: namespace})
 		require.NoError(t, err, "Error templating determined values temp file")
 		opts.ValuesFiles = append([]string{valuesFile.Name()}, opts.ValuesFiles...) // we want any user specified values files to be applied after
+		if !mustUpgrade && determinedPriorityClassesExist(t, ctx, kubeClient) {     // installing on a seperate namespace with determined means we can't make priority classes
+			opts.ValueOverrides["determined.createNonNamespacedObjects"] = "false"
+		}
 	}
 	if opts.PortOffset != 0 {
 		pachAddress.Port += opts.PortOffset

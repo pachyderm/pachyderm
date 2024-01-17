@@ -4,6 +4,7 @@ go_library(
     name = "testutil",
     srcs = [
         "auth.go",
+        "bash_prelude.go",
         "cmds.go",
         "db.go",
         "debug.go",
@@ -15,6 +16,10 @@ go_library(
         "pach_client.go",
         "pachctl.go",
         "testutil.go",
+    ],
+    data = [
+        "//src/server/cmd/pachctl:pachctl_nostamp",
+        "//src/testing/match",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/testutil",
     visibility = ["//src:__subpackages__"],
@@ -43,5 +48,6 @@ go_library(
         "@io_k8s_client_go//tools/clientcmd",
         "@org_golang_google_protobuf//types/known/timestamppb",
         "@org_golang_x_oauth2//:oauth2",
+        "@rules_go//go/tools/bazel:go_default_library",
     ],
 )

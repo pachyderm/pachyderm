@@ -20,6 +20,7 @@ go_library(
 
 go_test(
     name = "preflight_test",
+    size = "small",
     srcs = ["preflight_test.go"],
     embed = [":preflight"],
     deps = [

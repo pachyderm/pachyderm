@@ -20,6 +20,7 @@ go_library(
 
 go_test(
     name = "backoff_test",
+    size = "small",
     srcs = [
         "backoff_test.go",
         "example_test.go",

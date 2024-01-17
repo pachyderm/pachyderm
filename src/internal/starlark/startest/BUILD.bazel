@@ -19,6 +19,7 @@ go_library(
 
 go_test(
     name = "startest_test",
+    size = "small",
     srcs = ["startest_test.go"],
     data = glob(["testdata/**"]),
     embed = [":startest"],

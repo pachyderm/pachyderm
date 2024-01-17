@@ -1,23 +1,40 @@
-load("@rules_go//go:def.bzl", "go_test")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+# gazelle:go_test file
 
 go_test(
-    name = "testing_test",
-    srcs = [
-        "admin_test.go",
-        "auth_test.go",
-        "config_test.go",
-        "oidc_test.go",
-    ],
-    pure = "on",
+    name = "admin_test",
+    size = "small",
+    srcs = ["admin_test.go"],
+    shard_count = 4,
     deps = [
+        ":testing",
+        "//src/auth",
+        "//src/internal/backoff",
+        "//src/internal/client",
+        "//src/internal/errors",
+        "//src/internal/protoutil",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "//src/pps",
+    ],
+)
+
+go_test(
+    name = "auth_test",
+    size = "small",
+    srcs = ["auth_test.go"],
+    pure = "on",
+    shard_count = 6,
+    deps = [
+        ":testing",
         "//src/auth",
         "//src/enterprise",
-        "//src/identity",
         "//src/internal/authdb",
         "//src/internal/backoff",
         "//src/internal/client",
         "//src/internal/cmdutil",
-        "//src/internal/config",
         "//src/internal/dockertestenv",
         "//src/internal/errors",
         "//src/internal/grpcutil",
@@ -32,8 +49,64 @@ go_test(
         "//src/pps",
         "//src/server/auth/server",
         "//src/server/pfs",
-        "@org_golang_google_protobuf//proto",
         "@org_golang_google_protobuf//types/known/emptypb",
         "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "config_test",
+    size = "small",
+    srcs = ["config_test.go"],
+    pure = "on",
+    deps = [
+        "//src/auth",
+        "//src/identity",
+        "//src/internal/backoff",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/server/auth/server",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_test(
+    name = "oidc_test",
+    size = "small",
+    srcs = ["oidc_test.go"],
+    pure = "on",
+    deps = [
+        "//src/auth",
+        "//src/enterprise",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/license",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_library(
+    name = "testing",
+    srcs = ["common.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/enterprise",
+        "//src/internal/config",
+        "//src/internal/dockertestenv",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/pfs",
+        "//src/pps",
     ],
 )

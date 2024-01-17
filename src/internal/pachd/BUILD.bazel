@@ -94,6 +94,7 @@ go_library(
 
 go_test(
     name = "pachd_test",
+    size = "small",
     srcs = ["pachd_test.go"],
     embed = [":pachd"],
     deps = [

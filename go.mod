@@ -1,6 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.21
+go 1.21.1
 
 toolchain go1.21.5
 
@@ -118,6 +118,8 @@ require (
 	k8s.io/utils v0.0.0-20221107191617-1a15be271d1d
 	sigs.k8s.io/yaml v1.3.0
 )
+
+require github.com/bazelbuild/rules_go v0.44.1
 
 require (
 	cloud.google.com/go v0.110.10 // indirect

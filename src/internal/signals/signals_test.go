@@ -22,6 +22,7 @@ func testSignal(s os.Signal) error {
 		c = make(chan os.Signal, 1)
 		g errgroup.Group
 	)
+	signal.Reset(s) // Ensure there is no special handling for the signal under test.
 	signal.Notify(c, signals.TerminationSignals...)
 	defer signal.Stop(c)
 	defer close(c)
