@@ -43,6 +43,7 @@ go_library(
 
 go_test(
     name = "v2_5_0_test",
+    size = "small",
     srcs = [
         "collection_test.go",
         "proto_test.go",

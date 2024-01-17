@@ -20,6 +20,7 @@ go_library(
 
 go_test(
     name = "transforms_test",
+    size = "medium",
     srcs = ["sqlingest_test.go"],
     embed = [":transforms"],
     deps = [

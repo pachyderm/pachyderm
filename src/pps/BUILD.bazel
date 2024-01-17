@@ -44,6 +44,7 @@ go_library(
 
 go_test(
     name = "pps_test",
+    size = "small",
     srcs = ["filter_test.go"],
     deps = [":pps"],
 )

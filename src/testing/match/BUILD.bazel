@@ -15,6 +15,7 @@ go_binary(
 
 go_test(
     name = "match_test",
+    size = "small",
     srcs = ["match_test.go"],
     embed = [":match_lib"],
     deps = [

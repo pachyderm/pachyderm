@@ -13,6 +13,7 @@ go_library(
 
 go_test(
     name = "pachtmpl_test",
+    size = "small",
     srcs = ["pachtmpl_test.go"],
     embed = [":pachtmpl"],
     deps = ["//src/internal/require"],

@@ -1,17 +1,49 @@
 try-import %workspace%/.bazelrc.local
 
-build --bes_results_url=https://app.buildbuddy.io/invocation/
-build --bes_backend=grpcs://remote.buildbuddy.io
-build --build_metadata=REPO_URL=https://github.com/pachyderm/pachyderm
-build --workspace_status_command=$(pwd)/workspace_status.sh
-build --remote_cache=grpcs://pachyderm.buildbuddy.io
-build --remote_timeout=3600
-build --experimental_remote_cache_compression
-build --remote_build_event_upload=minimal
-build --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
-build --nolegacy_important_outputs
-build --stamp
-build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote,OCIImage=+no-remote
+# For developers with working HTTP/2, allow use of a remote cache.  (CI uses the remote cache.)
+build:remotecache --bes_results_url=https://app.buildbuddy.io/invocation/
+build:remotecache --bes_backend=grpcs://remote.buildbuddy.io
+build:remotecache --build_metadata=REPO_URL=https://github.com/pachyderm/pachyderm
+build:remotecache --remote_cache=grpcs://pachyderm.buildbuddy.io
+build:remotecache --remote_timeout=3600
+build:remotecache --experimental_remote_cache_compression
+build:remotecache --remote_build_event_upload=minimal
+build:remotecache --noslim_profile --experimental_profile_include_target_label --experimental_profile_include_primary_output
+build:remotecache --nolegacy_important_outputs
 
-common --test_env=ENT_ACT_CODE
+# This is only relevant for remote caching, but using the same value of modify_execution_info allows
+# sharing the analysis cache between local and remotecache builds, saving time when you switch the
+# flag.
+build --modify_execution_info=PackageTar=+no-remote,ConvertStatusToJson=+no-remote,Jq=+no-remote,CopyFile=+no-remote,OCIImage=+no-remote-cache
+
+# Common build options.
+build --workspace_status_command=$(pwd)/workspace_status.sh
+build --stamp
+
+# Common options.
+common --test_env=ENT_ACT_CODE # Tests need this to active Pachyderm enterprise.
+common --test_env=SKIP_DOCKER_POSTGRES_CREATE
+common --test_env=DOCKER_MACHINE_NAME
+common --test_env=AMAZON_CLIENT_ID
+common --test_env=AMAZON_CLIENT_SECRET
+common --test_env=AMAZON_CLIENT_BUCKET
+common --test_env=AMAZON_CLIENT_REGION
+common --test_env=ECS_CLIENT_ID
+common --test_env=ECS_CLIENT_SECRET
+common --test_env=ECS_CLIENT_BUCKET
+common --test_env=ECS_CLIENT_CUSTOM_ENDPOINT
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_CREDS
+common --test_env=GOOGLE_CLIENT_HMAC_ID
+common --test_env=GOOGLE_CLIENT_HMAC_SECRET
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_REGION
+common --test_env=MICROSOFT_CLIENT_ID
+common --test_env=MICROSOFT_CLIENT_SECRET
+common --test_env=MICROSOFT_CLIENT_CONTAINER
+common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
+
+# Cover all packages.
+coverage --instrumentation_filter="^//" --combined_report=lcov
+
 test:race --@rules_go//go/config:race

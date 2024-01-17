@@ -23,6 +23,7 @@ go_library(
 
 go_test(
     name = "track_test",
+    size = "small",
     srcs = ["postgres_tracker_test.go"],
     deps = [
         ":track",

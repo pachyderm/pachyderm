@@ -27,6 +27,7 @@ go_test(
     name = "consistenthashing_test",
     srcs = ["etcd_test.go"],
     embed = [":consistenthashing"],
+    shard_count = 4,
     deps = [
         "//src/internal/collection",
         "//src/internal/errors",

@@ -22,6 +22,7 @@ go_library(
 
 go_test(
     name = "pachsql_test",
+    size = "small",
     srcs = [
         "db_test.go",
         "table_info_test.go",

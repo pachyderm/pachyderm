@@ -29,6 +29,7 @@ go_library(
 
 go_test(
     name = "server_test",
+    size = "small",
     srcs = ["license_test.go"],
     pure = "on",
     deps = [

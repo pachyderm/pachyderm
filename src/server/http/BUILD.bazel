@@ -20,6 +20,7 @@ go_library(
 
 go_test(
     name = "http_test",
+    size = "small",
     srcs = ["http_test.go"],
     embed = [":http"],
     deps = ["//src/internal/pctx"],

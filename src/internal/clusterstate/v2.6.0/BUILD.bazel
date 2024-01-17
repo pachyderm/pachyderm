@@ -29,6 +29,7 @@ go_library(
 
 go_test(
     name = "v2_6_0_test",
+    size = "small",
     srcs = ["pfsdb_test.go"],
     embed = [":v2_6_0"],
     deps = [
