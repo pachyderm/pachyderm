@@ -66,7 +66,7 @@ kubectl wait -n {{.namespace}} --for=condition=ready pod -l app.kubernetes.io/na
 		addr := c.GetAddress()
 		uri := fmt.Sprintf("http://%s:%d/api/v1/query?query=pachyderm_auth_dex_approval_errors_total", addr.Host, addr.Port+10)
 		resp, err = http.Get(uri)
-		return errors.Wrap(err, "could not fetch %s", uri)
+		return errors.Wrapf(err, "could not fetch %s", uri)
 	})
 
 	b, err := io.ReadAll(resp.Body)
