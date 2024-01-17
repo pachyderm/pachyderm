@@ -41,6 +41,7 @@ go_library(
 
 go_test(
     name = "pfs_test",
+    size = "small",
     srcs = ["pfs_test.go"],
     embed = [":pfs"],
     deps = ["@com_github_stretchr_testify//require"],

@@ -10,6 +10,7 @@ go_library(
 
 go_test(
     name = "conditionalrequest_test",
+    size = "small",
     srcs = ["conditionalrequest_test.go"],
     embed = [":conditionalrequest"],
 )

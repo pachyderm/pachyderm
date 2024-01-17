@@ -53,6 +53,7 @@ go_library(
 
 go_test(
     name = "datum_test",
+    size = "small",
     srcs = [
         "datum_test.go",
         "iterator_internal_test.go",
@@ -60,6 +61,7 @@ go_test(
     ],
     embed = [":datum"],
     pure = "on",
+    shard_count = 4,
     deps = [
         "//src/internal/client",
         "//src/internal/dockertestenv",

@@ -725,6 +725,7 @@ func (x *GetFileSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("commit", x.Commit)
+	enc.AddString("type", x.Type.String())
 	return nil
 }
 

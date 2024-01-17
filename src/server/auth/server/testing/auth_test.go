@@ -1,4 +1,4 @@
-package server_test
+package testing_test
 
 import (
 	"bytes"
@@ -21,7 +21,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
@@ -35,39 +34,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	at "github.com/pachyderm/pachyderm/v2/src/server/auth/server/testing"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 )
-
-func envWithAuth(t *testing.T) *realenv.RealEnv {
-	t.Helper()
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateLicense(t, env.PachClient, peerPort)
-	_, err := env.PachClient.Enterprise.Activate(env.PachClient.Ctx(),
-		&enterprise.ActivateRequest{
-			LicenseServer: "grpc://localhost:" + peerPort,
-			Id:            "localhost",
-			Secret:        "localhost",
-		})
-	require.NoError(t, err, "activate client should work")
-	_, err = env.AuthServer.Activate(env.PachClient.Ctx(), &auth.ActivateRequest{RootToken: tu.RootToken})
-	require.NoError(t, err, "activate server should work")
-	env.PachClient.SetAuthToken(tu.RootToken)
-	require.NoError(t, config.WritePachTokenToConfig(tu.RootToken, false))
-	client := env.PachClient.WithCtx(context.Background())
-	_, err = client.PfsAPIClient.ActivateAuth(client.Ctx(), &pfs.ActivateAuthRequest{})
-	require.NoError(t, err, "should be able to activate auth")
-	_, err = client.PpsAPIClient.ActivateAuth(client.Ctx(), &pps.ActivateAuthRequest{})
-	require.NoError(t, err, "should be able to activate auth")
-	return env
-}
 
 // TestGetSetBasic creates two users, alice and bob, and gives bob gradually
 // escalating privileges, checking what bob can and can't do after each change
 func TestGetSetBasic(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -184,7 +159,7 @@ func TestGetSetBasic(t *testing.T) {
 // shrinking privileges, checking what bob can and can't do after each change
 func TestGetSetReverse(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -307,7 +282,7 @@ func TestGetSetReverse(t *testing.T) {
 // called, and foo exists, then the ACL for foo won't be modified.
 func TestCreateAndUpdateRepo(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -359,7 +334,7 @@ func TestCreateAndUpdateRepo(t *testing.T) {
 // initialized to the correct value
 func TestCreateRepoWithUpdateFlag(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -385,7 +360,7 @@ func TestCreateRepoWithUpdateFlag(t *testing.T) {
 
 func TestCreateAndUpdatePipeline(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	type createArgs struct {
 		client     *client.APIClient
@@ -576,7 +551,7 @@ func TestCreateAndUpdatePipeline(t *testing.T) {
 
 func TestPipelineMultipleInputs(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	type createArgs struct {
 		client *client.APIClient
@@ -753,7 +728,7 @@ func TestPipelineMultipleInputs(t *testing.T) {
 
 func TestStopAndDeletePipeline(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -882,7 +857,7 @@ func TestStopAndDeletePipeline(t *testing.T) {
 // TestStopJob just confirms that the StopJob API works when auth is on
 func TestStopJob(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -946,7 +921,7 @@ func TestStopJob(t *testing.T) {
 // an auth API call
 func TestListAndInspectRepo(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1051,7 +1026,7 @@ func TestListAndInspectRepo(t *testing.T) {
 
 func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1073,7 +1048,7 @@ func TestUnprivilegedUserCannotMakeSelfOwner(t *testing.T) {
 // they call ListRepo(), they get an error.
 func TestListRepoNotLoggedInError(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	client := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, client, alice), tu.UnauthenticatedPachClient(t, client)
@@ -1096,7 +1071,7 @@ func TestListRepoNotLoggedInError(t *testing.T) {
 // TestListRepoNoAuthInfoIfDeactivated tests that if auth isn't activated, then
 // ListRepo returns RepoInfos where AuthInfo isn't set (i.e. is nil)
 func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// Dont't run this test in parallel, since it deactivates the auth system
 	// globally, so any tests running concurrently will fail
@@ -1140,7 +1115,7 @@ func TestListRepoNoAuthInfoIfDeactivated(t *testing.T) {
 // activated (rather than "access denied")
 func TestCreateRepoAlreadyExistsError(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1160,7 +1135,7 @@ func TestCreateRepoAlreadyExistsError(t *testing.T) {
 // they call CreateRepo(), they get an error.
 func TestCreateRepoNotLoggedInError(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	anonClient := tu.UnauthenticatedPachClient(t, c)
 
@@ -1174,7 +1149,7 @@ func TestCreateRepoNotLoggedInError(t *testing.T) {
 // TestProjectWriter tests the access control related to the ProjectWriter role.
 func TestProjectWriter(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -1204,7 +1179,7 @@ func TestProjectWriter(t *testing.T) {
 // Creating a pipeline when the output repo already exists gives is not allowed
 func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1250,7 +1225,7 @@ func TestCreatePipelineRepoAlreadyExists(t *testing.T) {
 // `allClusterUsers` binding  for an ACL sets the minimum authorized scope
 func TestAuthorizedEveryone(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1312,7 +1287,7 @@ func TestAuthorizedEveryone(t *testing.T) {
 // only the repos you are authorized to delete are deleted
 func TestDeleteAllRepos(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
@@ -1344,7 +1319,7 @@ func TestDeleteAllRepos(t *testing.T) {
 // repo)
 func TestListJob(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -1416,7 +1391,7 @@ func TestListJob(t *testing.T) {
 // TestInspectDatum tests InspectDatum runs even when auth is activated
 func TestInspectDatum(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -1470,7 +1445,7 @@ func TestInspectDatum(t *testing.T) {
 
 func TestPipelineNewInput(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -1554,7 +1529,7 @@ func TestPipelineNewInput(t *testing.T) {
 
 func TestModifyMembers(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	bob := tu.Robot(tu.UniqueString("bob"))
@@ -1677,7 +1652,7 @@ func TestModifyMembers(t *testing.T) {
 
 func TestSetGroupsForUser(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
@@ -1765,7 +1740,7 @@ func TestSetGroupsForUser(t *testing.T) {
 
 func TestGetOwnGroups(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	organization := tu.UniqueString("organization")
@@ -1794,7 +1769,7 @@ func TestGetOwnGroups(t *testing.T) {
 // where calling pps.ListJob when not logged in would delete all old jobs
 func TestGetJobsBugFix(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient, anonClient := tu.AuthenticateClient(t, c, alice), tu.UnauthenticatedPachClient(t, c)
@@ -1845,7 +1820,7 @@ func TestGetJobsBugFix(t *testing.T) {
 // tries to delete it (which shouldn't be blocked by the auth system)
 func TestDeleteFailedPipeline(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -1887,7 +1862,7 @@ func TestDeleteFailedPipeline(t *testing.T) {
 // (i.e. the missing repos/ACLs don't cause an auth error).
 func TestDeletePipelineMissingRepos(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -1927,7 +1902,7 @@ func TestDeletePipelineMissingRepos(t *testing.T) {
 
 func TestDeleteExpiredAuthTokens(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	// generate auth credentials
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
@@ -1989,7 +1964,7 @@ func TestDeleteExpiredAuthTokens(t *testing.T) {
 
 func TestExpiredClusterLocksOutUsers(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	adminClient := tu.AuthenticateClient(t, c, auth.RootUser)
 
@@ -2052,7 +2027,7 @@ func TestExpiredClusterLocksOutUsers(t *testing.T) {
 // a given permission.
 func TestRolesForPermission(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -2073,7 +2048,7 @@ func TestRolesForPermission(t *testing.T) {
 // Other tests that follow this pattern: TestPutFileURL, TestGetFileURL.
 func TestLoad(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -2087,7 +2062,7 @@ func TestLoad(t *testing.T) {
 // TODO: Refer to TestLoad
 func TestPutFileURL(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -2142,7 +2117,7 @@ func finishProjectCommit(pachClient *client.APIClient, project, repo, branch, id
 // TODO: Refer to TestLoad.
 func TestGetFileURL(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.UniqueString("robot:alice")
 	aliceClient := tu.AuthenticateClient(t, c, alice)
@@ -2518,7 +2493,7 @@ func TestDeleteAll(t *testing.T) {
 
 func TestCreateProject(t *testing.T) {
 	t.Parallel()
-	client := envWithAuth(t).PachClient
+	client := at.EnvWithAuth(t).PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
 	aliceClient := tu.AuthenticateClient(t, client, alice)
 
@@ -2538,7 +2513,7 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	t.Parallel()
 
 	// setup
-	c := envWithAuth(t).PachClient
+	c := at.EnvWithAuth(t).PachClient
 	clusterAdmin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, aliceClient := tu.RandomRobot(t, c, "alice")
 	bob, bobClient := tu.RandomRobot(t, c, "bob")
@@ -2693,7 +2668,7 @@ func TestPreAuthProjects(t *testing.T) {
 func TestDeleteProject(t *testing.T) {
 	t.Parallel()
 
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	project := tu.UniqueString("project")
 	require.NoError(t, c.CreateProject(project))
@@ -2707,7 +2682,7 @@ func TestDeleteProject(t *testing.T) {
 // project, only those repos he may delete are deleted.
 func TestDeleteRepos(t *testing.T) {
 	t.Parallel()
-	env := envWithAuth(t)
+	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
 	aliceClient, bobClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, bob)
@@ -2755,7 +2730,7 @@ func TestDeleteRepos(t *testing.T) {
 
 func TestListRepoWithProjectAccessControl(t *testing.T) {
 	t.Parallel()
-	c := envWithAuth(t).PachClient
+	c := at.EnvWithAuth(t).PachClient
 	// create users
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
@@ -2840,7 +2815,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 
 	}
 	t.Parallel()
-	c := envWithAuth(t).PachClient
+	c := at.EnvWithAuth(t).PachClient
 	// create uers
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	aliceName, alice := tu.RandomRobot(t, c, "alice")
@@ -2902,7 +2877,7 @@ func TestListPipelinesWithProjectAccessControl(t *testing.T) {
 
 func TestListProjectWithAuth(t *testing.T) {
 	t.Parallel()
-	c := envWithAuth(t).PachClient
+	c := at.EnvWithAuth(t).PachClient
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, alice := tu.RandomRobot(t, c, "alice")
@@ -2941,7 +2916,7 @@ func TestListProjectWithAuth(t *testing.T) {
 
 func TestSetProjectDefaults(t *testing.T) {
 	t.Parallel()
-	c := envWithAuth(t).PachClient
+	c := at.EnvWithAuth(t).PachClient
 
 	admin := tu.AuthenticateClient(t, c, auth.RootUser)
 	_, alice := tu.RandomRobot(t, c, "alice")
