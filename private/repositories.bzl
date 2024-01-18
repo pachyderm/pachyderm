@@ -272,3 +272,35 @@ def kubectl_deps():
         executable = True,
         downloaded_file_path = "kubectl",
     )
+
+def skopeo_deps():
+    # Skopeo is an enormous can of worms.  Like a neutron star made only of worms.  The original
+    # authors apparently do not believe in binary releases, apparently because one time Redhat broke
+    # libc or something?  That's fine, whatever, it's just Go, so we'll build it ourselves like we
+    # do for all the crazy proto compilers!  But as it turns out, it depends on a bunch of C
+    # libraries that I do not want to figure out how to Bazel-ify.  At some point it needs headers
+    # from btrfs!  Where am I going to get THAT from!
+    #
+    # Instead, someone on the Internet just builds the binaries with Github Actions. Great, we'll
+    # use that.  Unfortunately, that person doesn't build it for Mac.  But worry not, someone forked
+    # the repo and does build it for Mac!  That's what we're using.
+    #
+    # Something else we could do is use the underlying libraries, specifically
+    # github.com/containers/v5/copy, directly, right?  They're the whole problem.  You can make it
+    # build without a C compiler, but you need to pass a ton of build tags everywhere; gazelle needs
+    # them, MODULE.bazel needs them as Gazelle overrides, and Bazel targets that depend on the
+    # library need the build tags passed on the bazel build/run command line with --define
+    # gotags=....  Adding to the fun, that module also depends on mutually incompatible versions of
+    # Open Telemetry somehow, which breaks etcd, somehow.  I tried making it work.  It can be made
+    # to work; just upgrade every module you see in the error messages from "go mod tidy" to the
+    # latest version.  But it was just too big of a mess for what amounts to copying 3 files between
+    # two local directories.  Like, what?  You need to inspect btrfs filesystems during that?
+    #
+    # So we'll do this terrible thing instead.  Take that, the software supply chain!
+    http_file(
+        name = "com_github_containers_skopeo_x86_64_linux",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
+        sha256 = "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )

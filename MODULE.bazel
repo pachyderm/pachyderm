@@ -291,6 +291,7 @@ use_repo(
     "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
     "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
     "com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+    "com_github_containers_skopeo_x86_64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",

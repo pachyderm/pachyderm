@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "ad8099944f2f4740248841a3e8ca61b5c00dbc8bbe2ad38cfb04d1e7f17dc0de",
+  "moduleFileHash": "0211d784163b8f3f800e1091613ba6aa4b0471adc4b3964c0c11c62459ca8613",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -559,13 +559,14 @@
             "com_github_pseudomuto_protoc_gen_doc_x86_64_macos": "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
             "com_github_yelp_dumb_init_aarch64_linux": "com_github_yelp_dumb_init_aarch64_linux",
             "com_github_yelp_dumb_init_x86_64_linux": "com_github_yelp_dumb_init_x86_64_linux",
+            "io_k8s_dl_kubectl_x86_64_linux": "io_k8s_dl_kubectl_x86_64_linux",
             "io_k8s_sigs_kind_x86_64_linux": "io_k8s_sigs_kind_x86_64_linux",
             "org_uber_go_gopatch_aarch64_linux": "org_uber_go_gopatch_aarch64_linux",
             "org_uber_go_gopatch_aarch64_macos": "org_uber_go_gopatch_aarch64_macos",
             "org_uber_go_gopatch_x86_64_linux": "org_uber_go_gopatch_x86_64_linux",
             "org_uber_go_gopatch_x86_64_macos": "org_uber_go_gopatch_x86_64_macos",
             "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
-            "io_k8s_dl_kubectl_x86_64_linux": "io_k8s_dl_kubectl_x86_64_linux"
+            "com_github_containers_skopeo_x86_64_linux": "com_github_containers_skopeo_x86_64_linux"
           },
           "devImports": [],
           "tags": [],
@@ -578,7 +579,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 329,
+            "line": 330,
             "column": 20
           },
           "imports": {
@@ -600,7 +601,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 330,
+                "line": 331,
                 "column": 9
               }
             }
@@ -614,7 +615,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 341,
+            "line": 342,
             "column": 23
           },
           "imports": {},
@@ -629,7 +630,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 342,
+                "line": 343,
                 "column": 17
               }
             }
@@ -2307,7 +2308,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "VjLnKbNrDErdepMggdaNkq2C4Ivr3wmMIVeNVzvExfM=",
+        "bzlTransitiveDigest": "mdb7Ftk2mdizptOcJUmJwWOcFzF926YLUYKF5hAggxw=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2411,6 +2412,17 @@
               "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Linux_x86_64.tar.gz",
               "build_file_content": "exports_files([\"gopatch\"])",
               "sha256": "34f12f161209ce91010236a3781a7c90b3a391377f69be7376cce02586a71140"
+            }
+          },
+          "com_github_containers_skopeo_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_containers_skopeo_x86_64_linux",
+              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
+              "sha256": "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+              "executable": true,
+              "downloaded_file_path": "skopeo"
             }
           },
           "com_github_pseudomuto_protoc_gen_doc_aarch64_macos": {

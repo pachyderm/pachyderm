@@ -1,0 +1,12 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "_skopeo",
+    repo = "@com_github_containers_skopeo",
+    target = "file:skopeo",
+)
+
+alias(
+    name = "skopeo",
+    actual = "_skopeo_bin",
+)
