@@ -264,6 +264,7 @@ func (w *dexWeb) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/approval", w.interceptApproval(server))
+	mux.HandleFunc("/dex/token", w.idTokenHandler(server))
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/" {
 			fmt.Fprintf(w, "200 OK")

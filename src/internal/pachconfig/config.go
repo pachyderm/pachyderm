@@ -154,11 +154,6 @@ type PachdSpecificConfiguration struct {
 	// the proxy, and ProxyTLS for whether or not to use https:// for generated URLs.
 	ProxyHost string `env:"PACHYDERM_PUBLIC_HOST,default="`
 	ProxyTLS  bool   `env:"PACHYDERM_PUBLIC_TLS,default=false"`
-	// Determined integration configuration
-	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
-	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
-	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
-	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // EnterpriseServerConfiguration contains the full configuration for an enterprise server
@@ -189,6 +184,11 @@ type EnterpriseSpecificConfiguration struct {
 	ConsoleOAuthSecret        string `env:"CONSOLE_OAUTH_SECRET,default="`
 	DeterminedOAuthID         string `env:"DETERMINED_OAUTH_ID,default="`
 	DeterminedOAuthSecret     string `env:"DETERMINED_OAUTH_SECRET,default="`
+	// Determined integration configuration
+	DeterminedUsername string `env:"DETERMINED_USERNAME,default="`
+	DeterminedPassword string `env:"DETERMINED_PASSWORD,default="`
+	DeterminedURL      string `env:"DETERMINED_API_URL,default="`
+	DeterminedTLS      bool   `env:"DETERMINED_TLS,default=false"`
 }
 
 // StorageConfiguration contains the storage configuration.

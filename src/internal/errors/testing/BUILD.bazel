@@ -2,6 +2,7 @@ load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "testing_test",
+    size = "small",
     srcs = ["errors_test.go"],
     deps = [
         "//src/internal/errors",

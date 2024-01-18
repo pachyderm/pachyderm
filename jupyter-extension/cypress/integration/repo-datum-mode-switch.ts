@@ -4,11 +4,10 @@ describe('switching between repo and datum mode', () => {
     cy.isAppReady();
     cy.unmountAllRepos();
     cy.openMountPlugin();
-    cy.findAllByText('Mount');
+    cy.findAllByText('Load');
     cy.wait(3000);
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it('should open datum mode', () => {
     cy.findByTestId('Datum__mode').click();
     cy.findAllByText('Test Datums').should('have.length', 1);
@@ -18,10 +17,10 @@ describe('switching between repo and datum mode', () => {
   });
 
   it('mounted repos appear in datum input spec and again when switching back', () => {
-    cy.findAllByText('Mount').first().click();
+    cy.findAllByText('Load').first().click();
     cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 2);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 2);
 
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
@@ -29,7 +28,7 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'cross:');
     cy.findByTestId('Datum__back').click();
 
-    cy.findAllByText('Unmount').should('have.length', 2);
+    cy.findAllByText('Unload').should('have.length', 2);
     cy.wait(3000);
     cy.findAllByText('default_images').first().click();
     cy.findAllByText('liberty.png').should('have.length', 1);
@@ -37,10 +36,10 @@ describe('switching between repo and datum mode', () => {
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
-  it.skip('modifying input spec saves and restores it when back in datum mode', () => {
+  it('modifying input spec saves and restores it when back in datum mode', () => {
     cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Mount').first().click();
-    cy.findAllByText('Unmount').should('have.length', 1);
+    cy.findAllByText('Load').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
 
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
@@ -52,12 +51,11 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'a');
     cy.findByTestId('Datum__back').click();
 
-    cy.findAllByText('Unmount').should('have.length', 1);
-    cy.findAllByText('Unmount').first().click();
+    cy.findAllByText('Unload').should('have.length', 1);
+    cy.findAllByText('Unload').first().click();
     cy.findByTestId('Datum__mode').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
       .should('contain', 'a');
   });
-*/
 });

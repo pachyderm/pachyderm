@@ -35,6 +35,9 @@ parameters:
   machine_image:
     type: string
     default: ubuntu-2204:2023.04.2
+  ci_runner_image:
+    type: string
+    default: docker.io/pachyderm/ci-runner:20240112-905276c17a17d57de108eab3d53d3322fd27650a@sha256:7968439e70f08b411510f0a2b42d77ffde0d51ac971e3106a65902440b648882
   go-version:
     type: string
     default: "1.21.5"
@@ -66,57 +69,6 @@ executors:
       - image: cimg/python:3.10-node
 
 jobs:
-  test-go:
-    machine:
-      image: << pipeline.parameters.machine_image >>
-    resource_class: large
-    parallelism: 5
-    environment:
-      TEST_RESULTS: /tmp/test-results
-    steps:
-      - checkout
-      - go/install:
-          version: << pipeline.parameters.go-version >>
-      - run: mkdir ${TEST_RESULTS}
-      - restore_cache:
-          keys:
-            - pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-      - run: go mod download
-      - run:
-          name: Collect tests to run
-          command: GOMAXPROCS=2 PACHYDERM_LOG_LEVEL="debug" go run ./src/testing/cmds/harness/test-collector/main.go -file=tests_to_run_unit.csv -procs=16
-          background: true
-      - run: go install gotest.tools/gotestsum@latest
-      - run: CGO_ENABLED=0 GOMAXPROCS=2 go install ./src/server/cmd/pachctl
-      - run: go install ./src/testing/match
-      - run: etc/testing/circle/install.sh
-      - run:
-          name: Run Go Unit Tests
-          no_output_timeout: 20m
-          command: |-
-            GOMAXPROCS=7 GOMEMLIMIT=8000MiB go run src/testing/cmds/harness/test-runner/main.go \
-              -file=tests_to_run_unit.csv \
-              -shard=$CIRCLE_NODE_INDEX \
-              -total-shards=$CIRCLE_NODE_TOTAL \
-              -threads=2 \
-              -gotestsum-args="--format=testdox" \
-              -gotest-args="-parallel=6 -timeout=20m -cover -test.gocoverdir=\"$TEST_RESULTS\" -coverprofile=${TEST_RESULTS}/coverage.txt -covermode=atomic -coverpkg=./..."
-      - run:
-          name: Format code coverage
-          when: always
-          command: etc/testing/circle/format-coverage.sh
-      - store_artifacts: # upload test summary for display in Artifacts
-          path: "/tmp/test-results/"
-          destination: raw-test-output
-      - store_test_results: # upload test results for display in Test Summary
-          path: "/tmp/test-results/circle"
-      - codecov/upload:
-          file: /tmp/test-results/coverage.txt
-      - collect-test-results
-      - save_cache:
-          key: pach-go-unittest-mod-cache-v1-{{arch}}-{{ checksum "go.sum" }}
-          paths:
-            - /home/circleci/go/pkg/mod
   static-go-checks:
     resource_class: xlarge
     machine:
@@ -1588,54 +1540,91 @@ jobs:
   bazel-style-tests:
     resource_class: xlarge
     docker:
-      - image: debian:stable
-        entrypoint: /bin/bash
-    working_directory: /code
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
-      - run: apt update
-      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential python3
       - checkout
-      - run: |
-          pushd /tmp
-          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
-          chmod a+x bazelisk-linux-amd64
-          ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
-          useradd bazel -m
-          chown bazel -R /code
-          popd
-      - run: su bazel -c 'bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto'
-      - run: su bazel -c 'git checkout MODULE.bazel.lock' # For OSX-only changes.
-      - run: su bazel -c 'git diff --exit-code'
-      - run: su bazel -c 'bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle'
-      - run: su bazel -c 'git checkout MODULE.bazel.lock' # For OSX-only changes.
-      - run: su bazel -c 'git diff --exit-code'
-      - run: su bazel -c 'bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test'
-      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+      - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
+      - run: git checkout MODULE.bazel.lock # For OSX-only changes.
+      - run: git diff --exit-code
+      - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle
+      - run: git checkout MODULE.bazel.lock # For OSX-only changes.
+      - run: git diff --exit-code
+      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
   bazel-tests:
-    resource_class: xlarge
+    resource_class: 2xlarge+
     docker:
-      - image: debian:stable
-        entrypoint: /bin/bash
-    working_directory: /code
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
-      - run: apt update
-      - run: DEBIAN_FRONTEND=noninteractive DEBCONF_NONINTERACTIVE_SEEN=true apt install -y wget git build-essential python3
       - checkout
-      - run: |
-          pushd /tmp
-          wget https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64
-          chmod a+x bazelisk-linux-amd64
-          ln -s $PWD/bazelisk-linux-amd64 /usr/bin/bazel
-          useradd bazel -m
-          chown bazel -R /code
-          popd
       - setup_remote_docker
-      - run: su bazel -c 'bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //oci:all'
-      - run: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+      - run: |
+          DOCKER_MACHINE_NAME=172.17.0.1 \
+          bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
+      - run: |
+          SKIP_DOCKER_POSTGRES_CREATE=1 \
+          DOCKER_MACHINE_NAME=172.17.0.1 \
+          bazel \
+          coverage \
+          --flaky_test_attempts=3 \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          ...
+      - run:
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
       - store_test_results:
           path: /tmp/bazel-testlogs/
+      - codecov/upload:
+          file: bazel-out/_coverage/_coverage_report.dat
+  bazel-privileged-tests:
+    resource_class: large
+    machine:
+      image: << pipeline.parameters.machine_image >>
+    steps:
+      - checkout
+      - run: cd /home/circleci/project
+      - run: mkdir /home/circleci/out
+      # Build the thing to start the database containers.
+      - run: |
+          docker run \
+          -v /home/circleci/out:/home/circleci/out \
+          -v /home/circleci/project:/home/circleci/project \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel \
+          --output_base=/home/circleci/out \
+          build \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //src/testing/cmds/dockertestenv
+      # Start database containers.
+      - run: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/bin/src/testing/cmds/dockertestenv/dockertestenv_/dockertestenv
+      # Run tests without needing to talk to the Docker daemon during the tests.
+      - run: |
+          docker run \
+          -e ENT_ACT_CODE \
+          -e SKIP_DOCKER_POSTGRES_CREATE=1 \
+          -e DOCKER_MACHINE_NAME=172.17.0.1 \
+          -v /home/circleci/out:/home/circleci/out \
+          -v /home/circleci/project:/home/circleci/project \
+          --privileged \
+          << pipeline.parameters.ci_runner_image >> \
+          bazel \
+          --output_base=/home/circleci/out \
+          coverage \
+          --flaky_test_attempts=3 \
+          --config=remotecache \
+          --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} \
+          //:privileged_tests
+      - store_test_results:
+          path: /home/circleci/out/execroot/_main/bazel-out/k8-fastbuild/testlogs/
+      - codecov/upload:
+          file: /home/circleci/out/execroot/_main/bazel-out/_coverage/_coverage_report.dat
 
 workflows:
   functional-tests:
@@ -1644,8 +1633,8 @@ workflows:
       - build-docker-images
       - build-docker-images:
           enableCoverage: true
-      - test-go
       - bazel-tests
+      - bazel-privileged-tests
       - integration-tests
   linting:
     when: << pipeline.parameters.run-core-jobs >>

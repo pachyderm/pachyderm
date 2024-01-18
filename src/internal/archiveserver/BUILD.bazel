@@ -25,6 +25,7 @@ go_library(
 
 go_test(
     name = "archiveserver_test",
+    size = "small",
     srcs = [
         "archiveserver_test.go",
         "encode_test.go",

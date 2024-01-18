@@ -1,4 +1,4 @@
-package server_test
+package testing_test
 
 import (
 	"strconv"

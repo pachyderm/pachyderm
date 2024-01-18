@@ -1,6 +1,6 @@
 //go:build k8s
 
-package server
+package testing
 
 import (
 	"archive/tar"

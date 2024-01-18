@@ -31,6 +31,7 @@ go_library(
 
 go_test(
     name = "shell_test",
+    size = "small",
     srcs = ["shell_test.go"],
     embed = [":shell"],
     deps = [
