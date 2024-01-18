@@ -254,6 +254,27 @@ def helm_deps():
         sha256 = "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
         strip_prefix = "linux-amd64",
     )
+    http_archive(
+        name = "sh_helm_aarch64_linux",
+        url = "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+        build_file_content = build,
+        sha256 = "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+        strip_prefix = "linux-arm64",
+    )
+    http_archive(
+        name = "sh_helm_x86_64_macos",
+        url = "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+        build_file_content = build,
+        sha256 = "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+        strip_prefix = "darwin-amd64",
+    )
+    http_archive(
+        name = "sh_helm_aarch64_macos",
+        url = "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+        build_file_content = build,
+        sha256 = "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+        strip_prefix = "darwin-arm64",
+    )
 
 def kind_deps():
     http_file(
@@ -263,12 +284,54 @@ def kind_deps():
         executable = True,
         downloaded_file_path = "kind",
     )
+    http_file(
+        name = "io_k8s_sigs_kind_aarch64_linux",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
+        sha256 = "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+    http_file(
+        name = "io_k8s_sigs_kind_x86_64_macos",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
+        sha256 = "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+    http_file(
+        name = "io_k8s_sigs_kind_aarch64_macos",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
+        sha256 = "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
 
 def kubectl_deps():
     http_file(
         name = "io_k8s_dl_kubectl_x86_64_linux",
         url = "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
         sha256 = "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_aarch64_linux",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
+        sha256 = "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_x86_64_macos",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
+        sha256 = "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
+    http_file(
+        name = "io_k8s_dl_kubectl_aarch64_macos",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
+        sha256 = "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
         executable = True,
         downloaded_file_path = "kubectl",
     )
@@ -301,6 +364,27 @@ def skopeo_deps():
         name = "com_github_containers_skopeo_x86_64_linux",
         url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
         sha256 = "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_aarch64_linux",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-arm64",
+        sha256 = "22ce9c3ffaebde0d72c01994b468265fb9fc1ffbee9d4256f1539f9878df67bc",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_x86_64_macos",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-amd64",
+        sha256 = "26bc8faf3bca3f32c97fb7c05504dcf3b0770dc51c8d3fec089e7a590d323a44",
+        executable = True,
+        downloaded_file_path = "skopeo",
+    )
+    http_file(
+        name = "com_github_containers_skopeo_aarch64_macos",
+        url = "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-arm64",
+        sha256 = "b7ec503d5efe0e2afbab980e0085f20c3693b20f37c4d92df52de267bc877c2b",
         executable = True,
         downloaded_file_path = "skopeo",
     )

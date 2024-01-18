@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "0211d784163b8f3f800e1091613ba6aa4b0471adc4b3964c0c11c62459ca8613",
+  "moduleFileHash": "1ba9a4323b28dee6c2d21fed7a9e51ad474ec9c3fad66b3d3c6885d039800afc",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -533,6 +533,10 @@
             "com_github_bufbuild_protoc_gen_validate_aarch64_macos": "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
             "com_github_bufbuild_protoc_gen_validate_x86_64_linux": "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
             "com_github_bufbuild_protoc_gen_validate_x86_64_macos": "com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+            "com_github_containers_skopeo_x86_64_linux": "com_github_containers_skopeo_x86_64_linux",
+            "com_github_containers_skopeo_aarch64_linux": "com_github_containers_skopeo_aarch64_linux",
+            "com_github_containers_skopeo_x86_64_macos": "com_github_containers_skopeo_x86_64_macos",
+            "com_github_containers_skopeo_aarch64_macos": "com_github_containers_skopeo_aarch64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
@@ -560,13 +564,21 @@
             "com_github_yelp_dumb_init_aarch64_linux": "com_github_yelp_dumb_init_aarch64_linux",
             "com_github_yelp_dumb_init_x86_64_linux": "com_github_yelp_dumb_init_x86_64_linux",
             "io_k8s_dl_kubectl_x86_64_linux": "io_k8s_dl_kubectl_x86_64_linux",
+            "io_k8s_dl_kubectl_aarch64_linux": "io_k8s_dl_kubectl_aarch64_linux",
+            "io_k8s_dl_kubectl_x86_64_macos": "io_k8s_dl_kubectl_x86_64_macos",
+            "io_k8s_dl_kubectl_aarch64_macos": "io_k8s_dl_kubectl_aarch64_macos",
             "io_k8s_sigs_kind_x86_64_linux": "io_k8s_sigs_kind_x86_64_linux",
+            "io_k8s_sigs_kind_aarch64_linux": "io_k8s_sigs_kind_aarch64_linux",
+            "io_k8s_sigs_kind_x86_64_macos": "io_k8s_sigs_kind_x86_64_macos",
+            "io_k8s_sigs_kind_aarch64_macos": "io_k8s_sigs_kind_aarch64_macos",
             "org_uber_go_gopatch_aarch64_linux": "org_uber_go_gopatch_aarch64_linux",
             "org_uber_go_gopatch_aarch64_macos": "org_uber_go_gopatch_aarch64_macos",
             "org_uber_go_gopatch_x86_64_linux": "org_uber_go_gopatch_x86_64_linux",
             "org_uber_go_gopatch_x86_64_macos": "org_uber_go_gopatch_x86_64_macos",
             "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
-            "com_github_containers_skopeo_x86_64_linux": "com_github_containers_skopeo_x86_64_linux"
+            "sh_helm_aarch64_linux": "sh_helm_aarch64_linux",
+            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos",
+            "sh_helm_aarch64_macos": "sh_helm_aarch64_macos"
           },
           "devImports": [],
           "tags": [],
@@ -579,7 +591,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 330,
+            "line": 342,
             "column": 20
           },
           "imports": {
@@ -601,7 +613,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 331,
+                "line": 343,
                 "column": 9
               }
             }
@@ -615,7 +627,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 342,
+            "line": 354,
             "column": 23
           },
           "imports": {},
@@ -630,7 +642,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 343,
+                "line": 355,
                 "column": 17
               }
             }
@@ -2308,7 +2320,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "mdb7Ftk2mdizptOcJUmJwWOcFzF926YLUYKF5hAggxw=",
+        "bzlTransitiveDigest": "q6QHpYhbDV2PX6WvYW5kBgnT+w3ZDQOYPyp+n73Nmdk=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2322,35 +2334,15 @@
               "integrity": "sha256-Fy5qGR2s7Y6zHrzZDUUjoa/6bQeQCom1SEIYI92nlv4="
             }
           },
-          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
-              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.darwin.arm64.tar.gz",
-              "sha256": "c01ab747f9decfb9bc300c8506a8e741d35dc45860cbf3950c752572129b2139",
-              "build_file_content": "exports_files([\"protoc-gen-go\"])"
-            }
-          },
-          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
-              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.darwin.amd64.tar.gz",
-              "sha256": "7890e2790dd68b181b1f6c33f306073e0abda3e7f360548e0b5ccb5fc20485a5",
-              "build_file_content": "exports_files([\"protoc-gen-go\"])"
-            }
-          },
-          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux": {
+          "io_k8s_sigs_kind_aarch64_linux": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux",
-              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-linux-arm64",
-              "integrity": "sha256-0+TNVOGyBSxx6+Uikbt4sI6SJ7xTYfKdyzy5SRL23v0=",
+              "name": "_main~non_module_deps~io_k8s_sigs_kind_aarch64_linux",
+              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
+              "sha256": "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
               "executable": true,
-              "downloaded_file_path": "protoc-gen-openapiv2"
+              "downloaded_file_path": "kind"
             }
           },
           "com_github_protocolbuffers_protobuf_x86_64_macos": {
@@ -2404,25 +2396,15 @@
               "integrity": "sha256-7Y/Kh6EciI/tMp1qWcNMfUNhZfZiosh1JG3bGsK23VA="
             }
           },
-          "org_uber_go_gopatch_x86_64_linux": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "name": "_main~non_module_deps~org_uber_go_gopatch_x86_64_linux",
-              "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Linux_x86_64.tar.gz",
-              "build_file_content": "exports_files([\"gopatch\"])",
-              "sha256": "34f12f161209ce91010236a3781a7c90b3a391377f69be7376cce02586a71140"
-            }
-          },
-          "com_github_containers_skopeo_x86_64_linux": {
+          "io_k8s_sigs_kind_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_containers_skopeo_x86_64_linux",
-              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
-              "sha256": "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+              "name": "_main~non_module_deps~io_k8s_sigs_kind_aarch64_macos",
+              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
+              "sha256": "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
               "executable": true,
-              "downloaded_file_path": "skopeo"
+              "downloaded_file_path": "kind"
             }
           },
           "com_github_pseudomuto_protoc_gen_doc_aarch64_macos": {
@@ -2435,17 +2417,6 @@
               "integrity": "sha256-boxzfZpnpqhzo/HTfti7KgqZlvbc9nAaoQSMe9eYqvk="
             }
           },
-          "com_github_yelp_dumb_init_aarch64_linux": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "_main~non_module_deps~com_github_yelp_dumb_init_aarch64_linux",
-              "url": "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_aarch64",
-              "integrity": "sha256-t9ZI+XFUqZxTm2PFWXnNKfAF+IQw+zgwB/40WDQLeV4=",
-              "executable": true,
-              "downloaded_file_path": "dumb-init"
-            }
-          },
           "org_uber_go_gopatch_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2456,24 +2427,15 @@
               "sha256": "2bb3914dbf273581c34e0db0913bd99f10cbbe622849ee0d8a460dbd03f27348"
             }
           },
-          "com_github_bufbuild_protoc_gen_validate_aarch64_linux": {
+          "sh_helm_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_bufbuild_protoc_gen_validate_aarch64_linux",
-              "url": "https://github.com/bufbuild/protoc-gen-validate/releases/download/v1.0.2/protoc-gen-validate_1.0.2_linux_arm64.tar.gz",
-              "build_file_content": "exports_files([\"protoc-gen-validate-go\"])",
-              "integrity": "sha256-kPUsHhhnC+8DdiffEJuyDiTWti7FTIMVBPB0PQLi+sI="
-            }
-          },
-          "org_uber_go_gopatch_x86_64_macos": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "name": "_main~non_module_deps~org_uber_go_gopatch_x86_64_macos",
-              "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Darwin_x86_64.tar.gz",
-              "build_file_content": "exports_files([\"gopatch\"])",
-              "sha256": "b34750977ce6802c2ade0c7c302c79d065b86eb9e09bca86fa6f245b9d3fabe3"
+              "name": "_main~non_module_deps~sh_helm_aarch64_macos",
+              "url": "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+              "build_file_content": "exports_files([\"helm\"])",
+              "sha256": "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+              "strip_prefix": "darwin-arm64"
             }
           },
           "org_uber_go_gopatch_aarch64_linux": {
@@ -2497,26 +2459,26 @@
               "downloaded_file_path": "protoc-gen-grpc-gateway"
             }
           },
-          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux": {
+          "io_k8s_sigs_kind_x86_64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
-              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-linux-x86_64",
-              "integrity": "sha256-ABA8GJOn6widP5Ybn2QmN5l8rLizezUhomHlCPw+sE4=",
+              "name": "_main~non_module_deps~io_k8s_sigs_kind_x86_64_macos",
+              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
+              "sha256": "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
               "executable": true,
-              "downloaded_file_path": "protoc-gen-openapiv2"
+              "downloaded_file_path": "kind"
             }
           },
-          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos": {
+          "sh_helm_x86_64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
+            "ruleClassName": "http_archive",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
-              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-darwin-x86_64",
-              "integrity": "sha256-eHoFTKQC5E3iYmvhoglL/0QKA6m0UrnKxFn12+22jEw=",
-              "executable": true,
-              "downloaded_file_path": "protoc-gen-openapiv2"
+              "name": "_main~non_module_deps~sh_helm_x86_64_macos",
+              "url": "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+              "build_file_content": "exports_files([\"helm\"])",
+              "sha256": "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+              "strip_prefix": "darwin-amd64"
             }
           },
           "com_github_yelp_dumb_init_x86_64_linux": {
@@ -2530,14 +2492,15 @@
               "downloaded_file_path": "dumb-init"
             }
           },
-          "com_github_bufbuild_protoc_gen_validate_x86_64_macos": {
+          "com_github_containers_skopeo_x86_64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
+            "ruleClassName": "http_file",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_bufbuild_protoc_gen_validate_x86_64_macos",
-              "url": "https://github.com/bufbuild/protoc-gen-validate/releases/download/v1.0.2/protoc-gen-validate_1.0.2_darwin_amd64.tar.gz",
-              "build_file_content": "exports_files([\"protoc-gen-validate-go\"])",
-              "integrity": "sha256-CPPaRgwsEOlkgW0acOVctL4aLQe1wRpNbQEMXzr3QtQ="
+              "name": "_main~non_module_deps~com_github_containers_skopeo_x86_64_macos",
+              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-amd64",
+              "sha256": "26bc8faf3bca3f32c97fb7c05504dcf3b0770dc51c8d3fec089e7a590d323a44",
+              "executable": true,
+              "downloaded_file_path": "skopeo"
             }
           },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_linux": {
@@ -2549,6 +2512,208 @@
               "integrity": "sha256-PCEXHYgPROUCI6NBXYHMPjWaxANgpYqrw6bXMl1168k=",
               "executable": true,
               "downloaded_file_path": "protoc-gen-grpc-gateway"
+            }
+          },
+          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
+              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.linux.arm64.tar.gz",
+              "sha256": "7963f59b873680b90e61c3be94bfe35e4731789516fc7377ead1be652212fcb1",
+              "build_file_content": "exports_files([\"protoc-gen-go\"])"
+            }
+          },
+          "io_k8s_sigs_kind_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~io_k8s_sigs_kind_x86_64_linux",
+              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
+              "sha256": "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+              "executable": true,
+              "downloaded_file_path": "kind"
+            }
+          },
+          "sh_helm_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~sh_helm_x86_64_linux",
+              "url": "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+              "build_file_content": "exports_files([\"helm\"])",
+              "sha256": "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+              "strip_prefix": "linux-amd64"
+            }
+          },
+          "io_k8s_dl_kubectl_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~io_k8s_dl_kubectl_aarch64_macos",
+              "url": "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
+              "sha256": "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
+              "executable": true,
+              "downloaded_file_path": "kubectl"
+            }
+          },
+          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
+              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.darwin.arm64.tar.gz",
+              "sha256": "c01ab747f9decfb9bc300c8506a8e741d35dc45860cbf3950c752572129b2139",
+              "build_file_content": "exports_files([\"protoc-gen-go\"])"
+            }
+          },
+          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
+              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.darwin.amd64.tar.gz",
+              "sha256": "7890e2790dd68b181b1f6c33f306073e0abda3e7f360548e0b5ccb5fc20485a5",
+              "build_file_content": "exports_files([\"protoc-gen-go\"])"
+            }
+          },
+          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux",
+              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-linux-arm64",
+              "integrity": "sha256-0+TNVOGyBSxx6+Uikbt4sI6SJ7xTYfKdyzy5SRL23v0=",
+              "executable": true,
+              "downloaded_file_path": "protoc-gen-openapiv2"
+            }
+          },
+          "org_uber_go_gopatch_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~org_uber_go_gopatch_x86_64_linux",
+              "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Linux_x86_64.tar.gz",
+              "build_file_content": "exports_files([\"gopatch\"])",
+              "sha256": "34f12f161209ce91010236a3781a7c90b3a391377f69be7376cce02586a71140"
+            }
+          },
+          "io_k8s_dl_kubectl_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~io_k8s_dl_kubectl_aarch64_linux",
+              "url": "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
+              "sha256": "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+              "executable": true,
+              "downloaded_file_path": "kubectl"
+            }
+          },
+          "com_github_containers_skopeo_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_containers_skopeo_x86_64_linux",
+              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-amd64",
+              "sha256": "5f5898a9775bbb6c6261a695686cde22675a8b103cd7a78b3027d472ca5d3d79",
+              "executable": true,
+              "downloaded_file_path": "skopeo"
+            }
+          },
+          "com_github_yelp_dumb_init_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_yelp_dumb_init_aarch64_linux",
+              "url": "https://github.com/Yelp/dumb-init/releases/download/v1.2.5/dumb-init_1.2.5_aarch64",
+              "integrity": "sha256-t9ZI+XFUqZxTm2PFWXnNKfAF+IQw+zgwB/40WDQLeV4=",
+              "executable": true,
+              "downloaded_file_path": "dumb-init"
+            }
+          },
+          "com_github_bufbuild_protoc_gen_validate_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_bufbuild_protoc_gen_validate_aarch64_linux",
+              "url": "https://github.com/bufbuild/protoc-gen-validate/releases/download/v1.0.2/protoc-gen-validate_1.0.2_linux_arm64.tar.gz",
+              "build_file_content": "exports_files([\"protoc-gen-validate-go\"])",
+              "integrity": "sha256-kPUsHhhnC+8DdiffEJuyDiTWti7FTIMVBPB0PQLi+sI="
+            }
+          },
+          "org_uber_go_gopatch_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~org_uber_go_gopatch_x86_64_macos",
+              "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Darwin_x86_64.tar.gz",
+              "build_file_content": "exports_files([\"gopatch\"])",
+              "sha256": "b34750977ce6802c2ade0c7c302c79d065b86eb9e09bca86fa6f245b9d3fabe3"
+            }
+          },
+          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
+              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-linux-x86_64",
+              "integrity": "sha256-ABA8GJOn6widP5Ybn2QmN5l8rLizezUhomHlCPw+sE4=",
+              "executable": true,
+              "downloaded_file_path": "protoc-gen-openapiv2"
+            }
+          },
+          "com_github_containers_skopeo_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_containers_skopeo_aarch64_macos",
+              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-darwin-arm64",
+              "sha256": "b7ec503d5efe0e2afbab980e0085f20c3693b20f37c4d92df52de267bc877c2b",
+              "executable": true,
+              "downloaded_file_path": "skopeo"
+            }
+          },
+          "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+              "url": "https://github.com/grpc-ecosystem/grpc-gateway/releases/download/v2.18.1/protoc-gen-openapiv2-v2.18.1-darwin-x86_64",
+              "integrity": "sha256-eHoFTKQC5E3iYmvhoglL/0QKA6m0UrnKxFn12+22jEw=",
+              "executable": true,
+              "downloaded_file_path": "protoc-gen-openapiv2"
+            }
+          },
+          "sh_helm_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~sh_helm_aarch64_linux",
+              "url": "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+              "build_file_content": "exports_files([\"helm\"])",
+              "sha256": "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+              "strip_prefix": "linux-arm64"
+            }
+          },
+          "com_github_bufbuild_protoc_gen_validate_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+              "url": "https://github.com/bufbuild/protoc-gen-validate/releases/download/v1.0.2/protoc-gen-validate_1.0.2_darwin_amd64.tar.gz",
+              "build_file_content": "exports_files([\"protoc-gen-validate-go\"])",
+              "integrity": "sha256-CPPaRgwsEOlkgW0acOVctL4aLQe1wRpNbQEMXzr3QtQ="
+            }
+          },
+          "com_github_containers_skopeo_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_containers_skopeo_aarch64_linux",
+              "url": "https://github.com/tgolsson/skopeo-binary/releases/download/v1.14.0/skopeo-linux-arm64",
+              "sha256": "22ce9c3ffaebde0d72c01994b468265fb9fc1ffbee9d4256f1539f9878df67bc",
+              "executable": true,
+              "downloaded_file_path": "skopeo"
             }
           },
           "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux": {
@@ -2643,14 +2808,15 @@
               "downloaded_file_path": "protoc-gen-grpc-gateway"
             }
           },
-          "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux": {
+          "io_k8s_dl_kubectl_x86_64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
+            "ruleClassName": "http_file",
             "attributes": {
-              "name": "_main~non_module_deps~com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
-              "url": "https://github.com/protocolbuffers/protobuf-go/releases/download/v1.31.0/protoc-gen-go.v1.31.0.linux.arm64.tar.gz",
-              "sha256": "7963f59b873680b90e61c3be94bfe35e4731789516fc7377ead1be652212fcb1",
-              "build_file_content": "exports_files([\"protoc-gen-go\"])"
+              "name": "_main~non_module_deps~io_k8s_dl_kubectl_x86_64_macos",
+              "url": "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
+              "sha256": "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+              "executable": true,
+              "downloaded_file_path": "kubectl"
             }
           },
           "com_github_bufbuild_protoc_gen_validate_aarch64_macos": {
@@ -2671,28 +2837,6 @@
               "url": "https://github.com/pseudomuto/protoc-gen-doc/releases/download/v1.5.1/protoc-gen-doc_1.5.1_darwin_amd64.tar.gz",
               "build_file_content": "exports_files([\"protoc-gen-doc\"])",
               "integrity": "sha256-9Cnlpd3Yhr+2gmXy+SwcalCXgLetyveos76UPyjhRLo="
-            }
-          },
-          "io_k8s_sigs_kind_x86_64_linux": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_file",
-            "attributes": {
-              "name": "_main~non_module_deps~io_k8s_sigs_kind_x86_64_linux",
-              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
-              "sha256": "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
-              "executable": true,
-              "downloaded_file_path": "kind"
-            }
-          },
-          "sh_helm_x86_64_linux": {
-            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
-            "ruleClassName": "http_archive",
-            "attributes": {
-              "name": "_main~non_module_deps~sh_helm_x86_64_linux",
-              "url": "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
-              "build_file_content": "exports_files([\"helm\"])",
-              "sha256": "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
-              "strip_prefix": "linux-amd64"
             }
           },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos": {
