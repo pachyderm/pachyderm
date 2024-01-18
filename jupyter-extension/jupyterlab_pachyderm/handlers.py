@@ -5,6 +5,7 @@ import asyncio
 import grpc
 import json
 from pachyderm_sdk import Client, errors
+from pathlib import Path
 import tornado
 import traceback
 
@@ -331,9 +332,7 @@ class ConfigHandler(BaseHandler):
             address = body["pachd_address"]
             cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
-            client = Client().from_pachd_address(
-                pachd_address=address, root_certs=cas
-            )
+            client = Client().from_pachd_address(pachd_address=address, root_certs=cas)
             self.settings["pachyderm_client"] = client
             self.settings["pfs_contents_manager"] = PFSManager(client=client)
             self.settings["datum_contents_manager"] = DatumManager(client=client)
@@ -443,6 +442,42 @@ class PPSCreateHandler(BaseHandler):
             raise e
 
 
+class ExploreDownloadHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self, path):
+        print(f"PUT for /download/explore{path} called")
+        try:
+            self.pfs_manager.download_file(path=path)
+        except FileExistsError:
+            raise tornado.web.HTTPError(
+                status_code=400,
+                reason=f"Downloading {Path(path).name} which already exists in the current working directory",
+            )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=e)
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=e)
+        await self.finish()
+
+
+class TestDownloadHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def put(self, path):
+        print(f"PUT for /download/test{path} called")
+        try:
+            self.datum_manager.download_file(path=path)
+        except FileExistsError:
+            raise tornado.web.HTTPError(
+                status_code=400,
+                reason=f"Downloading {Path(path).name} which already exists in the current working directory",
+            )
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=e)
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=e)
+        await self.finish()
+
+
 def setup_handlers(web_app):
     try:
         client = Client().from_config()
@@ -477,6 +512,8 @@ def setup_handlers(web_app):
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
         (r"/pps/_create%s" % path_regex, PPSCreateHandler),
+        (r"/download/explore%s" % path_regex, ExploreDownloadHandler),
+        (r"/download/test%s" % path_regex, TestDownloadHandler),
     ]
 
     base_url = web_app.settings["base_url"]
