@@ -13,8 +13,8 @@ import requests
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
-from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs, pps
+from jupyterlab_pachyderm.pachyderm_sdk import Client
+from jupyterlab_pachyderm.pachyderm_sdk.api import pfs, pps
 
 from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 

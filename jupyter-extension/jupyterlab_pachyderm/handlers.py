@@ -4,10 +4,10 @@ from jupyter_server.utils import url_path_join
 import asyncio
 import grpc
 import json
-from pachyderm_sdk import Client, errors
 import tornado
 import traceback
 
+from jupyterlab_pachyderm.pachyderm_sdk import Client, errors
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient

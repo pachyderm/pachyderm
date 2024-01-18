@@ -172,7 +172,7 @@ source venv/bin/activate
 Build `dist` directory:
 ```
 python -m pip install --upgrade pip
-python -m pip install -r ci-requirements.txt
+python -m pip install '.[dev]'
 python -m build
 ```
 
