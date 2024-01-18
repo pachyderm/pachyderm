@@ -25,6 +25,7 @@ go_library(
         "@io_k8s_api//core/v1:core",
         "@io_k8s_apimachinery//pkg/api/errors",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/util/intstr",
         "@io_k8s_apimachinery//pkg/util/net",
         "@io_k8s_client_go//kubernetes",
         "@org_golang_google_protobuf//types/known/durationpb",
