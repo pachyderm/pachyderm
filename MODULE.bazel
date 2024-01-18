@@ -317,10 +317,13 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
     "com_github_yelp_dumb_init_aarch64_linux",
     "com_github_yelp_dumb_init_x86_64_linux",
+    "io_k8s_dl_kubectl_x86_64_linux",
+    "io_k8s_sigs_kind_x86_64_linux",
     "org_uber_go_gopatch_aarch64_linux",
     "org_uber_go_gopatch_aarch64_macos",
     "org_uber_go_gopatch_x86_64_linux",
     "org_uber_go_gopatch_x86_64_macos",
+    "sh_helm_x86_64_linux",
 )
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "4968966260b5c4abf20ddb9e1c46aa3476deb7c997405b0897f950cc543cbab4",
+  "moduleFileHash": "ad8099944f2f4740248841a3e8ca61b5c00dbc8bbe2ad38cfb04d1e7f17dc0de",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -559,10 +559,13 @@
             "com_github_pseudomuto_protoc_gen_doc_x86_64_macos": "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
             "com_github_yelp_dumb_init_aarch64_linux": "com_github_yelp_dumb_init_aarch64_linux",
             "com_github_yelp_dumb_init_x86_64_linux": "com_github_yelp_dumb_init_x86_64_linux",
+            "io_k8s_sigs_kind_x86_64_linux": "io_k8s_sigs_kind_x86_64_linux",
             "org_uber_go_gopatch_aarch64_linux": "org_uber_go_gopatch_aarch64_linux",
             "org_uber_go_gopatch_aarch64_macos": "org_uber_go_gopatch_aarch64_macos",
             "org_uber_go_gopatch_x86_64_linux": "org_uber_go_gopatch_x86_64_linux",
-            "org_uber_go_gopatch_x86_64_macos": "org_uber_go_gopatch_x86_64_macos"
+            "org_uber_go_gopatch_x86_64_macos": "org_uber_go_gopatch_x86_64_macos",
+            "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
+            "io_k8s_dl_kubectl_x86_64_linux": "io_k8s_dl_kubectl_x86_64_linux"
           },
           "devImports": [],
           "tags": [],
@@ -575,7 +578,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 326,
+            "line": 329,
             "column": 20
           },
           "imports": {
@@ -597,7 +600,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 327,
+                "line": 330,
                 "column": 9
               }
             }
@@ -611,7 +614,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 338,
+            "line": 341,
             "column": 23
           },
           "imports": {},
@@ -626,7 +629,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 339,
+                "line": 342,
                 "column": 17
               }
             }
@@ -2304,7 +2307,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "knflyAN5xSFgSqfkzBHSHJymIQ/0xtNh4T5k4b+s2bc=",
+        "bzlTransitiveDigest": "VjLnKbNrDErdepMggdaNkq2C4Ivr3wmMIVeNVzvExfM=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2556,6 +2559,17 @@
               "sha256": "de4aa0ae3734ac62737a982b39a7194f7ca4925c49f282e7570f0ab6597ba532"
             }
           },
+          "io_k8s_dl_kubectl_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~io_k8s_dl_kubectl_x86_64_linux",
+              "url": "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
+              "sha256": "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+              "executable": true,
+              "downloaded_file_path": "kubectl"
+            }
+          },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_x86_64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2645,6 +2659,28 @@
               "url": "https://github.com/pseudomuto/protoc-gen-doc/releases/download/v1.5.1/protoc-gen-doc_1.5.1_darwin_amd64.tar.gz",
               "build_file_content": "exports_files([\"protoc-gen-doc\"])",
               "integrity": "sha256-9Cnlpd3Yhr+2gmXy+SwcalCXgLetyveos76UPyjhRLo="
+            }
+          },
+          "io_k8s_sigs_kind_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~io_k8s_sigs_kind_x86_64_linux",
+              "url": "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
+              "sha256": "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+              "executable": true,
+              "downloaded_file_path": "kind"
+            }
+          },
+          "sh_helm_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "name": "_main~non_module_deps~sh_helm_x86_64_linux",
+              "url": "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+              "build_file_content": "exports_files([\"helm\"])",
+              "sha256": "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+              "strip_prefix": "linux-amd64"
             }
           },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos": {

@@ -1,0 +1,12 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "_kubectl",
+    repo = "@io_k8s_dl_kubectl",
+    target = "file:kubectl",
+)
+
+alias(
+    name = "kubectl",
+    actual = "_kubectl_bin",
+)

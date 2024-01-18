@@ -244,3 +244,31 @@ def dumb_init_deps():
         executable = True,
         downloaded_file_path = "dumb-init",
     )
+
+def helm_deps():
+    build = """exports_files(["helm"])"""
+    http_archive(
+        name = "sh_helm_x86_64_linux",
+        url = "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+        build_file_content = build,
+        sha256 = "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+        strip_prefix = "linux-amd64",
+    )
+
+def kind_deps():
+    http_file(
+        name = "io_k8s_sigs_kind_x86_64_linux",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
+        sha256 = "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+        executable = True,
+        downloaded_file_path = "kind",
+    )
+
+def kubectl_deps():
+    http_file(
+        name = "io_k8s_dl_kubectl_x86_64_linux",
+        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
+        sha256 = "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+        executable = True,
+        downloaded_file_path = "kubectl",
+    )
