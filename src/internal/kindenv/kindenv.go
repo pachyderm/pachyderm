@@ -284,6 +284,7 @@ nodeRegistration:
 	}
 
 	// Install minio.
+	log.Info(ctx, "installing minio")
 	minioYaml, err := runfiles.Rlocation("_main/src/internal/kindenv/minio.yaml")
 	if err != nil {
 		return errors.Wrap(err, "minio.yaml not in binary runfiles; build with bazel")
@@ -293,12 +294,23 @@ nodeRegistration:
 	}
 
 	// Tweak DNS for higher performance.
+	log.Info(ctx, "tweaking DNS config")
 	dnsConfig, err := runfiles.Rlocation("_main/src/internal/kindenv/coredns_configmap.yaml")
 	if err != nil {
 		return errors.Wrap(err, "coredns_configmap.yaml not in binary runfiles; build with bazel")
 	}
 	if err := kc.KubectlCommand(ctx, "apply", "-f", dnsConfig).Run(); err != nil {
 		return errors.Wrap(err, "kubectl apply -f coredns_configmap.yaml")
+	}
+
+	// Install metrics-server.
+	log.Info(ctx, "installing metrics-server")
+	metricsServerTar, err := runfiles.Rlocation("com_github_kubernetes_sigs_metrics_server_helm_chart/file/metrics-server.tgz")
+	if err != nil {
+		return errors.Wrap(err, "metrics-server.tgz not in binary runfiles; build with bazel")
+	}
+	if err := kc.HelmCommand(ctx, "install", "--set", "args={--kubelet-insecure-tls}", "metrics-server", metricsServerTar, "--namespace", "kube-system").Run(); err != nil {
+		return errors.Wrap(err, "helm install metrics-server")
 	}
 
 	return nil

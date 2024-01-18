@@ -307,6 +307,7 @@ use_repo(
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+    "com_github_kubernetes_sigs_metrics_server_helm_chart",
     "com_github_protocolbuffers_protobuf_aarch64_linux",
     "com_github_protocolbuffers_protobuf_aarch64_macos",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",

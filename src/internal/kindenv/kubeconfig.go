@@ -65,6 +65,22 @@ func (k Kubeconfig) KubectlCommand(ctx context.Context, args ...string) *exec.Cm
 	return cmd
 }
 
+// HelmCommand returns an exec.Cmd that will run helm.
+func (k Kubeconfig) HelmCommand(ctx context.Context, args ...string) *exec.Cmd {
+	path, ok := bazel.FindBinary("//tools/helm", "_helm")
+	if !ok {
+		log.Error(ctx, "binary not built with bazel; falling back to host helm")
+		path = "helm"
+	}
+	cmd := exec.CommandContext(ctx, path, args...)
+	cmd.Env = os.Environ()
+	cmd.Env = append(cmd.Env, "KUBECONFIG="+string(k))
+	cmd.Args[0] = "helm"
+	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "helm.stdout"), log.InfoLevel)
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "helm.stderr"), log.InfoLevel)
+	return cmd
+}
+
 // Client returns a kubernetes.Interface connected to the cluster referenced by k.
 func (k Kubeconfig) Client() (kubernetes.Interface, error) {
 	loadingRules := &clientcmd.ClientConfigLoadingRules{

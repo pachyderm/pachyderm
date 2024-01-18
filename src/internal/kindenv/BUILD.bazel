@@ -10,7 +10,9 @@ go_library(
     data = [
         "coredns_configmap.yaml",
         "minio.yaml",
+        "//tools/helm",
         "//tools/kubectl",
+        "@com_github_kubernetes_sigs_metrics_server_helm_chart//file:metrics-server.tgz",
     ],
     embedsrcs = ["zot.json"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kindenv",

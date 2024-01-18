@@ -65,5 +65,5 @@ func (l *kindLogger) Enabled() bool {
 }
 
 func NewKindLogger(ctx context.Context) kindlog.Logger {
-	return &kindLogger{ctx: ctx}
+	return &kindLogger{ctx: withLogger(ctx, extractLogger(ctx).WithOptions(zap.WithCaller(false)))}
 }

@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "44cc4203d985a59a25f5b1f64369f59fac60d61719846fa4fd976f346113082f",
+  "moduleFileHash": "9f396ec892d2391bca2df853ad0fe0f90cc9a32f4c33ff51b0f6c49ffa5456af",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -578,7 +578,8 @@
             "sh_helm_aarch64_linux": "sh_helm_aarch64_linux",
             "sh_helm_aarch64_macos": "sh_helm_aarch64_macos",
             "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
-            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos"
+            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos",
+            "com_github_kubernetes_sigs_metrics_server_helm_chart": "com_github_kubernetes_sigs_metrics_server_helm_chart"
           },
           "devImports": [],
           "tags": [],
@@ -591,7 +592,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 342,
+            "line": 343,
             "column": 20
           },
           "imports": {
@@ -613,7 +614,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 343,
+                "line": 344,
                 "column": 9
               }
             }
@@ -627,7 +628,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 354,
+            "line": 355,
             "column": 23
           },
           "imports": {},
@@ -642,7 +643,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 355,
+                "line": 356,
                 "column": 17
               }
             }
@@ -2320,7 +2321,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "H37i4r6oRm7fv9MqJ+nfawtR9Sy5djsWN4RfDlHN4fs=",
+        "bzlTransitiveDigest": "RTbnliy+dnrcao6SDKxv+cNUBiVQrLJ9vowBxBBDpNw=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2649,6 +2650,16 @@
               "url": "https://github.com/uber-go/gopatch/releases/download/v0.3.0/gopatch_Darwin_x86_64.tar.gz",
               "build_file_content": "exports_files([\"gopatch\"])",
               "sha256": "b34750977ce6802c2ade0c7c302c79d065b86eb9e09bca86fa6f245b9d3fabe3"
+            }
+          },
+          "com_github_kubernetes_sigs_metrics_server_helm_chart": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_file",
+            "attributes": {
+              "name": "_main~non_module_deps~com_github_kubernetes_sigs_metrics_server_helm_chart",
+              "url": "https://github.com/kubernetes-sigs/metrics-server/releases/download/metrics-server-helm-chart-3.11.0/metrics-server-3.11.0.tgz",
+              "sha256": "e7cba5a2d7e2b0949b3ea1aa48fc3780b71eba17e1edccc8273f5da67048164b",
+              "downloaded_file_path": "metrics-server.tgz"
             }
           },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux": {

@@ -389,3 +389,11 @@ def skopeo_deps():
         executable = True,
         downloaded_file_path = "skopeo",
     )
+
+def pachdev_deps():
+    http_file(
+        name = "com_github_kubernetes_sigs_metrics_server_helm_chart",
+        url = "https://github.com/kubernetes-sigs/metrics-server/releases/download/metrics-server-helm-chart-3.11.0/metrics-server-3.11.0.tgz",
+        sha256 = "e7cba5a2d7e2b0949b3ea1aa48fc3780b71eba17e1edccc8273f5da67048164b",
+        downloaded_file_path = "metrics-server.tgz",
+    )
