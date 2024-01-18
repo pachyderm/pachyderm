@@ -27,8 +27,8 @@ import (
 
 const (
 	namespace            = "fuzz-cluster-1"
-	useSucccessValWeight = .8
-	maxRepeatedCount     = 10
+	useSucccessValWeight = .98
+	maxRepeatedCount     = 2
 	// usNilWeight          = .2
 )
 
@@ -58,7 +58,7 @@ type GeneratorIndex struct {
 	NameGenerators map[string]Generator
 }
 
-type generatorSource struct { // DNJ TODO - awful name
+type generatorSource struct { // DNJ TODO - should this hold successInputs?
 	r        *rand.Rand
 	field    protoreflect.FieldDescriptor
 	ancestry []string
@@ -75,12 +75,8 @@ func noValue(genSource generatorSource) protoreflect.Value {
 	return protoreflect.ValueOf(nil)
 }
 
-func repoType(genSource generatorSource) protoreflect.Value {
-	return protoreflect.ValueOf("user")
-}
-
-func serviceType(genSource generatorSource) protoreflect.Value {
-	return protoreflect.ValueOf("NodePort")
+func constantVal(value interface{}) Generator {
+	return func(genSource generatorSource) protoreflect.Value { return protoreflect.ValueOf(value) }
 }
 
 func randInt64Positive(genSource generatorSource) protoreflect.Value { // DNJ  TODO parametrize and return function?
@@ -95,6 +91,16 @@ func randJson(genSource generatorSource) protoreflect.Value {
 	return protoreflect.ValueOf("") // DNJ TODO - random json generator
 }
 
+func existingString(field string) Generator {
+	return func(genSource generatorSource) protoreflect.Value {
+		if vals, ok := successInputs[field]; ok { // repo name doesn't match the field for pipeline inputs
+			return vals[genSource.r.Intn(len(vals))]
+		} else {
+			return protoreflect.ValueOf(randString(genSource.r, 0, 20))
+		}
+	}
+}
+
 func randReproccessSpec(genSource generatorSource) protoreflect.Value {
 	if genSource.r.Float32() < .5 {
 		return protoreflect.ValueOf("until_success")
@@ -106,6 +112,16 @@ func randTolerationOperator(genSource generatorSource) protoreflect.Value {
 	enum := genSource.field.Enum().Values()
 	selected := genSource.r.Intn(enum.Len()-1) + 1 // 0 is invalid for create pipeline
 	return protoreflect.ValueOf(enum.Get(selected).Number())
+}
+
+func randName(genSource generatorSource) protoreflect.Value {
+	validChars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+	var characters strings.Builder
+	length := genSource.r.Intn(20) + 1
+	for i := 0; i < length; i++ {
+		characters.WriteRune(validChars[genSource.r.Intn(len(validChars))])
+	}
+	return protoreflect.ValueOf(characters.String())
 }
 
 // DNJ TODO - rpc fuzz test
@@ -145,9 +161,9 @@ func getSharedCluster(f *testing.F) *client.APIClient {
 		CleanupAfter:       false,
 		UseLeftoverCluster: true,
 		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "2Gi",
-			"prxoy.resources.limits.memory":   "2Gi",
-			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
+			"prxoy.resources.requests.memory": "1Gi",
+			"prxoy.resources.limits.memory":   "1Gi",
+			"proxy.replicas":                  "10", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
 		},
 	})
 	return pachClient
@@ -199,6 +215,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			"pps_v2.Input.cross":                          subinput,
 			"pps_v2.Input.union":                          subinput,
 			"pps_v2.Input.group":                          subinput,
+			"pps_v2.Input.cron":                           noValue,           // DNJ TODO - handle multiple input types set - store info in GenSource
 			"google.protobuf.Int64Value.value":            randInt64Positive, // DNJ TODO - read ancestry to decide?
 			"google.protobuf.Duration.seconds":            randInt64Positive,
 			"google.protobuf.Duration.nanos":              randNanos,
@@ -211,8 +228,25 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			"pps_v2.Toleration.operator":                  randTolerationOperator,
 			"pps_v2.CreatePipelineRequest.pod_spec":       randJson,
 			"pps_v2.CreatePipelineRequest.pod_patch":      randJson,
-			"pfs_v2.Repo.type":                            repoType,
-			"pps_v2.Service.type":                         serviceType, //could not marshal CreatePipelineRequest to JSON
+			"pfs_v2.Repo.type":                            constantVal("user"),
+			"pps_v2.PFSInput.repo_type":                   constantVal("user"),
+			"pps_v2.PFSInput.branch":                      constantVal("master"),
+			"pps_v2.PFSInput.trigger":                     noValue,
+			"pps_v2.PFSInput.commit":                      noValue,
+			"pps_v2.PFSInput.s3":                          noValue,
+			"pps_v2.PFSInput.repo":                        existingString("pfs_v2.Repo.name"),
+			"pps_v2.PFSInput.project":                     existingString("pfs_v2.Project.name"),
+			"pps_v2.Service.type":                         constantVal("NodePort"),
+			"pps_v2.Transform.secrets":                    noValue,
+			"pps_v2.CreatePipelineRequest.dry_run":        noValue,
+			"pps_v2.CreatePipelineRequest.determined":     noValue,
+			"pfs_v2.SQLDatabaseEgress.secret":             noValue,
+			"pps_v2.CreatePipelineRequest.spout":          noValue,
+			"pps_v2.CreatePipelineRequest.s3_out":         noValue,
+			"pps_v2.CreatePipelineRequest.egress":         noValue,
+			"pps_v2.CreatePipelineRequest.spec_commit":    noValue,
+			"pps_v2.Pipeline.name":                        randName,
+			"pps_v2.ParallelismSpec.constant":             constantVal(uint64(1)),
 		},
 	}
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
