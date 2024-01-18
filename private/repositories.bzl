@@ -246,6 +246,7 @@ def dumb_init_deps():
     )
 
 def helm_deps():
+    """Binaries for helm."""
     build = """exports_files(["helm"])"""
     http_archive(
         name = "sh_helm_x86_64_linux",
