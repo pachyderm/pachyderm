@@ -2,7 +2,11 @@ load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "kindenv",
-    srcs = ["kindenv.go"],
+    srcs = [
+        "kindenv.go",
+        "registry.go",
+    ],
+    embedsrcs = ["zot.json"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kindenv",
     visibility = ["//src:__subpackages__"],
     deps = [
@@ -10,6 +14,14 @@ go_library(
         "//src/internal/log",
         "//src/internal/pctx",
         "//src/internal/promutil",
+        "@com_github_adrg_xdg//:xdg",
+        "@com_github_docker_docker//api/types",
+        "@com_github_docker_docker//api/types/container",
+        "@com_github_docker_docker//api/types/network",
+        "@com_github_docker_docker//api/types/strslice",
+        "@com_github_docker_docker//client",
+        "@com_github_docker_go_connections//nat",
+        "@com_github_opencontainers_image_spec//specs-go/v1:specs-go",
         "@io_k8s_api//core/v1:core",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
         "@io_k8s_apimachinery//pkg/types",

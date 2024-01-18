@@ -34,7 +34,8 @@ func DeleteClusterCmd() *cobra.Command {
 }
 
 func CreateClusterCmd() *cobra.Command {
-	return &cobra.Command{
+	var registry string
+	cmd := &cobra.Command{
 		Use:   "create-cluster [<name>]",
 		Short: "Deploy a local Kubernetes cluster",
 		Args:  cobra.MaximumNArgs(1),
@@ -50,7 +51,7 @@ func CreateClusterCmd() *cobra.Command {
 			}
 			if err := cluster.Create(ctx, &kindenv.CreateOpts{
 				TestNamespaceCount: 3,
-				ExternalRegistry:   "oci:/tmp/zot",
+				ExternalRegistry:   registry,
 				BindHTTPPorts:      true,
 				StartingPort:       30600,
 			}); err != nil {
@@ -59,6 +60,7 @@ func CreateClusterCmd() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
 }
 
 func restartClusterCmd() *cobra.Command {

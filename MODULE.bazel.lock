@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "da46b911b9b0835e6dd446da1e206fe3d629590dca674f0e64960ec683fef045",
+  "moduleFileHash": "4968966260b5c4abf20ddb9e1c46aa3476deb7c997405b0897f950cc543cbab4",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -123,6 +123,7 @@
             "com_github_minio_minio_go_v6": "com_github_minio_minio_go_v6",
             "com_github_minio_minio_go_v7": "com_github_minio_minio_go_v7",
             "com_github_modern_go_reflect2": "com_github_modern_go_reflect2",
+            "com_github_opencontainers_image_spec": "com_github_opencontainers_image_spec",
             "com_github_opentracing_contrib_go_grpc": "com_github_opentracing_contrib_go_grpc",
             "com_github_opentracing_opentracing_go": "com_github_opentracing_opentracing_go",
             "com_github_pachyderm_ohmyglob": "com_github_pachyderm_ohmyglob",
@@ -524,7 +525,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 284,
+            "line": 285,
             "column": 32
           },
           "imports": {
@@ -574,7 +575,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 325,
+            "line": 326,
             "column": 20
           },
           "imports": {
@@ -596,7 +597,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 326,
+                "line": 327,
                 "column": 9
               }
             }
@@ -610,7 +611,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 337,
+            "line": 338,
             "column": 23
           },
           "imports": {},
@@ -625,7 +626,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 338,
+                "line": 339,
                 "column": 17
               }
             }
@@ -3453,7 +3454,7 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "292944853775ebb1d6236ae4f15f2be11d9633397edae58e0f9a81934e165598",
+          "@@//:go.mod": "40637b3844d25c684097a315b4a09aabd1e3d3300acac6be86efe977b9ed066d",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.44.1//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@//:go.sum": "00fecc95e96079454832b3519bfd9445ca77e471cd6307acefa035e15237dd0e",
@@ -9858,7 +9859,8 @@
             "io_k8s_sigs_yaml",
             "com_github_alessio_shellescape",
             "com_github_fsnotify_fsnotify",
-            "com_github_google_shlex"
+            "com_github_google_shlex",
+            "com_github_opencontainers_image_spec"
           ],
           "explicitRootModuleDirectDevDeps": [],
           "useAllRepos": "NO"

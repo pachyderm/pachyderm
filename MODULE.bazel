@@ -215,6 +215,7 @@ use_repo(
     "com_github_minio_minio_go_v6",
     "com_github_minio_minio_go_v7",
     "com_github_modern_go_reflect2",
+    "com_github_opencontainers_image_spec",
     "com_github_opentracing_contrib_go_grpc",
     "com_github_opentracing_opentracing_go",
     "com_github_pachyderm_ohmyglob",

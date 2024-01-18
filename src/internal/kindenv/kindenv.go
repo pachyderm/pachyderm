@@ -111,8 +111,19 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
 	annotations := map[string]map[string]string{
 		"default": {
 			"dev.pachyderm.io/kindenv-version": strconv.Itoa(version),
-			"dev.pachyderm.io/registry":        opts.ExternalRegistry,
+			// Kind recommends this KEP, but it never got approved.  So we build our own
+			// that doesn't involve parsing YAML.
+			// https://github.com/kubernetes/enhancements/tree/master/keps/sig-cluster-lifecycle/generic/1755-communicating-a-local-registry
+			"dev.pachyderm.io/registry": opts.ExternalRegistry,
 		},
+	}
+
+	if opts.ExternalRegistry == "" {
+		path, err := ensureRegistry(ctx)
+		if err != nil {
+			return errors.Wrap(err, "setup pach-registry container")
+		}
+		annotations["default"]["dev.pachyderm.io/registry"] = "oci:" + path
 	}
 
 	var ports []v1alpha4.PortMapping
