@@ -694,6 +694,14 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 		if searchDone {
 			return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 		}
+		logFields := []zap.Field{
+			zap.String("commit", commit.Id),
+			zap.String("repo", commit.Repo.String()),
+			zap.String("target", request.FilePath),
+		}
+		if commit.Branch != nil {
+			logFields = append(logFields, zap.String("branch", commit.Branch.String()))
+		}
 		if err := log.LogStep(ctx, "searchingCommit", func(ctx context.Context) error {
 			inspectCommitResp, err := d.resolveCommitWithAuth(ctx, commit)
 			if err != nil {
@@ -722,7 +730,7 @@ func (d *driver) findCommits(ctx context.Context, request *pfs.FindCommitsReques
 			}
 			commit = inspectCommitResp.ParentCommit
 			return nil
-		}, zap.String("commit", commit.Id), zap.String("branch", commit.GetBranch().String()), zap.String("repo", commit.Repo.String()), zap.String("target", request.FilePath)); err != nil {
+		}, logFields...); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				return errors.EnsureStack(cb(makeResp(nil, commitsSearched, commit)))
 			}

@@ -4538,6 +4538,15 @@ func TestPFS(suite *testing.T) {
 		require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
 		require.Equal(t, uint32(4), resp.CommitsSearched)
 		require.Equal(t, commit1, resp.LastSearchedCommit)
+
+		require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "master", true))
+
+		resp, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
+		require.NoError(t, err)
+
+		require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
+		require.Equal(t, uint32(4), resp.CommitsSearched)
+		require.Equal(t, commit1, resp.LastSearchedCommit)
 	})
 
 	suite.Run("FindCommitsLimit", func(t *testing.T) {
