@@ -9,4 +9,5 @@ host_native_binary(
 alias(
     name = "kind",
     actual = "_kind_bin",
+    visibility = ["//visibility:public"],
 )

@@ -20,9 +20,17 @@ import (
 	"go.uber.org/zap"
 )
 
-// Zot is a container registry that stores containers in the same format that "bazel build" stores
-// them.  To push, we just have to copy some files around.
-const zotImage = "ghcr.io/project-zot/zot-linux-amd64:v1.4.3@sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378"
+const (
+	// Zot is a container registry that stores containers in the same format that "bazel build"
+	// stores them.  To push, we just have to copy some files around.
+	zotImage = "ghcr.io/project-zot/zot-linux-amd64:v1.4.3@sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378"
+
+	// It is unlikely that localhost:5001 will work for all setups, like pushing from Mac ->
+	// registry on Linux VM.  So we'll pretend this is configurable and then come up with a plan
+	// for making it configurable.  The port has to be 5001 for compatability with "docker
+	// push"; it's the magic number that tells it "hey don't check the TLS cert".
+	registryHostname = "localhost"
+)
 
 //go:embed zot.json
 var zotJSON []byte

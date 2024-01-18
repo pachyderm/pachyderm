@@ -4,21 +4,18 @@ package kindenv
 import (
 	"context"
 	"encoding/json"
-	"io"
-	"net/http"
-	"os"
+	"fmt"
 	"strconv"
 	"strings"
 
+	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	"sigs.k8s.io/kind/pkg/apis/config/v1alpha4"
 	"sigs.k8s.io/kind/pkg/cluster"
@@ -33,6 +30,12 @@ const (
 	// above.  Always include the sha256 checksum (due to quirks in Kind's release process,
 	// according to their docs).
 	nodeImage = "kindest/node:v1.29.0@sha256:eaa1450915475849a73a9227b8f201df25e55e268e5d619312131292e324d570"
+
+	clusterRegistryKey = "dev.pachyderm.io/registry"
+	clusterVersionKey  = "dev.pachyderm.io/kindenv-version"
+	httpPortsKey       = "dev.pachyderm.io/standard-http-ports"
+	exposedPortsKey    = "dev.pachyderm.io/exposed-ports"
+	fieldManager       = "pachdev"
 )
 
 // CreateOpts specifies a Kind environment.
@@ -104,17 +107,64 @@ func New(ctx context.Context, name string) (*Cluster, error) {
 	return cluster, nil
 }
 
+// ClusterConfig is the configuration of the attached cluster.
+type ClusterConfig struct {
+	Version       int
+	ImagePushPath string
+}
+
+func (c *Cluster) GetConfig(ctx context.Context) (_ *ClusterConfig, retErr error) {
+	kc, err := c.GetKubeconfig(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "get kubeconfig")
+	}
+	defer errors.Close(&retErr, kc, "cleanup kubeconfig")
+
+	kube, err := kc.Client()
+	if err != nil {
+		return nil, errors.Wrap(err, "get kube client")
+	}
+	ns, err := kube.CoreV1().Namespaces().Get(ctx, "default", v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrap(err, "get default namespace")
+	}
+	if ns.Annotations == nil {
+		return nil, errors.New("no annotations on default namespace")
+	}
+	result := new(ClusterConfig)
+	if version, ok := ns.Annotations[clusterVersionKey]; ok {
+		v, err := strconv.Atoi(version)
+		if err != nil {
+			log.Error(ctx, "cluster version is unparseable", zap.Error(err))
+		}
+		result.Version = v
+	}
+	if result.Version == 0 {
+		return nil, errors.New("cluster is not a pachdev environment")
+	}
+	if result.Version != version {
+		log.Error(ctx, "your pachdev cluster is outdated; please delete and re-create it soon", zap.Int("your_version", result.Version), zap.Int("latest_version", version))
+	}
+	if path, ok := ns.Annotations[clusterRegistryKey]; ok {
+		result.ImagePushPath = path
+	}
+	if result.ImagePushPath == "" {
+		return nil, errors.New("there is no way to push images to your cluster")
+	}
+	return result, nil
+}
+
 // Create creates a new cluster.
-func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
+func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 	// k8s annotations to be applied to the default namespace; this is how we transfer
 	// configuration between tests/dev tools/etc.
 	annotations := map[string]map[string]string{
 		"default": {
-			"dev.pachyderm.io/kindenv-version": strconv.Itoa(version),
+			clusterVersionKey: strconv.Itoa(version),
 			// Kind recommends this KEP, but it never got approved.  So we build our own
 			// that doesn't involve parsing YAML.
 			// https://github.com/kubernetes/enhancements/tree/master/keps/sig-cluster-lifecycle/generic/1755-communicating-a-local-registry
-			"dev.pachyderm.io/registry": opts.ExternalRegistry,
+			clusterRegistryKey: opts.ExternalRegistry,
 		},
 	}
 
@@ -123,12 +173,12 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
 		if err != nil {
 			return errors.Wrap(err, "setup pach-registry container")
 		}
-		annotations["default"]["dev.pachyderm.io/registry"] = "oci:" + path
+		annotations["default"][clusterRegistryKey] = "oci:" + path
 	}
 
 	var ports []v1alpha4.PortMapping
 	if opts.BindHTTPPorts {
-		annotations["default"]["dev.pachyderm.io/standard-http-ports"] = "true"
+		annotations["default"][httpPortsKey] = "true"
 		ports = append(ports,
 			v1alpha4.PortMapping{
 				ContainerPort: 30080,
@@ -165,7 +215,7 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
 			annotations[name] = x
 			ns = annotations[name]
 		}
-		ns["dev.pachyderm.io/exposed-ports"] = strings.Join(nsPorts, ",")
+		ns[exposedPortsKey] = strings.Join(nsPorts, ",")
 	}
 	config := &v1alpha4.Cluster{
 		TypeMeta: v1alpha4.TypeMeta{
@@ -173,7 +223,7 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) error {
 			APIVersion: "kind.x-k8s.io/v1alpha4",
 		},
 		ContainerdConfigPatches: []string{
-			`[plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]` +
+			fmt.Sprintf(`[plugins."io.containerd.grpc.v1.cri".registry.mirrors.%q]`, registryHostname+":5001") +
 				"\n" +
 				`  endpoint = ["http://pach-registry:5000"]`,
 		},
@@ -195,7 +245,13 @@ nodeRegistration:
 		return errors.Wrap(err, "create cluster")
 	}
 
-	kube, err := c.KubeClient(ctx)
+	kc, err := c.GetKubeconfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get kubeconfig")
+	}
+	defer errors.Close(&retErr, kc, "close kubeconfig")
+
+	kube, err := kc.Client()
 	if err != nil {
 		return errors.Wrap(err, "get kube client")
 	}
@@ -208,7 +264,7 @@ nodeRegistration:
 		return errors.Wrapf(err, "marshal json for namespace patch")
 	}
 	if _, err := kube.CoreV1().Namespaces().Patch(ctx, "default", types.StrategicMergePatchType, js, v1.PatchOptions{
-		FieldManager: "pachdev",
+		FieldManager: fieldManager,
 	}); err != nil {
 		return errors.Wrap(err, "add default annotations")
 	}
@@ -223,46 +279,29 @@ nodeRegistration:
 			},
 		}
 		kube.CoreV1().Namespaces().Create(ctx, ns, v1.CreateOptions{
-			FieldManager: "pachdev",
+			FieldManager: fieldManager,
 		})
 	}
 
+	// Install minio.
+	minioYaml, err := runfiles.Rlocation("_main/src/internal/kindenv/minio.yaml")
+	if err != nil {
+		return errors.Wrap(err, "minio.yaml not in binary runfiles; build with bazel")
+	}
+	if err := kc.KubectlCommand(ctx, "apply", "-f", minioYaml).Run(); err != nil {
+		return errors.Wrap(err, "kubectl apply -f minio.yaml")
+	}
+
+	// Tweak DNS for higher performance.
+	dnsConfig, err := runfiles.Rlocation("_main/src/internal/kindenv/coredns_configmap.yaml")
+	if err != nil {
+		return errors.Wrap(err, "coredns_configmap.yaml not in binary runfiles; build with bazel")
+	}
+	if err := kc.KubectlCommand(ctx, "apply", "-f", dnsConfig).Run(); err != nil {
+		return errors.Wrap(err, "kubectl apply -f coredns_configmap.yaml")
+	}
+
 	return nil
-}
-
-// KubeClient gets a Kubernetes API client for the named cluster.
-func (c *Cluster) KubeClient(ctx context.Context) (kubernetes.Interface, error) {
-	f, err := os.CreateTemp("", "pachdev-kubeconfig-*")
-	if err != nil {
-		return nil, errors.Wrap(err, "create tmpfile for config")
-	}
-	cfg, err := c.provider.KubeConfig(c.name, false)
-	if err != nil {
-		return nil, errors.Wrap(err, "get kubeconfig")
-	}
-	if _, err := io.Copy(f, strings.NewReader(cfg)); err != nil {
-		return nil, errors.Wrap(err, "write kubeconfig")
-	}
-	if err := f.Close(); err != nil {
-		return nil, errors.Wrap(err, "close kubeconfig")
-	}
-
-	loadingRules := &clientcmd.ClientConfigLoadingRules{
-		ExplicitPath: f.Name(),
-	}
-	kubeConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	config, err := kubeConfig.ClientConfig()
-	if err != nil {
-		return nil, errors.Wrap(err, "load kubeconfig")
-	}
-	config.WrapTransport = func(rt http.RoundTripper) http.RoundTripper {
-		return promutil.InstrumentRoundTripper("kubernetes", rt)
-	}
-	st, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return nil, errors.Wrap(err, "new k8s clientset")
-	}
-	return st, nil
 }
 
 // Delete destroys the cluster.

@@ -9,4 +9,5 @@ host_native_binary(
 alias(
     name = "kubectl",
     actual = "_kubectl_bin",
+    visibility = ["//visibility:public"],
 )

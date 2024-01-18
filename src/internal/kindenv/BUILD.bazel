@@ -4,7 +4,13 @@ go_library(
     name = "kindenv",
     srcs = [
         "kindenv.go",
+        "kubeconfig.go",
         "registry.go",
+    ],
+    data = [
+        "coredns_configmap.yaml",
+        "minio.yaml",
+        "//tools/kubectl",
     ],
     embedsrcs = ["zot.json"],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kindenv",
@@ -30,5 +36,7 @@ go_library(
         "@io_k8s_sigs_kind//pkg/apis/config/v1alpha4",
         "@io_k8s_sigs_kind//pkg/cluster",
         "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/tools/bazel:go_default_library",
     ],
 )
