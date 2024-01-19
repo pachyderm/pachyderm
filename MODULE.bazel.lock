@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "0fd423fb3b5c9fb7c04828d8c18915a86a31433a520b22dea903b9c3eec329ff",
+  "moduleFileHash": "2e2eba6cf922a3a8058cc7bca3ee56bc4d80319ae12634345b014f3d7070101e",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -625,8 +625,8 @@
               "tagName": "pull",
               "attributeValues": {
                 "name": "pause",
-                "image": "gcr.io/google-containers/pause",
                 "digest": "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+                "image": "gcr.io/google-containers/pause",
                 "platforms": [
                   "linux/amd64",
                   "linux/arm64"
@@ -643,8 +643,8 @@
               "tagName": "pull",
               "attributeValues": {
                 "name": "zot_amd64",
-                "image": "ghcr.io/project-zot/zot-linux-amd64",
-                "digest": "sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378"
+                "digest": "sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378",
+                "image": "ghcr.io/project-zot/zot-linux-amd64"
               },
               "devDependency": false,
               "location": {
@@ -657,8 +657,8 @@
               "tagName": "pull",
               "attributeValues": {
                 "name": "zot_arm64",
-                "image": "ghcr.io/project-zot/zot-linux-arm64",
-                "digest": "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21"
+                "digest": "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
+                "image": "ghcr.io/project-zot/zot-linux-arm64"
               },
               "devDependency": false,
               "location": {

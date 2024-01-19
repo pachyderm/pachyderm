@@ -1,5 +1,12 @@
+load("@aspect_bazel_lib//lib:tar.bzl", "tar")
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
+
+tar(
+    name = "zot_config_tar",
+    srcs = ["zot.json"],
+    mtree = "zot.mtree",
+)
 
 oci_image(
     name = "zot",
@@ -7,6 +14,7 @@ oci_image(
         "@platforms//cpu:x86_64": "@zot_amd64",
         "@platforms//cpu:aarch64": "@zot_arm64",
     }),
+    tars = ["zot_config_tar"],
 )
 
 go_library(
@@ -60,7 +68,7 @@ go_library(
 oci_image(
     name = "pause",
     base = "@pause",
-    entrypoint = "slash_pause",
+    entrypoint = ["/pause"],
 )
 
 go_test(

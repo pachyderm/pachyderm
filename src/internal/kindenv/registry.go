@@ -1,8 +1,8 @@
 package kindenv
 
 import (
+	"bytes"
 	"context"
-	_ "embed"
 	"os"
 	"strconv"
 	"strings"
@@ -21,10 +21,8 @@ import (
 	"go.uber.org/zap"
 )
 
-//go:embed zot.json
-var zotJSON []byte
-
 func ensureRegistry(ctx context.Context, name string, expose bool) (string, error) {
+	// Figure out where to store registry data.
 	registryVolume, err := xdg.StateFile(name + "/registry")
 	if err != nil {
 		return "", errors.Wrap(err, "find suitable location for registry files")
@@ -33,37 +31,8 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		return "", errors.Wrapf(err, "create registry storage directory %v", registryVolume)
 	}
 
-	configVolume, err := xdg.StateFile(name + "/config/zot.json")
-	if err != nil {
-		return "", errors.Wrap(err, "find suitable location for zot.json")
-	}
-	if err := os.WriteFile(configVolume, zotJSON, 0o644); err != nil {
-		return "", errors.Wrap(err, "write zot.json")
-	}
-
-	dc, err := docker.NewClientWithOpts(docker.FromEnv)
-	if err != nil {
-		return "", errors.Wrap(err, "create docker client")
-	}
-
+	// Check if there's an existing registry and that it's configured correctly.
 	log.Debug(ctx, "checking for existing registry", zap.String("container", name))
-	if status, err := dc.ContainerInspect(ctx, name); err == nil {
-		if status.State.Running {
-			// Container is created; don't attempt further work.
-			log.Info(ctx, "reusing existing container registry", zap.String("container", name))
-			return registryVolume, nil
-		}
-		log.Info(ctx, "container registry exists, but isn't running; deleting", zap.String("container", name))
-		if err := destroyRegistry(ctx, name); err != nil {
-			return "", errors.Wrap(err, "destroy broken registry")
-		}
-	} else if strings.Contains(err.Error(), "No such container") {
-		// That's what the rest of this function exists to handle.
-	} else {
-		return "", errors.Wrapf(err, "inspect container %q", name)
-	}
-
-	log.Info(ctx, "making zot available to the local docker")
 	digestFile, err := runfiles.Rlocation("_main/src/internal/kindenv/zot.json.sha256")
 	if err != nil {
 		return "", errors.Wrap(err, "find zot image digest; build with bazel")
@@ -72,16 +41,46 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 	if err != nil {
 		return "", errors.Wrap(err, "read zot image digest")
 	}
+	digest = bytes.TrimRight(digest, "\n")
+	zotImage := "zot:" + string(digest[len("sha256:"):])
+
+	dc, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return "", errors.Wrap(err, "create docker client")
+	}
+	if status, err := dc.ContainerInspect(ctx, name); err == nil {
+		if status.State.Running {
+			if status.Config.Image == zotImage {
+				// Container is created; don't attempt further work.
+				log.Info(ctx, "reusing existing container registry", zap.String("container", name))
+				return registryVolume, nil
+			}
+		}
+		// This catches the case where we're using a different image, or where the container
+		// is stopped or something.
+		log.Info(ctx, "container registry exists, but isn't configured correctly; deleting", zap.String("container", name))
+		if err := destroyRegistry(ctx, name); err != nil {
+			return "", errors.Wrap(err, "destroy broken registry")
+		}
+	} else if strings.Contains(err.Error(), "No such container") {
+		// That's what the rest of this function exists to handle.
+	} else {
+		// An actual error from docker, that's strange.
+		return "", errors.Wrapf(err, "inspect container %q", name)
+	}
+
+	// Push the bazel-versioned Zot image to the docker daemon.
+	log.Info(ctx, "making zot available to the local docker")
 	imageDir, err := runfiles.Rlocation("_main/src/internal/kindenv/zot")
 	if err != nil {
 		return "", errors.Wrap(err, "find zot image; build with bazel")
 	}
-	zotImage := "zot:" + strings.TrimRight(string(digest[len("sha256:"):]), "\n")
 	if err := SkopeoCommand(ctx, "copy", "oci:"+imageDir, "docker-daemon:"+zotImage).Run(); err != nil {
 		return "", errors.Wrap(err, "copy zot into the local docker daemon")
 	}
 
-	log.Info(ctx, "starting container registry", zap.String("container", name), zap.String("registry", registryVolume), zap.String("config", configVolume))
+	// Start zot.
+	log.Info(ctx, "starting container registry", zap.String("container", name), zap.String("registry", registryVolume))
 	cc := &container.Config{
 		Image: zotImage,
 		Cmd:   strslice.StrSlice{"serve", "/etc/zot.json"},
@@ -93,7 +92,6 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 	hc := &container.HostConfig{
 		Binds: []string{
 			registryVolume + ":/var/lib/registry",
-			configVolume + ":/etc/zot.json",
 		},
 		RestartPolicy: container.RestartPolicy{
 			Name: "always",
