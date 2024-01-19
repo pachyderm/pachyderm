@@ -7,7 +7,7 @@ import {
   DirListing,
   FileBrowser,
 } from '@jupyterlab/filebrowser';
-import {Clipboard} from '@jupyterlab/apputils';
+import {Clipboard, showErrorMessage} from '@jupyterlab/apputils';
 import {CommandRegistry} from '@lumino/commands';
 import {each} from '@lumino/algorithm';
 
@@ -108,10 +108,12 @@ const createCustomFileBrowser = (
               MOUNT_BROWSER_PREFIX + nameSuffix + ':',
               '',
             );
-            const res = requestAPI(
+            requestAPI(
               'download/' + downloadPath + '/' + itemPath,
               'PUT',
-            );
+            ).catch((e) => {
+              showErrorMessage('Error downloading file', e.response.statusText);
+            });
           });
         },
       });
