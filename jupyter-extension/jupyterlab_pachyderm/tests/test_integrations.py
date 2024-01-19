@@ -234,6 +234,54 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 400, r.text
 
 
+def test_download_file(pachyderm_resources, dev_server):
+    repos, _, files = pachyderm_resources
+
+    to_mount = {
+        "mounts": [
+            {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            },
+            {
+                "name": repos[0] + "_dev",
+                "repo": repos[0],
+                "branch": "dev",
+                "project": DEFAULT_PROJECT,
+            },
+            {
+                "name": repos[1],
+                "repo": repos[1],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            },
+        ]
+    }
+    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    assert r.status_code == 200, r.text
+
+    r = requests.put(f"{BASE_URL}/download/explore/{repos[0]}/{files[0]}")
+    assert r.status_code == 200, r.text
+    assert Path(Path.cwd(), files[0]).exists
+    with open(Path(Path.cwd(), files[0]), "r") as file:
+        data = file.read()
+        assert data == "some data"
+
+    r = requests.put(f"{BASE_URL}/download/explore/{repos[0]}/{files[0]}")
+    assert r.status_code == 400, r.text
+
+    r = requests.put(f"{BASE_URL}/download/explore/{repos[1]}")
+    assert r.status_code == 200, r.text
+    assert Path(Path.cwd(), repos[1]).exists
+    assert Path(Path.cwd(), repos[1]).is_dir
+    assert len(list(Path(Path.cwd(), repos[1]).iterdir())) == 2
+
+    r = requests.put(f"{BASE_URL}/download/explore/{repos[1]}")
+    assert r.status_code == 400, r.text
+
+
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
 )
@@ -379,7 +427,9 @@ def test_download_datum(pachyderm_resources, dev_server):
     assert sorted(
         list(
             os.walk(
-                os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"]))
+                os.path.join(
+                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
+                )
             )
         )[0][2]
     ) == sorted(files)
@@ -392,7 +442,8 @@ def test_download_datum(pachyderm_resources, dev_server):
             list(
                 os.walk(
                     os.path.join(
-                        PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2], "_master"])
+                        PFS_MOUNT_DIR,
+                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
                     )
                 )
             )[0][2]
@@ -411,7 +462,9 @@ def test_download_datum(pachyderm_resources, dev_server):
     assert sorted(
         list(
             os.walk(
-                os.path.join(PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"]))
+                os.path.join(
+                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
+                )
             )
         )[0][2]
     ) == sorted(files)
@@ -424,7 +477,8 @@ def test_download_datum(pachyderm_resources, dev_server):
             list(
                 os.walk(
                     os.path.join(
-                        PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[2], "_master"])
+                        PFS_MOUNT_DIR,
+                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
                     )
                 )
             )[0][2]
@@ -433,7 +487,9 @@ def test_download_datum(pachyderm_resources, dev_server):
     )
 
 
-@pytest.mark.skip(reason="we should implement writing to config file before re-enabling")
+@pytest.mark.skip(
+    reason="we should implement writing to config file before re-enabling"
+)
 def test_config(dev_server):
     # PUT request
     test_endpoint = "localhost:30650"

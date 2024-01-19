@@ -14,19 +14,21 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {Paging} from './paging';
+import {requestAPI} from '../../handler';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
   manager: IDocumentManager,
   factory: IFileBrowserFactory,
   path: string,
-  name_suffix: string,
+  downloadPath: string,
+  nameSuffix: string,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry, path, name_suffix);
+  const drive = new MountDrive(app.docRegistry, path, nameSuffix);
   manager.services.contents.addDrive(drive);
 
   const browser = factory.createFileBrowser(
-    'jupyterlab-pachyderm-browser-' + name_suffix,
+    'jupyterlab-pachyderm-browser-' + nameSuffix,
     {
       driveName: drive.name,
       state: null,
@@ -85,7 +87,30 @@ const createCustomFileBrowser = (
         execute: () => {
           each(browser.selectedItems(), (item) => {
             Clipboard.copyToSystem(
-              item.path.replace(MOUNT_BROWSER_PREFIX + name_suffix, '/pfs/'),
+              item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
+            );
+          });
+        },
+      });
+
+      commands.addCommand('file-download', {
+        label: 'Download',
+        icon: 'fa fa-download',
+        mnemonic: 0,
+        execute: () => {
+          each(browser.selectedItems(), (item) => {
+            // Unfortunately, copying between drives is not implemented:
+            // https://github.com/jupyterlab/jupyterlab/blob/main/packages/services/src/contents/index.ts#L916
+            // so we need to perform this logic within our implementation of the extension
+            // Once this is implemented, we should be able to just write something along the lines of
+            // manager.copy(item.path, "/home/jovyan/extension-wd")
+            const itemPath = item.path.replace(
+              MOUNT_BROWSER_PREFIX + nameSuffix + ':',
+              '',
+            );
+            const res = requestAPI(
+              'download/' + downloadPath + '/' + itemPath,
+              'PUT',
             );
           });
         },
@@ -94,6 +119,7 @@ const createCustomFileBrowser = (
       const menu = new Menu({commands});
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
+      menu.addItem({command: 'file-download'});
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
