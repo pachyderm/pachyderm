@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
+import urllib
 
 import pytest
 import requests
@@ -45,6 +46,8 @@ def pachyderm_resources():
                     c.put_file_from_bytes(path=f"/{file}", data=b"some data")
 
     yield repos, branches, files
+
+    ## TODO: Delete the repos after this to avoid needing delete_all?
 
 
 @pytest.fixture()
@@ -233,6 +236,101 @@ def test_unmount(pachyderm_resources, dev_server):
     )
     assert r.status_code == 400, r.text
 
+def test_pfs_pagination(pachyderm_resources, dev_server):
+    repos, _, files = pachyderm_resources
+    to_mount = {
+        "mounts": [
+            {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            },
+        ]
+    }
+
+    # Mount images repo on master branch for pfs calls
+    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    assert r.status_code == 200, r.text
+
+    # Assert default parameters return all
+    r = requests.get(f"{BASE_URL}/pfs/images")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert r["content"][0]["name"] == 'file1'
+    assert r["content"][1]["name"] == 'file2'
+
+    # Assert pagination_marker=None and number=1 returns file1
+    url_params = {
+        'number': 1,
+    }
+    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file1'
+
+    # Assert pagination_marker=file1 and number=1 returns file2
+    url_params = {
+        'number': 1,
+        'pagination_marker': 'default/images@master:/file1.py'
+    }
+    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file2'
+
+def test_view_datum_pagination(pachyderm_resources, dev_server):
+    repos, _, files = pachyderm_resources
+    input_spec = {
+        "input": {
+            "pfs": {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            }
+        },
+    }
+
+    # Mount images repo on master branch for view_datum calls
+    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert r["idx"] == 0
+    assert r["num_datums"] == 1
+    assert r["all_datums_received"] == 1
+
+    # Assert default parameters return all
+    r = requests.get(f"{BASE_URL}/view_datum/default_images_master")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert r["content"][0]["name"] == 'file1'
+    assert r["content"][1]["name"] == 'file2'
+
+    # Assert pagination_marker=None and number=1 returns file1
+    url_params = {
+        'number': 1,
+    }
+    r = requests.get(f"{BASE_URL}/view_datum/default_images_master?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file1'
+
+    # Assert pagination_marker=file1 and number=1 returns file2
+    url_params = {
+        'number': 1,
+        'pagination_marker': 'default/images@master:/file1.py'
+    }
+    r = requests.get(f"{BASE_URL}/view_datum/default_images_master?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file2'
 
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
