@@ -112,7 +112,7 @@ const createCustomFileBrowser = (
               'download/' + downloadPath + '/' + itemPath,
               'PUT',
             ).catch((e) => {
-              showErrorMessage('Error downloading file', e.response.statusText);
+              showErrorMessage('Download Error', e.response.statusText);
             });
           });
         },
