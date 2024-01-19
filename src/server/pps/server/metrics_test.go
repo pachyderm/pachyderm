@@ -28,7 +28,7 @@ func TestContainerMetrics(t *testing.T) {
 	tmpDir := t.TempDir()
 	cmd := testutil.PachctlBashCmdCtx(ctx, t, c, `
 # run a pipeline in order to have a container to scrape metrics from
-pachctl create project "video-to-frame-traces"
+pachctl create project video-to-frame-traces
 pachctl create repo raw_videos_and_images
 pachctl put file raw_videos_and_images@master:robot.png -f https://raw.githubusercontent.com/pachyderm/docs-content/main/images/opencv/robot.jpg
 pachctl create pipeline -f - <<EOF
@@ -71,6 +71,7 @@ kubectl wait -n {{.namespace}} --for=condition=ready pod -l app.kubernetes.io/na
 
 	b, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
+	defer resp.Body.Close()
 	type response struct {
 		Status string `json:"status"`
 		Data   any    `json:"data"`
