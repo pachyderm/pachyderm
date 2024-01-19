@@ -5,13 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os/exec"
 	"path"
 	"strconv"
 	"strings"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -439,17 +437,9 @@ func (c *Cluster) PushImage(ctx context.Context, src string, name string) error 
 	if err != nil {
 		return errors.Wrap(err, "get cluster config")
 	}
-	skopeo, ok := bazel.FindBinary("//tools/skopeo", "_skopeo")
-	if !ok {
-		log.Error(ctx, "binary not built with bazel; falling back to host skopeo")
-		skopeo = "skopeo"
-	}
-	cmd := exec.CommandContext(ctx, skopeo, "copy", src, path.Join(cfg.ImagePushPath, name))
-	cmd.Args[0] = "skopeo"
-	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "skopeo.stdout"), log.InfoLevel)
-	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "skopeo.stderr"), log.InfoLevel)
-	if err := cmd.Run(); err != nil {
-		return errors.Wrapf(err, "run skopeo copy %v %v", src, path.Join(cfg.ImagePushPath, name))
+	dst := path.Join(cfg.ImagePushPath, name)
+	if err := SkopeoCommand(ctx, "copy", src, dst).Run(); err != nil {
+		return errors.Wrapf(err, "run skopeo copy %v %v", src, dst)
 	}
 	return nil
 }

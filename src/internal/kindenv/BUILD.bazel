@@ -1,6 +1,14 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 
+oci_image(
+    name = "zot",
+    base = select({
+        "@platforms//cpu:x86_64": "@zot_amd64",
+        "@platforms//cpu:aarch64": "@zot_arm64",
+    }),
+)
+
 go_library(
     name = "kindenv",
     srcs = [
@@ -8,10 +16,13 @@ go_library(
         "kindenv.go",
         "kubeconfig.go",
         "registry.go",
+        "skopeo.go",
     ],
     data = [
         "coredns_configmap.yaml",
         "minio.yaml",
+        "zot",
+        "zot.digest",
         "//tools/helm",
         "//tools/kubectl",
         "//tools/skopeo",
@@ -55,10 +66,10 @@ oci_image(
 go_test(
     name = "kindenv_test",
     srcs = ["kindenv_test.go"],
-    embed = [":kindenv"],
     data = [
         "pause",
     ],
+    embed = [":kindenv"],
     tags = [
         "k8s",
         "no-sandbox",
@@ -66,5 +77,6 @@ go_test(
     deps = [
         "//src/internal/pctx",
         "@com_github_adrg_xdg//:xdg",
+        "@rules_go//go/runfiles:go_default_library",
     ],
 )

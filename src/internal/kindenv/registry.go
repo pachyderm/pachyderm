@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/adrg/xdg"
+	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -18,12 +19,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
-)
-
-const (
-	// Zot is a container registry that stores containers in the same format that "bazel build"
-	// stores them.  To push, we just have to copy some files around.
-	zotImage = "ghcr.io/project-zot/zot-linux-amd64:v1.4.3@sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378"
 )
 
 //go:embed zot.json
@@ -38,10 +33,20 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		return "", errors.Wrapf(err, "create registry storage directory %v", registryVolume)
 	}
 
+	configVolume, err := xdg.StateFile(name + "/config/zot.json")
+	if err != nil {
+		return "", errors.Wrap(err, "find suitable location for zot.json")
+	}
+	if err := os.WriteFile(configVolume, zotJSON, 0o644); err != nil {
+		return "", errors.Wrap(err, "write zot.json")
+	}
+
 	dc, err := docker.NewClientWithOpts(docker.FromEnv)
 	if err != nil {
 		return "", errors.Wrap(err, "create docker client")
 	}
+
+	log.Debug(ctx, "checking for existing registry", zap.String("container", name))
 	if status, err := dc.ContainerInspect(ctx, name); err == nil {
 		if status.State.Running {
 			// Container is created; don't attempt further work.
@@ -58,12 +63,22 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		return "", errors.Wrapf(err, "inspect container %q", name)
 	}
 
-	configVolume, err := xdg.StateFile(name + "/config/zot.json")
+	log.Info(ctx, "making zot available to the local docker")
+	digestFile, err := runfiles.Rlocation("_main/src/internal/kindenv/zot.json.sha256")
 	if err != nil {
-		return "", errors.Wrap(err, "find suitable location for zot.json")
+		return "", errors.Wrap(err, "find zot image digest; build with bazel")
 	}
-	if err := os.WriteFile(configVolume, zotJSON, 0o644); err != nil {
-		return "", errors.Wrap(err, "write zot.json")
+	digest, err := os.ReadFile(digestFile)
+	if err != nil {
+		return "", errors.Wrap(err, "read zot image digest")
+	}
+	imageDir, err := runfiles.Rlocation("_main/src/internal/kindenv/zot")
+	if err != nil {
+		return "", errors.Wrap(err, "find zot image; build with bazel")
+	}
+	zotImage := "zot:" + strings.TrimRight(string(digest[len("sha256:"):]), "\n")
+	if err := SkopeoCommand(ctx, "copy", "oci:"+imageDir, "docker-daemon:"+zotImage).Run(); err != nil {
+		return "", errors.Wrap(err, "copy zot into the local docker daemon")
 	}
 
 	log.Info(ctx, "starting container registry", zap.String("container", name), zap.String("registry", registryVolume), zap.String("config", configVolume))
