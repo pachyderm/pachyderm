@@ -445,7 +445,6 @@ class PPSCreateHandler(BaseHandler):
 class ExploreDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
-        print(f"PUT for /download/explore{path} called")
         try:
             self.pfs_manager.download_file(path=path)
         except FileExistsError:
@@ -463,7 +462,6 @@ class ExploreDownloadHandler(BaseHandler):
 class TestDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
-        print(f"PUT for /download/test{path} called")
         try:
             self.datum_manager.download_file(path=path)
         except FileExistsError:
