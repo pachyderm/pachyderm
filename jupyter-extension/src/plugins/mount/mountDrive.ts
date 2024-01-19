@@ -8,7 +8,8 @@ import {requestAPI} from '../../handler';
 import {Paging} from './paging';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 
-const MAX_NUM_CONTENTS_PAGE = 100;
+const MAX_NUM_CONTENTS_PAGE = 100; // How many files to render in the FileBrowser UI per page
+const PAGINATION_NUMBER = 400; // How many items to request per page
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   name: '',
   path: '',
@@ -34,15 +35,20 @@ export class MountDrive implements Contents.IDrive {
   private _cache: {key: string | null; contents: any};
   private _path: string;
   private _name_suffix: string;
-  private _refreshFileBrowser: () => Promise<void>; // A function that refresh the file browser 
+  private _refreshFileBrowser: () => Promise<void>; // A function that refresh the file browser
 
-  constructor(registry: DocumentRegistry, path: string, name_suffix: string, refreshFileBrowser: () => Promise<void>) {
+  constructor(
+    registry: DocumentRegistry,
+    path: string,
+    name_suffix: string,
+    refreshFileBrowser: () => Promise<void>,
+  ) {
     this._registry = registry;
     this._model = {page: 0, max_page: 0};
     this._cache = {key: null, contents: DEFAULT_CONTENT_MODEL};
     this._path = path;
     this._name_suffix = name_suffix;
-    this._refreshFileBrowser = refreshFileBrowser
+    this._refreshFileBrowser = refreshFileBrowser;
   }
 
   get name(): string {
@@ -110,7 +116,7 @@ export class MountDrive implements Contents.IDrive {
       this._loading.emit(true);
       const getOptions = {
         ...options,
-        number: MAX_NUM_CONTENTS_PAGE,
+        number: PAGINATION_NUMBER,
         content,
       };
       const response = await this._get(url, getOptions);
@@ -132,28 +138,35 @@ export class MountDrive implements Contents.IDrive {
     };
   }
 
-  _fetchNextPage(previousResponse: Contents.IModel, key: string, url: string, getOptions: PartialJSONObject): void {
+  _fetchNextPage(
+    previousResponse: Contents.IModel,
+    key: string,
+    url: string,
+    getOptions: PartialJSONObject,
+  ): void {
     // Stop fetching pages if we recieve a page less than expected file count of a page
-    if (previousResponse?.content?.length < MAX_NUM_CONTENTS_PAGE) {
+    if (previousResponse?.content?.length < PAGINATION_NUMBER) {
       return;
     }
 
     // Queuing a promise without returning it to await lets us start the process of fetching the next pages in the background while
     // continuing to render the the first page.
     (async () => {
-      const nextResponse: Contents.IModel = await new Promise((resolve, reject) => {
-        return this._get(url, {
-          ...getOptions,
-          pagination_marker: previousResponse.content.slice(-1)[0].file_uri
-        })
-          .then((nextResponse) => resolve(nextResponse))
-          .catch((e) => reject(e))
-      })
+      const nextResponse: Contents.IModel = await new Promise(
+        (resolve, reject) => {
+          return this._get(url, {
+            ...getOptions,
+            pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
+          })
+            .then((nextResponse) => resolve(nextResponse))
+            .catch((e) => reject(e));
+        },
+      );
 
       // Check to make sure that the cache file path has not changed so that we stop updating the contents and requesting
       // new pages
       if (this._cache.key !== key) {
-        return
+        return;
       }
 
       // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
@@ -162,8 +175,8 @@ export class MountDrive implements Contents.IDrive {
       this._model.max_page = Math.ceil(
         this._cache.contents.length / MAX_NUM_CONTENTS_PAGE,
       );
-      await this._refreshFileBrowser()
-      this._fetchNextPage(nextResponse, key, url, getOptions)
+      await this._refreshFileBrowser();
+      this._fetchNextPage(nextResponse, key, url, getOptions);
     })();
   }
 
