@@ -48,10 +48,27 @@ transform:
     - --output
     - /pfs/out/
 EOF
-# install the podmonitor we document for users
-git clone https://github.com/pachyderm/docs-content.git --depth=1 '{{.docsContent}}'
-## update the spec for this namespace & Helm release
-sed -e 's/- default/- {{.namespace}}/' '{{.docsContent}}/latest/manage/prometheus/podmonitor.yaml' -e 's/release: default/release: {{.namespace}}-prometheus/' | kubectl -n {{.namespace}} apply -f -
+kubectl -n {{.namespace}} apply -f - <<EOF
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: worker-scraper
+  labels:
+    release: {{.namespace}}-prometheus
+spec:
+  selector:
+    matchLabels:
+      app: pipeline
+      component: worker
+  namespaceSelector:
+    matchNames:
+      - {{.namespace}}
+  podMetricsEndpoints:
+  - port: metrics-storage
+    path: /metrics
+  - port: metrics-user
+    path: /metrics
+EOF
 `,
 		"namespace", namespace,
 		"docsContent", docsDir,
