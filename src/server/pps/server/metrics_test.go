@@ -70,7 +70,7 @@ sed -e 's/- default/- {{.namespace}}/' '{{.docsContent}}/latest/manage/prometheu
 
 		b, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "could not read response")
 		}
 		defer resp.Body.Close()
 		type response struct {
@@ -82,7 +82,7 @@ sed -e 's/- default/- {{.namespace}}/' '{{.docsContent}}/latest/manage/prometheu
 		}
 		var pResp response
 		if err := json.Unmarshal(b, &pResp); err != nil {
-			return err
+			return errors.Wrap(err, "could not parse response")
 		}
 		if pResp.Status != "success" {
 			return errors.Errorf("got %q; expected \"success\"", pResp.Status)
