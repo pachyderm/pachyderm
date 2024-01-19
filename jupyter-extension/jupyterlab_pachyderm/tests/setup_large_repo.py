@@ -1,5 +1,11 @@
+# This is small script to setup a test repo in a new project (test_large_repo_project/test_large_repo).
+# This test repo has a large number of files as defined by NUMBER_OF_FILES created in it. It is useful
+# for testing how the Jupyterlab extension scales with any number of files.
+
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs
+
+NUMBER_OF_FILES = 20000
 
 def main(): 
     client = Client.from_config()
@@ -28,7 +34,7 @@ def main():
 
     with client.pfs.commit(branch=branch) as c:
         print(f'starting commit {c}')
-        for i in range(20000):
+        for i in range(NUMBER_OF_FILES):
             path = f"/hello{i}.py"
             print(f'Writing path={path}')
             c.put_file_from_bytes(path=path, data=b"print('hello')")
