@@ -18,7 +18,9 @@ func SkopeoCommand(ctx context.Context, args ...string) *exec.Cmd {
 		log.Error(ctx, "binary not built with bazel; falling back to host skopeo")
 		skopeo = "skopeo"
 	}
-	cmd := exec.CommandContext(ctx, skopeo, args...)
+	defaultArgs := []string{"--insecure-policy"} // Avoid reading /etc/containers/policy.json, which does not exist in CI.
+	defaultArgs = append(defaultArgs, args...)
+	cmd := exec.CommandContext(ctx, skopeo, defaultArgs...)
 	cmd.Args[0] = "skopeo"
 	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "skopeo.stdout"), log.InfoLevel)
 	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "skopeo.stderr"), log.InfoLevel)
