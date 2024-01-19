@@ -30,14 +30,14 @@ func TestCluster(t *testing.T) {
 	t.Cleanup(func() {
 		t.Log("cleanup tmp kubeconfig")
 		if err := c.Close(); err != nil {
-			t.Fatalf("close cluster: %v", err)
+			t.Errorf("close cluster: %v", err)
 		}
 	})
 	registry := fmt.Sprintf("test-registry-%v", r)
 	t.Cleanup(func() {
 		t.Log("delete registry")
 		if err := destroyRegistry(ctx, registry); err != nil {
-			t.Fatalf("destroy registry: %v", err)
+			t.Errorf("destroy registry: %v", err)
 		}
 	})
 	opts := &CreateOpts{
@@ -51,7 +51,7 @@ func TestCluster(t *testing.T) {
 		t.Log("delete cluster")
 		// It is safe to call Delete even if the cluster doesn't exist.
 		if err := c.Delete(ctx); err != nil {
-			t.Fatalf("delete cluster: %v", err)
+			t.Errorf("delete cluster: %v", err)
 		}
 	})
 	if err := c.Create(ctx, opts); err != nil {
