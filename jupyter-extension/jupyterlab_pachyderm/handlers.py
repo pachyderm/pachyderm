@@ -5,6 +5,7 @@ import asyncio
 import grpc
 import json
 from pachyderm_sdk import Client, errors
+from pachyderm_sdk.api import pfs
 import tornado
 import traceback
 
@@ -247,12 +248,19 @@ class PFSHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = bool(int(content))
-
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
+        
         model = self.pfs_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -281,12 +289,19 @@ class ViewDatumHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
 
         model = self.datum_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
