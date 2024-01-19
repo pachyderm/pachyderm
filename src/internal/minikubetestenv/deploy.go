@@ -880,13 +880,31 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	previousOptsHash := getOptsConfigMapData(t, ctx, kubeClient, namespace)
 	pachdExists, err := checkForPachd(t, ctx, kubeClient, namespace, opts.EnterpriseServer)
 	require.NoError(t, err)
-	if mustUpgrade || opts.InstallPrometheus {
+	if mustUpgrade {
 		t.Logf("Test must upgrade cluster in place, upgrading cluster with new opts in %v", namespace)
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
+		waitForInstallFinished()
+	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
+		!opts.UseLeftoverCluster ||
+		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *shouldn't* let this happen, but in case something failed, check pachd for sanity.
+		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
+		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
+			require.NoErrorWithinTRetry(t,
+				time.Minute,
+				func() error {
+					deleteRelease(t, context.Background(), namespace, kubeClient)
+					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
+				})
+		}
+		waitForInstallFinished()
+	} else { // same config, no need to change anything
+		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
+	}
+	if opts.InstallPrometheus {
 		// get latest version with: helm repo update && helm pull prometheus-community/kube-prometheus-stack -d etc/helm/charts/
 		require.NoErrorWithinTRetry(t, time.Minute, func() error {
 			chartPath := localPath(t, "etc", "helm", "charts", "kube-prometheus-stack-55.11.0.tgz")
@@ -922,24 +940,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 			}, metav1.CreateOptions{}); err != nil {
 				return errors.Wrap(err, "could not create Prometheus server service")
 			}
+			waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=prometheus")
 			return nil
 		})
-		waitForInstallFinished()
-	} else if !bytes.Equal(previousOptsHash, hashOpts(t, helmOpts, chartPath)) ||
-		!opts.UseLeftoverCluster ||
-		!pachdExists { // In case somehow a config map got left without a corresponding installed release. Cleanup *shouldn't* let this happen, but in case something failed, check pachd for sanity.
-		t.Logf("New namespace acquired or helm options don't match, doing a fresh Helm install in %v", namespace)
-		if err := helm.InstallE(t, helmOpts, chartPath, namespace); err != nil {
-			require.NoErrorWithinTRetry(t,
-				time.Minute,
-				func() error {
-					deleteRelease(t, context.Background(), namespace, kubeClient)
-					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
-				})
-		}
-		waitForInstallFinished()
-	} else { // same config, no need to change anything
-		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
 	}
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {

@@ -52,7 +52,6 @@ EOF
 git clone https://github.com/pachyderm/docs-content.git --depth=1 '{{.docsContent}}'
 ## update the spec for this namespace & Helm release
 sed -e 's/- default/- {{.namespace}}/' '{{.docsContent}}/latest/manage/prometheus/podmonitor.yaml' -e 's/release: default/release: {{.namespace}}-prometheus/' | kubectl -n {{.namespace}} apply -f -
-kubectl wait -n {{.namespace}} --for=condition=ready pod -l app.kubernetes.io/name=prometheus --timeout=5m
 `,
 		"namespace", namespace,
 		"docsContent", docsDir,
