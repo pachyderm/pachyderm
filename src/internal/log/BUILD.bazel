@@ -62,6 +62,7 @@ go_library(
 
 go_test(
     name = "log_test",
+    size = "small",
     srcs = [
         "amazon_test.go",
         "benchmark_test.go",

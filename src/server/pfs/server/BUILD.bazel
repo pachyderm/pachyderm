@@ -111,7 +111,11 @@ go_test(
         "storage_bucket_test.go",
         "url_test.go",
     ],
+    data = ["//src/server/pfs/server/testing:testdata"],
     embed = [":server"],
+    tags = [
+        "external",
+    ],
     deps = [
         "//src/internal/obj",
         "//src/internal/obj/integrationtests",

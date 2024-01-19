@@ -19,3 +19,6 @@ echo "STABLE_APP_VERSION 2.9.0"
 
 additional_version=$(git diff-index --quiet HEAD -- && echo "-${commit_sha}" || echo "-${commit_sha}+dirty")
 echo "STABLE_ADDITIONAL_VERSION $additional_version"
+
+ci_runner_image_version="$(date +%Y%m%d)-${commit_sha}"
+echo "STABLE_CI_RUNNER_IMAGE_VERSION ${ci_runner_image_version}"

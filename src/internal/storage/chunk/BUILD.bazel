@@ -56,6 +56,7 @@ go_library(
 
 go_test(
     name = "chunk_test",
+    size = "small",
     srcs = [
         "chunk_test.go",
         "gc_test.go",

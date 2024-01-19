@@ -23,6 +23,7 @@ go_binary(
 
 go_test(
     name = "test-collector_test",
+    size = "small",
     srcs = ["collector_test.go"],
     embed = [":test-collector_lib"],
     deps = [

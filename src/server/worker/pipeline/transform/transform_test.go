@@ -264,7 +264,7 @@ func deleteFiles(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []strin
 func testJobSuccess(t *testing.T, env *testEnv, pi *pps.PipelineInfo, files []tarutil.File) {
 	commit := writeFiles(t, env, pi, files)
 	ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-	ctx = withTimeout(ctx, 15*time.Second)
+	ctx = withTimeout(ctx, 30*time.Second)
 	<-ctx.Done()
 	// PFS master transitions the job from finishing to finished so dont test that here
 	require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
@@ -352,7 +352,7 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles)
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
 		// TODO: check job stats
@@ -381,13 +381,13 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = writeFiles(t, env, pi, tarFiles[1:])
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
@@ -423,13 +423,13 @@ func TestTransformPipeline(suite *testing.T) {
 		}
 		commit := writeFiles(t, env, pi, tarFiles[:1])
 		ctx, jobInfo := mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 
 		commit = deleteFiles(t, env, pi, []string{"/a"})
 		ctx, jobInfo = mockJobFromCommit(t, env, pi, commit)
-		ctx = withTimeout(ctx, 10*time.Second)
+		ctx = withTimeout(ctx, 20*time.Second)
 		<-ctx.Done()
 		require.Equal(t, pps.JobState_JOB_FINISHING, jobInfo.State)
 

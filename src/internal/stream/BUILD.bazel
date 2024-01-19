@@ -21,6 +21,7 @@ go_library(
 
 go_test(
     name = "stream_test",
+    size = "small",
     srcs = [
         "merger_test.go",
         "stream_test.go",

@@ -10,6 +10,7 @@ go_library(
 
 go_test(
     name = "cmputil_test",
+    size = "small",
     srcs = ["cmputil_test.go"],
     embed = [":cmputil"],
     deps = ["@com_github_google_go_cmp//cmp"],

@@ -18,6 +18,7 @@ go_library(
 
 go_test(
     name = "promutil_test",
+    size = "small",
     srcs = ["promutil_test.go"],
     embed = [":promutil"],
 )

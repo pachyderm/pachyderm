@@ -25,6 +25,7 @@ go_library(
 
 go_test(
     name = "pfssync_test",
+    size = "small",
     srcs = ["sync_test.go"],
     pure = "on",
     deps = [

@@ -25,6 +25,7 @@ go_library(
 
 go_test(
     name = "pretty_test",
+    size = "small",
     srcs = [
         "draw_test.go",
         "pretty_test.go",

@@ -30,6 +30,7 @@ go_library(
 
 go_test(
     name = "fileserver_test",
+    size = "small",
     srcs = ["fileserver_test.go"],
     pure = "on",
     deps = [
