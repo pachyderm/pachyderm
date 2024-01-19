@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "9f396ec892d2391bca2df853ad0fe0f90cc9a32f4c33ff51b0f6c49ffa5456af",
+  "moduleFileHash": "62e22ac620fac5b2b91c683bfaa4a8ebf1fddaeee46ffa3c9c48a13c2a47a3b5",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -549,6 +549,7 @@
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+            "com_github_kubernetes_sigs_metrics_server_helm_chart": "com_github_kubernetes_sigs_metrics_server_helm_chart",
             "com_github_protocolbuffers_protobuf_aarch64_linux": "com_github_protocolbuffers_protobuf_aarch64_linux",
             "com_github_protocolbuffers_protobuf_aarch64_macos": "com_github_protocolbuffers_protobuf_aarch64_macos",
             "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux": "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
@@ -578,8 +579,7 @@
             "sh_helm_aarch64_linux": "sh_helm_aarch64_linux",
             "sh_helm_aarch64_macos": "sh_helm_aarch64_macos",
             "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
-            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos",
-            "com_github_kubernetes_sigs_metrics_server_helm_chart": "com_github_kubernetes_sigs_metrics_server_helm_chart"
+            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos"
           },
           "devImports": [],
           "tags": [],
@@ -596,7 +596,8 @@
             "column": 20
           },
           "imports": {
-            "distroless": "distroless"
+            "distroless": "distroless",
+            "pause": "pause"
           },
           "devImports": [],
           "tags": [
@@ -617,6 +618,24 @@
                 "line": 344,
                 "column": 9
               }
+            },
+            {
+              "tagName": "pull",
+              "attributeValues": {
+                "name": "pause",
+                "image": "gcr.io/google-containers/pause",
+                "digest": "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+                "platforms": [
+                  "linux/amd64",
+                  "linux/arm64"
+                ]
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 353,
+                "column": 9
+              }
             }
           ],
           "hasDevUseExtension": false,
@@ -628,7 +647,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 355,
+            "line": 364,
             "column": 23
           },
           "imports": {},
@@ -643,7 +662,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 356,
+                "line": 365,
                 "column": 17
               }
             }
@@ -11148,6 +11167,20 @@
               "crane_version": "v0.17.0"
             }
           },
+          "pause_linux_arm64": {
+            "bzlFile": "@@rules_oci~1.5.1//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "name": "rules_oci~1.5.1~oci~pause_linux_arm64",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/pause",
+              "identifier": "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+              "platform": "linux/arm64",
+              "target_name": "pause_linux_arm64",
+              "config_path": "@@rules_oci~1.5.1~oci~oci_auth_config//:standard_authorization_config_path"
+            }
+          },
           "jq_darwin_arm64": {
             "bzlFile": "@@aspect_bazel_lib~2.1.0//lib/private:jq_toolchain.bzl",
             "ruleClassName": "jq_platform_repo",
@@ -11205,6 +11238,24 @@
               "name": "rules_oci~1.5.1~oci~yq_windows_amd64",
               "platform": "windows_amd64",
               "version": "4.25.2"
+            }
+          },
+          "pause": {
+            "bzlFile": "@@rules_oci~1.5.1//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "name": "rules_oci~1.5.1~oci~pause",
+              "target_name": "pause",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/pause",
+              "identifier": "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@pause_linux_amd64",
+                "@@platforms//cpu:arm64": "@pause_linux_arm64"
+              },
+              "bzlmod_repository": "pause",
+              "reproducible": true
             }
           },
           "oci_crane_windows_armv6": {
@@ -11318,6 +11369,20 @@
               "name": "rules_oci~1.5.1~oci~oci_crane_linux_s390x",
               "platform": "linux_s390x",
               "crane_version": "v0.17.0"
+            }
+          },
+          "pause_linux_amd64": {
+            "bzlFile": "@@rules_oci~1.5.1//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "name": "rules_oci~1.5.1~oci~pause_linux_amd64",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "google-containers/pause",
+              "identifier": "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+              "platform": "linux/amd64",
+              "target_name": "pause_linux_amd64",
+              "config_path": "@@rules_oci~1.5.1~oci~oci_auth_config//:standard_authorization_config_path"
             }
           },
           "oci_auth_config": {

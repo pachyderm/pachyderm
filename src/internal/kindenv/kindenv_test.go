@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/adrg/xdg"
+	"github.com/bazelbuild/rules_go/go/runfiles"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
@@ -55,5 +56,22 @@ func TestCluster(t *testing.T) {
 	})
 	if err := c.Create(ctx, opts); err != nil {
 		t.Fatalf("create cluster: %v", err)
+	}
+	pause, err := runfiles.Rlocation("_main/src/internal/kindenv/pause")
+	if err != nil {
+		t.Skip("can't find pause container; probably not running the test with bazel")
+	}
+	if err := c.PushImage(ctx, "oci:"+pause, "pause:latest"); err != nil {
+		t.Fatalf("push pause image: %v", err)
+	}
+	k, err := c.GetKubeconfig(ctx)
+	if err != nil {
+		t.Fatalf("get kubeconfig: %v", err)
+	}
+	if err := k.KubectlCommand(ctx, "create", "deployment", "pause", fmt.Sprintf("--image=%s:5001/pause:latest", registry)).Run(); err != nil {
+		t.Fatalf("create pause deployment: %v", err)
+	}
+	if err := k.KubectlCommand(ctx, "rollout", "status", "deployment", "pause", "--timeout=20s").Run(); err != nil {
+		t.Fatalf("wait for pause deployment: %v", err)
 	}
 }

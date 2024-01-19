@@ -2,6 +2,7 @@ package pachdev
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/kindenv"
@@ -21,7 +22,7 @@ cluster will only be deleted if the cluster was created by pachdev.  'bazel run 
 delete cluster --name=X' will delete any Kind cluster.  `,
 
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			var name string
 			if len(args) > 0 {
 				name = args[0]
@@ -31,6 +32,7 @@ delete cluster --name=X' will delete any Kind cluster.  `,
 			if err != nil {
 				return errors.Wrap(err, "kindenv.New")
 			}
+			defer errors.Close(&retErr, cluster, "close cluster")
 			if err := cluster.Delete(ctx); err != nil {
 				return errors.Wrap(err, "cluster.Delete")
 			}
@@ -50,7 +52,7 @@ The rest of this script relies on having one of these clusters.  You can name it
 only have one, it will be automatically used.`,
 
 		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			name := DefaultClusterName
 			if len(args) > 0 {
 				name = args[0]
@@ -60,6 +62,7 @@ only have one, it will be automatically used.`,
 			if err != nil {
 				return errors.Wrap(err, "kindenv.New")
 			}
+			defer errors.Close(&retErr, cluster, "close cluster")
 			if err := cluster.Create(ctx, &opts); err != nil {
 				return errors.Wrap(err, "kindenv.Create")
 			}
@@ -71,6 +74,41 @@ only have one, it will be automatically used.`,
 	cmd.Flags().StringVar(&opts.ImagePushPath, "push-path", "", "If set, push images to the cluster with this Skopeo destination.  If unset, a registry will be started and this value will be automatically configured.")
 	cmd.Flags().BoolVar(&opts.BindHTTPPorts, "http", true, "If set, ports 80 and 443 will refer to the Pachyderm running in the default namespace in this cluster.  Only one cluster per machine can have this set.")
 	cmd.Flags().Int32Var(&opts.StartingPort, "starting-port", -1, "If set, each namespace will get ports forwarded to the local machine starting with this port number.  If 0, a default will be selected.  If -1, then don't expose any ports.")
+	return cmd
+}
+
+func LoadImageCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "load-image [<cluster name>] <source> <name:tag>",
+		Short: "Load a container image into the cluster, renaming it to <name:tag>.",
+		Args:  cobra.RangeArgs(2, 3),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			var name, src, dst string
+			switch len(args) {
+			case 2:
+				src, dst = args[0], args[1]
+			case 3:
+				name, src, dst = args[0], args[1], args[2]
+			default:
+				panic("impossible")
+			}
+			ctx := cmd.Context()
+			cluster, err := kindenv.New(ctx, name)
+			if err != nil {
+				return errors.Wrap(err, "kindenv.New")
+			}
+			defer errors.Close(&retErr, cluster, "close cluster")
+			cfg, err := cluster.GetConfig(ctx)
+			if err != nil {
+				return errors.Wrap(err, "get cluster config")
+			}
+			if err := cluster.PushImage(ctx, src, dst); err != nil {
+				return errors.Wrap(err, "push image")
+			}
+			fmt.Printf("%v\n", path.Join(cfg.ImagePullPath, dst))
+			return nil
+		},
+	}
 	return cmd
 }
 

@@ -350,7 +350,16 @@ oci.pull(
         "linux/arm64/v8",
     ],
 )
-use_repo(oci, "distroless")
+oci.pull(
+    name = "pause",
+    image = "gcr.io/google-containers/pause",
+    digest = "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+)
+use_repo(oci, "distroless", "pause")
 
 python = use_extension("@rules_python//python:extensions.bzl", "python")
 python.toolchain(

@@ -1,4 +1,5 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_oci//oci:defs.bzl", "oci_image")
 
 go_library(
     name = "kindenv",
@@ -13,6 +14,7 @@ go_library(
         "minio.yaml",
         "//tools/helm",
         "//tools/kubectl",
+        "//tools/skopeo",
         "@com_github_kubernetes_sigs_metrics_server_helm_chart//file:metrics-server.tgz",
     ],
     embedsrcs = ["zot.json"],
@@ -44,10 +46,19 @@ go_library(
     ],
 )
 
+oci_image(
+    name = "pause",
+    base = "@pause",
+    entrypoint = "slash_pause",
+)
+
 go_test(
     name = "kindenv_test",
     srcs = ["kindenv_test.go"],
     embed = [":kindenv"],
+    data = [
+        "pause",
+    ],
     tags = [
         "k8s",
         "no-sandbox",

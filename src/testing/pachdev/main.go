@@ -1,8 +1,6 @@
 package main
 
 import (
-	"fmt"
-	"os"
 	"os/signal"
 
 	"github.com/spf13/cobra"
@@ -28,13 +26,13 @@ func main() {
 	// Subcommands.
 	rootCmd.AddCommand(pachdev.DeleteClusterCmd())
 	rootCmd.AddCommand(pachdev.CreateClusterCmd())
+	rootCmd.AddCommand(pachdev.LoadImageCmd())
 
 	// Run a command.
 	log.InitPachctlLogger()
 	ctx, c := signal.NotifyContext(pctx.Background(""), signals.TerminationSignals...)
 	defer c()
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
+		log.Exit(ctx, err.Error())
 	}
 }

@@ -5,10 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
+	"path"
 	"strconv"
 	"strings"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -38,18 +41,6 @@ const (
 	httpPortsKey           = "dev.pachyderm.io/standard-http-ports"
 	exposedPortsKey        = "dev.pachyderm.io/exposed-ports"
 	fieldManager           = "pachdev"
-)
-
-const (
-	// It is unlikely that localhost:5001 will work for all setups, like pushing from Mac ->
-	// registry on Linux VM.  So we'll pretend this is configurable and then come up with a plan
-	// for making it configurable.  The port has to be 5001 for compatability with "docker
-	// push"; it's the magic number that tells it "hey don't check the TLS cert".
-	//
-	// It is unclear if this actually matters, though.  If pushing to
-	// $XDG_STATE_DIR/pach-registry/registry with skopeo and loading container images as
-	// "pach-registry:5000/whatever:tag", then you don't even need to know this hostname.
-	registryHostname = "localhost"
 )
 
 // CreateOpts specifies a Kind environment.
@@ -94,6 +85,7 @@ type Cluster struct {
 	name       string
 	provider   *cluster.Provider
 	kubeconfig Kubeconfig
+	config     *ClusterConfig
 }
 
 func getKindClusterFromContext() (string, error) {
@@ -154,6 +146,9 @@ type ClusterConfig struct {
 }
 
 func (c *Cluster) GetConfig(ctx context.Context) (*ClusterConfig, error) {
+	if c.config != nil {
+		return c.config, nil
+	}
 	kc, err := c.GetKubeconfig(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "get kubeconfig")
@@ -206,6 +201,7 @@ func (c *Cluster) GetConfig(ctx context.Context) (*ClusterConfig, error) {
 	if errs != nil {
 		return nil, errs
 	}
+	c.config = result
 	return result, nil
 }
 
@@ -225,16 +221,14 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 		opts.StartingPort = 30500
 	}
 
-	containerdPullOverride := true
-	pullPath := registryHostname + ":5001"
+	pullPath := "localhost:5001"
 	exposeRegistry := true
 	registryName := "pach-registry"
 	var ensuredRegistry bool
 	if opts.ImagePushPath == "" {
 		if n := opts.registryName; n != "" {
 			registryName = n
-			pullPath = n + ":5000"
-			containerdPullOverride = false
+			pullPath = n + ":5001"
 			exposeRegistry = false
 		}
 		path, err := ensureRegistry(ctx, registryName, exposeRegistry)
@@ -318,13 +312,20 @@ nodeRegistration:
 				ExtraPortMappings: ports,
 			},
 		},
-	}
-	if containerdPullOverride {
-		config.ContainerdConfigPatches = []string{
-			fmt.Sprintf(`[plugins."io.containerd.grpc.v1.cri".registry.mirrors.%q]`, registryHostname+":5001") +
+		ContainerdConfigPatches: []string{
+			fmt.Sprintf(`[plugins."io.containerd.grpc.v1.cri".registry.mirrors.%q]`, pullPath) +
 				"\n" +
-				`  endpoint = ["http://pach-registry:5000"]`,
-		}
+				`  ` + fmt.Sprintf(`endpoint = ["http://%v:5001"]`+"\n", registryName) +
+				`  ` + `skip_verify = true` + "\n",
+		},
+	}
+	if pullPath != registryName {
+		config.ContainerdConfigPatches = append(config.ContainerdConfigPatches,
+			fmt.Sprintf(`[plugins."io.containerd.grpc.v1.cri".registry.mirrors.%q]`, registryName+":5001")+
+				"\n"+
+				`  `+fmt.Sprintf(`endpoint = ["http://%v:5001"]`+"\n", registryName)+
+				`  `+`skip_verify = true`+"\n",
+		)
 	}
 
 	// Create the Kind cluster and wait for it to be ready.
@@ -428,6 +429,27 @@ nodeRegistration:
 func (c *Cluster) Delete(ctx context.Context) error {
 	if err := c.provider.Delete(c.name, ""); err != nil {
 		return errors.Wrap(err, "delete cluster")
+	}
+	return nil
+}
+
+// PushImage pushes an image to the cluster.
+func (c *Cluster) PushImage(ctx context.Context, src string, name string) error {
+	cfg, err := c.GetConfig(ctx)
+	if err != nil {
+		return errors.Wrap(err, "get cluster config")
+	}
+	skopeo, ok := bazel.FindBinary("//tools/skopeo", "_skopeo")
+	if !ok {
+		log.Error(ctx, "binary not built with bazel; falling back to host skopeo")
+		skopeo = "skopeo"
+	}
+	cmd := exec.CommandContext(ctx, skopeo, "copy", src, path.Join(cfg.ImagePushPath, name))
+	cmd.Args[0] = "skopeo"
+	cmd.Stdout = log.WriterAt(pctx.Child(ctx, "skopeo.stdout"), log.InfoLevel)
+	cmd.Stderr = log.WriterAt(pctx.Child(ctx, "skopeo.stderr"), log.InfoLevel)
+	if err := cmd.Run(); err != nil {
+		return errors.Wrapf(err, "run skopeo copy %v %v", src, path.Join(cfg.ImagePushPath, name))
 	}
 	return nil
 }

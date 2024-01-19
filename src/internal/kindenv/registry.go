@@ -71,7 +71,7 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		Image: zotImage,
 		Cmd:   strslice.StrSlice{"serve", "/etc/zot.json"},
 		ExposedPorts: nat.PortSet{
-			"5000": struct{}{},
+			"5001": struct{}{},
 		},
 		User: strconv.Itoa(os.Getuid()),
 	}
@@ -88,7 +88,7 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 	pc := new(v1.Platform)
 	if expose {
 		hc.PortBindings = nat.PortMap{
-			"5000": []nat.PortBinding{{
+			"5001": []nat.PortBinding{{
 				HostIP:   "0.0.0.0",
 				HostPort: "5001",
 			}},
@@ -111,6 +111,9 @@ func connectRegistry(ctx context.Context, name string) error {
 		return errors.Wrap(err, "create docker client")
 	}
 	if err := dc.NetworkConnect(ctx, "kind", name, &network.EndpointSettings{}); err != nil {
+		if strings.Contains(err.Error(), "endpoint with name pach-registry already exists in network kind") {
+			return nil
+		}
 		return errors.Wrapf(err, "docker network connect kind %v", name)
 	}
 	return nil
