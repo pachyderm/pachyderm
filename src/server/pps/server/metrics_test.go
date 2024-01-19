@@ -74,10 +74,14 @@ kubectl wait -n {{.namespace}} --for=condition=ready pod -l app.kubernetes.io/na
 	defer resp.Body.Close()
 	type response struct {
 		Status string `json:"status"`
-		Data   any    `json:"data"`
+		Data   struct {
+			ResultType string `json:"resultType"`
+			Result     []any  `json:"result"`
+		} `json:"data"`
 	}
 	var pResp response
 	err = json.Unmarshal(b, &pResp)
 	require.NoError(t, err)
 	require.Equal(t, "success", pResp.Status)
+	require.True(t, len(pResp.Data.Result) > 0)
 }
