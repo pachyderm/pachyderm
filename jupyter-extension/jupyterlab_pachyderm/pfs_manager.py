@@ -49,7 +49,8 @@ class ContentModel(typing.TypedDict):
     Whether or not the entity can be written to. Currently, the Pachyderm
     extension is read-only for non-pipeline operations.
     """
-
+    file_uri: typing.Optional[str]
+    """PFS File URI included when listing the contents of directories for use with pagination"""
 
 def _create_base_model(path: str, fileinfo: pfs.FileInfo, type: str) -> ContentModel:
     if type == "file" and fileinfo.file_type != pfs.FileType.FILE:
@@ -99,29 +100,30 @@ def _get_file_model(
 
 
 def _create_dir_content(
-    client: Client, path: str, file: pfs.File
-) -> typing.List[ContentModel]:
-    list_response = client.pfs.list_file(file=file)
+    client: Client, path: str, file: pfs.File, pagination_marker: pfs.File, number
+) -> (typing.List[ContentModel], bool):
+    list_response = client.pfs.list_file(file=file, pagination_marker=pagination_marker, number=number) 
     dir_contents = []
-    for i in list_response:
-        name = Path(i.file.path).name
+    for file_info in list_response:
+        name = Path(file_info.file.path).name
         model = ContentModel(
             name=name,
             path=str(Path(path, name)),
-            type="directory" if i.file_type == pfs.FileType.DIR else "file",
-            created=i.committed,
-            last_modified=i.committed,
+            type="directory" if file_info.file_type == pfs.FileType.DIR else "file",
+            created=file_info.committed,
+            last_modified=file_info.committed,
             content=None,
             mimetype=None,
             format=None,
             writable=False,
+            file_uri=str(file_info.file)
         )
         dir_contents.append(model)
     return dir_contents
 
 
-def _get_dir_model(client: Client, model: ContentModel, path: str, file: pfs.File):
-    model["content"] = _create_dir_content(client=client, path=path, file=file)
+def _get_dir_model(client: Client, model: ContentModel, path: str, file: pfs.File, pagination_marker: pfs.File, number: int):
+    model["content"] = _create_dir_content(client=client, path=path, file=file, pagination_marker=pagination_marker, number=number)
     model["mimetype"] = None
     model["format"] = "json"
 
@@ -327,7 +329,7 @@ class PFSManager(FileContentsManager):
             writable=False,
         )
 
-    def get(self, path, content=True, type=None, format=None) -> ContentModel:
+    def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
                 400,
@@ -367,7 +369,14 @@ class PFSManager(FileContentsManager):
                     format=format,
                 )
             else:
-                _get_dir_model(client=self._client, model=model, path=path, file=file)
+                _get_dir_model(
+                    client=self._client, 
+                    model=model, 
+                    path=path, 
+                    file=file, 
+                    pagination_marker=pagination_marker, 
+                    number=number,
+                )
 
         return model
 
@@ -665,7 +674,14 @@ class DatumManager(FileContentsManager):
         return pathstr[len(self._FILEINFO_DIR) :]
 
     def _get_model_from_fileinfo(
-        self, fileinfo: pfs.FileInfo, path: Path, content: bool, type: str, format: str
+        self, 
+        fileinfo: pfs.FileInfo, 
+        path: Path, 
+        content: bool, 
+        type: str, 
+        format: str,
+        pagination_marker: pfs.FileInfo,
+        number: int,
     ) -> ContentModel:
         model = _create_base_model(path=path, fileinfo=fileinfo, type=type)
         if content:
@@ -679,7 +695,12 @@ class DatumManager(FileContentsManager):
                 )
             else:
                 _get_dir_model(
-                    client=self._client, model=model, path=path, file=fileinfo.file
+                    client=self._client, 
+                    model=model,
+                    path=path, 
+                    file=fileinfo.file,
+                    pagination_marker=pagination_marker,
+                    number=number,
                 )
         return model
 
@@ -688,7 +709,12 @@ class DatumManager(FileContentsManager):
             format = "json"
             content_model = [
                 self._get_model_from_disk(
-                    local_path=p, content=False, type=None, format=None
+                    local_path=p, 
+                    content=False, 
+                    type=None, 
+                    format=None, 
+                    pagination_marker=None, 
+                    number=None,
                 )
                 for p in local_path.iterdir()
             ]
@@ -708,7 +734,7 @@ class DatumManager(FileContentsManager):
         )
 
     def _get_model_from_disk(
-        self, local_path: Path, content: bool, type: str, format: str
+        self, local_path: Path, content: bool, type: str, format: str, pagination_marker: pfs.File, number: int
     ):
         if local_path.is_dir():
             if type and type != "directory":
@@ -725,6 +751,8 @@ class DatumManager(FileContentsManager):
                 content=content,
                 type=type,
                 format=format,
+                pagination_marker=pagination_marker,
+                number=number,
             )
 
     def _get_root_model(self, content: bool) -> ContentModel:
@@ -742,14 +770,14 @@ class DatumManager(FileContentsManager):
             path="/",
             type="directory",
             created=datetime.datetime.min,
-            last_modified=datetime.datetime.min,
+            last_modified=datetime.datetime.min, 
             content=content_model,
             mimetype=None,
             format=format,
             writable=False,
         )
 
-    def get(self, path, content=True, type=None, format=None) -> ContentModel:
+    def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
                 400,
@@ -770,13 +798,24 @@ class DatumManager(FileContentsManager):
                 )
             else:
                 return self._get_model_from_disk(
-                    local_path=fileinfo_path, content=content, type=type, format=format
+                    local_path=fileinfo_path, 
+                    content=content, 
+                    type=type, 
+                    format=format,
+                    pagination_marker=pagination_marker,
+                    number=number,
                 )
         else:
             file = self._get_file_from_path(path=path)
             fileinfo = self._client.pfs.inspect_file(file=file)
             return self._get_model_from_fileinfo(
-                fileinfo=fileinfo, path=path, content=content, type=type, format=format
+                fileinfo=fileinfo, 
+                path=path,
+                content=content, 
+                type=type, 
+                format=format,
+                pagination_marker=pagination_marker,
+                number=number,
             )
 
     def save(self, model, path=""):
