@@ -47,8 +47,6 @@ def pachyderm_resources():
 
     yield repos, branches, files
 
-    ## TODO: Delete the repos after this to avoid needing delete_all?
-
 
 @pytest.fixture()
 def dev_server():
