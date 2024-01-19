@@ -11,7 +11,6 @@ import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {INotebookModel, NotebookPanel} from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
 import {settingsIcon} from '@jupyterlab/ui-components';
-import {JSONObject} from '@lumino/coreutils';
 import {Signal} from '@lumino/signaling';
 import {SplitPanel, Widget} from '@lumino/widgets';
 
@@ -274,6 +273,7 @@ export class MountPlugin implements IMountPlugin {
       manager,
       factory,
       'pfs',
+      'explore',
       'pfs',
     );
     this._datumBrowser = createCustomFileBrowser(
@@ -281,6 +281,7 @@ export class MountPlugin implements IMountPlugin {
       manager,
       factory,
       'view_datum',
+      'test',
       'datum',
     );
     this._poller.mountedSignal.connect(this.verifyBrowserPath);

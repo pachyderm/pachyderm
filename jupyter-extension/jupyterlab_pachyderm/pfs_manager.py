@@ -128,6 +128,30 @@ def _get_dir_model(client: Client, model: ContentModel, path: str, file: pfs.Fil
     model["format"] = "json"
 
 
+def _download_file(client: Client, file: pfs.File):
+    """Downloads the given PFS file or directory to the CWD"""
+    fileinfo = client.pfs.inspect_file(file=file)
+    if fileinfo.file_type == pfs.FileType.FILE:
+        with client.pfs.pfs_file(file=file) as src_file:
+            with open(Path(Path.cwd(), Path(file.path).name), "xb") as dst_file:
+                shutil.copyfileobj(fsrc=src_file, fdst=dst_file)
+    elif fileinfo.file_type == pfs.FileType.DIR:
+        if file.path == "/" or file.path == "":
+            dir_name = file.commit.repo.name
+        else:
+            dir_name = Path(file.path).name
+
+        if Path(Path.cwd(), dir_name).exists():
+            raise FileExistsError
+
+        with client.pfs.pfs_tar_file(file=file) as tar:
+            tar.extractall(path=dir_name)
+    else:
+        raise ValueError(
+            f"Downloading {file.path} which is unsupported file type {fileinfo.file_type}"
+        )
+
+
 class PFSManager(FileContentsManager):
     # changes from mount-server impl:
     #  - branch name will always be present in the dir name, even if master.
@@ -241,6 +265,10 @@ class PFSManager(FileContentsManager):
         path_str = self._get_path(path)
         file_uri = f"{self._mounted[name]}:/{path_str}"
         return pfs.File.from_uri(file_uri)
+
+    def download_file(self, path: str):
+        file = self._get_file_from_path(path=path)
+        _download_file(client=self._client, file=file)
 
     def is_hidden(self, path):
         return False
@@ -584,6 +612,10 @@ class DatumManager(FileContentsManager):
             pach_path = str(Path(*parts[1:]))
         file_uri = f"{project}/{repo}@{branch}:{pach_path}"
         return pfs.File.from_uri(file_uri)
+
+    def download_file(self, path: str):
+        file = self._get_file_from_path(path=path)
+        _download_file(client=self._client, file=file)
 
     def is_hidden(self, path):
         return False
