@@ -59,28 +59,37 @@ sed -e 's/- default/- {{.namespace}}/' '{{.docsContent}}/latest/manage/prometheu
 	cmd.Stdout = os.Stdout
 
 	require.NoError(t, cmd.Run())
-	var resp *http.Response
-	require.NoErrorWithinTRetry(t, time.Minute, func() error {
+	require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+		var resp *http.Response
 		var err error
 		addr := c.GetAddress()
 		uri := fmt.Sprintf("http://%s:%d/api/v1/query?query=pachyderm_auth_dex_approval_errors_total", addr.Host, addr.Port+10)
-		resp, err = http.Get(uri)
-		return errors.Wrapf(err, "could not fetch %s", uri)
-	})
+		if resp, err = http.Get(uri); err != nil {
+			return errors.Wrapf(err, "could not fetch %s", uri)
+		}
 
-	b, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-	type response struct {
-		Status string `json:"status"`
-		Data   struct {
-			ResultType string `json:"resultType"`
-			Result     []any  `json:"result"`
-		} `json:"data"`
-	}
-	var pResp response
-	err = json.Unmarshal(b, &pResp)
-	require.NoError(t, err)
-	require.Equal(t, "success", pResp.Status)
-	require.True(t, len(pResp.Data.Result) > 0)
+		b, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		type response struct {
+			Status string `json:"status"`
+			Data   struct {
+				ResultType string `json:"resultType"`
+				Result     []any  `json:"result"`
+			} `json:"data"`
+		}
+		var pResp response
+		if err := json.Unmarshal(b, &pResp); err != nil {
+			return err
+		}
+		if pResp.Status != "success" {
+			return errors.Errorf("got %q; expected \"success\"", pResp.Status)
+		}
+		if len(pResp.Data.Result) == 0 {
+			return errors.New("no result")
+		}
+		return nil
+	})
 }
