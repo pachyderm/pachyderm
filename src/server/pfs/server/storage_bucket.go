@@ -40,7 +40,7 @@ func openBucket(ctx context.Context, url *obj.ObjectStoreURL) (*blob.Bucket, err
 			url.Params += "disableSSL=" + os.Getenv("DISABLE_SSL")
 		}
 		fallthrough
-	case "gs", "azblob":
+	case "gs", "azblob", "file":
 		bucket, err := blob.OpenBucket(ctx, url.BucketString())
 		if err != nil {
 			return nil, errors.EnsureStack(errors.Wrapf(err, "error opening bucket %s", url.Bucket))

@@ -158,6 +158,8 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 			require.NoError(t, cmdutil.PopulateDefaults(config))
 			config.StorageBackend = obj.Local
 			config.StorageRoot = path.Join(realEnv.Directory, "localStorage")
+			config.GoCDKEnabled = true
+			config.StorageURL = "file://" + config.StorageRoot
 		},
 		DefaultConfigOptions,
 		pachconfig.WithEtcdHostPort(etcdClientURL.Hostname(), etcdClientURL.Port()),
@@ -222,6 +224,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
 		DB:          pfsEnv.DB,
 		ObjClient:   pfsEnv.ObjectClient,
+		Bucket:      pfsEnv.Bucket,
 		TaskService: pfsEnv.TaskService,
 	}, pfsserver.WorkerConfig{
 		Storage: pfsEnv.StorageConfig,

@@ -184,7 +184,6 @@ use_repo(
     "com_github_felixge_httpsnoop",
     "com_github_fsnotify_fsnotify",
     "com_github_fsouza_go_dockerclient",
-    "com_github_ghodss_yaml",
     "com_github_go_logr_zapr",
     "com_github_go_sql_driver_mysql",
     "com_github_golang_protobuf",

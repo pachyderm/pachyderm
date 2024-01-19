@@ -27,6 +27,9 @@ func newDockerClient() docker.APIClient {
 }
 
 func getDockerHost() string {
+	if e := os.Getenv("DOCKER_MACHINE_NAME"); e != "" {
+		return e
+	}
 	client := newDockerClient()
 	defer client.Close()
 	host := client.DaemonHost()

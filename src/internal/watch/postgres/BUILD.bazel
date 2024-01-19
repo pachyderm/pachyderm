@@ -15,6 +15,7 @@ go_library(
 
 go_test(
     name = "postgres_test",
+    size = "small",
     srcs = ["impl_test.go"],
     deps = [
         ":postgres",

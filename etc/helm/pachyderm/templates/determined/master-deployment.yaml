@@ -38,7 +38,7 @@ spec:
         image: {{ .Values.determined.imageRegistry }}/{{ $image }}:{{ $tag }}
         imagePullPolicy: "Always"
         {{- if .Values.determined.enterpriseEdition }}
-        {{- if .Values.determined.oidc }}
+        {{- if and .Values.determined.oidc .Values.determined.oidc.enabled }}
         env:
           - name: DET_OIDC_CLIENT_SECRET
             valueFrom:

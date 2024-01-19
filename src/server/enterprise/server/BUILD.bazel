@@ -43,6 +43,7 @@ go_library(
 
 go_test(
     name = "server_test",
+    size = "small",
     srcs = ["enterprise_test.go"],
     embed = [":server"],
     pure = "on",

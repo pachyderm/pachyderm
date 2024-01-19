@@ -27,6 +27,7 @@ go_library(
 
 go_test(
     name = "debugstar_test",
+    size = "small",
     srcs = ["debugstar_test.go"],
     data = glob(["testdata/**"]),
     embed = [":debugstar"],

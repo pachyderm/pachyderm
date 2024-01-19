@@ -450,7 +450,7 @@ func ParseURL(urlStr string) (*ObjectStoreURL, error) {
 	}
 	var objStoreUrl *ObjectStoreURL
 	switch u.Scheme {
-	case "azblob", "gs", "local", "s3":
+	case "azblob", "gs", "file", "s3":
 		objStoreUrl = &ObjectStoreURL{
 			Scheme: u.Scheme,
 			Bucket: u.Host,

@@ -34,7 +34,7 @@ global:
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
     # postgresqlSSL is the SSL mode to use for pg-bouncer connecting to Postgres, for the default local postgres it is disabled
-    postgresqlSSL: "disable"
+    postgresqlSSL: "prefer"
     # CA Certificate required to connect to Postgres
     postgresqlSSLCACert: ""
     # TLS Secret with cert/key to connect to Postgres

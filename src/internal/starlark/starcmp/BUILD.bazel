@@ -14,6 +14,7 @@ go_library(
 
 go_test(
     name = "starcmp_test",
+    size = "small",
     srcs = ["starcmp_test.go"],
     embed = [":starcmp"],
     deps = [

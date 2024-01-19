@@ -13,6 +13,7 @@ go_library(
 
 go_test(
     name = "signals_test",
+    size = "small",
     srcs = [
         "signals_test.go",
         "signals_unix_test.go",
