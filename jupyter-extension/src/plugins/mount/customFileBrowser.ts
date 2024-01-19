@@ -22,7 +22,10 @@ const createCustomFileBrowser = (
   path: string,
   name_suffix: string,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry, path, name_suffix);
+  const drive = new MountDrive(app.docRegistry, path, name_suffix, async () => {
+    await browser.model.cd()
+    await paging.update()
+  });
   manager.services.contents.addDrive(drive);
 
   const browser = factory.createFileBrowser(
