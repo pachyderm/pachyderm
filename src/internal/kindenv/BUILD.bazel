@@ -1,8 +1,9 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "kindenv",
     srcs = [
+        "install_pachyderm.go",
         "kindenv.go",
         "kubeconfig.go",
         "registry.go",
@@ -40,5 +41,19 @@ go_library(
         "@org_uber_go_zap//:zap",
         "@rules_go//go/runfiles:go_default_library",
         "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+go_test(
+    name = "kindenv_test",
+    srcs = ["kindenv_test.go"],
+    embed = [":kindenv"],
+    tags = [
+        "k8s",
+        "no-sandbox",
+    ],
+    deps = [
+        "//src/internal/pctx",
+        "@com_github_adrg_xdg//:xdg",
     ],
 )

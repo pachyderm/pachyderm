@@ -24,6 +24,9 @@ type Kubeconfig string
 // GetKubeconfig returns a Kubeconfig object for the cluster.  Call `Close()` when you're done to
 // avoid filling up /tmp with junk.
 func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
+	if c.kubeconfig != "" {
+		return c.kubeconfig, nil
+	}
 	f, err := os.CreateTemp("", "pachdev-kubeconfig-*")
 	if err != nil {
 		return "", errors.Wrap(err, "create tmpfile for config")
@@ -38,13 +41,18 @@ func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
 	if err := f.Close(); err != nil {
 		return "", errors.Wrap(err, "close kubeconfig")
 	}
-	return Kubeconfig(f.Name()), nil
+	k := Kubeconfig(f.Name())
+	c.kubeconfig = k
+	return k, nil
 }
 
 // Close removes the kubeconfig file.
-func (k Kubeconfig) Close() error {
-	if k != "" {
-		return os.Remove(string(k))
+func (k *Kubeconfig) Close() error {
+	if k == nil && *k != "" {
+		if err := os.Remove(string(*k)); err != nil {
+			return errors.Wrap(err, "remove kubeconfig")
+		}
+		*k = ""
 	}
 	return nil
 }

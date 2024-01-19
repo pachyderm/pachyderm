@@ -24,19 +24,13 @@ const (
 	// Zot is a container registry that stores containers in the same format that "bazel build"
 	// stores them.  To push, we just have to copy some files around.
 	zotImage = "ghcr.io/project-zot/zot-linux-amd64:v1.4.3@sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378"
-
-	// It is unlikely that localhost:5001 will work for all setups, like pushing from Mac ->
-	// registry on Linux VM.  So we'll pretend this is configurable and then come up with a plan
-	// for making it configurable.  The port has to be 5001 for compatability with "docker
-	// push"; it's the magic number that tells it "hey don't check the TLS cert".
-	registryHostname = "localhost"
 )
 
 //go:embed zot.json
 var zotJSON []byte
 
-func ensureRegistry(ctx context.Context) (string, error) {
-	registryVolume, err := xdg.StateFile("pach-registry/registry")
+func ensureRegistry(ctx context.Context, name string, expose bool) (string, error) {
+	registryVolume, err := xdg.StateFile(name + "/registry")
 	if err != nil {
 		return "", errors.Wrap(err, "find suitable location for registry files")
 	}
@@ -48,16 +42,16 @@ func ensureRegistry(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "create docker client")
 	}
-	if _, err := dc.ContainerInspect(ctx, "pach-registry"); err == nil {
+	if _, err := dc.ContainerInspect(ctx, name); err == nil {
 		// Container is created; don't attempt further work.
 		return registryVolume, nil
 	} else if strings.Contains(err.Error(), "No such container") {
 		// That's what the rest of this function exists to handle.
 	} else {
-		return "", errors.Wrap(err, "inspect pach-registry")
+		return "", errors.Wrapf(err, "inspect container %q", name)
 	}
 
-	configVolume, err := xdg.StateFile("pach-registry/config/zot.json")
+	configVolume, err := xdg.StateFile(name + "/config/zot.json")
 	if err != nil {
 		return "", errors.Wrap(err, "find suitable location for zot.json")
 	}
@@ -65,7 +59,7 @@ func ensureRegistry(ctx context.Context) (string, error) {
 		return "", errors.Wrap(err, "write zot.json")
 	}
 
-	log.Info(ctx, "starting container registry localhost:5001", zap.String("registry", registryVolume), zap.String("config", configVolume))
+	log.Info(ctx, "starting container registry", zap.String("container", name), zap.String("registry", registryVolume), zap.String("config", configVolume))
 	cc := &container.Config{
 		Image: zotImage,
 		Cmd:   strslice.StrSlice{"serve", "/etc/zot.json"},
@@ -82,20 +76,18 @@ func ensureRegistry(ctx context.Context) (string, error) {
 		RestartPolicy: container.RestartPolicy{
 			Name: "always",
 		},
-		PortBindings: nat.PortMap{
+	}
+	nc := new(network.NetworkingConfig)
+	pc := new(v1.Platform)
+	if expose {
+		hc.PortBindings = nat.PortMap{
 			"5000": []nat.PortBinding{{
 				HostIP:   "0.0.0.0",
 				HostPort: "5001",
 			}},
-		},
+		}
 	}
-	nc := &network.NetworkingConfig{
-		EndpointsConfig: map[string]*network.EndpointSettings{
-			"kind": &network.EndpointSettings{},
-		},
-	}
-	pc := &v1.Platform{}
-	container, err := dc.ContainerCreate(ctx, cc, hc, nc, pc, "pach-registry")
+	container, err := dc.ContainerCreate(ctx, cc, hc, nc, pc, name)
 	if err != nil {
 		return "", errors.Wrap(err, "create zot container")
 	}
@@ -104,4 +96,26 @@ func ensureRegistry(ctx context.Context) (string, error) {
 	}
 	log.Info(ctx, "registry started ok")
 	return registryVolume, nil
+}
+
+func connectRegistry(ctx context.Context, name string) error {
+	dc, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return errors.Wrap(err, "create docker client")
+	}
+	if err := dc.NetworkConnect(ctx, "kind", name, &network.EndpointSettings{}); err != nil {
+		return errors.Wrapf(err, "docker network connect kind %v", name)
+	}
+	return nil
+}
+
+func destroyRegistry(ctx context.Context, name string) error {
+	dc, err := docker.NewClientWithOpts(docker.FromEnv)
+	if err != nil {
+		return errors.Wrap(err, "create docker client")
+	}
+	if err := dc.ContainerRemove(ctx, name, types.ContainerRemoveOptions{Force: true}); err != nil {
+		return errors.Wrapf(err, "docker rm -f %v", name)
+	}
+	return nil
 }
