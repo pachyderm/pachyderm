@@ -13,8 +13,14 @@ const DefaultClusterName = "pach"
 func DeleteClusterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete-cluster [<name>]",
-		Short: "Deploy a local Kubernetes cluster",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Delete a local pachdev cluster",
+		Long: `Delete a local pachdev cluster.
+
+The cluster to delete is defined by the name, or your current kubernetes context if not set.  The
+cluster will only be deleted if the cluster was created by pachdev.  'bazel run //tools/kind --
+delete cluster --name=X' will delete any Kind cluster.  `,
+
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var name string
 			if len(args) > 0 {
@@ -34,11 +40,16 @@ func DeleteClusterCmd() *cobra.Command {
 }
 
 func CreateClusterCmd() *cobra.Command {
-	var registry string
+	var opts kindenv.CreateOpts
 	cmd := &cobra.Command{
 		Use:   "create-cluster [<name>]",
-		Short: "Deploy a local Kubernetes cluster",
-		Args:  cobra.MaximumNArgs(1),
+		Short: "Deploy a local pachdev cluster",
+		Long: `Deploy a local pachdev cluster.
+
+The rest of this script relies on having one of these clusters.  You can name it anything; if you
+only have one, it will be automatically used.`,
+
+		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name := DefaultClusterName
 			if len(args) > 0 {
@@ -49,17 +60,17 @@ func CreateClusterCmd() *cobra.Command {
 			if err != nil {
 				return errors.Wrap(err, "kindenv.New")
 			}
-			if err := cluster.Create(ctx, &kindenv.CreateOpts{
-				TestNamespaceCount: 3,
-				ExternalRegistry:   registry,
-				BindHTTPPorts:      true,
-				StartingPort:       30600,
-			}); err != nil {
+			if err := cluster.Create(ctx, &opts); err != nil {
 				return errors.Wrap(err, "kindenv.Create")
 			}
 			return nil
 		},
 	}
+	cmd.Flags().Int32Var(&opts.TestNamespaceCount, "test-namespaces", 0, "The number of tests this cluster should support running in parallel.  Note: requires 10 * count free ports.")
+	cmd.Flags().StringVar(&opts.ExternalHostname, "hostname", "127.0.0.1", "The externally-accessible hostname (or IP address) for the cluster.")
+	cmd.Flags().StringVar(&opts.ImagePushPath, "push-path", "", "If set, push images to the cluster with this Skopeo destination.  If unset, a registry will be started and this value will be automatically configured.")
+	cmd.Flags().BoolVar(&opts.BindHTTPPorts, "http", true, "If set, ports 80 and 443 will refer to the Pachyderm running in the default namespace in this cluster.  Only one cluster per machine can have this set.")
+	cmd.Flags().Int32Var(&opts.StartingPort, "starting-port", -1, "If set, each namespace will get ports forwarded to the local machine starting with this port number.  If 0, a default will be selected.  If -1, then don't expose any ports.")
 	return cmd
 }
 

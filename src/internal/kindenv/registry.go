@@ -42,9 +42,16 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 	if err != nil {
 		return "", errors.Wrap(err, "create docker client")
 	}
-	if _, err := dc.ContainerInspect(ctx, name); err == nil {
-		// Container is created; don't attempt further work.
-		return registryVolume, nil
+	if status, err := dc.ContainerInspect(ctx, name); err == nil {
+		if status.State.Running {
+			// Container is created; don't attempt further work.
+			log.Info(ctx, "reusing existing container registry", zap.String("container", name))
+			return registryVolume, nil
+		}
+		log.Info(ctx, "container registry exists, but isn't running; deleting", zap.String("container", name))
+		if err := destroyRegistry(ctx, name); err != nil {
+			return "", errors.Wrap(err, "destroy broken registry")
+		}
 	} else if strings.Contains(err.Error(), "No such container") {
 		// That's what the rest of this function exists to handle.
 	} else {

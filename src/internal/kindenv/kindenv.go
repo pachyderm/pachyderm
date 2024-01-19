@@ -54,7 +54,7 @@ const (
 
 // CreateOpts specifies a Kind environment.
 //
-// Note: kind treats port numbers as int32, so we do too.  They are actually uint16s.
+// Note: kind treats port numbers as int32, so we do too.
 type CreateOpts struct {
 	// TestNamespaceCount controls how many K8s tests can run concurrently.
 	TestNamespaceCount int32
