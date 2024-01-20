@@ -126,5 +126,8 @@ alias(
 test_suite(
     name = "privileged_tests",
     tags = ["manual"],
-    tests = ["//src/server/pfs/fuse:fuse_test"],
+    tests = [
+        "//src/internal/kindenv:kindenv_test",
+        "//src/server/pfs/fuse:fuse_test",
+    ],
 )
