@@ -76,6 +76,7 @@ func (c *Cluster) PushPachyderm(ctx context.Context) error {
 
 type HelmConfig struct {
 	Namespace       string
+	Diff            bool
 	NoSwitchContext bool
 }
 
@@ -170,7 +171,12 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 
 // InstallPachyderm installs or upgrades Pachyderm.
 func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) error {
-	flags := []string{"upgrade", "--install"}
+	var flags []string
+	if install.Diff {
+		flags = append(flags, "diff", "upgrade")
+	} else {
+		flags = append(flags, "upgrade", "--install")
+	}
 	moreFlags, err := c.helmFlags(ctx, install)
 	if err != nil {
 		return errors.Wrap(err, "compute helm flags")
@@ -185,8 +191,16 @@ func (c *Cluster) InstallPachyderm(ctx context.Context, install *HelmConfig) err
 	// Helm upgrade.
 	log.Info(ctx, "running helm upgrade --install")
 	log.Debug(ctx, "helm flags", zap.Strings("flags", flags))
-	if err := k.HelmCommand(ctx, flags...).Run(); err != nil {
+	cmd := k.HelmCommand(ctx, flags...)
+	if install.Diff {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	}
+	if err := cmd.Run(); err != nil {
 		return errors.Wrapf(err, "helm %v", flags)
+	}
+	if install.Diff {
+		return nil
 	}
 
 	// Configure pachctl now, in case the user presses C-c because they're tired of waiting for
