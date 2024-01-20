@@ -4,6 +4,11 @@
     "postgresql": { "postgresqlPassword": "user", "postgresqlPostgresPassword": "root" },
     "image": { "registry": "" }
   },
+  "console": {
+    "config": {
+      "oauthClientSecret": "consoleClientSecret"
+    }
+  },
   "oidc": {
     "issuerURI": "http://pachd:30658/dex"
   },
@@ -25,7 +30,7 @@
       "backend": "MINIO",
       "minio": {
         "bucket": "pachyderm-test",
-        "endpoint": "minio.default.svc.cluster.local:9000",
+        "endpoint": "minio.default.svc.cluster.local.:9000",
         "id": "minioadmin",
         "secret": "minioadmin",
         "secure": "false",
