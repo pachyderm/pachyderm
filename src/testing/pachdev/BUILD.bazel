@@ -16,6 +16,12 @@ go_library(
 
 go_binary(
     name = "pachdev",
+    data = [
+        "//oci:pachd_image",
+        "//oci:pachd_image.digest",
+        "//oci:worker_image",
+        "//oci:worker_image.digest",
+    ],
     embed = [":pachdev_lib"],
     visibility = ["//visibility:public"],
     x_defs = {

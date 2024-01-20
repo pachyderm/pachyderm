@@ -27,16 +27,13 @@ go_library(
         "skopeo.go",
         "util.go",
     ],
+    # Note: to install Pachyderm using InstallPachyderm, you'll need //oci:{pachd|worker}_image(.digest).
     data = [
         "coredns_configmap.yaml",
         "minio.yaml",
         "pachyderm-values.json",
         "zot",
         "zot.digest",
-        "//oci:pachd_image",
-        "//oci:pachd_image.digest",
-        "//oci:worker_image",
-        "//oci:worker_image.digest",
         "//tools/helm",
         "//tools/kubectl",
         "//tools/skopeo",
