@@ -19,6 +19,11 @@ func main() {
 		Short:         "A CLI tool for Pachyderm development",
 		SilenceUsage:  true, // This avoids printing the usage message on errors.
 		SilenceErrors: true, // We print out the error ourselves.
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if verbose {
+				log.SetLevel(log.DebugLevel)
+			}
+		},
 	}
 	// Common flags.
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "If true, show debug-level log messages.")
@@ -27,6 +32,7 @@ func main() {
 	rootCmd.AddCommand(pachdev.DeleteClusterCmd())
 	rootCmd.AddCommand(pachdev.CreateClusterCmd())
 	rootCmd.AddCommand(pachdev.LoadImageCmd())
+	rootCmd.AddCommand(pachdev.PushPachydermCmd())
 
 	// Run a command.
 	log.InitPachctlLogger()

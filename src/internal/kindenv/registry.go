@@ -33,13 +33,10 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 
 	// Check if there's an existing registry and that it's configured correctly.
 	log.Debug(ctx, "checking for existing registry", zap.String("container", name))
-	digestFile, err := runfiles.Rlocation("_main/src/internal/kindenv/zot.json.sha256")
+
+	digest, err := readRunfile("_main/src/internal/kindenv/zot.json.sha256")
 	if err != nil {
-		return "", errors.Wrap(err, "find zot image digest; build with bazel")
-	}
-	digest, err := os.ReadFile(digestFile)
-	if err != nil {
-		return "", errors.Wrap(err, "read zot image digest")
+		return "", errors.Wrap(err, "lookup zot image digest")
 	}
 	digest = bytes.TrimRight(digest, "\n")
 	zotImage := "zot:" + string(digest[len("sha256:"):])

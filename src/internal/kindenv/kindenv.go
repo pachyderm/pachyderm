@@ -8,8 +8,10 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -23,22 +25,28 @@ import (
 )
 
 const (
-	// version is stored in the cluster and will inform developers that they should recreate
-	// their kind cluster when the stored version doesn't match this.
-	version = 1
+	// kindenvVersion is stored in the cluster and will inform developers that they should
+	// recreate their kind cluster when the stored version doesn't match this.
+	kindenvVersion = 1
 
 	// nodeImage is the kind node image to use.  If you change this, also change the version
 	// above.  Always include the sha256 checksum (due to quirks in Kind's release process,
 	// according to their docs).
 	nodeImage = "kindest/node:v1.29.0@sha256:eaa1450915475849a73a9227b8f201df25e55e268e5d619312131292e324d570"
 
+	// Annotations on the default namespace that configure the cluster.
 	clusterRegistryPushKey = "dev.pachyderm.io/registry-push-path"
 	clusterRegistryPullKey = "dev.pachyderm.io/registry-pull-path"
 	clusterVersionKey      = "dev.pachyderm.io/kindenv-version"
 	clusterHostnameKey     = "dev.pachyderm.io/hostname"
-	httpPortsKey           = "dev.pachyderm.io/standard-http-ports"
-	exposedPortsKey        = "dev.pachyderm.io/exposed-ports"
-	fieldManager           = "pachdev"
+
+	// Annotations that configure a namespace.
+	tlsKey            = "dev.pachyderm.io/tls"
+	exposedPortsKey   = "dev.pachyderm.io/exposed-ports"
+	portBindingPrefix = "dev.pachyderm.io/port."
+
+	fieldManager   = "pachdev"         // When k8s wants a fieldManager, we're this.
+	pachydermProxy = "pachyderm_proxy" // Name of the proxy port.
 )
 
 // CreateOpts specifies a Kind environment.
@@ -60,6 +68,8 @@ type CreateOpts struct {
 	// TestNamespace gets 10.  If -1, then no ports will be created.  If unset (0), then ports
 	// start at 30500.
 	StartingPort int32
+	// TLS is true if external communications to pachd/console should use tls (grpcs, https).
+	TLS bool
 
 	// options just for internal tests
 
@@ -141,9 +151,11 @@ type ClusterConfig struct {
 	ImagePullPath string
 	// A hostname that serves the exposed ports of the cluster.
 	Hostname string
+	// If true, use https/grpcs.
+	TLS bool
 }
 
-func (c *Cluster) GetConfig(ctx context.Context) (*ClusterConfig, error) {
+func (c *Cluster) GetConfig(ctx context.Context, namespace string) (*ClusterConfig, error) {
 	if c.config != nil {
 		return c.config, nil
 	}
@@ -174,8 +186,8 @@ func (c *Cluster) GetConfig(ctx context.Context) (*ClusterConfig, error) {
 	if result.Version == 0 {
 		return nil, errors.New("cluster is not a pachdev environment")
 	}
-	if result.Version != version {
-		log.Error(ctx, "your pachdev cluster is outdated; please delete and re-create it soon", zap.Int("your_version", result.Version), zap.Int("latest_version", version))
+	if result.Version != kindenvVersion {
+		log.Error(ctx, " *** your pachdev cluster is outdated; please delete and re-create it soon", zap.Int("your_version", result.Version), zap.Int("latest_version", kindenvVersion))
 	}
 	var errs error
 	if path, ok := ns.Annotations[clusterRegistryPullKey]; ok {
@@ -196,6 +208,21 @@ func (c *Cluster) GetConfig(ctx context.Context) (*ClusterConfig, error) {
 	if result.Hostname == "" {
 		errors.JoinInto(&errs, errors.New("there is no way to access your cluster from the host network"))
 	}
+
+	ns, err = kube.CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
+	if err != nil {
+		return nil, errors.Wrapf(err, "get %v namespace", namespace)
+	}
+	if tlss, ok := ns.Annotations[tlsKey]; ok {
+		tls, err := strconv.ParseBool(tlss)
+		if err != nil {
+			errors.JoinInto(&errs, errors.Errorf("parse %v: %v", tlsKey, err))
+		}
+		result.TLS = tls
+	} else {
+		errors.JoinInto(&errs, errors.New("unable to determine whether or not to use TLS"))
+	}
+
 	if errs != nil {
 		return nil, errs
 	}
@@ -241,8 +268,9 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 	// configuration between tests/dev tools/etc.
 	annotations := map[string]map[string]string{
 		"default": {
-			clusterVersionKey:  strconv.Itoa(version),
+			clusterVersionKey:  strconv.Itoa(kindenvVersion),
 			clusterHostnameKey: opts.ExternalHostname,
+			tlsKey:             strconv.FormatBool(opts.TLS),
 
 			// Kind recommends this KEP, but it never got approved.  So we build our own
 			// that doesn't involve parsing YAML.
@@ -255,7 +283,7 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 	// Configure the Kind cluster.
 	var ports []v1alpha4.PortMapping
 	if opts.BindHTTPPorts {
-		annotations["default"][httpPortsKey] = "true"
+		annotations["default"][portBindingPrefix+pachydermProxy] = "30080,30443"
 		ports = append(ports,
 			v1alpha4.PortMapping{
 				ContainerPort: 30080,
@@ -292,6 +320,7 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 			ns = annotations[name]
 		}
 		ns[exposedPortsKey] = strings.Join(nsPorts, ",")
+		ns[tlsKey] = strconv.FormatBool(opts.TLS)
 	}
 	config := &v1alpha4.Cluster{
 		TypeMeta: v1alpha4.TypeMeta{
@@ -372,11 +401,12 @@ nodeRegistration:
 	}); err != nil {
 		return errors.Wrap(err, "add default annotations")
 	}
+	log.Info(ctx, "configured namespace", zap.String("namespace", "default"), zap.Any("config", annotations["default"]))
 	delete(annotations, "default")
 
 	// Create the test-runner namespaces and configure them.
 	for name, a := range annotations {
-		log.Info(ctx, "configuring test-runner namespace", zap.String("namespace", name))
+		log.Info(ctx, "creating test-runner namespace", zap.String("namespace", name))
 		ns := &corev1.Namespace{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        name,
@@ -388,6 +418,7 @@ nodeRegistration:
 		}); err != nil {
 			return errors.Wrapf(err, "create namespace %v", ns)
 		}
+		log.Info(ctx, "created namespace", zap.String("namespace", name), zap.Any("config", ns.Annotations))
 	}
 
 	// Install minio.
@@ -433,7 +464,7 @@ func (c *Cluster) Delete(ctx context.Context) error {
 
 // PushImage pushes an image to the cluster.
 func (c *Cluster) PushImage(ctx context.Context, src string, name string) error {
-	cfg, err := c.GetConfig(ctx)
+	cfg, err := c.GetConfig(ctx, "default")
 	if err != nil {
 		return errors.Wrap(err, "get cluster config")
 	}
@@ -442,4 +473,59 @@ func (c *Cluster) PushImage(ctx context.Context, src string, name string) error 
 		return errors.Wrapf(err, "run skopeo copy %v %v", src, dst)
 	}
 	return nil
+}
+
+// Allocate port returns a port number for the named service.  If multiple ports are allocated to
+// the named service, they are all returned separated by commas.
+func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (string, error) {
+	k, err := c.GetKubeconfig(ctx)
+	if err != nil {
+		return "", errors.Wrap(err, "get kubeconfig")
+	}
+	kc, err := k.Client()
+	if err != nil {
+		return "", errors.Wrap(err, "get kube client")
+	}
+
+	var port string
+	if err := backoff.RetryUntilCancel(ctx, func() error {
+		ns, err := kc.CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
+		if err != nil {
+			return errors.Wrap(err, "get namespace")
+		}
+		a := portBindingPrefix + service
+		if x, ok := ns.Annotations[a]; ok {
+			port = x
+			return nil
+		}
+		exposedPorts, ok := ns.Annotations[exposedPortsKey]
+		if !ok {
+			return errors.Errorf("no %v annotation", exposedPortsKey)
+		}
+		parts := strings.SplitN(exposedPorts, ",", 2)
+		if len(parts) == 0 || len(parts) == 1 && parts[0] == "" {
+			return errors.Errorf("no ports available (got %q)", exposedPorts)
+		}
+		port = parts[0]
+		if len(parts) > 1 {
+			ns.Annotations[exposedPortsKey] = parts[1]
+		} else {
+			ns.Annotations[exposedPortsKey] = ""
+		}
+
+		if _, err := kc.CoreV1().Namespaces().Update(ctx, ns, v1.UpdateOptions{
+			FieldManager: fieldManager,
+		}); err != nil {
+			return errors.Wrap(err, "update namespace")
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Second), func(err error, _ time.Duration) error {
+		if strings.Contains(err.Error(), "retry") {
+			return nil
+		}
+		return err
+	}); err != nil {
+		return "", errors.Wrap(err, "find available ports")
+	}
+	return port, nil
 }

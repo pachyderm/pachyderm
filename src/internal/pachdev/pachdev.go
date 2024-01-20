@@ -80,7 +80,7 @@ only have one, it will be automatically used.`,
 func LoadImageCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "load-image [<cluster name>] <source> <name:tag>",
-		Short: "Load a container image into the cluster, renaming it to <name:tag>.",
+		Short: "Load a container image into the cluster, renaming it to <name:tag>",
 		Args:  cobra.RangeArgs(2, 3),
 		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
 			var name, src, dst string
@@ -98,7 +98,7 @@ func LoadImageCmd() *cobra.Command {
 				return errors.Wrap(err, "kindenv.New")
 			}
 			defer errors.Close(&retErr, cluster, "close cluster")
-			cfg, err := cluster.GetConfig(ctx)
+			cfg, err := cluster.GetConfig(ctx, "default")
 			if err != nil {
 				return errors.Wrap(err, "get cluster config")
 			}
@@ -112,6 +112,37 @@ func LoadImageCmd() *cobra.Command {
 	return cmd
 }
 
+func PushPachydermCmd() *cobra.Command {
+	var opts kindenv.HelmConfig
+	cmd := &cobra.Command{
+		Use:   "push [<cluster name>]",
+		Short: "Push installs or upgrades Pachyderm so as to reflect any changes in your working directory",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			var name string
+			if len(args) > 0 {
+				name = args[0]
+			}
+			ctx := cmd.Context()
+			cluster, err := kindenv.New(ctx, name)
+			if err != nil {
+				return errors.Wrap(err, "kindenv.New")
+			}
+			defer errors.Close(&retErr, cluster, "close cluster")
+			if err := cluster.PushPachyderm(ctx); err != nil {
+				return errors.Wrap(err, "push pachyderm")
+			}
+			if err := cluster.InstallPachyderm(ctx, &opts); err != nil {
+				return errors.Wrap(err, "install pachyderm")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&opts.Namespace, "namespace", "default", "The Kubernetes namespace to install/upgrade.")
+	return cmd
+}
+
+//nolint:unused
 func restartClusterCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "restart cluster",
@@ -124,6 +155,7 @@ func restartClusterCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func restartDeploymentCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "restart pach-deployment",
@@ -136,6 +168,7 @@ func restartDeploymentCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func restartPachdCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "restart pods",
@@ -152,6 +185,7 @@ func restartPachdCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func updateDeploymentCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "update pach-deployment",
@@ -165,6 +199,7 @@ func updateDeploymentCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func updatePachdCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "update pods",
@@ -178,6 +213,7 @@ func updatePachdCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func updateImagesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "update images",
@@ -191,6 +227,7 @@ func updateImagesCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func printImagesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "print images",
@@ -204,6 +241,7 @@ func printImagesCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func printHelmCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "print helm-cmd",
@@ -217,6 +255,7 @@ func printHelmCmd() *cobra.Command {
 	}
 }
 
+//nolint:unused
 func printManifestCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "print manifest",
