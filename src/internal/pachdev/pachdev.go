@@ -129,8 +129,10 @@ func PushPachydermCmd() *cobra.Command {
 				return errors.Wrap(err, "kindenv.New")
 			}
 			defer errors.Close(&retErr, cluster, "close cluster")
-			if err := cluster.PushPachyderm(ctx); err != nil {
-				return errors.Wrap(err, "push pachyderm")
+			if !opts.Diff {
+				if err := cluster.PushPachyderm(ctx); err != nil {
+					return errors.Wrap(err, "push pachyderm")
+				}
 			}
 			if err := cluster.InstallPachyderm(ctx, &opts); err != nil {
 				return errors.Wrap(err, "install pachyderm")
