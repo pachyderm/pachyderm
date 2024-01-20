@@ -440,6 +440,15 @@ nodeRegistration:
 	if err := kc.KubectlCommand(ctx, "apply", "-f", dnsConfig).Run(); err != nil {
 		return errors.Wrap(err, "kubectl apply -f coredns_configmap.yaml")
 	}
+	if err := kc.KubectlCommand(ctx, "-n", "kube-system", "rollout", "restart", "deployment", "coredns").Run(); err != nil {
+		return errors.Wrap(err, "kubectl rollout restart deployment coredns")
+	}
+	go func() {
+		// We don't care to wait for this to complete.  coredns lameducks for 10 seconds.
+		if err := kc.KubectlCommand(ctx, "-n", "kube-system", "rollout", "status", "deployment", "coredns").Run(); err != nil {
+			log.Info(ctx, "kubectl rollout status deployment coredns", zap.Error(err))
+		}
+	}()
 
 	// Install metrics-server.
 	log.Info(ctx, "installing metrics-server")

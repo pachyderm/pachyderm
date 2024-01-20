@@ -72,6 +72,9 @@ func TestCluster(t *testing.T) {
 		t.Fatalf("create pause deployment: %v", err)
 	}
 	if err := k.KubectlCommand(ctx, "rollout", "status", "deployment", "pause", "--timeout=20s").Run(); err != nil {
+		if err := k.KubectlCommand(ctx, "describe", "pod").Run(); err != nil {
+			t.Logf("additional error running `kubectl describe pod`: %v", err)
+		}
 		t.Fatalf("wait for pause deployment: %v", err)
 	}
 }
