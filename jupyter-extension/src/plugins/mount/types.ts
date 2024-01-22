@@ -132,6 +132,7 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
+  external_files: string | null;
   input_spec: string;
   port: string;
   gpu_mode: GpuMode;

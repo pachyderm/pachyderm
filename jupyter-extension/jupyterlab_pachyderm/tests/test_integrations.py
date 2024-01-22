@@ -534,13 +534,13 @@ def simple_pachyderm_env(request):
     pipeline = pps.Pipeline(project=project, name=f"test_pipeline_{suffix}")
     companion_repo = pfs.Repo(name=f"{pipeline.name}__context", project=project)
     client.pfs.create_repo(repo=repo)
-    yield client, repo, pipeline
+    yield client, repo, companion_repo, pipeline
     client.pps.delete_pipeline(pipeline=pipeline, force=True)
     client.pfs.delete_repo(repo=companion_repo, force=True)
     client.pfs.delete_repo(repo=repo, force=True)
 
 
-def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline) -> str:
+def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline, external_files: str = '') -> str:
     """Updates the metadata of the specified notebook file with the specified
     project/repo/pipeline information.
 
@@ -555,6 +555,7 @@ def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline) -> 
     config.requirements = str(
         notebook.with_name(config.requirements).relative_to(os.getcwd())
     )
+    config.external_files = external_files
     notebook_data["metadata"][METADATA_KEY]["config"] = config.to_dict()
     return json.dumps(notebook_data)
 
@@ -567,7 +568,7 @@ def notebook_path(simple_pachyderm_env) -> Path:
       with the expected pipeline and repo names provided by the
       simple_pachyderm_env fixture.
     """
-    _client, repo, pipeline = simple_pachyderm_env
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
 
     # Do a considerable amount of data munging.
     notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline)
@@ -580,7 +581,7 @@ def notebook_path(simple_pachyderm_env) -> Path:
 
 
 def test_pps(dev_server, simple_pachyderm_env, notebook_path):
-    client, repo, pipeline = simple_pachyderm_env
+    client, repo, _companion_repo, pipeline = simple_pachyderm_env
     with client.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
         client.pfs.put_file_from_bytes(commit=commit, path="/data", data=b"data")
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
@@ -596,11 +597,92 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     )
 
 
-def test_pps_validation_errors(dev_server, notebook_path):
+def test_pps_last_modified_time_not_specified_validation(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
     assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_external_files_do_not_exist_validation(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
+
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'does_not_exist.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    r = requests.put(
+        f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+    )
+    
+    assert r.status_code == 400
+    assert r.json()["message"] == 'Bad Request'
+    assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_external_files_exists_in_another_directory_validation(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
+
+    notebook_directory = TEST_NOTEBOOK.parent
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'world/hello.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+
+    try:
+        notebook_directory.joinpath("world").mkdir()
+        notebook_directory.joinpath("world/hello.py").write_text("print('hello')")
+        time.sleep(5)
+
+        r = requests.put(
+            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+        )
+        
+        assert r.status_code == 400
+        assert r.json()["message"] == 'Bad Request'
+        assert r.json()["reason"] == 'external file hello.py could not be found in the directory of the Jupyter notebook'
+    finally:
+        notebook_directory.joinpath("world/hello.py").unlink()
+        notebook_directory.joinpath("world").rmdir()
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_uploads_external_files(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    client, repo, companion_repo, pipeline = simple_pachyderm_env
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'hello.py,world.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    try:
+        TEST_NOTEBOOK.with_name("hello.py").write_text("print('hello')")
+        TEST_NOTEBOOK.with_name("world.py").write_text("print('world')")
+
+        r = requests.put(
+            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+        )
+
+        assert r.status_code == 200, r.text
+        job_info = next(client.pps.list_job(pipeline=pipeline))
+        job_info = client.pps.inspect_job(job=job_info.job, wait=True)
+        assert job_info.state == pps.JobState.JOB_SUCCESS
+        assert r.json()["message"] == (
+            "Create pipeline request sent. You may monitor its "
+            'status by running "pachctl list pipelines" in a terminal.'
+        )
+        commits = [info.commit.id for info in client.pfs.list_commit(repo=companion_repo)]
+        assert len(commits) == 1
+        file_uri = f'{companion_repo}@{commits[0]}:'
+        with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/hello.py')) as pfs_file:
+            assert pfs_file.read().decode() == "print('hello')"
+        with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/world.py')) as pfs_file:
+            assert pfs_file.read().decode() == "print('world')"
+    finally:
+        TEST_NOTEBOOK.with_name("hello.py").unlink()
+        TEST_NOTEBOOK.with_name("world.py").unlink()
 
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_reuse_pipeline_name_different_project(
@@ -609,7 +691,7 @@ def test_pps_reuse_pipeline_name_different_project(
     """This tests creating a pipeline from a notebook within a project, and then creating a new
     pipeline with the same name inside the default project. A bug existed where reusing the pipeline
     name caused an error."""
-    client, repo, pipeline = simple_pachyderm_env
+    client, repo, _companion_repo, pipeline = simple_pachyderm_env
     test_pps(dev_server, simple_pachyderm_env, notebook_path)
 
     default_project = pfs.Project(name="default")
@@ -646,7 +728,7 @@ def test_pps_update_default_project_pipeline(
     """This tests creating and then updating a pipeline within the default project,
     but doing so using an empty string. A bug existed where we would incorrectly try to
     recreate the existing context repo."""
-    _client, repo, pipeline = simple_pachyderm_env
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
     repo: pfs.Repo
     pipeline: pps.Pipeline
     empty_project = pfs.Project(name="")
