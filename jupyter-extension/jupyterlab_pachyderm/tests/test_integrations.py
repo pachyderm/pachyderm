@@ -15,6 +15,7 @@ from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
+from pachyderm_sdk.config import ConfigFile, Context
 
 from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
 
@@ -48,7 +49,13 @@ def pachyderm_resources():
 
 
 @pytest.fixture()
-def dev_server():
+def pach_config(tmp_path: Path) -> Path:
+    """Temporary path used to write the pach config for tests."""
+    yield tmp_path / "config.json"
+
+
+@pytest.fixture()
+def dev_server(pach_config: Path):
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
@@ -58,7 +65,7 @@ def dev_server():
         # env.py changes (mount-server should use jupyterlab-pach's defaults).
         env=dict(
             os.environ,
-            PACH_CONFIG=PACH_CONFIG,
+            PACH_CONFIG=str(pach_config),
         ),
         stdout=subprocess.PIPE,
     )
@@ -487,28 +494,19 @@ def test_download_datum(pachyderm_resources, dev_server):
     )
 
 
-@pytest.mark.skip(
-    reason="we should implement writing to config file before re-enabling"
-)
-def test_config(dev_server):
+def test_config(dev_server, pach_config):
     # PUT request
     test_endpoint = "localhost:30650"
     r = requests.put(
         f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
     )
 
-    config = json.load(open(os.path.expanduser(PACH_CONFIG)))
-    active_context = config["v2"]["active_context"]
-    try:
-        endpoint_in_config = config["v2"]["contexts"][active_context]["pachd_address"]
-    except:
-        endpoint_in_config = str(
-            config["v2"]["contexts"][active_context]["port_forwarders"]["pachd"]
-        )
+    config = ConfigFile.from_path(pach_config)
+    active_context = config.active_context
 
     assert r.status_code == 200, r.text
     assert r.json()["cluster_status"] != "INVALID"
-    assert "30650" in endpoint_in_config
+    assert "30650" in active_context.pachd_address
 
     # GET request
     r = requests.get(f"{BASE_URL}/config")

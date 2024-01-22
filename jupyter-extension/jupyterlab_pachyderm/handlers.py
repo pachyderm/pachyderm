@@ -340,12 +340,19 @@ class ConfigHandler(BaseHandler):
 
     @tornado.web.authenticated
     async def put(self):
+        # Validate input.
         body = self.get_json_body()
+        address = body.get("pachd_address")
+        if not address:
+            get_logger().error("_config/put: no pachd address provided")
+            raise tornado.web.HTTPError(500, "no pachd address provided")
+        cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
+
+        # Attempt to instantiate client and test connection
         try:
-            address = body["pachd_address"]
-            cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
-            client = Client.from_pachd_address(address, root_certs=cas)
-            self.client = client
+            self.client = Client.from_pachd_address(address, root_certs=cas)
+            cluster_status = self.cluster_status
+            get_logger().debug(f" ClusterStatus: {cluster_status}")
         except Exception as e:
             get_logger().error(
                 f"Error updating config with endpoint {body['pachd_address']}.",
@@ -356,19 +363,15 @@ class ConfigHandler(BaseHandler):
                 reason=f"Error updating config with endpoint {body['pachd_address']}: {e}.",
             )
 
-        # Test client connection to cluster.
-        cluster_status = self.cluster_status
-        get_logger().debug(f" ClusterStatus: {cluster_status}")
-
         if cluster_status != self.CLUSTER_INVALID:
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(client.address, client.root_certs, None)
+                write_config(self.client.address, self.client.root_certs, None)
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
                 raise tornado.web.HTTPError(500, f"Error writing local config: {e}.")
 
-        payload = {"cluster_status": cluster_status, "pachd_address": client.address}
+        payload = {"cluster_status": cluster_status, "pachd_address": self.client.address}
         await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
