@@ -48,7 +48,7 @@ describe('config screen', () => {
   describe('AUTH_ENABLED config', () => {
     it('should show authenticated view', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -74,7 +74,7 @@ describe('config screen', () => {
 
     it('should show unauthenticated view', () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -100,7 +100,7 @@ describe('config screen', () => {
 
     it('should allow user to login', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -171,7 +171,7 @@ describe('config screen', () => {
   describe('AUTH_DISABLED config', () => {
     it('should display default view', () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_DISABLED',
+        cluster_status: 'VALID_NO_AUTH',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -198,7 +198,7 @@ describe('config screen', () => {
 
   it('should allow user to navigate back to mount screen if get repos is sucessful', () => {
     const authConfig: AuthConfig = {
-      cluster_status: 'AUTH_ENABLED',
+      cluster_status: 'VALID_LOGGED_IN',
       pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
     };
 
@@ -284,13 +284,13 @@ describe('config screen', () => {
 
     it('should allow user to update config', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
+          cluster_status: 'VALID_LOGGED_IN',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),
@@ -332,13 +332,13 @@ describe('config screen', () => {
 
     it('should allow user to set advanced config options', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
+          cluster_status: 'VALID_LOGGED_IN',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),

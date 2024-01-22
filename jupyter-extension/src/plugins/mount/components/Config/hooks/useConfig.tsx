@@ -39,7 +39,7 @@ export const useConfig = (
 
   useEffect(() => {
     if (showConfig) {
-      setShouldShowLogin(authConfig.cluster_status === 'AUTH_ENABLED');
+      setShouldShowLogin(authConfig.cluster_status === 'VALID_LOGGED_OUT');
       setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
     }
     setErrorMessage('');
@@ -83,7 +83,7 @@ export const useConfig = (
           setErrorMessage('Invalid address.');
         } else {
           updateConfig(response);
-          setShouldShowLogin(response.cluster_status === 'AUTH_ENABLED');
+          setShouldShowLogin(response.cluster_status === 'VALID_LOGGED_OUT');
         }
       } else {
         setErrorMessage(

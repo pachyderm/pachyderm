@@ -2,7 +2,9 @@ import os
 from pathlib import Path
 from distutils.util import strtobool
 
-PACH_CONFIG = os.environ.get("PACH_CONFIG", Path.home() / ".pachyderm/config.json")
+from pachyderm_sdk.constants import CONFIG_PATH_LOCAL
+
+PACH_CONFIG = Path(os.environ.get("PACH_CONFIG", CONFIG_PATH_LOCAL))
 PFS_MOUNT_DIR = os.environ.get("PFS_MOUNT_DIR", "/pfs")
 
 PACHYDERM_EXT_DEBUG = strtobool(os.environ.get("PACHYDERM_EXT_DEBUG", "False").lower())
