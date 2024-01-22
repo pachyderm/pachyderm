@@ -28,14 +28,14 @@ export const mockEmptyGetAuthorize = () =>
     },
   );
 
-export const mockFalseGetAuthorize = () =>
+export const mockFalseGetAuthorize = (permissions: Permission[] = []) =>
   rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
     '/api/auth_v2.API/Authorize',
     (_req, res, ctx) => {
       return res(
         ctx.json({
           authorized: false,
-          satisfied: [],
+          satisfied: permissions,
           missing: [],
           principal: '',
         }),

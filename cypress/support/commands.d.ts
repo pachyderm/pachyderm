@@ -1,5 +1,6 @@
 declare namespace Cypress {
   interface Chainable {
+    viewAllLandingPageProjects(): Chainable<any>;
     login(email?: string, password?: string): Chainable<any>;
     logout(): Chainable<any>;
     multiLineExec(stringInputs: string): Chainable<any>;

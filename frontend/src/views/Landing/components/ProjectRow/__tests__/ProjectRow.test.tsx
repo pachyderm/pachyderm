@@ -1,4 +1,10 @@
-import {render, waitFor, within, screen} from '@testing-library/react';
+import {
+  render,
+  waitFor,
+  within,
+  screen,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -59,6 +65,8 @@ describe('ProjectRow RBAC', () => {
     server.use(mockFalseGetAuthorize());
 
     render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     await click(
       screen.getByRole('button', {
@@ -136,6 +144,8 @@ describe('ProjectRow RBAC', () => {
 
     render(<ProjectRow />);
 
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
     // wait for page to populate
     expect(await screen.findByText('ProjectA')).toBeInTheDocument();
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -183,6 +193,8 @@ describe('ProjectRow RBAC', () => {
 
     render(<ProjectRow />);
 
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
     await click(
       screen.getByRole('button', {
         name: 'ProjectA overflow menu',
@@ -207,6 +219,8 @@ describe('ProjectRow RBAC', () => {
     server.use(mockTrueGetAuthorize([Permission.PROJECT_MODIFY_BINDINGS]));
 
     render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     await click(
       screen.getByRole('button', {
@@ -233,6 +247,8 @@ describe('ProjectRow RBAC', () => {
     server.use(mockTrueGetAuthorize([Permission.PROJECT_SET_DEFAULTS]));
 
     render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     await click(
       screen.getByRole('button', {

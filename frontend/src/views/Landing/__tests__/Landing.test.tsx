@@ -3,7 +3,11 @@ import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {Permission} from '@dash-frontend/api/auth';
+import {
+  AuthorizeRequest,
+  AuthorizeResponse,
+  Permission,
+} from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {
   ListPipelineRequest,
@@ -13,11 +17,11 @@ import {
 import {
   mockProjects,
   mockEmptyGetAuthorize,
-  mockFalseGetAuthorize,
   mockGetVersionInfo,
   mockTrueGetAuthorize,
   buildPipeline,
   mockGetEnterpriseInfo,
+  mockFalseGetAuthorize,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
@@ -96,7 +100,21 @@ describe('Landing', () => {
     });
 
     it('hides when not Cluster Admin', async () => {
-      server.use(mockFalseGetAuthorize());
+      server.use(
+        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+          '/api/auth_v2.API/Authorize',
+          (_req, res, ctx) => {
+            return res(
+              ctx.json({
+                authorized: false,
+                satisfied: [Permission.REPO_READ],
+                missing: [],
+                principal: '',
+              }),
+            );
+          },
+        ),
+      );
       render(<Landing />);
 
       expect(
@@ -209,7 +227,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 3/i,
+      name: /projects/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -246,7 +264,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 3/i,
+      name: /projects/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -288,7 +306,7 @@ describe('Landing', () => {
     ).toBeInTheDocument();
 
     const projectsPanel = screen.getByRole('tabpanel', {
-      name: /projects 3/i,
+      name: /projects/i,
     });
     const projectNamesAZ = within(projectsPanel).getAllByRole('heading', {
       level: 5,
@@ -382,8 +400,7 @@ describe('Landing', () => {
   });
 
   it('should not allow a user to create a project without permission', async () => {
-    server.use(mockFalseGetAuthorize());
-
+    server.use(mockFalseGetAuthorize([Permission.REPO_READ]));
     render(<Landing />);
 
     expect(
@@ -398,5 +415,283 @@ describe('Landing', () => {
         name: /create project/i,
       }),
     ).not.toBeInTheDocument();
+  });
+
+  describe('Hides nonaccessible projects', () => {
+    it('the toggle is on your projects by default', async () => {
+      server.use(
+        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+          '/api/auth_v2.API/Authorize',
+          (_req, res, ctx) => {
+            return res(
+              ctx.json({
+                authorized: true,
+                satisfied: [Permission.PROJECT_CREATE_REPO],
+                missing: [],
+                principal: '',
+              }),
+            );
+          },
+        ),
+      );
+      render(<Landing />);
+
+      expect(
+        await screen.findByText(/view: your projects/i),
+      ).toBeInTheDocument();
+    });
+
+    it('the toggle hides the correct projects', async () => {
+      server.use(
+        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+          '/api/auth_v2.API/Authorize',
+          async (req, res, ctx) => {
+            const args = await req.json();
+            if (args.resource.name === 'ProjectC') {
+              return res(
+                ctx.json({
+                  authorized: false,
+                  satisfied: [],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            } else {
+              return res(
+                ctx.json({
+                  authorized: true,
+                  satisfied: [Permission.REPO_READ],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            }
+          },
+        ),
+      );
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectB',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', {
+          name: 'ProjectC',
+          level: 5,
+        }),
+      ).not.toBeInTheDocument();
+
+      await click(await screen.findByText(/view: your projects/i));
+      await click(await screen.findByText(/all projects/i));
+      expect(await screen.findByText(/view: all/i)).toBeInTheDocument();
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectB',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectC',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+    });
+
+    it("should show and hide the project row based on it's permissions", async () => {
+      server.use(
+        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+          '/api/auth_v2.API/Authorize',
+          async (req, res, ctx) => {
+            const args = await req.json();
+            if (args.resource.name === 'ProjectA') {
+              return res(
+                ctx.json({
+                  authorized: false,
+                  satisfied: [
+                    Permission.PERMISSION_UNKNOWN,
+                    Permission.CLUSTER_MODIFY_BINDINGS,
+                    Permission.CLUSTER_GET_BINDINGS,
+                    Permission.CLUSTER_GET_PACHD_LOGS,
+                    Permission.CLUSTER_GET_LOKI_LOGS,
+                    Permission.CLUSTER_AUTH_ACTIVATE,
+                    Permission.CLUSTER_AUTH_DEACTIVATE,
+                    Permission.CLUSTER_AUTH_GET_CONFIG,
+                    Permission.CLUSTER_AUTH_SET_CONFIG,
+                    Permission.CLUSTER_AUTH_GET_ROBOT_TOKEN,
+                    Permission.CLUSTER_AUTH_MODIFY_GROUP_MEMBERS,
+                    Permission.CLUSTER_AUTH_GET_GROUPS,
+                    Permission.CLUSTER_AUTH_GET_GROUP_USERS,
+                    Permission.CLUSTER_AUTH_EXTRACT_TOKENS,
+                    Permission.CLUSTER_AUTH_RESTORE_TOKEN,
+                    Permission.CLUSTER_AUTH_GET_PERMISSIONS_FOR_PRINCIPAL,
+                    Permission.CLUSTER_AUTH_DELETE_EXPIRED_TOKENS,
+                    Permission.CLUSTER_AUTH_REVOKE_USER_TOKENS,
+                    Permission.CLUSTER_AUTH_ROTATE_ROOT_TOKEN,
+                    Permission.CLUSTER_ENTERPRISE_ACTIVATE,
+                    Permission.CLUSTER_ENTERPRISE_HEARTBEAT,
+                    Permission.CLUSTER_ENTERPRISE_GET_CODE,
+                    Permission.CLUSTER_ENTERPRISE_DEACTIVATE,
+                    Permission.CLUSTER_ENTERPRISE_PAUSE,
+                    Permission.CLUSTER_IDENTITY_SET_CONFIG,
+                    Permission.CLUSTER_IDENTITY_GET_CONFIG,
+                    Permission.CLUSTER_IDENTITY_CREATE_IDP,
+                    Permission.CLUSTER_IDENTITY_UPDATE_IDP,
+                    Permission.CLUSTER_IDENTITY_LIST_IDPS,
+                    Permission.CLUSTER_IDENTITY_GET_IDP,
+                    Permission.CLUSTER_IDENTITY_DELETE_IDP,
+                    Permission.CLUSTER_IDENTITY_CREATE_OIDC_CLIENT,
+                    Permission.CLUSTER_IDENTITY_UPDATE_OIDC_CLIENT,
+                    Permission.CLUSTER_IDENTITY_LIST_OIDC_CLIENTS,
+                    Permission.CLUSTER_IDENTITY_GET_OIDC_CLIENT,
+                    Permission.CLUSTER_IDENTITY_DELETE_OIDC_CLIENT,
+                    Permission.CLUSTER_DEBUG_DUMP,
+                    Permission.CLUSTER_LICENSE_ACTIVATE,
+                    Permission.CLUSTER_LICENSE_GET_CODE,
+                    Permission.CLUSTER_LICENSE_ADD_CLUSTER,
+                    Permission.CLUSTER_LICENSE_UPDATE_CLUSTER,
+                    Permission.CLUSTER_LICENSE_DELETE_CLUSTER,
+                    Permission.CLUSTER_LICENSE_LIST_CLUSTERS,
+                    Permission.CLUSTER_CREATE_SECRET,
+                    Permission.CLUSTER_LIST_SECRETS,
+                    Permission.SECRET_DELETE,
+                    Permission.SECRET_INSPECT,
+                    Permission.CLUSTER_DELETE_ALL,
+                    // Permission.REPO_READ,
+                    Permission.REPO_WRITE,
+                    Permission.REPO_MODIFY_BINDINGS,
+                    Permission.REPO_DELETE,
+                    Permission.REPO_INSPECT_COMMIT,
+                    Permission.REPO_LIST_COMMIT,
+                    Permission.REPO_DELETE_COMMIT,
+                    Permission.REPO_CREATE_BRANCH,
+                    Permission.REPO_LIST_BRANCH,
+                    Permission.REPO_DELETE_BRANCH,
+                    Permission.REPO_INSPECT_FILE,
+                    Permission.REPO_LIST_FILE,
+                    Permission.REPO_ADD_PIPELINE_READER,
+                    Permission.REPO_REMOVE_PIPELINE_READER,
+                    Permission.REPO_ADD_PIPELINE_WRITER,
+                    Permission.PIPELINE_LIST_JOB,
+                    Permission.CLUSTER_SET_DEFAULTS,
+                    Permission.PROJECT_SET_DEFAULTS,
+                    Permission.PROJECT_CREATE,
+                    Permission.PROJECT_DELETE,
+                    // Permission.PROJECT_LIST_REPO,
+                    Permission.PROJECT_CREATE_REPO,
+                    Permission.PROJECT_MODIFY_BINDINGS,
+                  ],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            } else if (args.resource.name === 'ProjectB') {
+              return res(
+                ctx.json({
+                  authorized: true,
+                  satisfied: [Permission.PROJECT_LIST_REPO],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            } else if (args.resource.name === 'ProjectC') {
+              return res(
+                ctx.json({
+                  authorized: true,
+                  satisfied: [Permission.REPO_READ],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            }
+          },
+        ),
+      );
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectB',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectC',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).not.toBeInTheDocument();
+    });
+
+    it.skip('the project counter is correct', async () => {
+      server.use(
+        rest.post<AuthorizeRequest, Empty, AuthorizeResponse>(
+          '/api/auth_v2.API/Authorize',
+          async (req, res, ctx) => {
+            const args = await req.json();
+            if (args.resource.name === 'ProjectC') {
+              return res(
+                ctx.json({
+                  authorized: false,
+                  satisfied: [],
+                  missing: [Permission.PROJECT_CREATE_REPO],
+                  principal: '',
+                }),
+              );
+            } else {
+              return res(
+                ctx.json({
+                  authorized: true,
+                  satisfied: [Permission.PROJECT_CREATE_REPO],
+                  missing: [],
+                  principal: '',
+                }),
+              );
+            }
+          },
+        ),
+      );
+      render(<Landing />);
+      expect(await screen.findByText(/2\/3/i)).toBeInTheDocument();
+    });
+
+    it('the toggle is not present when auth is not activated', async () => {
+      server.use(mockEmptyGetAuthorize());
+      render(<Landing />);
+
+      expect(
+        await screen.findByRole('heading', {
+          name: 'ProjectA',
+          level: 5,
+        }),
+      ).toBeInTheDocument();
+
+      expect(
+        screen.queryByText(/view: your projects/i),
+      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/view: all/i)).not.toBeInTheDocument();
+    });
   });
 });

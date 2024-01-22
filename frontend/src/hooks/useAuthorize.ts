@@ -37,10 +37,28 @@ const useAuthorizeCommon = (
     hasProjectDelete: hasPermission(Permission.PROJECT_DELETE),
     hasProjectModifyBindings: hasPermission(Permission.PROJECT_MODIFY_BINDINGS),
     hasProjectSetDefaults: hasPermission(Permission.PROJECT_SET_DEFAULTS),
+    hasProjectListRepo: hasPermission(Permission.PROJECT_LIST_REPO),
     hasRepoWrite: hasPermission(Permission.REPO_WRITE),
     hasRepoRead: hasPermission(Permission.REPO_READ),
+    hasRepoAddPipelineReader: hasPermission(
+      Permission.REPO_ADD_PIPELINE_READER,
+    ),
+    hasRepoAddPipelineWriter: hasPermission(
+      Permission.REPO_ADD_PIPELINE_WRITER,
+    ),
     hasRepoDelete: hasPermission(Permission.REPO_DELETE),
     hasRepoModifyBindings: hasPermission(Permission.REPO_MODIFY_BINDINGS),
+    // hasRepoCreateBranch: hasPermission(Permission.REPO_CREATE_BRANCH),
+    // hasRepoDeleteBranch: hasPermission(Permission.REPO_DELETE_BRANCH),
+    // hasRepoDeleteCommit: hasPermission(Permission.REPO_DELETE_COMMIT),
+    // hasRepoInspectCommit: hasPermission(Permission.REPO_INSPECT_COMMIT),
+    // hasRepoInspectFile: hasPermission(Permission.REPO_INSPECT_FILE),
+    // hasRepoListBranch: hasPermission(Permission.REPO_LIST_BRANCH),
+    // hasRepoListCommit: hasPermission(Permission.REPO_LIST_COMMIT),
+    // hasRepoListFile: hasPermission(Permission.REPO_LIST_FILE),
+    // hasRepoRemovePipelineReader: hasPermission(
+    //   Permission.REPO_REMOVE_PIPELINE_READER,
+    // ),
   };
 
   return {

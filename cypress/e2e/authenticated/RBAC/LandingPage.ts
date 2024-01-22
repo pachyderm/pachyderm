@@ -54,6 +54,8 @@ describe('landing page', () => {
     `);
 
     cy.login();
+    cy.viewAllLandingPageProjects();
+
     cy.findByRole('row', {
       name: /test/i,
     }); // wait for APIs to finish so that the button will be properly not showing

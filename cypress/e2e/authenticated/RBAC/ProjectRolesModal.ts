@@ -421,6 +421,7 @@ describe('Project roles modal', () => {
     `);
 
     cy.login();
+    cy.viewAllLandingPageProjects();
 
     // permissions enabled
     cy.findByRole('button', {

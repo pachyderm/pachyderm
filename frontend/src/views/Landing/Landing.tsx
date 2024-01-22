@@ -4,6 +4,7 @@ import {useHistory} from 'react-router';
 import {Route, Switch} from 'react-router-dom';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
+import EmptyState from '@dash-frontend/components/EmptyState';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
 import View from '@dash-frontend/components/View';
@@ -63,8 +64,9 @@ export const Landing: React.FC = () => {
     filterFormCtx,
     filterStatus,
     handleSortSelect,
-    multiProject,
-    projects,
+    noProjects,
+    filteredProjects,
+    showOnlyAccessible,
     projectCount,
     searchValue,
     setSearchValue,
@@ -72,18 +74,24 @@ export const Landing: React.FC = () => {
     selectedProject,
     setSelectedProject,
     sortDropdown,
+    viewButtonText,
+    handleViewSelect,
+    viewDropdown,
   } = useLandingView();
   const browserHistory = useHistory();
   const {openModal, closeModal, isOpen} = useModal(false);
 
-  const {hasProjectCreate, hasClusterAuthSetConfig: hasClusterConfig} =
-    useAuthorize({
-      permissions: [
-        Permission.PROJECT_CREATE,
-        Permission.CLUSTER_AUTH_SET_CONFIG,
-      ],
-      resource: {type: ResourceType.CLUSTER, name: ''},
-    });
+  const {
+    isAuthActive,
+    hasProjectCreate,
+    hasClusterAuthSetConfig: hasClusterConfig,
+  } = useAuthorize({
+    permissions: [
+      Permission.PROJECT_CREATE,
+      Permission.CLUSTER_AUTH_SET_CONFIG,
+    ],
+    resource: {type: ResourceType.CLUSTER, name: ''},
+  });
 
   return (
     <div className={styles.base}>
@@ -108,7 +116,7 @@ export const Landing: React.FC = () => {
                 placeholder=""
                 searchValue={searchValue}
                 onSearch={setSearchValue}
-                showSearch={multiProject}
+                showSearch
               >
                 <TabView.Body.Tabs.Tab id="Projects" count={projectCount}>
                   Projects
@@ -120,16 +128,24 @@ export const Landing: React.FC = () => {
                   storeSelected
                   initialSelectId="Name A-Z"
                   onSelect={handleSortSelect}
-                  buttonOpts={{disabled: !multiProject}}
                   items={sortDropdown}
                 >
                   Sort by: {sortButtonText}
                 </DefaultDropdown>
 
+                {isAuthActive && (
+                  <DefaultDropdown
+                    storeSelected
+                    initialSelectId="Your Projects"
+                    onSelect={handleViewSelect}
+                    items={viewDropdown}
+                  >
+                    View: {viewButtonText}
+                  </DefaultDropdown>
+                )}
                 <TabView.Body.Dropdown
                   formCtx={filterFormCtx}
                   buttonText={filterStatus}
-                  disabled={!multiProject}
                 >
                   <TabView.Body.Dropdown.Item
                     name="HEALTHY"
@@ -146,17 +162,31 @@ export const Landing: React.FC = () => {
             </TabView.Body.Header>
             <TabView.Body.Content id={'Projects'}>
               <Group className={styles.projectsList} spacing={16} vertical>
-                {projects.map((project) => (
-                  <ProjectRow
-                    multiProject={multiProject}
-                    project={project}
-                    key={project?.project?.name}
-                    setSelectedProject={() => setSelectedProject(project)}
-                    isSelected={
-                      project?.project?.name === selectedProject?.project?.name
-                    }
+                {noProjects ? (
+                  <EmptyState
+                    title="No projects exist."
+                    message="Create a project to get started."
                   />
-                ))}
+                ) : filteredProjects.length === 0 ? (
+                  <EmptyState
+                    title="No projects match your current filters."
+                    message="Try adjusting or resetting your filters to see more projects."
+                  />
+                ) : (
+                  filteredProjects.map((project) => (
+                    <ProjectRow
+                      showOnlyAccessible={showOnlyAccessible}
+                      multiProject={true}
+                      project={project}
+                      key={project?.project?.name}
+                      setSelectedProject={() => setSelectedProject(project)}
+                      isSelected={
+                        project?.project?.name ===
+                        selectedProject?.project?.name
+                      }
+                    />
+                  ))
+                )}
               </Group>
             </TabView.Body.Content>
             <TabView.Body.Content id="Personal" />

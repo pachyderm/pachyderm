@@ -6,9 +6,9 @@ import {useHistory} from 'react-router';
 import ProjectRolesModal from '@dash-frontend/components/ProjectRolesModal';
 import {ProjectInfo} from '@dash-frontend/generated/proto/pfs/pfs.pb';
 import {
-  useAuthorizeLazy,
   Permission,
   ResourceType,
+  useAuthorize,
 } from '@dash-frontend/hooks/useAuthorize';
 import {useProjectStatus} from '@dash-frontend/hooks/useProjectStatus';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
@@ -22,6 +22,7 @@ import {
   DropdownItem,
   Group,
   Info,
+  LoadingDots,
   OverflowSVG,
   useModal,
 } from '@pachyderm/components';
@@ -37,6 +38,7 @@ type ProjectRowProps = {
   project: ProjectInfo;
   isSelected: boolean;
   setSelectedProject: () => void;
+  showOnlyAccessible?: boolean;
 };
 
 const ProjectRow: React.FC<ProjectRowProps> = ({
@@ -44,6 +46,7 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   project,
   isSelected = false,
   setSelectedProject = noop,
+  showOnlyAccessible,
 }) => {
   const {projectStatus} = useProjectStatus(project.project?.name || '');
   const browserHistory = useHistory();
@@ -64,21 +67,27 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
   } = useModal(false);
 
   const {
-    checkPermissions,
     isAuthActive,
     hasProjectDelete,
     hasProjectCreate,
     hasProjectModifyBindings,
     hasProjectSetDefaults,
-  } = useAuthorizeLazy({
+    hasProjectListRepo,
+    hasRepoRead,
+    loading,
+  } = useAuthorize({
     permissions: [
       Permission.PROJECT_DELETE,
       Permission.PROJECT_CREATE,
       Permission.PROJECT_MODIFY_BINDINGS,
       Permission.PROJECT_SET_DEFAULTS,
+      Permission.PROJECT_LIST_REPO,
+      Permission.REPO_READ,
     ],
     resource: {type: ResourceType.PROJECT, name: project.project?.name || ''},
   });
+
+  const show = showOnlyAccessible ? hasProjectListRepo || hasRepoRead : true;
 
   const onClick = () =>
     browserHistory.push(lineageRoute({projectId: project.project?.name || ''}));
@@ -138,92 +147,103 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   return (
     <>
-      <div
-        className={classNames(styles.row, styles.minHeight10, {
-          [styles[`${projectStatus ?? 'HEALTHY'}Selected`]]: isSelected,
-          [styles.rowHover]: multiProject && !isSelected,
-        })}
-        onClick={() => setSelectedProject()}
-        role="row"
-      >
-        <Group vertical className={styles.gap10}>
-          <Group justify="between" align="baseline" spacing={16}>
-            <h5>{project.project?.name || ''}</h5>
-            <Group spacing={8}>
-              <Button
-                buttonType="secondary"
-                onClick={onClick}
-                className={styles.button}
-                aria-label={`View project ${project.project?.name || ''}`}
-              >
-                <span>View</span>
-                <span className={styles.responsiveHide}> Project</span>
-              </Button>
-              <DefaultDropdown
-                items={overflowMenuItems}
-                onSelect={onSelect}
-                aria-label={`${project.project?.name || ''} overflow menu`}
-                buttonOpts={{
-                  hideChevron: true,
-                  IconSVG: OverflowSVG,
-                  buttonType: 'ghost',
-                }}
-                menuOpts={{pin: 'right'}}
-                openOnClick={checkPermissions}
-              />
+      {loading && (
+        <div
+          className={classNames(styles.row, styles.minHeight10, styles.loading)}
+          role="row"
+        >
+          <LoadingDots />
+        </div>
+      )}
+      {!loading && show && (
+        <>
+          <div
+            className={classNames(styles.row, styles.minHeight10, {
+              [styles[`${projectStatus ?? 'HEALTHY'}Selected`]]: isSelected,
+              [styles.rowHover]: multiProject && !isSelected,
+            })}
+            onClick={() => setSelectedProject()}
+            role="row"
+          >
+            <Group vertical className={styles.gap10}>
+              <Group justify="between" align="baseline" spacing={16}>
+                <h5>{project.project?.name || ''}</h5>
+                <Group spacing={8}>
+                  <Button
+                    buttonType="secondary"
+                    onClick={onClick}
+                    className={styles.button}
+                    aria-label={`View project ${project.project?.name || ''}`}
+                  >
+                    <span>View</span>
+                    <span className={styles.responsiveHide}> Project</span>
+                  </Button>
+                  <DefaultDropdown
+                    items={overflowMenuItems}
+                    onSelect={onSelect}
+                    aria-label={`${project.project?.name || ''} overflow menu`}
+                    buttonOpts={{
+                      hideChevron: true,
+                      IconSVG: OverflowSVG,
+                      buttonType: 'ghost',
+                    }}
+                    menuOpts={{pin: 'right'}}
+                  />
+                </Group>
+              </Group>
+              <Group className={classNames(styles.gap64)}>
+                <Info
+                  header="Project Status"
+                  headerId="project-status"
+                  className={styles.noShrink}
+                >
+                  <ProjectStatus
+                    status={projectStatus}
+                    data-testid="ProjectRow__status"
+                  />
+                </Info>
+                {project.createdAt && (
+                  <Info header="Created On" headerId="created-date">
+                    <span data-testid="ProjectRow__created">
+                      {getStandardDateFromISOString(project.createdAt)}
+                    </span>
+                  </Info>
+                )}
+                <Info
+                  header="Description"
+                  headerId="project-description"
+                  className={styles.responsiveHide}
+                  wide
+                >
+                  {project.description || 'N/A'}
+                </Info>
+              </Group>
             </Group>
-          </Group>
-          <Group className={classNames(styles.gap64)}>
-            <Info
-              header="Project Status"
-              headerId="project-status"
-              className={styles.noShrink}
-            >
-              <ProjectStatus
-                status={projectStatus}
-                data-testid="ProjectRow__status"
-              />
-            </Info>
-            {project.createdAt && (
-              <Info header="Created On" headerId="created-date">
-                <span data-testid="ProjectRow__created">
-                  {getStandardDateFromISOString(project.createdAt)}
-                </span>
-              </Info>
-            )}
-            <Info
-              header="Description"
-              headerId="project-description"
-              className={styles.responsiveHide}
-              wide
-            >
-              {project.description || 'N/A'}
-            </Info>
-          </Group>
-        </Group>
-      </div>
-      {updateModalIsOpen && (
-        <UpdateProjectModal
-          show={updateModalIsOpen}
-          onHide={closeUpdateModal}
-          projectName={project.project?.name || ''}
-          description={project.description}
-        />
-      )}
-      {deleteModalIsOpen && (
-        <DeleteProjectModal
-          show={deleteModalIsOpen}
-          onHide={closeDeleteModal}
-          projectName={project.project?.name || ''}
-        />
-      )}
-      {rolesModalOpen && (
-        <ProjectRolesModal
-          show={rolesModalOpen}
-          onHide={closeRolesModal}
-          projectName={project.project?.name || ''}
-          readOnly={!hasProjectModifyBindings}
-        />
+          </div>
+          {updateModalIsOpen && (
+            <UpdateProjectModal
+              show={updateModalIsOpen}
+              onHide={closeUpdateModal}
+              projectName={project.project?.name || ''}
+              description={project.description}
+            />
+          )}
+          {deleteModalIsOpen && (
+            <DeleteProjectModal
+              show={deleteModalIsOpen}
+              onHide={closeDeleteModal}
+              projectName={project.project?.name || ''}
+            />
+          )}
+          {rolesModalOpen && (
+            <ProjectRolesModal
+              show={rolesModalOpen}
+              onHide={closeRolesModal}
+              projectName={project.project?.name || ''}
+              readOnly={!hasProjectModifyBindings}
+            />
+          )}
+        </>
       )}
     </>
   );

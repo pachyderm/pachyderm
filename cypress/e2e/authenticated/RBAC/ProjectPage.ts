@@ -19,6 +19,7 @@ describe('Repo / Pipeline table and DAG view', () => {
       `);
 
     cy.login();
+    cy.viewAllLandingPageProjects();
 
     cy.findByRole('button', {name: /view project root/i}).click();
 

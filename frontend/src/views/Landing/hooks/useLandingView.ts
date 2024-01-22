@@ -88,6 +88,24 @@ export const useLandingView = () => {
     [],
   );
 
+  type ViewType = 'Your Projects' | 'All Projects';
+  const [viewButtonText, setViewButtonText] =
+    useState<ViewType>('Your Projects');
+
+  const handleViewSelect = useCallback(
+    (id: string) => {
+      if (id !== viewButtonText) {
+        setViewButtonText(id as ViewType);
+      }
+    },
+    [viewButtonText],
+  );
+
+  const viewDropdown = [
+    {content: 'Your Projects', id: 'Your Projects'},
+    {content: 'All Projects', id: 'All Projects'},
+  ];
+
   const filterFormCtx = useForm<statusFormType>({
     defaultValues: {
       HEALTHY: true,
@@ -155,14 +173,18 @@ export const useLandingView = () => {
     filterFormCtx,
     filterStatus,
     handleSortSelect,
-    multiProject: projects.length > 1,
-    projects: filteredProjects,
-    projectCount: projects.length,
+    noProjects: projects.length === 0,
+    showOnlyAccessible: viewButtonText === 'Your Projects',
+    filteredProjects,
+    projectCount: filteredProjects.length + '/' + projects.length,
     searchValue,
     setSearchValue,
     sortButtonText,
     selectedProject,
     setSelectedProject,
     sortDropdown,
+    viewButtonText,
+    handleViewSelect,
+    viewDropdown,
   };
 };
