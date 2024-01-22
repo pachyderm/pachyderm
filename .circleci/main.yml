@@ -1403,11 +1403,6 @@ jobs:
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
             sleep 10 # give it a bit time for checks to attach
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
-            if [[ "$PR_STATE" != "CLEAN" ]]; then
-              echo "review console PR ${PR} for failures. PR Checks failed."
-              exit 1
-            fi
             gh pr merge ${PR} --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
