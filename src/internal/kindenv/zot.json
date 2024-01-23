@@ -1,0 +1,12 @@
+{
+  "storage": {
+    "rootDirectory": "/var/lib/registry"
+  },
+  "http": {
+    "address": "0.0.0.0",
+    "port": "5001"
+  },
+  "log": {
+    "level": "debug"
+  }
+}
