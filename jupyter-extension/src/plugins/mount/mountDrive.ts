@@ -158,8 +158,8 @@ export class MountDrive implements Contents.IDrive {
         pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
       })
 
-      // Check to make sure that the cache file path has not changed so that we stop updating the contents and requesting
-      // new pages
+      // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
+      // cache with results after the user has changed directories.
       if (this._cache.now !== timeOfLastDirectoryChange) {
         return;
       }
