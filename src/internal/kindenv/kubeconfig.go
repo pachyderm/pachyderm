@@ -24,6 +24,10 @@ type Kubeconfig string
 // GetKubeconfig returns a Kubeconfig object for the cluster.  Call `Close()` when you're done to
 // avoid filling up /tmp with junk.
 func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
+	var internal bool
+	if ci := os.Getenv("CI"); ci == "true" {
+		internal = true
+	}
 	if c.kubeconfig != "" {
 		return c.kubeconfig, nil
 	}
@@ -31,7 +35,7 @@ func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "create tmpfile for config")
 	}
-	cfg, err := c.provider.KubeConfig(c.name, false)
+	cfg, err := c.provider.KubeConfig(c.name, internal)
 	if err != nil {
 		return "", errors.Wrap(err, "get kubeconfig")
 	}

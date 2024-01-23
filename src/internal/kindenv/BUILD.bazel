@@ -91,9 +91,7 @@ go_test(
     embed = [":kindenv"],
     tags = [
         "k8s",
-        "manual",
         "no-sandbox",
-        "privileged",
     ],
     deps = [
         "//src/internal/pctx",

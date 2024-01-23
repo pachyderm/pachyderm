@@ -127,7 +127,6 @@ test_suite(
     name = "privileged_tests",
     tags = ["manual"],
     tests = [
-        "//src/internal/kindenv:kindenv_test",
         "//src/server/pfs/fuse:fuse_test",
     ],
 )
