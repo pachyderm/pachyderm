@@ -71,7 +71,7 @@ config_setting(
 # gazelle:proto disable_global
 gazelle(name = "gazelle")
 
-# Configure nogo (a linter than runs next to the compiler).
+# Configure nogo (a linter that runs next to the compiler).
 nogo(
     name = "nogo",
     config = "nogo.json",
