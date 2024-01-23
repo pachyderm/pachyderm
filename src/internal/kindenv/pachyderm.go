@@ -58,16 +58,11 @@ func (c *Cluster) PushPachyderm(ctx context.Context) error {
 		return errors.Wrap(err, "find worker image")
 	}
 
-	cfg, err := c.GetConfig(ctx, "default")
-	if err != nil {
-		return errors.Wrap(err, "get cluster configuration")
-	}
-
 	log.Info(ctx, "pushing images")
-	if err := SkopeoCommand(ctx, "copy", "oci:"+pachdImage, path.Join(cfg.ImagePushPath, "pachd:"+pachdVersion)).Run(); err != nil {
+	if err := c.PushImage(ctx, "oci:"+pachdImage, "pachd:"+pachdVersion); err != nil {
 		return errors.Wrap(err, "copy pachd image to registry")
 	}
-	if err := SkopeoCommand(ctx, "copy", "oci:"+workerImage, path.Join(cfg.ImagePushPath, "worker:"+workerVersion)).Run(); err != nil {
+	if err := c.PushImage(ctx, "oci:"+workerImage, "worker:"+workerVersion); err != nil {
 		return errors.Wrap(err, "copy worker image to registry")
 	}
 

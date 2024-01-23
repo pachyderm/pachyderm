@@ -121,7 +121,7 @@ func connectRegistry(ctx context.Context, name string) error {
 		return errors.Wrap(err, "create docker client")
 	}
 	if err := dc.NetworkConnect(ctx, "kind", name, &network.EndpointSettings{}); err != nil {
-		if strings.Contains(err.Error(), "endpoint with name pach-registry already exists in network kind") {
+		if strings.Contains(err.Error(), "already exists in network kind") {
 			return nil
 		}
 		return errors.Wrapf(err, "docker network connect kind %v", name)

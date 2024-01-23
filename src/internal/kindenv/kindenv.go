@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"time"
@@ -264,7 +263,12 @@ func (c *Cluster) Create(ctx context.Context, opts *CreateOpts) (retErr error) {
 			return errors.Wrap(err, "setup registry container")
 		}
 		ensuredRegistry = true
-		opts.ImagePushPath = "oci:" + path
+		if ci := os.Getenv("CI"); ci != "true" {
+			// CI can't share /tmp between containers.
+			opts.ImagePushPath = "oci:" + path
+		} else {
+			opts.ImagePushPath = "docker://" + pullPath
+		}
 	}
 
 	// k8s annotations to be applied to the default namespace; this is how we transfer
@@ -497,8 +501,16 @@ func (c *Cluster) PushImage(ctx context.Context, src string, name string) error 
 	if err != nil {
 		return errors.Wrap(err, "get cluster config")
 	}
-	dst := path.Join(cfg.ImagePushPath, name)
-	if err := SkopeoCommand(ctx, "copy", src, dst).Run(); err != nil {
+	dst := cfg.ImagePushPath + "/" + name // not path.Join, which might remove the URL scheme from ImagePushPath.
+	args := []string{
+		"copy",
+		src,
+		dst,
+	}
+	if strings.HasPrefix(dst, "docker://") {
+		args = append(args, "--tls-verify=false")
+	}
+	if err := SkopeoCommand(ctx, args...).Run(); err != nil {
 		return errors.Wrapf(err, "run skopeo copy %v %v", src, dst)
 	}
 	return nil
