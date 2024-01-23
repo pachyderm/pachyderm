@@ -12,7 +12,7 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.44.1
+	github.com/bazelbuild/rules_go v0.45.1
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -122,7 +122,7 @@ require (
 )
 
 require (
-	github.com/BurntSushi/toml v1.0.0 // indirect
+	github.com/BurntSushi/toml v1.3.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
