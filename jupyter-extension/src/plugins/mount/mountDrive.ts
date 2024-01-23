@@ -125,7 +125,7 @@ export class MountDrive implements Contents.IDrive {
       this._model.max_page = Math.ceil(
         response.content.length / MAX_NUM_CONTENTS_PAGE,
       );
-      const now = Date.now()
+      const now = Date.now();
       this._cache = {key: localPath, now, contents: response.content};
       this._fetchNextPage(response, now, url, getOptions);
     }
@@ -156,7 +156,7 @@ export class MountDrive implements Contents.IDrive {
       const nextResponse: Contents.IModel = await this._get(url, {
         ...getOptions,
         pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
-      })
+      });
 
       // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
       // cache with results after the user has changed directories.
@@ -171,7 +171,12 @@ export class MountDrive implements Contents.IDrive {
         this._cache.contents.length / MAX_NUM_CONTENTS_PAGE,
       );
       await this._refreshFileBrowser();
-      this._fetchNextPage(nextResponse, timeOfLastDirectoryChange, url, getOptions);
+      this._fetchNextPage(
+        nextResponse,
+        timeOfLastDirectoryChange,
+        url,
+        getOptions,
+      );
     })();
   }
 
