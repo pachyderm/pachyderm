@@ -32,7 +32,7 @@ export class MountDrive implements Contents.IDrive {
   private _loading = new Signal<this, boolean>(this);
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
-  private _cache: {key: string | null; contents: any};
+  private _cache: {key: string | null; now: number | null; contents: any};
   private _path: string;
   private _name_suffix: string;
   private _refreshFileBrowser: () => Promise<void>; // A function that refresh the file browser
@@ -45,7 +45,7 @@ export class MountDrive implements Contents.IDrive {
   ) {
     this._registry = registry;
     this._model = {page: 0, max_page: 0};
-    this._cache = {key: null, contents: DEFAULT_CONTENT_MODEL};
+    this._cache = {key: null, now: null, contents: DEFAULT_CONTENT_MODEL};
     this._path = path;
     this._name_suffix = name_suffix;
     this._refreshFileBrowser = refreshFileBrowser;
@@ -125,8 +125,9 @@ export class MountDrive implements Contents.IDrive {
       this._model.max_page = Math.ceil(
         response.content.length / MAX_NUM_CONTENTS_PAGE,
       );
-      this._cache = {key: localPath, contents: response.content};
-      this._fetchNextPage(response, localPath, url, getOptions);
+      const now = Date.now()
+      this._cache = {key: localPath, now, contents: response.content};
+      this._fetchNextPage(response, now, url, getOptions);
     }
 
     return {
@@ -140,7 +141,7 @@ export class MountDrive implements Contents.IDrive {
 
   _fetchNextPage(
     previousResponse: Contents.IModel,
-    key: string,
+    timeOfLastDirectoryChange: number,
     url: string,
     getOptions: PartialJSONObject,
   ): void {
@@ -152,20 +153,14 @@ export class MountDrive implements Contents.IDrive {
     // Queuing a promise without returning it to await lets us start the process of fetching the next pages in the background while
     // continuing to render the the first page.
     (async () => {
-      const nextResponse: Contents.IModel = await new Promise(
-        (resolve, reject) => {
-          return this._get(url, {
-            ...getOptions,
-            pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
-          })
-            .then((nextResponse) => resolve(nextResponse))
-            .catch((e) => reject(e));
-        },
-      );
+      const nextResponse: Contents.IModel = await this._get(url, {
+        ...getOptions,
+        pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
+      })
 
       // Check to make sure that the cache file path has not changed so that we stop updating the contents and requesting
       // new pages
-      if (this._cache.key !== key) {
+      if (this._cache.now !== timeOfLastDirectoryChange) {
         return;
       }
 
@@ -176,7 +171,7 @@ export class MountDrive implements Contents.IDrive {
         this._cache.contents.length / MAX_NUM_CONTENTS_PAGE,
       );
       await this._refreshFileBrowser();
-      this._fetchNextPage(nextResponse, key, url, getOptions);
+      this._fetchNextPage(nextResponse, timeOfLastDirectoryChange, url, getOptions);
     })();
   }
 
