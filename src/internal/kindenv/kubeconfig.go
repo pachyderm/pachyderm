@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
+	"go.uber.org/zap"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 )
@@ -39,6 +40,7 @@ func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "get kubeconfig")
 	}
+	log.Debug(ctx, "kubeconfig dump", zap.String("kubeconfig", cfg))
 	if _, err := io.Copy(f, strings.NewReader(cfg)); err != nil {
 		return "", errors.Wrap(err, "write kubeconfig")
 	}

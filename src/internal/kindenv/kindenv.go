@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bazelbuild/rules_go/go/runfiles"
+	"github.com/docker/docker/api/types/network"
+	docker "github.com/docker/docker/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -364,7 +367,6 @@ nodeRegistration:
 	}
 	if p := opts.kubeconfigPath; p != "" {
 		co = append(co, cluster.CreateWithKubeconfigPath(p))
-		c.kubeconfig = Kubeconfig(p)
 	}
 	if err := c.provider.Create(c.name, co...); err != nil {
 		return errors.Wrap(err, "create cluster")
@@ -376,6 +378,22 @@ nodeRegistration:
 	if ensuredRegistry {
 		if err := connectRegistry(ctx, registryName); err != nil {
 			return errors.Wrap(err, "connect registry to the kind network")
+		}
+	}
+
+	// Link our host to kind's network, if this is a CI job.
+	if ci := os.Getenv("CI"); ci == "true" {
+		log.Info(ctx, "this appears to be a CI run; adjusting the network accordingly")
+		host, err := os.Hostname()
+		if err != nil {
+			return errors.Wrap(err, "get hostname for 'docker network connect kind <hostname>'")
+		}
+		dc, err := docker.NewClientWithOpts(docker.FromEnv)
+		if err != nil {
+			return errors.Wrap(err, "new docker client for 'docker network connect kind <hostname>'")
+		}
+		if err := dc.NetworkConnect(ctx, "kind", host, &network.EndpointSettings{}); err != nil {
+			return errors.Wrapf(err, "link control plane: 'docker network connect kind %v'", host)
 		}
 	}
 
