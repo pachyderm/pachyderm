@@ -84,12 +84,8 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 		ExposedPorts: nat.PortSet{
 			"5001": struct{}{},
 		},
-		User: strconv.Itoa(os.Getuid()),
 	}
 	hc := &container.HostConfig{
-		Binds: []string{
-			registryVolume + ":/var/lib/registry",
-		},
 		RestartPolicy: container.RestartPolicy{
 			Name: "always",
 		},
@@ -103,6 +99,13 @@ func ensureRegistry(ctx context.Context, name string, expose bool) (string, erro
 				HostPort: "5001",
 			}},
 		}
+	}
+
+	// In CI, we use the network.  Locally, we share a volume for speed.  Adjust config
+	// accordingly.
+	if ci := os.Getenv("CI"); ci != "true" {
+		hc.Binds = []string{registryVolume + ":/var/lib/registry"}
+		cc.User = strconv.Itoa(os.Getuid()) // So zot can read files in our homedir (registryVolume).
 	}
 	container, err := dc.ContainerCreate(ctx, cc, hc, nc, pc, name)
 	if err != nil {

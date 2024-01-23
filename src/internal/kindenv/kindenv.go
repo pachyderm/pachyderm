@@ -508,7 +508,7 @@ func (c *Cluster) PushImage(ctx context.Context, src string, name string) error 
 		dst,
 	}
 	if strings.HasPrefix(dst, "docker://") {
-		args = append(args, "--tls-verify=false")
+		args = append(args, "--dest-tls-verify=false")
 	}
 	if err := SkopeoCommand(ctx, args...).Run(); err != nil {
 		return errors.Wrapf(err, "run skopeo copy %v %v", src, dst)
