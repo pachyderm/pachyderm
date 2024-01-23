@@ -54,12 +54,13 @@ func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
 
 // Close removes the kubeconfig file.
 func (k *Kubeconfig) Close() error {
-	if k == nil && *k != "" {
-		if err := os.Remove(string(*k)); err != nil {
-			return errors.Wrap(err, "remove kubeconfig")
-		}
-		*k = ""
+	if k == nil || *k == "" {
+		return nil
 	}
+	if err := os.Remove(string(*k)); err != nil {
+		return errors.Wrap(err, "remove kubeconfig")
+	}
+	*k = ""
 	return nil
 }
 
