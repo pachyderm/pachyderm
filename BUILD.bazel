@@ -1,6 +1,6 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle")
-load("@rules_go//go:def.bzl", "TOOLS_NOGO", "go_library", "nogo")
+load("@rules_go//go:def.bzl", "go_library", "nogo")
 
 licenses(["notice"])
 
