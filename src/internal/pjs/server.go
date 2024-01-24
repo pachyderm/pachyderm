@@ -4,10 +4,12 @@ import (
 	"context"
 	"sync"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
+	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
@@ -19,7 +21,7 @@ type Env struct {
 	Storage *storage.Server
 }
 
-type JobID uint64
+type JobID = uint64
 
 type Sum = pachhash.Output
 
@@ -50,6 +52,7 @@ func (s *Server) CreateJob(ctx context.Context, req *pjs.CreateJobRequest) (*pjs
 		return nil, status.Errorf(codes.InvalidArgument, "missing data input")
 	}
 	jid, _ := s.createJob(req.GetSpec(), req.GetInput())
+	log.Info(ctx, "created job", zap.Uint64("job", jid))
 	return &pjs.CreateJobResponse{
 		Id: &pjs.Job{Id: int64(jid)},
 	}, nil
@@ -63,6 +66,27 @@ func (s *Server) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*p
 	if !exists {
 		return nil, status.Errorf(codes.NotFound, "job %v not found", req.Job.Id)
 	}
+
+	jobInfo := &pjs.JobInfo{
+		Job:  &pjs.Job{Id: int64(jid)},
+		Spec: clone(job.codeSpec),
+		Input: &pjs.QueueElement{
+			Data:     job.inputData,
+			Filesets: job.inputFilesets,
+		},
+		State: job.state,
+	}
+	if job.state == pjs.JobState_DONE {
+		if job.output != nil {
+			jobInfo.Result = &pjs.JobInfo_Output{
+				Output: job.output,
+			}
+		} else {
+			jobInfo.Result = &pjs.JobInfo_Error{
+				Error: job.errCode,
+			}
+		}
+	}
 	return &pjs.InspectJobResponse{
 		// TODO: This is cumbersome, info should be at the top level
 		// - id tier0 (always set)
@@ -72,12 +96,7 @@ func (s *Server) InspectJob(ctx context.Context, req *pjs.InspectJobRequest) (*p
 		// - detailed details tierN (optionally set)
 		// each contains mutually exclusive information, as the service wants to break it down.
 		Details: &pjs.JobInfoDetails{
-			JobInfo: &pjs.JobInfo{
-				Job:   &pjs.Job{Id: int64(jid)},
-				Spec:  clone(job.codeSpec),
-				Input: &pjs.QueueElement{Data: job.inputData, Filesets: job.inputFilesets},
-				State: job.state,
-			},
+			JobInfo: jobInfo,
 		},
 	}, nil
 }
@@ -110,6 +129,7 @@ func (s *Server) ProcessQueue(srv pjs.API_ProcessQueueServer) (retErr error) {
 		job := s.jobs[jid]
 		job.state = pjs.JobState_PROCESSING
 		s.mu.Unlock()
+		log.Info(ctx, "giving out job for processing", zap.Uint64("job", jid))
 		if err := func() error {
 			if err := srv.Send(&pjs.ProcessQueueResponse{
 				Context: "context is not implemented",
@@ -249,7 +269,7 @@ func (q *Queue) dequeue() (ret JobID) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 	if len(q.jobs) > 0 {
-		q.jobs, ret = q.jobs[:len(q.jobs)-1], q.jobs[len(q.jobs)]
+		q.jobs, ret = q.jobs[:len(q.jobs)-1], q.jobs[len(q.jobs)-1]
 	}
 	return ret
 }

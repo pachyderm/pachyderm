@@ -29,5 +29,31 @@ func TestCreateJob(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Log(res2)
-	require.Equal(t, res2.Details.JobInfo.Input.Data, inputData)
+	require.NotNil(t, res2.Details)
+	require.NotNil(t, res2.Details.JobInfo)
+	jobInfo := res2.Details.JobInfo
+	require.Equal(t, jobInfo.Input.Data, inputData)
+	require.Equal(t, jobInfo.State, pjs.JobState_QUEUED)
+}
+
+func TestDo(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	c := NewTestClient(t)
+	in := &pjs.CreateJobRequest{
+		Input: &pjs.QueueElement{
+			Data: []byte("hello"),
+		},
+	}
+	out, err := Do(ctx, c, in, func(qe *pjs.QueueElement) (*pjs.QueueElement, error) {
+		// f(x) = x + x as a service
+		var data []byte
+		data = append(data, qe.Data...)
+		data = append(data, qe.Data...)
+		return &pjs.QueueElement{Data: data}, nil
+	})
+	require.NoError(t, err)
+	expected := &pjs.QueueElement{
+		Data: []byte("hellohello"),
+	}
+	require.Equal(t, expected, out)
 }

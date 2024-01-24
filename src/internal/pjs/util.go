@@ -8,7 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachhash"
 	"github.com/pachyderm/pachyderm/v2/src/pjs"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -22,20 +25,37 @@ func CodeSpecID(codeSpec *anypb.Any) Sum {
 }
 
 // Do does work through PJS.
-func Do[In, Out proto.Message](ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(*pjs.QueueElement) (*pjs.QueueElement, error)) (*pjs.QueueElement, error) {
-	j, err := s.CreateJob(ctx, in)
+func Do(ctx context.Context, s pjs.APIClient, in *pjs.CreateJobRequest, fn func(*pjs.QueueElement) (*pjs.QueueElement, error)) (*pjs.QueueElement, error) {
+	jres, err := s.CreateJob(ctx, in)
 	if err != nil {
 		return nil, err
 	}
-	if err := ProcessQueue(ctx, s, in.Spec, fn); err != nil {
+	ctx, cf := context.WithCancel(ctx)
+	defer cf()
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.Go(func() error {
+		err := ProcessQueue(ctx, s, in.Spec, fn)
+		if status.Code(err) == codes.Canceled {
+			err = nil
+		}
+		return err
+	})
+	var ret *pjs.QueueElement
+	eg.Go(func() error {
+		jobInfo, err := Await(ctx, s, JobID(jres.Id.Id))
+		if err != nil {
+			return err
+		}
+		ret = jobInfo.GetOutput()
+		cf() // success, cancel the other gorountine
+		return nil
+	})
+	err = eg.Wait()
+	if ret != nil {
+		return ret, nil
+	} else {
 		return nil, err
 	}
-	jobInfo, err := Await(ctx, s, JobID(j.Id.Id))
-	if err != nil {
-		return nil, err
-	}
-	// TODO: check if failed
-	return jobInfo.GetOutput(), nil
 }
 
 func ProcessQueue(ctx context.Context, s pjs.APIClient, codeSpec *anypb.Any, fn func(*pjs.QueueElement) (*pjs.QueueElement, error)) error {
