@@ -690,9 +690,6 @@ pachw:
   # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
   # For more control of where pachw instances run, 'inSidecars' should be disabled.
   inSidecars: false
-  # When set to true, preprocessing tasks are only processed by pachw instances.
-  # When set to false, pipeline workers will also participate in processing preprocessing tasks.
-  onlyPreprocessing: true
   # maxReplicas should be tuned based on the number of pipelines on a user-per-user basis.
   maxReplicas: 1
   # minReplicas: 0
@@ -1005,6 +1002,7 @@ pachd:
     diskCacheSize: 100
     memoryCacheSize: 100
   ppsWorkerGRPCPort: 1080
+  ppsWorkerPreprocessing: false
   # the number of seconds between pfs's garbage collection cycles.
   # if this value is set to 0, it will default to pachyderm's internal configuration.
   # if this value is less than 0, it will turn off garbage collection.

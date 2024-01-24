@@ -25,6 +25,7 @@ type GlobalConfiguration struct {
 	EtcdHost               string `env:"ETCD_SERVICE_HOST,required"`
 	EtcdPort               string `env:"ETCD_SERVICE_PORT,required"`
 	PPSWorkerPort          uint16 `env:"PPS_WORKER_GRPC_PORT,default=1080"`
+	PPSWorkerPreprocessing bool   `env:"PPS_WORKER_PREPROCESSING,default=false"`
 	Port                   uint16 `env:"PORT,default=1650"`
 	PrometheusPort         uint16 `env:"PROMETHEUS_PORT,default=1656"`
 	PeerPort               uint16 `env:"PEER_PORT,default=1653"`
@@ -39,7 +40,6 @@ type GlobalConfiguration struct {
 	OidcPort               uint16 `env:"OIDC_PORT,default=1657"`
 	IsPachw                bool   `env:"IS_PACHW,default=false"`
 	PachwInSidecars        bool   `env:"PACHW_IN_SIDECARS,default=true"`
-	PachwOnlyPreprocessing bool   `env:"PACHW_ONLY_PREPROCESSING,default=true"`
 	PachwMinReplicas       int    `env:"PACHW_MIN_REPLICAS"`
 	PachwMaxReplicas       int    `env:"PACHW_MAX_REPLICAS,default=1"`
 	PachdServiceHost       string `env:"PACHD_SERVICE_HOST"`

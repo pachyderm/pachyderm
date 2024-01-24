@@ -100,7 +100,7 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
-		if !env.Config().PachwOnlyPreprocessing {
+		if !env.Config().PPSWorkerPreprocessing {
 			// Process any preprocessing tasks that the master creates.
 			eg.Go(func() error {
 				etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
