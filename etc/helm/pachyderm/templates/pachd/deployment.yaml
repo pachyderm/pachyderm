@@ -61,6 +61,8 @@ spec:
         {{- end }}
         - name: PACHW_IN_SIDECARS
           value: {{ .Values.pachw.inSidecars | quote }}
+        - name: PACHW_ONLY_PREPROCESSING
+          value: {{ .Values.pachw.onlyPreprocessing | quote }}
         - name: PACHW_MIN_REPLICAS
           value: {{ .Values.pachw.minReplicas | default 0 | quote }}
         - name: PACHW_MAX_REPLICAS

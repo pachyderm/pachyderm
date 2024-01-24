@@ -690,6 +690,9 @@ pachw:
   # when enabled, pachw instances can still run in their own dedicated kubernetes deployment if maxReplicas is greater than 0.
   # For more control of where pachw instances run, 'inSidecars' should be disabled.
   inSidecars: false
+  # When set to true, preprocessing tasks are only processed by pachw instances.
+  # When set to false, pipeline workers will also participate in processing preprocessing tasks.
+  onlyPreprocessing: true
   # maxReplicas should be tuned based on the number of pipelines on a user-per-user basis.
   maxReplicas: 1
   # minReplicas: 0
