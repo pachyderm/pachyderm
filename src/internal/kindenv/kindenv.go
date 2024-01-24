@@ -551,6 +551,7 @@ func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (
 			return errors.Errorf("no ports available (got %q)", exposedPorts)
 		}
 		port = parts[0]
+		ns.Annotations[portBindingPrefix+service] = port
 		if len(parts) > 1 {
 			ns.Annotations[exposedPortsKey] = parts[1]
 		} else {
