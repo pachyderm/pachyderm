@@ -1517,21 +1517,18 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- To compress files before uploading, use the `-c` flag \n" +
 			"\t- To define the maximum number of files that can be uploaded in parallel, use the `-p` flag \n" +
 			"\t- To append to an existing file, use the `-a` flag \n" +
-			"\n" +
-			"Other: \n" +
-			"\t- To enable progress bars, use the `-P` flag \n",
+			"\n",
 
-		Example: "\t- {{alias}} repo@master-f image.png \n" +
-			"\t- {{alias}} repo@master:/logs/log-1.txt  \n" +
+		Example: "\t- {{alias}} repo@master -f image.png \n" +
 			"\t- {{alias}} -r repo@master -f my-directory \n" +
 			"\t- {{alias}} -r repo@branch:/path -f my-directory \n" +
+			"\t- {{alias}} -r repo@branch -f s3://my_bucket \n" +
 			"\t- {{alias}} repo@branch -f http://host/example.png \n" +
-			"\t- {{alias}} repo@branch:/dir -f http://host/example.png \n" +
-			"\t- {{alias}} repo@branch -r -f s3://my_bucket \n" +
+			"\t- {{alias}} repo@branch:/dir/ -f http://host/example.png \n" +
 			"\t- {{alias}} repo@branch -i file \n" +
 			"\t- {{alias}} repo@branch -i http://host/path \n" +
-			"\t- {{alias}} repo@branch -f -untar dir.tar \n" +
-			"\t- {{alias}} repo@branch -f -c image.png \n",
+			"\t- {{alias}} --untar repo@branch -f dir.tar \n" +
+			"\t- {{alias}} -c repo@branch -f image.png \n",
 
 		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
 			if !enableProgress {
@@ -1607,31 +1604,31 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			return c.WithModifyFileClient(file.Commit, func(mf client.ModifyFile) error {
 				for _, source := range sources {
 					source := source
+					target := source
+					if !fullPath {
+						target = filepath.Base(source)
+					}
 					if file.Path == "" {
 						// The user has not specified a path so we use source as path.
 						if source == "-" {
 							return errors.Errorf("must specify filename when reading data from stdin")
-						}
-						target := source
-						if !fullPath {
-							target = filepath.Base(source)
 						}
 						if err := putFileHelper(mf, joinPaths("", target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else if len(sources) == 1 {
 						// We have a single source and the user has specified a path,
-						// we use the path and ignore source (in terms of naming the file).
-						if err := putFileHelper(mf, file.Path, source, recursive, appendFile, untar); err != nil {
+						// we check if the path ends with a '/' and join with target if it does.
+						finalPath := file.Path
+						if strings.HasSuffix(file.Path, "/") {
+							finalPath = joinPaths(file.Path, target)
+						}
+						if err := putFileHelper(mf, finalPath, source, recursive, appendFile, untar); err != nil {
 							return err
 						}
 					} else {
 						// We have multiple sources and the user has specified a path,
 						// we use that path as a prefix for the filepaths.
-						target := source
-						if !fullPath {
-							target = filepath.Base(source)
-						}
 						if err := putFileHelper(mf, joinPaths(file.Path, target), source, recursive, appendFile, untar); err != nil {
 							return err
 						}
@@ -1644,7 +1641,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	putFile.Flags().StringSliceVarP(&filePaths, "file", "f", []string{"-"}, "Specify the file to be put; it can be a local file or a URL.")
 	putFile.Flags().StringVarP(&inputFile, "input-file", "i", "", "Specify file provided contains a list of files to be put (as paths or URLs).")
 	putFile.Flags().BoolVarP(&recursive, "recursive", "r", false, "Specify files should be recursively put into a directory.")
-	putFile.Flags().BoolVarP(&compress, "compress", "", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
+	putFile.Flags().BoolVarP(&compress, "compress", "c", false, "Specify data should be compressed during upload. This parameter might help you upload your uncompressed data, such as CSV files, to Pachyderm faster. Use 'compress' with caution, because if your data is already compressed, this parameter might slow down the upload speed instead of increasing.")
 	putFile.Flags().IntVarP(&parallelism, "parallelism", "p", DefaultParallelism, "Set the maximum number of files that can be uploaded in parallel.")
 	putFile.Flags().BoolVarP(&appendFile, "append", "a", false, "Specify file contents should be appended to existing content from previous commits or previous calls to 'pachctl put file' within this commit.")
 	putFile.Flags().BoolVar(&enableProgress, "progress", isatty.IsTerminal(os.Stdout.Fd()) || isatty.IsCygwinTerminal(os.Stdout.Fd()), "Print progress bars.")
@@ -1656,7 +1653,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if flag == "-f" || flag == "--file" || flag == "-i" || flag == "input-file" {
 				cs, cf := shell.FilesystemCompletion(flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
-			} else if flag == "" || flag == "-c" || flag == "--commit" || flag == "-o" || flag == "--append" {
+			} else if flag == "" || flag == "-c" || flag == "--compress" || flag == "-o" || flag == "--append" {
 				cs, cf := shell.FileCompletion(flag, text, maxCompletions)
 				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
 			}

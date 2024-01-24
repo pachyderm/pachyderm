@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "validation",
+    srcs = ["interceptors.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/log",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//types/known/emptypb",
+        "@org_uber_go_zap//:zap",
+    ],
+)

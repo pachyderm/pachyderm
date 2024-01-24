@@ -1,0 +1,25 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "task",
+    srcs = [
+        "task.pb.go",
+        "task.pb.validate.go",
+        "task.pb.zap.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/task",
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_envoyproxy_protoc_gen_validate//validate",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+        "@org_golang_google_protobuf//runtime/protoimpl",
+        "@org_golang_google_protobuf//types/known/anypb",
+        "@org_uber_go_zap//zapcore",
+    ],
+)
+
+filegroup(
+    name = "protos",
+    srcs = glob(["*.proto"]),
+    visibility = ["//src:__pkg__"],
+)

@@ -1,0 +1,17 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "cmds",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/license/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/enterprise",
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/grpcutil",
+        "//src/internal/pachctl",
+        "//src/license",
+        "@com_github_spf13_cobra//:cobra",
+    ],
+)

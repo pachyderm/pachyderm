@@ -525,6 +525,11 @@ message CreateFileSetResponse {
 
 message GetFileSetRequest {
   Commit commit = 1;
+  enum FileSetType {
+      TOTAL = 0;
+      DIFF = 1;
+  }
+ FileSetType type = 2;
 }
 
 message AddFileSetRequest {

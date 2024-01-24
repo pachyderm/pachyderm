@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pps",
+    srcs = [
+        "hash.go",
+        "iface.go",
+        "pps.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/pps",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/grpcutil",
+        "//src/internal/transactionenv/txncontext",
+        "//src/pps",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)

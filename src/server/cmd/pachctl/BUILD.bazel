@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "pachctl_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/tracing",
+        "//src/server/cmd/pachctl/cmd",
+        "@com_github_spf13_pflag//:pflag",
+    ],
+)
+
+go_binary(
+    name = "pachctl",
+    embed = [":pachctl_lib"],
+    pure = "on",
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
+)
+
+# This is a pachctl binary that only depends on its source code, not the git commit or branch name
+# (major.minor version of pachyderm).  This is used in tests, so that those test results can be
+# cached.  (We could also do this by running without --stamp during CI, but since we intend to
+# produce images that the public can pull from every CI run, that's not quite what we want.)
+go_binary(
+    name = "pachctl_nostamp",
+    out = "pachctl",
+    embed = [":pachctl_lib"],
+    pure = "on",
+    visibility = ["//visibility:public"],
+)

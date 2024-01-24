@@ -34,7 +34,7 @@ global:
     # The postgresql database port to connect to. Defaults to postgres server in subchart
     postgresqlPort: "5432"
     # postgresqlSSL is the SSL mode to use for pg-bouncer connecting to Postgres, for the default local postgres it is disabled
-    postgresqlSSL: "disable"
+    postgresqlSSL: "prefer"
     # CA Certificate required to connect to Postgres
     postgresqlSSLCACert: ""
     # TLS Secret with cert/key to connect to Postgres
@@ -866,6 +866,16 @@ pachd:
     # of GOOGLE, AMAZON, MINIO, MICROSOFT or LOCAL. This is set automatically
     # if deployTarget is GOOGLE, AMAZON, MICROSOFT, or LOCAL
     backend: ""
+    # If 'gocdkEnabled' is true, 'storageURL' is used to configure the backend for object storage.
+    # The 'backend' configuration options should be used in conjunction with 'storageURL' to
+    # pass in secrets and identity information.
+    # When using gocdkEnabled, 'backend' cannot be 'MINIO'.
+    # Users who desire to use minio as their storage backend should set the 'backend' to 'AMAZON' instead
+    # and set 'storageURL' to the s3 compatible URL representation for their minio endpoint.
+    gocdkEnabled: false
+    # storageURL is a URL endpoint for object storage such as "s3://myamazonbucket" or "gcs://mygooglebucket.
+    # Depending on the storage provider, some configuration options may also be passed via URL query parameters.
+    storageURL: ""
     amazon:
       # bucket sets the S3 bucket to use.
       bucket: ""

@@ -12,7 +12,12 @@ export type mountState =
   | 'unmounted'
   | '';
 
-export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
+export type clusterStatus =
+  | 'NONE'
+  | 'INVALID'
+  | 'VALID_NO_AUTH'
+  | 'VALID_LOGGED_IN'
+  | 'VALID_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
@@ -132,6 +137,7 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
+  external_files: string | null;
   input_spec: string;
   port: string;
   gpu_mode: GpuMode;

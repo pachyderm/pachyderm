@@ -11,7 +11,6 @@ import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
 import {INotebookModel, NotebookPanel} from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
 import {settingsIcon} from '@jupyterlab/ui-components';
-import {JSONObject} from '@lumino/coreutils';
 import {Signal} from '@lumino/signaling';
 import {SplitPanel, Widget} from '@lumino/widgets';
 
@@ -121,9 +120,6 @@ export class MountPlugin implements IMountPlugin {
                   <Config
                     showConfig={showConfig ? showConfig : this._showConfig}
                     setShowConfig={this.setShowConfig}
-                    reposStatus={
-                      status ? status.code : this._poller.status.code
-                    }
                     updateConfig={this.updateConfig}
                     authConfig={authConfig ? authConfig : this._poller.config}
                     refresh={this._poller.refresh}
@@ -164,6 +160,7 @@ export class MountPlugin implements IMountPlugin {
               </button>
               <button
                 className="pachyderm-button-link"
+                data-testid="Config__mode"
                 onClick={() => this.setShowConfig(true)}
               >
                 <settingsIcon.react
@@ -274,6 +271,7 @@ export class MountPlugin implements IMountPlugin {
       manager,
       factory,
       'pfs',
+      'explore',
       'pfs',
     );
     this._datumBrowser = createCustomFileBrowser(
@@ -281,6 +279,7 @@ export class MountPlugin implements IMountPlugin {
       manager,
       factory,
       'view_datum',
+      'test',
       'datum',
     );
     this._poller.mountedSignal.connect(this.verifyBrowserPath);
@@ -509,47 +508,6 @@ export class MountPlugin implements IMountPlugin {
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
   };
 
-  restoreMountedReposList = async (): Promise<void> => {
-    const mounts: JSONObject[] = [];
-    // Restoring from cross of multiple mounts
-    if (
-      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'cross') &&
-      Array.isArray(this._repoViewInputSpec.cross)
-    ) {
-      for (let i = 0; i < this._repoViewInputSpec.cross.length; i++) {
-        const pfsInput = (this._repoViewInputSpec.cross[i] as PfsInput).pfs;
-        mounts.push({
-          name: pfsInput.name ? pfsInput.name : pfsInput.repo,
-          repo: pfsInput.repo,
-          project: pfsInput.project ? pfsInput.project : 'default',
-          branch: pfsInput.branch ? pfsInput.branch : 'master',
-          mode: 'ro',
-        });
-      }
-    }
-    // Restoring from single mount
-    else if (
-      Object.prototype.hasOwnProperty.call(this._repoViewInputSpec, 'pfs')
-    ) {
-      const pfsInput = (this._repoViewInputSpec as PfsInput).pfs;
-      mounts.push({
-        name: pfsInput.name ? pfsInput.name : pfsInput.repo,
-        repo: pfsInput.repo,
-        project: pfsInput.project ? pfsInput.project : 'default',
-        branch: pfsInput.branch ? pfsInput.branch : 'master',
-        mode: 'ro',
-      });
-    }
-
-    if (mounts.length > 0) {
-      const res = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
-        mounts: mounts,
-      });
-      this._poller.updateData(res);
-    }
-    this.openPFS('');
-  };
-
   setShowDatum = async (shouldShow: boolean): Promise<void> => {
     if (shouldShow) {
       this._datum.setHidden(false);
@@ -562,7 +520,6 @@ export class MountPlugin implements IMountPlugin {
       this._datum.setHidden(true);
       this._mountedList.setHidden(false);
       this._unmountedList.setHidden(false);
-      await this.restoreMountedReposList();
       this._pfsBrowser.setHidden(false);
       this._datumBrowser.setHidden(true);
     }

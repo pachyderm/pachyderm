@@ -1,0 +1,132 @@
+load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
+load("@gazelle//:def.bzl", "gazelle")
+load("@rules_go//go:def.bzl", "go_library")
+
+licenses(["notice"])
+
+exports_files([
+    "LICENSE",
+    ".bazelversion",
+])
+
+# Conifigure supported architectures.  Note that some architectures are only supported for tooling
+# reasons; you can run protoc Windows, but you can't run Pachyderm or pachctl on Windows.  Which
+# tools are available on which architectures is a product of the upstream projects; even though most
+# upstream projects are written in Go and could theoretically run anywhere Go can, we still use
+# their release binaries so as to not build them with "weird" versions of dependencies that we use
+# in Pachyderm and cause unexpected behavior.  Where Pachyderm itself is available is a product
+# decision; linux/amd64 and linux/arm64 only.  Where pachctl is available is a product decision;
+# linux/amd64, linux/arm64, darwin/amd64, darwin/arm64 only.  We are open to being convinced to make
+# different product decisions, of course!
+
+config_setting(
+    name = "is_x86_64_linux",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "is_aarch64_linux",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:linux",
+    ],
+)
+
+config_setting(
+    name = "is_x86_64_macos",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+        "@platforms//os:macos",
+    ],
+)
+
+config_setting(
+    name = "is_aarch64_macos",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+        "@platforms//os:macos",
+    ],
+)
+
+config_setting(
+    name = "is_aarch64",
+    constraint_values = [
+        "@platforms//cpu:aarch64",
+    ],
+)
+
+config_setting(
+    name = "is_x86_64",
+    constraint_values = [
+        "@platforms//cpu:x86_64",
+    ],
+)
+
+# Add gazelle for "bazel run gazelle -- ..."
+
+# gazelle:prefix github.com/pachyderm/pachyderm/v2
+# gazelle:proto disable_global
+gazelle(name = "gazelle")
+
+# Buildifier formats all BUILD files in the workspace.
+buildifier(
+    name = "buildifier",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    mode = "fix",
+)
+
+# This test checks that all BUILD files (etc.) are formatted correctly.  Run "bazel run
+# //:buildifier" to auto-fix them.
+buildifier_test(
+    name = "buildifier_test",
+    size = "small",
+    exclude_patterns = [
+        "./.git/*",
+    ],
+    lint_mode = "warn",
+    mode = "diff",
+    no_sandbox = True,
+    workspace = "//:MODULE.bazel",
+)
+
+# Run the buildozer command.
+buildozer_binary(
+    name = "buildozer",
+)
+
+# go for "go doc" or "go mod tidy"; invoke those as "bazel run go -- mod tidy" or similar.
+alias(
+    name = "go",
+    actual = "@rules_go//go",
+)
+
+# An alias for regeneating protos.
+alias(
+    name = "make_proto",
+    actual = "//src/proto:run",
+)
+
+go_library(
+    name = "pachyderm",
+    srcs = ["pachyderm.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2",
+    visibility = ["//visibility:public"],
+)
+
+alias(
+    name = "pachctl",
+    actual = "//src/server/cmd/pachctl",
+)
+
+test_suite(
+    name = "privileged_tests",
+    tags = ["manual"],
+    tests = [
+        "//src/server/pfs/fuse:fuse_test",
+    ],
+)

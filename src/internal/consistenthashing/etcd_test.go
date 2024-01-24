@@ -2,6 +2,7 @@ package consistenthashing
 
 import (
 	"context"
+	"fmt"
 	"path"
 	"strconv"
 	"sync"
@@ -250,7 +251,7 @@ func (test *lockTestConfig) locksPerWorker() map[string]int {
 
 func (test *lockTestConfig) runWorker(ctx context.Context, t *testing.T, id string) {
 	collection.DefaultTTL = 1
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, ctx := errgroup.WithContext(pctx.Child(ctx, "worker."+id))
 	err := withRing(ctx, test.ringConfig.client, "master", id, func(ctx context.Context, ring *Ring) error {
 		time.Sleep(time.Second * 1)
 		test.workersReady <- struct{}{}
@@ -276,6 +277,8 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		return err
 	}
 	test.keys.Store(key, memberId)
+	log.Debug(ctx, fmt.Sprintf("worker %s got lock %s", memberId, key))
+
 	test.doneLocking <- struct{}{}
 	select {
 	case <-test.beginUnlocking:
@@ -290,6 +293,7 @@ func (test *lockTestConfig) lockAndUnlock(ctx context.Context, t *testing.T, rin
 		log.Error(ctx, "should be able to unlock key", zap.Error(err))
 	}
 	require.NoError(t, err, "should be able to unlock key")
+	log.Debug(ctx, fmt.Sprintf("worker %s unlocked %s", memberId, key), zap.Error(err))
 	test.doneUnlocking <- struct{}{}
 	return nil
 }

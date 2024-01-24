@@ -20,7 +20,7 @@ doc/_build
 /pachctl-doc
 /worker
 ## This is for testing pachctl documentation
-/src/server/cmd/pachctl/pachctl 
+/src/server/cmd/pachctl/pachctl
 /src/server/cmd/pachctl/doc-gen/pachctl/pachctl
 /src/server/cmd/pachctl/doc-gen/pachctl/docs
 
@@ -74,3 +74,7 @@ __pycache__
 
 # Test files
 tests_to_run.csv
+
+# Bazel
+bazel-*
+.bazelrc.local

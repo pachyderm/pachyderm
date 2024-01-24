@@ -1,0 +1,22 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "pachctl_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/doc-gen/pachctl",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachconfig",
+        "//src/server/cmd/pachctl/cmd",
+        "@com_github_spf13_cobra//doc",
+    ],
+)
+
+go_binary(
+    name = "pachctl",
+    embed = [":pachctl_lib"],
+    visibility = ["//visibility:public"],
+)

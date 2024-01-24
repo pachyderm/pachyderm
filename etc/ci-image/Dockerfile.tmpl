@@ -1,0 +1,66 @@
+FROM debian:12-slim@sha256:f4a83aa865a2b4a064ff142aa91c713180df9fcb86ce676b5de2981029379c37
+# based on https://github.com/CircleCI-Public/cimg-base/blob/main/22.04/Dockerfile
+
+SHELL ["/bin/bash", "-exo", "pipefail", "-c"]
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    DEBIAN_NONINTERACTIVE_SEEN=true \
+    TERM=dumb \
+    PAGER=cat
+
+# Core deps
+RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    apt-transport-https \
+    build-essential \
+    ca-certificates \
+    ca-certificates-java \
+    curl \
+    fuse3 \
+    git \
+    gnupg \
+    lcov \
+    locales \
+    openssh-client \
+    python3 \
+    sudo \
+    wget \
+    && \
+    rm -rf /var/lib/apt/lists/* && \
+    groupadd --gid=1002 circleci && \
+    useradd --uid=1001 --gid=circleci --create-home circleci && \
+    echo 'circleci ALL=NOPASSWD: ALL' >> /etc/sudoers.d/50-circleci && \
+    echo 'Defaults    env_keep += "DEBIAN_FRONTEND"' >> /etc/sudoers.d/env_keep && \
+    sudo -u circleci mkdir /home/circleci/project && \
+    sudo -u circleci mkdir /home/circleci/bin && \
+    sudo -u circleci mkdir -p /home/circleci/.local/bin && \
+    sudo -u circleci git config --global --add safe.directory /home/circleci/project
+
+# Docker (but just the client, for remote execution)
+RUN install -m 0755 -d /etc/apt/keyrings && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
+    sudo chmod a+r /etc/apt/keyrings/docker.gpg && \
+    echo \
+    "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list && \
+    apt-get update && \
+    apt-get install -y --no-install-recommends \
+    docker-ce-cli \
+    && \
+    rm -rf /var/lib/apt/lists/*
+
+# Bazelisk
+RUN wget "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-$(dpkg --print-architecture)" && \
+    mv "bazelisk-linux-$(dpkg --print-architecture)" /usr/bin/bazel && \
+    chmod a+x /usr/bin/bazel
+
+# Environment that CI jobs will run in.
+ENV PATH=/home/circleci/bin:/home/circleci/.local/bin:$PATH \
+	LANG=en_US.UTF-8 \
+	LANGUAGE=en_US:en \
+        LC_ALL=en_US.UTF-8
+USER circleci
+WORKDIR /home/circleci/project
+
+# Install the Bazel version that the workspace needs at the current time.
+RUN USE_BAZEL_VERSION={BAZEL_VERSION} bazel version

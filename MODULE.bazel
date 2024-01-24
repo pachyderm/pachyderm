@@ -1,0 +1,384 @@
+module(
+    name = "pachyderm",
+    repo_name = "com_github_pachyderm_pachyderm",
+)
+
+bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "container_structure_test", version = "1.16.0")
+bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "jsonnet_go", version = "0.20.0")
+bazel_dep(name = "rules_go", version = "0.44.1")
+bazel_dep(name = "rules_oci", version = "1.5.1")
+bazel_dep(name = "rules_python", version = "0.27.1")
+
+bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
+
+go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.download(
+    name = "go_sdk",
+    version = "1.21.5",
+)
+use_repo(go_sdk, "go_sdk")
+
+go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
+go_deps.from_file(go_mod = "//:go.mod")
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "go.etcd.io/etcd/api/v3",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "go.etcd.io/etcd/server/v3",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "go.etcd.io/etcd/raft/v3",
+)
+go_deps.gazelle_override(
+    build_file_generation = "on",
+    directives = [
+        "gazelle:exclude **/**_test.go",
+        "gazelle:exclude examples",
+        "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/internal //internal",
+        "gazelle:resolve go github.com/grpc-ecosystem/grpc-gateway/protoc-gen-swagger/options //protoc-gen-swagger/options",
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/grpc-ecosystem/grpc-gateway",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/determined-ai/determined/proto",
+)
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        "//private:protoc-gen-validate.patch",
+    ],
+    path = "github.com/envoyproxy/protoc-gen-validate",
+)
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "github.com/envoyproxy/protoc-gen-validate",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/chrusty/protoc-gen-jsonschema",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/dexidp/dex",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/dexidp/dex/api/v2",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/docker/docker",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/grpc-ecosystem/go-grpc-middleware",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "github.com/opentracing/basictracer-go",
+)
+go_deps.gazelle_override(
+    directives = [
+        "gazelle:proto disable_global",
+    ],
+    path = "sourcegraph.com/sourcegraph/appdash",
+)
+
+# This is a program and not a module, but we depend on it since there aren't prebuilt binaries
+# available.
+go_deps.module(
+    path = "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+    sum = "h1:rNBFJjBCOgVr9pWD7rs/knKL4FRTKgpZmsRfV214zcA=",
+    version = "v1.3.0",
+)
+
+# These are dependencies necessary to build protoc-gen-jsonschema; they don't issue binary releases,
+# and we can't import _ github.com/chrusty/protoc-gen-jsonschema/cmd/protoc-json-schema because
+# govulncheck does not like non-modules being imported (errors with "it's a program, not a module").
+# Therefore, we can't keep a reference to it in a go file and so "go mod tidy" deletes the cmd-only
+# dependencies from go.sum.  That makes them unavailable to Bazel builds, and thus we fail to build
+# the command for //:make_proto.
+go_deps.module(
+    path = "github.com/alecthomas/jsonschema",
+    sum = "h1:SM/PhkjhbeX1w/Jkv7dHFYDn2y4/88XZp3CIqVHsdcs=",
+    version = "v0.0.0-20210918223802-a1d3f4b43d7b",
+)
+go_deps.module(
+    path = "github.com/iancoleman/orderedmap",
+    sum = "h1:sq1N/TFpYH++aViPcaKjys3bDClUEU7s5B+z6jq8pNA=",
+    version = "v0.2.0",
+)
+go_deps.module(
+    path = "github.com/iancoleman/strcase",
+    sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
+    version = "v0.2.0",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonpointer",
+    sum = "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
+    version = "v0.0.0-20190809123943-df4f5c81cb3b",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonreference",
+    sum = "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
+    version = "v0.0.0-20180127040603-bd5ef7bd5415",
+)
+go_deps.module(
+    path = "github.com/xeipuuv/gojsonschema",
+    sum = "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
+    version = "v1.2.0",
+)
+use_repo(
+    go_deps,
+    "com_github_adrg_xdg",
+    "com_github_alecthomas_jsonschema",
+    "com_github_alessio_shellescape",
+    "com_github_aws_aws_lambda_go",
+    "com_github_aws_aws_sdk_go",
+    "com_github_azure_azure_sdk_for_go",
+    "com_github_c_bata_go_prompt",
+    "com_github_cevaris_ordered_map",
+    "com_github_chmduquesne_rollinghash",
+    "com_github_chrusty_protoc_gen_jsonschema",
+    "com_github_coreos_go_oidc",
+    "com_github_data_dog_go_sqlmock",
+    "com_github_determined_ai_determined_proto",
+    "com_github_dexidp_dex",
+    "com_github_dexidp_dex_api_v2",
+    "com_github_dlmiddlecote_sqlstats",
+    "com_github_docker_docker",
+    "com_github_docker_go_connections",
+    "com_github_docker_go_units",
+    "com_github_dustin_go_humanize",
+    "com_github_envoyproxy_protoc_gen_validate",
+    "com_github_evanphx_json_patch",
+    "com_github_fatih_camelcase",
+    "com_github_fatih_color",
+    "com_github_felixge_httpsnoop",
+    "com_github_fsnotify_fsnotify",
+    "com_github_fsouza_go_dockerclient",
+    "com_github_go_logr_zapr",
+    "com_github_go_sql_driver_mysql",
+    "com_github_golang_protobuf",
+    "com_github_google_btree",
+    "com_github_google_go_cmp",
+    "com_github_google_gofuzz",
+    "com_github_google_shlex",
+    "com_github_google_uuid",
+    "com_github_gorilla_mux",
+    "com_github_grpc_ecosystem_go_grpc_middleware",
+    "com_github_grpc_ecosystem_go_grpc_prometheus",
+    "com_github_grpc_ecosystem_grpc_gateway_v2",
+    "com_github_gruntwork_io_terratest",
+    "com_github_hanwen_go_fuse_v2",
+    "com_github_hashicorp_golang_lru",
+    "com_github_hashicorp_golang_lru_v2",
+    "com_github_iancoleman_orderedmap",
+    "com_github_iancoleman_strcase",
+    "com_github_itchyny_gojq",
+    "com_github_jackc_pgconn",
+    "com_github_jackc_pgerrcode",
+    "com_github_jackc_pgx_v4",
+    "com_github_jmoiron_sqlx",
+    "com_github_json_iterator_go",
+    "com_github_juju_ansiterm",
+    "com_github_klauspost_compress",
+    "com_github_lib_pq",
+    "com_github_mattn_go_isatty",
+    "com_github_minio_minio_go_v6",
+    "com_github_minio_minio_go_v7",
+    "com_github_modern_go_reflect2",
+    "com_github_opencontainers_image_spec",
+    "com_github_opentracing_contrib_go_grpc",
+    "com_github_opentracing_opentracing_go",
+    "com_github_pachyderm_ohmyglob",
+    "com_github_pachyderm_s2",
+    "com_github_pkg_browser",
+    "com_github_pkg_errors",
+    "com_github_prometheus_client_golang",
+    "com_github_prometheus_common",
+    "com_github_prometheus_procfs",
+    "com_github_pulumi_pulumi_aws_sdk_v5",
+    "com_github_pulumi_pulumi_awsx_sdk",
+    "com_github_pulumi_pulumi_eks_sdk",
+    "com_github_pulumi_pulumi_kubernetes_sdk_v3",
+    "com_github_pulumi_pulumi_postgresql_sdk_v3",
+    "com_github_pulumi_pulumi_sdk_v3",
+    "com_github_robfig_cron",
+    "com_github_satori_go_uuid",
+    "com_github_segmentio_analytics_go",
+    "com_github_sirupsen_logrus",
+    "com_github_spf13_cobra",
+    "com_github_spf13_pflag",
+    "com_github_stretchr_testify",
+    "com_github_timewasted_go_accept_headers",
+    "com_github_uber_jaeger_client_go",
+    "com_github_vbauerster_mpb_v6",
+    "com_github_wader_readline",
+    "com_github_wcharczuk_go_chart",
+    "com_github_xeipuuv_gojsonpointer",
+    "com_github_xeipuuv_gojsonreference",
+    "com_github_xeipuuv_gojsonschema",
+    "com_github_zeebo_xxh3",
+    "com_google_cloud_go_profiler",
+    "com_google_cloud_go_storage",
+    "dev_gocloud",
+    "in_gopkg_yaml_v3",
+    "io_etcd_go_etcd_api_v3",
+    "io_etcd_go_etcd_client_v3",
+    "io_etcd_go_etcd_server_v3",
+    "io_k8s_api",
+    "io_k8s_apimachinery",
+    "io_k8s_client_go",
+    "io_k8s_klog_v2",
+    "io_k8s_kubectl",
+    "io_k8s_sigs_kind",
+    "io_k8s_sigs_yaml",
+    "io_k8s_utils",
+    "net_starlark_go",
+    "org_golang_google_api",
+    "org_golang_google_genproto_googleapis_rpc",
+    "org_golang_google_grpc",
+    "org_golang_google_grpc_cmd_protoc_gen_go_grpc",
+    "org_golang_google_protobuf",
+    "org_golang_x_crypto",
+    "org_golang_x_exp",
+    "org_golang_x_mod",
+    "org_golang_x_net",
+    "org_golang_x_oauth2",
+    "org_golang_x_sync",
+    "org_golang_x_sys",
+    "org_golang_x_term",
+    "org_golang_x_text",
+    "org_uber_go_atomic",
+    "org_uber_go_automaxprocs",
+    "org_uber_go_zap",
+)
+
+non_module_deps = use_extension("//private:extensions.bzl", "non_module_deps")
+use_repo(
+    non_module_deps,
+    # *args is disallowed by the starlark compiler in MODULE.bazel files, so we have to name each
+    # dependency twice; once here, and once in //private:repositories.bzl.
+    "com_github_bufbuild_protoc_gen_validate_aarch64_linux",
+    "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
+    "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
+    "com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+    "com_github_containers_skopeo_aarch64_linux",
+    "com_github_containers_skopeo_aarch64_macos",
+    "com_github_containers_skopeo_x86_64_linux",
+    "com_github_containers_skopeo_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
+    "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+    "com_github_kubernetes_sigs_metrics_server_helm_chart",
+    "com_github_protocolbuffers_protobuf_aarch64_linux",
+    "com_github_protocolbuffers_protobuf_aarch64_macos",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_linux",
+    "com_github_protocolbuffers_protobuf_go_protoc_gen_go_x86_64_macos",
+    "com_github_protocolbuffers_protobuf_x86_64_linux",
+    "com_github_protocolbuffers_protobuf_x86_64_macos",
+    "com_github_pseudomuto_protoc_gen_doc_aarch64_linux",
+    "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
+    "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
+    "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "com_github_yelp_dumb_init_aarch64_linux",
+    "com_github_yelp_dumb_init_x86_64_linux",
+    "io_k8s_dl_kubectl_aarch64_linux",
+    "io_k8s_dl_kubectl_aarch64_macos",
+    "io_k8s_dl_kubectl_x86_64_linux",
+    "io_k8s_dl_kubectl_x86_64_macos",
+    "io_k8s_sigs_kind_aarch64_linux",
+    "io_k8s_sigs_kind_aarch64_macos",
+    "io_k8s_sigs_kind_x86_64_linux",
+    "io_k8s_sigs_kind_x86_64_macos",
+    "org_uber_go_gopatch_aarch64_linux",
+    "org_uber_go_gopatch_aarch64_macos",
+    "org_uber_go_gopatch_x86_64_linux",
+    "org_uber_go_gopatch_x86_64_macos",
+    "sh_helm_aarch64_linux",
+    "sh_helm_aarch64_macos",
+    "sh_helm_x86_64_linux",
+    "sh_helm_x86_64_macos",
+)
+
+oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Base of release images.
+oci.pull(
+    name = "distroless",
+    digest = "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
+    image = "gcr.io/distroless/static-debian12",  # nonroot tag
+    platforms = [
+        "linux/amd64",
+        "linux/arm64/v8",
+    ],
+)
+
+# Needed by kindenv tests.
+oci.pull(
+    name = "pause",
+    digest = "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+    image = "gcr.io/google-containers/pause",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+)
+
+# Needed by kindenv.
+oci.pull(
+    name = "zot_amd64",
+    digest = "sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378",
+    image = "ghcr.io/project-zot/zot-linux-amd64",
+)
+oci.pull(
+    name = "zot_arm64",
+    digest = "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
+    image = "ghcr.io/project-zot/zot-linux-arm64",
+)
+use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
+
+python = use_extension("@rules_python//python:extensions.bzl", "python")
+python.toolchain(
+    is_default = True,
+    python_version = "3.12.1",
+)

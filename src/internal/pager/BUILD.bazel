@@ -1,0 +1,12 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "pager",
+    srcs = ["pager.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pager",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "@org_golang_x_sync//errgroup",
+    ],
+)

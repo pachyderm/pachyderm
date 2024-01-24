@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "starpach_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/cmd/starpach",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/cmdutil",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "//src/internal/starlark",
+        "//src/server/debug/server/debugstar",
+        "@com_github_spf13_cobra//:cobra",
+        "@net_starlark_go//starlark",
+        "@org_golang_x_exp//maps",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "starpach",
+    embed = [":starpach_lib"],
+    visibility = ["//visibility:public"],
+)

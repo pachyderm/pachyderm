@@ -20,6 +20,11 @@ WARNING: Your cluster is configured with a default login of admin:password
 WARNING: You have pachd.enterpriseRootToken or pachd.enterpriseRootTokenSecretName set. These values are being replaced by pachd.enterpriseServerToken and pachd.enterpriseServerTokenSecretName which you can set now. The deprecated values will be removed in version 2.4.0.
 {{- end -}}
 
+{{ if not .Values.pachd.storage.gocdkEnabled }}
+WARNING: legacy storage configuration options will be deprecated in 2.10.0 and removed in 2.11.0.
+Please set 'gocdkEnabled: true' to enable new storage configuration options and use 'storageURL' to configure your storage bucket.
+{{- end -}}
+
 {{ if and .Values.pachd.externalService.enabled (eq .Values.proxy.service.type "ClusterIP")}}
 WARNING: pachd.externalService is deprecated in favor of proxy.enabled.  You can transparently
 migrate by exposing the proxy and removing the external service:
