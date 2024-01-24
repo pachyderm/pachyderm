@@ -621,6 +621,15 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			// Master is scheduled; see if tasks have been calculated
 			var nTasks int32
 			// TODO: should this run through internal PPS service?
+			if pc.env.Config.PPSWorkerPreprocessing {
+				_ = pc.env.GetPachClient(ctx).ListTask("pps", driver.PreprocessingTaskNamespace(pi), "", func(info *task.TaskInfo) error {
+					switch info.State {
+					case task.State_CLAIMED, task.State_RUNNING:
+						nTasks++
+					}
+					return nil
+				})
+			}
 			err := pc.env.GetPachClient(ctx).ListTask("pps", driver.ProcessingTaskNamespace(pi), "", func(info *task.TaskInfo) error {
 				switch info.State {
 				case task.State_CLAIMED, task.State_RUNNING:

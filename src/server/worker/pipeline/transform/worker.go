@@ -37,8 +37,8 @@ func (h *hasher) Hash(inputs []*common.Input) string {
 	return common.HashDatum(h.salt, inputs)
 }
 
-func PreprocessingWorker(pachClient *client.APIClient, taskService task.Service) error {
-	taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace)
+func PreprocessingWorker(pachClient *client.APIClient, taskService task.Service, pipelineInfo *pps.PipelineInfo) error {
+	taskSource := taskService.NewSource(driver.PreprocessingTaskNamespace(pipelineInfo))
 	return errors.EnsureStack(taskSource.Iterate(
 		pachClient.Ctx(),
 		func(ctx context.Context, input *anypb.Any) (*anypb.Any, error) {

@@ -51,7 +51,7 @@ func (p *pachW) run(ctx context.Context) {
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
-			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace, driver.PreprocessingTaskNamespace})
+			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace, driver.PreprocessingTaskNamespace(nil)})
 			if err != nil {
 				return errors.Wrap(err, "error counting tasks")
 			}

@@ -1180,7 +1180,7 @@ func (a *apiServer) listDatumInput(ctx context.Context, input *pps.Input, cb fun
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	// TODO: Add cache?
-	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace, uuid.NewWithoutDashes(), nil)
+	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
 	di, err := datum.NewIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	if err != nil {
 		return err

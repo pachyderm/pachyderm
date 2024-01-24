@@ -104,7 +104,7 @@ func (w *Worker) worker(env serviceenv.ServiceEnv) {
 			// Process any preprocessing tasks that the master creates.
 			eg.Go(func() error {
 				etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
-				return transform.PreprocessingWorker(driver.PachClient(), env.GetTaskService(etcdPrefix))
+				return transform.PreprocessingWorker(driver.PachClient(), env.GetTaskService(etcdPrefix), driver.PipelineInfo())
 			})
 		}
 		// Process any processing tasks that the master creates.

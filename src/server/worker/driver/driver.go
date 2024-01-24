@@ -40,9 +40,14 @@ import (
 // In general, need to spend some time walking through the old driver
 // tests to see what can be reused.
 
-const (
-	PreprocessingTaskNamespace = "preprocessing"
-)
+func PreprocessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
+	namespace := "preprocessing"
+	if pipelineInfo != nil {
+		pipeline := fmt.Sprintf("pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
+		namespace = path.Join(namespace, pipeline)
+	}
+	return namespace
+}
 
 func ProcessingTaskNamespace(pipelineInfo *pps.PipelineInfo) string {
 	return fmt.Sprintf("processing/pipeline-%s", url.QueryEscape(ppsdb.VersionKey(pipelineInfo.Pipeline, pipelineInfo.Version)))
@@ -296,7 +301,7 @@ func (d *driver) NewTaskSource() task.Source {
 func (d *driver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
 	etcdPrefix := path.Join(d.env.Config().EtcdPrefix, d.env.Config().PPSEtcdPrefix)
 	taskService := d.env.GetTaskService(etcdPrefix)
-	return taskService.NewDoer(PreprocessingTaskNamespace, groupID, cache)
+	return taskService.NewDoer(PreprocessingTaskNamespace(d.pipelineInfo), groupID, cache)
 }
 
 func (d *driver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {

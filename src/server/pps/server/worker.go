@@ -28,7 +28,7 @@ func NewWorker(env WorkerEnv) *Worker {
 func (w *Worker) Run(ctx context.Context) error {
 	pachClient := w.env.PachClient.WithCtx(ctx)
 	return backoff.RetryUntilCancel(ctx, func() error {
-		return transform.PreprocessingWorker(pachClient, w.env.TaskService)
+		return transform.PreprocessingWorker(pachClient, w.env.TaskService, nil)
 	}, backoff.NewInfiniteBackOff(), func(err error, _ time.Duration) error {
 		log.Debug(ctx, "error in pps worker", zap.Error(err))
 		return nil
