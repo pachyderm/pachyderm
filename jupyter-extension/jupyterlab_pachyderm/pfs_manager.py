@@ -54,6 +54,7 @@ class ContentModel(typing.TypedDict):
     file_uri: typing.Optional[str]
     """PFS File URI included when listing the contents of directories for use with pagination"""
 
+
 def _create_base_model(path: str, fileinfo: pfs.FileInfo, type: str) -> ContentModel:
     if type == "file" and fileinfo.file_type != pfs.FileType.FILE:
         raise web.HTTPError(400, f"{path} is not a file", reason="bad type")
@@ -105,7 +106,9 @@ def _get_file_model(
 def _create_dir_content(
     client: Client, path: str, file: pfs.File, pagination_marker: pfs.File, number
 ) -> (typing.List[ContentModel], bool):
-    list_response = client.pfs.list_file(file=file, pagination_marker=pagination_marker, number=number) 
+    list_response = client.pfs.list_file(
+        file=file, pagination_marker=pagination_marker, number=number
+    )
     dir_contents = []
     for file_info in list_response:
         name = Path(file_info.file.path).name
@@ -119,14 +122,27 @@ def _create_dir_content(
             mimetype=None,
             format=None,
             writable=False,
-            file_uri=str(file_info.file)
+            file_uri=str(file_info.file),
         )
         dir_contents.append(model)
     return dir_contents
 
 
-def _get_dir_model(client: Client, model: ContentModel, path: str, file: pfs.File, pagination_marker: pfs.File, number: int):
-    model["content"] = _create_dir_content(client=client, path=path, file=file, pagination_marker=pagination_marker, number=number)
+def _get_dir_model(
+    client: Client,
+    model: ContentModel,
+    path: str,
+    file: pfs.File,
+    pagination_marker: pfs.File,
+    number: int,
+):
+    model["content"] = _create_dir_content(
+        client=client,
+        path=path,
+        file=file,
+        pagination_marker=pagination_marker,
+        number=number,
+    )
     model["mimetype"] = None
     model["format"] = "json"
 
@@ -218,7 +234,7 @@ class PFSManager(FileContentsManager):
     def list_mounts(self) -> dict:
         mounted: list[self.Mount] = []
         repo_info = {
-            r.repo.name: self.Repo(
+            r.repo.as_uri(): self.Repo(
                 repo=r.repo.name,
                 project=r.repo.project.name,
                 authorization=self._get_auth_str(r.auth_info),
@@ -236,9 +252,9 @@ class PFSManager(FileContentsManager):
                     branch=branch.name,
                 )
             )
-            repo_info[branch.repo.name]["branches"].remove(branch.name)
-            if len(repo_info[branch.repo.name]["branches"]) == 0:
-                del repo_info[branch.repo.name]
+            repo_info[branch.repo.as_uri()]["branches"].remove(branch.name)
+            if len(repo_info[branch.repo.as_uri()]["branches"]) == 0:
+                del repo_info[branch.repo.as_uri()]
 
         unmounted = [r for r in repo_info.values()]
 
@@ -363,7 +379,15 @@ class PFSManager(FileContentsManager):
             file_uri=None,
         )
 
-    def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:
+    def get(
+        self,
+        path,
+        content=True,
+        type=None,
+        format=None,
+        pagination_marker: pfs.File = None,
+        number: int = None,
+    ) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
                 400,
@@ -404,11 +428,11 @@ class PFSManager(FileContentsManager):
                 )
             else:
                 _get_dir_model(
-                    client=self._client, 
-                    model=model, 
-                    path=path, 
-                    file=file, 
-                    pagination_marker=pagination_marker, 
+                    client=self._client,
+                    model=model,
+                    path=path,
+                    file=file,
+                    pagination_marker=pagination_marker,
                     number=number,
                 )
 
@@ -459,17 +483,20 @@ class DatumManager(FileContentsManager):
 
     _FILEINFO_DIR = os.path.expanduser("~") + "/.cache/pfs_datum"
     _DOWNLOAD_DIR = os.path.expanduser("~") + "/.cache/pfs_datum_download"
-    # currently unsupported stuff (unclear if needed or not):
-    #  - crossing repo with itself
-    #  - renaming repo level directories
+
     def __init__(self, client: Client, **kwargs):
         self._client = client
+        self._reset()
+        super().__init__(**kwargs)
+
+    def _reset(self):
         self._datum_list = list()
         self._dirs = set()
         self._datum_index = 0
         self._mount_time = DEFAULT_DATETIME
         self._input = None
         self._download_dir = None
+        self._repo_names = {}
         shutil.rmtree(f"{self._FILEINFO_DIR}", ignore_errors=True)
         os.makedirs(self._FILEINFO_DIR, exist_ok=True)
         try:
@@ -479,24 +506,65 @@ class DatumManager(FileContentsManager):
                 f"Could not create mount dir {PFS_MOUNT_DIR}. Try setting the PFS_MOUNT_DIR env var."
             )
             raise e
-        super().__init__(**kwargs)
 
-    # TODO: don't ignore name in the input spec
-    # right now, when a repo is mounted as part of mounting datum(s), the
-    # toplevel directory for the repo is project_repo_branch. we should
-    # update this to respect the name in the pfsinput objects being supplied
-    # to the mount_datums api. however, this is not that simple as the name
-    # can't simply be looked up in the datuminfo. we will need to have some
-    # mapping to track which files within a datum belong to which name.
+    def _populate_name_table(self, input: pps.Input):
+        """
+        Given the input spec, populates the bi-directional name to commit_uri
+        mapping of the commits mounted by the input.
+        """
+        if input.pfs:
+            repo = pfs.Repo(
+                name=input.pfs.repo,
+                project=pfs.Project(
+                    name=input.pfs.project if input.pfs.project else "default"
+                ),
+            )
+            branch = pfs.Branch(
+                repo=repo, name=input.pfs.branch if input.pfs.branch else "master"
+            )
+            commit_id = (
+                input.pfs.commit
+                if input.pfs.commit
+                else self._client.pfs.inspect_branch(branch=branch).head.id
+            )
+            commit = pfs.Commit(repo=repo, id=commit_id, branch=branch)
+            commit_uri = commit.as_uri()
+            if commit_uri in self._repo_names:
+                raise ValueError(
+                    "Loading multiple instances of the same commit is currently not supported in the extension"
+                )
+            name = (
+                f"{commit.repo.project.name}_{commit.repo.name}_{commit.branch.name}"
+                if input.pfs.name is None
+                else input.pfs.name
+            )
+            self._repo_names[commit_uri] = name
+            self._repo_names[name] = commit_uri
+        if input.join:
+            for i in input.join:
+                self._populate_name_table(input=i)
+        if input.group:
+            for i in input.group:
+                self._populate_name_table(input=i)
+        if input.cross:
+            for i in input.cross:
+                self._populate_name_table(input=i)
+
     def mount_datums(self, input_dict: dict):
-        input = pps.Input().from_dict(input_dict["input"])
-        self._input = input
-        self._datum_list = list(self._client.pps.list_datum(input=input))
-        self._datum_index = 0
-        self._mount_time = datetime.datetime.now()
-        if len(self._datum_list) == 0:
-            raise ValueError("input produced no datums to mount")
-        self._update_mount()
+        try:
+            input = pps.Input().from_dict(input_dict["input"])
+            self._input = input
+            self._datum_list = list(self._client.pps.list_datum(input=input))
+            self._datum_index = 0
+            self._mount_time = datetime.datetime.now()
+            self._populate_name_table(input=input)
+            if len(self._datum_list) == 0:
+                self._reset()
+                raise ValueError("input produced no datums to mount")
+            self._update_mount()
+        except Exception as e:
+            self._reset()
+            raise e
 
     def next_datum(self):
         self._datum_index = (self._datum_index + 1) % len(self._datum_list)
@@ -580,11 +648,9 @@ class DatumManager(FileContentsManager):
             raise e
 
     def _get_relative_path(self, fileinfo: pfs.FileInfo) -> Path:
-        project = fileinfo.file.commit.repo.project.name
-        branch = fileinfo.file.commit.branch.name
-        repo = fileinfo.file.commit.repo.name
-        toplevel = f"{project}_{repo}_{branch}"
-        return Path(toplevel, fileinfo.file.path.strip("/"))
+        commit_uri = fileinfo.file.commit.as_uri()
+        name = self._repo_names[commit_uri]
+        return Path(name, fileinfo.file.path.strip("/"))
 
     def _get_download_path(self, download_dir: Path, fileinfo: pfs.FileInfo) -> Path:
         return Path(download_dir, self._get_relative_path(fileinfo=fileinfo))
@@ -618,12 +684,14 @@ class DatumManager(FileContentsManager):
             return None
 
         parts = Path(path).parts
-        project, repo, branch = parts[0].split("_")
+        commit_uri = self._repo_names[parts[0]]
+
         if len(parts) == 1:
             pach_path = "/"
         else:
             pach_path = str(Path(*parts[1:]))
-        file_uri = f"{project}/{repo}@{branch}:{pach_path}"
+
+        file_uri = f"{commit_uri}:{pach_path}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
@@ -712,11 +780,11 @@ class DatumManager(FileContentsManager):
         return pathstr[len(self._FILEINFO_DIR) :]
 
     def _get_model_from_fileinfo(
-        self, 
-        fileinfo: pfs.FileInfo, 
-        path: Path, 
-        content: bool, 
-        type: str, 
+        self,
+        fileinfo: pfs.FileInfo,
+        path: Path,
+        content: bool,
+        type: str,
         format: str,
         pagination_marker: pfs.FileInfo,
         number: int,
@@ -733,9 +801,9 @@ class DatumManager(FileContentsManager):
                 )
             else:
                 _get_dir_model(
-                    client=self._client, 
+                    client=self._client,
                     model=model,
-                    path=path, 
+                    path=path,
                     file=fileinfo.file,
                     pagination_marker=pagination_marker,
                     number=number,
@@ -747,11 +815,11 @@ class DatumManager(FileContentsManager):
             format = "json"
             content_model = [
                 self._get_model_from_disk(
-                    local_path=p, 
-                    content=False, 
-                    type=None, 
-                    format=None, 
-                    pagination_marker=None, 
+                    local_path=p,
+                    content=False,
+                    type=None,
+                    format=None,
+                    pagination_marker=None,
                     number=None,
                 )
                 for p in local_path.iterdir()
@@ -773,7 +841,13 @@ class DatumManager(FileContentsManager):
         )
 
     def _get_model_from_disk(
-        self, local_path: Path, content: bool, type: str, format: str, pagination_marker: pfs.File, number: int
+        self,
+        local_path: Path,
+        content: bool,
+        type: str,
+        format: str,
+        pagination_marker: pfs.File,
+        number: int,
     ):
         if local_path.is_dir():
             if type and type != "directory":
@@ -817,7 +891,15 @@ class DatumManager(FileContentsManager):
             file_uri=None,
         )
 
-    def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:
+    def get(
+        self,
+        path,
+        content=True,
+        type=None,
+        format=None,
+        pagination_marker: pfs.File = None,
+        number: int = None,
+    ) -> ContentModel:
         if type == "notebook":
             raise web.HTTPError(
                 400,
@@ -838,9 +920,9 @@ class DatumManager(FileContentsManager):
                 )
             else:
                 return self._get_model_from_disk(
-                    local_path=fileinfo_path, 
-                    content=content, 
-                    type=type, 
+                    local_path=fileinfo_path,
+                    content=content,
+                    type=type,
                     format=format,
                     pagination_marker=pagination_marker,
                     number=number,
@@ -849,10 +931,10 @@ class DatumManager(FileContentsManager):
             file = self._get_file_from_path(path=path)
             fileinfo = self._client.pfs.inspect_file(file=file)
             return self._get_model_from_fileinfo(
-                fileinfo=fileinfo, 
+                fileinfo=fileinfo,
                 path=path,
-                content=content, 
-                type=type, 
+                content=content,
+                type=type,
                 format=format,
                 pagination_marker=pagination_marker,
                 number=number,
