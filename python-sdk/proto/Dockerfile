@@ -1,9 +1,7 @@
 FROM python:3.8-slim
 
-RUN apt-get update -y && apt-get install -y git
-
 RUN python3 -m pip install 'grpcio-tools==1.51.3'
-RUN python3 -m pip install   'betterproto[compiler] @ git+https://github.com/pachyderm/python-betterproto.git@bonenfant/INT-1159'
+RUN python3 -m pip install 'betterproto[compiler] @ https://github.com/pachyderm/python-betterproto/releases/download/v2.0.0b6%2Bpachv1.0.3/betterproto-2.0.0b6+pachv1.0.3-py3-none-any.whl'
 
 COPY entrypoint.sh /bin
 ENTRYPOINT ["/bin/entrypoint.sh"]
