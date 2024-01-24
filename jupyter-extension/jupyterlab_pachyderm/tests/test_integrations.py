@@ -12,13 +12,13 @@ import pytest
 import requests
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
-from pachyderm_sdk.config import ConfigFile, Context
+from pachyderm_sdk.config import ConfigFile
 
-from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
+from . import TEST_NOTEBOOK
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
