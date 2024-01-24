@@ -164,8 +164,10 @@ type Full struct {
 	// TODO
 	// debugSrv debug.DebugServer
 
-	pfsWorker   *pfs_server.Worker
-	ppsWorker   *pps_server.Worker
+	pfsWorker *pfs_server.Worker
+	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
+	// This functionality may be convertible to utility functions that operate on a PFS client.
+	//ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
 }
 
