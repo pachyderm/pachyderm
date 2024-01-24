@@ -14,7 +14,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 
 if TYPE_CHECKING:
@@ -937,7 +936,7 @@ class ApiStub:
         return self.__rpc_rotate_root_token(request)
 
 
-class ApiBase(ServicerBase):
+class ApiBase:
     def activate(
         self, root_token: str, context: "grpc.ServicerContext"
     ) -> "ActivateResponse":

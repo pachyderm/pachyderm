@@ -12,7 +12,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 
 if TYPE_CHECKING:
@@ -46,7 +45,7 @@ class ApiStub:
         return self.__rpc_get_version(request)
 
 
-class ApiBase(ServicerBase):
+class ApiBase:
     def get_version(self, context: "grpc.ServicerContext") -> "Version":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")

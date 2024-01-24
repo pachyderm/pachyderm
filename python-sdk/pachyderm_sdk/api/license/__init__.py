@@ -14,7 +14,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import enterprise as _enterprise__
 
@@ -332,7 +331,7 @@ class ApiStub:
         return self.__rpc_list_user_clusters(request)
 
 
-class ApiBase(ServicerBase):
+class ApiBase:
     def activate(
         self, activation_code: str, expires: datetime, context: "grpc.ServicerContext"
     ) -> "ActivateResponse":

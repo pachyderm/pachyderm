@@ -16,7 +16,6 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
-from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import (
     pfs as _pfs__,
@@ -384,7 +383,7 @@ class DebugStub:
         return self.__rpc_run_pfs_load_test_default(request)
 
 
-class DebugBase(ServicerBase):
+class DebugBase:
     def profile(
         self, profile: "Profile", filter: "Filter", context: "grpc.ServicerContext"
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
