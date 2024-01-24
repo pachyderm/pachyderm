@@ -22,6 +22,7 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
+from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import (
     auth as _auth__,
@@ -1670,7 +1671,7 @@ class ApiStub:
         return self.__rpc_delete_project(request)
 
 
-class ApiBase:
+class ApiBase(ServicerBase):
     def create_repo(
         self,
         repo: "Repo",

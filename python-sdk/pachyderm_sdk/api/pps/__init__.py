@@ -20,6 +20,7 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
+from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import (
     pfs as _pfs__,
@@ -2093,7 +2094,7 @@ class ApiStub:
         return self.__rpc_set_project_defaults(request)
 
 
-class ApiBase:
+class ApiBase(ServicerBase):
     def inspect_job(
         self, job: "Job", wait: bool, details: bool, context: "grpc.ServicerContext"
     ) -> "JobInfo":

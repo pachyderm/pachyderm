@@ -14,6 +14,7 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
+from betterproto.grpc.grpcio_server import ServicerBase
 
 
 if TYPE_CHECKING:
@@ -372,7 +373,7 @@ class ApiStub:
         return self.__rpc_delete_all(request)
 
 
-class ApiBase:
+class ApiBase(ServicerBase):
     def set_identity_server_config(
         self, config: "IdentityServerConfig", context: "grpc.ServicerContext"
     ) -> "SetIdentityServerConfigResponse":

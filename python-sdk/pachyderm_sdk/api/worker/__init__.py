@@ -13,6 +13,7 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
+from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import pps as _pps__
 
@@ -95,7 +96,7 @@ class WorkerStub:
         return self.__rpc_next_datum(request)
 
 
-class WorkerBase:
+class WorkerBase(ServicerBase):
     def status(self, context: "grpc.ServicerContext") -> "_pps__.WorkerStatus":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")

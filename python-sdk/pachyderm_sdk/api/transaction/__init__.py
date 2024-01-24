@@ -14,6 +14,7 @@ from typing import (
 import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
+from betterproto.grpc.grpcio_server import ServicerBase
 
 from .. import (
     pfs as _pfs__,
@@ -197,7 +198,7 @@ class ApiStub:
         return self.__rpc_delete_all(request)
 
 
-class ApiBase:
+class ApiBase(ServicerBase):
     def batch_transaction(
         self,
         requests: Optional[List["TransactionRequest"]],
