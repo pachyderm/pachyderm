@@ -184,7 +184,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		PFS:         pfs.NewAPIClient(pd.selfGRPC),
 		TaskService: task.NewEtcdService(env.EtcdClient, "debug"),
 	})
-	// TODO: PachClient vs PfsClient, also how does PPS work without PachClient?
+	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
+	// This functionality may be convertible to utility functions that operate on a PFS client.
 	//pd.ppsWorker = pps_server.NewWorker(pps_server.WorkerEnv{
 	//	PFS:         pfs.NewAPIClient(pd.selfGRPC),
 	//	TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
@@ -275,9 +276,11 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 	pd.addBackground("pfsWorker", func(ctx context.Context) error {
 		return pd.pfsWorker.Run(ctx)
 	})
-	pd.addBackground("ppsWorker", func(ctx context.Context) error {
-		return pd.ppsWorker.Run(ctx)
-	})
+	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
+	// This functionality may be convertible to utility functions that operate on a PFS client.
+	//pd.addBackground("ppsWorker", func(ctx context.Context) error {
+	//	return pd.ppsWorker.Run(ctx)
+	//})
 	pd.addBackground("debugWorker", func(ctx context.Context) error {
 		return pd.debugWorker.Run(ctx)
 	})

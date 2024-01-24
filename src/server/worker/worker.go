@@ -90,22 +90,27 @@ func NewWorker(
 
 	mlog := logs.NewMasterLogger(ctx)
 	go worker.master(mlog, env)
-	go worker.worker()
+	go worker.worker(env)
 	return worker, nil
 }
 
-func (w *Worker) worker() {
+func (w *Worker) worker(env serviceenv.ServiceEnv) {
 	ctx := w.driver.PachClient().Ctx()
 	logger := logs.New(w.driver.PachClient().Ctx())
 	backoff.RetryUntilCancel(ctx, func() error { //nolint:errcheck
 		eg, ctx := errgroup.WithContext(ctx)
 		driver := w.driver.WithContext(ctx)
-
-		// Process any tasks that the master creates.
+		if !env.Config().PachwOnlyPreprocessing {
+			// Process any preprocessing tasks that the master creates.
+			eg.Go(func() error {
+				etcdPrefix := path.Join(env.Config().EtcdPrefix, env.Config().PPSEtcdPrefix)
+				return transform.PreprocessingWorker(driver.PachClient(), env.GetTaskService(etcdPrefix))
+			})
+		}
+		// Process any processing tasks that the master creates.
 		eg.Go(func() error {
 			return transform.ProcessingWorker(ctx, driver, logger, w.status)
 		})
-
 		return errors.EnsureStack(eg.Wait())
 	}, backoff.NewConstantBackOff(200*time.Millisecond), func(err error, d time.Duration) error {
 		if st, ok := err.(errors.StackTracer); ok {
