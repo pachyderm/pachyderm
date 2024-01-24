@@ -70,6 +70,7 @@ def _create_base_model(path: str, fileinfo: pfs.FileInfo, type: str) -> ContentM
         mimetype=None,
         format=None,
         writable=False,
+        file_uri=str(fileinfo.file),
     )
 
 
@@ -322,6 +323,7 @@ class PFSManager(FileContentsManager):
                     mimetype=None,
                     format=None,
                     writable=False,
+                    file_uri=None,
                 )
             )
         return models
@@ -343,6 +345,7 @@ class PFSManager(FileContentsManager):
             mimetype=None,
             format=format,
             writable=False,
+            file_uri=None,
         )
 
     def _get_empty_repo_model(self, name: str, content: bool):
@@ -357,6 +360,7 @@ class PFSManager(FileContentsManager):
             mimetype=None,
             format="json" if content else None,
             writable=False,
+            file_uri=None,
         )
 
     def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:
@@ -765,6 +769,7 @@ class DatumManager(FileContentsManager):
             mimetype=None,
             format=format,
             writable=False,
+            file_uri=None,
         )
 
     def _get_model_from_disk(
@@ -809,6 +814,7 @@ class DatumManager(FileContentsManager):
             mimetype=None,
             format=format,
             writable=False,
+            file_uri=None,
         )
 
     def get(self, path, content=True, type=None, format=None, pagination_marker: pfs.File = None, number: int = None) -> ContentModel:

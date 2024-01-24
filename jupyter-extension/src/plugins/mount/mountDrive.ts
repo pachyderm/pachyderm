@@ -150,7 +150,7 @@ export class MountDrive implements Contents.IDrive {
       return;
     }
 
-    // Queuing a promise without returning it to await lets us start the process of fetching the next pages in the background while
+    // Invoking an async function without awaiting it lets us start the process of fetching the next pages in the background while
     // continuing to render the the first page.
     (async () => {
       const nextResponse: Contents.IModel = await this._get(url, {
