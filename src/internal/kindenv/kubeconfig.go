@@ -22,6 +22,13 @@ import (
 // that is configured by that file.
 type Kubeconfig string
 
+// testSentinel is used by the tests to indicate that the in-memory Kube client declared below
+// should be used.
+const testSentinel = Kubeconfig("\x00test-sentinel\x00")
+
+// testKubeClient is an in-memory Kube client for tests of this package.
+var testKubeClient kubernetes.Interface
+
 // GetKubeconfig returns a Kubeconfig object for the cluster.  Call `Close()` when you're done to
 // avoid filling up /tmp with junk.
 func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
@@ -54,7 +61,7 @@ func (c *Cluster) GetKubeconfig(ctx context.Context) (Kubeconfig, error) {
 
 // Close removes the kubeconfig file.
 func (k *Kubeconfig) Close() error {
-	if k == nil || *k == "" {
+	if k == nil || *k == "" || *k == testSentinel {
 		return nil
 	}
 	if err := os.Remove(string(*k)); err != nil {
@@ -98,6 +105,9 @@ func (k Kubeconfig) HelmCommand(ctx context.Context, args ...string) *exec.Cmd {
 
 // Client returns a kubernetes.Interface connected to the cluster referenced by k.
 func (k Kubeconfig) Client() (kubernetes.Interface, error) {
+	if k == testSentinel {
+		return testKubeClient, nil
+	}
 	loadingRules := &clientcmd.ClientConfigLoadingRules{
 		ExplicitPath: string(k),
 	}
