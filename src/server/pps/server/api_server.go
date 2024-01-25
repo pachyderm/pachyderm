@@ -4058,34 +4058,33 @@ func (a *apiServer) GetLogsV2(request *pps.GetLogsV2Request, apiGetLogsV2Server 
 
 	ctx := apiGetLogsV2Server.Context()
 
-  getLogsV2Handler := &getLogsV2Handler{
-    apiServer: a,
-  }
-  logsChannel, err := getLogsV2Handler.handleRequest(ctx, request)
-  if logsChannel == nil {
-    return errors.EnsureStack(err)
-  }
-  jp := &protojson.UnmarshalOptions{
-    AllowPartial:   true,
-    DiscardUnknown: true,
-  }
+	getLogsV2Handler := &getLogsV2Handler{
+		apiServer: a,
+	}
+	logsChannel, err := getLogsV2Handler.handleRequest(ctx, request)
+	if logsChannel == nil {
+		return errors.EnsureStack(err)
+	}
+	jp := &protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
 	for line := range logsChannel {
 
 		msg := new(pps.LogMessage)
-    if err := jp.Unmarshal(line, msg); err != nil {
-      log.Error(ctx, fmt.Sprintf("json parse error %q line %q", err.Error(), string(line)))
-      return errors.EnsureStack(err)
-    }
+		if err := jp.Unmarshal(line, msg); err != nil {
+			log.Error(ctx, fmt.Sprintf("json parse error %q line %q", err.Error(), string(line)))
+			return errors.EnsureStack(err)
+		}
 
-	  msg.Message = string(line)
+		msg.Message = string(line)
 
-    resp := &pps.GetLogsV2Response{ ResponseType: &pps.GetLogsV2Response_Log{ Log: &pps.LogMessageV2{ LogV2Type: &pps.LogMessageV2_PpsLogMessage{ PpsLogMessage: msg } } } }
+		resp := &pps.GetLogsV2Response{ResponseType: &pps.GetLogsV2Response_Log{Log: &pps.LogMessageV2{LogV2Type: &pps.LogMessageV2_PpsLogMessage{PpsLogMessage: msg}}}}
 
 		if err := apiGetLogsV2Server.Send(resp); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
-  return nil
+	return nil
 }
-

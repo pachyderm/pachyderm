@@ -1803,7 +1803,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().StringVar(&project, "project", project, "Update project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults", "default"))
 
-getLogsV2 := &cobra.Command{
+	getLogsV2 := &cobra.Command{
 		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<pipeline>@<job>] [--datum=<datum>]",
 		Short: "Return logs from a job. V2",
 		Long: "This command returns logs from a job. V2\n" +
@@ -1871,18 +1871,18 @@ getLogsV2 := &cobra.Command{
 			}
 			iter := client.GetLogsV2(project, pipelineName, jobID)
 			for iter.Next() {
-							/*
-				if raw {
-					fmt.Println(protojson.Format(iter.Message()))
-				} else if iter.Message().User && !master && !worker {
-					prettyLogsPrinter(iter.Message().Message)
-				} else if iter.Message().Master && master {
-					prettyLogsPrinter(iter.Message().Message)
-				} else if !iter.Message().User && !iter.Message().Master && worker {
-					prettyLogsPrinter(iter.Message().Message)
-				} else if pipelineName == "" && jobID == "" {
-					prettyLogsPrinter(iter.Message().Message)
-				}
+				/*
+					if raw {
+						fmt.Println(protojson.Format(iter.Message()))
+					} else if iter.Message().User && !master && !worker {
+						prettyLogsPrinter(iter.Message().Message)
+					} else if iter.Message().Master && master {
+						prettyLogsPrinter(iter.Message().Message)
+					} else if !iter.Message().User && !iter.Message().Master && worker {
+						prettyLogsPrinter(iter.Message().Message)
+					} else if pipelineName == "" && jobID == "" {
+						prettyLogsPrinter(iter.Message().Message)
+					}
 				*/
 			}
 			return iter.Err()
