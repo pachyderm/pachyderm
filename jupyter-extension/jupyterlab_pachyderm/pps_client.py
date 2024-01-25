@@ -25,10 +25,10 @@ class PpsConfig:
     pipeline: pps.Pipeline
     image: str
     requirements: Optional[str]
-    external_files: List[str]
+    external_files: List[Path]
     port: str
     gpu_mode: str
-    resource_spec: dict
+    resource_spec: Optional[pps.ResourceSpec]
     input_spec: pps.Input
 
     @classmethod
@@ -68,6 +68,8 @@ class PpsConfig:
             raise ValueError("field image not set")
 
         requirements = config.get("requirements")
+        if requirements is not None:
+            requirements = notebook_path.parent.joinpath(requirements).resolve()
 
         external_files = []
         external_files_str = config.get("external_files", "").strip()
