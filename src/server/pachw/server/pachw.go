@@ -15,7 +15,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/driver"
 )
@@ -51,7 +50,7 @@ func (p *pachW) run(ctx context.Context) {
 		ticker := time.NewTicker(period)
 		defer ticker.Stop()
 		for {
-			numTasks, err := p.countTasks(ctx, []string{server.URLTaskNamespace, server.StorageTaskNamespace, driver.PreprocessingTaskNamespace(nil)})
+			numTasks, err := p.countTasks(ctx)
 			if err != nil {
 				return errors.Wrap(err, "error counting tasks")
 			}
@@ -83,10 +82,17 @@ func (p *pachW) run(ctx context.Context) {
 	})
 }
 
-func (p *pachW) countTasks(ctx context.Context, namespaces []string) (int, error) {
-	totalTasks := 0
-	for _, ns := range namespaces {
-		tasks, _, err := task.Count(ctx, p.env.TaskService, ns, "")
+func (p *pachW) countTasks(ctx context.Context) (int, error) {
+	var totalTasks int
+	for _, ns := range []string{server.URLTaskNamespace, server.StorageTaskNamespace} {
+		tasks, err := p.env.PFSTaskService.Count(ctx, ns)
+		if err != nil {
+			return 0, errors.EnsureStack(err)
+		}
+		totalTasks += int(tasks)
+	}
+	for _, ns := range []string{driver.PreprocessingTaskNamespace(nil)} {
+		tasks, err := p.env.PPSTaskService.Count(ctx, ns)
 		if err != nil {
 			return 0, errors.EnsureStack(err)
 		}

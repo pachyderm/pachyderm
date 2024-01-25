@@ -400,6 +400,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 				FileSetId: fileSetID,
 				PathRange: shard,
 				SetSpec:   setSpec,
+				AuthToken: pachClient.AuthToken(),
 			})
 			if err != nil {
 				return err

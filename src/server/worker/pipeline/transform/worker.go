@@ -51,18 +51,21 @@ func PreprocessingWorker(pachClient *client.APIClient, taskService task.Service,
 				if err != nil {
 					return nil, err
 				}
+				pachClient.SetAuthToken(createParallelDatumsTask.AuthToken)
 				return processCreateParallelDatumsTask(pachClient, createParallelDatumsTask)
 			case input.MessageIs(&CreateSerialDatumsTask{}):
 				createSerialDatumsTask, err := deserializeCreateSerialDatumsTask(input)
 				if err != nil {
 					return nil, err
 				}
+				pachClient.SetAuthToken(createSerialDatumsTask.AuthToken)
 				return processCreateSerialDatumsTask(pachClient, createSerialDatumsTask)
 			case input.MessageIs(&CreateDatumSetsTask{}):
 				createDatumSetsTask, err := deserializeCreateDatumSetsTask(input)
 				if err != nil {
 					return nil, err
 				}
+				pachClient.SetAuthToken(createDatumSetsTask.AuthToken)
 				return processCreateDatumSetsTask(pachClient, createDatumSetsTask)
 			default:
 				return nil, errors.Errorf("unrecognized any type (%v) in preprocessing worker", input.TypeUrl)

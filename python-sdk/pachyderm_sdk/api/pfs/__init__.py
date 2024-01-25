@@ -70,6 +70,11 @@ class Delimiter(betterproto.Enum):
     CSV = 4
 
 
+class GetFileSetRequestFileSetType(betterproto.Enum):
+    TOTAL = 0
+    DIFF = 1
+
+
 class SqlDatabaseEgressFileFormatType(betterproto.Enum):
     UNKNOWN = 0
     CSV = 1
@@ -682,6 +687,7 @@ class CreateFileSetResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class GetFileSetRequest(betterproto.Message):
     commit: "Commit" = betterproto.message_field(1)
+    type: "GetFileSetRequestFileSetType" = betterproto.enum_field(2)
 
 
 @dataclass(eq=False, repr=False)
@@ -1506,10 +1512,13 @@ class ApiStub:
     ) -> "CreateFileSetResponse":
         return self.__rpc_create_file_set(request_iterator)
 
-    def get_file_set(self, *, commit: "Commit" = None) -> "CreateFileSetResponse":
+    def get_file_set(
+        self, *, commit: "Commit" = None, type: "GetFileSetRequestFileSetType" = None
+    ) -> "CreateFileSetResponse":
         request = GetFileSetRequest()
         if commit is not None:
             request.commit = commit
+        request.type = type
 
         return self.__rpc_get_file_set(request)
 
@@ -1986,7 +1995,10 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def get_file_set(
-        self, commit: "Commit", context: "grpc.ServicerContext"
+        self,
+        commit: "Commit",
+        type: "GetFileSetRequestFileSetType",
+        context: "grpc.ServicerContext",
     ) -> "CreateFileSetResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
