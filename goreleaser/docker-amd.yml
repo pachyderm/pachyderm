@@ -105,6 +105,7 @@ dockers:
           - dex-assets
           - LICENSE
           - licenses
+          - zscaler_root_certificate.crt
       build_flag_templates:
           - "--network=host"
           - "--label=version={{.Version}}"

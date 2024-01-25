@@ -1255,3 +1255,168 @@ func (x *SetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
 	return nil
 }
+
+func (x *LogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("user", x.GetUser())
+	enc.AddObject("admin", x.GetAdmin())
+	return nil
+}
+
+func (x *AdminLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("logql", x.GetLogql())
+	enc.AddString("pod", x.GetPod())
+	enc.AddObject("pod_container", x.GetPodContainer())
+	enc.AddString("app", x.GetApp())
+	enc.AddObject("master", x.GetMaster())
+	enc.AddObject("storage", x.GetStorage())
+	enc.AddObject("user", x.GetUser())
+	return nil
+}
+
+func (x *PodContainer) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("pod", x.Pod)
+	enc.AddString("container", x.Container)
+	return nil
+}
+
+func (x *UserLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project", x.GetProject())
+	enc.AddObject("pipeline", x.GetPipeline())
+	enc.AddString("datum", x.GetDatum())
+	enc.AddString("job", x.GetJob())
+	enc.AddObject("pipeline_job", x.GetPipelineJob())
+	return nil
+}
+
+func (x *PipelineLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("project", x.Project)
+	enc.AddString("pipeline", x.Pipeline)
+	return nil
+}
+
+func (x *PipelineJobLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddString("job", x.Job)
+	return nil
+}
+
+func (x *PipelineDatumLogQuery) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddString("datum", x.Datum)
+	return nil
+}
+
+func (x *LogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("time_range", x.TimeRange)
+	enc.AddUint64("limit", x.Limit)
+	enc.AddObject("regex", x.Regex)
+	enc.AddString("level", x.Level.String())
+	return nil
+}
+
+func (x *TimeRangeLogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddTimestamp(enc, "from", x.From)
+	protoextensions.AddTimestamp(enc, "until", x.Until)
+	return nil
+}
+
+func (x *RegexLogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("pattern", x.Pattern)
+	enc.AddBool("negate", x.Negate)
+	return nil
+}
+
+func (x *GetLogsV2Request) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("query", x.Query)
+	enc.AddObject("filter", x.Filter)
+	enc.AddBool("tail", x.Tail)
+	enc.AddBool("want_paging_hint", x.WantPagingHint)
+	enc.AddString("log_format", x.LogFormat.String())
+	return nil
+}
+
+func (x *GetLogsV2Response) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("paging_hint", x.GetPagingHint())
+	enc.AddObject("log", x.GetLog())
+	return nil
+}
+
+func (x *PagingHint) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("older", x.Older)
+	enc.AddObject("newer", x.Newer)
+	return nil
+}
+
+func (x *LogMessageV2) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("verbatim", x.GetVerbatim())
+	enc.AddObject("json", x.GetJson())
+	enc.AddObject("pps_log_message", x.GetPpsLogMessage())
+	return nil
+}
+
+func (x *VerbatimLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytes(enc, "line", x.Line)
+	protoextensions.AddTimestamp(enc, "timestamp", x.Timestamp)
+	return nil
+}
+
+func (x *ParsedJSONLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("verbatim", x.Verbatim)
+	enc.AddObject("fields", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Fields {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
+	protoextensions.AddTimestamp(enc, "native_timestamp", x.NativeTimestamp)
+	enc.AddObject("pps_log_message", x.PpsLogMessage)
+	return nil
+}

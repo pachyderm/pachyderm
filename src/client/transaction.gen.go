@@ -590,6 +590,10 @@ func (c *unsupportedPpsBuilderClient) GetLogs(_ context.Context, _ *pps_v2.GetLo
 	return nil, unsupportedError("GetLogs")
 }
 
+func (c *unsupportedPpsBuilderClient) GetLogsV2(_ context.Context, _ *pps_v2.GetLogsV2Request, opts ...grpc.CallOption) (pps_v2.API_GetLogsV2Client, error) {
+	return nil, unsupportedError("GetLogsV2")
+}
+
 func (c *unsupportedPpsBuilderClient) GetProjectDefaults(_ context.Context, _ *pps_v2.GetProjectDefaultsRequest, opts ...grpc.CallOption) (*pps_v2.GetProjectDefaultsResponse, error) {
 	return nil, unsupportedError("GetProjectDefaults")
 }

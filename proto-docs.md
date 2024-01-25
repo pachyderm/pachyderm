@@ -398,6 +398,7 @@
 - [pps/pps.proto](#pps_pps-proto)
     - [ActivateAuthRequest](#pps_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pps_v2-ActivateAuthResponse)
+    - [AdminLogQuery](#pps_v2-AdminLogQuery)
     - [Aggregate](#pps_v2-Aggregate)
     - [AggregateProcessStats](#pps_v2-AggregateProcessStats)
     - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
@@ -424,6 +425,9 @@
     - [GetClusterDefaultsRequest](#pps_v2-GetClusterDefaultsRequest)
     - [GetClusterDefaultsResponse](#pps_v2-GetClusterDefaultsResponse)
     - [GetLogsRequest](#pps_v2-GetLogsRequest)
+    - [GetLogsV1Request](#pps_v2-GetLogsV1Request)
+    - [GetLogsV2Request](#pps_v2-GetLogsV2Request)
+    - [GetLogsV2Response](#pps_v2-GetLogsV2Response)
     - [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest)
     - [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse)
     - [Input](#pps_v2-Input)
@@ -444,20 +448,32 @@
     - [ListJobRequest](#pps_v2-ListJobRequest)
     - [ListJobSetRequest](#pps_v2-ListJobSetRequest)
     - [ListPipelineRequest](#pps_v2-ListPipelineRequest)
+    - [LogFilter](#pps_v2-LogFilter)
     - [LogMessage](#pps_v2-LogMessage)
+    - [LogMessageV1](#pps_v2-LogMessageV1)
+    - [LogMessageV2](#pps_v2-LogMessageV2)
+    - [LogQuery](#pps_v2-LogQuery)
     - [LokiLogMessage](#pps_v2-LokiLogMessage)
     - [LokiRequest](#pps_v2-LokiRequest)
     - [Metadata](#pps_v2-Metadata)
     - [Metadata.AnnotationsEntry](#pps_v2-Metadata-AnnotationsEntry)
     - [Metadata.LabelsEntry](#pps_v2-Metadata-LabelsEntry)
     - [PFSInput](#pps_v2-PFSInput)
+    - [PagingHint](#pps_v2-PagingHint)
     - [ParallelismSpec](#pps_v2-ParallelismSpec)
+    - [ParsedJSONLogMessage](#pps_v2-ParsedJSONLogMessage)
+    - [ParsedJSONLogMessage.FieldsEntry](#pps_v2-ParsedJSONLogMessage-FieldsEntry)
     - [Pipeline](#pps_v2-Pipeline)
+    - [PipelineDatumLogQuery](#pps_v2-PipelineDatumLogQuery)
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
+    - [PipelineJobLogQuery](#pps_v2-PipelineJobLogQuery)
+    - [PipelineLogQuery](#pps_v2-PipelineLogQuery)
+    - [PodContainer](#pps_v2-PodContainer)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
+    - [RegexLogFilter](#pps_v2-RegexLogFilter)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
     - [RenderTemplateRequest.ArgsEntry](#pps_v2-RenderTemplateRequest-ArgsEntry)
     - [RenderTemplateResponse](#pps_v2-RenderTemplateResponse)
@@ -485,15 +501,20 @@
     - [StopPipelineRequest](#pps_v2-StopPipelineRequest)
     - [SubscribeJobRequest](#pps_v2-SubscribeJobRequest)
     - [TFJob](#pps_v2-TFJob)
+    - [TimeRangeLogFilter](#pps_v2-TimeRangeLogFilter)
     - [Toleration](#pps_v2-Toleration)
     - [Transform](#pps_v2-Transform)
     - [Transform.EnvEntry](#pps_v2-Transform-EnvEntry)
     - [UpdateJobStateRequest](#pps_v2-UpdateJobStateRequest)
+    - [UserLogQuery](#pps_v2-UserLogQuery)
+    - [VerbatimLogMessage](#pps_v2-VerbatimLogMessage)
     - [Worker](#pps_v2-Worker)
     - [WorkerStatus](#pps_v2-WorkerStatus)
   
     - [DatumState](#pps_v2-DatumState)
     - [JobState](#pps_v2-JobState)
+    - [LogFormat](#pps_v2-LogFormat)
+    - [LogLevel](#pps_v2-LogLevel)
     - [PipelineInfo.PipelineType](#pps_v2-PipelineInfo-PipelineType)
     - [PipelineState](#pps_v2-PipelineState)
     - [TaintEffect](#pps_v2-TaintEffect)
@@ -6341,6 +6362,27 @@ Job API
 
 
 
+<a name="pps_v2-AdminLogQuery"></a>
+
+### AdminLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| logql | [string](#string) |  | Arbitrary LogQL query. |
+| pod | [string](#string) |  | A pod&#39;s logs (all containers). |
+| pod_container | [PodContainer](#pps_v2-PodContainer) |  | One container. |
+| app | [string](#string) |  | One &#34;app&#34; (logql -&gt; {app=X}) |
+| master | [PipelineLogQuery](#pps_v2-PipelineLogQuery) |  | All master worker lines from a pipeline. |
+| storage | [PipelineLogQuery](#pps_v2-PipelineLogQuery) |  | All storage container lines from a pipeline. |
+| user | [UserLogQuery](#pps_v2-UserLogQuery) |  | All worker lines from a pipeline/job. |
+
+
+
+
+
+
 <a name="pps_v2-Aggregate"></a>
 
 ### Aggregate
@@ -6808,6 +6850,64 @@ Delete more than one pipeline.
 
 
 
+<a name="pps_v2-GetLogsV1Request"></a>
+
+### GetLogsV1Request
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [Pipeline](#pps_v2-Pipeline) |  | The pipeline from which we want to get logs (required if the job in &#39;job&#39; was created as part of a pipeline. To get logs from a non-orphan job without the pipeline that created it, you need to use ElasticSearch). |
+| job | [Job](#pps_v2-Job) |  | The job from which we want to get logs. |
+| data_filters | [string](#string) | repeated | Names of input files from which we want processing logs. This may contain multiple files, to query pipelines that contain multiple inputs. Each filter may be an absolute path of a file within a pps repo, or it may be a hash for that file (to search for files at specific versions) |
+| datum | [Datum](#pps_v2-Datum) |  |  |
+| master | [bool](#bool) |  | If true get logs from the master process |
+| follow | [bool](#bool) |  | Continue to follow new logs as they become available. |
+| tail | [int64](#int64) |  | If nonzero, the number of lines from the end of the logs to return. Note: tail applies per container, so you will get tail * &lt;number of pods&gt; total lines back. |
+| use_loki_backend | [bool](#bool) |  | UseLokiBackend causes the logs request to go through the loki backend rather than through kubernetes. This behavior can also be achieved by setting the LOKI_LOGGING feature flag. |
+| since | [google.protobuf.Duration](#google-protobuf-Duration) |  | Since specifies how far in the past to return logs from. It defaults to 24 hours. |
+
+
+
+
+
+
+<a name="pps_v2-GetLogsV2Request"></a>
+
+### GetLogsV2Request
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| query | [LogQuery](#pps_v2-LogQuery) |  |  |
+| filter | [LogFilter](#pps_v2-LogFilter) | repeated |  |
+| tail | [bool](#bool) |  |  |
+| want_paging_hint | [bool](#bool) |  |  |
+| log_format | [LogFormat](#pps_v2-LogFormat) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-GetLogsV2Response"></a>
+
+### GetLogsV2Response
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| paging_hint | [PagingHint](#pps_v2-PagingHint) |  |  |
+| log | [LogMessageV2](#pps_v2-LogMessageV2) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-GetProjectDefaultsRequest"></a>
 
 ### GetProjectDefaultsRequest
@@ -7185,6 +7285,23 @@ all of the filtered attributes.
 
 
 
+<a name="pps_v2-LogFilter"></a>
+
+### LogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| time_range | [TimeRangeLogFilter](#pps_v2-TimeRangeLogFilter) |  |  |
+| limit | [uint32](#uint32) |  |  |
+| regex | [RegexLogFilter](#pps_v2-RegexLogFilter) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-LogMessage"></a>
 
 ### LogMessage
@@ -7204,6 +7321,63 @@ indicating when and why the line was logged.
 | user | [bool](#bool) |  | User is true if log message comes from the users code. |
 | ts | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The message logged, and the time at which it was logged |
 | message | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-LogMessageV1"></a>
+
+### LogMessageV1
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project_name | [string](#string) |  | The job and pipeline for which a PFS file is being processed (if the job is an orphan job, pipeline name and ID will be unset) |
+| pipeline_name | [string](#string) |  |  |
+| job_id | [string](#string) |  |  |
+| worker_id | [string](#string) |  |  |
+| datum_id | [string](#string) |  |  |
+| master | [bool](#bool) |  |  |
+| data | [InputFile](#pps_v2-InputFile) | repeated | The PFS files being processed (one per pipeline/job input) |
+| user | [bool](#bool) |  | User is true if log message comes from the users code. |
+| ts | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | The message logged, and the time at which it was logged |
+| message | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-LogMessageV2"></a>
+
+### LogMessageV2
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| verbatim | [VerbatimLogMessage](#pps_v2-VerbatimLogMessage) |  |  |
+| json | [ParsedJSONLogMessage](#pps_v2-ParsedJSONLogMessage) |  |  |
+| pps_log_message | [LogMessage](#pps_v2-LogMessage) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-LogQuery"></a>
+
+### LogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| user | [UserLogQuery](#pps_v2-UserLogQuery) |  |  |
+| admin | [AdminLogQuery](#pps_v2-AdminLogQuery) |  |  |
 
 
 
@@ -7317,6 +7491,22 @@ indicating when and why the line was logged.
 
 
 
+<a name="pps_v2-PagingHint"></a>
+
+### PagingHint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| older | [GetLogsV2Request](#pps_v2-GetLogsV2Request) |  | optional GetLogsV2Request older = 1; optional GetLogsV2Request newer = 2; |
+| newer | [GetLogsV2Request](#pps_v2-GetLogsV2Request) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-ParallelismSpec"></a>
 
 ### ParallelismSpec
@@ -7326,6 +7516,42 @@ indicating when and why the line was logged.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | constant | [uint64](#uint64) |  | Starts the pipeline/job with a &#39;constant&#39; workers, unless &#39;constant&#39; is zero. If &#39;constant&#39; is zero (which is the zero value of ParallelismSpec), then Pachyderm will choose the number of workers that is started, (currently it chooses the number of workers in the cluster) |
+
+
+
+
+
+
+<a name="pps_v2-ParsedJSONLogMessage"></a>
+
+### ParsedJSONLogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| verbatim | [VerbatimLogMessage](#pps_v2-VerbatimLogMessage) |  | The verbatim line from Loki. |
+| fields | [ParsedJSONLogMessage.FieldsEntry](#pps_v2-ParsedJSONLogMessage-FieldsEntry) | repeated | map&lt;string, google.protobuf.Any&gt; fields = 2; // A raw JSON parse of the entire line.
+
+A raw JSON parse of the entire line. |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields`. |
+| pps_log_message | [LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc. |
+
+
+
+
+
+
+<a name="pps_v2-ParsedJSONLogMessage-FieldsEntry"></a>
+
+### ParsedJSONLogMessage.FieldsEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -7342,6 +7568,22 @@ indicating when and why the line was logged.
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.Project](#pfs_v2-Project) |  |  |
 | name | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelineDatumLogQuery"></a>
+
+### PipelineDatumLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#pps_v2-PipelineLogQuery) |  |  |
+| datum | [string](#string) |  |  |
 
 
 
@@ -7445,6 +7687,54 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-PipelineJobLogQuery"></a>
+
+### PipelineJobLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#pps_v2-PipelineLogQuery) |  |  |
+| job | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelineLogQuery"></a>
+
+### PipelineLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  |  |
+| pipeline | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-PodContainer"></a>
+
+### PodContainer
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pod | [string](#string) |  |  |
+| container | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-ProcessStats"></a>
 
 ### ProcessStats
@@ -7473,6 +7763,22 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  |  |
+
+
+
+
+
+
+<a name="pps_v2-RegexLogFilter"></a>
+
+### RegexLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| regex | [string](#string) |  |  |
+| invert_match | [bool](#bool) |  |  |
 
 
 
@@ -7921,6 +8227,22 @@ Streams open jobs until canceled
 
 
 
+<a name="pps_v2-TimeRangeLogFilter"></a>
+
+### TimeRangeLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null. |
+| to | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null. |
+
+
+
+
+
+
 <a name="pps_v2-Toleration"></a>
 
 ### Toleration
@@ -8009,6 +8331,42 @@ Toleration is a Kubernetes toleration.
 
 
 
+<a name="pps_v2-UserLogQuery"></a>
+
+### UserLogQuery
+Only returns &#34;user&#34; logs.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  | All pipelines in the project. |
+| pipeline | [PipelineLogQuery](#pps_v2-PipelineLogQuery) |  | One pipeline in a project. |
+| datum | [string](#string) |  | One datum. |
+| job | [string](#string) |  | One job, across pipelines and projects. |
+| pipeline_job | [PipelineJobLogQuery](#pps_v2-PipelineJobLogQuery) |  | One job in one pipeline. |
+| level | [LogLevel](#pps_v2-LogLevel) |  | Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior. |
+
+
+
+
+
+
+<a name="pps_v2-VerbatimLogMessage"></a>
+
+### VerbatimLogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| line | [bytes](#bytes) |  |  |
+| timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+
 <a name="pps_v2-Worker"></a>
 
 ### Worker
@@ -8077,6 +8435,33 @@ Toleration is a Kubernetes toleration.
 | JOB_EGRESSING | 7 |  |
 | JOB_FINISHING | 8 |  |
 | JOB_UNRUNNABLE | 9 |  |
+
+
+
+<a name="pps_v2-LogFormat"></a>
+
+### LogFormat
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| LOG_FORMAT_UNKNOWN | 0 | error |
+| LOG_FORMAT_VERBATIM_WITH_TIMESTAMP | 1 |  |
+| LOG_FORMAT_PARSED_JSON | 2 |  |
+| LOG_FORMAT_PPS_LOGMESSAGE | 3 |  |
+
+
+
+<a name="pps_v2-LogLevel"></a>
+
+### LogLevel
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| LOG_LEVEL_DEBUG | 0 |  |
+| LOG_LEVEL_INFO | 1 |  |
+| LOG_LEVEL_ERROR | 2 |  |
 
 
 
@@ -8193,6 +8578,8 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | InspectSecret | [InspectSecretRequest](#pps_v2-InspectSecretRequest) | [SecretInfo](#pps_v2-SecretInfo) |  |
 | DeleteAll | [.google.protobuf.Empty](#google-protobuf-Empty) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteAll deletes everything |
 | GetLogs | [GetLogsRequest](#pps_v2-GetLogsRequest) | [LogMessage](#pps_v2-LogMessage) stream |  |
+| GetLogsV1 | [GetLogsV1Request](#pps_v2-GetLogsV1Request) | [LogMessageV1](#pps_v2-LogMessageV1) stream | ztm v1 |
+| GetLogsV2 | [GetLogsV2Request](#pps_v2-GetLogsV2Request) | [GetLogsV2Response](#pps_v2-GetLogsV2Response) stream | ztm v2 |
 | ActivateAuth | [ActivateAuthRequest](#pps_v2-ActivateAuthRequest) | [ActivateAuthResponse](#pps_v2-ActivateAuthResponse) | An internal call that causes PPS to put itself into an auth-enabled state (all pipeline have tokens, correct permissions, etcd) |
 | UpdateJobState | [UpdateJobStateRequest](#pps_v2-UpdateJobStateRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | An internal call used to move a job from one state to another |
 | RunLoadTest | [RunLoadTestRequest](#pps_v2-RunLoadTestRequest) | [RunLoadTestResponse](#pps_v2-RunLoadTestResponse) | RunLoadTest runs a load test. |

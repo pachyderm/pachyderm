@@ -14719,6 +14719,57 @@
           ]
         },
         {
+          "name": "LogFormat",
+          "longName": "LogFormat",
+          "fullName": "pps_v2.LogFormat",
+          "description": "",
+          "values": [
+            {
+              "name": "LOG_FORMAT_UNKNOWN",
+              "number": "0",
+              "description": "error"
+            },
+            {
+              "name": "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+              "number": "1",
+              "description": ""
+            },
+            {
+              "name": "LOG_FORMAT_PARSED_JSON",
+              "number": "2",
+              "description": ""
+            },
+            {
+              "name": "LOG_FORMAT_PPS_LOGMESSAGE",
+              "number": "3",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "LogLevel",
+          "longName": "LogLevel",
+          "fullName": "pps_v2.LogLevel",
+          "description": "",
+          "values": [
+            {
+              "name": "LOG_LEVEL_DEBUG",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "LOG_LEVEL_INFO",
+              "number": "1",
+              "description": ""
+            },
+            {
+              "name": "LOG_LEVEL_ERROR",
+              "number": "2",
+              "description": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineType",
           "longName": "PipelineInfo.PipelineType",
           "fullName": "pps_v2.PipelineInfo.PipelineType",
@@ -14897,6 +14948,102 @@
           "hasOneofs": false,
           "extensions": [],
           "fields": []
+        },
+        {
+          "name": "AdminLogQuery",
+          "longName": "AdminLogQuery",
+          "fullName": "pps_v2.AdminLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "logql",
+              "description": "Arbitrary LogQL query.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "pod",
+              "description": "A pod's logs (all containers).",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "pod_container",
+              "description": "One container.",
+              "label": "",
+              "type": "PodContainer",
+              "longType": "PodContainer",
+              "fullType": "pps_v2.PodContainer",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "app",
+              "description": "One \"app\" (logql -\u003e {app=X})",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "master",
+              "description": "All master worker lines from a pipeline.",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "pps_v2.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "storage",
+              "description": "All storage container lines from a pipeline.",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "pps_v2.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "user",
+              "description": "All worker lines from a pipeline/job.",
+              "label": "",
+              "type": "UserLogQuery",
+              "longType": "UserLogQuery",
+              "fullType": "pps_v2.UserLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            }
+          ]
         },
         {
           "name": "Aggregate",
@@ -16501,6 +16648,234 @@
           ]
         },
         {
+          "name": "GetLogsV1Request",
+          "longName": "GetLogsV1Request",
+          "fullName": "pps_v2.GetLogsV1Request",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "The pipeline from which we want to get logs (required if the job in 'job'\nwas created as part of a pipeline. To get logs from a non-orphan job\nwithout the pipeline that created it, you need to use ElasticSearch).",
+              "label": "",
+              "type": "Pipeline",
+              "longType": "Pipeline",
+              "fullType": "pps_v2.Pipeline",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "The job from which we want to get logs.",
+              "label": "",
+              "type": "Job",
+              "longType": "Job",
+              "fullType": "pps_v2.Job",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data_filters",
+              "description": "Names of input files from which we want processing logs. This may contain\nmultiple files, to query pipelines that contain multiple inputs. Each\nfilter may be an absolute path of a file within a pps repo, or it may be\na hash for that file (to search for files at specific versions)",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "",
+              "label": "",
+              "type": "Datum",
+              "longType": "Datum",
+              "fullType": "pps_v2.Datum",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "master",
+              "description": "If true get logs from the master process",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "follow",
+              "description": "Continue to follow new logs as they become available.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "tail",
+              "description": "If nonzero, the number of lines from the end of the logs to return.  Note:\ntail applies per container, so you will get tail * \u003cnumber of pods\u003e total\nlines back.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "use_loki_backend",
+              "description": "UseLokiBackend causes the logs request to go through the loki backend\nrather than through kubernetes. This behavior can also be achieved by\nsetting the LOKI_LOGGING feature flag.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "since",
+              "description": "Since specifies how far in the past to return logs from. It defaults to 24 hours.",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GetLogsV2Request",
+          "longName": "GetLogsV2Request",
+          "fullName": "pps_v2.GetLogsV2Request",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "query",
+              "description": "",
+              "label": "",
+              "type": "LogQuery",
+              "longType": "LogQuery",
+              "fullType": "pps_v2.LogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filter",
+              "description": "",
+              "label": "repeated",
+              "type": "LogFilter",
+              "longType": "LogFilter",
+              "fullType": "pps_v2.LogFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "tail",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "want_paging_hint",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "log_format",
+              "description": "",
+              "label": "",
+              "type": "LogFormat",
+              "longType": "LogFormat",
+              "fullType": "pps_v2.LogFormat",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "GetLogsV2Response",
+          "longName": "GetLogsV2Response",
+          "fullName": "pps_v2.GetLogsV2Response",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "paging_hint",
+              "description": "",
+              "label": "",
+              "type": "PagingHint",
+              "longType": "PagingHint",
+              "fullType": "pps_v2.PagingHint",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "response",
+              "defaultValue": ""
+            },
+            {
+              "name": "log",
+              "description": "",
+              "label": "",
+              "type": "LogMessageV2",
+              "longType": "LogMessageV2",
+              "fullType": "pps_v2.LogMessageV2",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "response",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "GetProjectDefaultsRequest",
           "longName": "GetProjectDefaultsRequest",
           "fullName": "pps_v2.GetProjectDefaultsRequest",
@@ -17884,6 +18259,54 @@
           ]
         },
         {
+          "name": "LogFilter",
+          "longName": "LogFilter",
+          "fullName": "pps_v2.LogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "time_range",
+              "description": "",
+              "label": "",
+              "type": "TimeRangeLogFilter",
+              "longType": "TimeRangeLogFilter",
+              "fullType": "pps_v2.TimeRangeLogFilter",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            },
+            {
+              "name": "limit",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            },
+            {
+              "name": "regex",
+              "description": "",
+              "label": "",
+              "type": "RegexLogFilter",
+              "longType": "RegexLogFilter",
+              "fullType": "pps_v2.RegexLogFilter",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "LogMessage",
           "longName": "LogMessage",
           "fullName": "pps_v2.LogMessage",
@@ -18011,6 +18434,222 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogMessageV1",
+          "longName": "LogMessageV1",
+          "fullName": "pps_v2.LogMessageV1",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project_name",
+              "description": "The job and pipeline for which a PFS file is being processed (if the job\nis an orphan job, pipeline name and ID will be unset)",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline_name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "worker_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "master",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data",
+              "description": "The PFS files being processed (one per pipeline/job input)",
+              "label": "repeated",
+              "type": "InputFile",
+              "longType": "InputFile",
+              "fullType": "pps_v2.InputFile",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user",
+              "description": "User is true if log message comes from the users code.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ts",
+              "description": "The message logged, and the time at which it was logged",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "message",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogMessageV2",
+          "longName": "LogMessageV2",
+          "fullName": "pps_v2.LogMessageV2",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "verbatim",
+              "description": "",
+              "label": "",
+              "type": "VerbatimLogMessage",
+              "longType": "VerbatimLogMessage",
+              "fullType": "pps_v2.VerbatimLogMessage",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "v2log",
+              "defaultValue": ""
+            },
+            {
+              "name": "json",
+              "description": "",
+              "label": "",
+              "type": "ParsedJSONLogMessage",
+              "longType": "ParsedJSONLogMessage",
+              "fullType": "pps_v2.ParsedJSONLogMessage",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "v2log",
+              "defaultValue": ""
+            },
+            {
+              "name": "pps_log_message",
+              "description": "",
+              "label": "",
+              "type": "LogMessage",
+              "longType": "LogMessage",
+              "fullType": "pps_v2.LogMessage",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "v2log",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "LogQuery",
+          "longName": "LogQuery",
+          "fullName": "pps_v2.LogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "user",
+              "description": "",
+              "label": "",
+              "type": "UserLogQuery",
+              "longType": "UserLogQuery",
+              "fullType": "pps_v2.UserLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "admin",
+              "description": "",
+              "label": "",
+              "type": "AdminLogQuery",
+              "longType": "AdminLogQuery",
+              "fullType": "pps_v2.AdminLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
               "defaultValue": ""
             }
           ]
@@ -18364,6 +19003,42 @@
           ]
         },
         {
+          "name": "PagingHint",
+          "longName": "PagingHint",
+          "fullName": "pps_v2.PagingHint",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "older",
+              "description": "optional GetLogsV2Request older = 1;\noptional GetLogsV2Request newer = 2;",
+              "label": "",
+              "type": "GetLogsV2Request",
+              "longType": "GetLogsV2Request",
+              "fullType": "pps_v2.GetLogsV2Request",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "newer",
+              "description": "",
+              "label": "",
+              "type": "GetLogsV2Request",
+              "longType": "GetLogsV2Request",
+              "fullType": "pps_v2.GetLogsV2Request",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ParallelismSpec",
           "longName": "ParallelismSpec",
           "fullName": "pps_v2.ParallelismSpec",
@@ -18380,6 +19055,102 @@
               "type": "uint64",
               "longType": "uint64",
               "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ParsedJSONLogMessage",
+          "longName": "ParsedJSONLogMessage",
+          "fullName": "pps_v2.ParsedJSONLogMessage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "verbatim",
+              "description": "The verbatim line from Loki.",
+              "label": "",
+              "type": "VerbatimLogMessage",
+              "longType": "VerbatimLogMessage",
+              "fullType": "pps_v2.VerbatimLogMessage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "fields",
+              "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; // A raw JSON parse of the entire line.\n\nA raw JSON parse of the entire line.",
+              "label": "repeated",
+              "type": "FieldsEntry",
+              "longType": "ParsedJSONLogMessage.FieldsEntry",
+              "fullType": "pps_v2.ParsedJSONLogMessage.FieldsEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "native_timestamp",
+              "description": "If a parseable timestamp was found in `fields`.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pps_log_message",
+              "description": "For code that wants to filter on pipeline/job/etc.",
+              "label": "",
+              "type": "LogMessage",
+              "longType": "LogMessage",
+              "fullType": "pps_v2.LogMessage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "FieldsEntry",
+          "longName": "ParsedJSONLogMessage.FieldsEntry",
+          "fullName": "pps_v2.ParsedJSONLogMessage.FieldsEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -18428,6 +19199,42 @@
                   }
                 ]
               }
+            }
+          ]
+        },
+        {
+          "name": "PipelineDatumLogQuery",
+          "longName": "PipelineDatumLogQuery",
+          "fullName": "pps_v2.PipelineDatumLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "pps_v2.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -19068,6 +19875,114 @@
           ]
         },
         {
+          "name": "PipelineJobLogQuery",
+          "longName": "PipelineJobLogQuery",
+          "fullName": "pps_v2.PipelineJobLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "pps_v2.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelineLogQuery",
+          "longName": "PipelineLogQuery",
+          "fullName": "pps_v2.PipelineLogQuery",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PodContainer",
+          "longName": "PodContainer",
+          "fullName": "pps_v2.PodContainer",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "pod",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "container",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ProcessStats",
           "longName": "ProcessStats",
           "fullName": "pps_v2.ProcessStats",
@@ -19156,6 +20071,42 @@
               "type": "CreatePipelineRequest",
               "longType": "CreatePipelineRequest",
               "fullType": "pps_v2.CreatePipelineRequest",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RegexLogFilter",
+          "longName": "RegexLogFilter",
+          "fullName": "pps_v2.RegexLogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "regex",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "invert_match",
+              "description": "",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -20260,6 +21211,42 @@
           ]
         },
         {
+          "name": "TimeRangeLogFilter",
+          "longName": "TimeRangeLogFilter",
+          "fullName": "pps_v2.TimeRangeLogFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "from",
+              "description": "Can be null.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "to",
+              "description": "Can be null.",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Toleration",
           "longName": "Toleration",
           "fullName": "pps_v2.Toleration",
@@ -20700,6 +21687,126 @@
           ]
         },
         {
+          "name": "UserLogQuery",
+          "longName": "UserLogQuery",
+          "fullName": "pps_v2.UserLogQuery",
+          "description": "Only returns \"user\" logs.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "All pipelines in the project.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline",
+              "description": "One pipeline in a project.",
+              "label": "",
+              "type": "PipelineLogQuery",
+              "longType": "PipelineLogQuery",
+              "fullType": "pps_v2.PipelineLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "datum",
+              "description": "One datum.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "job",
+              "description": "One job, across pipelines and projects.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "pipeline_job",
+              "description": "One job in one pipeline.",
+              "label": "",
+              "type": "PipelineJobLogQuery",
+              "longType": "PipelineJobLogQuery",
+              "fullType": "pps_v2.PipelineJobLogQuery",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            },
+            {
+              "name": "level",
+              "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior.",
+              "label": "",
+              "type": "LogLevel",
+              "longType": "LogLevel",
+              "fullType": "pps_v2.LogLevel",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "query",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "VerbatimLogMessage",
+          "longName": "VerbatimLogMessage",
+          "fullName": "pps_v2.VerbatimLogMessage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "line",
+              "description": "",
+              "label": "",
+              "type": "bytes",
+              "longType": "bytes",
+              "fullType": "bytes",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "timestamp",
+              "description": "",
+              "label": "",
+              "type": "Timestamp",
+              "longType": "google.protobuf.Timestamp",
+              "fullType": "google.protobuf.Timestamp",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Worker",
           "longName": "Worker",
           "fullName": "pps_v2.Worker",
@@ -21125,6 +22232,30 @@
               "responseType": "LogMessage",
               "responseLongType": "LogMessage",
               "responseFullType": "pps_v2.LogMessage",
+              "responseStreaming": true
+            },
+            {
+              "name": "GetLogsV1",
+              "description": "ztm v1",
+              "requestType": "GetLogsV1Request",
+              "requestLongType": "GetLogsV1Request",
+              "requestFullType": "pps_v2.GetLogsV1Request",
+              "requestStreaming": false,
+              "responseType": "LogMessageV1",
+              "responseLongType": "LogMessageV1",
+              "responseFullType": "pps_v2.LogMessageV1",
+              "responseStreaming": true
+            },
+            {
+              "name": "GetLogsV2",
+              "description": "ztm v2",
+              "requestType": "GetLogsV2Request",
+              "requestLongType": "GetLogsV2Request",
+              "requestFullType": "pps_v2.GetLogsV2Request",
+              "requestStreaming": false,
+              "responseType": "GetLogsV2Response",
+              "responseLongType": "GetLogsV2Response",
+              "responseFullType": "pps_v2.GetLogsV2Response",
               "responseStreaming": true
             },
             {

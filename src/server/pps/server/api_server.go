@@ -343,6 +343,8 @@ const (
 	pipelineOpDelete
 	// pipelineOpStartStop is required for StartPipeline and StopPipeline
 	pipelineOpStartStop
+
+	pipelineOpGetLogsV2
 )
 
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
@@ -398,7 +400,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(ctx context.Context, txnCtx
 		case pipelineOpCreate:
 			// no permissions needed, we will error later if the repo already exists
 			return nil
-		case pipelineOpListDatum, pipelineOpGetLogs:
+		case pipelineOpListDatum, pipelineOpGetLogs, pipelineOpGetLogsV2:
 			required = auth.Permission_REPO_READ
 		case pipelineOpUpdate, pipelineOpStartStop:
 			required = auth.Permission_REPO_WRITE
@@ -4050,3 +4052,40 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 	return &resp, nil
 }
+
+// GetLogsV2 request is handled by apiServer.logsReqHandler that returns a channel that receives log lines that meet request parameters
+func (a *apiServer) GetLogsV2(request *pps.GetLogsV2Request, apiGetLogsV2Server pps.API_GetLogsV2Server) (retErr error) {
+
+	ctx := apiGetLogsV2Server.Context()
+
+  getLogsV2Handler := &getLogsV2Handler{
+    apiServer: a,
+  }
+  logsChannel, err := getLogsV2Handler.handleRequest(ctx, request)
+  if logsChannel == nil {
+    return errors.EnsureStack(err)
+  }
+  jp := &protojson.UnmarshalOptions{
+    AllowPartial:   true,
+    DiscardUnknown: true,
+  }
+	for line := range logsChannel {
+
+		msg := new(pps.LogMessage)
+    if err := jp.Unmarshal(line, msg); err != nil {
+      log.Error(ctx, fmt.Sprintf("json parse error %q line %q", err.Error(), string(line)))
+      return errors.EnsureStack(err)
+    }
+
+	  msg.Message = string(line)
+
+    resp := &pps.GetLogsV2Response{ ResponseType: &pps.GetLogsV2Response_Log{ Log: &pps.LogMessageV2{ LogV2Type: &pps.LogMessageV2_PpsLogMessage{ PpsLogMessage: msg } } } }
+
+		if err := apiGetLogsV2Server.Send(resp); err != nil {
+			return errors.EnsureStack(err)
+		}
+	}
+
+  return nil
+}
+

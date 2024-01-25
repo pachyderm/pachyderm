@@ -179,9 +179,10 @@ launch: install check-kubectl
 launch-dev: check-kubectl check-kubectl-connection
 	$(eval STARTTIME := $(shell date +%s))
 	kubectl apply -f etc/testing/minio.yaml --namespace=default
-	helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
+	#helm install pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
+	helm upgrade --install --set proxy.enabled=true --set proxy.service.type=LoadBalancer pachyderm etc/helm/pachyderm -f etc/helm/examples/local-dev-values.yaml
 	# wait for the pachyderm to come up
-	kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+	kubectl wait --for=condition=ready pod -l app=pachd --timeout=1m
 	@echo "pachd launch took $$(($$(date +%s) - $(STARTTIME))) seconds"
 
 launch-dev-determined: check-kubectl check-kubectl-connection
@@ -226,7 +227,7 @@ clean-launch: check-kubectl
 
 proto: check-bazel
 	bazel run //:make_proto
-	$(MAKE) -C python-sdk proto
+	#$(MAKE) -C python-sdk proto
 
 # Run all the tests. Note! This is no longer the test entrypoint for travis
 test: clean-launch launch-dev lint enterprise-code-checkin-test docker-build test-cmds test-libs test-auth test-license test-enterprise test-worker test-admin test-pps

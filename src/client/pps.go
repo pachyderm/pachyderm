@@ -1225,3 +1225,82 @@ func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	totalDuration += s.UploadTime.AsDuration()
 	return totalDuration
 }
+
+type LogsIterV2 struct {
+	logsClient pps.API_GetLogsClient
+	msg        *pps.LogMessage
+	err        error
+}
+
+func (l *LogsIterV2) Next() bool {
+	if l.err != nil {
+		l.msg = nil
+		return false
+	}
+	l.msg, l.err = l.logsClient.Recv()
+	return l.err == nil
+}
+
+func (l *LogsIterV2) Message() *pps.LogMessage {
+	return l.msg
+}
+
+func (l *LogsIterV2) Err() error {
+	if errors.Is(l.err, io.EOF) {
+		return nil
+	}
+	return grpcutil.ScrubGRPC(l.err)
+}
+
+func (c APIClient) GetLogsV2(pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIterV2 {
+	return c.GetProjectLogsV2(pfs.DefaultProjectName, pipelineName, jobID, data, datumID, master, follow, since)
+}
+
+func (c APIClient) GetProjectLogsV2(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIterV2 {
+	return c.getLogsV2(projectName, pipelineName, jobID, data, datumID, master, follow, since, false)
+}
+
+func (c APIClient) GetLogsV2Loki(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+	master bool,
+	follow bool,
+	since time.Duration,
+) *LogsIterV2 {
+	return c.GetProjectLogsLokiV2(pfs.DefaultProjectName, pipelineName, jobID, data, datumID, master, follow, since)
+}
+
+func (c APIClient) GetProjectLogsLokiV2(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration) *LogsIterV2 {
+	return c.getLogsV2("", pipelineName, jobID, data, datumID, master, follow, since, true)
+}
+
+func (c APIClient) getLogsV2(projectName, pipelineName, jobID string, data []string, datumID string, master, follow bool, since time.Duration, useLoki bool) *LogsIterV2 {
+	request := pps.GetLogsV2Request{
+		Master:         master,
+		Follow:         follow,
+		UseLokiBackend: useLoki,
+	}
+	if since != 0 {
+		request.Since = durationpb.New(since)
+	}
+	if pipelineName != "" {
+		request.Pipeline = NewProjectPipeline(projectName, pipelineName)
+	}
+	if jobID != "" {
+		request.Job = NewProjectJob(projectName, pipelineName, jobID)
+	}
+	request.DataFilters = data
+	if datumID != "" {
+		request.Datum = &pps.Datum{
+			Job: NewProjectJob(projectName, pipelineName, jobID),
+			Id:  datumID,
+		}
+	}
+	resp := &LogsIterV2{}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogsV2(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
+	return resp
+}
+

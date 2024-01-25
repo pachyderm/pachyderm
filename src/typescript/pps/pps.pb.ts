@@ -74,6 +74,19 @@ export enum TaintEffect {
   NO_EXECUTE = "NO_EXECUTE",
 }
 
+export enum LogLevel {
+  LOG_LEVEL_DEBUG = "LOG_LEVEL_DEBUG",
+  LOG_LEVEL_INFO = "LOG_LEVEL_INFO",
+  LOG_LEVEL_ERROR = "LOG_LEVEL_ERROR",
+}
+
+export enum LogFormat {
+  LOG_FORMAT_UNKNOWN = "LOG_FORMAT_UNKNOWN",
+  LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+  LOG_FORMAT_PARSED_JSON = "LOG_FORMAT_PARSED_JSON",
+  LOG_FORMAT_PPS_LOGMESSAGE = "LOG_FORMAT_PPS_LOGMESSAGE",
+}
+
 export enum PipelineInfoPipelineType {
   PIPELINT_TYPE_UNKNOWN = "PIPELINT_TYPE_UNKNOWN",
   PIPELINE_TYPE_TRANSFORM = "PIPELINE_TYPE_TRANSFORM",
@@ -736,6 +749,103 @@ export type SetProjectDefaultsResponse = {
   affectedPipelines?: Pipeline[]
 }
 
+
+type BaseLogQuery = {
+}
+
+export type LogQuery = BaseLogQuery
+  & OneOf<{ user: UserLogQuery; admin: AdminLogQuery }>
+
+
+type BaseAdminLogQuery = {
+}
+
+export type AdminLogQuery = BaseAdminLogQuery
+  & OneOf<{ logql: string; pod: string; podContainer: PodContainer; app: string; master: PipelineLogQuery; storage: PipelineLogQuery; user: UserLogQuery }>
+
+export type PodContainer = {
+  pod?: string
+  container?: string
+}
+
+
+type BaseUserLogQuery = {
+}
+
+export type UserLogQuery = BaseUserLogQuery
+  & OneOf<{ project: string; pipeline: PipelineLogQuery; datum: string; job: string; pipelineJob: PipelineJobLogQuery }>
+
+export type PipelineLogQuery = {
+  project?: string
+  pipeline?: string
+}
+
+export type PipelineJobLogQuery = {
+  pipeline?: PipelineLogQuery
+  job?: string
+}
+
+export type PipelineDatumLogQuery = {
+  pipeline?: PipelineLogQuery
+  datum?: string
+}
+
+export type LogFilter = {
+  timeRange?: TimeRangeLogFilter
+  limit?: string
+  regex?: RegexLogFilter
+  level?: LogLevel
+}
+
+export type TimeRangeLogFilter = {
+  from?: GoogleProtobufTimestamp.Timestamp
+  until?: GoogleProtobufTimestamp.Timestamp
+}
+
+export type RegexLogFilter = {
+  pattern?: string
+  negate?: boolean
+}
+
+export type GetLogsV2Request = {
+  query?: LogQuery
+  filter?: LogFilter
+  tail?: boolean
+  wantPagingHint?: boolean
+  logFormat?: LogFormat
+}
+
+
+type BaseGetLogsV2Response = {
+}
+
+export type GetLogsV2Response = BaseGetLogsV2Response
+  & OneOf<{ pagingHint: PagingHint; log: LogMessageV2 }>
+
+export type PagingHint = {
+  older?: GetLogsV2Request
+  newer?: GetLogsV2Request
+}
+
+
+type BaseLogMessageV2 = {
+}
+
+export type LogMessageV2 = BaseLogMessageV2
+  & OneOf<{ verbatim: VerbatimLogMessage; json: ParsedJSONLogMessage; ppsLogMessage: LogMessage }>
+
+export type VerbatimLogMessage = {
+  line?: Uint8Array
+  timestamp?: GoogleProtobufTimestamp.Timestamp
+}
+
+export type ParsedJSONLogMessage = {
+  verbatim?: VerbatimLogMessage
+  fields?: {[key: string]: string}
+  nativeTimestamp?: GoogleProtobufTimestamp.Timestamp
+  ppsLogMessage?: LogMessage
+}
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -820,6 +930,9 @@ export class API {
   }
   static GetLogs(req: GetLogsRequest, entityNotifier?: fm.NotifyStreamEntityArrival<LogMessage>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<GetLogsRequest, LogMessage>(`/pps_v2.API/GetLogs`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static GetLogsV2(req: GetLogsV2Request, entityNotifier?: fm.NotifyStreamEntityArrival<GetLogsV2Response>, initReq?: fm.InitReq): Promise<void> {
+    return fm.fetchStreamingRequest<GetLogsV2Request, GetLogsV2Response>(`/pps_v2.API/GetLogsV2`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static ActivateAuth(req: ActivateAuthRequest, initReq?: fm.InitReq): Promise<ActivateAuthResponse> {
     return fm.fetchReq<ActivateAuthRequest, ActivateAuthResponse>(`/pps_v2.API/ActivateAuth`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

@@ -1803,6 +1803,118 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 	updateDefaults.Flags().StringVar(&project, "project", project, "Update project defaults.")
 	commands = append(commands, cmdutil.CreateAliases(updateDefaults, "update defaults", "default"))
 
+getLogsV2 := &cobra.Command{
+		Use:   "{{alias}} [--pipeline=<pipeline>|--job=<pipeline>@<job>] [--datum=<datum>]",
+		Short: "Return logs from a job. V2",
+		Long: "This command returns logs from a job. V2\n" +
+			"\t- To filter your logs by pipeline, use the `--pipeline` flag \n" +
+			"\t- To filter your logs by job, use the `--job` flag \n" +
+			"\t- To filter your logs by datum, use the `--datum` flag \n" +
+			"\t- To filter your logs by the master process, use the `--master` flag  with the `--pipeline` flag \n" +
+			"\t- To filter your logs by the worker process, use the `--worker` flag \n" +
+			"\t- To follow the logs as more are created, use the `--follow` flag \n" +
+			"\t- To set the number of lines to return, use the `--tail` flag \n" +
+			"\t- To return results starting from a certain amount of time before now, use the `--since` flag \n",
+		Example: "\t- {{alias}} --pipeline foo \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --tail 10 \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --follow \n" +
+			"\t- {{alias}} --job foo@5f93d03b65fa421996185e53f7f8b1e4 --datum 7f3c[...] \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker  \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master --tail 10  \n" +
+			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker --follow \n",
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return errors.Wrapf(err, "error connecting to pachd")
+			}
+			defer client.Close()
+
+			// Break up comma-separated input paths, and filter out empty entries
+			data := strings.Split(commaInputs, ",")
+			for i := 0; i < len(data); {
+				if len(data[i]) == 0 {
+					if i+1 < len(data) {
+						copy(data[i:], data[i+1:])
+					}
+					data = data[:len(data)-1]
+				} else {
+					i++
+				}
+			}
+			since, err := time.ParseDuration(since)
+			if err != nil {
+				return errors.Wrapf(err, "error parsing since (%q)", since)
+			}
+			if tail != 0 {
+				return errors.Errorf("tail has been deprecated and removed from Pachyderm, use --since instead")
+			}
+
+			if pipelineName != "" && jobStr != "" {
+				return errors.Errorf("only one of pipeline or job should be specified")
+			}
+
+			var jobID string
+			if jobStr != "" {
+				job, err := cmdutil.ParseJob(project, jobStr)
+				if err != nil {
+					return err
+				}
+				pipelineName = job.Pipeline.Name
+				jobID = job.Id
+			}
+
+			// Issue RPC
+			if !cmd.Flags().Changed("since") {
+				since = 0
+			}
+			iter := client.GetLogsV2(project, pipelineName, jobID)
+			for iter.Next() {
+							/*
+				if raw {
+					fmt.Println(protojson.Format(iter.Message()))
+				} else if iter.Message().User && !master && !worker {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if iter.Message().Master && master {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if !iter.Message().User && !iter.Message().Master && worker {
+					prettyLogsPrinter(iter.Message().Message)
+				} else if pipelineName == "" && jobID == "" {
+					prettyLogsPrinter(iter.Message().Message)
+				}
+				*/
+			}
+			return iter.Err()
+		}),
+	}
+	getLogsV2.Flags().StringVarP(&pipelineName, "pipeline", "p", "", "Specify results should only return logs for a given pipeline.")
+	getLogsV2.MarkFlagCustom("pipeline", "__pachctl_get_pipeline")
+	getLogsV2.Flags().StringVarP(&jobStr, "job", "j", "", "Specify results should only return logs for a given job ID.")
+	getLogsV2.MarkFlagCustom("job", "__pachctl_get_job")
+	getLogsV2.Flags().StringVar(&datumID, "datum", "", "Specify results should only return logs for a given datum ID.")
+	getLogsV2.Flags().StringVar(&commaInputs, "inputs", "", "Filter for log lines generated while processing these files (accepts PFS paths or file hashes)")
+	getLogsV2.Flags().BoolVar(&master, "master", false, "Specify results should only return logs from the master process; --pipeline must be set.")
+	getLogsV2.Flags().BoolVar(&worker, "worker", false, "Specify results should only return logs from the worker process.")
+	getLogsV2.Flags().BoolVar(&raw, "raw", false, "Specify results should only return log messages verbatim from server.")
+	getLogsV2.Flags().BoolVarP(&follow, "follow", "f", false, "Follow logs as more are created.")
+	getLogsV2.Flags().Int64VarP(&tail, "tail", "t", 0, "Set the number of lines to return of the most recent logs.")
+	getLogsV2.Flags().StringVar(&since, "since", "24h", "Specify results should return log messages more recent than \"since\".")
+	getLogsV2.Flags().StringVar(&project, "project", project, "Specify the project (by name) containing parent pipeline for the job.")
+	shell.RegisterCompletionFunc(getLogsV2,
+		func(flag, text string, maxCompletions int64) ([]prompt.Suggest, shell.CacheFunc) {
+			if flag == "--pipeline" || flag == "-p" {
+				cs, cf := shell.PipelineCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			if flag == "--job" || flag == "-j" {
+				cs, cf := shell.JobCompletion(flag, text, maxCompletions)
+				return cs, shell.AndCacheFunc(cf, shell.SameFlag(flag))
+			}
+			return nil, shell.SameFlag(flag)
+		})
+	commands = append(commands, cmdutil.CreateAlias(getLogsV2, "logs2"))
+
 	return commands
 }
 

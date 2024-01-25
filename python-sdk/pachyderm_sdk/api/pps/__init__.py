@@ -123,6 +123,19 @@ class TaintEffect(betterproto.Enum):
     NO_EXECUTE = 3
 
 
+class LogLevel(betterproto.Enum):
+    LOG_LEVEL_DEBUG = 0
+    LOG_LEVEL_INFO = 1
+    LOG_LEVEL_ERROR = 2
+
+
+class LogFormat(betterproto.Enum):
+    LOG_FORMAT_UNKNOWN = 0
+    LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = 1
+    LOG_FORMAT_PARSED_JSON = 2
+    LOG_FORMAT_PPS_LOGMESSAGE = 3
+
+
 class PipelineInfoPipelineType(betterproto.Enum):
     """
     The pipeline type is stored here so that we can internally know the type of
@@ -1265,6 +1278,202 @@ class SetProjectDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class LogMessageV1(betterproto.Message):
+    project_name: str = betterproto.string_field(10)
+    """
+    The job and pipeline for which a PFS file is being processed (if the job is
+    an orphan job, pipeline name and ID will be unset)
+    """
+
+    pipeline_name: str = betterproto.string_field(1)
+    job_id: str = betterproto.string_field(2)
+    worker_id: str = betterproto.string_field(3)
+    datum_id: str = betterproto.string_field(4)
+    master: bool = betterproto.bool_field(5)
+    data: List["InputFile"] = betterproto.message_field(6)
+    """The PFS files being processed (one per pipeline/job input)"""
+
+    user: bool = betterproto.bool_field(7)
+    """User is true if log message comes from the users code."""
+
+    ts: datetime = betterproto.message_field(8)
+    """The message logged, and the time at which it was logged"""
+
+    message: str = betterproto.string_field(9)
+
+
+@dataclass(eq=False, repr=False)
+class GetLogsV1Request(betterproto.Message):
+    pipeline: "Pipeline" = betterproto.message_field(1)
+    """
+    The pipeline from which we want to get logs (required if the job in 'job'
+    was created as part of a pipeline. To get logs from a non-orphan job
+    without the pipeline that created it, you need to use ElasticSearch).
+    """
+
+    job: "Job" = betterproto.message_field(2)
+    """The job from which we want to get logs."""
+
+    data_filters: List[str] = betterproto.string_field(3)
+    """
+    Names of input files from which we want processing logs. This may contain
+    multiple files, to query pipelines that contain multiple inputs. Each
+    filter may be an absolute path of a file within a pps repo, or it may be a
+    hash for that file (to search for files at specific versions)
+    """
+
+    datum: "Datum" = betterproto.message_field(4)
+    master: bool = betterproto.bool_field(5)
+    """If true get logs from the master process"""
+
+    follow: bool = betterproto.bool_field(6)
+    """Continue to follow new logs as they become available."""
+
+    tail: int = betterproto.int64_field(7)
+    """
+    If nonzero, the number of lines from the end of the logs to return.  Note:
+    tail applies per container, so you will get tail * <number of pods> total
+    lines back.
+    """
+
+    use_loki_backend: bool = betterproto.bool_field(8)
+    """
+    UseLokiBackend causes the logs request to go through the loki backend
+    rather than through kubernetes. This behavior can also be achieved by
+    setting the LOKI_LOGGING feature flag.
+    """
+
+    since: timedelta = betterproto.message_field(9)
+    """
+    Since specifies how far in the past to return logs from. It defaults to 24
+    hours.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class LogQuery(betterproto.Message):
+    user: "UserLogQuery" = betterproto.message_field(1, group="query")
+    admin: "AdminLogQuery" = betterproto.message_field(2, group="query")
+
+
+@dataclass(eq=False, repr=False)
+class AdminLogQuery(betterproto.Message):
+    logql: str = betterproto.string_field(1, group="query")
+    pod: str = betterproto.string_field(2, group="query")
+    pod_container: "PodContainer" = betterproto.message_field(3, group="query")
+    app: str = betterproto.string_field(4, group="query")
+    master: "PipelineLogQuery" = betterproto.message_field(5, group="query")
+    storage: "PipelineLogQuery" = betterproto.message_field(6, group="query")
+    user: "UserLogQuery" = betterproto.message_field(7, group="query")
+
+
+@dataclass(eq=False, repr=False)
+class PodContainer(betterproto.Message):
+    pod: str = betterproto.string_field(1)
+    container: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class UserLogQuery(betterproto.Message):
+    project: str = betterproto.string_field(1, group="query")
+    pipeline: "PipelineLogQuery" = betterproto.message_field(2, group="query")
+    datum: str = betterproto.string_field(3, group="query")
+    job: str = betterproto.string_field(4, group="query")
+    pipeline_job: "PipelineJobLogQuery" = betterproto.message_field(5, group="query")
+    level: "LogLevel" = betterproto.enum_field(6, group="query")
+
+
+@dataclass(eq=False, repr=False)
+class PipelineLogQuery(betterproto.Message):
+    project: str = betterproto.string_field(1)
+    pipeline: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class PipelineJobLogQuery(betterproto.Message):
+    pipeline: "PipelineLogQuery" = betterproto.message_field(1)
+    job: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class PipelineDatumLogQuery(betterproto.Message):
+    pipeline: "PipelineLogQuery" = betterproto.message_field(1)
+    datum: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class LogFilter(betterproto.Message):
+    time_range: "TimeRangeLogFilter" = betterproto.message_field(1, group="filter")
+    limit: int = betterproto.uint32_field(2, group="filter")
+    regex: "RegexLogFilter" = betterproto.message_field(3, group="filter")
+
+
+@dataclass(eq=False, repr=False)
+class TimeRangeLogFilter(betterproto.Message):
+    from_: datetime = betterproto.message_field(1)
+    to: datetime = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class RegexLogFilter(betterproto.Message):
+    regex: str = betterproto.string_field(1)
+    invert_match: bool = betterproto.bool_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class GetLogsV2Request(betterproto.Message):
+    query: "LogQuery" = betterproto.message_field(1)
+    filter: List["LogFilter"] = betterproto.message_field(2)
+    tail: bool = betterproto.bool_field(3)
+    want_paging_hint: bool = betterproto.bool_field(4)
+    log_format: "LogFormat" = betterproto.enum_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class GetLogsV2Response(betterproto.Message):
+    paging_hint: "PagingHint" = betterproto.message_field(1, group="response")
+    log: "LogMessageV2" = betterproto.message_field(2, group="response")
+
+
+@dataclass(eq=False, repr=False)
+class PagingHint(betterproto.Message):
+    older: "GetLogsV2Request" = betterproto.message_field(1)
+    """
+    optional GetLogsV2Request older = 1;optional GetLogsV2Request newer = 2;
+    """
+
+    newer: "GetLogsV2Request" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class LogMessageV2(betterproto.Message):
+    verbatim: "VerbatimLogMessage" = betterproto.message_field(1, group="logv2")
+    json: "ParsedJsonLogMessage" = betterproto.message_field(2, group="logv2")
+    pps_log_message: "LogMessage" = betterproto.message_field(3, group="logv2")
+
+
+@dataclass(eq=False, repr=False)
+class VerbatimLogMessage(betterproto.Message):
+    line: bytes = betterproto.bytes_field(1)
+    timestamp: datetime = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class ParsedJsonLogMessage(betterproto.Message):
+    verbatim: "VerbatimLogMessage" = betterproto.message_field(1)
+    fields: Dict[str, str] = betterproto.map_field(
+        2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """
+    map<string, google.protobuf.Any> fields = 2; // A raw JSON parse of the
+    entire line.
+    """
+
+    native_timestamp: datetime = betterproto.message_field(3)
+    pps_log_message: "LogMessage" = betterproto.message_field(4)
+
+
 class ApiStub:
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
@@ -1406,6 +1615,16 @@ class ApiStub:
             "/pps_v2.API/GetLogs",
             request_serializer=GetLogsRequest.SerializeToString,
             response_deserializer=LogMessage.FromString,
+        )
+        self.__rpc_get_logs_v1 = channel.unary_stream(
+            "/pps_v2.API/GetLogsV1",
+            request_serializer=GetLogsV1Request.SerializeToString,
+            response_deserializer=LogMessageV1.FromString,
+        )
+        self.__rpc_get_logs_v2 = channel.unary_stream(
+            "/pps_v2.API/GetLogsV2",
+            request_serializer=GetLogsV2Request.SerializeToString,
+            response_deserializer=GetLogsV2Response.FromString,
         )
         self.__rpc_activate_auth = channel.unary_unary(
             "/pps_v2.API/ActivateAuth",
@@ -1944,6 +2163,62 @@ class ApiStub:
         for response in self.__rpc_get_logs(request):
             yield response
 
+    def get_logs_v1(
+        self,
+        *,
+        pipeline: "Pipeline" = None,
+        job: "Job" = None,
+        data_filters: Optional[List[str]] = None,
+        datum: "Datum" = None,
+        master: bool = False,
+        follow: bool = False,
+        tail: int = 0,
+        use_loki_backend: bool = False,
+        since: timedelta = None
+    ) -> Iterator["LogMessageV1"]:
+        data_filters = data_filters or []
+
+        request = GetLogsV1Request()
+        if pipeline is not None:
+            request.pipeline = pipeline
+        if job is not None:
+            request.job = job
+        request.data_filters = data_filters
+        if datum is not None:
+            request.datum = datum
+        request.master = master
+        request.follow = follow
+        request.tail = tail
+        request.use_loki_backend = use_loki_backend
+        if since is not None:
+            request.since = since
+
+        for response in self.__rpc_get_logs_v1(request):
+            yield response
+
+    def get_logs_v2(
+        self,
+        *,
+        query: "LogQuery" = None,
+        filter: Optional[List["LogFilter"]] = None,
+        tail: bool = False,
+        want_paging_hint: bool = False,
+        log_format: "LogFormat" = None
+    ) -> Iterator["GetLogsV2Response"]:
+        filter = filter or []
+
+        request = GetLogsV2Request()
+        if query is not None:
+            request.query = query
+        if filter is not None:
+            request.filter = filter
+        request.tail = tail
+        request.want_paging_hint = want_paging_hint
+        request.log_format = log_format
+
+        for response in self.__rpc_get_logs_v2(request):
+            yield response
+
     def activate_auth(self) -> "ActivateAuthResponse":
         request = ActivateAuthRequest()
 
@@ -2390,6 +2665,36 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def get_logs_v1(
+        self,
+        pipeline: "Pipeline",
+        job: "Job",
+        data_filters: Optional[List[str]],
+        datum: "Datum",
+        master: bool,
+        follow: bool,
+        tail: int,
+        use_loki_backend: bool,
+        since: timedelta,
+        context: "grpc.ServicerContext",
+    ) -> Iterator["LogMessageV1"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def get_logs_v2(
+        self,
+        query: "LogQuery",
+        filter: Optional[List["LogFilter"]],
+        tail: bool,
+        want_paging_hint: bool,
+        log_format: "LogFormat",
+        context: "grpc.ServicerContext",
+    ) -> Iterator["GetLogsV2Response"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def activate_auth(self, context: "grpc.ServicerContext") -> "ActivateAuthResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2645,6 +2950,16 @@ class ApiBase:
                 self.get_logs,
                 request_deserializer=GetLogsRequest.FromString,
                 response_serializer=GetLogsRequest.SerializeToString,
+            ),
+            "GetLogsV1": grpc.unary_stream_rpc_method_handler(
+                self.get_logs_v1,
+                request_deserializer=GetLogsV1Request.FromString,
+                response_serializer=GetLogsV1Request.SerializeToString,
+            ),
+            "GetLogsV2": grpc.unary_stream_rpc_method_handler(
+                self.get_logs_v2,
+                request_deserializer=GetLogsV2Request.FromString,
+                response_serializer=GetLogsV2Request.SerializeToString,
             ),
             "ActivateAuth": grpc.unary_unary_rpc_method_handler(
                 self.activate_auth,

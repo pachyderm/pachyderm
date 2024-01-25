@@ -4789,6 +4789,44 @@
         ]
       }
     },
+    "/pps_v2.API/GetLogsV2": {
+      "post": {
+        "operationId": "API_GetLogsV2",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2GetLogsV2Response"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2GetLogsV2Response"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2GetLogsV2Request"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/ActivateAuth": {
       "post": {
         "summary": "An internal call that causes PPS to put itself into an auth-enabled state\n(all pipeline have tokens, correct permissions, etcd)",
@@ -5641,18 +5679,6 @@
         "PARQUET"
       ],
       "default": "UNKNOWN"
-    },
-    "SetLogLevelRequestLogLevel": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEBUG",
-        "INFO",
-        "ERROR",
-        "OFF"
-      ],
-      "default": "UNKNOWN",
-      "description": " - OFF: Only GRPC logs can be turned off."
     },
     "admin_v2ClusterInfo": {
       "type": "object",
@@ -6605,10 +6631,10 @@
       "type": "object",
       "properties": {
         "pachyderm": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "grpc": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "duration": {
           "type": "string"
@@ -6617,6 +6643,18 @@
           "type": "boolean"
         }
       }
+    },
+    "debug_v2SetLogLevelRequestLogLevel": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "DEBUG",
+        "INFO",
+        "ERROR",
+        "OFF"
+      ],
+      "default": "UNKNOWN",
+      "description": " - OFF: Only GRPC logs can be turned off."
     },
     "debug_v2SetLogLevelResponse": {
       "type": "object",
@@ -8835,6 +8873,39 @@
     "pps_v2ActivateAuthResponse": {
       "type": "object"
     },
+    "pps_v2AdminLogQuery": {
+      "type": "object",
+      "properties": {
+        "logql": {
+          "type": "string",
+          "description": "Arbitrary LogQL query."
+        },
+        "pod": {
+          "type": "string",
+          "description": "A pod's logs (all containers)."
+        },
+        "podContainer": {
+          "$ref": "#/definitions/pps_v2PodContainer",
+          "description": "One container."
+        },
+        "app": {
+          "type": "string",
+          "title": "One \"app\" (logql -\u003e {app=X})"
+        },
+        "master": {
+          "$ref": "#/definitions/pps_v2PipelineLogQuery",
+          "description": "All master worker lines from a pipeline."
+        },
+        "storage": {
+          "$ref": "#/definitions/pps_v2PipelineLogQuery",
+          "description": "All storage container lines from a pipeline."
+        },
+        "user": {
+          "$ref": "#/definitions/pps_v2UserLogQuery",
+          "description": "All worker lines from a pipeline/job."
+        }
+      }
+    },
     "pps_v2CheckStatusRequest": {
       "type": "object",
       "properties": {
@@ -9323,6 +9394,37 @@
         }
       }
     },
+    "pps_v2GetLogsV2Request": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/pps_v2LogQuery"
+        },
+        "filter": {
+          "$ref": "#/definitions/pps_v2LogFilter"
+        },
+        "tail": {
+          "type": "boolean"
+        },
+        "wantPagingHint": {
+          "type": "boolean"
+        },
+        "logFormat": {
+          "$ref": "#/definitions/pps_v2LogFormat"
+        }
+      }
+    },
+    "pps_v2GetLogsV2Response": {
+      "type": "object",
+      "properties": {
+        "pagingHint": {
+          "$ref": "#/definitions/pps_v2PagingHint"
+        },
+        "log": {
+          "$ref": "#/definitions/pps_v2LogMessageV2"
+        }
+      }
+    },
     "pps_v2GetProjectDefaultsRequest": {
       "type": "object",
       "properties": {
@@ -9802,6 +9904,45 @@
         }
       }
     },
+    "pps_v2LogFilter": {
+      "type": "object",
+      "properties": {
+        "timeRange": {
+          "$ref": "#/definitions/pps_v2TimeRangeLogFilter"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "regex": {
+          "$ref": "#/definitions/pps_v2RegexLogFilter"
+        },
+        "level": {
+          "$ref": "#/definitions/pps_v2LogLevel",
+          "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior."
+        }
+      }
+    },
+    "pps_v2LogFormat": {
+      "type": "string",
+      "enum": [
+        "LOG_FORMAT_UNKNOWN",
+        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+        "LOG_FORMAT_PARSED_JSON",
+        "LOG_FORMAT_PPS_LOGMESSAGE"
+      ],
+      "default": "LOG_FORMAT_UNKNOWN",
+      "title": "- LOG_FORMAT_UNKNOWN: error"
+    },
+    "pps_v2LogLevel": {
+      "type": "string",
+      "enum": [
+        "LOG_LEVEL_DEBUG",
+        "LOG_LEVEL_INFO",
+        "LOG_LEVEL_ERROR"
+      ],
+      "default": "LOG_LEVEL_DEBUG"
+    },
     "pps_v2LogMessage": {
       "type": "object",
       "properties": {
@@ -9846,6 +9987,31 @@
         }
       },
       "description": "LogMessage is a log line from a PPS worker, annotated with metadata\nindicating when and why the line was logged."
+    },
+    "pps_v2LogMessageV2": {
+      "type": "object",
+      "properties": {
+        "verbatim": {
+          "$ref": "#/definitions/pps_v2VerbatimLogMessage"
+        },
+        "json": {
+          "$ref": "#/definitions/pps_v2ParsedJSONLogMessage"
+        },
+        "ppsLogMessage": {
+          "$ref": "#/definitions/pps_v2LogMessage"
+        }
+      }
+    },
+    "pps_v2LogQuery": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/pps_v2UserLogQuery"
+        },
+        "admin": {
+          "$ref": "#/definitions/pps_v2AdminLogQuery"
+        }
+      }
     },
     "pps_v2LokiLogMessage": {
       "type": "object",
@@ -9933,6 +10099,17 @@
         }
       }
     },
+    "pps_v2PagingHint": {
+      "type": "object",
+      "properties": {
+        "older": {
+          "$ref": "#/definitions/pps_v2GetLogsV2Request"
+        },
+        "newer": {
+          "$ref": "#/definitions/pps_v2GetLogsV2Request"
+        }
+      }
+    },
     "pps_v2ParallelismSpec": {
       "type": "object",
       "properties": {
@@ -9940,6 +10117,31 @@
           "type": "string",
           "format": "uint64",
           "title": "Starts the pipeline/job with a 'constant' workers, unless 'constant' is\nzero. If 'constant' is zero (which is the zero value of ParallelismSpec),\nthen Pachyderm will choose the number of workers that is started,\n(currently it chooses the number of workers in the cluster)"
+        }
+      }
+    },
+    "pps_v2ParsedJSONLogMessage": {
+      "type": "object",
+      "properties": {
+        "verbatim": {
+          "$ref": "#/definitions/pps_v2VerbatimLogMessage",
+          "description": "The verbatim line from Loki."
+        },
+        "fields": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; // A raw JSON parse of the entire line.\n\nA raw JSON parse of the entire line."
+        },
+        "nativeTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "If a parseable timestamp was found in `fields`."
+        },
+        "ppsLogMessage": {
+          "$ref": "#/definitions/pps_v2LogMessage",
+          "description": "For code that wants to filter on pipeline/job/etc."
         }
       }
     },
@@ -10132,6 +10334,28 @@
         }
       }
     },
+    "pps_v2PipelineJobLogQuery": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2PipelineLogQuery"
+        },
+        "job": {
+          "type": "string"
+        }
+      }
+    },
+    "pps_v2PipelineLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "pipeline": {
+          "type": "string"
+        }
+      }
+    },
     "pps_v2PipelineState": {
       "type": "string",
       "enum": [
@@ -10146,6 +10370,17 @@
       ],
       "default": "PIPELINE_STATE_UNKNOWN",
       "description": " - PIPELINE_STARTING: There is a PipelineInfo + spec commit, but no RC\nThis happens when a pipeline has been created but not yet picked up by a\nPPS server.\n - PIPELINE_RUNNING: A pipeline has a spec commit and a service + RC\nThis is the normal state of a pipeline.\n - PIPELINE_RESTARTING: Equivalent to STARTING (there is a PipelineInfo + commit, but no RC)\nAfter some error caused runPipeline to exit, but before the pipeline is\nre-run. This is when the exponential backoff is in effect.\n - PIPELINE_FAILURE: The pipeline has encountered unrecoverable errors and is no longer being\nretried. It won't leave this state until the pipeline is updated.\n - PIPELINE_PAUSED: The pipeline has been explicitly paused by the user (the pipeline spec's\nStopped field should be true if the pipeline is in this state)\n - PIPELINE_STANDBY: The pipeline is fully functional, but there are no commits to process.\n - PIPELINE_CRASHING: The pipeline's workers are crashing, or failing to come up, this may\nresolve itself, the pipeline may make progress while in this state if the\nproblem is only being experienced by some workers."
+    },
+    "pps_v2PodContainer": {
+      "type": "object",
+      "properties": {
+        "pod": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        }
+      }
     },
     "pps_v2ProcessStats": {
       "type": "object",
@@ -10166,6 +10401,17 @@
         "uploadBytes": {
           "type": "string",
           "format": "int64"
+        }
+      }
+    },
+    "pps_v2RegexLogFilter": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "negate": {
+          "type": "boolean"
         }
       }
     },
@@ -10533,6 +10779,21 @@
       "default": "ALL_EFFECTS",
       "description": "TaintEffect is an effect that can be matched by a toleration.\n\n - ALL_EFFECTS: Empty matches all effects.\n - NO_SCHEDULE: \"NoSchedule\"\n - PREFER_NO_SCHEDULE: \"PreferNoSchedule\"\n - NO_EXECUTE: \"NoExecute\""
     },
+    "pps_v2TimeRangeLogFilter": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Can be null."
+        },
+        "until": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Can be null."
+        }
+      }
+    },
     "pps_v2Toleration": {
       "type": "object",
       "properties": {
@@ -10684,6 +10945,45 @@
         },
         "stats": {
           "$ref": "#/definitions/pps_v2ProcessStats"
+        }
+      }
+    },
+    "pps_v2UserLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "All pipelines in the project."
+        },
+        "pipeline": {
+          "$ref": "#/definitions/pps_v2PipelineLogQuery",
+          "description": "One pipeline in a project."
+        },
+        "datum": {
+          "type": "string",
+          "description": "One datum."
+        },
+        "job": {
+          "type": "string",
+          "description": "One job, across pipelines and projects."
+        },
+        "pipelineJob": {
+          "$ref": "#/definitions/pps_v2PipelineJobLogQuery",
+          "description": "One job in one pipeline."
+        }
+      },
+      "description": "Only returns \"user\" logs."
+    },
+    "pps_v2VerbatimLogMessage": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "string",
+          "format": "byte"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },
