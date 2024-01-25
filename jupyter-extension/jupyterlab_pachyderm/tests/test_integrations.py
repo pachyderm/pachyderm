@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
+from shutil import copyfile
 
 import pytest
 import requests
@@ -15,9 +16,9 @@ from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
-from pachyderm_sdk.config import ConfigFile, Context
+from pachyderm_sdk.config import ConfigFile
 
-from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
+from . import TEST_NOTEBOOK
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
@@ -48,53 +49,43 @@ def pachyderm_resources():
     yield repos, branches, files
 
 
-@pytest.fixture()
-def pach_config(tmp_path: Path) -> Path:
+@pytest.fixture(scope="module")
+def pach_config(tmpdir_factory) -> Path:
     """Temporary path used to write the pach config for tests."""
-    yield tmp_path / "config.json"
+    config_path = tmpdir_factory.mktemp('pachyderm').join("config.json")
+    copyfile(PACH_CONFIG, config_path)
+    yield config_path
 
 
-@pytest.fixture()
+@pytest.fixture(scope="module")
 def dev_server(pach_config: Path):
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        # preserve specifically:
-        # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
-        # The args after os.environ should be no-ops, but they're here in case
-        # env.py changes (mount-server should use jupyterlab-pach's defaults).
         env=dict(
             os.environ,
             PACH_CONFIG=str(pach_config),
         ),
         stdout=subprocess.PIPE,
     )
-    # Give time for python test server to start
-    time.sleep(3)
-
-    # Give time for mount server to start
-    running = False
-    for _ in range(15):
-        try:
-            r = requests.get(f"{BASE_URL}/config", timeout=1)
-            if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
-                running = True
-                break
-        except Exception:
-            pass
+    try:
+        # Give time for python test server to start
+        for _ in range(15):
+            try:
+                r = requests.get(f"{BASE_URL}/config", timeout=1)
+                if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                    yield
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+        else:
+            raise RuntimeError("could not start development server")
+    finally:
+        print("killing development server...")
+        p.terminate()
+        p.wait()
         time.sleep(1)
-
-    if running:
-        yield
-
-    print("killing development server...")
-
-    p.terminate()
-    p.wait()
-    time.sleep(1)
-
-    if not running:
-        raise RuntimeError("mount server is having issues starting up")
 
 
 def test_list_mounts(pachyderm_resources, dev_server):
@@ -517,7 +508,7 @@ def test_config(dev_server, pach_config):
 
 @pytest.fixture(params=[True, False])
 def simple_pachyderm_env(request):
-    client = Client().from_config()
+    client = Client.from_config()
     suffix = str(randint(100000, 999999))
 
     if request.param:
@@ -550,9 +541,6 @@ def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline, ext
     config.input_spec = f'pfs:\n  repo: {repo.name}\n  glob: "/*"'
     # this is currently not being tested so it is set to the empty string
     config.resource_spec = ""
-    config.requirements = str(
-        notebook.with_name(config.requirements).relative_to(os.getcwd())
-    )
     config.external_files = external_files
     notebook_data["metadata"][METADATA_KEY]["config"] = config.to_dict()
     return json.dumps(notebook_data)

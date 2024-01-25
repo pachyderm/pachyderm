@@ -107,6 +107,8 @@ class PpsConfig:
     def to_dict(self):
         data = asdict(self)
         del data["notebook_path"]
+        if data['requirements'] is not None:
+            data['requirements'] = str(data['requirements'])
         return data
 
 
