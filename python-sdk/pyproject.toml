@@ -21,7 +21,7 @@ classifiers = [
 
 [tool.poetry.dependencies]
 python = ">=3.8,<4.0"
-betterproto = "2.0.0b5"
+betterproto = "2.0.0b6"
 certifi = ">=2022.9"
 grpcio = ">=1.52.0"
 grpc-interceptor = "^0.14.2"
