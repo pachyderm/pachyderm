@@ -6,9 +6,11 @@ import (
 	"context"
 	"flag"
 	"math/rand"
+	"os"
 	"path"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -20,6 +22,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
@@ -27,13 +30,14 @@ import (
 const (
 	namespace            = "fuzz-cluster-1"
 	useSucccessValWeight = .75
-	maxRepeatedCount     = 3
+	maxRepeatedCount     = 5
 	// usNilWeight          = .2
 )
 
 var (
-	runDefault    = flag.Bool("gen.default", true, "use the default data generators") // DNJ TODO - just hide in test harness? set back to false at least
-	successInputs = map[string][]protoreflect.Value{}
+	runDefault      = flag.Bool("gen.default", true, "use the default data generators") // DNJ TODO - just hide in test harness? set back to false at least
+	successInputs   = map[string][]protoreflect.Value{}
+	successInputsMu = sync.Mutex{}
 )
 
 var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // DNJ TODO - make own rangeRPC function from rpc_fuzz_test? at least move list of apis to separate input file(s)
@@ -44,11 +48,14 @@ var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // DNJ TODO - ma
 		// pfs.API_DeleteProject_FullMethodName, // DNJ TODO - weighting?
 		// pfs.API_InspectProjectV2_FullMethodName,
 		// pfs.API_InspectRepo_FullMethodName,
-		// pfs.API_ListRepo_FullMethodName,
+		pfs.API_ListProject_FullMethodName,
+		pfs.API_ListRepo_FullMethodName,
 		// pfs.API_ListBranch_FullMethodName,
 	},
 	pps.File_pps_pps_proto: {
 		pps.API_CreatePipeline_FullMethodName,
+		// pps.API_InspectPipeline_FullMethodName,
+		pps.API_ListPipeline_FullMethodName,
 	},
 }
 
@@ -70,7 +77,7 @@ type generatorSource struct { // DNJ TODO - should this hold successInputs?
 type Generator func(generatorSource) protoreflect.Value
 
 func subinput(genSource generatorSource) protoreflect.Value {
-	if len(genSource.ancestry) > genSource.r.Intn(7) {
+	if len(genSource.ancestry) > genSource.r.Intn(15) {
 		return protoreflect.ValueOf(nil) // no multi-inputs
 	} else {
 		if len(genSource.ancestry) > 1 {
@@ -122,6 +129,8 @@ func randJson(genSource generatorSource) protoreflect.Value {
 
 func existingString(field string) Generator {
 	return func(genSource generatorSource) protoreflect.Value {
+		successInputsMu.Lock()
+		defer successInputsMu.Unlock()
 		if vals, ok := successInputs[field]; ok { // repo name doesn't match the field for pipeline inputs
 			return vals[genSource.r.Intn(len(vals))]
 		} else {
@@ -183,10 +192,10 @@ func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd pr
 	}
 }
 
-func getSharedCluster(f *testing.F) *client.APIClient {
-	k := testutil.GetKubeClient(f)
-	minikubetestenv.PutNamespace(f, namespace)
-	pachClient := minikubetestenv.InstallRelease(f, context.Background(), namespace, k, &minikubetestenv.DeployOpts{
+func getSharedCluster(t testing.TB) *client.APIClient {
+	k := testutil.GetKubeClient(t)
+	minikubetestenv.PutNamespace(t, namespace)
+	pachClient := minikubetestenv.InstallRelease(t, context.Background(), namespace, k, &minikubetestenv.DeployOpts{
 		CleanupAfter:       false,
 		UseLeftoverCluster: true,
 		ValueOverrides: map[string]string{
@@ -194,6 +203,8 @@ func getSharedCluster(f *testing.F) *client.APIClient {
 			"prxoy.resources.limits.memory":   "1Gi",
 			"proxy.replicas":                  "10", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
 			"console.enabled":                 "true",
+			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
+			"pachd.activateAuth":              "false",
 		},
 	})
 	return pachClient
@@ -283,10 +294,13 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
 		field := msgDesc.Fields().Get(i)
 		var fieldVal protoreflect.Value
+		successInputsMu.Lock()
 		if successVals, ok := potentialInputs[string(field.FullName())]; ok && // DNJ TODO figure out input naming
 			r.Float32() < useSucccessValWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
+			successInputsMu.Unlock()
 		} else {
+			successInputsMu.Unlock()
 			genSource := generatorSource{
 				ctx:           ctx,
 				r:             r,
@@ -351,11 +365,15 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 	// DNJ TODO expander
 	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
 		fieldName := string(field.FullName())
+		successInputsMu.Lock()
 		if vals, ok := out[fieldName]; ok {
-			vals = append(vals, fieldVal) // DNJ TODO - test
+			if !slices.ContainsFunc(vals, func(v protoreflect.Value) bool { return v.Interface() == fieldVal.Interface() }) { // avoid long lists of duplicates
+				out[fieldName] = append(vals, fieldVal) // DNJ TODO - test
+			}
 		} else {
 			out[fieldName] = []protoreflect.Value{fieldVal} // DNJ TODO repeated fields
 		}
+		successInputsMu.Unlock()
 		if field.Kind() == protoreflect.MessageKind { // handle sub messages as well as saving the whole message
 			subMsg, ok := fieldVal.Interface().(*dynamicpb.Message)
 			if field.IsList() {
@@ -387,8 +405,8 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TOD
 	rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
 		input := inputGenerator(ctx, r, md.Input(), successInputs, generatorSource{hasInputLevel: new(int)})
 		reply := dynamicpb.NewMessage(md.Output())
-		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name())) // DNJ TODO move to rpc fuzz test and make function for this.
-		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
+		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))      // DNJ TODO move to rpc fuzz test and make function for this.
+		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil { // DNJ TODO - do in goroutine so we don't wait for response?
 			log.Info(ctx, "Invoke grpc method err",
 				zap.String("method name", fullName),
 				zap.String("input", input.String()),
@@ -408,25 +426,32 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TOD
 }
 
 // DNJ TODO context and logger?
-func FuzzGrpcWorkflow(f *testing.F) { // DNJ TODO - better name
+func TestGrpcWorkflow(t *testing.T) { // DNJ TODO - better name
 	if !*runDefault {
-		f.Skip()
+		t.Skip()
 	}
 	// We need a file logger since Go runs Fuzz in seperate procs
 	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
-	c := getSharedCluster(f)
+	c := getSharedCluster(t)
 	// for i := 0; i < 100; i++ {
 	// 	fuzzGrpc(f, ctx, c, time.Now().Unix())
 	// 	time.Sleep(time.Millisecond * 1000)
 	// }
-	f.Fuzz(func(t *testing.T, seed int64) {
-		fuzzGrpc(ctx, c, seed)
-		// log.Info(ctx, "Stored input", zap.String("success inputs", fmt.Sprintf("%#v", successInputs)))
-	})
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(10)
+	// f.Fuzz(
+	for i := 0; i < 10000; i++ {
+		eg.Go(func() error {
+			fuzzGrpc(ctx, c, rand.Int63())
+			return nil
+			// log.Info(ctx, "Stored input", zap.String("success inputs", fmt.Sprintf("%#v", successInputs)))
+		})
+	}
+
 	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
 	//DNJ TODO validation in Fuzz()?
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
-		require.NoError(f, err, "fsck should not error after fuzzing")
+		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
 }
