@@ -43,9 +43,10 @@ const (
 	clusterHostnameKey     = "dev.pachyderm.io/hostname"
 
 	// Annotations that configure a namespace.
-	tlsKey            = "dev.pachyderm.io/tls"
-	exposedPortsKey   = "dev.pachyderm.io/exposed-ports"
-	portBindingPrefix = "dev.pachyderm.io/port."
+	tlsKey             = "dev.pachyderm.io/tls"
+	exposedPortsKey    = "dev.pachyderm.io/exposed-ports"
+	portBindingPrefix  = "dev.pachyderm.io/port."
+	consoleOverrideKey = "dev.pachyderm.io/console-version"
 
 	fieldManager   = "pachdev"         // When k8s wants a fieldManager, we're this.
 	pachydermProxy = "pachyderm_proxy" // Name of the proxy port.
@@ -155,6 +156,8 @@ type ClusterConfig struct {
 	Hostname string
 	// If true, use https/grpcs.
 	TLS bool
+	// If set, override the version of console.
+	ConsoleTag string
 }
 
 func (c *Cluster) GetConfig(ctx context.Context, namespace string) (*ClusterConfig, error) {
@@ -226,6 +229,9 @@ func (c *Cluster) GetConfig(ctx context.Context, namespace string) (*ClusterConf
 		result.TLS = tls
 	} else {
 		errors.JoinInto(&errs, errors.New("unable to determine whether or not to use TLS"))
+	}
+	if console, ok := ns.Annotations[consoleOverrideKey]; ok {
+		result.ConsoleTag = console
 	}
 
 	if errs != nil {
@@ -519,24 +525,47 @@ func (c *Cluster) PushImage(ctx context.Context, src string, name string) error 
 	return nil
 }
 
-// Allocate port returns a port number for the named service.  If multiple ports are allocated to
-// the named service, they are all returned separated by commas.
-func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (string, error) {
+// editNamespace adjusts a namespace in a transactional manner.
+func (c *Cluster) editNamespace(ctx context.Context, namespace string, edit func(*corev1.Namespace) error) error {
 	k, err := c.GetKubeconfig(ctx)
 	if err != nil {
-		return "", errors.Wrap(err, "get kubeconfig")
+		return errors.Wrap(err, "get kubeconfig")
 	}
 	kc, err := k.Client()
 	if err != nil {
-		return "", errors.Wrap(err, "get kube client")
+		return errors.Wrap(err, "get kube client")
 	}
 
-	var port string
 	if err := backoff.RetryUntilCancel(ctx, func() error {
 		ns, err := kc.CoreV1().Namespaces().Get(ctx, namespace, v1.GetOptions{})
 		if err != nil {
 			return errors.Wrap(err, "get namespace")
 		}
+		if err := edit(ns); err != nil {
+			return errors.Wrap(err, "edit namespace")
+		}
+		if _, err := kc.CoreV1().Namespaces().Update(ctx, ns, v1.UpdateOptions{
+			FieldManager: fieldManager,
+		}); err != nil {
+			return errors.Wrap(err, "update namespace")
+		}
+		return nil
+	}, backoff.NewConstantBackOff(time.Second), func(err error, _ time.Duration) error {
+		if strings.Contains(err.Error(), "retry") {
+			return nil
+		}
+		return err
+	}); err != nil {
+		return errors.Wrap(err, "retry namespace edit")
+	}
+	return nil
+}
+
+// Allocate port returns a port number for the named service.  If multiple ports are allocated to
+// the named service, they are all returned separated by commas.
+func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (string, error) {
+	var port string
+	if err := c.editNamespace(ctx, namespace, func(ns *corev1.Namespace) error {
 		a := portBindingPrefix + service
 		if x, ok := ns.Annotations[a]; ok {
 			port = x
@@ -557,20 +586,9 @@ func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (
 		} else {
 			ns.Annotations[exposedPortsKey] = ""
 		}
-
-		if _, err := kc.CoreV1().Namespaces().Update(ctx, ns, v1.UpdateOptions{
-			FieldManager: fieldManager,
-		}); err != nil {
-			return errors.Wrap(err, "update namespace")
-		}
 		return nil
-	}, backoff.NewConstantBackOff(time.Second), func(err error, _ time.Duration) error {
-		if strings.Contains(err.Error(), "retry") {
-			return nil
-		}
-		return err
 	}); err != nil {
-		return "", errors.Wrap(err, "find available ports")
+		return "", errors.Wrap(err, "allocate port")
 	}
 	return port, nil
 }

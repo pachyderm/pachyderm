@@ -143,6 +143,7 @@ func PushPachydermCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Namespace, "namespace", "default", "The Kubernetes namespace to install/upgrade.")
 	cmd.Flags().BoolVar(&opts.Diff, "diff", false, "If set, instead of deploying, just print a diff between what would be deployed and what is currently deployed.")
 	cmd.Flags().BoolVar(&opts.NoSwitchContext, "no-switch-context", false, "If set, don't switch to this Pachyderm context.")
+	cmd.Flags().StringVar(&opts.ConsoleTag, "console", "", "If set, use this version of console instead of what's in the helm chart.")
 	return cmd
 }
 
