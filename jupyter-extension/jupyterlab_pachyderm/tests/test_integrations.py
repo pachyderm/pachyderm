@@ -30,6 +30,7 @@ DEFAULT_PROJECT = "default"
 def pachyderm_resources():
     print("creating pachyderm resources")
 
+    project = pfs.Project(name=DEFAULT_PROJECT)
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
@@ -38,7 +39,7 @@ def pachyderm_resources():
     client.pfs.delete_all()
 
     for repo in repos:
-        client.pfs.create_repo(repo=pfs.Repo(name=repo))
+        client.pfs.create_repo(repo=pfs.Repo(name=repo, project=project))
         for branch in branches:
             for file in files:
                 with client.pfs.commit(
@@ -47,6 +48,9 @@ def pachyderm_resources():
                     c.put_file_from_bytes(path=f"/{file}", data=b"some data")
 
     yield repos, branches, files
+
+    for repo in repos:
+        client.pfs.delete_repo(repo=pfs.Repo(name=repo, project=project))
 
 
 @pytest.fixture()
