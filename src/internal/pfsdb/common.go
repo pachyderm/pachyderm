@@ -3,9 +3,10 @@ package pfsdb
 import (
 	"context"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"

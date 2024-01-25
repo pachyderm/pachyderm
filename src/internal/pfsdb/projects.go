@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"github.com/jmoiron/sqlx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"strings"
 	"time"
+
+	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -116,9 +117,9 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,created_at FROM core.projects project\n"
+	query := "SELECT id,name,description,created_at FROM core.projects project"
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("WHERE %s\n", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[projectColumn]
@@ -129,7 +130,8 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[projectColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + OrderByQuery[projectColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[projectColumn](orderByGeneric...)
+	query = extCtx.Rebind(query)
 	return &ProjectIterator{
 		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize),
 		extCtx:    extCtx,

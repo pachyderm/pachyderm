@@ -46,10 +46,15 @@ func generateTriggerFunctionStatement(schema, table, channel string) string {
 	return fmt.Sprintf(template, schema, table, channel, schema, table, schema, table)
 }
 
-func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo, error) {
+func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext, postMigration bool) ([]Repo, error) {
 	// First collect all repos from collections.repos
 	var repoColRows []v2_7_0.CollectionRecord
-	if err := sqlx.SelectContext(ctx, q, &repoColRows, `SELECT key, proto, createdat, updatedat FROM collections.repos ORDER BY createdat, key ASC`); err != nil {
+	tableName := "collections.repos"
+	if postMigration {
+		tableName += "_deprecated"
+	}
+	if err := sqlx.SelectContext(ctx, q, &repoColRows,
+		fmt.Sprintf(`SELECT key, proto, createdat, updatedat FROM %s ORDER BY createdat, key ASC`, tableName)); err != nil {
 		return nil, errors.Wrap(err, "listing repos from collections.repos")
 	}
 
@@ -75,8 +80,8 @@ func ListReposFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Repo
 func ListCommitsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]CommitInfo, map[string]string, error) {
 	var commitsColRows []v2_7_0.CollectionRecord
 	childParent := make(map[string]string)
-	if err := sqlx.SelectContext(ctx, q, &commitsColRows, `SELECT key, proto, createdat, updatedat FROM collections.commits ORDER BY createdat, key ASC`); err != nil {
-		return nil, nil, errors.Wrap(err, "listing commits from collections.commits")
+	if err := sqlx.SelectContext(ctx, q, &commitsColRows, `SELECT key, proto, createdat, updatedat FROM collections.commits_deprecated ORDER BY createdat, key ASC`); err != nil {
+		return nil, nil, errors.Wrap(err, "listing commits from collections.commits_deprecated")
 	}
 	var commits []CommitInfo
 	for _, row := range commitsColRows {
@@ -97,19 +102,23 @@ func ListCommitsFromCollection(ctx context.Context, q sqlx.QueryerContext) ([]Co
 	return commits, childParent, nil
 }
 
-func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.QueryerContext) ([]*Branch, []*Edge, []*BranchTrigger, error) {
+func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.QueryerContext, postMigration bool) ([]*Branch, []*Edge, []*BranchTrigger, error) {
 	type branchColRow struct {
 		v2_7_0.CollectionRecord
 		RepoID uint64 `db:"repo_id"`
 	}
 	var branchColRows []branchColRow
-	if err := sqlx.SelectContext(ctx, q, &branchColRows, `
+	tableName := "collections.branches"
+	if postMigration {
+		tableName += "_deprecated"
+	}
+	if err := sqlx.SelectContext(ctx, q, &branchColRows, fmt.Sprintf(`
 		SELECT col.key, col.proto, col.createdat, col.updatedat, repo.id as repo_id
 		FROM pfs.repos repo
 			JOIN core.projects project ON repo.project_id = project.id
-			JOIN collections.branches col ON col.idx_repo = project.name || '/' || repo.name || '.' || repo.type
+			JOIN %s col ON col.idx_repo = project.name || '/' || repo.name || '.' || repo.type
 		ORDER BY createdat, key ASC;
-	`); err != nil {
+	`, tableName)); err != nil {
 		return nil, nil, nil, errors.Wrap(err, "listing branches from collections.branches")
 	}
 
@@ -160,7 +169,9 @@ func ListBranchesEdgesTriggersFromCollections(ctx context.Context, q sqlx.Querye
 	}
 	for trigger, fromBranchID := range triggerToBranchID {
 		if _, ok := keyToBranch[trigger.Branch]; !ok {
-			return nil, nil, nil, errors.Errorf("branch not found: %s", trigger.Branch)
+			// We explicitly ignore triggering branches that don't exist because pfs.branch_triggers enforce foreign key constraints.
+			log.Info(ctx, "Skipping branch trigger because branch does not exist", zap.Object("trigger", trigger))
+			continue
 		}
 		bt := BranchTrigger{
 			FromBranchID:  fromBranchID,
@@ -229,13 +240,16 @@ func migrateRepos(ctx context.Context, env migrations.Env) error {
 	if err := createReposTable(ctx, tx); err != nil {
 		return errors.Wrap(err, "creating pfs.repos table")
 	}
+	if err := env.LockTables(ctx, "collections.repos", "pfs.repos"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on repos tables")
+	}
 	insertStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.repos(name, type, project_id, description, created_at, updated_at) VALUES ($1, $2, (select id from core.projects where name=$3), $4, $5, $6)`)
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
 	}
 	defer insertStmt.Close()
 
-	repos, err := ListReposFromCollection(ctx, tx)
+	repos, err := ListReposFromCollection(ctx, tx, false)
 	if err != nil {
 		return errors.Wrap(err, "listing repos from collections.repos")
 	}
@@ -347,6 +361,9 @@ func migrateCommits(ctx context.Context, env migrations.Env) error {
 	}
 	if err := createCommitAncestryTable(ctx, env.Tx); err != nil {
 		return err
+	}
+	if err := env.LockTables(ctx, "collections.commits", "pfs.commits", "pfs.commit_ancestry"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on commits tables")
 	}
 	log.Info(ctx, "migrating commits")
 	if err := migrateCommitsFromCollections(ctx, env.Tx); err != nil {
@@ -586,6 +603,10 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		return errors.Wrap(err, "creating branch triggers table")
 	}
 
+	if err := env.LockTables(ctx, "collections.branches", "pfs.branches", "pfs.branch_provenance", "pfs.branch_triggers"); err != nil {
+		return errors.Wrap(err, "acquiring exclusive locks on branches tables")
+	}
+
 	insertBranchStmt, err := tx.PrepareContext(ctx, `INSERT INTO pfs.branches(name, head, repo_id, created_at, updated_at) VALUES ($1, $2, $3, $4, $5) RETURNING id`)
 	if err != nil {
 		return errors.Wrap(err, "preparing insert statement")
@@ -599,7 +620,7 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 		return errors.Wrap(err, "preparing insert branch trigger statement")
 	}
 
-	branches, edges, triggers, err := ListBranchesEdgesTriggersFromCollections(ctx, tx)
+	branches, edges, triggers, err := ListBranchesEdgesTriggersFromCollections(ctx, tx, false)
 	if err != nil {
 		return errors.Wrap(err, "listing branches from collections.branches")
 	}
@@ -661,6 +682,23 @@ func migrateBranches(ctx context.Context, env migrations.Env) error {
 			FOR EACH ROW EXECUTE PROCEDURE core.set_updated_at_to_now();
 	`); err != nil {
 		return errors.Wrap(err, "creating set_updated_at trigger")
+	}
+	return nil
+}
+
+func renameCollectionsTables(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
+	tables := []string{
+		"branches",
+		"commits",
+		"projects",
+		"repos",
+	}
+	for _, table := range tables {
+		query := fmt.Sprintf("ALTER TABLE collections.%s RENAME TO %s_deprecated;", table, table)
+		if _, err := tx.ExecContext(ctx, query); err != nil {
+			return errors.Wrap(err, "renaming table:"+query)
+		}
 	}
 	return nil
 }

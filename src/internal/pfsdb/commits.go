@@ -7,14 +7,18 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
+	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 const (
@@ -92,6 +96,7 @@ const (
 		JOIN pfs.commit_ancestry ancestry ON ancestry.parent = commit.int_id`
 	getChildCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.child = commit.int_id`
+	commitsPageSize = 1000
 )
 
 // CommitNotFoundError is returned by GetCommit() when a commit is not found in postgres.
@@ -191,6 +196,18 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	if err := validateCommitInfo(commitInfo); err != nil {
 		return 0, err
 	}
+	commit, err := GetCommitWithIDByKey(ctx, tx, commitInfo.Commit)
+	if err == nil {
+		return 0, &CommitAlreadyExistsError{CommitID: commit.CommitInfo.Commit.Key()}
+	}
+	if err != nil {
+		if errors.As(err, new(*ProjectNotFoundError)) || errors.As(err, new(*RepoNotFoundError)) {
+			return 0, err
+		}
+		if !errors.As(err, new(*CommitNotFoundError)) {
+			return 0, err
+		}
+	}
 	opt := AncestryOpt{}
 	if len(opts) > 0 {
 		opt = opts[0]
@@ -222,15 +239,10 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
+
 	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
 		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
 		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
-	if row.Err() != nil {
-		if IsDuplicateKeyErr(row.Err()) { // a duplicate key implies that an entry for the repo already exists.
-			return 0, &CommitAlreadyExistsError{CommitID: CommitKey(commitInfo.Commit)}
-		}
-		return 0, errors.Wrap(row.Err(), "exec create commitInfo")
-	}
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
 		return 0, errors.Wrap(err, "scanning id from create commitInfo")
@@ -562,7 +574,10 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 	if rowsAffected == 0 {
 		_, err := GetRepoByName(ctx, tx, commitInfo.Commit.Repo.Project.Name, commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
 		if err != nil {
-			return errors.Join(err, &CommitNotFoundError{RowID: id})
+			if errors.As(err, new(*RepoNotFoundError)) {
+				return errors.Join(err, &CommitNotFoundError{RowID: id})
+			}
+			return errors.Wrapf(err, "get repo for update commit with row id %v", id)
 		}
 		return &CommitNotFoundError{RowID: id}
 	}
@@ -702,7 +717,10 @@ func getCommitRowByCommitKey(ctx context.Context, tx *pachsql.Tx, commit *pfs.Co
 		if err == sql.ErrNoRows {
 			_, err := GetRepoByName(ctx, tx, commit.Repo.Project.Name, commit.Repo.Name, commit.Repo.Type)
 			if err != nil {
-				return nil, errors.Join(err, &CommitNotFoundError{CommitID: id})
+				if errors.As(err, new(*RepoNotFoundError)) {
+					return nil, errors.Join(err, &CommitNotFoundError{CommitID: id})
+				}
+				return nil, errors.Wrapf(err, "get repo for scan commit row with commit id %v", id)
 			}
 			return nil, &CommitNotFoundError{CommitID: id}
 		}
@@ -739,13 +757,14 @@ type CommitWithID struct {
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
 var _ stream.Iterator[CommitWithID] = &CommitIterator{}
 
-// commitColumn is used in the ListCommit filter and defines specific field names for type safety.
+// commitColumn is used in the ForEachCommit filter and defines specific field names for type safety.
 // This should hopefully prevent a library user from misconfiguring the filter.
 type commitColumn string
 
 var (
 	CommitColumnID        = commitColumn("commit.int_id")
 	CommitColumnSetID     = commitColumn("commit.commit_set_id")
+	CommitColumnRepoID    = commitColumn("commit.repo_id")
 	CommitColumnOrigin    = commitColumn("commit.origin")
 	CommitColumnCreatedAt = commitColumn("commit.created_at")
 	CommitColumnUpdatedAt = commitColumn("commit.updated_at")
@@ -804,7 +823,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	}
 	query := getCommit
 	if len(conditions) > 0 {
-		query += fmt.Sprintf("\nWHERE %s\n", strings.Join(conditions, " AND "))
+		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
 	// Compute ORDER BY
 	var orderByGeneric []OrderByColumn[commitColumn]
@@ -815,31 +834,44 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			orderByGeneric = append(orderByGeneric, OrderByColumn[commitColumn](orderBy))
 		}
 	}
-	query = extCtx.Rebind(query + OrderByQuery[commitColumn](orderByGeneric...))
+	query += "\n" + OrderByQuery[commitColumn](orderByGeneric...)
+	query = extCtx.Rebind(query)
 	return &CommitIterator{
 		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
 		extCtx:    extCtx,
 	}, nil
 }
 
-// ListCommit returns a CommitIterator that exposes a Next() function for retrieving *pfs.CommitInfo references.
-// It manages transactions on behalf of its user under the hood.
-func ListCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, orderBys ...OrderByCommitColumn) (*CommitIterator, error) {
-	return NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
+func ForEachCommit(ctx context.Context, db *pachsql.DB, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	iter, err := NewCommitsIterator(ctx, db, 0, 100, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "for each commit")
+	}
+	if err := stream.ForEach[CommitWithID](ctx, iter, cb); err != nil {
+		return errors.Wrap(err, "for each commit")
+	}
+	return nil
 }
 
-func UpdateCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
-	return errors.Wrap(listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
-		if err := cb(commitWithID); err != nil {
-			return err
-		}
-		return UpdateCommit(ctx, tx, commitWithID.ID, commitWithID.CommitInfo)
-	}, orderBys...), "update commits tx by filter")
+func ForEachCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
+	if filter == nil {
+		return errors.Errorf("filter cannot be empty")
+	}
+	iter, err := NewCommitsIterator(ctx, tx, 0, commitsPageSize, filter, orderBys...)
+	if err != nil {
+		return errors.Wrap(err, "for each commit tx by filter")
+	}
+	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
+		return cb(commitWithID)
+	}); err != nil {
+		return errors.Wrap(err, "for each commit tx by filter")
+	}
+	return nil
 }
 
 func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, orderBys ...OrderByCommitColumn) ([]*pfs.CommitInfo, error) {
 	var commits []*pfs.CommitInfo
-	if err := listCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
+	if err := ForEachCommitTxByFilter(ctx, tx, filter, func(commitWithID CommitWithID) error {
 		commits = append(commits, commitWithID.CommitInfo)
 		return nil
 	}, orderBys...); err != nil {
@@ -848,18 +880,103 @@ func ListCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commi
 	return commits, nil
 }
 
-func listCommitTxByFilter(ctx context.Context, tx *pachsql.Tx, filter *pfs.Commit, cb func(commitWithID CommitWithID) error, orderBys ...OrderByCommitColumn) error {
-	if filter == nil {
-		return errors.Errorf("filter cannot be empty")
-	}
-	iter, err := NewCommitsIterator(ctx, tx, 0, 100, filter, orderBys...)
+// Helper functions for watching commits.
+type commitUpsertHandler func(id CommitID, commitInfo *pfs.CommitInfo) error
+type commitDeleteHandler func(id CommitID) error
+
+// WatchCommits creates a watcher and watches the pfs.commits table for changes.
+func WatchCommits(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString("watch-commits-"), CommitsChannelName)
 	if err != nil {
-		return errors.Wrap(err, "list commit tx by filter")
+		return err
 	}
-	if err := stream.ForEach[CommitWithID](ctx, iter, func(commitWithID CommitWithID) error {
-		return cb(commitWithID)
+	defer watcher.Close()
+	snapshot, err := NewCommitsIterator(ctx, db, 0, commitsPageSize, nil, OrderByCommitColumn{Column: CommitColumnID, Order: SortOrderAsc})
+	if err != nil {
+		return err
+	}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+// WatchCommitsInRepo creates a watcher and watches for commits in a repo.
+func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, repoID RepoID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commits-in-repo-%d", repoID)), CommitsInRepoChannel(repoID))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	// Optimized query for getting commits in a repo.
+	query := getCommit + fmt.Sprintf(" WHERE %s = ?  ORDER BY %s ASC", CommitColumnRepoID, CommitColumnID)
+	query = db.Rebind(query)
+	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+// WatchCommit creates a watcher and watches for changes to a single commit.
+func WatchCommit(ctx context.Context, db *pachsql.DB, listener collection.PostgresListener, commitID CommitID, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	watcher, err := postgres.NewWatcher(db, listener, randutil.UniqueString(fmt.Sprintf("watch-commit-%d-", commitID)), fmt.Sprintf("%s%d", CommitChannelName, commitID))
+	if err != nil {
+		return err
+	}
+	defer watcher.Close()
+	var commitWithID CommitWithID
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		commitInfo, err := GetCommit(ctx, tx, commitID)
+		if err != nil {
+			return errors.Wrap(err, "watch commit")
+		}
+		commitWithID = CommitWithID{ID: commitID, CommitInfo: commitInfo}
+		return nil
 	}); err != nil {
-		return errors.Wrap(err, "list index")
+		return err
 	}
-	return nil
+	snapshot := stream.NewSlice([]CommitWithID{commitWithID})
+	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
+}
+
+func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[CommitWithID], events <-chan *postgres.Event, onUpsert commitUpsertHandler, onDelete commitDeleteHandler) error {
+	// Handle snapshot
+	if err := stream.ForEach[CommitWithID](ctx, snapshot, func(commitWith CommitWithID) error {
+		return onUpsert(commitWith.ID, commitWith.CommitInfo)
+	}); err != nil {
+		return err
+	}
+	// Handle delta
+	for {
+		select {
+		case event, ok := <-events:
+			if !ok {
+				return errors.Errorf("watcher closed")
+			}
+			if event.Err != nil {
+				return event.Err
+			}
+			id := CommitID(event.Id)
+			switch event.Type {
+			case postgres.EventDelete:
+				if err := onDelete(id); err != nil {
+					return err
+				}
+			case postgres.EventInsert, postgres.EventUpdate:
+				var commitInfo *pfs.CommitInfo
+				if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
+					var err error
+					commitInfo, err = GetCommit(ctx, tx, id)
+					if err != nil {
+						return err
+					}
+					return nil
+				}); err != nil {
+					return err
+				}
+				if err := onUpsert(id, commitInfo); err != nil {
+					return err
+				}
+			default:
+				return errors.Errorf("unknown event type: %v", event.Type)
+			}
+		case <-ctx.Done():
+			return errors.Wrap(ctx.Err(), "watcher cancelled")
+		}
+	}
 }

@@ -54,7 +54,7 @@ console:
   image:
     tag: 49648661011fa26986a6f71ffabe77d1f286eef3 
   config:
-    oauthRedirectURI: http://localhost:8283/oauth/callback/?inline=true #http://localhost:8283/dex/auth 
+    oauthRedirectURI: http://localhost:8283/oauth/callback/?inline=true 
     disableTelemetry: true
 
 oidc:
@@ -80,10 +80,10 @@ determined:
   enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
-  detVersion: 0.26.2
+  detVersion: 0.26.7 # set to latest in tests
   masterPort: 8282
   oidc:
     enabled: true 
     idpRecipientUrl: http://localhost:8282
-    idpSsoUrl: http://pachd.default.svc.cluster.local:30658/dex #"http://localhost:8283" 
+    idpSsoUrl: http://pachd.default.svc.cluster.local:30658/dex 
     clientSecret: "123"
