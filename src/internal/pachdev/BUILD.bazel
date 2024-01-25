@@ -8,6 +8,8 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/kindenv",
+        "//src/internal/log",
+        "//src/internal/pctx",
         "@com_github_spf13_cobra//:cobra",
     ],
 )
