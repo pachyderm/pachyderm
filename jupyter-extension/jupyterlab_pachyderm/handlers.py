@@ -12,6 +12,7 @@ from jupyter_server.services.contents.handlers import ContentsHandler, validate_
 from jupyter_server.utils import url_path_join
 import os
 from pachyderm_sdk import Client, errors
+from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.auth import AuthenticateRequest, AuthenticateResponse
 from pachyderm_sdk.config import ConfigFile, Context
 import tornado
@@ -265,12 +266,19 @@ class PFSHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = bool(int(content))
-
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
+        
         model = self.pfs_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -299,12 +307,19 @@ class ViewDatumHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
 
         model = self.datum_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
