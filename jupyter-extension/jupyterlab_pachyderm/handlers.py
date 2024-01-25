@@ -9,6 +9,7 @@ import grpc.aio
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join
+import os
 from pachyderm_sdk import Client, errors
 from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.auth import AuthenticateRequest, AuthenticateResponse
@@ -585,6 +586,7 @@ def write_config(
         config.add_context(name, context, overwrite=True)
     else:
         config = ConfigFile.new_with_context(name, context)
+        os.makedirs(PACH_CONFIG.parent, exist_ok=True)
     config.write(PACH_CONFIG)
 
 
