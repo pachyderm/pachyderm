@@ -3,6 +3,7 @@ from pathlib import Path
 import json
 import traceback
 from typing import Optional
+from urllib.parse import urlparse
 
 import grpc
 import grpc.aio
@@ -415,6 +416,19 @@ class AuthLoginHandler(BaseHandler):
             # Therefore, we send the url to the frontend for the user to login with and
             # wait until the server has created a new session token, which we then retrieve.
             oidc_response = self.client.auth.get_oidc_login()
+
+            # The login url will always specify the http protocol. If the user is connecting
+            # over a secure https/grpcs connection, we should update the url to reflect this.
+            # Checking if root certificates exists on the client is the best proxy currently
+            # available to check if the client is communicating over a secure grpc channel.
+            if self.client.root_certs is not None:
+                # Usage of _replace method comes from urlparse documentation:
+                #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
+                # noinspection PyProtectedMember
+                oidc_response.login_url = urlparse(
+                    oidc_response.login_url
+                )._replace(scheme='https').geturl()
+
             response = oidc_response.to_json()
             await self.finish(response)
 
