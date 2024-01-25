@@ -87,8 +87,13 @@ def dev_server(pach_config: Path):
         p.wait()
         time.sleep(1)
 
+@pytest.fixture
+def dev_server_with_unmount(dev_server):
+    yield
+    requests.put(f"{BASE_URL}/_unmount_all")
 
-def test_list_mounts(pachyderm_resources, dev_server):
+
+def test_list_mounts(pachyderm_resources, dev_server_with_unmount):
     repos, branches, _ = pachyderm_resources
 
     r = requests.put(
@@ -115,7 +120,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
     assert len(resp["unmounted"]) == len(repos)
 
 
-def test_mount(pachyderm_resources, dev_server):
+def test_mount(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
 
     to_mount = {
@@ -171,7 +176,7 @@ def test_mount(pachyderm_resources, dev_server):
     assert len(r.json()["content"]) == 0
 
 
-def test_unmount(pachyderm_resources, dev_server):
+def test_unmount(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
 
     to_mount = {
@@ -232,7 +237,7 @@ def test_unmount(pachyderm_resources, dev_server):
     assert r.status_code == 400, r.text
 
 
-def test_download_file(pachyderm_resources, dev_server):
+def test_download_file(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
 
     to_mount = {
@@ -283,7 +288,7 @@ def test_download_file(pachyderm_resources, dev_server):
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
 )
-def test_mount_datums(pachyderm_resources, dev_server):
+def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
         "input": {
@@ -386,7 +391,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
 )
-def test_download_datum(pachyderm_resources, dev_server):
+def test_download_datum(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
         "input": {
