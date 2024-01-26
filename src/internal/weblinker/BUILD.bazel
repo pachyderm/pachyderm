@@ -13,6 +13,7 @@ go_library(
 
 go_test(
     name = "weblinker_test",
+    size = "small",
     srcs = ["weblinker_test.go"],
     embed = [":weblinker"],
     deps = ["//src/version/versionpb"],

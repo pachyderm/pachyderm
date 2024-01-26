@@ -461,3 +461,7 @@ textarea {
 .jp-DirPagination a:hover:not(.active) {
   background-color: var(--jp-layout-color0);
 }
+
+.pachyderm-pipeline-error {
+  color: red;
+}

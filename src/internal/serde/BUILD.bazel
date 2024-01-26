@@ -21,6 +21,7 @@ go_library(
 
 go_test(
     name = "serde_test",
+    size = "small",
     srcs = ["serde_test.go"],
     embed = [":serde"],
     deps = ["//src/internal/require"],

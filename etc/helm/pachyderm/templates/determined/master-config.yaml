@@ -17,6 +17,8 @@ stringData:
       type: {{ required "A valid Values.checkpointStorage.type entry is required!" .Values.determined.checkpointStorage.type | quote}}
       {{- if eq .Values.determined.checkpointStorage.type "shared_fs" }}
       host_path: {{ required "A valid Values.checkpointStorage.hostPath entry is required!" .Values.determined.checkpointStorage.hostPath | quote }}
+      {{- else if eq .Values.determined.checkpointStorage.type "directory" }}
+      container_path: {{ required "A valid Values.checkpointStorage.containerPath entry is required!" .Values.determined.checkpointStorage.containerPath | quote }}
       {{- else if eq .Values.determined.checkpointStorage.type "gcs" }}
       bucket: {{ required "A valid Values.checkpointStorage.bucket entry is required!" .Values.determined.checkpointStorage.bucket }}
       prefix: {{ .Values.determined.checkpointStorage.prefix | quote }}
@@ -161,6 +163,10 @@ stringData:
       {{- end }}
       {{- if .Values.determined.taskContainerDefaults.gpuPodSpec }}
       gpu_pod_spec: {{ .Values.determined.taskContainerDefaults.gpuPodSpec | toJson }}
+      {{- end }}
+      {{- if .Values.determined.taskContainerDefaults.logPolicies }}
+      log_policies:
+        {{- toYaml .Values.determined.taskContainerDefaults.logPolicies | nindent 8}}
       {{- end }}
       {{- if and .Values.determined.taskContainerDefaults.cpuImage .Values.determined.taskContainerDefaults.gpuImage }}
       image:

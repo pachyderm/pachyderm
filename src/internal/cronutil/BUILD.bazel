@@ -10,6 +10,7 @@ go_library(
 
 go_test(
     name = "cronutil_test",
+    size = "small",
     srcs = ["cronutil_test.go"],
     embed = [":cronutil"],
 )

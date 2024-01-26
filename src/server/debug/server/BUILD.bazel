@@ -62,6 +62,7 @@ go_library(
 
 go_test(
     name = "server_test",
+    size = "small",
     srcs = [
         "log_test.go",
         "server_test.go",

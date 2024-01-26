@@ -96,6 +96,7 @@ go_library(
 
 go_test(
     name = "driver_test",
+    size = "small",
     srcs = [
         "driver_linux_test.go",
         "driver_test.go",

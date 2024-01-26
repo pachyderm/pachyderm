@@ -27,6 +27,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/net"
 	kube "k8s.io/client-go/kubernetes"
 
@@ -83,15 +84,16 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset       uint16
-	DisableLoki      bool
-	EnterpriseMember bool
-	EnterpriseServer bool
-	Determined       bool
-	ValueOverrides   map[string]string
-	TLS              bool
-	CertPool         *x509.CertPool
-	ValuesFiles      []string
+	PortOffset        uint16
+	DisableLoki       bool
+	EnterpriseMember  bool
+	EnterpriseServer  bool
+	Determined        bool
+	ValueOverrides    map[string]string
+	TLS               bool
+	CertPool          *x509.CertPool
+	ValuesFiles       []string
+	InstallPrometheus bool
 }
 
 func getLocalImage() string {
@@ -901,6 +903,46 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		waitForInstallFinished()
 	} else { // same config, no need to change anything
 		t.Logf("Previous helmOpts matched the previous cluster config, no changes made to cluster in %v", namespace)
+	}
+	if opts.InstallPrometheus {
+		// get latest version with: helm repo update && helm pull prometheus-community/kube-prometheus-stack -d etc/helm/charts/
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			chartPath := localPath(t, "etc", "helm", "charts", "kube-prometheus-stack-55.11.0.tgz")
+			return errors.Wrap(helm.UpgradeE(t, &helm.Options{
+				KubectlOptions: &k8s.KubectlOptions{Namespace: namespace}, SetStrValues: map[string]string{"namespaceOverride": namespace}}, chartPath, namespace+"-prometheus"), "could not upgrade or install Prometheus")
+		})
+		require.NoErrorWithinTRetry(t, time.Minute, func() error {
+			// Try to delete service; not a big deal if it fails because it may not exist, and we will retry shortly anyway.
+			kubeClient.CoreV1().Services(namespace).Delete(ctx, "pachyderm-prometheus-server", metav1.DeleteOptions{}) //nolint:errcheck
+			if _, err := kubeClient.CoreV1().Services(namespace).Create(ctx, &v1.Service{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "Service",
+					APIVersion: "v1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "pachyderm-prometheus-server",
+				},
+				Spec: v1.ServiceSpec{
+					Type: v1.ServiceTypeNodePort,
+					Selector: map[string]string{
+						"app.kubernetes.io/name":      "prometheus",
+						"operator.prometheus.io/name": namespace + "-prometheus-prometheus",
+					},
+					Ports: []v1.ServicePort{
+						{
+							Port:       int32(pachAddress.Port + 10),
+							NodePort:   int32(pachAddress.Port + 10),
+							TargetPort: intstr.FromInt(9090),
+							Name:       "http-web",
+						},
+					},
+				},
+			}, metav1.CreateOptions{}); err != nil {
+				return errors.Wrap(err, "could not create Prometheus server service")
+			}
+			waitForLabeledPod(t, ctx, kubeClient, namespace, "app.kubernetes.io/name=prometheus")
+			return nil
+		})
 	}
 	pClient := pachClient(t, pachAddress, opts.AuthUser, namespace, opts.CertPool)
 	t.Cleanup(func() {

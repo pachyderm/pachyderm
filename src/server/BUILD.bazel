@@ -2,6 +2,7 @@ load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "server_test",
+    size = "small",
     srcs = [
         "pachd_restgateway_test.go",
         "pachyderm_validation_test.go",

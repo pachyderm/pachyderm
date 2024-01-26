@@ -14,14 +14,37 @@ build:remotecache --nolegacy_important_outputs
 # This is only relevant for remote caching, but using the same value of modify_execution_info allows
 # sharing the analysis cache between local and remotecache builds, saving time when you switch the
 # flag.
-build --modify_execution_info=PackageTar=+no-remote,GoLink=+no-remote-cache,OCIImage=+no-remote-cache
+build --modify_execution_info=PackageTar=+no-remote,ConvertStatusToJson=+no-remote,Jq=+no-remote,CopyFile=+no-remote,OCIImage=+no-remote-cache
 
 # Common build options.
 build --workspace_status_command=$(pwd)/workspace_status.sh
 build --stamp
 
 # Common options.
-common --test_env=ENT_ACT_CODE
+common --test_env=ENT_ACT_CODE # Tests need this to active Pachyderm enterprise.
+common --test_env=SKIP_DOCKER_POSTGRES_CREATE
+common --test_env=DOCKER_MACHINE_NAME
+common --test_env=AMAZON_CLIENT_ID
+common --test_env=AMAZON_CLIENT_SECRET
+common --test_env=AMAZON_CLIENT_BUCKET
+common --test_env=AMAZON_CLIENT_REGION
+common --test_env=ECS_CLIENT_ID
+common --test_env=ECS_CLIENT_SECRET
+common --test_env=ECS_CLIENT_BUCKET
+common --test_env=ECS_CLIENT_CUSTOM_ENDPOINT
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_CREDS
+common --test_env=GOOGLE_CLIENT_HMAC_ID
+common --test_env=GOOGLE_CLIENT_HMAC_SECRET
+common --test_env=GOOGLE_CLIENT_BUCKET
+common --test_env=GOOGLE_CLIENT_REGION
+common --test_env=MICROSOFT_CLIENT_ID
+common --test_env=MICROSOFT_CLIENT_SECRET
+common --test_env=MICROSOFT_CLIENT_CONTAINER
+common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
+common --test_env=CI # kindenv behaves differently in CI because of CircleCI quirks
 
-# --config=race for running tests with the race detector.
+# Cover all packages.
+coverage --instrumentation_filter="^//" --combined_report=lcov
+
 test:race --@rules_go//go/config:race

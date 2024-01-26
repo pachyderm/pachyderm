@@ -28,7 +28,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -48,7 +47,7 @@ describe('config screen', () => {
   describe('AUTH_ENABLED config', () => {
     it('should show authenticated view', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -56,7 +55,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -74,7 +72,7 @@ describe('config screen', () => {
 
     it('should show unauthenticated view', () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -82,7 +80,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -98,9 +95,9 @@ describe('config screen', () => {
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
     });
 
-    it('should allow user to login', async () => {
+    it('should allow user to logout', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -108,7 +105,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -124,27 +120,24 @@ describe('config screen', () => {
         );
       });
     });
-    /* TODO: tests must be updated for the new FUSE-less impl
-    it('should allow user to logout', async () => {
+
+    it('should allow user to login', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_OUT',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       window.open = jest.fn();
-
+      const loginUrl =
+        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd';
       mockRequestAPI.requestAPI.mockImplementation(
-        mockedRequestAPI({
-          auth_url:
-            'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        }),
+        mockedRequestAPI({loginUrl: loginUrl}),
       );
 
       const {findByTestId} = render(
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={401}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -160,18 +153,14 @@ describe('config screen', () => {
         );
       });
 
-      expect(window.open).toHaveBeenCalledWith(
-        'https://hub-c0-jwn7iwcca9.clusters.pachyderm.io/dex/auth?client_id=pachd',
-        '',
-        'width=500,height=500,left=262,top=107.2',
-      );
-    });*/
+      expect(window.open).toHaveBeenCalledWith(loginUrl, '', expect.anything());
+    });
   });
 
   describe('AUTH_DISABLED config', () => {
     it('should display default view', () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_DISABLED',
+        cluster_status: 'VALID_NO_AUTH',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
@@ -179,7 +168,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -196,9 +184,9 @@ describe('config screen', () => {
     });
   });
 
-  it('should allow user to navigate back to mount screen if get repos is sucessful', () => {
+  it('shows back button when successfully connected to cluster', () => {
     const authConfig: AuthConfig = {
-      cluster_status: 'AUTH_ENABLED',
+      cluster_status: 'VALID_LOGGED_IN',
       pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
     };
 
@@ -206,14 +194,12 @@ describe('config screen', () => {
       <Config
         showConfig={true}
         setShowConfig={setShowConfig}
-        reposStatus={200}
         updateConfig={updateConfig}
         authConfig={authConfig}
         refresh={jest.fn()}
       />,
     );
 
-    expect(setShowConfig).not.toHaveBeenCalled();
     getByTestId('Config__back').click();
     expect(setShowConfig).toHaveBeenCalledWith(false);
   });
@@ -234,7 +220,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -284,13 +269,13 @@ describe('config screen', () => {
 
     it('should allow user to update config', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
+          cluster_status: 'VALID_LOGGED_IN',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),
@@ -300,7 +285,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -332,13 +316,13 @@ describe('config screen', () => {
 
     it('should allow user to set advanced config options', async () => {
       const authConfig: AuthConfig = {
-        cluster_status: 'AUTH_ENABLED',
+        cluster_status: 'VALID_LOGGED_IN',
         pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       };
 
       mockRequestAPI.requestAPI.mockImplementation(
         mockedRequestAPI({
-          cluster_status: 'AUTH_ENABLED',
+          cluster_status: 'VALID_LOGGED_IN',
           pachd_address:
             'grpcs://hub-123-123123123.clusters.pachyderm.io:31400',
         }),
@@ -348,7 +332,6 @@ describe('config screen', () => {
         <Config
           showConfig={true}
           setShowConfig={setShowConfig}
-          reposStatus={200}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}

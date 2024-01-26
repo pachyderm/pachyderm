@@ -33,6 +33,7 @@ go_library(
 
 go_test(
     name = "versionpb_test",
+    size = "small",
     srcs = ["version_test.go"],
     embed = [":versionpb"],
 )

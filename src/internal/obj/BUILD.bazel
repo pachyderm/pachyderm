@@ -68,6 +68,7 @@ go_library(
 
 go_test(
     name = "obj_test",
+    size = "small",
     srcs = ["local_client_test.go"],
     embed = [":obj"],
     deps = ["//src/internal/require"],
