@@ -604,12 +604,19 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	return d.storage.Filesets.Compose(ctx, ids, defaultTTL)
 }
 
-func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID) ([]*pfs.PathRange, error) {
+func (d *driver) shardFileSet(ctx context.Context, fsid fileset.ID, numFiles, sizeBytes int64) ([]*pfs.PathRange, error) {
 	fs, err := d.storage.Filesets.Open(ctx, []fileset.ID{fsid})
 	if err != nil {
 		return nil, err
 	}
-	shards, err := fs.Shards(ctx, index.WithShardConfig(d.storage.Filesets.ShardConfig()))
+	shardConfig := d.storage.Filesets.ShardConfig()
+	if numFiles > 0 {
+		shardConfig.NumFiles = numFiles
+	}
+	if sizeBytes > 0 {
+		shardConfig.SizeBytes = sizeBytes
+	}
+	shards, err := fs.Shards(ctx, index.WithShardConfig(shardConfig))
 	if err != nil {
 		return nil, err
 	}
