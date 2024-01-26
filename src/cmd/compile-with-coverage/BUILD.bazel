@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "compile-with-coverage_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/cmd/compile-with-coverage",
+    visibility = ["//visibility:private"],
+    deps = ["//src/internal/errors"],
+)
+
+go_binary(
+    name = "compile-with-coverage",
+    embed = [":compile-with-coverage_lib"],
+    visibility = ["//visibility:public"],
+)
