@@ -121,7 +121,9 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.bootstrap,
 		fb.externallyListen,
 		fb.resumeHealth,
+		fb.startPFSWorker,
 		fb.startPFSMaster,
+		fb.startPPSWorker,
 		fb.startDebugWorker,
 		fb.daemon.serve,
 	)

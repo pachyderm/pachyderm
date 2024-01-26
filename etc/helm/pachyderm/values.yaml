@@ -692,7 +692,7 @@ pachw:
   inSidecars: false
   # maxReplicas should be tuned based on the number of pipelines on a user-per-user basis.
   maxReplicas: 1
-  minReplicas: 1
+  # minReplicas: 0
   # We recommend defining resources when running pachw with a high value of maxReplicas.
   #resources:
   #  limits:

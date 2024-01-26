@@ -40,7 +40,7 @@ type GlobalConfiguration struct {
 	OidcPort               uint16 `env:"OIDC_PORT,default=1657"`
 	IsPachw                bool   `env:"IS_PACHW,default=false"`
 	PachwInSidecars        bool   `env:"PACHW_IN_SIDECARS,default=true"`
-	PachwMinReplicas       int    `env:"PACHW_MIN_REPLICAS,default=1"`
+	PachwMinReplicas       int    `env:"PACHW_MIN_REPLICAS"`
 	PachwMaxReplicas       int    `env:"PACHW_MAX_REPLICAS,default=1"`
 	PachdServiceHost       string `env:"PACHD_SERVICE_HOST"`
 	PachdServicePort       string `env:"PACHD_SERVICE_PORT"`
