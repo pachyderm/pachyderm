@@ -3218,6 +3218,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
             "in": "body",
             "required": true,
             "schema": {
@@ -8377,8 +8378,19 @@
       "properties": {
         "fileSetId": {
           "type": "string"
+        },
+        "numFiles": {
+          "type": "string",
+          "format": "int64",
+          "title": "Number of files targeted in each shard"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "Size (in bytes) targeted for each shard"
         }
-      }
+      },
+      "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used."
     },
     "pfs_v2ShardFileSetResponse": {
       "type": "object",

@@ -32,6 +32,7 @@ class Version(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_get_version = channel.unary_unary(
             "/versionpb_v2.API/GetVersion",
@@ -40,12 +41,14 @@ class ApiStub:
         )
 
     def get_version(self) -> "Version":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_get_version(request)
 
 
 class ApiBase:
+
     def get_version(self, context: "grpc.ServicerContext") -> "Version":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")

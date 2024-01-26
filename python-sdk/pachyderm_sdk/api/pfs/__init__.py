@@ -711,7 +711,15 @@ class ComposeFileSetRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ShardFileSetRequest(betterproto.Message):
+    """
+    If both num_files and size_bytes are set, shards are created based on
+    whichever threshold is surpassed first. If a shard configuration field
+    (num_files, size_bytes) is unset, the storage's default value is used.
+    """
+
     file_set_id: str = betterproto.string_field(1)
+    num_files: int = betterproto.int64_field(2)
+    size_bytes: int = betterproto.int64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -1122,7 +1130,7 @@ class ApiStub:
         *,
         projects: Optional[List["Project"]] = None,
         force: bool = False,
-        all: bool = False
+        all: bool = False,
     ) -> "DeleteReposResponse":
         projects = projects or []
 
@@ -1152,7 +1160,7 @@ class ApiStub:
         commit: "Commit" = None,
         description: str = "",
         error: str = "",
-        force: bool = False
+        force: bool = False,
     ) -> "betterproto_lib_google_protobuf.Empty":
         request = FinishCommitRequest()
         if commit is not None:
@@ -1192,7 +1200,7 @@ class ApiStub:
         reverse: bool = False,
         all: bool = False,
         origin_kind: "OriginKind" = None,
-        started_time: datetime = None
+        started_time: datetime = None,
     ) -> Iterator["CommitInfo"]:
         request = ListCommitRequest()
         if repo is not None:
@@ -1219,7 +1227,7 @@ class ApiStub:
         from_: "Commit" = None,
         state: "CommitState" = None,
         all: bool = False,
-        origin_kind: "OriginKind" = None
+        origin_kind: "OriginKind" = None,
     ) -> Iterator["CommitInfo"]:
         request = SubscribeCommitRequest()
         if repo is not None:
@@ -1265,9 +1273,7 @@ class ApiStub:
         for response in self.__rpc_inspect_commit_set(request):
             yield response
 
-    def list_commit_set(
-        self, *, project: "Project" = None
-    ) -> Iterator["CommitSetInfo"]:
+    def list_commit_set(self, *, project: "Project" = None) -> Iterator["CommitSetInfo"]:
         request = ListCommitSetRequest()
         if project is not None:
             request.project = project
@@ -1312,7 +1318,7 @@ class ApiStub:
         branch: "Branch" = None,
         provenance: Optional[List["Branch"]] = None,
         trigger: "Trigger" = None,
-        new_commit_set: bool = False
+        new_commit_set: bool = False,
     ) -> "betterproto_lib_google_protobuf.Empty":
         provenance = provenance or []
 
@@ -1371,7 +1377,7 @@ class ApiStub:
         file: "File" = None,
         url: str = "",
         offset: int = 0,
-        path_range: "PathRange" = None
+        path_range: "PathRange" = None,
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
         request = GetFileRequest()
         if file is not None:
@@ -1390,7 +1396,7 @@ class ApiStub:
         file: "File" = None,
         url: str = "",
         offset: int = 0,
-        path_range: "PathRange" = None
+        path_range: "PathRange" = None,
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
         request = GetFileRequest()
         if file is not None:
@@ -1416,7 +1422,7 @@ class ApiStub:
         file: "File" = None,
         pagination_marker: "File" = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["FileInfo"]:
         request = ListFileRequest()
         if file is not None:
@@ -1435,7 +1441,7 @@ class ApiStub:
         file: "File" = None,
         pagination_marker: "File" = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["FileInfo"]:
         request = WalkFileRequest()
         if file is not None:
@@ -1449,11 +1455,7 @@ class ApiStub:
             yield response
 
     def glob_file(
-        self,
-        *,
-        commit: "Commit" = None,
-        pattern: str = "",
-        path_range: "PathRange" = None
+        self, *, commit: "Commit" = None, pattern: str = "", path_range: "PathRange" = None
     ) -> Iterator["FileInfo"]:
         request = GlobFileRequest()
         if commit is not None:
@@ -1489,11 +1491,7 @@ class ApiStub:
         return self.__rpc_delete_all(request)
 
     def fsck(
-        self,
-        *,
-        fix: bool = False,
-        zombie_target: "Commit" = None,
-        zombie_all: bool = False
+        self, *, fix: bool = False, zombie_target: "Commit" = None, zombie_all: bool = False
     ) -> Iterator["FsckResponse"]:
         request = FsckRequest()
         request.fix = fix
@@ -1546,7 +1544,7 @@ class ApiStub:
         *,
         file_set_ids: Optional[List[str]] = None,
         ttl_seconds: int = 0,
-        compact: bool = False
+        compact: bool = False,
     ) -> "CreateFileSetResponse":
         file_set_ids = file_set_ids or []
 
@@ -1557,9 +1555,13 @@ class ApiStub:
 
         return self.__rpc_compose_file_set(request)
 
-    def shard_file_set(self, *, file_set_id: str = "") -> "ShardFileSetResponse":
+    def shard_file_set(
+        self, *, file_set_id: str = "", num_files: int = 0, size_bytes: int = 0
+    ) -> "ShardFileSetResponse":
         request = ShardFileSetRequest()
         request.file_set_id = file_set_id
+        request.num_files = num_files
+        request.size_bytes = size_bytes
 
         return self.__rpc_shard_file_set(request)
 
@@ -1568,7 +1570,7 @@ class ApiStub:
         *,
         read_chunk_data: bool = False,
         chunk_begin: bytes = b"",
-        chunk_end: bytes = b""
+        chunk_end: bytes = b"",
     ) -> "CheckStorageResponse":
         request = CheckStorageRequest()
         request.read_chunk_data = read_chunk_data
@@ -1583,7 +1585,7 @@ class ApiStub:
         key: str = "",
         value: "betterproto_lib_google_protobuf.Any" = None,
         file_set_ids: Optional[List[str]] = None,
-        tag: str = ""
+        tag: str = "",
     ) -> "betterproto_lib_google_protobuf.Empty":
         file_set_ids = file_set_ids or []
 
@@ -1623,7 +1625,7 @@ class ApiStub:
         *,
         commit: "Commit" = None,
         object_storage: "ObjectStorageEgress" = None,
-        sql_database: "SqlDatabaseEgress" = None
+        sql_database: "SqlDatabaseEgress" = None,
     ) -> "EgressResponse":
         request = EgressRequest()
         if commit is not None:
@@ -2030,7 +2032,11 @@ class ApiBase:
         raise NotImplementedError("Method not implemented!")
 
     def shard_file_set(
-        self, file_set_id: str, context: "grpc.ServicerContext"
+        self,
+        file_set_id: str,
+        num_files: int,
+        size_bytes: int,
+        context: "grpc.ServicerContext",
     ) -> "ShardFileSetResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -2059,9 +2065,7 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
-    def get_cache(
-        self, key: str, context: "grpc.ServicerContext"
-    ) -> "GetCacheResponse":
+    def get_cache(self, key: str, context: "grpc.ServicerContext") -> "GetCacheResponse":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
