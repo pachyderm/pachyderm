@@ -95,7 +95,7 @@ type Cluster struct {
 	name       string
 	provider   *cluster.Provider
 	kubeconfig Kubeconfig
-	config     *ClusterConfig
+	config     map[string]*ClusterConfig // namespace -> config cache
 }
 
 func getKindClusterFromContext() (string, error) {
@@ -158,8 +158,11 @@ type ClusterConfig struct {
 }
 
 func (c *Cluster) GetConfig(ctx context.Context, namespace string) (*ClusterConfig, error) {
-	if c.config != nil {
-		return c.config, nil
+	if c.config == nil {
+		c.config = make(map[string]*ClusterConfig)
+	}
+	if cfg, ok := c.config[namespace]; ok {
+		return cfg, nil
 	}
 	kc, err := c.GetKubeconfig(ctx)
 	if err != nil {
@@ -228,7 +231,7 @@ func (c *Cluster) GetConfig(ctx context.Context, namespace string) (*ClusterConf
 	if errs != nil {
 		return nil, errs
 	}
-	c.config = result
+	c.config[namespace] = result
 	return result, nil
 }
 
@@ -548,6 +551,7 @@ func (c *Cluster) AllocatePort(ctx context.Context, namespace, service string) (
 			return errors.Errorf("no ports available (got %q)", exposedPorts)
 		}
 		port = parts[0]
+		ns.Annotations[portBindingPrefix+service] = port
 		if len(parts) > 1 {
 			ns.Annotations[exposedPortsKey] = parts[1]
 		} else {

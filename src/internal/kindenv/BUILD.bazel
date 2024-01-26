@@ -2,6 +2,8 @@ load("@aspect_bazel_lib//lib:tar.bzl", "tar")
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 load("@rules_oci//oci:defs.bzl", "oci_image")
 
+# gazelle:go_test file
+
 tar(
     name = "zot_config_tar",
     srcs = ["zot.json"],
@@ -97,5 +99,19 @@ go_test(
         "//src/internal/pctx",
         "@com_github_adrg_xdg//:xdg",
         "@rules_go//go/runfiles:go_default_library",
+    ],
+)
+
+go_test(
+    name = "kube_test",
+    size = "small",
+    srcs = ["kube_test.go"],
+    embed = [":kindenv"],
+    deps = [
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_client_go//kubernetes/fake",
     ],
 )

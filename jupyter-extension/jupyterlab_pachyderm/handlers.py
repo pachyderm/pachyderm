@@ -3,13 +3,16 @@ from pathlib import Path
 import json
 import traceback
 from typing import Optional
+from urllib.parse import urlparse
 
 import grpc
 import grpc.aio
 from jupyter_server.base.handlers import APIHandler, path_regex
 from jupyter_server.services.contents.handlers import ContentsHandler, validate_model
 from jupyter_server.utils import url_path_join
+import os
 from pachyderm_sdk import Client, errors
+from pachyderm_sdk.api import pfs
 from pachyderm_sdk.api.auth import AuthenticateRequest, AuthenticateResponse
 from pachyderm_sdk.config import ConfigFile, Context
 import tornado
@@ -263,12 +266,19 @@ class PFSHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = bool(int(content))
-
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
+        
         model = self.pfs_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -297,12 +307,19 @@ class ViewDatumHandler(ContentsHandler):
         if content not in {"0", "1"}:
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
+        pagination_marker = None
+        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        if pagination_marker_uri:
+            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+        number = int(self.get_query_argument("number", default="100"))
 
         model = self.datum_manager.get(
             path=path,
             type=type,
             format=format,
             content=content,
+            pagination_marker=pagination_marker,
+            number=number,
         )
         validate_model(model, expect_content=content)
         self._finish_model(model, location=False)
@@ -399,6 +416,19 @@ class AuthLoginHandler(BaseHandler):
             # Therefore, we send the url to the frontend for the user to login with and
             # wait until the server has created a new session token, which we then retrieve.
             oidc_response = self.client.auth.get_oidc_login()
+
+            # The login url will always specify the http protocol. If the user is connecting
+            # over a secure https/grpcs connection, we should update the url to reflect this.
+            # Checking if root certificates exists on the client is the best proxy currently
+            # available to check if the client is communicating over a secure grpc channel.
+            if self.client.root_certs is not None:
+                # Usage of _replace method comes from urlparse documentation:
+                #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
+                # noinspection PyProtectedMember
+                oidc_response.login_url = urlparse(
+                    oidc_response.login_url
+                )._replace(scheme='https').geturl()
+
             response = oidc_response.to_json()
             await self.finish(response)
 
@@ -570,6 +600,7 @@ def write_config(
         config.add_context(name, context, overwrite=True)
     else:
         config = ConfigFile.new_with_context(name, context)
+        os.makedirs(PACH_CONFIG.parent, exist_ok=True)
     config.write(PACH_CONFIG)
 
 
