@@ -6,6 +6,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"io"
 	"io/fs"
 	"log"
@@ -17,10 +18,12 @@ import (
 )
 
 var (
-	gopath = flag.String("gopath", "", "the gopath to build in")
-	target = flag.String("target", "", "the target to build")
-	out    = flag.String("out", "", "where to put the output")
-	gobin  = flag.String("go", "", "the path to the go (compiler) binary")
+	gopath            = flag.String("gopath", "", "the gopath to build in")
+	target            = flag.String("target", "", "the target to build")
+	out               = flag.String("out", "", "where to put the output")
+	gobin             = flag.String("go", "", "the path to the go (compiler) binary")
+	appVersion        = flag.String("app_version", "", "the app version of the build")
+	additionalVersion = flag.String("additional_version", "", "the additional version of the build")
 )
 
 func resolve(dir string, out string) error {
@@ -92,8 +95,8 @@ func main() {
 			log.Printf("failed to clean up $GOCACHE: %v", err)
 		}
 	}()
-
-	cmd := exec.Command(*gobin, "build", "-o", *out, "-cover", *target)
+	ldflags := fmt.Sprintf("-X %s=%s -X %s=%s", "github.com/pachyderm/pachyderm/v2/src/version.AppVersion", *appVersion, "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion", *additionalVersion)
+	cmd := exec.Command(*gobin, "build", "-o", *out, "-cover", "-ldflags", ldflags, "-coverpkg=github.com/pachyderm/pachyderm/v2/...", "-covermode=atomic", *target)
 	cmd.Env = []string{"GOPATH=" + filepath.Join(resolvedGopath, *gopath), "GO111MODULE=off", "GOCACHE=" + gocache}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
