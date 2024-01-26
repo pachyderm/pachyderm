@@ -619,7 +619,6 @@ func (pc *pipelineController) scaleUpPipeline(ctx context.Context, pi *pps.Pipel
 			}
 			// Master is scheduled; see if tasks have been calculated
 			var nTasks int32
-			// TODO: should this run through internal PPS service?
 			if pc.env.Config.PPSWorkerPreprocessing {
 				n, _ := pc.env.TaskService.Count(ctx, driver.PreprocessingTaskNamespace(pi))
 				nTasks += int32(n)
