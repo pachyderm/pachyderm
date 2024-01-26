@@ -96,8 +96,9 @@ determined:
     kubeSchedulerPreemption: "determinedai/kube-scheduler:0.17.0"
 
     # default images for CPU and GPU environments
-    cpuImage: "determinedai/environments:py-3.8-pytorch-1.12-tf-2.8-cpu-9d07809"
-    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-2b7e2a1"
+
+    cpuImage: "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-f66cbce"
+    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-f66cbce"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
