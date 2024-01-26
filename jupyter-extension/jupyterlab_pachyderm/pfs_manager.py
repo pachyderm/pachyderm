@@ -171,6 +171,15 @@ def _download_file(client: Client, file: pfs.File):
         )
 
 
+def _default_name(branch: pfs.Branch) -> str:
+    name = branch.repo.name
+    if branch.repo.project.name and branch.repo.project.name != "default":
+        name = f"{branch.repo.project.name}_{name}"
+    if branch.name and branch.name != "master":
+        name = f"{name}_{branch.name}"
+    return name
+
+
 class PFSManager(FileContentsManager):
     # changes from mount-server impl:
     #  - branch name will always be present in the dir name, even if master.
@@ -197,16 +206,12 @@ class PFSManager(FileContentsManager):
 
     def mount_repo(
         self, repo: str, branch: str, project: str = "default", name: str = None
-    ):  # maybe name should be required?
-        # let's assume for now that there are no '_' in any names
-        # TODO: we need to figure out a scheme to get around naming
-        # conflicts in the top level directory
-        if not name:
-            name = f"{project}_{repo}_{branch}"
-        if name in self._mounted:
-            raise ValueError(f"attempted to mount as {name} which is already mounted.")
+    ):
         branch_uri = f"{project}/{repo}@{branch}"
         mounted_branch = pfs.Branch.from_uri(branch_uri)
+        name = name or _default_name(mounted_branch)
+        if name in self._mounted:
+            raise ValueError(f"attempted to mount as {name} which is already mounted.")
         self._mounted[name] = mounted_branch
 
     def unmount_repo(self, name: str):
@@ -534,10 +539,7 @@ class DatumManager(FileContentsManager):
                 raise ValueError(
                     "Loading multiple instances of the same commit is currently not supported in the extension"
                 )
-            name = (
-                input.pfs.name
-                or f"{commit.repo.project.name}_{commit.repo.name}_{commit.branch.name}"
-            )
+            name = input.pfs.name or _default_name(branch=branch)
             if name in self._repo_names:
                 raise ValueError(f"Input contains name collision for name {name}")
             self._repo_names[commit_uri] = name
