@@ -515,18 +515,19 @@ class DatumManager(FileContentsManager):
         if input.pfs:
             repo = pfs.Repo(
                 name=input.pfs.repo,
-                project=pfs.Project(
-                    name=input.pfs.project if input.pfs.project else "default"
-                ),
+                project=pfs.Project(name=input.pfs.project or "default"),
             )
-            branch = pfs.Branch(
-                repo=repo, name=input.pfs.branch if input.pfs.branch else "master"
-            )
-            commit_id = (
-                input.pfs.commit
-                if input.pfs.commit
-                else self._client.pfs.inspect_branch(branch=branch).head.id
-            )
+            branch = pfs.Branch(repo=repo, name=input.pfs.branch or "master")
+            try:
+                commit_id = (
+                    input.pfs.commit
+                    or self._client.pfs.inspect_branch(branch=branch).head.id
+                )
+            except grpc.RpcError as err:
+                if err.code() == grpc.StatusCode.NOT_FOUND:
+                    raise ValueError(f"Input contains non-existent branch {branch}")
+                raise err
+
             commit = pfs.Commit(repo=repo, id=commit_id, branch=branch)
             commit_uri = commit.as_uri()
             if commit_uri in self._repo_names:
@@ -534,10 +535,11 @@ class DatumManager(FileContentsManager):
                     "Loading multiple instances of the same commit is currently not supported in the extension"
                 )
             name = (
-                f"{commit.repo.project.name}_{commit.repo.name}_{commit.branch.name}"
-                if input.pfs.name is None
-                else input.pfs.name
+                input.pfs.name
+                or f"{commit.repo.project.name}_{commit.repo.name}_{commit.branch.name}"
             )
+            if name in self._repo_names:
+                raise ValueError(f"Input contains name collision for name {name}")
             self._repo_names[commit_uri] = name
             self._repo_names[name] = commit_uri
         if input.join:

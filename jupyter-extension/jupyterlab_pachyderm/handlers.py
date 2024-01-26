@@ -167,6 +167,14 @@ class MountDatumsHandler(BaseHandler):
             response = self.datum_manager.datum_state()
             get_logger().debug(f"Mount datums: {response}")
             self.finish(response)
+        except ValueError as e:
+            get_logger().error(
+                f"Error mounting datums with invalid input {body}", exc_info=True
+            )
+            raise tornado.web.HTTPError(
+                status_code=getattr(e, "code", 400),
+                reason=f"Error mounting datums with invalid input {body}: {e}.",
+            )
         except Exception as e:
             get_logger().error(
                 f"Error mounting datums with input {body}", exc_info=True
@@ -267,11 +275,13 @@ class PFSHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = bool(int(content))
         pagination_marker = None
-        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        pagination_marker_uri = self.get_query_argument(
+            "pagination_marker", default=None
+        )
         if pagination_marker_uri:
             pagination_marker = pfs.File.from_uri(pagination_marker_uri)
         number = int(self.get_query_argument("number", default="100"))
-        
+
         model = self.pfs_manager.get(
             path=path,
             type=type,
@@ -308,7 +318,9 @@ class ViewDatumHandler(ContentsHandler):
             raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
         content = int(content)
         pagination_marker = None
-        pagination_marker_uri = self.get_query_argument("pagination_marker", default=None)
+        pagination_marker_uri = self.get_query_argument(
+            "pagination_marker", default=None
+        )
         if pagination_marker_uri:
             pagination_marker = pfs.File.from_uri(pagination_marker_uri)
         number = int(self.get_query_argument("number", default="100"))
@@ -387,7 +399,10 @@ class ConfigHandler(BaseHandler):
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
 
-        payload = {"cluster_status": cluster_status, "pachd_address": self.client.address}
+        payload = {
+            "cluster_status": cluster_status,
+            "pachd_address": self.client.address,
+        }
         await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
@@ -406,7 +421,6 @@ class ConfigHandler(BaseHandler):
 
 
 class AuthLoginHandler(BaseHandler):
-
     @tornado.web.authenticated
     async def put(self):
         try:
@@ -425,9 +439,9 @@ class AuthLoginHandler(BaseHandler):
                 # Usage of _replace method comes from urlparse documentation:
                 #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
                 # noinspection PyProtectedMember
-                oidc_response.login_url = urlparse(
-                    oidc_response.login_url
-                )._replace(scheme='https').geturl()
+                oidc_response.login_url = (
+                    urlparse(oidc_response.login_url)._replace(scheme="https").geturl()
+                )
 
             response = oidc_response.to_json()
             await self.finish(response)
@@ -565,7 +579,9 @@ class TestDownloadHandler(BaseHandler):
 
 
 def write_config(
-    pachd_address: str, server_cas: Optional[bytes], session_token: Optional[str],
+    pachd_address: str,
+    server_cas: Optional[bytes],
+    session_token: Optional[str],
 ) -> None:
     """Writes the pachd_address/server_cas context to the local config file.
     This will create a new config file if one does not exist.
