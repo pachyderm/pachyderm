@@ -37,7 +37,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240112-905276c17a17d57de108eab3d53d3322fd27650a@sha256:7968439e70f08b411510f0a2b42d77ffde0d51ac971e3106a65902440b648882
+    default: docker.io/pachyderm/ci-runner:20240125-b618e470f54bfef292a49d37af2c83443c431ddf@sha256:bb52805dfa8c3b1891e2b87f03f91e8f7f9b9d6b797a8b31645dc4ed97f7fb67
   go-version:
     type: string
     default: "1.21.5"
