@@ -79,14 +79,11 @@ done
 echo -n "gopatch..."
 "$(rlocation _main/src/proto/gopatch)" ./... -p="$(rlocation _main/src/proto/proto.patch)"
 echo "done."
+
 echo -n "gofmt..."
 "$(rlocation go_sdk/bin/gofmt)" -w .
 echo "done."
 
-# echo -n "copy generated files into workspace..."
-# find src/internal/jsonschema -name \*.schema.json -exec rm {} '+'
-# cp -a $OUT/src/ .
-# cp -a $OUT/github.com/pachyderm/pachyderm/v2/src/ .
-echo "package up result..."
+echo "package result..."
 "$(rlocation _main/src/proto/prototar/prototar_/prototar)" create $TAR out/pachyderm out/github.com/pachyderm/pachyderm/v2
 echo "done."

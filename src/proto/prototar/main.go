@@ -93,9 +93,10 @@ func applyOne(ctx context.Context, h *tar.Header, r io.Reader) (retErr error) {
 	if err != nil {
 		return errors.Wrap(err, "check existing file")
 	}
-	dir, _ := filepath.Split(h.Name)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return errors.Wrapf(err, "create output dir %v", dir)
+	if dir, _ := filepath.Split(h.Name); dir != "" {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return errors.Wrapf(err, "create output dir %v", dir)
+		}
 	}
 	hash := xxh3.New()
 	dst, err := os.OpenFile(h.Name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)

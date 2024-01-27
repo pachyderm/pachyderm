@@ -37,6 +37,11 @@ func TestCreateAndApply(t *testing.T) {
 
 	now := time.Now()
 	a, b := fstest.MapFS{
+		"proto-docs.json": &fstest.MapFile{
+			Data:    []byte("{}"),
+			Mode:    fs.ModePerm,
+			ModTime: now,
+		},
 		"src/new/new.pb.go": &fstest.MapFile{
 			Data:    []byte("new file"),
 			Mode:    fs.ModePerm,

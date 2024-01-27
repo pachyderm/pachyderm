@@ -15,5 +15,7 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 { echo>&2 "ERROR: cannot find $f; this script must be run with 'bazel run'"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
-cd "${BUILD_WORKSPACE_DIRECTORY}/src" # Where your working copy is.
-exec "$(rlocation _main/src/proto/prototar/prototar_/prototar)" apply $1
+INPUT="${PWD}/${1}"
+cd $BUILD_WORKSPACE_DIRECTORY # Where your working copy is.
+find src/internal/jsonschema -name \*.schema.json -exec rm {} '+'
+exec "$(rlocation _main/src/proto/prototar/prototar_/prototar)" apply $INPUT
