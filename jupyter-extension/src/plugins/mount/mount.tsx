@@ -477,6 +477,10 @@ export class MountPlugin implements IMountPlugin {
     for (let i = 0; i < mounted.length; i++) {
       const pfsInput: PfsInput = {
         pfs: {
+          name: `${mounted[i].project}_${mounted[i].repo}`,
+          ...(mounted[i].branch !== 'master' && {
+            name: `${mounted[i].project}_${mounted[i].repo}_${mounted[i].branch}`,
+          }),
           repo: mounted[i].repo,
           ...(mounted[i].project !== 'default' && {
             project: mounted[i].project,
