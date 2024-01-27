@@ -214,12 +214,12 @@ func InitBatchLogger(logFile string) func(err error) {
 			if logFile == "" {
 				var err error
 				// On error, out is set to "" again.
-				logFile, err = xdg.CacheFile(fmt.Sprintf("pachyderm/log/%s.%s.log", name, time.Now().In(time.UTC).Format("20060102T150405Z")))
+				name := fmt.Sprintf("%s.%s.log", name, time.Now().In(time.UTC).Format("20060102T150405Z"))
+				logFile, err = xdg.CacheFile(filepath.Join("pachyderm/log", name))
 				if err != nil {
-					addInitWarningf("problem creating log file in xdg cache dir: %v", err)
-					logFile = ""
-					keepLog = false
-					return c
+					// When xdg.CacheFile doesn't work, use $PWD.  This works
+					// fine for, say, Bazel genrules.
+					logFile = name
 				}
 			} else {
 				if stat, err := os.Stat(logFile); err == nil {
