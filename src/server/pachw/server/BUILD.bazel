@@ -17,6 +17,7 @@ go_library(
         "//src/internal/miscutil",
         "//src/internal/task",
         "//src/server/pfs/server",
+        "//src/server/worker/driver",
         "@io_etcd_go_etcd_client_v3//:client",
         "@io_k8s_api//autoscaling/v1:autoscaling",
         "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",

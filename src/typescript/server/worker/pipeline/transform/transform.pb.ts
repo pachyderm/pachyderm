@@ -13,6 +13,7 @@ export type CreateParallelDatumsTask = {
   fileSetId?: string
   baseFileSetId?: string
   pathRange?: Pfs_v2Pfs.PathRange
+  authToken?: string
 }
 
 export type CreateParallelDatumsTaskResult = {
@@ -27,6 +28,7 @@ export type CreateSerialDatumsTask = {
   baseMetaCommit?: Pfs_v2Pfs.Commit
   noSkip?: boolean
   pathRange?: Pfs_v2Pfs.PathRange
+  authToken?: string
 }
 
 export type CreateSerialDatumsTaskResult = {
@@ -40,6 +42,7 @@ export type CreateDatumSetsTask = {
   fileSetId?: string
   pathRange?: Pfs_v2Pfs.PathRange
   setSpec?: DatumDatum.SetSpec
+  authToken?: string
 }
 
 export type CreateDatumSetsTaskResult = {
