@@ -1,7 +1,7 @@
 # Check https://circleci.com/docs/2.0/language-go/ for more details
 version: 2.1
 
-aliases:
+aliases: #Test
   - &only-release-tags
     branches:
       ignore: /.*/
@@ -1018,6 +1018,7 @@ jobs:
           at: .
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1036,6 +1037,7 @@ jobs:
           path: ~/project
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1349,6 +1351,7 @@ jobs:
           path: ~/project
       - setup_remote_docker:
           version: 19.03.13
+          docker_layer_caching: true
       - install-poetry
       - run:
           name: build
@@ -1367,6 +1370,7 @@ jobs:
           at: .
       - setup_remote_docker:
           version: 20.10.18
+          docker_layer_caching: true
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
