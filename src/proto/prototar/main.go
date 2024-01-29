@@ -139,14 +139,11 @@ func check(name string) (result xxh3.Uint128, retErr error) {
 	return h.Sum128(), nil
 }
 
-type applicationReport struct {
+type ApplicationReport struct {
 	Added, Modified, Deleted, Unchanged []string
 }
 
-// Tests that care will allocate this.  For real-world usage, log messages are sufficient.
-var applyReport *applicationReport
-
-func applyOne(ctx context.Context, h *tar.Header, r io.Reader) (retErr error) {
+func applyOne(ctx context.Context, h *tar.Header, r io.Reader, applyReport *ApplicationReport) (retErr error) {
 	currentHash, err := check(h.Name) // quick hash to see if the file is new
 	if err != nil {
 		return errors.Wrap(err, "check existing file")
@@ -188,19 +185,58 @@ func applyOne(ctx context.Context, h *tar.Header, r io.Reader) (retErr error) {
 	return nil
 }
 
-func apply(ctx context.Context, r io.Reader) error {
-	tr := tar.NewReader(r)
-	for {
-		h, err := tr.Next()
+func apply(ctx context.Context, r io.Reader) (*ApplicationReport, error) {
+	report := new(ApplicationReport)
+	jsonSchemas := map[string]struct{}{}
+
+	// Find the current set of JSON schemas, so we can delete any files that aren't in the proto
+	// bundle.
+	if err := fs.WalkDir(os.DirFS("src/internal/jsonschema"), ".", func(file string, d fs.DirEntry, err error) error {
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				return nil
-			}
+			return errors.Wrap(err, "WalkFn called with error")
 		}
-		if err := applyOne(ctx, h, tr); err != nil {
-			return errors.Wrapf(err, "extract one file %v", h.Name)
+		if d.IsDir() {
+			return nil
+		}
+		jsonSchemas[path.Join("src/internal/jsonschema", file)] = struct{}{}
+		return nil
+	}); err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return nil, errors.Wrap(err, "find json schemas")
 		}
 	}
+
+	// Extract each file in the archive, updating the report with
+	// added/modified/etc. information.
+	if err := func() error {
+		tr := tar.NewReader(r)
+		for {
+			h, err := tr.Next()
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					return nil
+				}
+				return errors.Wrap(err, "read tar")
+			}
+			if err := applyOne(ctx, h, tr, report); err != nil {
+				return errors.Wrapf(err, "extract one file %v", h.Name)
+			}
+			delete(jsonSchemas, h.Name)
+		}
+	}(); err != nil {
+		return nil, errors.Wrap(err, "extract archive")
+	}
+
+	// Finally, get rid of all JSON schemas that weren't extracted.
+	for schema := range jsonSchemas {
+		if err := os.Remove(schema); err != nil {
+			return nil, errors.Wrap(err, "remove stale json schema")
+		}
+		log.Info(ctx, "removed stale json schema", zap.String("name", schema))
+		report.Deleted = append(report.Deleted, schema)
+	}
+
+	return report, nil
 }
 
 func test(r io.Reader) (bool, error) {
@@ -269,7 +305,7 @@ func main() {
 			if err != nil {
 				return errors.Wrap(err, "open input")
 			}
-			if err := apply(cmd.Context(), fh); err != nil {
+			if _, err := apply(cmd.Context(), fh); err != nil {
 				return errors.Wrap(err, "apply archive")
 			}
 			return nil

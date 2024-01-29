@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 	"testing/fstest"
-	"time"
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
@@ -37,36 +36,34 @@ func TestCreateAndApply(t *testing.T) {
 		}
 	})
 
-	now := time.Now()
+	// Create a proto bundle from this directory structure.
 	f := fstest.MapFS{
-		"out/forgotten": &fstest.MapFile{
+		"out/forgotten": {
 			Data: []byte("this file was not included in the archive"),
 		},
-		"out/pachyderm/proto-docs.json": &fstest.MapFile{
-			Data:    []byte("{}"),
-			Mode:    fs.ModePerm,
-			ModTime: now,
+		"out/pachyderm/proto-docs.json": {
+			Data: []byte("{}"),
+			Mode: fs.ModePerm,
 		},
-		"out/pachyderm/src/new/new.pb.go": &fstest.MapFile{
-			Data:    []byte("new file"),
-			Mode:    fs.ModePerm,
-			ModTime: now,
+		"out/pachyderm/src/new/new.pb.go": {
+			Data: []byte("new file"),
+			Mode: fs.ModePerm,
 		},
-		"out/pachyderm/src/existing/existing.pb.go": &fstest.MapFile{
-			Data:    []byte("existing file"),
-			Mode:    fs.ModePerm,
-			ModTime: now,
+		"out/pachyderm/src/internal/jsonschema/new_v2/New.schema.json": {},
+		"out/pachyderm/src/existing/existing.pb.go": {
+			Data: []byte("existing file"),
+			Mode: fs.ModePerm,
 		},
-		"out/github.com/whatever/src/modified/modified.pb.go": &fstest.MapFile{
-			Data:    []byte("new content"),
-			Mode:    fs.ModePerm,
-			ModTime: now,
+		"out/github.com/whatever/src/modified/modified.pb.go": {
+			Data: []byte("new content"),
+			Mode: fs.ModePerm,
 		},
 	}
-	tar := new(bytes.Buffer)
+
+	tarW := new(bytes.Buffer)
 	forgotten := new(bytes.Buffer)
 	req := &createRequest{
-		tar:       tar,
+		tar:       tarW,
 		forgotten: forgotten,
 		root:      f,
 		dirs:      []string{"out/pachyderm", "out/github.com/whatever"},
@@ -74,27 +71,75 @@ func TestCreateAndApply(t *testing.T) {
 	if err := create(ctx, req); err != nil {
 		t.Fatalf("create: %v", err)
 	}
+	tar := tarW.Bytes()
+
+	// Check that we found the "forgotten" file, not in out/pachyderm or
+	// out/github.com/whatever.
 	if got, want := forgotten.String(), "out/forgotten\n"; got != want {
 		diff := cmp.Diff(want, got)
 		t.Errorf("forgotten files: (-want +got)\n%s", diff)
 	}
 
+	// Apply only works on the current working directory, so switch there.  At the top of the
+	// test, we have a cleanup that reverts this chdir.
 	tmp := t.TempDir()
 	if err := os.Chdir(tmp); err != nil {
 		t.Fatalf("chdir: %v", err)
 	}
-	write(t, filepath.Join(tmp, "src", "existing", "existing.pb.go"), []byte("existing file"))
-	write(t, filepath.Join(tmp, "src", "modified", "modified.pb.go"), []byte("old content"))
-	applyReport = new(applicationReport)
-	if err := apply(ctx, tar); err != nil {
-		t.Fatalf("apply: %v", err)
-	}
-	wantReport := &applicationReport{
-		Modified:  []string{"src/modified/modified.pb.go"},
-		Unchanged: []string{"src/existing/existing.pb.go"},
-		Added:     []string{"src/new/new.pb.go", "proto-docs.json"},
-	}
-	if diff := cmp.Diff(wantReport, applyReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
-		t.Errorf("application report: (-want +got)\n%s", diff)
-	}
+
+	// Generated a representative directory tree.  This is supposed to look like your working
+	// copy of Pachyderm.
+	write(t, filepath.Join("src", "existing", "existing.pb.go"), []byte("existing file"))
+	write(t, filepath.Join("src", "modified", "modified.pb.go"), []byte("old content"))
+
+	// Apply the tar we generated above
+	t.Run("apply_1", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		wantReport := &ApplicationReport{
+			Modified:  []string{"src/modified/modified.pb.go"},
+			Unchanged: []string{"src/existing/existing.pb.go"},
+			Added:     []string{"src/new/new.pb.go", "proto-docs.json", "src/internal/jsonschema/new_v2/New.schema.json"},
+		}
+		if diff := cmp.Diff(wantReport, gotReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+			t.Errorf("application report: (-want +got)\n%s", diff)
+		}
+	})
+
+	// The case above tests what happens when src/internal/jsonschema doesn't exist, which is
+	// not an error.  (If you're mad, you might rm -rf it.  That's fine.)  This case tests what
+	// happens when there is a stale file in there.
+	t.Run("apply_2", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		write(t, filepath.Join("src", "internal", "jsonschema", "old_v2", "Old.schema.json"), []byte(`{"old":"schema"}`))
+		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		wantReport := &ApplicationReport{
+			Unchanged: []string{"src/existing/existing.pb.go", "src/modified/modified.pb.go", "src/new/new.pb.go", "proto-docs.json", "src/internal/jsonschema/new_v2/New.schema.json"},
+			Deleted:   []string{"src/internal/jsonschema/old_v2/Old.schema.json"},
+		}
+		if diff := cmp.Diff(wantReport, gotReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+			t.Errorf("application report: (-want +got)\n%s", diff)
+		}
+	})
+
+	// Finally we should be able to run this again and see only unchanged files.
+	t.Run("apply_3", func(t *testing.T) {
+		ctx := pctx.TestContext(t)
+		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		wantReport := &ApplicationReport{
+			Unchanged: []string{"src/existing/existing.pb.go", "src/modified/modified.pb.go", "src/new/new.pb.go", "proto-docs.json", "src/internal/jsonschema/new_v2/New.schema.json"},
+		}
+		if diff := cmp.Diff(wantReport, gotReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+			t.Errorf("application report: (-want +got)\n%s", diff)
+		}
+	})
 }
