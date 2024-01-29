@@ -88,5 +88,5 @@ echo -n "gofmt..."
 echo "done."
 
 echo "package result..."
-"$(rlocation _main/src/proto/prototar/prototar_/prototar)" create $TAR $FORGOTTEN out/pachyderm out/github.com/pachyderm/pachyderm/v2
+"$(rlocation _main/src/proto/prototar/prototar_/prototar)" create "$TAR" "$FORGOTTEN" out/pachyderm out/github.com/pachyderm/pachyderm/v2
 echo "done."
