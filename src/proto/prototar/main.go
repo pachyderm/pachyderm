@@ -143,28 +143,31 @@ type ApplicationReport struct {
 	Added, Modified, Deleted, Unchanged []string
 }
 
-func applyOne(ctx context.Context, h *tar.Header, r io.Reader, applyReport *ApplicationReport) (retErr error) {
+func applyOne(ctx context.Context, h *tar.Header, r io.Reader, dryRun bool, applyReport *ApplicationReport) (retErr error) {
 	currentHash, err := check(h.Name) // quick hash to see if the file is new
 	if err != nil {
 		return errors.Wrap(err, "check existing file")
 	}
-	if dir, _ := path.Split(h.Name); dir != "" {
+	if dir, _ := path.Split(h.Name); dir != "" && !dryRun {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return errors.Wrapf(err, "create output dir %v", dir)
 		}
 	}
-	hash := xxh3.New()
-	dst, err := os.OpenFile(h.Name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
-	if err != nil {
-		return errors.Wrap(err, "open destination")
+	hasher := xxh3.New()
+	var w io.Writer = hasher
+	if !dryRun {
+		dst, err := os.OpenFile(h.Name, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o644)
+		if err != nil {
+			return errors.Wrap(err, "open destination")
+		}
+		defer errors.Close(&retErr, dst, "close destination")
+		w = io.MultiWriter(hasher, dst)
 	}
-	defer errors.Close(&retErr, dst, "close destination")
-
-	w := io.MultiWriter(hash, dst)
 	if _, err := io.Copy(w, r); err != nil {
 		return errors.Wrap(err, "copy file")
 	}
-	newHash := hash.Sum128()
+	newHash := hasher.Sum128()
+
 	switch currentHash {
 	case xxh3.Uint128{}:
 		if applyReport != nil {
@@ -185,7 +188,7 @@ func applyOne(ctx context.Context, h *tar.Header, r io.Reader, applyReport *Appl
 	return nil
 }
 
-func apply(ctx context.Context, r io.Reader) (*ApplicationReport, error) {
+func apply(ctx context.Context, r io.Reader, dryRun bool) (*ApplicationReport, error) {
 	report := new(ApplicationReport)
 	jsonSchemas := map[string]struct{}{}
 
@@ -218,7 +221,7 @@ func apply(ctx context.Context, r io.Reader) (*ApplicationReport, error) {
 				}
 				return errors.Wrap(err, "read tar")
 			}
-			if err := applyOne(ctx, h, tr, report); err != nil {
+			if err := applyOne(ctx, h, tr, dryRun, report); err != nil {
 				return errors.Wrapf(err, "extract one file %v", h.Name)
 			}
 			delete(jsonSchemas, h.Name)
@@ -229,18 +232,16 @@ func apply(ctx context.Context, r io.Reader) (*ApplicationReport, error) {
 
 	// Finally, get rid of all JSON schemas that weren't extracted.
 	for schema := range jsonSchemas {
-		if err := os.Remove(schema); err != nil {
-			return nil, errors.Wrap(err, "remove stale json schema")
+		if !dryRun {
+			if err := os.Remove(schema); err != nil {
+				return nil, errors.Wrap(err, "remove stale json schema")
+			}
 		}
 		log.Info(ctx, "removed stale json schema", zap.String("name", schema))
 		report.Deleted = append(report.Deleted, schema)
 	}
 
 	return report, nil
-}
-
-func test(r io.Reader) (bool, error) {
-	return false, nil
 }
 
 var ErrExit1 = errors.New("exit status 1")
@@ -305,7 +306,7 @@ func main() {
 			if err != nil {
 				return errors.Wrap(err, "open input")
 			}
-			if _, err := apply(cmd.Context(), fh); err != nil {
+			if _, err := apply(cmd.Context(), fh, false); err != nil {
 				return errors.Wrap(err, "apply archive")
 			}
 			return nil
@@ -315,19 +316,26 @@ func main() {
 		Short: "Test that input.tar matches the content of the current working directory.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if wd := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); wd != "" {
+				if err := os.Chdir(wd); err != nil {
+					return errors.Wrapf(err, "chdir to workspace directory %v", wd)
+				}
+			}
 			in := args[0]
 			fh, err := os.Open(in)
 			if err != nil {
 				return errors.Wrap(err, "open input")
 			}
-			ok, err := test(fh)
+			report, err := apply(cmd.Context(), fh, true)
 			if err != nil {
-				return errors.Wrap(err, "test archive")
+				return errors.Wrap(err, "apply archive")
 			}
-			if !ok {
-				return ErrExit1
+			if len(report.Added) == 0 && len(report.Deleted) == 0 && len(report.Modified) == 0 {
+				fmt.Printf("%d file(s) ok\n", len(report.Unchanged))
+				return nil
 			}
-			return nil
+			fmt.Fprintf(os.Stderr, "It looks like you might need to regenerate the protos in your working copy.")
+			return ErrExit1
 		},
 	}}...)
 

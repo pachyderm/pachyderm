@@ -95,7 +95,7 @@ func TestCreateAndApply(t *testing.T) {
 	// Apply the tar we generated above
 	t.Run("apply_1", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -115,7 +115,7 @@ func TestCreateAndApply(t *testing.T) {
 	t.Run("apply_2", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		write(t, filepath.Join("src", "internal", "jsonschema", "old_v2", "Old.schema.json"), []byte(`{"old":"schema"}`))
-		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -131,12 +131,30 @@ func TestCreateAndApply(t *testing.T) {
 	// Finally we should be able to run this again and see only unchanged files.
 	t.Run("apply_3", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		gotReport, err := apply(ctx, bytes.NewReader(tar))
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
 		wantReport := &ApplicationReport{
 			Unchanged: []string{"src/existing/existing.pb.go", "src/modified/modified.pb.go", "src/new/new.pb.go", "proto-docs.json", "src/internal/jsonschema/new_v2/New.schema.json"},
+		}
+		if diff := cmp.Diff(wantReport, gotReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+			t.Errorf("application report: (-want +got)\n%s", diff)
+		}
+	})
+
+	// Try a dry run in an unwritable directory to make sure we don't touch any files.
+	t.Run("dry_run", func(t *testing.T) {
+		if err := os.Chdir("/"); err != nil {
+			t.Fatalf("chdir /: %v", err)
+		}
+		ctx := pctx.TestContext(t)
+		gotReport, err := apply(ctx, bytes.NewReader(tar), true)
+		if err != nil {
+			t.Fatalf("apply: %v", err)
+		}
+		wantReport := &ApplicationReport{
+			Added: []string{"src/new/new.pb.go", "proto-docs.json", "src/internal/jsonschema/new_v2/New.schema.json", "src/existing/existing.pb.go", "src/modified/modified.pb.go"},
 		}
 		if diff := cmp.Diff(wantReport, gotReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
 			t.Errorf("application report: (-want +got)\n%s", diff)
