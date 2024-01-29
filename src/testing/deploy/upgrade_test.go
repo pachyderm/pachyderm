@@ -183,8 +183,7 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.5.0",
-		"2.6.3",
+		"2.7.6",
 	}
 	montage := func(fromVersion string) string {
 		repo := montageRepo
