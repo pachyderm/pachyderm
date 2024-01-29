@@ -315,3 +315,18 @@ func GetAuthToken(ctx context.Context) (string, error) {
 	}
 	return md[ContextTokenKey][0], nil
 }
+
+// GetAuthTokenOutgoing is the same as GetAuthToken, but it checks the outgoing metadata in the context.
+// TODO: It may make sense to merge GetAuthToken and GetAuthTokenOutgoing?
+func GetAuthTokenOutgoing(ctx context.Context) (string, error) {
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if !ok {
+		return "", errors.EnsureStack(ErrNoMetadata)
+	}
+	if len(md[ContextTokenKey]) > 1 {
+		return "", errors.Errorf("multiple authentication token keys found in context")
+	} else if len(md[ContextTokenKey]) == 0 {
+		return "", ErrNotSignedIn
+	}
+	return md[ContextTokenKey][0], nil
+}

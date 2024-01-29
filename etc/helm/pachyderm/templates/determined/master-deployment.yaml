@@ -52,6 +52,10 @@ spec:
           - name: master-config
             mountPath: /etc/determined/
             readOnly: true
+          {{- if and (.Values.determined.checkpointStorage.mountToServer) (eq .Values.determined.checkpointStorage.type "shared_fs") }}
+          - name: checkpoint-storage
+            mountPath: /determined_shared_fs
+          {{ end }}
           {{- if .Values.determined.tlsSecret }}
           - name: tls-secret
             mountPath: {{ include "determined.secretPath" . }}
@@ -114,6 +118,12 @@ spec:
         - name: master-config
           secret:
             secretName: determined-master-config-{{ .Release.Name }}
+        {{- if and (.Values.determined.checkpointStorage.mountToServer) ( eq .Values.determined.checkpointStorage.type "shared_fs") }}
+        - name: checkpoint-storage
+          hostPath:
+            path: {{ .Values.determined.checkpointStorage.hostPath }}
+            type: Directory
+        {{ end }}
         {{- if .Values.determined.tlsSecret }}
         - name: tls-secret
           secret:

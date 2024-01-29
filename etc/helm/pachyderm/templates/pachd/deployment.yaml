@@ -177,6 +177,8 @@ spec:
               fieldPath: metadata.name
         - name: PPS_WORKER_GRPC_PORT
           value: {{ .Values.pachd.ppsWorkerGRPCPort | quote }}
+        - name: PPS_WORKER_PREPROCESSING
+          value: {{ .Values.pachd.ppsWorkerPreprocessing | quote }}
         - name: STORAGE_UPLOAD_CONCURRENCY_LIMIT
           value: {{ .Values.pachd.storage.uploadConcurrencyLimit | quote }}
         - name: STORAGE_PUT_FILE_CONCURRENCY_LIMIT

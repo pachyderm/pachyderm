@@ -7,13 +7,14 @@ bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq a
 bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.35.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.44.1")
+bazel_dep(name = "rules_go", version = "0.45.1")
 bazel_dep(name = "rules_oci", version = "1.5.1")
 bazel_dep(name = "rules_python", version = "0.27.1")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
+go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
     version = "1.21.5",
@@ -215,6 +216,7 @@ use_repo(
     "com_github_minio_minio_go_v6",
     "com_github_minio_minio_go_v7",
     "com_github_modern_go_reflect2",
+    "com_github_opencontainers_image_spec",
     "com_github_opentracing_contrib_go_grpc",
     "com_github_opentracing_opentracing_go",
     "com_github_pachyderm_ohmyglob",
@@ -258,6 +260,7 @@ use_repo(
     "io_k8s_client_go",
     "io_k8s_klog_v2",
     "io_k8s_kubectl",
+    "io_k8s_sigs_kind",
     "io_k8s_sigs_yaml",
     "io_k8s_utils",
     "net_starlark_go",
@@ -289,6 +292,10 @@ use_repo(
     "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
     "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
     "com_github_bufbuild_protoc_gen_validate_x86_64_macos",
+    "com_github_containers_skopeo_aarch64_linux",
+    "com_github_containers_skopeo_aarch64_macos",
+    "com_github_containers_skopeo_x86_64_linux",
+    "com_github_containers_skopeo_x86_64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
@@ -301,6 +308,7 @@ use_repo(
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_aarch64_macos",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_linux",
     "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_openapiv2_x86_64_macos",
+    "com_github_kubernetes_sigs_metrics_server_helm_chart",
     "com_github_protocolbuffers_protobuf_aarch64_linux",
     "com_github_protocolbuffers_protobuf_aarch64_macos",
     "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_linux",
@@ -315,13 +323,27 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
     "com_github_yelp_dumb_init_aarch64_linux",
     "com_github_yelp_dumb_init_x86_64_linux",
+    "io_k8s_dl_kubectl_aarch64_linux",
+    "io_k8s_dl_kubectl_aarch64_macos",
+    "io_k8s_dl_kubectl_x86_64_linux",
+    "io_k8s_dl_kubectl_x86_64_macos",
+    "io_k8s_sigs_kind_aarch64_linux",
+    "io_k8s_sigs_kind_aarch64_macos",
+    "io_k8s_sigs_kind_x86_64_linux",
+    "io_k8s_sigs_kind_x86_64_macos",
     "org_uber_go_gopatch_aarch64_linux",
     "org_uber_go_gopatch_aarch64_macos",
     "org_uber_go_gopatch_x86_64_linux",
     "org_uber_go_gopatch_x86_64_macos",
+    "sh_helm_aarch64_linux",
+    "sh_helm_aarch64_macos",
+    "sh_helm_x86_64_linux",
+    "sh_helm_x86_64_macos",
 )
 
 oci = use_extension("@rules_oci//oci:extensions.bzl", "oci")
+
+# Base of release images.
 oci.pull(
     name = "distroless",
     digest = "sha256:39ae7f0201fee13b777a3e4a5a9326a8889269172c8b4f4289d9f19c831f45f4",
@@ -331,7 +353,30 @@ oci.pull(
         "linux/arm64/v8",
     ],
 )
-use_repo(oci, "distroless")
+
+# Needed by kindenv tests.
+oci.pull(
+    name = "pause",
+    digest = "sha256:927d98197ec1141a368550822d18fa1c60bdae27b78b0c004f705f548c07814f",
+    image = "gcr.io/google-containers/pause",
+    platforms = [
+        "linux/amd64",
+        "linux/arm64",
+    ],
+)
+
+# Needed by kindenv.
+oci.pull(
+    name = "zot_amd64",
+    digest = "sha256:e5a5be113155d1e0032e5d669888064209da95c107497524f8d4eac8ed50b378",
+    image = "ghcr.io/project-zot/zot-linux-amd64",
+)
+oci.pull(
+    name = "zot_arm64",
+    digest = "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
+    image = "ghcr.io/project-zot/zot-linux-arm64",
+)
+use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 
 python = use_extension("@rules_python//python:extensions.bzl", "python")
 python.toolchain(

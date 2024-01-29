@@ -1,6 +1,6 @@
 load("@buildifier_prebuilt//:rules.bzl", "buildifier", "buildifier_test", "buildozer_binary")
 load("@gazelle//:def.bzl", "gazelle")
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "nogo")
 
 licenses(["notice"])
 
@@ -71,6 +71,14 @@ config_setting(
 # gazelle:proto disable_global
 gazelle(name = "gazelle")
 
+# Configure nogo (a linter that runs next to the compiler).
+nogo(
+    name = "nogo",
+    config = "nogo.json",
+    vet = True,
+    visibility = ["//visibility:public"],  # must have public visibility
+)
+
 # Buildifier formats all BUILD files in the workspace.
 buildifier(
     name = "buildifier",
@@ -126,5 +134,7 @@ alias(
 test_suite(
     name = "privileged_tests",
     tags = ["manual"],
-    tests = ["//src/server/pfs/fuse:fuse_test"],
+    tests = [
+        "//src/server/pfs/fuse:fuse_test",
+    ],
 )

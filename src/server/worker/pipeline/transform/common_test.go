@@ -1,4 +1,4 @@
-package transform
+package transform_test
 
 import (
 	"context"
@@ -72,8 +72,11 @@ func (td *testDriver) Pipelines() col.PostgresCollection {
 func (td *testDriver) NewTaskSource() task.Source {
 	return td.inner.NewTaskSource()
 }
-func (td *testDriver) NewTaskDoer(groupID string, cache task.Cache) task.Doer {
-	return td.inner.NewTaskDoer(groupID, cache)
+func (td *testDriver) NewPreprocessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	return td.inner.NewPreprocessingTaskDoer(groupID, cache)
+}
+func (td *testDriver) NewProcessingTaskDoer(groupID string, cache task.Cache) task.Doer {
+	return td.inner.NewProcessingTaskDoer(groupID, cache)
 }
 func (td *testDriver) PipelineInfo() *pps.PipelineInfo {
 	return td.inner.PipelineInfo()

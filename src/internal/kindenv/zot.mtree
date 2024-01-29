@@ -1,0 +1,2 @@
+etc uid=0 gid=0 time=0 mode=0755 type=dir
+etc/zot.json uid=0 gid=0 time=0 mode=0755 type=file content=src/internal/kindenv/zot.json

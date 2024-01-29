@@ -8,7 +8,8 @@ import {requestAPI} from '../../handler';
 import {Paging} from './paging';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 
-const MAX_NUM_CONTENTS_PAGE = 100;
+const MAX_NUM_CONTENTS_PAGE = 100; // How many files to render in the FileBrowser UI per page
+const PAGINATION_NUMBER = 400; // How many items to request per page
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   name: '',
   path: '',
@@ -23,23 +24,31 @@ const DEFAULT_CONTENT_MODEL: Contents.IModel = {
 };
 
 export class MountDrive implements Contents.IDrive {
-  public _registry: DocumentRegistry;
+  _registry: DocumentRegistry;
+  modelDBFactory?: ModelDB.IFactory | undefined;
   readonly _model: Paging.IModel;
+
   private _fileChanged = new Signal<this, Contents.IChangedArgs>(this);
   private _loading = new Signal<this, boolean>(this);
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
-  private _cache: {key: string | null; contents: any};
+  private _cache: {key: string | null; now: number | null; contents: any};
   private _path: string;
   private _name_suffix: string;
-  modelDBFactory?: ModelDB.IFactory | undefined;
+  private _refreshFileBrowser: () => Promise<void>; // A function that refresh the file browser
 
-  constructor(registry: DocumentRegistry, path: string, name_suffix: string) {
+  constructor(
+    registry: DocumentRegistry,
+    path: string,
+    name_suffix: string,
+    refreshFileBrowser: () => Promise<void>,
+  ) {
     this._registry = registry;
     this._model = {page: 0, max_page: 0};
-    this._cache = {key: null, contents: DEFAULT_CONTENT_MODEL};
+    this._cache = {key: null, now: null, contents: DEFAULT_CONTENT_MODEL};
     this._path = path;
     this._name_suffix = name_suffix;
+    this._refreshFileBrowser = refreshFileBrowser;
   }
 
   get name(): string {
@@ -105,13 +114,20 @@ export class MountDrive implements Contents.IDrive {
     // If we don't have contents cached, then we fetch them and cache the results.
     if (localPath !== this._cache.key || !localPath) {
       this._loading.emit(true);
-      const response = await this._get(url, {...options, content});
+      const getOptions = {
+        ...options,
+        number: PAGINATION_NUMBER,
+        content,
+      };
+      const response = await this._get(url, getOptions);
       this._loading.emit(false);
       this._model.page = 1;
       this._model.max_page = Math.ceil(
         response.content.length / MAX_NUM_CONTENTS_PAGE,
       );
-      this._cache = {key: localPath, contents: response.content};
+      const now = Date.now();
+      this._cache = {key: localPath, now, contents: response.content};
+      this._fetchNextPage(response, now, url, getOptions);
     }
 
     return {
@@ -121,6 +137,47 @@ export class MountDrive implements Contents.IDrive {
         this._model.page * MAX_NUM_CONTENTS_PAGE,
       ),
     };
+  }
+
+  _fetchNextPage(
+    previousResponse: Contents.IModel,
+    timeOfLastDirectoryChange: number,
+    url: string,
+    getOptions: PartialJSONObject,
+  ): void {
+    // Stop fetching pages if we recieve a page less than expected file count of a page
+    if (previousResponse?.content?.length < PAGINATION_NUMBER) {
+      return;
+    }
+
+    // Invoking an async function without awaiting it lets us start the process of fetching the next pages in the background while
+    // continuing to render the the first page.
+    (async () => {
+      const nextResponse: Contents.IModel = await this._get(url, {
+        ...getOptions,
+        pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
+      });
+
+      // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
+      // cache with results after the user has changed directories.
+      if (this._cache.now !== timeOfLastDirectoryChange) {
+        return;
+      }
+
+      // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
+      // It will just add new pages and update the page selector without disrupting the user.
+      this._cache.contents = this._cache.contents.concat(nextResponse.content);
+      this._model.max_page = Math.ceil(
+        this._cache.contents.length / MAX_NUM_CONTENTS_PAGE,
+      );
+      await this._refreshFileBrowser();
+      this._fetchNextPage(
+        nextResponse,
+        timeOfLastDirectoryChange,
+        url,
+        getOptions,
+      );
+    })();
   }
 
   getDownloadUrl(localPath: string): Promise<string> {
