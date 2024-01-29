@@ -15,6 +15,5 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 { echo>&2 "ERROR: cannot find $f; this script must be run with 'bazel run'"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
-printenv
-cd "$BUILD_WORKSPACE_DIRECTORY"
+cd ../../../../../../..
 exec "$(rlocation _main/src/proto/prototar/prototar_/prototar)" test "$(rlocation _main/src/proto/go_protos.tar)"

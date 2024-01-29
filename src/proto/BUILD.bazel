@@ -86,7 +86,6 @@ genrule(
     ],
 )
 
-# bazel build //src/proto:run will regenerate the protos in your working copy.
 sh_binary(
     name = "extract_sh",
     srcs = ["extract.sh"],
@@ -98,6 +97,7 @@ sh_binary(
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )
 
+# bazel build //src/proto:run will regenerate the protos in your working copy.
 alias(
     name = "run",
     actual = "extract_sh",
@@ -106,6 +106,7 @@ alias(
 
 sh_test(
     name = "check_generated_protos",
+    size = "small",
     srcs = ["test.sh"],
     data = [
         "go_protos.tar",
