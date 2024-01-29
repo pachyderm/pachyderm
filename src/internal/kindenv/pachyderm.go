@@ -26,6 +26,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/emptypb"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func getPachydermVersions() (string, string, error) {
@@ -70,9 +71,10 @@ func (c *Cluster) PushPachyderm(ctx context.Context) error {
 }
 
 type HelmConfig struct {
-	Namespace       string
-	Diff            bool
-	NoSwitchContext bool
+	Namespace       string // Must be set; "" does not mean "default".
+	Diff            bool   // If true, print diff instead of performing upgrade.
+	NoSwitchContext bool   // If true, don't switch the active Pachyderm context to this.
+	ConsoleTag      string // If set, use a different image tag of console.
 }
 
 func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string, error) {
@@ -103,6 +105,19 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 			// Configure the external hostname.
 			"proxy.host=" + cfg.Hostname,
 		}, ","),
+	}
+	// Configure console.
+	if t := install.ConsoleTag; t != "" {
+		flags = append(flags, "--set", "console.image.tag="+t)
+		if err := c.editNamespace(ctx, install.Namespace, func(ns *corev1.Namespace) error {
+			ns.Annotations[consoleOverrideKey] = t
+			return nil
+		}); err != nil {
+			log.Error(ctx, "problem saving console tag override; not saving", zap.Error(err))
+		}
+	} else if t := cfg.ConsoleTag; t != "" {
+		log.Info(ctx, "reusing console override", zap.String("image.tag", t))
+		flags = append(flags, "--set", "console.image.tag="+t)
 	}
 
 	// Configure enterprise.
