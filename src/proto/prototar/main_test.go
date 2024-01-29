@@ -115,6 +115,7 @@ func TestCreateAndApply(t *testing.T) {
 	t.Run("apply_2", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		write(t, filepath.Join("src", "internal", "jsonschema", "old_v2", "Old.schema.json"), []byte(`{"old":"schema"}`))
+		write(t, filepath.Join("src", "internal", "jsonschema", "jsonschema.go"), []byte("some go code to not delete"))
 		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
 		if err != nil {
 			t.Fatalf("apply: %v", err)

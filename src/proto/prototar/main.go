@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"strings"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -201,7 +202,9 @@ func apply(ctx context.Context, r io.Reader, dryRun bool) (*ApplicationReport, e
 		if d.IsDir() {
 			return nil
 		}
-		jsonSchemas[path.Join("src/internal/jsonschema", file)] = struct{}{}
+		if strings.HasSuffix(file, ".schema.json") {
+			jsonSchemas[path.Join("src/internal/jsonschema", file)] = struct{}{}
+		}
 		return nil
 	}); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
