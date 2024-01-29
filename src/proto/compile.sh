@@ -80,7 +80,7 @@ mkdir -p out/pachyderm/src/typescript
     "${PROTOS[@]}"
 
 echo -n "gopatch..."
-"$(rlocation _main/src/proto/gopatch)" ./... -p="$(rlocation _main/src/proto/proto.patch)"
+"$(rlocation _main/src/proto/gopatch)" ./out/pachyderm/... ./out/github.com/pachyderm/pachyderm/v2/... -p="$(rlocation _main/src/proto/proto.patch)"
 echo "done."
 
 echo -n "gofmt..."
