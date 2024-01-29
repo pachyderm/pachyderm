@@ -9171,6 +9171,24 @@
           ]
         },
         {
+          "name": "FileSetType",
+          "longName": "GetFileSetRequest.FileSetType",
+          "fullName": "pfs_v2.GetFileSetRequest.FileSetType",
+          "description": "",
+          "values": [
+            {
+              "name": "TOTAL",
+              "number": "0",
+              "description": ""
+            },
+            {
+              "name": "DIFF",
+              "number": "1",
+              "description": ""
+            }
+          ]
+        },
+        {
           "name": "OriginKind",
           "longName": "OriginKind",
           "fullName": "pfs_v2.OriginKind",
@@ -11387,6 +11405,18 @@
               "type": "Commit",
               "longType": "Commit",
               "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "",
+              "label": "",
+              "type": "FileSetType",
+              "longType": "GetFileSetRequest.FileSetType",
+              "fullType": "pfs_v2.GetFileSetRequest.FileSetType",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

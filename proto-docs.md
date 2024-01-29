@@ -359,6 +359,7 @@
     - [CommitState](#pfs_v2-CommitState)
     - [Delimiter](#pfs_v2-Delimiter)
     - [FileType](#pfs_v2-FileType)
+    - [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType)
     - [OriginKind](#pfs_v2-OriginKind)
     - [SQLDatabaseEgress.FileFormat.Type](#pfs_v2-SQLDatabaseEgress-FileFormat-Type)
   
@@ -5123,6 +5124,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [Commit](#pfs_v2-Commit) |  |  |
+| type | [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType) |  |  |
 
 
 
@@ -5774,6 +5776,18 @@ The states are increasingly specific, i.e. a commit that is FINISHED also counts
 | RESERVED | 0 |  |
 | FILE | 1 |  |
 | DIR | 2 |  |
+
+
+
+<a name="pfs_v2-GetFileSetRequest-FileSetType"></a>
+
+### GetFileSetRequest.FileSetType
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| TOTAL | 0 |  |
+| DIFF | 1 |  |
 
 
 
