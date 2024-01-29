@@ -24,6 +24,9 @@ func TestServer(t *testing.T) {
 	fileset.NewTestStorage(ctx, t, db, tracker)
 
 	var config pachconfig.StorageConfiguration
+	config.StorageDiskCacheSize = 3
+	config.StorageDownloadConcurrencyLimit = 3
+	config.StorageUploadConcurrencyLimit = 3
 	s, err := New(Env{
 		DB:     db,
 		Bucket: b,
