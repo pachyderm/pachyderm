@@ -670,6 +670,17 @@ message ListDatumRequest {
   bool reverse = 6;
 }
 
+// Emits a stream of datums as they are created from the given input. Client
+// must cancel the stream when it no longer wants to receive datums.
+message CreateDatumRequest {
+  // Input is the input to list datums from.
+  // The datums listed are the ones that would be run if a pipeline was created
+  // with the provided input.
+  Input input = 1;
+  // Number of datums to return in next response
+  int64 number = 2;
+}
+
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
 message DatumSetSpec {
   option (protoc.gen.jsonschema.message_options).allow_null_values = true;
@@ -1001,6 +1012,7 @@ service API {
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
   // ListDatum returns information about each datum fed to a Pachyderm job
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
+  rpc CreateDatum(stream CreateDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 
   rpc RerunPipeline(RerunPipelineRequest) returns (google.protobuf.Empty) {}

@@ -4194,6 +4194,45 @@
         ]
       }
     },
+    "/pps_v2.API/CreateDatum": {
+      "post": {
+        "operationId": "API_CreateDatum",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pps_v2DatumInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pps_v2DatumInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2CreateDatumRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pps_v2.API/RestartDatum": {
       "post": {
         "operationId": "API_RestartDatum",
@@ -8881,6 +8920,21 @@
         }
       },
       "description": "Response for check status request. Provides alerts if any."
+    },
+    "pps_v2CreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "$ref": "#/definitions/pps_v2Input",
+          "description": "Input is the input to list datums from.\nThe datums listed are the ones that would be run if a pipeline was created\nwith the provided input."
+        },
+        "number": {
+          "type": "string",
+          "format": "int64",
+          "title": "Number of datums to return in next response"
+        }
+      },
+      "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
