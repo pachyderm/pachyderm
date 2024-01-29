@@ -7,7 +7,7 @@
                 "input": {
                     "$ref": "#/definitions/pps_v2.Input",
                     "additionalProperties": false,
-                    "description": "Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input."
+                    "description": "Input is the input to list datums from. The datums listed are the ones  that would be run if a pipeline was created with the provided input. The input field is only required for the first request. The server ignores subsequent requests' input field."
                 },
                 "number": {
                     "type": "integer",

@@ -4017,9 +4017,10 @@ type CreateDatumRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// Input is the input to list datums from.
-	// The datums listed are the ones that would be run if a pipeline was created
-	// with the provided input.
+	// Input is the input to list datums from. The datums listed are the ones
+	// that would be run if a pipeline was created with the provided input.
+	// The input field is only required for the first request. The server
+	// ignores subsequent requests' input field.
 	Input *Input `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
 	// Number of datums to return in next response
 	Number int64 `protobuf:"varint,2,opt,name=number,proto3" json:"number,omitempty"`

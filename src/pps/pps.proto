@@ -673,9 +673,10 @@ message ListDatumRequest {
 // Emits a stream of datums as they are created from the given input. Client
 // must cancel the stream when it no longer wants to receive datums.
 message CreateDatumRequest {
-  // Input is the input to list datums from.
-  // The datums listed are the ones that would be run if a pipeline was created
-  // with the provided input.
+  // Input is the input to list datums from. The datums listed are the ones 
+  // that would be run if a pipeline was created with the provided input.
+  // The input field is only required for the first request. The server
+  // ignores subsequent requests' input field.
   Input input = 1;
   // Number of datums to return in next response
   int64 number = 2;

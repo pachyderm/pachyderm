@@ -859,8 +859,10 @@ class CreateDatumRequest(betterproto.Message):
 
     input: "Input" = betterproto.message_field(1)
     """
-    Input is the input to list datums from. The datums listed are the ones that
-    would be run if a pipeline was created with the provided input.
+    Input is the input to list datums from. The datums listed are the ones
+    that would be run if a pipeline was created with the provided input. The
+    input field is only required for the first request. The server ignores
+    subsequent requests' input field.
     """
 
     number: int = betterproto.int64_field(2)
