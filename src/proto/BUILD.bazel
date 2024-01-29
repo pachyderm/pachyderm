@@ -75,7 +75,10 @@ sh_binary(
 
 genrule(
     name = "gen_go_proto_bundle",
-    outs = ["go_protos.tar", "go_protos_forgotten_files.txt"],
+    outs = [
+        "go_protos.tar",
+        "go_protos_forgotten_files.txt",
+    ],
     cmd = "$(location compile_sh) $(location go_protos.tar) $(location go_protos_forgotten_files.txt) $(locations //src:all_protos)",
     tools = [
         "compile_sh",
@@ -99,4 +102,19 @@ alias(
     name = "run",
     actual = "extract_sh",
     visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "check_generated_protos",
+    srcs = ["test.sh"],
+    data = [
+        "go_protos.tar",
+        "//src/proto/prototar",
+    ],
+    tags = [
+        "manual",
+        "no-sandbox",
+        "style",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
 )

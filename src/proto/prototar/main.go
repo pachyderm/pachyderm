@@ -316,11 +316,6 @@ func main() {
 		Short: "Test that input.tar matches the content of the current working directory.",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if wd := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); wd != "" {
-				if err := os.Chdir(wd); err != nil {
-					return errors.Wrapf(err, "chdir to workspace directory %v", wd)
-				}
-			}
 			in := args[0]
 			fh, err := os.Open(in)
 			if err != nil {
@@ -334,7 +329,7 @@ func main() {
 				fmt.Printf("%d file(s) ok\n", len(report.Unchanged))
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "It looks like you might need to regenerate the protos in your working copy.")
+			fmt.Fprintf(os.Stderr, "\n*** It looks like you might need to regenerate the protos in your working copy.\n")
 			return ErrExit1
 		},
 	}}...)
