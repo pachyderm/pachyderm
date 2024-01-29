@@ -63,6 +63,7 @@ global:
 
 determined:
   enabled: false
+  detVersion: "0.27.1"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -96,8 +97,9 @@ determined:
     kubeSchedulerPreemption: "determinedai/kube-scheduler:0.17.0"
 
     # default images for CPU and GPU environments
-    cpuImage: "determinedai/environments:py-3.8-pytorch-1.12-tf-2.8-cpu-9d07809"
-    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-2b7e2a1"
+
+    cpuImage: "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-f66cbce"
+    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-f66cbce"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
@@ -124,6 +126,11 @@ determined:
   # The first installation must run with the createNonNamespacedObjects flag set to true to ensure
   # the non-namespaced objects are created.
   createNonNamespacedObjects: true
+
+  # Integration with Pachyderm. Change the pachyderm address only if determined and pachyderm are deployed in different namespaces.
+  integrations:
+    pachyderm:
+      address: "" # Defaults to grpc://pachd.<releaseNamespace>.svc.cluster.local:30650
 
   # External ca.crt injection certificate/s secret name
   # Command to create the ca cert secret:
@@ -179,6 +186,8 @@ determined:
     clientSecretName: ""
     authenticationClaim: ""
     scimAuthenticationAttribute: ""
+    autoProvisionUsers: false
+    groupsClaimName: ""
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely

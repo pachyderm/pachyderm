@@ -308,7 +308,7 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     assert r["all_datums_received"] == 1
 
     # Assert default parameters return all
-    r = requests.get(f"{BASE_URL}/view_datum/default_images_master")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
@@ -319,7 +319,7 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     url_params = {
         'number': 1,
     }
-    r = requests.get(f"{BASE_URL}/view_datum/default_images_master?{urllib.parse.urlencode(url_params)}")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
@@ -330,7 +330,7 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
         'number': 1,
         'pagination_marker': 'default/images@master:/file1.py'
     }
-    r = requests.get(f"{BASE_URL}/view_datum/default_images_master?{urllib.parse.urlencode(url_params)}")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
@@ -396,6 +396,7 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
                     "pfs": {
                         "repo": repos[0],
                         "glob": "/",
+                        "name": "test_name"
                     }
                 },
                 {
@@ -426,7 +427,7 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 3
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -445,7 +446,7 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] == True
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -464,7 +465,7 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] == True
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -705,7 +706,7 @@ def test_pps_external_files_do_not_exist_validation(
     r = requests.put(
         f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
     )
-    
+
     assert r.status_code == 400
     assert r.json()["message"] == 'Bad Request'
     assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
@@ -730,7 +731,7 @@ def test_pps_external_files_exists_in_another_directory_validation(
         r = requests.put(
             f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
         )
-        
+
         assert r.status_code == 400
         assert r.json()["message"] == 'Bad Request'
         assert r.json()["reason"] == 'external file hello.py could not be found in the directory of the Jupyter notebook'

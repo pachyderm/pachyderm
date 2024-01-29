@@ -80,7 +80,7 @@ determined:
   enterpriseEdition: true
   useNodePortForMaster: false
   useNodePortForDB: false
-  detVersion: 0.26.7 # set to latest in tests
+  detVersion: 0.27.1 # set to latest in tests
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 256M
