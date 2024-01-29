@@ -51,7 +51,6 @@ func TestMinioClient(t *testing.T) {
 
 	// Test the Minio client against ECS using the S3v2 and S3v4 APIs
 	t.Run("ECSObjectStorage", func(t *testing.T) {
-		t.Skip("skipping until ECS issue is understood")
 		t.Parallel()
 		id, secret, bucket, _, endpoint := LoadECSParameters(t)
 		minioTests(t, ECSBackend, endpoint, bucket, id, secret)
