@@ -49,6 +49,7 @@ const (
 	API_InspectSecret_FullMethodName      = "/pps_v2.API/InspectSecret"
 	API_DeleteAll_FullMethodName          = "/pps_v2.API/DeleteAll"
 	API_GetLogs_FullMethodName            = "/pps_v2.API/GetLogs"
+	API_GetLogsV2_FullMethodName          = "/pps_v2.API/GetLogsV2"
 	API_ActivateAuth_FullMethodName       = "/pps_v2.API/ActivateAuth"
 	API_UpdateJobState_FullMethodName     = "/pps_v2.API/UpdateJobState"
 	API_RunLoadTest_FullMethodName        = "/pps_v2.API/RunLoadTest"
@@ -99,6 +100,7 @@ type APIClient interface {
 	// DeleteAll deletes everything
 	DeleteAll(ctx context.Context, in *emptypb.Empty, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error)
+	GetLogsV2(ctx context.Context, in *GetLogsV2Request, opts ...grpc.CallOption) (API_GetLogsV2Client, error)
 	// An internal call that causes PPS to put itself into an auth-enabled state
 	// (all pipeline have tokens, correct permissions, etcd)
 	ActivateAuth(ctx context.Context, in *ActivateAuthRequest, opts ...grpc.CallOption) (*ActivateAuthResponse, error)
@@ -570,6 +572,38 @@ func (x *aPIGetLogsClient) Recv() (*LogMessage, error) {
 	return m, nil
 }
 
+func (c *aPIClient) GetLogsV2(ctx context.Context, in *GetLogsV2Request, opts ...grpc.CallOption) (API_GetLogsV2Client, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_GetLogsV2_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIGetLogsV2Client{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_GetLogsV2Client interface {
+	Recv() (*GetLogsV2Response, error)
+	grpc.ClientStream
+}
+
+type aPIGetLogsV2Client struct {
+	grpc.ClientStream
+}
+
+func (x *aPIGetLogsV2Client) Recv() (*GetLogsV2Response, error) {
+	m := new(GetLogsV2Response)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) ActivateAuth(ctx context.Context, in *ActivateAuthRequest, opts ...grpc.CallOption) (*ActivateAuthResponse, error) {
 	out := new(ActivateAuthResponse)
 	err := c.cc.Invoke(ctx, API_ActivateAuth_FullMethodName, in, out, opts...)
@@ -616,7 +650,7 @@ func (c *aPIClient) RenderTemplate(ctx context.Context, in *RenderTemplateReques
 }
 
 func (c *aPIClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_ListTask_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_ListTask_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +682,7 @@ func (x *aPIListTaskClient) Recv() (*task.TaskInfo, error) {
 }
 
 func (c *aPIClient) GetKubeEvents(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_GetKubeEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_GetKubeEvents_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_GetKubeEvents_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +714,7 @@ func (x *aPIGetKubeEventsClient) Recv() (*LokiLogMessage, error) {
 }
 
 func (c *aPIClient) QueryLoki(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_QueryLokiClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_QueryLoki_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[11], API_QueryLoki_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -783,6 +817,7 @@ type APIServer interface {
 	// DeleteAll deletes everything
 	DeleteAll(context.Context, *emptypb.Empty) (*emptypb.Empty, error)
 	GetLogs(*GetLogsRequest, API_GetLogsServer) error
+	GetLogsV2(*GetLogsV2Request, API_GetLogsV2Server) error
 	// An internal call that causes PPS to put itself into an auth-enabled state
 	// (all pipeline have tokens, correct permissions, etcd)
 	ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error)
@@ -898,6 +933,9 @@ func (UnimplementedAPIServer) DeleteAll(context.Context, *emptypb.Empty) (*empty
 }
 func (UnimplementedAPIServer) GetLogs(*GetLogsRequest, API_GetLogsServer) error {
 	return status.Errorf(codes.Unimplemented, "method GetLogs not implemented")
+}
+func (UnimplementedAPIServer) GetLogsV2(*GetLogsV2Request, API_GetLogsV2Server) error {
+	return status.Errorf(codes.Unimplemented, "method GetLogsV2 not implemented")
 }
 func (UnimplementedAPIServer) ActivateAuth(context.Context, *ActivateAuthRequest) (*ActivateAuthResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ActivateAuth not implemented")
@@ -1476,6 +1514,27 @@ func (x *aPIGetLogsServer) Send(m *LogMessage) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _API_GetLogsV2_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(GetLogsV2Request)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).GetLogsV2(m, &aPIGetLogsV2Server{stream})
+}
+
+type API_GetLogsV2Server interface {
+	Send(*GetLogsV2Response) error
+	grpc.ServerStream
+}
+
+type aPIGetLogsV2Server struct {
+	grpc.ServerStream
+}
+
+func (x *aPIGetLogsV2Server) Send(m *GetLogsV2Response) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _API_ActivateAuth_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(ActivateAuthRequest)
 	if err := dec(in); err != nil {
@@ -1864,6 +1923,11 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			StreamName:    "GetLogs",
 			Handler:       _API_GetLogs_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "GetLogsV2",
+			Handler:       _API_GetLogsV2_Handler,
 			ServerStreams: true,
 		},
 		{

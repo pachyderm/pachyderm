@@ -19,6 +19,7 @@ builds:
       env:
           - CGO_ENABLED=0
       goos:
+          - windows
           - linux
           - darwin
       goarch:
@@ -51,9 +52,6 @@ nfpms:
       file_name_template: "{{ .ProjectName }}_{{ .Env.VERSION }}_{{ .Arch }}"
       builds:
           - pachctl
-      replacements:
-          linux: ""
-          amd64: amd64
       vendor: Pachyderm
       maintainer: Pachyderm <jdoliner@pachyderm.io>
       homepage: https://www.pachyderm.com/

@@ -947,3 +947,84 @@ func GetDatumTotalTime(s *pps.ProcessStats) time.Duration {
 	totalDuration += s.UploadTime.AsDuration()
 	return totalDuration
 }
+
+type LogsIterV2 struct {
+	logsClient pps.API_GetLogsV2Client
+	resp        *pps.GetLogsV2Response
+	err        error
+}
+
+func (l *LogsIterV2) Next() bool {
+	if l.err != nil {
+		l.resp = nil
+		return false
+	}
+	l.resp, l.err = l.logsClient.Recv()
+	return l.err == nil
+}
+
+func (l *LogsIterV2) Message() *pps.GetLogsV2Response {
+	return l.resp
+}
+
+func (l *LogsIterV2) Err() error {
+	if errors.Is(l.err, io.EOF) {
+		return nil
+	}
+	return grpcutil.ScrubGRPC(l.err)
+}
+
+func (c APIClient) GetLogsV2(projectName, pipelineName, jobID string) *LogsIterV2 {
+	return c.getLogsV2(projectName, pipelineName, jobID)
+}
+
+func (c APIClient) GetLogsLokiV2(
+	pipelineName string,
+	jobID string,
+	data []string,
+	datumID string,
+) *LogsIterV2 {
+	return c.GetProjectLogsLokiV2(pfs.DefaultProjectName, pipelineName, jobID)
+}
+
+func (c APIClient) GetProjectLogsLokiV2(projectName, pipelineName, jobID string) *LogsIterV2 {
+	return c.getLogsV2("", pipelineName, jobID)
+}
+
+func (c APIClient) getLogsV2(projectName, pipelineName, jobID string) *LogsIterV2 {
+	request := pps.GetLogsV2Request{
+	}
+	if pipelineName != "" {
+    request.Query = &pps.LogQuery{
+      QueryType: &pps.LogQuery_User{
+        User: &pps.UserLogQuery{
+          UserType: &pps.UserLogQuery_Pipeline{
+            Pipeline: &pps.PipelineLogQuery{
+              Project: projectName,
+              Pipeline: pipelineName,
+            },
+          },
+        },
+      },
+    }
+	} else {
+    request.Query = &pps.LogQuery{
+      QueryType: &pps.LogQuery_User{
+        User: &pps.UserLogQuery{
+          UserType: &pps.UserLogQuery_Project{
+            projectName,
+          },
+        },
+      },
+    }
+  }
+
+	if jobID != "" {
+		//request.Job = NewJob(projectName, pipelineName, jobID)
+	}
+	resp := &LogsIterV2{}
+	resp.logsClient, resp.err = c.PpsAPIClient.GetLogsV2(c.Ctx(), &request)
+	resp.err = grpcutil.ScrubGRPC(resp.err)
+	return resp
+}
+
