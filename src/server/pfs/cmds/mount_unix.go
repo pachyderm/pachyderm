@@ -83,9 +83,10 @@ func mountCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Com
 				Write: write,
 				Fuse: &fs.Options{
 					MountOptions: gofuse.MountOptions{
-						Debug:  debug,
-						FsName: name,
-						Name:   name,
+						Debug:      debug,
+						FsName:     name,
+						Name:       name,
+						AllowOther: true,
 					},
 				},
 				RepoOptions: repoOpts,
