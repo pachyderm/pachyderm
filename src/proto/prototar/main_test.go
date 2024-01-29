@@ -9,6 +9,8 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 )
 
@@ -36,32 +38,45 @@ func TestCreateAndApply(t *testing.T) {
 	})
 
 	now := time.Now()
-	a, b := fstest.MapFS{
-		"proto-docs.json": &fstest.MapFile{
+	f := fstest.MapFS{
+		"out/forgotten": &fstest.MapFile{
+			Data: []byte("this file was not included in the archive"),
+		},
+		"out/pachyderm/proto-docs.json": &fstest.MapFile{
 			Data:    []byte("{}"),
 			Mode:    fs.ModePerm,
 			ModTime: now,
 		},
-		"src/new/new.pb.go": &fstest.MapFile{
+		"out/pachyderm/src/new/new.pb.go": &fstest.MapFile{
 			Data:    []byte("new file"),
 			Mode:    fs.ModePerm,
 			ModTime: now,
 		},
-		"src/existing/existing.pb.go": &fstest.MapFile{
+		"out/pachyderm/src/existing/existing.pb.go": &fstest.MapFile{
 			Data:    []byte("existing file"),
 			Mode:    fs.ModePerm,
 			ModTime: now,
 		},
-	}, fstest.MapFS{
-		"src/modified/modified.pb.go": &fstest.MapFile{
+		"out/github.com/whatever/src/modified/modified.pb.go": &fstest.MapFile{
 			Data:    []byte("new content"),
 			Mode:    fs.ModePerm,
 			ModTime: now,
 		},
 	}
-	w := new(bytes.Buffer)
-	if err := create(ctx, w, a, b); err != nil {
+	tar := new(bytes.Buffer)
+	forgotten := new(bytes.Buffer)
+	req := &createRequest{
+		tar:       tar,
+		forgotten: forgotten,
+		root:      f,
+		dirs:      []string{"out/pachyderm", "out/github.com/whatever"},
+	}
+	if err := create(ctx, req); err != nil {
 		t.Fatalf("create: %v", err)
+	}
+	if got, want := forgotten.String(), "out/forgotten\n"; got != want {
+		diff := cmp.Diff(want, got)
+		t.Errorf("forgotten files: (-want +got)\n%s", diff)
 	}
 
 	tmp := t.TempDir()
@@ -70,7 +85,16 @@ func TestCreateAndApply(t *testing.T) {
 	}
 	write(t, filepath.Join(tmp, "src", "existing", "existing.pb.go"), []byte("existing file"))
 	write(t, filepath.Join(tmp, "src", "modified", "modified.pb.go"), []byte("old content"))
-	if err := apply(ctx, w); err != nil {
+	applyReport = new(applicationReport)
+	if err := apply(ctx, tar); err != nil {
 		t.Fatalf("apply: %v", err)
+	}
+	wantReport := &applicationReport{
+		Modified:  []string{"src/modified/modified.pb.go"},
+		Unchanged: []string{"src/existing/existing.pb.go"},
+		Added:     []string{"src/new/new.pb.go", "proto-docs.json"},
+	}
+	if diff := cmp.Diff(wantReport, applyReport, cmpopts.SortSlices(func(a, b string) bool { return a < b })); diff != "" {
+		t.Errorf("application report: (-want +got)\n%s", diff)
 	}
 }

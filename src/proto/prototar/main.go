@@ -3,10 +3,11 @@ package main
 import (
 	"archive/tar"
 	"context"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -17,7 +18,25 @@ import (
 	"go.uber.org/zap"
 )
 
-func addToArchive(ctx context.Context, tw *tar.Writer, f fs.FS) error {
+// nameAndTarWriter records the filenames of files written to the archive.
+type nameAndTarWriter struct {
+	tar.Writer
+	prefix string
+	names  map[string]struct{}
+}
+
+func (w *nameAndTarWriter) WriteHeader(h *tar.Header) error {
+	if err := w.Writer.WriteHeader(h); err != nil {
+		return errors.Wrap(err, "write underlying header")
+	}
+	if w.names == nil {
+		w.names = make(map[string]struct{})
+	}
+	w.names[path.Join(w.prefix, h.Name)] = struct{}{}
+	return nil
+}
+
+func addToArchive(ctx context.Context, tw *nameAndTarWriter, f fs.FS) error {
 	// TODO(jrockway): For this to be hermetic, WalkDir needs to always visit files in the same
 	// order.  This is a detail of the underlying filesystem, probably.
 	if err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) (retErr error) {
@@ -61,13 +80,45 @@ func addToArchive(ctx context.Context, tw *tar.Writer, f fs.FS) error {
 	return nil
 }
 
-func create(ctx context.Context, w io.Writer, srcs ...fs.FS) (retErr error) {
-	tw := tar.NewWriter(w)
+type createRequest struct {
+	tar, forgotten io.Writer
+	root           fs.FS
+	dirs           []string
+}
+
+func create(ctx context.Context, req *createRequest) (retErr error) {
+	tw := &nameAndTarWriter{
+		Writer: *tar.NewWriter(req.tar),
+	}
 	defer errors.Close(&retErr, tw, "close tar")
-	for i, src := range srcs {
-		if err := addToArchive(ctx, tw, src); err != nil {
-			return errors.Wrapf(err, "add fs %v (%v)", i, src)
+	for _, dir := range req.dirs {
+		f, err := fs.Sub(req.root, dir)
+		if err != nil {
+			return errors.Wrapf(err, "root.Sub(%v)", dir)
 		}
+		tw.prefix = dir
+		if err := addToArchive(ctx, tw, f); err != nil {
+			return errors.Wrapf(err, "add dir %v", dir)
+		}
+	}
+	tw.prefix = ""
+	// Look in the out/ directory and report any files that didn't make it into the tar.
+	if err := fs.WalkDir(req.root, "out", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return errors.Wrap(err, "WalkFn called with error")
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if _, archived := tw.names[path]; !archived {
+			log.Debug(ctx, "forgotten file", zap.String("path", path))
+			if _, err := fmt.Fprintf(req.forgotten, "%s\n", path); err != nil {
+				return errors.Wrap(err, "write forgotten file")
+			}
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "find forgotten files")
 	}
 	return nil
 }
@@ -88,12 +139,19 @@ func check(name string) (result xxh3.Uint128, retErr error) {
 	return h.Sum128(), nil
 }
 
+type applicationReport struct {
+	Added, Modified, Deleted, Unchanged []string
+}
+
+// Tests that care will allocate this.  For real-world usage, log messages are sufficient.
+var applyReport *applicationReport
+
 func applyOne(ctx context.Context, h *tar.Header, r io.Reader) (retErr error) {
 	currentHash, err := check(h.Name) // quick hash to see if the file is new
 	if err != nil {
 		return errors.Wrap(err, "check existing file")
 	}
-	if dir, _ := filepath.Split(h.Name); dir != "" {
+	if dir, _ := path.Split(h.Name); dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return errors.Wrapf(err, "create output dir %v", dir)
 		}
@@ -112,10 +170,19 @@ func applyOne(ctx context.Context, h *tar.Header, r io.Reader) (retErr error) {
 	newHash := hash.Sum128()
 	switch currentHash {
 	case xxh3.Uint128{}:
+		if applyReport != nil {
+			applyReport.Added = append(applyReport.Added, h.Name)
+		}
 		log.Info(ctx, "created new file", zap.String("name", h.Name))
 	case newHash:
+		if applyReport != nil {
+			applyReport.Unchanged = append(applyReport.Unchanged, h.Name)
+		}
 		log.Debug(ctx, "unchanged file", zap.String("name", h.Name))
 	default:
+		if applyReport != nil {
+			applyReport.Modified = append(applyReport.Modified, h.Name)
+		}
 		log.Info(ctx, "updated file", zap.String("name", h.Name))
 	}
 	return nil
@@ -162,20 +229,32 @@ func main() {
 		},
 	}
 	root.AddCommand([]*cobra.Command{{
-		Use:   "create <output.tar> <input...>",
+		Use:   "create <output.tar> <forgotten-files.txt> <input...>",
 		Short: "Archive the given directories.",
-		Args:  cobra.MinimumNArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			out := args[0]
-			var srcs []fs.FS
-			for _, src := range args[1:] {
-				srcs = append(srcs, os.DirFS(src))
-			}
-			ow, err := os.Create(out)
+		Long:  "Archive the given directories.  Files are added to the archive relative to the provided inputs.  A 'forgotten files' report is written to forgotten-files.tar for manual inspection.",
+		Args:  cobra.MinimumNArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			tarPath := args[0]
+			forgottenPath := args[1]
+
+			pwd, err := os.Getwd()
 			if err != nil {
-				return errors.Wrap(err, "create output")
+				return errors.Wrap(err, "determine working directory")
 			}
-			if err := create(cmd.Context(), ow, srcs...); err != nil {
+			req := &createRequest{
+				root: os.DirFS(pwd),
+				dirs: args[2:],
+			}
+			if req.tar, err = os.Create(tarPath); err != nil {
+				return errors.Wrap(err, "create output tar")
+			}
+			defer errors.Close(&retErr, req.tar.(io.Closer), "close output tar")
+			if req.forgotten, err = os.Create(forgottenPath); err != nil {
+				return errors.Wrap(err, "create forgotten files file")
+			}
+			defer errors.Close(&retErr, req.forgotten.(io.Closer), "close forgotten files file")
+
+			if err := create(cmd.Context(), req); err != nil {
 				return errors.Wrap(err, "create archive")
 			}
 			return nil

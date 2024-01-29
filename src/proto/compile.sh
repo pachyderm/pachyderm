@@ -15,12 +15,11 @@ source "$(grep -sm1 "^$f " "$0.exe.runfiles_manifest" | cut -f2- -d' ')" 2>/dev/
 { echo>&2 "ERROR: cannot find $f; this script must be run with 'bazel run'"; exit 1; }; f=; set -e
 # --- end runfiles.bash initialization v3 ---
 
+# args: <output tar> <forgotten files report> <proto1.proto> <proto2.proto> ...
 TAR="$1"
+FORGOTTEN="$2"
 shift
-
-mkdir -p out/pachyderm/src/internal/jsonschema
-mkdir -p out/pachyderm/src/openapi
-mkdir -p out/pachyderm/src/typescript
+shift
 
 PROTOS=("$@")
 
@@ -30,6 +29,10 @@ for i in "${PROTOS[@]}"; do \
         exit 1
     fi
 done
+
+mkdir -p out/pachyderm/src/internal/jsonschema
+mkdir -p out/pachyderm/src/openapi
+mkdir -p out/pachyderm/src/typescript
 
 "$(rlocation _main/src/proto/protoc)" \
     -I"$(dirname "$(dirname "$(dirname "$(rlocation com_google_protobuf/src/google/protobuf/any.proto)")")")" \
@@ -85,5 +88,5 @@ echo -n "gofmt..."
 echo "done."
 
 echo "package result..."
-"$(rlocation _main/src/proto/prototar/prototar_/prototar)" create $TAR out/pachyderm out/github.com/pachyderm/pachyderm/v2
+"$(rlocation _main/src/proto/prototar/prototar_/prototar)" create $TAR $FORGOTTEN out/pachyderm out/github.com/pachyderm/pachyderm/v2
 echo "done."
