@@ -533,6 +533,16 @@ func (c APIClient) ShardFileSet(ID string) (_ []*pfs.PathRange, retErr error) {
 }
 
 func ShardFileSet(ctx context.Context, c pfs.APIClient, ID string) (_ []*pfs.PathRange, retErr error) {
+	return ShardFileSetWithConfig(ctx, c, ID, 0, 0)
+}
+
+// ShardFileSetWithConfig shards a file set using the given configuration.
+// `numFiles` is the number of files targeted in each shard.
+// `sizeBytes` is the size (in bytes) targeted for each shard.
+// If a shard configuration field (numFiles, sizeBytes) is 0, the file set's
+// default value is used. If both `numFiles` and `sizeBytes` are non-zero,
+// shards are created based on whichever threshold is surpassed first.
+func ShardFileSetWithConfig(ctx context.Context, c pfs.APIClient, ID string, numFiles, sizeBytes int64) (_ []*pfs.PathRange, retErr error) {
 	defer func() {
 		retErr = grpcutil.ScrubGRPC(retErr)
 	}()
@@ -540,6 +550,8 @@ func ShardFileSet(ctx context.Context, c pfs.APIClient, ID string) (_ []*pfs.Pat
 		ctx,
 		&pfs.ShardFileSetRequest{
 			FileSetId: ID,
+			NumFiles:  numFiles,
+			SizeBytes: sizeBytes,
 		},
 	)
 	if err != nil {

@@ -548,8 +548,14 @@ message ComposeFileSetRequest {
   bool compact = 3;
 }
 
+// If both num_files and size_bytes are set, shards are created
+// based on whichever threshold is surpassed first. If a shard
+// configuration field (num_files, size_bytes) is unset, the
+// storage's default value is used.
 message ShardFileSetRequest {
   string file_set_id = 1;
+  int64 num_files = 2;  // Number of files targeted in each shard
+  int64 size_bytes = 3;  // Size (in bytes) targeted for each shard
 }
 
 message PathRange {

@@ -800,7 +800,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 	if err != nil {
 		return nil, err
 	}
-	shards, err := a.driver.shardFileSet(ctx, *fsid)
+	shards, err := a.driver.shardFileSet(ctx, *fsid, req.NumFiles, req.SizeBytes)
 	if err != nil {
 		return nil, err
 	}
