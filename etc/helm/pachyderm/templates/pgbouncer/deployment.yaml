@@ -115,12 +115,6 @@ spec:
         resources: {{ toYaml .Values.pgbouncer.resources | nindent 10 }}
         {{- end }}
         volumeMounts:
-        - mountPath: /opt/bitnami/pgbouncer/conf/
-          name: config
-        - mountPath: /opt/bitnami/pgbouncer/tmp/
-          name: pgtmp
-        - mountPath: /opt/bitnami/pgbouncer/logs/
-          name: logs
         - mountPath: /tmp
           name: tmp
         {{- if .Values.global.postgresql.postgresqlSSLSecret }}
@@ -156,13 +150,7 @@ spec:
       {{- end }}
       volumes:
       - emptyDir: {}
-        name: pgtmp
-      - emptyDir: {}
         name: tmp
-      - emptyDir: {}
-        name: config
-      - emptyDir: {}
-        name: logs
       {{- if .Values.global.postgresql.postgresqlSSLSecret }}
       - name: pg-tls-cert
         secret:
