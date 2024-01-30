@@ -24,27 +24,26 @@ const createCustomFileBrowser = (
   downloadPath: string,
   nameSuffix: string,
 ): FileBrowser => {
-  const id = `jupyterlab-pachyderm-browser-${nameSuffix}`; 
+  const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
-    app.docRegistry, 
-    path, 
+    app.docRegistry,
+    path,
     nameSuffix,
     id,
     async () => {
       await browser.model.cd();
-    }, 
-    () => { paging.update() }
+    },
+    () => {
+      paging.update();
+    },
   );
   manager.services.contents.addDrive(drive);
 
-  const browser = factory.createFileBrowser(
-    id,
-    {
-      driveName: drive.name,
-      state: null,
-      refreshInterval: 10000,
-    },
-  );
+  const browser = factory.createFileBrowser(id, {
+    driveName: drive.name,
+    state: null,
+    refreshInterval: 10000,
+  });
 
   const toolbar = browser.node
     .getElementsByClassName('jp-FileBrowser-toolbar')

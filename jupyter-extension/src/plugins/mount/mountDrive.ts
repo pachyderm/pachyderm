@@ -11,7 +11,7 @@ import {MOUNT_BROWSER_PREFIX} from './mount';
 // How many files to render in the FileBrowser UI per page
 const MAX_NUM_CONTENTS_PAGE = 100;
 // How many items to request per page
-const PAGINATION_NUMBER = 400; 
+const PAGINATION_NUMBER = 400;
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   name: '',
   path: '',
@@ -34,13 +34,17 @@ export class MountDrive implements Contents.IDrive {
   private _loading = new Signal<this, boolean>(this);
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
-  private _cache: {key: string | null; now: number | null; contents: Contents.IModel[]};
+  private _cache: {
+    key: string | null;
+    now: number | null;
+    contents: Contents.IModel[];
+  };
   private _path: string;
   private _nameSuffix: string;
   // DOM Node ID of the FileBrowser
   private _id: string;
   // Triggers a cd event without changing the current path in the FileBrowser which forces a re-render of the FileBrowser
-  private _changeDirectory: () => Promise<void>; 
+  private _changeDirectory: () => Promise<void>;
   // Updates the pagination UI after changes in page, contents, or maxPage have been made.
   private _pagingUpdate: () => void;
   // Previous search filter used last time get was called. Used to track if the current page needs to be reset
@@ -133,11 +137,11 @@ export class MountDrive implements Contents.IDrive {
 
     // Filter contents if filter defined
     const filter = this.getFilter();
-    const contents = !filter ? 
-      this._cache.contents : 
-      this._cache.contents.filter((content: Contents.IModel) => {
-        return content.name.toLowerCase().includes(filter);
-      });
+    const contents = !filter
+      ? this._cache.contents
+      : this._cache.contents.filter((content: Contents.IModel) => {
+          return content.name.toLowerCase().includes(filter);
+        });
 
     // Reset page to 1 if the filter has changed and update the previousFilter for this check
     // on the next call of this method.
@@ -147,9 +151,7 @@ export class MountDrive implements Contents.IDrive {
     this._previousFilter = filter;
 
     // Update max page and pagination UI after contents have changed.
-    this._model.max_page = Math.ceil(
-      contents.length / MAX_NUM_CONTENTS_PAGE,
-    );
+    this._model.max_page = Math.ceil(contents.length / MAX_NUM_CONTENTS_PAGE);
     this._pagingUpdate();
 
     return {
@@ -245,7 +247,7 @@ export class MountDrive implements Contents.IDrive {
 
   // Gets the user defined file name filter from the JupyterLab FilterBox.
   private getFilter(): string | null {
-    const selector = `#${this._id} .jp-FileBrowser-filterBox .jp-FilterBox input`
+    const selector = `#${this._id} .jp-FileBrowser-filterBox .jp-FilterBox input`;
     const node: HTMLInputElement | null = document.querySelector(selector);
     return node?.value?.toLowerCase() || null;
   }
