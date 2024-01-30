@@ -1487,6 +1487,7 @@ type inspectJobSetFunc func(*pps.InspectJobSetRequest, pps.API_InspectJobSetServ
 type listJobSetFunc func(*pps.ListJobSetRequest, pps.API_ListJobSetServer) error
 type inspectDatumFunc func(context.Context, *pps.InspectDatumRequest) (*pps.DatumInfo, error)
 type listDatumFunc func(*pps.ListDatumRequest, pps.API_ListDatumServer) error
+type createDatumFunc func(pps.API_CreateDatumServer) error
 type restartDatumFunc func(context.Context, *pps.RestartDatumRequest) (*emptypb.Empty, error)
 type createPipelineFunc func(context.Context, *pps.CreatePipelineRequest) (*emptypb.Empty, error)
 type createPipelineV2Func func(context.Context, *pps.CreatePipelineV2Request) (*pps.CreatePipelineV2Response, error)
@@ -1529,6 +1530,7 @@ type mockInspectJobSet struct{ handler inspectJobSetFunc }
 type mockListJobSet struct{ handler listJobSetFunc }
 type mockInspectDatum struct{ handler inspectDatumFunc }
 type mockListDatum struct{ handler listDatumFunc }
+type mockCreateDatum struct{ handler createDatumFunc }
 type mockRestartDatum struct{ handler restartDatumFunc }
 type mockCreatePipeline struct{ handler createPipelineFunc }
 type mockCreatePipelineV2 struct{ handler createPipelineV2Func }
@@ -1573,6 +1575,7 @@ func (mock *mockInspectJobSet) Use(cb inspectJobSetFunc)                 { mock.
 func (mock *mockListJobSet) Use(cb listJobSetFunc)                       { mock.handler = cb }
 func (mock *mockInspectDatum) Use(cb inspectDatumFunc)                   { mock.handler = cb }
 func (mock *mockListDatum) Use(cb listDatumFunc)                         { mock.handler = cb }
+func (mock *mockCreateDatum) Use(cb createDatumFunc)                     { mock.handler = cb }
 func (mock *mockRestartDatum) Use(cb restartDatumFunc)                   { mock.handler = cb }
 func (mock *mockCreatePipeline) Use(cb createPipelineFunc)               { mock.handler = cb }
 func (mock *mockCreatePipelineV2) Use(cb createPipelineV2Func)           { mock.handler = cb }
@@ -1624,6 +1627,7 @@ type mockPPSServer struct {
 	ListJobSet                   mockListJobSet
 	InspectDatum                 mockInspectDatum
 	ListDatum                    mockListDatum
+	CreateDatum                  mockCreateDatum
 	RestartDatum                 mockRestartDatum
 	CreatePipeline               mockCreatePipeline
 	CreatePipelineV2             mockCreatePipelineV2
@@ -1716,6 +1720,12 @@ func (api *ppsServerAPI) ListDatum(req *pps.ListDatumRequest, serv pps.API_ListD
 		return api.mock.ListDatum.handler(req, serv)
 	}
 	return errors.Errorf("unhandled pachd mock pps.ListDatum")
+}
+func (api *ppsServerAPI) CreateDatum(serv pps.API_CreateDatumServer) error {
+	if api.mock.CreateDatum.handler != nil {
+		return api.mock.CreateDatum.handler(serv)
+	}
+	return errors.Errorf("unhandled pachd mock pps.CreateDatum")
 }
 func (api *ppsServerAPI) RestartDatum(ctx context.Context, req *pps.RestartDatumRequest) (*emptypb.Empty, error) {
 	if api.mock.RestartDatum.handler != nil {

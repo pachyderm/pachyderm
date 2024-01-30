@@ -10,11 +10,14 @@ from datetime import (
 )
 from typing import (
     TYPE_CHECKING,
+    AsyncIterable,
     AsyncIterator,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
+    Union,
 )
 
 import betterproto
@@ -848,6 +851,25 @@ class ListDatumRequestFilter(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CreateDatumRequest(betterproto.Message):
+    """
+    Emits a stream of datums as they are created from the given input. Client
+    must cancel the stream when it no longer wants to receive datums.
+    """
+
+    input: "Input" = betterproto.message_field(1)
+    """
+    Input is the input to list datums from. The datums listed are the ones
+    that would be run if a pipeline was created with the provided input. The
+    input field is only required for the first request. The server ignores
+    subsequent requests' input field.
+    """
+
+    number: int = betterproto.int64_field(2)
+    """Number of datums to return in next response"""
+
+
+@dataclass(eq=False, repr=False)
 class DatumSetSpec(betterproto.Message):
     """
     DatumSetSpec specifies how a pipeline should split its datums into datum
@@ -1313,6 +1335,11 @@ class ApiStub:
             request_serializer=ListDatumRequest.SerializeToString,
             response_deserializer=DatumInfo.FromString,
         )
+        self.__rpc_create_datum = channel.stream_stream(
+            "/pps_v2.API/CreateDatum",
+            request_serializer=CreateDatumRequest.SerializeToString,
+            response_deserializer=DatumInfo.FromString,
+        )
         self.__rpc_restart_datum = channel.unary_unary(
             "/pps_v2.API/RestartDatum",
             request_serializer=RestartDatumRequest.SerializeToString,
@@ -1617,6 +1644,16 @@ class ApiStub:
         request.reverse = reverse
 
         for response in self.__rpc_list_datum(request):
+            yield response
+
+    def create_datum(
+        self,
+        request_iterator: Union[
+            AsyncIterable["CreateDatumRequest"], Iterable["CreateDatumRequest"]
+        ],
+    ) -> Iterator["DatumInfo"]:
+
+        for response in self.__rpc_create_datum(request_iterator):
             yield response
 
     def restart_datum(
@@ -2219,6 +2256,15 @@ class ApiBase:
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def create_datum(
+        self,
+        request_iterator: Iterator["CreateDatumRequest"],
+        context: "grpc.ServicerContext",
+    ) -> Iterator["DatumInfo"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def restart_datum(
         self,
         job: "Job",
@@ -2584,6 +2630,11 @@ class ApiBase:
                 self.list_datum,
                 request_deserializer=ListDatumRequest.FromString,
                 response_serializer=ListDatumRequest.SerializeToString,
+            ),
+            "CreateDatum": grpc.stream_stream_rpc_method_handler(
+                self.create_datum,
+                request_deserializer=CreateDatumRequest.FromString,
+                response_serializer=CreateDatumRequest.SerializeToString,
             ),
             "RestartDatum": grpc.unary_unary_rpc_method_handler(
                 self.restart_datum,

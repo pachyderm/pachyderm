@@ -1242,6 +1242,10 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 	return errors.EnsureStack(err)
 }
 
+func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error) {
+	return status.Errorf(codes.Unimplemented, "method CreateDatum not implemented")
+}
+
 func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {
 	loki, err := a.env.GetLokiClient()
 	if err != nil {
