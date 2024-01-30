@@ -39,6 +39,8 @@ type Service interface {
 	NewSource(namespace string) Source
 	// List calls a function on every task under a namespace and group
 	List(ctx context.Context, namespace, group string, cb func(namespace, group string, data *Task, claimed bool) error) error
+	// Count returns the number of tasks under a namespace.
+	Count(ctx context.Context, namespace string) (int64, error)
 }
 
 // Doer is a doer of tasks.

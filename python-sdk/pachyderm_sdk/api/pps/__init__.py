@@ -10,11 +10,14 @@ from datetime import (
 )
 from typing import (
     TYPE_CHECKING,
+    AsyncIterable,
     AsyncIterator,
     Dict,
+    Iterable,
     Iterator,
     List,
     Optional,
+    Union,
 )
 
 import betterproto
@@ -848,6 +851,25 @@ class ListDatumRequestFilter(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CreateDatumRequest(betterproto.Message):
+    """
+    Emits a stream of datums as they are created from the given input. Client
+    must cancel the stream when it no longer wants to receive datums.
+    """
+
+    input: "Input" = betterproto.message_field(1)
+    """
+    Input is the input to list datums from. The datums listed are the ones
+    that would be run if a pipeline was created with the provided input. The
+    input field is only required for the first request. The server ignores
+    subsequent requests' input field.
+    """
+
+    number: int = betterproto.int64_field(2)
+    """Number of datums to return in next response"""
+
+
+@dataclass(eq=False, repr=False)
 class DatumSetSpec(betterproto.Message):
     """
     DatumSetSpec specifies how a pipeline should split its datums into datum
@@ -1266,6 +1288,7 @@ class SetProjectDefaultsResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_job = channel.unary_unary(
             "/pps_v2.API/InspectJob",
@@ -1310,6 +1333,11 @@ class ApiStub:
         self.__rpc_list_datum = channel.unary_stream(
             "/pps_v2.API/ListDatum",
             request_serializer=ListDatumRequest.SerializeToString,
+            response_deserializer=DatumInfo.FromString,
+        )
+        self.__rpc_create_datum = channel.stream_stream(
+            "/pps_v2.API/CreateDatum",
+            request_serializer=CreateDatumRequest.SerializeToString,
             response_deserializer=DatumInfo.FromString,
         )
         self.__rpc_restart_datum = channel.unary_unary(
@@ -1471,6 +1499,7 @@ class ApiStub:
     def inspect_job(
         self, *, job: "Job" = None, wait: bool = False, details: bool = False
     ) -> "JobInfo":
+
         request = InspectJobRequest()
         if job is not None:
             request.job = job
@@ -1482,6 +1511,7 @@ class ApiStub:
     def inspect_job_set(
         self, *, job_set: "JobSet" = None, wait: bool = False, details: bool = False
     ) -> Iterator["JobInfo"]:
+
         request = InspectJobSetRequest()
         if job_set is not None:
             request.job_set = job_set
@@ -1553,6 +1583,7 @@ class ApiStub:
     def subscribe_job(
         self, *, pipeline: "Pipeline" = None, details: bool = False
     ) -> Iterator["JobInfo"]:
+
         request = SubscribeJobRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1564,6 +1595,7 @@ class ApiStub:
     def delete_job(
         self, *, job: "Job" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteJobRequest()
         if job is not None:
             request.job = job
@@ -1573,6 +1605,7 @@ class ApiStub:
     def stop_job(
         self, *, job: "Job" = None, reason: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StopJobRequest()
         if job is not None:
             request.job = job
@@ -1581,6 +1614,7 @@ class ApiStub:
         return self.__rpc_stop_job(request)
 
     def inspect_datum(self, *, datum: "Datum" = None) -> "DatumInfo":
+
         request = InspectDatumRequest()
         if datum is not None:
             request.datum = datum
@@ -1597,6 +1631,7 @@ class ApiStub:
         number: int = 0,
         reverse: bool = False
     ) -> Iterator["DatumInfo"]:
+
         request = ListDatumRequest()
         if job is not None:
             request.job = job
@@ -1609,6 +1644,16 @@ class ApiStub:
         request.reverse = reverse
 
         for response in self.__rpc_list_datum(request):
+            yield response
+
+    def create_datum(
+        self,
+        request_iterator: Union[
+            AsyncIterable["CreateDatumRequest"], Iterable["CreateDatumRequest"]
+        ],
+    ) -> Iterator["DatumInfo"]:
+
+        for response in self.__rpc_create_datum(request_iterator):
             yield response
 
     def restart_datum(
@@ -1626,6 +1671,7 @@ class ApiStub:
     def rerun_pipeline(
         self, *, pipeline: "Pipeline" = None, reprocess: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RerunPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1738,6 +1784,7 @@ class ApiStub:
         update: bool = False,
         reprocess: bool = False
     ) -> "CreatePipelineV2Response":
+
         request = CreatePipelineV2Request()
         request.create_pipeline_request_json = create_pipeline_request_json
         request.dry_run = dry_run
@@ -1749,6 +1796,7 @@ class ApiStub:
     def inspect_pipeline(
         self, *, pipeline: "Pipeline" = None, details: bool = False
     ) -> "PipelineInfo":
+
         request = InspectPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1791,6 +1839,7 @@ class ApiStub:
         keep_repo: bool = False,
         must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeletePipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1823,6 +1872,7 @@ class ApiStub:
     def start_pipeline(
         self, *, pipeline: "Pipeline" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StartPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1832,6 +1882,7 @@ class ApiStub:
     def stop_pipeline(
         self, *, pipeline: "Pipeline" = None, must_exist: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = StopPipelineRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1860,6 +1911,7 @@ class ApiStub:
     def run_cron(
         self, *, pipeline: "Pipeline" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RunCronRequest()
         if pipeline is not None:
             request.pipeline = pipeline
@@ -1869,6 +1921,7 @@ class ApiStub:
     def check_status(
         self, *, all: bool = False, project: "_pfs__.Project" = None
     ) -> Iterator["CheckStatusResponse"]:
+
         request = CheckStatusRequest()
         request.all = all
         if project is not None:
@@ -1880,6 +1933,7 @@ class ApiStub:
     def create_secret(
         self, *, file: bytes = b""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateSecretRequest()
         request.file = file
 
@@ -1888,6 +1942,7 @@ class ApiStub:
     def delete_secret(
         self, *, secret: "Secret" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteSecretRequest()
         if secret is not None:
             request.secret = secret
@@ -1895,11 +1950,13 @@ class ApiStub:
         return self.__rpc_delete_secret(request)
 
     def list_secret(self) -> "SecretInfos":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_list_secret(request)
 
     def inspect_secret(self, *, secret: "Secret" = None) -> "SecretInfo":
+
         request = InspectSecretRequest()
         if secret is not None:
             request.secret = secret
@@ -1907,6 +1964,7 @@ class ApiStub:
         return self.__rpc_inspect_secret(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_delete_all(request)
@@ -1945,6 +2003,7 @@ class ApiStub:
             yield response
 
     def activate_auth(self) -> "ActivateAuthResponse":
+
         request = ActivateAuthRequest()
 
         return self.__rpc_activate_auth(request)
@@ -1963,6 +2022,7 @@ class ApiStub:
         data_total: int = 0,
         stats: "ProcessStats" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = UpdateJobStateRequest()
         if job is not None:
             request.job = job
@@ -1989,6 +2049,7 @@ class ApiStub:
         pod_patch: str = "",
         state_id: str = ""
     ) -> "RunLoadTestResponse":
+
         request = RunLoadTestRequest()
         request.dag_spec = dag_spec
         request.load_spec = load_spec
@@ -2000,6 +2061,7 @@ class ApiStub:
         return self.__rpc_run_load_test(request)
 
     def run_load_test_default(self) -> "RunLoadTestResponse":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_run_load_test_default(request)
@@ -2007,6 +2069,7 @@ class ApiStub:
     def render_template(
         self, *, template: str = "", args: Dict[str, str] = None
     ) -> "RenderTemplateResponse":
+
         request = RenderTemplateRequest()
         request.template = template
         request.args = args
@@ -2014,6 +2077,7 @@ class ApiStub:
         return self.__rpc_render_template(request)
 
     def list_task(self, *, group: "Group" = None) -> Iterator["_taskapi__.TaskInfo"]:
+
         request = _taskapi__.ListTaskRequest()
         if group is not None:
             request.group = group
@@ -2024,6 +2088,7 @@ class ApiStub:
     def get_kube_events(
         self, *, since: timedelta = None, query: str = ""
     ) -> Iterator["LokiLogMessage"]:
+
         request = LokiRequest()
         if since is not None:
             request.since = since
@@ -2035,6 +2100,7 @@ class ApiStub:
     def query_loki(
         self, *, since: timedelta = None, query: str = ""
     ) -> Iterator["LokiLogMessage"]:
+
         request = LokiRequest()
         if since is not None:
             request.since = since
@@ -2044,6 +2110,7 @@ class ApiStub:
             yield response
 
     def get_cluster_defaults(self) -> "GetClusterDefaultsResponse":
+
         request = GetClusterDefaultsRequest()
 
         return self.__rpc_get_cluster_defaults(request)
@@ -2056,6 +2123,7 @@ class ApiStub:
         dry_run: bool = False,
         cluster_defaults_json: str = ""
     ) -> "SetClusterDefaultsResponse":
+
         request = SetClusterDefaultsRequest()
         request.regenerate = regenerate
         request.reprocess = reprocess
@@ -2067,6 +2135,7 @@ class ApiStub:
     def get_project_defaults(
         self, *, project: "_pfs__.Project" = None
     ) -> "GetProjectDefaultsResponse":
+
         request = GetProjectDefaultsRequest()
         if project is not None:
             request.project = project
@@ -2082,6 +2151,7 @@ class ApiStub:
         dry_run: bool = False,
         project_defaults_json: str = ""
     ) -> "SetProjectDefaultsResponse":
+
         request = SetProjectDefaultsRequest()
         if project is not None:
             request.project = project
@@ -2094,6 +2164,7 @@ class ApiStub:
 
 
 class ApiBase:
+
     def inspect_job(
         self, job: "Job", wait: bool, details: bool, context: "grpc.ServicerContext"
     ) -> "JobInfo":
@@ -2179,6 +2250,15 @@ class ApiBase:
         pagination_marker: str,
         number: int,
         reverse: bool,
+        context: "grpc.ServicerContext",
+    ) -> Iterator["DatumInfo"]:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def create_datum(
+        self,
+        request_iterator: Iterator["CreateDatumRequest"],
         context: "grpc.ServicerContext",
     ) -> Iterator["DatumInfo"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2550,6 +2630,11 @@ class ApiBase:
                 self.list_datum,
                 request_deserializer=ListDatumRequest.FromString,
                 response_serializer=ListDatumRequest.SerializeToString,
+            ),
+            "CreateDatum": grpc.stream_stream_rpc_method_handler(
+                self.create_datum,
+                request_deserializer=CreateDatumRequest.FromString,
+                response_serializer=CreateDatumRequest.SerializeToString,
             ),
             "RestartDatum": grpc.unary_unary_rpc_method_handler(
                 self.restart_datum,

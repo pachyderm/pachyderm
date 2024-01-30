@@ -240,6 +240,7 @@ func (pj *pendingJob) createJobDatumFileSetParallel(ctx context.Context, taskDoe
 					FileSetId:     fileSetID,
 					BaseFileSetId: baseFileSetID,
 					PathRange:     shard,
+					AuthToken:     pachClient.AuthToken(),
 				})
 				if err != nil {
 					return err
@@ -342,6 +343,7 @@ func (pj *pendingJob) createJobDatumFileSetSerial(ctx context.Context, taskDoer 
 					BaseMetaCommit: baseMetaCommit,
 					NoSkip:         pj.noSkip,
 					PathRange:      shard,
+					AuthToken:      pachClient.AuthToken(),
 				})
 				if err != nil {
 					return err

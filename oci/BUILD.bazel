@@ -46,9 +46,28 @@ pkg_tar(
     ownername = NONROOT_USERNAME,
 )
 
+pkg_tar(
+    name = "pachd_host_coverage_tar",
+    srcs = ["//src/server/cmd/pachd:pachd_coverage"],
+    owner = NONROOT,
+    ownername = NONROOT_USERNAME,
+    remap_paths = {
+        "/pachd_coverage": "/pachd",
+    },
+)
+
 platform_transition_filegroup(
     name = "pachd_linux_tar",
     srcs = [":pachd_host_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
+        "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
+    }),
+)
+
+platform_transition_filegroup(
+    name = "pachd_linux_coverage_tar",
+    srcs = [":pachd_host_coverage_tar"],
     target_platform = select({
         "@platforms//cpu:arm64": "@rules_go//go/toolchain:linux_arm64",
         "@platforms//cpu:x86_64": "@rules_go//go/toolchain:linux_amd64",
@@ -67,11 +86,30 @@ oci_image(
     visibility = ["//visibility:public"],
 )
 
+oci_image(
+    name = "pachd_coverage_image",
+    base = "@distroless",
+    entrypoint = ["/pachd"],
+    tars = [
+        ":licenses_tar",
+        ":dex_assets_tar",
+        ":pachd_linux_coverage_tar",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 container_structure_test(
     name = "pachd_image_test",
     size = "small",
     configs = ["pachd_image_test.yaml"],
     image = ":pachd_image",
+)
+
+container_structure_test(
+    name = "pachd_coverage_image_test",
+    size = "small",
+    configs = ["pachd_image_test.yaml"],
+    image = ":pachd_coverage_image",
 )
 
 pkg_tar(

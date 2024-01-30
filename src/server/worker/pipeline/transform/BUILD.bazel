@@ -53,9 +53,9 @@ go_test(
         "common_test.go",
         "transform_test.go",
     ],
-    embed = [":transform"],
     pure = "on",
     deps = [
+        ":transform",
         "//src/internal/backoff",
         "//src/internal/client",
         "//src/internal/collection",

@@ -55,6 +55,7 @@ class NextDatumResponse(betterproto.Message):
 
 
 class WorkerStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_status = channel.unary_unary(
             "/pachyderm.worker.Worker/Status",
@@ -73,6 +74,7 @@ class WorkerStub:
         )
 
     def status(self) -> "_pps__.WorkerStatus":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_status(request)
@@ -89,6 +91,7 @@ class WorkerStub:
         return self.__rpc_cancel(request)
 
     def next_datum(self, *, error: str = "") -> "NextDatumResponse":
+
         request = NextDatumRequest()
         request.error = error
 
@@ -96,6 +99,7 @@ class WorkerStub:
 
 
 class WorkerBase:
+
     def status(self, context: "grpc.ServicerContext") -> "_pps__.WorkerStatus":
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
