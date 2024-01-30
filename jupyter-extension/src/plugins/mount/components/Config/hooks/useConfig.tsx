@@ -22,7 +22,6 @@ export type useConfigResponse = {
 
 export const useConfig = (
   showConfig: boolean,
-  setShowConfig: (shouldShow: boolean) => void,
   updateConfig: (shouldShow: AuthConfig) => void,
   authConfig: AuthConfig,
   refresh: () => Promise<void>,
@@ -46,16 +45,16 @@ export const useConfig = (
     setShowAdvancedOptions(false);
   }, [showConfig, authConfig]);
 
-  // If the user successfully connects to a non-auth cluster or logs into their cluster,
-  // we want to switch off of the config screen.
-  useEffect(() => {
-    if (
-      clusterStatus === 'VALID_NO_AUTH' ||
-      clusterStatus === 'VALID_LOGGED_IN'
-    ) {
-      setShowConfig(false);
-    }
-  }, [clusterStatus]);
+  // // If the user successfully connects to a non-auth cluster or logs into their cluster,
+  // // we want to switch off of the config screen.
+  // useEffect(() => {
+  //   if (
+  //     clusterStatus === 'VALID_NO_AUTH' ||
+  //     clusterStatus === 'VALID_LOGGED_IN'
+  //   ) {
+  //     setShowConfig(false);
+  //   }
+  // }, [clusterStatus]);
 
   const updatePachdAddress = async () => {
     setLoading(true);

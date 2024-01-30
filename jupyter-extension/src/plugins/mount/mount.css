@@ -35,6 +35,18 @@
   padding-right: 0.75rem;
 }
 
+#pachyderm-mount {
+  .lm-TabBar-tabIcon {
+    width: 0;
+  }
+  .lm-TabBar-tabLabel {
+    text-align: center;
+  }
+  .pachyderm-config-tab {
+    max-width: 32px;
+  }
+}
+
 /* === ListItem === */
 .pachyderm-mount-list-item-base {
   display: flex;

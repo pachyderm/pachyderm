@@ -9,7 +9,6 @@ import {KubernetesElephant} from '../../../../utils/components/Svgs';
 
 type ConfigProps = {
   showConfig: boolean;
-  setShowConfig: (shouldShow: boolean) => void;
   updateConfig: (shouldShow: AuthConfig) => void;
   authConfig: AuthConfig;
   refresh: () => Promise<void>;
@@ -17,7 +16,6 @@ type ConfigProps = {
 
 const Config: React.FC<ConfigProps> = ({
   showConfig,
-  setShowConfig,
   updateConfig,
   authConfig,
   refresh,
@@ -38,7 +36,7 @@ const Config: React.FC<ConfigProps> = ({
     setShowAdvancedOptions,
     serverCa,
     setServerCa,
-  } = useConfig(showConfig, setShowConfig, updateConfig, authConfig, refresh);
+  } = useConfig(showConfig, updateConfig, authConfig, refresh);
   const authEnabled =
     clusterStatus === 'VALID_LOGGED_IN' || clusterStatus === 'VALID_LOGGED_OUT';
   const connectedToCluster =
@@ -46,22 +44,6 @@ const Config: React.FC<ConfigProps> = ({
   return (
     <>
       <div className="pachyderm-mount-config-form-base">
-        {connectedToCluster && (
-          <div className="pachyderm-mount-config-back">
-            <button
-              data-testid="Config__back"
-              className="pachyderm-button-link"
-              onClick={() => setShowConfig(false)}
-            >
-              Back{' '}
-              <closeIcon.react
-                tag="span"
-                className="pachyderm-mount-icon-padding"
-              />
-            </button>
-          </div>
-        )}
-
         <div className="pachyderm-mount-config-heading">
           Pachyderm
           <span className="pachyderm-mount-config-subheading">

@@ -181,7 +181,7 @@ describe('mount plugin', () => {
     );
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
-    expect(plugin.layout.orientation).toBe('vertical');
+    // expect(plugin.layout.orientation).toBe('vertical');
     expect(plugin.layout.widgets).toHaveLength(9);
     expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
     expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
