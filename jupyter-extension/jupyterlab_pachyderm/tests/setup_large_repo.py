@@ -36,16 +36,14 @@ def main():
     client.pfs.create_repo(repo=repo)
 
     for b in range(math.floor(NUMBER_OF_FILES / FILES_PER_COMMIT)):
-        commit = None
-        with client.pfs.commit(branch=branch) as c:
-            commit = c
-            print(f'starting commit {c}')
+        with client.pfs.commit(branch=branch) as commit:
+            print(f'starting commit {commit}')
             for i in range(FILES_PER_COMMIT):
                 file_number = i + (b * FILES_PER_COMMIT)
                 path = f"/hello{file_number}.py"
                 print(f'Writing path={path}')
-                c.put_file_from_bytes(path=path, data=b"print('hello')")
-        client.pfs.wait_commit(commit)
+                commit.put_file_from_bytes(path=path, data=b"print('hello')")
+        commit.wait()
 
 if __name__=="__main__": 
     main() 

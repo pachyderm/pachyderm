@@ -44,7 +44,7 @@ export class MountDrive implements Contents.IDrive {
   // DOM Node ID of the FileBrowser
   private _id: string;
   // Triggers a cd event without changing the current path in the FileBrowser which forces a re-render of the FileBrowser
-  private _changeDirectory: () => Promise<void>;
+  private _rerenderFileBrowser: () => Promise<void>;
   // Updates the pagination UI after changes in page, contents, or maxPage have been made.
   private _pagingUpdate: () => void;
   // Previous search filter used last time get was called. Used to track if the current page needs to be reset
@@ -56,7 +56,7 @@ export class MountDrive implements Contents.IDrive {
     path: string,
     nameSuffix: string,
     id: string,
-    _changeDirectory: () => Promise<void>,
+    _rerenderFileBrowser: () => Promise<void>,
     _pagingUpdate: () => void,
   ) {
     this._registry = registry;
@@ -65,7 +65,7 @@ export class MountDrive implements Contents.IDrive {
     this._path = path;
     this._nameSuffix = nameSuffix;
     this._id = id;
-    this._changeDirectory = _changeDirectory;
+    this._rerenderFileBrowser = _rerenderFileBrowser;
     this._pagingUpdate = _pagingUpdate;
     this._previousFilter = null;
   }
@@ -193,7 +193,7 @@ export class MountDrive implements Contents.IDrive {
       this._cache.contents = this._cache.contents.concat(nextResponse.content);
 
       // Trigger a change directory event without a path change to force re-render the FileBrowser, then fetch the next page of results async.
-      await this._changeDirectory();
+      await this._rerenderFileBrowser();
       this._fetchNextPage(
         nextResponse,
         timeOfLastDirectoryChange,
