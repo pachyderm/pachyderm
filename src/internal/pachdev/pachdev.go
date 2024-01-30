@@ -2,10 +2,16 @@ package pachdev
 
 import (
 	"fmt"
+	"net/http"
+	"os"
+	"os/exec"
 	"path"
+	"strconv"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/kindenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/spf13/cobra"
 )
 
@@ -143,6 +149,61 @@ func PushPachydermCmd() *cobra.Command {
 	cmd.Flags().StringVar(&opts.Namespace, "namespace", "default", "The Kubernetes namespace to install/upgrade.")
 	cmd.Flags().BoolVar(&opts.Diff, "diff", false, "If set, instead of deploying, just print a diff between what would be deployed and what is currently deployed.")
 	cmd.Flags().BoolVar(&opts.NoSwitchContext, "no-switch-context", false, "If set, don't switch to this Pachyderm context.")
+	cmd.Flags().StringVar(&opts.ConsoleTag, "console", "", "If set, use this version of console instead of what's in the helm chart.")
+	return cmd
+}
+
+func ServeCoverageCmd() *cobra.Command {
+	var port uint32
+	cmd := &cobra.Command{
+		Use:   "coverage",
+		Short: "View the results of the results of the last `bazel coverage` run",
+		Long: `View the results of the results of the last bazel coverage run.
+
+This requires the "genhtml" tool from the "lcov" package (which requrires Perl).`,
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
+			tmp, err := os.MkdirTemp("", "pachdev-coverage-")
+			if err != nil {
+				return errors.Wrap(err, "create destination directory")
+			}
+			defer func() {
+				if err := os.RemoveAll(tmp); err != nil {
+					errors.JoinInto(&retErr, errors.Wrap(err, "cleanup coverage report"))
+				}
+			}()
+			wd, _ := os.Getwd()
+			if root := os.Getenv("BUILD_WORKSPACE_DIRECTORY"); root != "" {
+				wd = root
+			}
+			genhtml := exec.CommandContext(ctx, "genhtml", "--no-function-coverage", "--no-branch-coverage", "bazel-out/_coverage/_coverage_report.dat", "-o", tmp)
+			genhtml.Stdout = log.WriterAt(pctx.Child(ctx, "genhtml.stdout"), log.InfoLevel)
+			genhtml.Stderr = log.WriterAt(pctx.Child(ctx, "genhtml.stderr"), log.ErrorLevel)
+			genhtml.Dir = wd
+			if err := genhtml.Run(); err != nil {
+				return errors.Wrap(err, "run genhtml")
+			}
+			s := &http.Server{
+				Addr:    "0.0.0.0:" + strconv.FormatUint(uint64(port), 10),
+				Handler: http.FileServer(http.FS(os.DirFS(tmp))),
+			}
+			fmt.Fprintf(os.Stderr, "\nReport available at http://0.0.0.0:%v/index.html until Control-C...\n", port)
+			doneCh := make(chan error)
+			go func() { doneCh <- s.ListenAndServe() }()
+			select {
+			case <-ctx.Done():
+				s.Close()
+				return nil
+			case err := <-doneCh:
+				if err != nil {
+					return errors.Wrap(err, "ListenAndServe")
+				}
+				return nil
+			}
+		},
+	}
+	cmd.Flags().Uint32VarP(&port, "port", "p", 1234, "Port to serve the HTML report on.")
 	return cmd
 }
 

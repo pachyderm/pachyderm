@@ -9881,6 +9881,10 @@ func (m *ShardFileSetRequest) validate(all bool) error {
 
 	// no validation rules for FileSetId
 
+	// no validation rules for NumFiles
+
+	// no validation rules for SizeBytes
+
 	if len(errors) > 0 {
 		return ShardFileSetRequestMultiError(errors)
 	}

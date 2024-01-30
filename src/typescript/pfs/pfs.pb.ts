@@ -464,6 +464,8 @@ export type ComposeFileSetRequest = {
 
 export type ShardFileSetRequest = {
   fileSetId?: string
+  numFiles?: string
+  sizeBytes?: string
 }
 
 export type PathRange = {

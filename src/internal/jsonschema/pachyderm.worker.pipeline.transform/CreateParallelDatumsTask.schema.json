@@ -20,6 +20,9 @@
                 "pathRange": {
                     "$ref": "#/definitions/pfs_v2.PathRange",
                     "additionalProperties": false
+                },
+                "authToken": {
+                    "type": "string"
                 }
             },
             "additionalProperties": false,
