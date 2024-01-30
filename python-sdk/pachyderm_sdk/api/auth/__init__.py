@@ -731,20 +731,17 @@ class ApiStub:
         )
 
     def activate(self, *, root_token: str = "") -> "ActivateResponse":
-
         request = ActivateRequest()
         request.root_token = root_token
 
         return self.__rpc_activate(request)
 
     def deactivate(self) -> "DeactivateResponse":
-
         request = DeactivateRequest()
 
         return self.__rpc_deactivate(request)
 
     def get_configuration(self) -> "GetConfigurationResponse":
-
         request = GetConfigurationRequest()
 
         return self.__rpc_get_configuration(request)
@@ -752,7 +749,6 @@ class ApiStub:
     def set_configuration(
         self, *, configuration: "OidcConfig" = None
     ) -> "SetConfigurationResponse":
-
         request = SetConfigurationRequest()
         if configuration is not None:
             request.configuration = configuration
@@ -762,7 +758,6 @@ class ApiStub:
     def authenticate(
         self, *, oidc_state: str = "", id_token: str = ""
     ) -> "AuthenticateResponse":
-
         request = AuthenticateRequest()
         request.oidc_state = oidc_state
         request.id_token = id_token
@@ -787,7 +782,6 @@ class ApiStub:
     def get_permissions(
         self, *, resource: "Resource" = None
     ) -> "GetPermissionsResponse":
-
         request = GetPermissionsRequest()
         if resource is not None:
             request.resource = resource
@@ -797,7 +791,6 @@ class ApiStub:
     def get_permissions_for_principal(
         self, *, resource: "Resource" = None, principal: str = ""
     ) -> "GetPermissionsResponse":
-
         request = GetPermissionsForPrincipalRequest()
         if resource is not None:
             request.resource = resource
@@ -806,7 +799,6 @@ class ApiStub:
         return self.__rpc_get_permissions_for_principal(request)
 
     def who_am_i(self) -> "WhoAmIResponse":
-
         request = WhoAmIRequest()
 
         return self.__rpc_who_am_i(request)
@@ -814,7 +806,6 @@ class ApiStub:
     def get_roles_for_permission(
         self, *, permission: "Permission" = None
     ) -> "GetRolesForPermissionResponse":
-
         request = GetRolesForPermissionRequest()
         request.permission = permission
 
@@ -840,7 +831,6 @@ class ApiStub:
     def get_role_binding(
         self, *, resource: "Resource" = None
     ) -> "GetRoleBindingResponse":
-
         request = GetRoleBindingRequest()
         if resource is not None:
             request.resource = resource
@@ -848,7 +838,6 @@ class ApiStub:
         return self.__rpc_get_role_binding(request)
 
     def get_oidc_login(self) -> "GetOidcLoginResponse":
-
         request = GetOidcLoginRequest()
 
         return self.__rpc_get_oidc_login(request)
@@ -856,7 +845,6 @@ class ApiStub:
     def get_robot_token(
         self, *, robot: str = "", ttl: int = 0
     ) -> "GetRobotTokenResponse":
-
         request = GetRobotTokenRequest()
         request.robot = robot
         request.ttl = ttl
@@ -864,7 +852,6 @@ class ApiStub:
         return self.__rpc_get_robot_token(request)
 
     def revoke_auth_token(self, *, token: str = "") -> "RevokeAuthTokenResponse":
-
         request = RevokeAuthTokenRequest()
         request.token = token
 
@@ -873,7 +860,6 @@ class ApiStub:
     def revoke_auth_tokens_for_user(
         self, *, username: str = ""
     ) -> "RevokeAuthTokensForUserResponse":
-
         request = RevokeAuthTokensForUserRequest()
         request.username = username
 
@@ -908,27 +894,23 @@ class ApiStub:
         return self.__rpc_modify_members(request)
 
     def get_groups(self) -> "GetGroupsResponse":
-
         request = GetGroupsRequest()
 
         return self.__rpc_get_groups(request)
 
     def get_groups_for_principal(self, *, principal: str = "") -> "GetGroupsResponse":
-
         request = GetGroupsForPrincipalRequest()
         request.principal = principal
 
         return self.__rpc_get_groups_for_principal(request)
 
     def get_users(self, *, group: str = "") -> "GetUsersResponse":
-
         request = GetUsersRequest()
         request.group = group
 
         return self.__rpc_get_users(request)
 
     def extract_auth_tokens(self) -> "ExtractAuthTokensResponse":
-
         request = ExtractAuthTokensRequest()
 
         return self.__rpc_extract_auth_tokens(request)
@@ -936,7 +918,6 @@ class ApiStub:
     def restore_auth_token(
         self, *, token: "TokenInfo" = None
     ) -> "RestoreAuthTokenResponse":
-
         request = RestoreAuthTokenRequest()
         if token is not None:
             request.token = token
@@ -944,13 +925,11 @@ class ApiStub:
         return self.__rpc_restore_auth_token(request)
 
     def delete_expired_auth_tokens(self) -> "DeleteExpiredAuthTokensResponse":
-
         request = DeleteExpiredAuthTokensRequest()
 
         return self.__rpc_delete_expired_auth_tokens(request)
 
     def rotate_root_token(self, *, root_token: str = "") -> "RotateRootTokenResponse":
-
         request = RotateRootTokenRequest()
         request.root_token = root_token
 
