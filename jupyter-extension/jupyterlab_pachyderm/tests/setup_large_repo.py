@@ -2,10 +2,13 @@
 # This test repo has a large number of files as defined by NUMBER_OF_FILES created in it. It is useful
 # for testing how the Jupyterlab extension scales with any number of files.
 
+import math
+
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs
 
 NUMBER_OF_FILES = 20000
+FILES_PER_COMMIT = 10
 
 def main(): 
     client = Client.from_config()
@@ -32,12 +35,17 @@ def main():
     client.pfs.create_project(project=project)
     client.pfs.create_repo(repo=repo)
 
-    with client.pfs.commit(branch=branch) as c:
-        print(f'starting commit {c}')
-        for i in range(NUMBER_OF_FILES):
-            path = f"/hello{i}.py"
-            print(f'Writing path={path}')
-            c.put_file_from_bytes(path=path, data=b"print('hello')")
+    for b in range(math.floor(NUMBER_OF_FILES / FILES_PER_COMMIT)):
+        commit = None
+        with client.pfs.commit(branch=branch) as c:
+            commit = c
+            print(f'starting commit {c}')
+            for i in range(FILES_PER_COMMIT):
+                file_number = i + (b * FILES_PER_COMMIT)
+                path = f"/hello{file_number}.py"
+                print(f'Writing path={path}')
+                c.put_file_from_bytes(path=path, data=b"print('hello')")
+        client.pfs.wait_commit(commit)
 
 if __name__=="__main__": 
     main() 
