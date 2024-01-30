@@ -195,7 +195,7 @@ func TestIDTokenFromEnv(t *testing.T) {
 	).Run())
 	require.NoError(t, tu.PachctlBashCmd(t, c, `
                 echo "" | pachctl auth use-auth-token;
-                export PACH_ID_TOKEN={{.token}};
+                export DEX_TOKEN={{.token}};
                 pachctl auth whoami | match user:{{.user}}`,
 		"user", tu.DexMockConnectorEmail,
 		"token", token,
