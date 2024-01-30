@@ -253,7 +253,7 @@ determined:
     hostPath: /checkpoints
     # By default, shared_fs is not mounted to the server pod. Change this to true to enable checkpoint downloads from the server.
     mountToServer: false
-    
+
     # For storing in GCS.
     # type: gcs
     # bucket: <bucket_name>
