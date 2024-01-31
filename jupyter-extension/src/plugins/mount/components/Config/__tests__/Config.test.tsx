@@ -174,26 +174,6 @@ describe('config screen', () => {
     });
   });
 
-  // TODO: Update this to check that tabs are visible.
-  // it('shows back button when successfully connected to cluster', () => {
-  //   const authConfig: AuthConfig = {
-  //     cluster_status: 'VALID_LOGGED_IN',
-  //     pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
-  //   };
-  //
-  //   const {getByTestId} = render(
-  //     <Config
-  //       showConfig={true}
-  //       updateConfig={updateConfig}
-  //       authConfig={authConfig}
-  //       refresh={jest.fn()}
-  //     />,
-  //   );
-  //
-  //   getByTestId('Config__back').click();
-  //   expect(setShowConfig).toHaveBeenCalledWith(false);
-  // });
-
   describe('pachd address field', () => {
     it('should validate entered address', async () => {
       const authConfig: AuthConfig = {

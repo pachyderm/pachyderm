@@ -171,6 +171,7 @@ export class MountPlugin implements IMountPlugin {
     this._explorePanel.addWidget(this._explore);
     this._explorePanel.addWidget(this._pfsBrowser);
     this._explorePanel.title.label = 'Explore';
+    this._explorePanel.title.className = 'pachyderm-explore-tab';
 
     this._datumBrowser = createCustomFileBrowser(
       app,
@@ -208,6 +209,7 @@ export class MountPlugin implements IMountPlugin {
     this._datumPanel.addWidget(this._datum);
     this._datumPanel.addWidget(this._datumBrowser);
     this._datumPanel.title.label = 'Test';
+    this._datumPanel.title.className = 'pachyderm-test-tab';
 
     this._pipeline = ReactWidget.create(
       <UseSignal signal={this._ppsContextSignal}>
@@ -224,6 +226,7 @@ export class MountPlugin implements IMountPlugin {
     );
     this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
     this._pipeline.title.label = 'Publish';
+    this._pipeline.title.className = 'pachyderm-publish-tab';
 
     this._loader = ReactWidget.create(<LoadingDots />);
     this._loader.addClass('pachyderm-mount-react-wrapper');
