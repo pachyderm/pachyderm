@@ -4,7 +4,7 @@ import {
   ILayoutRestorer,
   JupyterFrontEnd,
 } from '@jupyterlab/application';
-import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
+import {ReactWidget, showErrorMessage, UseSignal} from '@jupyterlab/apputils';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
@@ -446,8 +446,7 @@ export class MountPlugin implements IMountPlugin {
     await this._poller.refresh();
 
     if (this._poller.status.code === 500) {
-      console.error('poller status 500');
-      // this.setShowFullPageError(true);
+      await showErrorMessage('Server Error', this._poller.status.message);
     } else {
       if (this._poller.status.code === 200) {
         try {
