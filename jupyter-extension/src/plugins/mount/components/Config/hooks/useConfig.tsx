@@ -45,17 +45,6 @@ export const useConfig = (
     setShowAdvancedOptions(false);
   }, [showConfig, authConfig]);
 
-  // // If the user successfully connects to a non-auth cluster or logs into their cluster,
-  // // we want to switch off of the config screen.
-  // useEffect(() => {
-  //   if (
-  //     clusterStatus === 'VALID_NO_AUTH' ||
-  //     clusterStatus === 'VALID_LOGGED_IN'
-  //   ) {
-  //     setShowConfig(false);
-  //   }
-  // }, [clusterStatus]);
-
   const updatePachdAddress = async () => {
     setLoading(true);
     try {
@@ -79,6 +68,7 @@ export const useConfig = (
         } else {
           updateConfig(response);
           setClusterStatus(response.cluster_status);
+          setShouldShowAddressInput(false);
         }
       } else {
         setErrorMessage(
