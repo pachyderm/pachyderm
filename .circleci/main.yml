@@ -801,14 +801,14 @@ jobs:
           path: test-results
 
   jupyter-extension-integration-test:
-    resource_class: xlarge
+    resource_class: large
     machine:
       image: ubuntu-2004:202107-02
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
-      - install-python-test-deps
+      - install-jupyter-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -847,7 +847,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-python-test-deps
+      - install-jupyter-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -2179,15 +2179,11 @@ commands:
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
-      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
-      - run:
-          name: Fuse options
-          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
       - run:
           name: Install kind
           command: |
@@ -2196,6 +2192,9 @@ commands:
             && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
       - install-helm
       - install-kubectl
+      - run:
+          name: Install minio
+          command: kubectl apply -f etc/testing/minio.yaml
       - run:
           name: Install pachctl and mount-server
           command: |
@@ -2206,7 +2205,18 @@ commands:
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
           name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
+          command: |
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set pachd.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
