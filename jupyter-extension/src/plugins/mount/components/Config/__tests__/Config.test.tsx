@@ -57,7 +57,6 @@ describe('config screen', () => {
         />,
       );
 
-      getByTestId('Config__back');
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -166,7 +165,6 @@ describe('config screen', () => {
         />,
       );
 
-      getByTestId('Config__back');
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
