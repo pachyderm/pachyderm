@@ -2193,9 +2193,6 @@ commands:
       - install-helm
       - install-kubectl
       - run:
-          name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
-      - run:
           name: Install pachctl and mount-server
           command: |
             sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
@@ -2203,6 +2200,9 @@ commands:
       - run:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
+      - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
       - run:
           name: Install pach
           command: |
