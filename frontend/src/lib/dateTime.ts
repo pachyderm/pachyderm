@@ -6,6 +6,8 @@ import {
   formatISO,
 } from 'date-fns';
 
+import {JobInfo} from '@dash-frontend/api/pps';
+
 export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; H:mm';
 
 export const SECONDS_IN_MINUTE = 60;
@@ -113,3 +115,16 @@ export const getDurationToNowFromISOString = (
 ) => {
   return formatDistanceToNowStrict(parseISO(date), {addSuffix});
 };
+
+/**
+ * Used to calcualte the total runtime of a job.
+ * Response is a formatted string representing
+ * the calculated runtime.
+ */
+export const calculateJobTotalRuntime = (jobInfo?: JobInfo, nullCase = 'N/A') =>
+  jobInfo?.finished && jobInfo?.started
+    ? formatDurationFromSeconds(
+        getUnixSecondsFromISOString(jobInfo.finished) -
+          getUnixSecondsFromISOString(jobInfo.started),
+      )
+    : nullCase;

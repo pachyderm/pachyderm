@@ -1,25 +1,31 @@
 .base,
 .inputBase {
   user-select: none;
-  background-color: var(--grey-2);
-  border: 2px solid var(--grey-3);
   border-radius: 3px;
-  padding: 0.5rem 0.625rem;
   cursor: pointer;
   position: relative;
+  margin-bottom: unset;
+
+  border: 1px solid var(--border-grey);
+  padding: 0.25rem 0.5rem 0.25rem 0.5rem;
+
+  background-color: var(--white);
 }
 
 .selected {
-  background-color: var(--grey-9);
-  border-color: var(--grey-9);
-  color: var(--white);
+  background-color: rgba(
+    25,
+    202,
+    170,
+    0.05
+  ); /* this is var(--cyan) but with alpha */
+  border-color: var(--cyan);
 }
 
-.base:not(:disabled):not(.selected):hover,
-.inputBase:not(.disabled):not(.selected):hover {
-  background-color: var(--grey-3);
-  color: var(--pachyderm-black);
+.selected:hover {
+  background-color: var(--hover-dark-grey);
 }
+
 .base:disabled,
 .disabled {
   border-style: none;
@@ -27,6 +33,11 @@
   color: var(--pachyderm-black);
   opacity: 0.3;
   background-color: var(--grey-3);
+}
+.base:not(:disabled):not(.selected):hover,
+.inputBase:not(.disabled):not(.selected):hover {
+  background-color: var(--grey-3);
+  color: var(--pachyderm-black);
 }
 
 .input {
@@ -45,12 +56,10 @@
 }
 
 .group {
-  --gap-vertical: 0.938rem;
-  --gap-horizontal: 1.25rem;
+  padding-top: 0.5rem;
+  gap: 0.5rem;
   display: inline-flex;
   flex-wrap: wrap;
-  margin: calc(-1 * var(--gap-vertical)) 0 0 calc(-1 * var(--gap-horizontal));
-  width: calc(100% + var(--gap-horizontal));
 }
 
 .group > * {

@@ -246,30 +246,30 @@ export const useDAGView = (
   // zoom and pan to selected node
   useEffect(() => {
     if (!skipCenterOnSelect) {
-      const centerNodeSelection = select<SVGGElement, Node>(
-        `#GROUP_${objectHash({
-          project: currentProject?.project?.name,
-          name: selectedNode,
-        })}`,
-      );
+      let x, y;
+      const hash = objectHash({
+        project: currentProject?.project?.name,
+        name: selectedNode,
+      });
 
-      if (
-        !centerNodeSelection.empty() &&
-        zoomRef.current &&
-        !loading &&
-        interacted &&
-        !reset
-      ) {
+      const nodeInView = select<SVGGElement, Node>(`#GROUP_${hash}`);
+      if (!nodeInView.empty()) {
+        x = nodeInView.data()[0].x;
+        y = nodeInView.data()[0].y;
+      } else {
+        const offscreenNode = dags?.nodes.find(({id}) => id === hash);
+        x = offscreenNode?.x;
+        y = offscreenNode?.y;
+      }
+
+      if (x && y && zoomRef.current && !loading && interacted && !reset) {
         const svg = select<SVGSVGElement, unknown>('#Svg');
-
-        const centerNode = centerNodeSelection.data()[0];
 
         const selectedNodeCenterX =
           (svgSize.width - SIDEBAR_WIDTH) / 2 -
-          (centerNode.x + nodeWidth / 2) * CENTER_SCALE_VALUE;
+          (x + nodeWidth / 2) * CENTER_SCALE_VALUE;
         const selectedNodeCenterY =
-          svgSize.height / 2 -
-          (centerNode.y + nodeHeight / 2) * CENTER_SCALE_VALUE;
+          svgSize.height / 2 - (y + nodeHeight / 2) * CENTER_SCALE_VALUE;
 
         const transform = zoomIdentity
           .translate(selectedNodeCenterX, selectedNodeCenterY)
@@ -293,6 +293,7 @@ export const useDAGView = (
     reset,
     skipCenterOnSelect,
     currentProject?.project?.name,
+    dags?.nodes,
   ]);
 
   // reset interaction on empty canvas

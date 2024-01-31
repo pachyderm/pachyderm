@@ -7,3 +7,11 @@
 .loadingContainer.isSidebarOpen {
   width: calc(100% - var(--sidebar-width-md));
 }
+
+.base {
+  width: 100%;
+}
+
+.dagContainer {
+  position: relative;
+}

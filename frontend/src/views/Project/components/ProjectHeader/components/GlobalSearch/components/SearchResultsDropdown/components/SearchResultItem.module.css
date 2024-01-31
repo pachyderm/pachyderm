@@ -1,7 +1,7 @@
 .base {
   display: flex;
   justify-content: space-between;
-  padding: 0.75rem 0.938rem 0.75rem 1.563rem;
+  padding: 0.5rem 1rem 0.5rem 1rem;
 }
 
 .base:hover {
@@ -16,4 +16,13 @@
 .underline {
   border-bottom: 1px solid var(--pachyderm-black);
   display: inline-block;
+}
+
+.icons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.killed {
+  color: var(--pachyderm-red);
 }

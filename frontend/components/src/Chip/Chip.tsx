@@ -9,9 +9,13 @@ import {useFormContext} from 'react-hook-form';
 
 import useRHFInputProps from '@pachyderm/components/hooks/useRHFInputProps';
 
+import {Group} from '../Group';
+import {Icon} from '../Icon';
+
 import styles from './Chip.module.css';
 export interface ChipInputProps extends InputHTMLAttributes<HTMLInputElement> {
   name: string;
+  IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
 }
 
 export interface ChipProps<T = unknown>
@@ -61,6 +65,7 @@ export const ChipInput: React.FC<ChipInputProps> = ({
   onChange,
   onBlur,
   disabled,
+  IconSVG,
   ...rest
 }) => {
   const {register, watch} = useFormContext();
@@ -78,20 +83,77 @@ export const ChipInput: React.FC<ChipInputProps> = ({
 
   return (
     <label className={classes}>
-      <input
-        disabled={disabled}
-        type="checkbox"
-        className={styles.input}
-        onChange={handleChange}
-        onBlur={handleBlur}
-        {...rest}
-        {...inputProps}
-      />
-      {children}
+      <Group spacing={8} align="center" justify="center">
+        {IconSVG && (
+          <Icon color="red" small={true}>
+            <IconSVG />
+          </Icon>
+        )}
+        <input
+          disabled={disabled}
+          type="checkbox"
+          className={styles.input}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          {...rest}
+          {...inputProps}
+        />
+        {children}
+      </Group>
     </label>
   );
 };
 
 export const ChipGroup = ({children}: {children?: React.ReactNode}) => {
   return <div className={styles.group}>{children}</div>;
+};
+
+export interface ChipRadioProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
+  name: string;
+  IconSVG?: React.FunctionComponent<React.SVGProps<SVGSVGElement>>;
+}
+
+export const ChipRadio: React.FC<ChipRadioProps> = ({
+  name,
+  className,
+  children,
+  disabled,
+  IconSVG,
+  value,
+  ...rest
+}) => {
+  const {watch, setValue} = useFormContext();
+  const formValue = watch(name);
+  const classes = classNames(styles.inputBase, className, {
+    [styles.selected]: formValue === value,
+    [styles.disabled]: disabled,
+  });
+
+  const handleOnClick = () => {
+    if (formValue === value) {
+      setValue(name, undefined);
+    } else {
+      setValue(name, value);
+    }
+  };
+
+  return (
+    <label className={classes}>
+      <Group spacing={8} align="center" justify="center">
+        {IconSVG && (
+          <Icon color="red" small={true}>
+            <IconSVG />
+          </Icon>
+        )}
+        <button
+          disabled={disabled}
+          className={styles.input}
+          onClick={handleOnClick}
+          {...rest}
+        />
+        {children}
+      </Group>
+    </label>
+  );
 };

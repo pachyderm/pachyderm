@@ -1,20 +1,36 @@
+.underline {
+  width: 100%;
+  border-bottom: 1px solid white;
+}
+
 .input {
-  border-radius: 3px;
-  padding-left: 2.65rem;
-  padding-right: 2rem;
-  height: 2.438rem;
-  width: 31.25rem;
-  border: none;
+  margin-top: 0.1rem;
+  padding-left: 2rem;
+  width: 23rem;
+  text-overflow: ellipsis;
+  border: unset;
   color: var(--white);
   background-color: transparent;
+}
+
+.inputWrapper {
+  margin-top: 0.25rem;
+  padding: 0.5rem 1rem 1rem 1rem;
+  border-radius: 3px 3px 0px 0px;
+  width: 31.25rem;
 }
 
 .input::placeholder {
   color: var(--white);
 }
 
+.backgroundGrey9 {
+  background-color: var(--grey-9);
+}
+
 .input:focus,
 .input:active {
+  width: 27rem;
   outline: none;
   border-color: var(--border-grey);
   background-color: var(--grey-9);
@@ -22,15 +38,20 @@
 
 .open {
   border-radius: 3px 3px 0px 0px;
-  border-bottom: var(--placeholder-grey);
 }
 
 .searchIcon {
   position: absolute;
-  left: 0.75rem;
-  top: 0.63rem;
+  left: 1.45rem;
+  top: 1rem;
   z-index: 2;
-  color: var(--white);
+}
+
+.statusText {
+  position: absolute;
+  top: 0.9rem;
+  right: 1.45rem;
+  z-index: 2;
 }
 
 .button {
@@ -39,8 +60,8 @@
   background: none;
   position: absolute;
   height: var(--button-size);
-  right: 0.5rem;
-  top: calc((2.438rem - var(--button-size)) / 2);
+  right: 1rem;
+  top: calc((3rem - var(--button-size)) / 2);
 }
 
 .button:focus:not([class$='focus-visible']) {

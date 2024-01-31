@@ -1,9 +1,8 @@
 import React from 'react';
 
-import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
-import IconBadge from '@dash-frontend/components/IconBadge';
+import JobStateBadges from '@dash-frontend/components/JobStateBadges';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {
@@ -11,13 +10,8 @@ import {
   getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
-import {InternalJobSet, NodeState} from '@dash-frontend/lib/types';
-import {
-  Table,
-  StatusDotsSVG,
-  StatusCheckmarkSVG,
-  StatusWarningSVG,
-} from '@pachyderm/components';
+import {InternalJobSet} from '@dash-frontend/lib/types';
+import {Table} from '@pachyderm/components';
 
 import useRunsList from './hooks/useRunsList';
 import styles from './RunsList.module.css';
@@ -26,46 +20,6 @@ type RunsListProps = {
   error?: string;
   totalJobsetsLength: number;
   jobSets?: InternalJobSet[];
-};
-
-const getJobStateBadges = (jobSet: InternalJobSet) => {
-  const nodeStates = jobSet.jobs.reduce(
-    (acc, job) => {
-      acc[restJobStateToNodeState(job.state)] += 1;
-      return acc;
-    },
-    {
-      [NodeState.ERROR]: 0,
-      [NodeState.BUSY]: 0,
-      [NodeState.IDLE]: 0,
-      [NodeState.PAUSED]: 0,
-      [NodeState.RUNNING]: 0,
-      [NodeState.SUCCESS]: 0,
-    },
-  );
-  return (
-    <span className={styles.jobStates}>
-      {nodeStates[NodeState.RUNNING] > 0 && (
-        <IconBadge color="green" IconSVG={StatusDotsSVG} tooltip="Running jobs">
-          {nodeStates[NodeState.RUNNING]}
-        </IconBadge>
-      )}
-      {nodeStates[NodeState.SUCCESS] > 0 && (
-        <IconBadge
-          color="green"
-          IconSVG={StatusCheckmarkSVG}
-          tooltip="Successful jobs"
-        >
-          {nodeStates[NodeState.SUCCESS]}
-        </IconBadge>
-      )}
-      {nodeStates[NodeState.ERROR] > 0 && (
-        <IconBadge color="red" IconSVG={StatusWarningSVG} tooltip="Failed jobs">
-          {nodeStates[NodeState.ERROR]}
-        </IconBadge>
-      )}
-    </span>
-  );
 };
 
 const RunsList: React.FC<RunsListProps> = ({
@@ -146,7 +100,9 @@ const RunsList: React.FC<RunsListProps> = ({
                 {`${jobSet?.jobs.length} Job${
                   (jobSet?.jobs.length || 0) > 1 ? 's' : ''
                 } Total`}
-                {getJobStateBadges(jobSet)}
+                <span className={styles.jobStates}>
+                  <JobStateBadges jobSet={jobSet} />
+                </span>
               </Table.DataCell>
               <Table.DataCell width={90}>
                 {getJobRuntime(

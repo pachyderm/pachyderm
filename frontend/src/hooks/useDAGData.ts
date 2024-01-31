@@ -1,6 +1,8 @@
+import {useQueryClient} from '@tanstack/react-query';
 import {useEffect, useState, useCallback} from 'react';
 import {useHistory, useRouteMatch} from 'react-router';
 
+import {ProjectStatus} from '@dash-frontend/api/pfs';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import {usePipelines} from '@dash-frontend/hooks/usePipelines';
 import {useRepos} from '@dash-frontend/hooks/useRepos';
@@ -12,6 +14,7 @@ import {
   Vertex,
 } from '@dash-frontend/lib/DAG/convertPipelinesAndReposToVertices';
 import {sortJobInfos} from '@dash-frontend/lib/DAG/DAGhelpers';
+import queryKeys from '@dash-frontend/lib/queryKeys';
 import {Dags, DagDirection} from '@dash-frontend/lib/types';
 import {
   PROJECT_PATH,
@@ -23,7 +26,9 @@ import {
   projectReposRoute,
   projectPipelinesRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {usePreviousValue} from '@pachyderm/components';
 
+import {deriveProjectStatus} from './useProjectStatus';
 import useUrlState from './useUrlState';
 
 interface useProjectDagsDataProps {
@@ -58,6 +63,33 @@ export const useDAGData = ({
     loading: pipelinesLoading,
     error: pipelinesError,
   } = usePipelines(projectId, !globalId);
+
+  // This code is used to invalidate the pipelines and projectStatus queries
+  // so that the search bar will reflect any state changes in the DAG.
+  const client = useQueryClient();
+  const [projectStatus, setProjectStatus] = useState<ProjectStatus>(
+    ProjectStatus.HEALTHY,
+  );
+  const previousProjectStatus = usePreviousValue<ProjectStatus>(projectStatus);
+
+  useEffect(() => {
+    setProjectStatus(deriveProjectStatus(pipelines));
+  }, [pipelines]);
+
+  useEffect(() => {
+    if (
+      projectStatus &&
+      previousProjectStatus &&
+      projectStatus !== previousProjectStatus
+    ) {
+      client.invalidateQueries({
+        queryKey: queryKeys.projectStatus({projectId: projectId}),
+      });
+      client.invalidateQueries({
+        queryKey: queryKeys.pipelines({projectId: projectId}),
+      });
+    }
+  }, [client, previousProjectStatus, projectId, projectStatus]);
 
   const {
     jobSet,

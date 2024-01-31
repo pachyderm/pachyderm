@@ -1,7 +1,12 @@
 import escapeRegExp from 'lodash/escapeRegExp';
 import React, {useCallback} from 'react';
 
-import {ButtonLink} from '@pachyderm/components';
+import {
+  ButtonLink,
+  Icon,
+  PipelineColorlessSVG,
+  StatusWarningSVG,
+} from '@pachyderm/components';
 
 import styles from './SearchResultItem.module.css';
 
@@ -10,6 +15,9 @@ type SearchResultItemProps = {
   title: string;
   searchValue: string;
   onClick: () => void;
+  wasKilled?: boolean;
+  hasFailedPipeline?: boolean;
+  hasFailedSubjob?: boolean;
 };
 
 type SecondaryActionProps = {
@@ -23,7 +31,7 @@ const Underline = ({text = '', search = ''}) => {
   return (
     <span>
       {parts.map((part, i) =>
-        regex.test(part) ? (
+        search && regex.test(part) ? (
           <div className={styles.underline} key={i}>
             {part}
           </div>
@@ -40,11 +48,33 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
   searchValue,
   onClick,
   children,
+  wasKilled,
+  hasFailedPipeline,
+  hasFailedSubjob,
 }) => {
   return (
-    <div className={styles.base} onClick={onClick}>
-      <Underline text={title} search={searchValue} />
+    <div
+      className={styles.base}
+      onClick={onClick}
+      data-testid="SearchResultItem__container"
+    >
+      {title && <Underline text={title} search={searchValue} />}
       {children}
+      {(hasFailedPipeline || hasFailedSubjob) && (
+        <div className={styles.icons}>
+          {wasKilled && <span className={styles.killed}>Killed</span>}
+          {hasFailedPipeline && (
+            <Icon color="red" small>
+              <PipelineColorlessSVG />
+            </Icon>
+          )}
+          {hasFailedSubjob && (
+            <Icon color="red" small>
+              <StatusWarningSVG />
+            </Icon>
+          )}
+        </div>
+      )}
     </div>
   );
 };

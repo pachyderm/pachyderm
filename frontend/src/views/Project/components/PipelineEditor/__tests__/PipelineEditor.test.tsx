@@ -23,6 +23,8 @@ import {
   mockGetVersionInfo,
   mockGetMontagePipeline,
   mockGetEnterpriseInfo,
+  mockPipelines,
+  mockEmptyJob,
 } from '@dash-frontend/mocks';
 import {
   mockCreatePipelineRequestSchema,
@@ -55,7 +57,9 @@ describe('PipelineEditor', () => {
     server.use(mockGetVersionInfo());
     server.use(mockCreatePipelineRequestSchema);
     server.use(mockGetMontagePipeline());
+    server.use(mockPipelines());
     server.use(mockGetEnterpriseInfo());
+    server.use(mockEmptyJob());
     server.use(
       rest.post<InspectProjectRequest, Empty, ProjectInfo>(
         '/api/pfs_v2.API/InspectProject',

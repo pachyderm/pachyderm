@@ -10,9 +10,9 @@ import {useStopJob} from '@dash-frontend/hooks/useStopJob';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
+  calculateJobTotalRuntime,
   formatDurationFromSeconds,
   getStandardDateFromISOString,
-  getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
 import {DatumFilter, NodeState} from '@dash-frontend/lib/types';
 
@@ -37,13 +37,7 @@ const useInfoPanel = () => {
 
   const created = getStandardDateFromISOString(job?.created);
 
-  const totalRuntime =
-    job?.finished && job?.started
-      ? formatDurationFromSeconds(
-          getUnixSecondsFromISOString(job.finished) -
-            getUnixSecondsFromISOString(job.started),
-        )
-      : 'N/A';
+  const totalRuntime = calculateJobTotalRuntime(job);
 
   const cumulativeTime = formatDurationFromSeconds(
     (parse(job?.stats?.downloadTime ?? '', 's') ?? 0) +

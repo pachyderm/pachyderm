@@ -1,23 +1,22 @@
 import React from 'react';
 
-import {Button, Chip, ChipGroup} from '@pachyderm/components';
+import {Button, CaptionTextSmall, Chip, ChipGroup} from '@pachyderm/components';
 
 import {useDefaultDropdown} from '../../hooks/useDefaultDropdown';
 import {useSearch} from '../../hooks/useSearch';
-import {NotFoundMessage, SectionHeader} from '../Messaging';
 
-import styles from './DefaultDropdown.module.css';
+import styles from './RecentSearches.module.css';
 
-const DefaultDropdown: React.FC = () => {
+const RecentSearches: React.FC = () => {
   const {history, clearSearchHistory} = useSearch();
   const {handleHistoryChipClick} = useDefaultDropdown();
 
-  const recentSearch = () => {
-    if (history.length > 0) {
-      return (
-        <>
+  return (
+    <>
+      {history.length > 0 && (
+        <div className={styles.base}>
           <div className={styles.sectionHeader}>
-            <SectionHeader>Recent Searches</SectionHeader>
+            <CaptionTextSmall>Recent Searches</CaptionTextSmall>
             <Button onClick={clearSearchHistory} buttonType="ghost">
               Clear
             </Button>
@@ -35,14 +34,10 @@ const DefaultDropdown: React.FC = () => {
               ))}
             </ChipGroup>
           </div>
-        </>
-      );
-    }
-
-    return <NotFoundMessage>There are no recent searches.</NotFoundMessage>;
-  };
-
-  return <div className={styles.base}>{recentSearch()}</div>;
+        </div>
+      )}
+    </>
+  );
 };
 
-export default DefaultDropdown;
+export default RecentSearches;

@@ -45,7 +45,7 @@ export const buildJob = (job: Partial<JobInfo> = {}): JobInfo => {
   return merge(defaultJob, job);
 };
 
-const MONTAGE_JOB_INFO_1D = buildJob({
+export const MONTAGE_JOB_INFO_1D = buildJob({
   job: {
     id: '1dc67e479f03498badcc6180be4ee6ce',
     pipeline: {
@@ -355,6 +355,19 @@ export const mockGetJobSet1D = () =>
     async (req, res, ctx) => {
       const body = await req.json();
       if (body?.jobSet?.id === '1dc67e479f03498badcc6180be4ee6ce') {
+        return res(ctx.json([MONTAGE_JOB_INFO_1D]));
+      }
+    },
+  );
+
+export const mockGetJobSets = () =>
+  rest.post<InspectJobSetRequest, Empty, JobInfo[]>(
+    '/api/pps_v2.API/InspectJobSet',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (body?.jobSet?.id === 'a4423427351e42aabc40c1031928628e') {
+        return res(ctx.json([EDGES_JOB_INFO_A4, MONTAGE_JOB_INFO_A4]));
+      } else if (body?.jobSet?.id === '1dc67e479f03498badcc6180be4ee6ce') {
         return res(ctx.json([MONTAGE_JOB_INFO_1D]));
       }
     },

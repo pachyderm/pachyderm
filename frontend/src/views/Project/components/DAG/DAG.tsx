@@ -8,6 +8,7 @@ import {LoadingDots} from '@pachyderm/components';
 import DAGView from '../../components/DAGView';
 import ProjectSidebar from '../../components/ProjectSidebar';
 import {LINEAGE_PATH} from '../../constants/projectPaths';
+import GlobalIDStatusBar from '../GlobalIDStatusBar';
 
 import styles from './DAG.module.css';
 import {useDAG} from './hooks/useDAG';
@@ -27,12 +28,15 @@ const DAG: React.FC = () => {
           <LoadingDots />
         </div>
       ) : (
-        <>
-          <Route path={LINEAGE_PATH}>
-            <DAGView dags={dags} loading={loading} error={error} />
-            <ProjectSidebar pipelineOutputsMap={pipelineOutputsMap} />
-          </Route>
-        </>
+        <div className={styles.base}>
+          <GlobalIDStatusBar />
+          <div className={styles.dagContainer}>
+            <Route path={LINEAGE_PATH}>
+              <DAGView dags={dags} loading={loading} error={error} />
+              <ProjectSidebar pipelineOutputsMap={pipelineOutputsMap} />
+            </Route>
+          </div>
+        </div>
       )}
     </>
   );

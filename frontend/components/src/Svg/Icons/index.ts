@@ -57,6 +57,7 @@ export {ReactComponent as OverflowSVG} from './menuMeatball.svg';
 export {ReactComponent as PanelLeftSVG} from './viewShrinkLeft.svg';
 export {ReactComponent as PanelRightSVG} from './viewShrinkRight.svg';
 export {ReactComponent as PipelineSVG} from './pachPipeline.svg';
+export {ReactComponent as PipelineColorlessSVG} from './pachPipelineColorless.svg';
 export {ReactComponent as RadioCheckedSVG} from './selectorRadioFilled.svg';
 export {ReactComponent as RadioSVG} from './selectorRadioEmpty.svg';
 export {ReactComponent as RepoSVG} from './pachRepo.svg';

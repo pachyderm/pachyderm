@@ -14,10 +14,6 @@ export const useSearch = () => {
     setHistory,
   } = useContext(SearchContext);
 
-  const closeDropdown = useCallback(() => {
-    setIsOpen(false);
-  }, [setIsOpen]);
-
   const openDropdown = useCallback(() => {
     setIsOpen(true);
   }, [setIsOpen]);
@@ -49,7 +45,6 @@ export const useSearch = () => {
 
   return {
     isOpen,
-    closeDropdown,
     openDropdown,
     searchValue,
     setSearchValue,

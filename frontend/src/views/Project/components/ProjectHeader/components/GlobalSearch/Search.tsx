@@ -12,7 +12,7 @@ import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSetting
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {Form, useOutsideClick} from '@pachyderm/components';
 
-import DefaultDropdown from './components/DefaultDropdown';
+import RecentSearches from './components/RecentSearches';
 import SearchBar from './components/SearchInput';
 import SearchResults from './components/SearchResultsDropdown';
 import SearchContext from './contexts/SearchContext';
@@ -60,8 +60,7 @@ const Search: React.FC = () => {
     ],
   );
 
-  const showResults = searchValue !== undefined && searchValue !== '';
-  const showDefaultDropdown = !searchValue;
+  const showResults = debouncedValue !== undefined && debouncedValue !== '';
 
   const containerRef = useRef<HTMLDivElement>(null);
   const handleOutsideClick = useCallback(() => {
@@ -76,16 +75,18 @@ const Search: React.FC = () => {
       <div className={styles.base} ref={containerRef}>
         <Form formContext={formCtx}>
           <SearchBar formContext={formCtx} />
+          {isOpen && (
+            <div
+              data-testid="Search__dropdown"
+              className={classnames(styles.dropdown, {
+                [styles.open]: isOpen,
+              })}
+            >
+              <RecentSearches />
+              {showResults && <SearchResults />}
+            </div>
+          )}
         </Form>
-        <div
-          data-testid="Search__dropdown"
-          className={classnames(styles.dropdown, {
-            [styles.open]: isOpen,
-          })}
-        >
-          {showDefaultDropdown && <DefaultDropdown />}
-          {showResults && <SearchResults />}
-        </div>
       </div>
     </SearchContext.Provider>
   );

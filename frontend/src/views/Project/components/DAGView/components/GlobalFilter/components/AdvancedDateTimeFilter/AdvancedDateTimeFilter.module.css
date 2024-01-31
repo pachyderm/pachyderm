@@ -1,0 +1,41 @@
+.chipWrapper {
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chipContainer {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.dateTimeValue {
+  padding: 0.25rem 0.5rem;
+  border: 1px solid;
+  border-color: var(--border-grey);
+  border-radius: 3px;
+}
+
+.filtersContainer {
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dateTimeRow {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 20rem;
+  padding: 0.25rem;
+  border: 1px solid;
+  border-color: var(--border-grey);
+  border-radius: 3px;
+}
+
+.dateTimeInput {
+  border: none;
+  width: 7rem;
+}

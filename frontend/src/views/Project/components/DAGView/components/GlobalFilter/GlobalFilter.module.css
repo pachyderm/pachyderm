@@ -1,78 +1,71 @@
 .base {
   position: relative;
+  border-right: 1px solid var(--placeholder-grey);
+  padding-right: 1rem;
 }
 
 .buttonContent {
-  margin-left: 1rem !important;
-}
-
-.filter,
-.filter:not(:disabled):hover {
-  max-width: 11.5rem;
-  text-overflow: ellipsis;
-  overflow-x: hidden;
-  white-space: nowrap;
-  border-radius: 3px;
-  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
-  background-color: var(--white);
-}
-
-.filter .dot {
-  display: inline-block;
-  min-width: 0.375rem;
-  height: 0.375rem;
-  left: 0.275rem;
-  border-radius: 1rem;
-  background-color: var(--white);
-  position: relative;
-}
-
-.filter .dot:before {
-  content: '';
-  position: absolute;
-  width: 1rem;
-  height: 1rem;
-  border-radius: 1rem;
-  top: -0.3125rem;
-  left: -0.3125rem;
-  border: solid 2px var(--cyan);
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-left: 0 !important;
 }
 
 .dropdownBase {
   position: absolute;
-  width: 24rem;
-  right: 0rem;
-  top: 2.25rem;
+  max-height: calc(100vh - 5rem);
+  display: flex;
+  flex-direction: column;
+  width: 37rem;
+  right: -3.75rem;
+  top: 3rem;
   z-index: var(--z-index-dropdown-menu);
   border: 1px solid var(--border-grey);
-  border-radius: 0px 0px 3px 3px;
+  border-radius: 3px;
   background-color: var(--white);
-  box-shadow: 0 1px 2px 0 rgba(184, 184, 184, 0.5);
+  box-shadow: 2px 2px 8px 0px rgba(14, 14, 15, 0.15);
 }
 
-.filter.active,
-.filter.active:not(:disabled):hover {
-  border: none;
-  background-color: var(--green);
+.inputWrapper {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  gap: 0.5rem;
+  padding: 0.5rem 0.5rem 0.25rem 0.5rem;
+}
+
+.clearFilterButton {
+  margin-top: 0.5rem;
+}
+
+.input {
+  flex-grow: 1;
+}
+
+.chipWrapper {
+  padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.chipContainer {
+  display: flex;
+  gap: 0.25rem;
 }
 
 .infoText {
   display: block;
+  font-family: Montserrat, sans-serif;
   color: var(--pachyderm-black);
-  padding: 1rem;
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
   border-bottom: solid 1px var(--line-grey);
-  margin-bottom: 1rem;
 }
 
-.link {
-  margin-left: 0.25rem;
-  display: inline-flex;
+.datetimeWrapper {
+  display: flex;
   align-items: center;
-}
-
-.form {
-  margin: 1rem;
-  position: relative;
+  gap: 0.5rem;
 }
 
 .submitButton {
@@ -87,4 +80,25 @@
   position: absolute;
   top: 0;
   right: 0;
+}
+
+.listItem {
+  list-style: none;
+}
+
+.listContainer {
+  padding: unset;
+  margin: unset;
+  margin-top: 0.5rem;
+  height: 100%;
+  overflow-y: auto;
+  max-height: 24.4rem;
+}
+
+.id {
+  font-family: 'Menlo', monospace;
+}
+
+.emptyState {
+  height: 17rem;
 }

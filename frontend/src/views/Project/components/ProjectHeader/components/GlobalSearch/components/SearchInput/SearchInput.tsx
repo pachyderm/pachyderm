@@ -8,7 +8,7 @@ import {useSearch} from '../../hooks/useSearch';
 
 import styles from './SearchInput.module.css';
 
-const placeholderText = 'Search for repos, pipelines and jobs';
+const placeholderText = 'Search Project';
 
 type SearchInputProps = {
   formContext: UseFormReturn;
@@ -23,18 +23,27 @@ const SearchInput: React.FC<SearchInputProps> = ({formContext}) => {
   );
 
   return (
-    <>
-      <Icon className={styles.searchIcon} small>
+    <div
+      className={classNames(styles.inputWrapper, {
+        [styles.backgroundGrey9]: isOpen,
+      })}
+    >
+      <Icon className={styles.searchIcon} small color="white">
         <SearchSVG aria-hidden />
       </Icon>
-      <input
-        autoComplete="off"
-        role="searchbox"
-        placeholder={placeholderText}
-        className={classNames(styles.input, {[styles.open]: isOpen})}
-        onFocus={openDropdown}
-        {...formContext.register('project_search')}
-      />
+      <div className={styles.underline}>
+        <input
+          autoComplete="off"
+          role="searchbox"
+          placeholder={placeholderText}
+          className={classNames(styles.input, {
+            [styles.open]: isOpen,
+            [styles.backgroundGrey9]: isOpen,
+          })}
+          onFocus={openDropdown}
+          {...formContext.register('project_search')}
+        />
+      </div>
       {showButton && (
         <button
           className={styles.button}
@@ -47,7 +56,7 @@ const SearchInput: React.FC<SearchInputProps> = ({formContext}) => {
           </Icon>
         </button>
       )}
-    </>
+    </div>
   );
 };
 

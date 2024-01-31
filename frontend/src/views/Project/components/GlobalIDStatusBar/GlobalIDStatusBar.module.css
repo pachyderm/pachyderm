@@ -1,0 +1,36 @@
+.base {
+  border-bottom: 1px solid var(--border-grey);
+  background-color: var(--white);
+  padding: 0.5rem;
+}
+
+.container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding-left: 0.5rem;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.error {
+  border: 1px solid var(--pachyderm-red);
+  border-radius: 3px;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+}
+
+.jobStates {
+  border-left: solid 1px var(--border-grey);
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+}

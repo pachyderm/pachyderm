@@ -1,1 +1,1 @@
-export {SectionHeader, NotFoundMessage} from './Messaging';
+export {NotFoundMessage} from './Messaging';

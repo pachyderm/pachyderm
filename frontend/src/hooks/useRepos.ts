@@ -4,7 +4,11 @@ import {listRepo, Project} from '@dash-frontend/api/pfs';
 import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
 import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const useRepos = (projectName: Project['name'], enabled = true) => {
+export const useRepos = (
+  projectName: Project['name'],
+  enabled = true,
+  staleTime?: number,
+) => {
   const {
     data,
     isLoading: loading,
@@ -13,6 +17,7 @@ export const useRepos = (projectName: Project['name'], enabled = true) => {
     queryKey: queryKeys.repos({projectId: projectName}),
     queryFn: () => listRepo({projects: [{name: projectName}], type: 'user'}),
     enabled,
+    staleTime,
   });
 
   return {

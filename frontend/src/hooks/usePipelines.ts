@@ -5,7 +5,11 @@ import {listPipeline} from '@dash-frontend/api/pps';
 import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
 import queryKeys from '@dash-frontend/lib/queryKeys';
 
-export const usePipelines = (projectName: Project['name'], enabled = true) => {
+export const usePipelines = (
+  projectName: Project['name'],
+  enabled = true,
+  staleTime?: number,
+) => {
   const {
     data,
     isLoading: loading,
@@ -16,6 +20,7 @@ export const usePipelines = (projectName: Project['name'], enabled = true) => {
       return listPipeline({projects: [{name: projectName}]});
     },
     enabled,
+    staleTime,
   });
 
   return {

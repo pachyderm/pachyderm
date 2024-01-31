@@ -1,16 +1,19 @@
+import classNames from 'classnames';
 import React from 'react';
 
 import {PlaceholderText} from '@pachyderm/components';
 
 import styles from './Messaging.module.css';
 
-export const SectionHeader = ({children}: {children?: React.ReactNode}) => {
-  return <span className={styles.text}>{children}</span>;
-};
-
-export const NotFoundMessage = ({children}: {children?: React.ReactNode}) => {
+export const NotFoundMessage = ({
+  children,
+  className,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+}) => {
   return (
-    <div className={styles.messagingWrapper}>
+    <div className={classNames(styles.messagingWrapper, className)}>
       <PlaceholderText>{children}</PlaceholderText>
     </div>
   );

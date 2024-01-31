@@ -23,19 +23,6 @@
   margin-top: 0.75rem;
 }
 
-.divider,
-.dividerSearch {
-  box-sizing: border-box;
-  height: 2rem;
-  width: 1px;
-  margin: 0 1rem;
-  border: 1px solid var(--placeholder-grey);
-}
-
-.dividerSearch {
-  margin-right: 0;
-}
-
 .goBack {
   border: none;
 }
@@ -46,4 +33,19 @@
 
 .warningIcon {
   margin-right: 0.5rem;
+}
+
+.base {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 1rem;
+}
+
+.left {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 1rem;
 }

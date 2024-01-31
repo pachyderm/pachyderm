@@ -5,14 +5,16 @@ import HeaderDropdown from '@dash-frontend/components/HeaderDropdown';
 import {
   SkeletonDisplayText,
   Tooltip,
-  Group,
   Button,
   ArrowLeftSVG,
   StatusWarningSVG,
   Icon,
 } from '@pachyderm/components';
 
+import GlobalFilter from '../DAGView/components/GlobalFilter';
+
 import GlobalSearch from './components/GlobalSearch';
+import ProjectStatusSearch from './components/ProjectStatusSearch';
 import useProjectHeader from './hooks/useProjectHeader';
 import styles from './ProjectHeader.module.css';
 
@@ -30,8 +32,8 @@ const ProjectHeader = () => {
   );
 
   return (
-    <Header>
-      <Group spacing={16} align="center">
+    <Header className={styles.base}>
+      <div className={styles.left}>
         <Button
           buttonType="tertiary"
           IconSVG={ArrowLeftSVG}
@@ -67,9 +69,10 @@ const ProjectHeader = () => {
             </h6>
           </Tooltip>
         )}
-      </Group>
-      <div className={styles.dividerSearch} />
-      <GlobalSearch />
+        <ProjectStatusSearch />
+        <GlobalSearch />
+      </div>
+      <GlobalFilter />
       <HeaderDropdown />
     </Header>
   );

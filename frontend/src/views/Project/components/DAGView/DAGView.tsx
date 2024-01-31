@@ -12,7 +12,6 @@ import {
 import useSidebarInfo from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Dags} from '@dash-frontend/lib/types';
-import GlobalFilter from '@dash-frontend/views/Project/components/DAGView/components/GlobalFilter';
 import {
   Tooltip,
   CheckboxCheckedSVG,
@@ -25,11 +24,10 @@ import {
   DefaultDropdown,
   OverflowSVG,
   DropdownItem,
-  useBreakpoint,
   DownloadSVG,
   useModal,
 } from '@pachyderm/components';
-import {EXTRA_LARGE} from 'constants/breakpoints';
+import useCurrentWidthAndHeight from '@pachyderm/components/hooks/useCurrentWidthAndHeight';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
 import CreateRepoModal from '../CreateRepoModal';
@@ -40,6 +38,8 @@ import RangeSlider from './components/RangeSlider';
 import styles from './DAGView.module.css';
 import {useCanvasDownload} from './hooks/useCanvasDownload';
 import {MAX_SCALE_VALUE, useDAGView} from './hooks/useDAGView';
+
+const CANVAS_CONTROLS_MIN_WIDTH = 950;
 
 const LARGE_DAG_MIN = 50;
 
@@ -81,9 +81,11 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
 
   const {openModal, closeModal, isOpen} = useModal(false);
 
-  const isResponsive = useBreakpoint(EXTRA_LARGE);
   const noDags = dags && dags.nodes.length === 0 && dags.links.length === 0;
   const totalNodes = dags?.nodes.length || 0;
+
+  const {ref: headerRef, width: headerWidth} = useCurrentWidthAndHeight();
+  const isResponsive = headerWidth <= CANVAS_CONTROLS_MIN_WIDTH;
 
   const {hasAllPermissions: hasProjectCreateRepo} = useAuthorize(
     {
@@ -153,8 +155,9 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
   return (
     <View className={styles.view}>
       <div
+        ref={headerRef}
         className={styles.topSection}
-        style={isSidebarOpen ? {width: `calc(100% - ${sidebarSize}px`} : {}}
+        style={isSidebarOpen ? {width: `calc(100% - ${sidebarSize}px)`} : {}}
       >
         <div className={styles.canvasControls}>
           <RangeSlider
@@ -250,7 +253,6 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           )}
         </div>
         <DAGError error={error} />
-        <GlobalFilter />
       </div>
       {noDags && (
         <EmptyState
