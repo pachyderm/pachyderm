@@ -801,7 +801,7 @@ jobs:
           path: test-results
 
   jupyter-extension-integration-test:
-    resource_class: large
+    resource_class: xlarge
     machine:
       image: ubuntu-2004:202107-02
     working_directory: ~/project/jupyter-extension
