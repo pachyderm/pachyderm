@@ -24,7 +24,6 @@ describe('config screen', () => {
     it('should ask the user to provide a pachd address', () => {
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -50,7 +49,6 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -73,7 +71,6 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -97,7 +94,6 @@ describe('config screen', () => {
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -129,7 +125,6 @@ describe('config screen', () => {
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -158,7 +153,6 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -188,7 +182,6 @@ describe('config screen', () => {
 
       const {getByTestId, findByText} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -252,7 +245,6 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -298,7 +290,6 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}

@@ -21,7 +21,6 @@ export type useConfigResponse = {
 };
 
 export const useConfig = (
-  showConfig: boolean,
   updateConfig: (shouldShow: AuthConfig) => void,
   authConfig: AuthConfig,
   refresh: () => Promise<void>,
@@ -35,15 +34,13 @@ export const useConfig = (
   const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
-    if (showConfig) {
-      setClusterStatus(authConfig.cluster_status);
-      setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
-    }
+    setClusterStatus(authConfig.cluster_status);
+    setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
-  }, [showConfig, authConfig]);
+  }, [authConfig]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
@@ -67,8 +64,6 @@ export const useConfig = (
           setErrorMessage('Invalid address.');
         } else {
           updateConfig(response);
-          setClusterStatus(response.cluster_status);
-          setShouldShowAddressInput(false);
         }
       } else {
         setErrorMessage(

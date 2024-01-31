@@ -8,18 +8,12 @@ import LoadingDots from '../../../../utils/components/LoadingDots/LoadingDots';
 import {KubernetesElephant} from '../../../../utils/components/Svgs';
 
 type ConfigProps = {
-  showConfig: boolean;
   updateConfig: (shouldShow: AuthConfig) => void;
   authConfig: AuthConfig;
   refresh: () => Promise<void>;
 };
 
-const Config: React.FC<ConfigProps> = ({
-  showConfig,
-  updateConfig,
-  authConfig,
-  refresh,
-}) => {
+const Config: React.FC<ConfigProps> = ({updateConfig, authConfig, refresh}) => {
   const {
     addressField,
     setAddressField,
@@ -36,7 +30,7 @@ const Config: React.FC<ConfigProps> = ({
     setShowAdvancedOptions,
     serverCa,
     setServerCa,
-  } = useConfig(showConfig, updateConfig, authConfig, refresh);
+  } = useConfig(updateConfig, authConfig, refresh);
   const authEnabled =
     clusterStatus === 'VALID_LOGGED_IN' || clusterStatus === 'VALID_LOGGED_OUT';
   const connectedToCluster =

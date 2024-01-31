@@ -38,7 +38,6 @@ describe('datum screen', () => {
 
       const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -85,7 +84,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -129,7 +127,6 @@ describe('datum screen', () => {
     it('error if bad syntax in input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -157,7 +154,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -183,7 +179,6 @@ describe('datum screen', () => {
     it('valid json input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -207,7 +202,6 @@ describe('datum screen', () => {
     it('valid yaml input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}

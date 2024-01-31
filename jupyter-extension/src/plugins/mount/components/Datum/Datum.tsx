@@ -8,7 +8,6 @@ import {
 } from 'plugins/mount/types';
 
 type DatumProps = {
-  showDatum: boolean;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
@@ -21,7 +20,6 @@ const placeholderText = `pfs:
 `;
 
 const Datum: React.FC<DatumProps> = ({
-  showDatum,
   open,
   pollRefresh,
   currentDatumInfo,
@@ -43,13 +41,7 @@ const Datum: React.FC<DatumProps> = ({
     errorMessage,
     saveInputSpec,
     initialInputSpec,
-  } = useDatum(
-    showDatum,
-    open,
-    pollRefresh,
-    repoViewInputSpec,
-    currentDatumInfo,
-  );
+  } = useDatum(open, pollRefresh, repoViewInputSpec, currentDatumInfo);
 
   return (
     <div className="pachyderm-mount-datum-base">

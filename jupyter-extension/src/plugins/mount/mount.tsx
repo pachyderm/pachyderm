@@ -45,30 +45,24 @@ export const METADATA_KEY = 'pachyderm_pps';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
+
+  // Screens
+  private _panel: TabPanel;
   private _loader: ReactWidget;
   private _fullPageError: ReactWidget;
-  private _config: ReactWidget;
-  private _pipeline: ReactWidget;
-  private _explore: ReactWidget;
-  private _explorePanel: SplitPanel;
-
-  private _datum: ReactWidget;
-  private _datumPanel: SplitPanel;
+  private _configScreen: ReactWidget;
+  private _pipelineScreen: ReactWidget;
+  private _exploreScreen: SplitPanel;
+  private _datumScreen: SplitPanel;
 
   private _pfsBrowser: FileBrowser;
   private _datumBrowser: FileBrowser;
   private _poller: PollMounts;
-  private _panel: TabPanel;
   private _widgetTracker: ILabShell;
-
-  private _showConfig = false;
-  private _showConfigSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
-  private _showDatum = false;
   private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
-  private _showDatumSignal = new Signal<this, boolean>(this);
   private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
   private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
     this,
@@ -88,15 +82,20 @@ export class MountPlugin implements IMountPlugin {
     this._repoViewInputSpec = {};
     this._widgetTracker = widgetTracker;
 
+    // Setup Poller signals.
+    this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    this._poller.mountedSignal.connect(this.refresh);
+    this._poller.unmountedSignal.connect(this.refresh);
+
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
       const status = config.cluster_status;
       if (status === 'INVALID' || status === 'VALID_LOGGED_OUT') {
         this._panel.tabBar.hide();
-        this.setCurrentView(this._config);
+        this.setCurrentView(this._configScreen);
       } else {
         this._panel.tabBar.show();
-        this._panel.currentWidget = this._explorePanel;
+        this._panel.currentWidget = this._exploreScreen;
       }
     });
 
@@ -107,33 +106,29 @@ export class MountPlugin implements IMountPlugin {
         this.setCurrentView(this._fullPageError);
       }
 
-      if (status.code === 401 && !this._showConfig) {
+      if (status.code === 401) {
         this._panel.tabBar.hide();
-        this.setCurrentView(this._config);
+        this.setCurrentView(this._configScreen);
       }
     });
 
     this._readyPromise = this.setup();
 
-    this._config = ReactWidget.create(
-      <UseSignal signal={this._showConfigSignal}>
-        {(_, showConfig) => (
-          <UseSignal signal={this._poller.configSignal}>
-            {(_, authConfig) => (
-              <Config
-                showConfig={showConfig ? showConfig : this._showConfig}
-                updateConfig={this.updateConfig}
-                authConfig={authConfig ? authConfig : this._poller.config}
-                refresh={this._poller.refresh}
-              />
-            )}
-          </UseSignal>
+    // Instantiate all of the Screens.
+    this._configScreen = ReactWidget.create(
+      <UseSignal signal={this._poller.configSignal}>
+        {(_, authConfig) => (
+          <Config
+            updateConfig={this.updateConfig}
+            authConfig={authConfig ? authConfig : this._poller.config}
+            refresh={this._poller.refresh}
+          />
         )}
       </UseSignal>,
     );
-    this._config.addClass('pachyderm-mount-config-wrapper');
-    this._config.title.icon = settingsIcon;
-    this._config.title.className = 'pachyderm-config-tab';
+    this._configScreen.addClass('pachyderm-mount-config-wrapper');
+    this._configScreen.title.icon = settingsIcon;
+    this._configScreen.title.className = 'pachyderm-config-tab';
 
     this._pfsBrowser = createCustomFileBrowser(
       app,
@@ -144,34 +139,33 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
     );
 
-    this._explore = ReactWidget.create(
-      <UseSignal signal={this._poller.mountedSignal}>
-        {(_, mounted) => (
-          <UseSignal signal={this._poller.unmountedSignal}>
-            {(_, unmounted) => (
-              <UseSignal signal={this._poller.projectSignal}>
-                {(_, projects) => (
-                  <Explore
-                    mounted={mounted || this._poller.mounted}
-                    unmounted={unmounted || this._poller.unmounted}
-                    projects={projects || this._poller.projects}
-                    openPFS={this.openPFS}
-                    updateData={this._poller.updateData}
-                  />
-                )}
-              </UseSignal>
-            )}
-          </UseSignal>
-        )}
-      </UseSignal>,
+    this._exploreScreen = new SplitPanel({orientation: 'vertical'});
+    this._exploreScreen.addWidget(
+      ReactWidget.create(
+        <UseSignal signal={this._poller.mountedSignal}>
+          {(_, mounted) => (
+            <UseSignal signal={this._poller.unmountedSignal}>
+              {(_, unmounted) => (
+                <UseSignal signal={this._poller.projectSignal}>
+                  {(_, projects) => (
+                    <Explore
+                      mounted={mounted || this._poller.mounted}
+                      unmounted={unmounted || this._poller.unmounted}
+                      projects={projects || this._poller.projects}
+                      openPFS={this.openPFS}
+                      updateData={this._poller.updateData}
+                    />
+                  )}
+                </UseSignal>
+              )}
+            </UseSignal>
+          )}
+        </UseSignal>,
+      ),
     );
-
-    this._explorePanel = new SplitPanel();
-    this._explorePanel.orientation = 'vertical';
-    this._explorePanel.addWidget(this._explore);
-    this._explorePanel.addWidget(this._pfsBrowser);
-    this._explorePanel.title.label = 'Explore';
-    this._explorePanel.title.className = 'pachyderm-explore-tab';
+    this._exploreScreen.addWidget(this._pfsBrowser);
+    this._exploreScreen.title.label = 'Explore';
+    this._exploreScreen.title.className = 'pachyderm-explore-tab';
 
     this._datumBrowser = createCustomFileBrowser(
       app,
@@ -182,36 +176,29 @@ export class MountPlugin implements IMountPlugin {
       'datum',
     );
 
-    this._datum = ReactWidget.create(
-      <UseSignal signal={this._showDatumSignal}>
-        {(_, showDatum) => (
-          <UseSignal signal={this._saveInputSpecSignal}>
-            {(_, repoViewInputSpec) => (
-              <Datum
-                showDatum={showDatum ? showDatum : this._showDatum}
-                open={this.openDatum}
-                pollRefresh={this._poller.refresh}
-                currentDatumInfo={this._currentDatumInfo}
-                repoViewInputSpec={
-                  repoViewInputSpec
-                    ? repoViewInputSpec
-                    : this._repoViewInputSpec
-                }
-              />
-            )}
-          </UseSignal>
-        )}
-      </UseSignal>,
+    this._datumScreen = new SplitPanel({orientation: 'vertical'});
+    this._datumScreen.addWidget(
+      ReactWidget.create(
+        <UseSignal signal={this._saveInputSpecSignal}>
+          {(_, repoViewInputSpec) => (
+            <Datum
+              open={this.openDatum}
+              pollRefresh={this._poller.refresh}
+              currentDatumInfo={this._currentDatumInfo}
+              repoViewInputSpec={
+                repoViewInputSpec ? repoViewInputSpec : this._repoViewInputSpec
+              }
+            />
+          )}
+        </UseSignal>,
+      ),
     );
-    this._datum.addClass('pachyderm-mount-datum-wrapper');
-    this._datumPanel = new SplitPanel();
-    this._datumPanel.orientation = 'vertical';
-    this._datumPanel.addWidget(this._datum);
-    this._datumPanel.addWidget(this._datumBrowser);
-    this._datumPanel.title.label = 'Test';
-    this._datumPanel.title.className = 'pachyderm-test-tab';
+    this._datumScreen.addWidget(this._datumBrowser);
+    this._datumScreen.addClass('pachyderm-mount-datum-wrapper');
+    this._datumScreen.title.label = 'Test';
+    this._datumScreen.title.className = 'pachyderm-test-tab';
 
-    this._pipeline = ReactWidget.create(
+    this._pipelineScreen = ReactWidget.create(
       <UseSignal signal={this._ppsContextSignal}>
         {(_, context) => (
           <Pipeline
@@ -224,9 +211,9 @@ export class MountPlugin implements IMountPlugin {
         )}
       </UseSignal>,
     );
-    this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
-    this._pipeline.title.label = 'Publish';
-    this._pipeline.title.className = 'pachyderm-publish-tab';
+    this._pipelineScreen.addClass('pachyderm-mount-pipeline-wrapper');
+    this._pipelineScreen.title.label = 'Publish';
+    this._pipelineScreen.title.className = 'pachyderm-publish-tab';
 
     this._loader = ReactWidget.create(<LoadingDots />);
     this._loader.addClass('pachyderm-mount-react-wrapper');
@@ -242,21 +229,18 @@ export class MountPlugin implements IMountPlugin {
     this._fullPageError.addClass('pachyderm-mount-react-wrapper');
     this._fullPageError.title.label = 'Error';
 
-    this._poller.mountedSignal.connect(this.verifyBrowserPath);
-    this._poller.mountedSignal.connect(this.refresh);
-    this._poller.unmountedSignal.connect(this.refresh);
-
     this._widgetTracker.currentChanged.connect(this.handleWidgetChanged, this);
 
+    // Construct the panel which organizes the screens.
     this._panel = new TabPanel();
     this._panel.title.icon = mountLogoIcon;
     this._panel.title.caption = 'Pachyderm Mount';
     this._panel.id = 'pachyderm-mount';
 
-    this._panel.addWidget(this._explorePanel);
-    this._panel.addWidget(this._datumPanel);
-    this._panel.addWidget(this._pipeline);
-    this._panel.addWidget(this._config);
+    this._panel.addWidget(this._exploreScreen);
+    this._panel.addWidget(this._datumScreen);
+    this._panel.addWidget(this._pipelineScreen);
+    this._panel.addWidget(this._configScreen);
 
     // Add these widgets to the layout, but remove them as tabs.
     this._panel.addWidget(this._loader);
@@ -471,7 +455,7 @@ export class MountPlugin implements IMountPlugin {
           if (res['num_datums'] > 0) {
             this._keepMounted = true;
             this._currentDatumInfo = res;
-            this.setCurrentView(this._datumPanel);
+            this.setCurrentView(this._datumScreen);
           }
         } catch (e) {
           console.log(e);
