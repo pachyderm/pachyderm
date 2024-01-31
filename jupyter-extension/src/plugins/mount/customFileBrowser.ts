@@ -24,27 +24,26 @@ const createCustomFileBrowser = (
   downloadPath: string,
   nameSuffix: string,
 ): FileBrowser => {
-  const drive = new MountDrive(app.docRegistry, path, nameSuffix, async () => {
-    await browser.model.cd();
-    await paging.update();
-  });
-  manager.services.contents.addDrive(drive);
-
-  const browser = factory.createFileBrowser(
-    'jupyterlab-pachyderm-browser-' + nameSuffix,
-    {
-      driveName: drive.name,
-      state: null,
-      refreshInterval: 10000,
+  const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
+  const drive = new MountDrive(
+    app.docRegistry,
+    path,
+    nameSuffix,
+    id,
+    async () => {
+      await browser.model.cd();
+    },
+    () => {
+      paging.update();
     },
   );
+  manager.services.contents.addDrive(drive);
 
-  const filenameSearcher = browser.node
-    .getElementsByClassName('jp-FileBrowser-filterBox')
-    .item(0);
-  if (filenameSearcher) {
-    browser.node.removeChild(filenameSearcher);
-  }
+  const browser = factory.createFileBrowser(id, {
+    driveName: drive.name,
+    state: null,
+    refreshInterval: 10000,
+  });
 
   const toolbar = browser.node
     .getElementsByClassName('jp-FileBrowser-toolbar')
@@ -154,11 +153,6 @@ const createCustomFileBrowser = (
   const paging = new Paging({
     browser_model: browser.model,
     page_model: drive.model,
-  });
-  browser.model.pathChanged.connect(async (_, __) => {
-    // If the FileBrowser path has changed, then the MountDrive has reset the pagination model.
-    // Therefore, the pagination widget needs to be re-rendered.
-    paging.update();
   });
   browser.layout.addWidget(paging);
 
