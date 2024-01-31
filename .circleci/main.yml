@@ -2194,7 +2194,7 @@ commands:
       - install-kubectl
       - run:
           name: Install minio
-          command: kubectl apply -f etc/testing/minio.yaml
+          command: kubectl apply -f ../etc/testing/minio.yaml
       - run:
           name: Install pachctl and mount-server
           command: |
