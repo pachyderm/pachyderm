@@ -39,7 +39,6 @@ const Datum: React.FC<DatumProps> = ({
     callPrevDatum,
     callDownloadDatum,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
   } = useDatum(open, pollRefresh, repoViewInputSpec, currentDatumInfo);
 

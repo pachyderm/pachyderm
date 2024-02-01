@@ -26,7 +26,6 @@ export type useDatumResponse = {
   callDownloadDatum: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
-  saveInputSpec: () => void;
   initialInputSpec: JSONObject;
 };
 
@@ -82,7 +81,7 @@ export const useDatum = (
     }
   }, [repoViewInputSpec]);
 
-  const saveInputSpec = (): void => {
+  useEffect(() => {
     try {
       const inputSpecObj = inputSpecTextToObj();
       if (isEqual(repoViewInputSpec, inputSpecObj)) {
@@ -97,7 +96,7 @@ export const useDatum = (
         throw e;
       }
     }
-  };
+  }, [inputSpec]);
 
   const inputSpecTextToObj = (): JSONObject => {
     let spec = {};
@@ -250,7 +249,6 @@ export const useDatum = (
     callDownloadDatum,
     callUnmountAll,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
   };
 };
