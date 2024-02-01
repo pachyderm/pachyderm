@@ -4234,6 +4234,7 @@
     },
     "/pps_v2.API/CreateDatum": {
       "post": {
+        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums. The end of a batch is indicated by an empty DatumInfo message.",
         "operationId": "API_CreateDatum",
         "responses": {
           "200": {
@@ -4261,7 +4262,7 @@
         "parameters": [
           {
             "name": "body",
-            "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums. (streaming inputs)",
+            "description": " (streaming inputs)",
             "in": "body",
             "required": true,
             "schema": {
@@ -9255,10 +9256,9 @@
         "number": {
           "type": "string",
           "format": "int64",
-          "title": "Number of datums to return in next response"
+          "description": "Number of datums to return in next response. If unset, default batch\nsize is returned."
         }
-      },
-      "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
+      }
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",

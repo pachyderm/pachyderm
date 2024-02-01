@@ -670,15 +670,14 @@ message ListDatumRequest {
   bool reverse = 6;
 }
 
-// Emits a stream of datums as they are created from the given input. Client
-// must cancel the stream when it no longer wants to receive datums.
 message CreateDatumRequest {
   // Input is the input to list datums from. The datums listed are the ones 
   // that would be run if a pipeline was created with the provided input.
   // The input field is only required for the first request. The server
   // ignores subsequent requests' input field.
   Input input = 1;
-  // Number of datums to return in next response
+  // Number of datums to return in next response. If unset, default batch
+  // size is returned.
   int64 number = 2;
 }
 
@@ -1013,6 +1012,8 @@ service API {
   rpc InspectDatum(InspectDatumRequest) returns (DatumInfo) {}
   // ListDatum returns information about each datum fed to a Pachyderm job
   rpc ListDatum(ListDatumRequest) returns (stream DatumInfo) {}
+  // CreateDatum prioritizes time to first datum. Each request returns a batch
+  // of datums. The end of a batch is indicated by an empty DatumInfo message.
   rpc CreateDatum(stream CreateDatumRequest) returns (stream DatumInfo) {}
   rpc RestartDatum(RestartDatumRequest) returns (google.protobuf.Empty) {}
 

@@ -4010,8 +4010,6 @@ func (x *ListDatumRequest) GetReverse() bool {
 	return false
 }
 
-// Emits a stream of datums as they are created from the given input. Client
-// must cancel the stream when it no longer wants to receive datums.
 type CreateDatumRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -4022,7 +4020,8 @@ type CreateDatumRequest struct {
 	// The input field is only required for the first request. The server
 	// ignores subsequent requests' input field.
 	Input *Input `protobuf:"bytes,1,opt,name=input,proto3" json:"input,omitempty"`
-	// Number of datums to return in next response
+	// Number of datums to return in next response. If unset, default batch
+	// size is returned.
 	Number int64 `protobuf:"varint,2,opt,name=number,proto3" json:"number,omitempty"`
 }
 

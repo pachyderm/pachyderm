@@ -79,6 +79,8 @@ type APIClient interface {
 	InspectDatum(ctx context.Context, in *InspectDatumRequest, opts ...grpc.CallOption) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
+	// CreateDatum prioritizes time to first datum. Each request returns a batch
+	// of datums. The end of a batch is indicated by an empty DatumInfo message.
 	CreateDatum(ctx context.Context, opts ...grpc.CallOption) (API_CreateDatumClient, error)
 	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RerunPipeline(ctx context.Context, in *RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -795,6 +797,8 @@ type APIServer interface {
 	InspectDatum(context.Context, *InspectDatumRequest) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
+	// CreateDatum prioritizes time to first datum. Each request returns a batch
+	// of datums. The end of a batch is indicated by an empty DatumInfo message.
 	CreateDatum(API_CreateDatumServer) error
 	RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error)
 	RerunPipeline(context.Context, *RerunPipelineRequest) (*emptypb.Empty, error)
