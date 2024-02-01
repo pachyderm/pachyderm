@@ -85,6 +85,7 @@ export class MountPlugin implements IMountPlugin {
     // Setup Poller signals.
     this._poller.mountedSignal.connect(this.verifyBrowserPath);
     this._poller.mountedSignal.connect(this.refresh);
+    this._poller.mountedSignal.connect(this.saveMountedReposList);
     this._poller.unmountedSignal.connect(this.refresh);
 
     // This is used to detect if the config goes bad (pachd address changes)
