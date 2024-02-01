@@ -4262,7 +4262,7 @@
         "parameters": [
           {
             "name": "body",
-            "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums. (streaming inputs)",
+            "description": " (streaming inputs)",
             "in": "body",
             "required": true,
             "schema": {
@@ -9265,8 +9265,7 @@
         "continue": {
           "$ref": "#/definitions/pps_v2ContinueCreateDatumRequest"
         }
-      },
-      "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
+      }
     },
     "pps_v2CreatePipelineRequest": {
       "type": "object",
