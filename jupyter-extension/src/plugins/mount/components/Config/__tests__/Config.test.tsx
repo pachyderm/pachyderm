@@ -10,14 +10,12 @@ jest.mock('../../../../../handler');
 
 describe('config screen', () => {
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
-  let setShowConfig = jest.fn();
   let updateConfig = jest.fn();
   const authConfig: AuthConfig = {
     cluster_status: 'INVALID',
   };
 
   beforeEach(() => {
-    setShowConfig = jest.fn();
     updateConfig = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
   });
@@ -26,8 +24,6 @@ describe('config screen', () => {
     it('should ask the user to provide a pachd address', () => {
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -53,15 +49,12 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
       );
 
-      getByTestId('Config__back');
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -78,8 +71,6 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -103,8 +94,6 @@ describe('config screen', () => {
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -136,8 +125,6 @@ describe('config screen', () => {
 
       const {findByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -166,15 +153,12 @@ describe('config screen', () => {
 
       const {getByTestId, queryByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
         />,
       );
 
-      getByTestId('Config__back');
       expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
@@ -182,26 +166,6 @@ describe('config screen', () => {
       expect(queryByTestId('Config__login')).not.toBeInTheDocument();
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
     });
-  });
-
-  it('shows back button when successfully connected to cluster', () => {
-    const authConfig: AuthConfig = {
-      cluster_status: 'VALID_LOGGED_IN',
-      pachd_address: 'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
-    };
-
-    const {getByTestId} = render(
-      <Config
-        showConfig={true}
-        setShowConfig={setShowConfig}
-        updateConfig={updateConfig}
-        authConfig={authConfig}
-        refresh={jest.fn()}
-      />,
-    );
-
-    getByTestId('Config__back').click();
-    expect(setShowConfig).toHaveBeenCalledWith(false);
   });
 
   describe('pachd address field', () => {
@@ -218,8 +182,6 @@ describe('config screen', () => {
 
       const {getByTestId, findByText} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -283,8 +245,6 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}
@@ -330,8 +290,6 @@ describe('config screen', () => {
 
       const {getByTestId} = render(
         <Config
-          showConfig={true}
-          setShowConfig={setShowConfig}
           updateConfig={updateConfig}
           authConfig={authConfig}
           refresh={jest.fn()}

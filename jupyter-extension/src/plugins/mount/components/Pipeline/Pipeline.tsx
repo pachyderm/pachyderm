@@ -1,12 +1,11 @@
 import React from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
 import {usePipeline} from './hooks/usePipeline';
 import {PpsContext, PpsMetadata, MountSettings, GpuMode} from '../../types';
 
 type PipelineProps = {
   ppsContext: PpsContext | undefined;
   settings: MountSettings;
-  setShowPipeline: (shouldShow: boolean) => void;
+  isCurrentWidgetNotebook: () => boolean;
   saveNotebookMetadata: (metadata: PpsMetadata) => void;
   saveNotebookToDisk: () => Promise<string | null>;
 };
@@ -33,7 +32,7 @@ const placeholderProject = 'default';
 const Pipeline: React.FC<PipelineProps> = ({
   ppsContext,
   settings,
-  setShowPipeline,
+  isCurrentWidgetNotebook,
   saveNotebookMetadata,
   saveNotebookToDisk,
 }) => {
@@ -67,28 +66,26 @@ const Pipeline: React.FC<PipelineProps> = ({
     saveNotebookMetadata,
     saveNotebookToDisk,
   );
+  const heading = (
+    <span className="pachyderm-mount-pipeline-subheading">
+      Publish as Pipeline
+    </span>
+  );
+
+  if (!isCurrentWidgetNotebook()) {
+    return (
+      <div className="pachyderm-mount-pipeline-base">
+        {heading}
+        <div className="pachyderm-mount-pipeline-splash">
+          <span>Open a notebook to create a pipeline</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="pachyderm-mount-pipeline-base">
-      <div className="pachyderm-mount-pipeline-back">
-        <button
-          data-testid="Pipeline__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            setShowPipeline(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-      <span className="pachyderm-mount-pipeline-subheading">
-        Publish as Pipeline
-      </span>
-
+      {heading}
       <div className="pachyderm-pipeline-current-notebook-wrapper">
         <label
           className="pachyderm-pipeline-current-notebook-label"
