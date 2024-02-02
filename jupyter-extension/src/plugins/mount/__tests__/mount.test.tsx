@@ -16,7 +16,7 @@ import {
 import {ServiceManager} from '@jupyterlab/services';
 import {StateDB} from '@jupyterlab/statedb';
 import {CommandRegistry} from '@lumino/commands';
-import {Widget} from '@lumino/widgets';
+import {SplitPanel, Widget} from '@lumino/widgets';
 import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
@@ -181,17 +181,14 @@ describe('mount plugin', () => {
     );
     expect(plugin.layout.title.caption).toBe('Pachyderm Mount');
     expect(plugin.layout.id).toBe('pachyderm-mount');
-    expect(plugin.layout.orientation).toBe('vertical');
-    expect(plugin.layout.widgets).toHaveLength(9);
-    expect(plugin.layout.widgets[0]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[1]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[5]).toBeInstanceOf(FileBrowser);
-    expect(plugin.layout.widgets[6]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[7]).toBeInstanceOf(ReactWidget);
-    expect(plugin.layout.widgets[8]).toBeInstanceOf(ReactWidget);
+
+    expect(plugin.layout.widgets).toHaveLength(6);
+    expect(plugin.layout.widgets[0]).toBeInstanceOf(SplitPanel); // Explore
+    expect(plugin.layout.widgets[1]).toBeInstanceOf(SplitPanel); // Datum
+    expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget); // Pipeline
+    expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget); // Config
+    expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget); // Loader
+    expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget); // Error
   });
   /* TODO: tests must be updated for the new FUSE-less impl
   it('return from pipeline view to the correct layout', async () => {

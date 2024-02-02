@@ -11,7 +11,6 @@ jest.mock('../../../../../handler');
 import {MountSettings} from '../../../types';
 
 describe('PPS screen', () => {
-  let setShowPipeline = jest.fn();
   const saveNotebookMetaData = jest.fn();
   const saveNotebookToDisk = jest.fn();
 
@@ -20,8 +19,8 @@ describe('PPS screen', () => {
   const settings: MountSettings = {defaultPipelineImage: 'DefaultImage:Tag'};
 
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
+  const isCurrentWidgetNotebook = () => true;
   beforeEach(() => {
-    setShowPipeline = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
   });
 
@@ -32,7 +31,7 @@ describe('PPS screen', () => {
         <Pipeline
           ppsContext={ppsContext}
           settings={settings}
-          setShowPipeline={setShowPipeline}
+          isCurrentWidgetNotebook={isCurrentWidgetNotebook}
           saveNotebookMetadata={saveNotebookMetaData}
           saveNotebookToDisk={saveNotebookToDisk}
         />,
@@ -98,7 +97,7 @@ input:
         <Pipeline
           ppsContext={ppsContext}
           settings={settings}
-          setShowPipeline={setShowPipeline}
+          isCurrentWidgetNotebook={isCurrentWidgetNotebook}
           saveNotebookMetadata={saveNotebookMetaData}
           saveNotebookToDisk={saveNotebookToDisk}
         />,
