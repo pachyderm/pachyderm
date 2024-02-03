@@ -65,14 +65,7 @@ def pach_config(tmpdir_factory) -> Path:
 
 @contextmanager
 def dev_server(pach_config: Path):
-    """A context manager for creating a dev-server instance manually.
-
-    Example
-    -------
-    >>> config: Path
-    >>> with dev_server(config):
-    >>>     ...  # do test
-    """
+    """A context manager for creating a dev-server instance manually."""
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
@@ -615,8 +608,14 @@ class TestConfigHandler:
         pach_config.unlink()
 
         with dev_server(pach_config):
-            with pytest.raises(tornado.web.HTTPError):
-                requests.get(f"{BASE_URL}/config")
+            # Act
+            response = requests.get(f"{BASE_URL}/config")
+
+            # Assert
+            response.raise_for_status()
+            payload = response.json()
+            assert payload["cluster_status"] == "INVALID"
+            assert payload["pachd_address"] == ""
 
     @staticmethod
     @pytest.mark.usefixtures("dev_server")

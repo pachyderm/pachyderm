@@ -1,5 +1,4 @@
 from base64 import b64encode
-from functools import wraps
 from pathlib import Path
 import json
 import traceback
@@ -32,11 +31,14 @@ VERSION = "v2"
 
 
 class BaseHandler(APIHandler):
+    _no_client_error = tornado.web.HTTPError(reason="no instantiated pachyderm client")
+
     @property
     def client(self) -> Client:
-        if self.settings.get("pachyderm_client") is None:
-            raise ValueError("no instantiated pachyderm client")
-        return self.settings["pachyderm_client"]
+        client = self.settings.get("pachyderm_client")
+        if client is None:
+            raise self._no_client_error
+        return client
 
     @client.setter
     def client(self, new_client: Client) -> None:
@@ -47,21 +49,24 @@ class BaseHandler(APIHandler):
 
     @property
     def pfs_manager(self) -> PFSManager:
-        return self.settings["pfs_contents_manager"]
+        pfs_manager = self.settings.get("pfs_contents_manager")
+        if pfs_manager is None:
+            raise self._no_client_error
+        return pfs_manager
 
     @property
     def datum_manager(self) -> DatumManager:
-        return self.settings["datum_contents_manager"]
+        datum_manager = self.settings.get("datum_contents_manager")
+        if datum_manager is None:
+            raise self._no_client_error
+        return datum_manager
 
     @property
     def pps_client(self) -> PPSClient:
-        return self.settings["pachyderm_pps_client"]
-
-
-# def require_pachyderm_client(func):
-#     @wraps(func)
-#     def inner(self, *args, **kwargs):
-#         ...
+        pps_client = self.settings.get("pachyderm_pps_client")
+        if pps_client is None:
+            raise self._no_client_error
+        return pps_client
 
 
 class MountsHandler(BaseHandler):
@@ -354,8 +359,6 @@ class ConfigHandler(BaseHandler):
 
     @property
     def cluster_status(self) -> str:
-        if not self.client:
-            return self.CLUSTER_INVALID
         try:
             self.client.auth.who_am_i()
         except grpc.RpcError as err:
@@ -421,12 +424,16 @@ class ConfigHandler(BaseHandler):
                 "cluster_status": self.cluster_status,
                 "pachd_address": self.client.address,
             }
-            await self.finish(json.dumps(payload))
+        except tornado.web.HTTPError as err:
+            if err.reason != self._no_client_error.reason:
+                raise err
+            payload = {"cluster_status": self.CLUSTER_INVALID, "pachd_address": ""}
         except Exception as e:
             get_logger().error("Error getting config.", exc_info=True)
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error getting config: {e}."
             )
+        await self.finish(json.dumps(payload))
 
 
 class AuthLoginHandler(BaseHandler):
@@ -511,7 +518,7 @@ class AuthLogoutHandler(BaseHandler):
             )
 
 
-class HealthHandler(BaseHandler):
+class HealthHandler(APIHandler):
     @tornado.web.authenticated
     async def get(self):
         response = {"status": "running"}
@@ -636,15 +643,14 @@ def setup_handlers(web_app):
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        client = Client()
         get_logger().debug(
-            "Could not find config file, creating localhost Pachyderm client"
+            "Could not find config file -- no pachyderm client instantiated"
         )
-
-    web_app.settings["pachyderm_client"] = client
-    web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
-    web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
-    web_app.settings["datum_contents_manager"] = DatumManager(client=client)
+    else:
+        web_app.settings["pachyderm_client"] = client
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
+        web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
         ("/health", HealthHandler),
