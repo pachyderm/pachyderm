@@ -775,6 +775,15 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	return nil
 }
 
+func (x *CreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("input", x.Input)
+	enc.AddInt64("number", x.Number)
+	return nil
+}
+
 func (x *DatumSetSpec) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

@@ -42,6 +42,7 @@ common --test_env=MICROSOFT_CLIENT_ID
 common --test_env=MICROSOFT_CLIENT_SECRET
 common --test_env=MICROSOFT_CLIENT_CONTAINER
 common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
+common --test_env=CI # kindenv behaves differently in CI because of CircleCI quirks
 
 # Cover all packages.
 coverage --instrumentation_filter="^//" --combined_report=lcov

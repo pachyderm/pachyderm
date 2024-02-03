@@ -6,6 +6,8 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
+from shutil import copyfile
+import urllib
 
 import pytest
 import requests
@@ -15,8 +17,9 @@ from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
+from pachyderm_sdk.config import ConfigFile
 
-from . import TEST_NOTEBOOK, TEST_REQUIREMENTS
+from . import TEST_NOTEBOOK
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
@@ -46,51 +49,55 @@ def pachyderm_resources():
 
     yield repos, branches, files
 
+    for repo in repos:
+        client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
-@pytest.fixture()
-def dev_server():
+
+@pytest.fixture(scope="module")
+def pach_config(tmpdir_factory) -> Path:
+    """Temporary path used to write the pach config for tests."""
+    config_path = tmpdir_factory.mktemp('pachyderm').join("config.json")
+    copyfile(PACH_CONFIG, config_path)
+    yield config_path
+
+
+@pytest.fixture(scope="module")
+def dev_server(pach_config: Path):
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        # preserve specifically:
-        # PATH, PACH_CONFIG, PFS_MOUNT_DIR and MOUNT_SERVER_LOG_FILE
-        # The args after os.environ should be no-ops, but they're here in case
-        # env.py changes (mount-server should use jupyterlab-pach's defaults).
         env=dict(
             os.environ,
-            PACH_CONFIG=PACH_CONFIG,
+            PACH_CONFIG=str(pach_config),
         ),
         stdout=subprocess.PIPE,
     )
-    # Give time for python test server to start
-    time.sleep(3)
-
-    # Give time for mount server to start
-    running = False
-    for _ in range(15):
-        try:
-            r = requests.get(f"{BASE_URL}/config", timeout=1)
-            if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
-                running = True
-                break
-        except Exception:
-            pass
+    try:
+        # Give time for python test server to start
+        for _ in range(15):
+            try:
+                r = requests.get(f"{BASE_URL}/config", timeout=1)
+                if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                    yield
+                    break
+            except Exception:
+                pass
+            time.sleep(1)
+        else:
+            raise RuntimeError("could not start development server")
+    finally:
+        print("killing development server...")
+        p.terminate()
+        p.wait()
         time.sleep(1)
 
-    if running:
-        yield
-
-    print("killing development server...")
-
-    p.terminate()
-    p.wait()
-    time.sleep(1)
-
-    if not running:
-        raise RuntimeError("mount server is having issues starting up")
+@pytest.fixture
+def dev_server_with_unmount(dev_server):
+    yield
+    requests.put(f"{BASE_URL}/_unmount_all")
 
 
-def test_list_mounts(pachyderm_resources, dev_server):
+def test_list_mounts(pachyderm_resources, dev_server_with_unmount):
     repos, branches, _ = pachyderm_resources
 
     r = requests.put(
@@ -117,7 +124,7 @@ def test_list_mounts(pachyderm_resources, dev_server):
     assert len(resp["unmounted"]) == len(repos)
 
 
-def test_mount(pachyderm_resources, dev_server):
+def test_mount(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
 
     to_mount = {
@@ -173,7 +180,7 @@ def test_mount(pachyderm_resources, dev_server):
     assert len(r.json()["content"]) == 0
 
 
-def test_unmount(pachyderm_resources, dev_server):
+def test_unmount(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
 
     to_mount = {
@@ -233,8 +240,103 @@ def test_unmount(pachyderm_resources, dev_server):
     )
     assert r.status_code == 400, r.text
 
+def test_pfs_pagination(pachyderm_resources, dev_server_with_unmount):
+    repos, _, files = pachyderm_resources
+    to_mount = {
+        "mounts": [
+            {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            },
+        ]
+    }
 
-def test_download_file(pachyderm_resources, dev_server):
+    # Mount images repo on master branch for pfs calls
+    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    assert r.status_code == 200, r.text
+
+    # Assert default parameters return all
+    r = requests.get(f"{BASE_URL}/pfs/images")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert r["content"][0]["name"] == 'file1'
+    assert r["content"][1]["name"] == 'file2'
+
+    # Assert pagination_marker=None and number=1 returns file1
+    url_params = {
+        'number': 1,
+    }
+    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file1'
+
+    # Assert pagination_marker=file1 and number=1 returns file2
+    url_params = {
+        'number': 1,
+        'pagination_marker': 'default/images@master:/file1.py'
+    }
+    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file2'
+
+def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
+    repos, _, files = pachyderm_resources
+    input_spec = {
+        "input": {
+            "pfs": {
+                "name": repos[0],
+                "repo": repos[0],
+                "branch": "master",
+                "project": DEFAULT_PROJECT,
+            }
+        },
+    }
+
+    # Mount images repo on master branch for view_datum calls
+    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert r["idx"] == 0
+    assert r["num_datums"] == 1
+    assert r["all_datums_received"] == 1
+
+    # Assert default parameters return all
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 2
+    assert r["content"][0]["name"] == 'file1'
+    assert r["content"][1]["name"] == 'file2'
+
+    # Assert pagination_marker=None and number=1 returns file1
+    url_params = {
+        'number': 1,
+    }
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file1'
+
+    # Assert pagination_marker=file1 and number=1 returns file2
+    url_params = {
+        'number': 1,
+        'pagination_marker': 'default/images@master:/file1.py'
+    }
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 200, r.text
+    r = r.json()
+    assert len(r["content"]) == 1
+    assert r["content"][0]["name"] == 'file2'
+
+def test_download_file(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
 
     to_mount = {
@@ -285,7 +387,7 @@ def test_download_file(pachyderm_resources, dev_server):
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
 )
-def test_mount_datums(pachyderm_resources, dev_server):
+def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
         "input": {
@@ -294,6 +396,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
                     "pfs": {
                         "repo": repos[0],
                         "glob": "/",
+                        "name": "test_name"
                     }
                 },
                 {
@@ -324,7 +427,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 3
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -343,7 +446,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.json()["id"] != datum0_id
     assert r.json()["all_datums_received"] == True
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -362,7 +465,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
     assert r.json()["id"] == datum0_id
     assert r.json()["all_datums_received"] == True
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[0]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
@@ -388,7 +491,7 @@ def test_mount_datums(pachyderm_resources, dev_server):
 @pytest.mark.skip(
     reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
 )
-def test_download_datum(pachyderm_resources, dev_server):
+def test_download_datum(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
         "input": {
@@ -487,28 +590,19 @@ def test_download_datum(pachyderm_resources, dev_server):
     )
 
 
-@pytest.mark.skip(
-    reason="we should implement writing to config file before re-enabling"
-)
-def test_config(dev_server):
+def test_config(dev_server, pach_config):
     # PUT request
     test_endpoint = "localhost:30650"
     r = requests.put(
         f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
     )
 
-    config = json.load(open(os.path.expanduser(PACH_CONFIG)))
-    active_context = config["v2"]["active_context"]
-    try:
-        endpoint_in_config = config["v2"]["contexts"][active_context]["pachd_address"]
-    except:
-        endpoint_in_config = str(
-            config["v2"]["contexts"][active_context]["port_forwarders"]["pachd"]
-        )
+    config = ConfigFile.from_path(pach_config)
+    active_context = config.active_context
 
     assert r.status_code == 200, r.text
     assert r.json()["cluster_status"] != "INVALID"
-    assert "30650" in endpoint_in_config
+    assert "30650" in active_context.pachd_address
 
     # GET request
     r = requests.get(f"{BASE_URL}/config")
@@ -519,7 +613,7 @@ def test_config(dev_server):
 
 @pytest.fixture(params=[True, False])
 def simple_pachyderm_env(request):
-    client = Client().from_config()
+    client = Client.from_config()
     suffix = str(randint(100000, 999999))
 
     if request.param:
@@ -534,13 +628,13 @@ def simple_pachyderm_env(request):
     pipeline = pps.Pipeline(project=project, name=f"test_pipeline_{suffix}")
     companion_repo = pfs.Repo(name=f"{pipeline.name}__context", project=project)
     client.pfs.create_repo(repo=repo)
-    yield client, repo, pipeline
+    yield client, repo, companion_repo, pipeline
     client.pps.delete_pipeline(pipeline=pipeline, force=True)
     client.pfs.delete_repo(repo=companion_repo, force=True)
     client.pfs.delete_repo(repo=repo, force=True)
 
 
-def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline) -> str:
+def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline, external_files: str = '') -> str:
     """Updates the metadata of the specified notebook file with the specified
     project/repo/pipeline information.
 
@@ -552,9 +646,7 @@ def _update_metadata(notebook: Path, repo: pfs.Repo, pipeline: pps.Pipeline) -> 
     config.input_spec = f'pfs:\n  repo: {repo.name}\n  glob: "/*"'
     # this is currently not being tested so it is set to the empty string
     config.resource_spec = ""
-    config.requirements = str(
-        notebook.with_name(config.requirements).relative_to(os.getcwd())
-    )
+    config.external_files = external_files
     notebook_data["metadata"][METADATA_KEY]["config"] = config.to_dict()
     return json.dumps(notebook_data)
 
@@ -567,7 +659,7 @@ def notebook_path(simple_pachyderm_env) -> Path:
       with the expected pipeline and repo names provided by the
       simple_pachyderm_env fixture.
     """
-    _client, repo, pipeline = simple_pachyderm_env
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
 
     # Do a considerable amount of data munging.
     notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline)
@@ -580,7 +672,7 @@ def notebook_path(simple_pachyderm_env) -> Path:
 
 
 def test_pps(dev_server, simple_pachyderm_env, notebook_path):
-    client, repo, pipeline = simple_pachyderm_env
+    client, repo, _companion_repo, pipeline = simple_pachyderm_env
     with client.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
         client.pfs.put_file_from_bytes(commit=commit, path="/data", data=b"data")
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
@@ -596,11 +688,92 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     )
 
 
-def test_pps_validation_errors(dev_server, notebook_path):
+def test_pps_last_modified_time_not_specified_validation(dev_server, notebook_path):
     r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
     assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_external_files_do_not_exist_validation(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
+
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'does_not_exist.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    r = requests.put(
+        f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+    )
+
+    assert r.status_code == 400
+    assert r.json()["message"] == 'Bad Request'
+    assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_external_files_exists_in_another_directory_validation(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
+
+    notebook_directory = TEST_NOTEBOOK.parent
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'world/hello.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+
+    try:
+        notebook_directory.joinpath("world").mkdir()
+        notebook_directory.joinpath("world/hello.py").write_text("print('hello')")
+        time.sleep(5)
+
+        r = requests.put(
+            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+        )
+
+        assert r.status_code == 400
+        assert r.json()["message"] == 'Bad Request'
+        assert r.json()["reason"] == 'external file hello.py could not be found in the directory of the Jupyter notebook'
+    finally:
+        notebook_directory.joinpath("world/hello.py").unlink()
+        notebook_directory.joinpath("world").rmdir()
+
+@pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
+def test_pps_uploads_external_files(
+    dev_server, simple_pachyderm_env, notebook_path
+):
+    client, repo, companion_repo, pipeline = simple_pachyderm_env
+    new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'hello.py,world.py')
+    notebook_path.write_text(new_notebook_data)
+    last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
+    data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
+    try:
+        TEST_NOTEBOOK.with_name("hello.py").write_text("print('hello')")
+        TEST_NOTEBOOK.with_name("world.py").write_text("print('world')")
+
+        r = requests.put(
+            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
+        )
+
+        assert r.status_code == 200, r.text
+        job_info = next(client.pps.list_job(pipeline=pipeline))
+        job_info = client.pps.inspect_job(job=job_info.job, wait=True)
+        assert job_info.state == pps.JobState.JOB_SUCCESS
+        assert r.json()["message"] == (
+            "Create pipeline request sent. You may monitor its "
+            'status by running "pachctl list pipelines" in a terminal.'
+        )
+        commits = [info.commit.id for info in client.pfs.list_commit(repo=companion_repo)]
+        assert len(commits) == 1
+        file_uri = f'{companion_repo}@{commits[0]}:'
+        with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/hello.py')) as pfs_file:
+            assert pfs_file.read().decode() == "print('hello')"
+        with client.pfs.pfs_file(file=pfs.File.from_uri(f'{file_uri}/world.py')) as pfs_file:
+            assert pfs_file.read().decode() == "print('world')"
+    finally:
+        TEST_NOTEBOOK.with_name("hello.py").unlink()
+        TEST_NOTEBOOK.with_name("world.py").unlink()
 
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
 def test_pps_reuse_pipeline_name_different_project(
@@ -609,7 +782,7 @@ def test_pps_reuse_pipeline_name_different_project(
     """This tests creating a pipeline from a notebook within a project, and then creating a new
     pipeline with the same name inside the default project. A bug existed where reusing the pipeline
     name caused an error."""
-    client, repo, pipeline = simple_pachyderm_env
+    client, repo, _companion_repo, pipeline = simple_pachyderm_env
     test_pps(dev_server, simple_pachyderm_env, notebook_path)
 
     default_project = pfs.Project(name="default")
@@ -646,7 +819,7 @@ def test_pps_update_default_project_pipeline(
     """This tests creating and then updating a pipeline within the default project,
     but doing so using an empty string. A bug existed where we would incorrectly try to
     recreate the existing context repo."""
-    _client, repo, pipeline = simple_pachyderm_env
+    _client, repo, _companion_repo, pipeline = simple_pachyderm_env
     repo: pfs.Repo
     pipeline: pps.Pipeline
     empty_project = pfs.Project(name="")

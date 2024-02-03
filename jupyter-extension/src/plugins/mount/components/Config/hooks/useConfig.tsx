@@ -1,7 +1,6 @@
 import {requestAPI} from '../../../../../handler';
 import {useEffect, useState} from 'react';
-import usePreviousValue from '../../../../../utils/hooks/usePreviousValue';
-import {AuthConfig} from 'plugins/mount/types';
+import {AuthConfig, clusterStatus} from 'plugins/mount/types';
 
 export type useConfigResponse = {
   addressField: string;
@@ -13,7 +12,7 @@ export type useConfigResponse = {
   updatePachdAddress: () => Promise<void>;
   callLogin: () => Promise<void>;
   callLogout: () => Promise<void>;
-  shouldShowLogin: boolean;
+  clusterStatus: clusterStatus;
   loading: boolean;
   showAdvancedOptions: boolean;
   setShowAdvancedOptions: (show: boolean) => void;
@@ -22,44 +21,26 @@ export type useConfigResponse = {
 };
 
 export const useConfig = (
-  showConfig: boolean,
-  setShowConfig: (shouldShow: boolean) => void,
   updateConfig: (shouldShow: AuthConfig) => void,
   authConfig: AuthConfig,
   refresh: () => Promise<void>,
-  reposStatus?: number,
 ): useConfigResponse => {
   const [loading, setLoading] = useState(false);
   const [addressField, setAddressField] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const [shouldShowLogin, setShouldShowLogin] = useState(false);
+  const [clusterStatus, setClusterStatus] = useState('NONE' as clusterStatus);
   const [shouldShowAddressInput, setShouldShowAddressInput] = useState(false);
   const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
   const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
-    if (showConfig) {
-      setShouldShowLogin(authConfig.cluster_status === 'AUTH_ENABLED');
-      setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
-    }
+    setClusterStatus(authConfig.cluster_status);
+    setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
-  }, [showConfig, authConfig]);
-
-  const previousStatus = usePreviousValue(reposStatus);
-
-  useEffect(() => {
-    if (
-      showConfig &&
-      previousStatus &&
-      previousStatus !== 200 &&
-      reposStatus === 200
-    ) {
-      setShowConfig(false);
-    }
-  }, [showConfig, reposStatus]);
+  }, [authConfig]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
@@ -83,7 +64,6 @@ export const useConfig = (
           setErrorMessage('Invalid address.');
         } else {
           updateConfig(response);
-          setShouldShowLogin(response.cluster_status === 'AUTH_ENABLED');
         }
       } else {
         setErrorMessage(
@@ -140,7 +120,7 @@ export const useConfig = (
     updatePachdAddress,
     callLogin,
     callLogout,
-    shouldShowLogin,
+    clusterStatus,
     loading,
     showAdvancedOptions,
     setShowAdvancedOptions,

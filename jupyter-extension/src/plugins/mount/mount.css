@@ -35,6 +35,18 @@
   padding-right: 0.75rem;
 }
 
+#pachyderm-mount {
+  .lm-TabBar-tabIcon {
+    width: 0;
+  }
+  .lm-TabBar-tabLabel {
+    text-align: center;
+  }
+  .pachyderm-config-tab {
+    max-width: 32px;
+  }
+}
+
 /* === ListItem === */
 .pachyderm-mount-list-item-base {
   display: flex;
@@ -301,11 +313,6 @@
   height: 100%;
 }
 
-.pachyderm-mount-datum-back {
-  display: flex;
-  justify-content: flex-end;
-}
-
 .pachyderm-mount-datum-subheading {
   font-size: medium;
   font-weight: 300;
@@ -355,11 +362,6 @@
   margin: 0.25rem 16px;
   height: 100%;
   overflow: auto;
-}
-
-.pachyderm-mount-pipeline-back {
-  display: flex;
-  justify-content: flex-end;
 }
 
 .pachyderm-mount-pipeline-subheading {
@@ -460,4 +462,8 @@ textarea {
 
 .jp-DirPagination a:hover:not(.active) {
   background-color: var(--jp-layout-color0);
+}
+
+.pachyderm-pipeline-error {
+  color: red;
 }

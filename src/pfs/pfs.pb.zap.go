@@ -768,6 +768,8 @@ func (x *ShardFileSetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error 
 		return nil
 	}
 	enc.AddString("file_set_id", x.FileSetId)
+	enc.AddInt64("num_files", x.NumFiles)
+	enc.AddInt64("size_bytes", x.SizeBytes)
 	return nil
 }
 

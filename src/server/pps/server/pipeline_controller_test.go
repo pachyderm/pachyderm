@@ -11,13 +11,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"github.com/pachyderm/pachyderm/v2/src/task"
 	v1 "k8s.io/api/core/v1"
 )
 
@@ -26,7 +26,7 @@ type pipelineTest struct {
 	expectedStates []pps.PipelineState
 }
 
-func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
+func ppsMasterHandles(t *testing.T, taskCount int64) (*mockStateDriver, *mockInfraDriver, *testpachd.MockPachd) {
 	ctx := pctx.TestContext(t)
 	sDriver := newMockStateDriver()
 	iDriver := newMockInfraDriver()
@@ -38,7 +38,7 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 			return mockEnv.PachClient.WithCtx(ctx)
 		},
 		Config:      *pachconfig.ConfigFromOptions(),
-		TaskService: nil,
+		TaskService: newMockTaskService(taskCount),
 		DB:          nil,
 		KubeClient:  nil,
 		AuthServer:  nil,
@@ -51,6 +51,29 @@ func ppsMasterHandles(t *testing.T) (*mockStateDriver, *mockInfraDriver, *testpa
 	master.scaleUpInterval = 2 * time.Second
 	go master.run()
 	return sDriver, iDriver, mockEnv.MockPachd
+}
+
+type mockTaskService struct {
+	count int64
+}
+
+func newMockTaskService(count int64) *mockTaskService {
+	return &mockTaskService{
+		count: count,
+	}
+}
+
+func (mts *mockTaskService) NewDoer(_, _ string, _ task.Cache) task.Doer {
+	panic("NewDoer not implemented by mockTaskService")
+}
+func (mts *mockTaskService) NewSource(_ string) task.Source {
+	panic("NewSource not implemented by mockTaskService")
+}
+func (mts *mockTaskService) List(_ context.Context, _, _ string, _ func(string, string, *task.Task, bool) error) error {
+	panic("List not implemented by mockTaskService")
+}
+func (mts *mockTaskService) Count(_ context.Context, _ string) (int64, error) {
+	return mts.count, nil
 }
 
 func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline *pps.Pipeline, state pps.PipelineState) {
@@ -67,15 +90,7 @@ func waitForPipelineState(t testing.TB, stateDriver *mockStateDriver, pipeline *
 	})
 }
 
-func mockJobRunning(mockPachd *testpachd.MockPachd, taskCount, commitCount int) (done chan struct{}) {
-	mockPachd.PPS.ListTask.Use(func(_ *task.ListTaskRequest, srv pps.API_ListTaskServer) error {
-		for i := 0; i < taskCount; i++ {
-			if err := srv.Send(&task.TaskInfo{State: task.State_RUNNING}); err != nil {
-				return errors.EnsureStack(err)
-			}
-		}
-		return nil
-	})
+func mockJobRunning(mockPachd *testpachd.MockPachd, commitCount int) (done chan struct{}) {
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		return &pfs.CommitInfo{}, nil
 	})
@@ -107,7 +122,7 @@ func validate(t testing.TB, sDriver *mockStateDriver, iDriver *mockInfraDriver, 
 }
 
 func TestBasic(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
@@ -129,7 +144,7 @@ func TestBasic(t *testing.T) {
 }
 
 func TestDeletePipeline(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
@@ -164,7 +179,7 @@ func TestDeletePipeline(t *testing.T) {
 }
 
 func TestDeleteRC(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
@@ -200,10 +215,10 @@ func TestDeleteRC(t *testing.T) {
 }
 
 func TestAutoscalingBasic(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 1)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -231,10 +246,10 @@ func TestAutoscalingBasic(t *testing.T) {
 }
 
 func TestAutoscalingManyCommits(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 100)
+	done := mockJobRunning(mockPachd, 100)
 	defer close(done)
 	inspectCount := 0
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
@@ -269,10 +284,10 @@ func TestAutoscalingManyCommits(t *testing.T) {
 }
 
 func TestAutoscalingManyTasks(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 100)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 100, 1)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	mockPachd.PFS.InspectCommit.Use(func(context.Context, *pfs.InspectCommitRequest) (*pfs.CommitInfo, error) {
 		// wait for pipeline replica scale to update before closing the commit
@@ -313,10 +328,10 @@ func TestAutoscalingManyTasks(t *testing.T) {
 }
 
 func TestAutoscalingNoCommits(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 0, 0)
+	done := mockJobRunning(mockPachd, 0)
 	defer close(done)
 	stateDriver.upsertPipeline(&pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -342,7 +357,7 @@ func TestAutoscalingNoCommits(t *testing.T) {
 }
 
 func TestPause(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{
@@ -382,10 +397,10 @@ func TestPause(t *testing.T) {
 }
 
 func TestPauseAutoscaling(t *testing.T) {
-	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t)
+	stateDriver, infraDriver, mockPachd := ppsMasterHandles(t, 1)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
-	done := mockJobRunning(mockPachd, 1, 1)
+	done := mockJobRunning(mockPachd, 1)
 	defer close(done)
 	pi := &pps.PipelineInfo{
 		Pipeline: pipeline,
@@ -441,7 +456,7 @@ func TestPauseAutoscaling(t *testing.T) {
 }
 
 func TestStaleRestart(t *testing.T) {
-	stateDriver, infraDriver, _ := ppsMasterHandles(t)
+	stateDriver, infraDriver, _ := ppsMasterHandles(t, 0)
 	pipelineName := tu.UniqueString(t.Name())
 	pipeline := client.NewPipeline(pfs.DefaultProjectName, pipelineName)
 	pi := &pps.PipelineInfo{

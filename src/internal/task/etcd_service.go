@@ -79,6 +79,11 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 	}))
 }
 
+func (es *etcdService) Count(ctx context.Context, namespace string) (int64, error) {
+	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
+	return etcdCols.taskCol.ReadOnly(ctx).Count()
+}
+
 type namespaceEtcd struct {
 	etcdClient                  *etcd.Client
 	groupCol, taskCol, claimCol col.EtcdCollection

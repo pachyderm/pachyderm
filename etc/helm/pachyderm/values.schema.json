@@ -223,6 +223,9 @@
                         }
                     }
                 },
+                "detVersion": {
+                    "type": "string"
+                },
                 "enabled": {
                     "type": "boolean"
                 },
@@ -234,6 +237,19 @@
                 },
                 "imageRegistry": {
                     "type": "string"
+                },
+                "integrations": {
+                    "type": "object",
+                    "properties": {
+                        "pachyderm": {
+                            "type": "object",
+                            "properties": {
+                                "address": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
                 },
                 "logColor": {
                     "type": "boolean"
@@ -256,6 +272,9 @@
                         "authenticationClaim": {
                             "type": "string"
                         },
+                        "autoProvisionUsers": {
+                            "type": "boolean"
+                        },
                         "clientId": {
                             "type": "string"
                         },
@@ -267,6 +286,9 @@
                         },
                         "enabled": {
                             "type": "boolean"
+                        },
+                        "groupsClaimName": {
+                            "type": "string"
                         },
                         "idpRecipientUrl": {
                             "type": "string"
@@ -1275,12 +1297,6 @@
                                 }
                             }
                         },
-                        "gocdkEnabled":  {
-                            "type": "boolean"
-                        },
-                        "storageURL": {
-                            "type": "string"
-                        },
                         "backend": {
                             "type": "string"
                         },
@@ -1292,6 +1308,9 @@
                         },
                         "diskCacheSize": {
                             "type": "integer"
+                        },
+                        "gocdkEnabled": {
+                            "type": "boolean"
                         },
                         "google": {
                             "type": "object",
@@ -1369,6 +1388,9 @@
                         },
                         "putFileConcurrencyLimit": {
                             "type": "integer"
+                        },
+                        "storageURL": {
+                            "type": "string"
                         },
                         "uploadConcurrencyLimit": {
                             "type": "integer"

@@ -1,0 +1,13 @@
+load("//private/rules:rules.bzl", "host_native_binary")
+
+host_native_binary(
+    name = "_kind",
+    repo = "@io_k8s_sigs_kind",
+    target = "file:kind",
+)
+
+alias(
+    name = "kind",
+    actual = "_kind_bin",
+    visibility = ["//visibility:public"],
+)

@@ -37,7 +37,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240112-905276c17a17d57de108eab3d53d3322fd27650a@sha256:7968439e70f08b411510f0a2b42d77ffde0d51ac971e3106a65902440b648882
+    default: docker.io/pachyderm/ci-runner:20240125-b618e470f54bfef292a49d37af2c83443c431ddf@sha256:bb52805dfa8c3b1891e2b87f03f91e8f7f9b9d6b797a8b31645dc4ed97f7fb67
   go-version:
     type: string
     default: "1.21.5"
@@ -808,7 +808,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-python-test-deps
+      - install-jupyter-test-deps
       - run:
           name: "Integration tests"
           command: |
@@ -847,7 +847,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - install-python-test-deps
+      - install-jupyter-test-deps
       - run:
           name: "e2e tests"
           command: |
@@ -1260,11 +1260,6 @@ jobs:
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
             sleep 10 # give it a bit time for checks to attach
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            PR_STATE=$(gh pr status --json mergeStateStatus --jq .currentBranch.mergeStateStatus --repo pachyderm/haberdashery)
-            if [[ "$PR_STATE" != "CLEAN" ]]; then
-              echo "review console PR ${PR} for failures. PR Checks failed."
-              exit 1
-            fi
             gh pr merge ${PR} --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
@@ -1545,11 +1540,21 @@ jobs:
       - checkout
       - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:make_proto
       - run: git checkout MODULE.bazel.lock # For OSX-only changes.
-      - run: git diff --exit-code
-      - run: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle
-      - run: git checkout MODULE.bazel.lock # For OSX-only changes.
-      - run: git diff --exit-code
-      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test
+      - run:
+          name: Check that you ran make proto
+          command: |
+            echo "If you see diffs here, it means that you forgot to run `bazel run //:make_proto`"
+            git diff --exit-code
+      - run:
+          name: Check that you ran gazelle
+          command: |
+            echo "If you see an error here, it means you forgot to `bazel run //:gazelle`"
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:gazelle --  -mode=diff
+      - run:
+          name: Check that you ran buildifier
+          command: |
+            echo "If you see an error here, it means you forgot to `bazel run //:buildifier`"
+            bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //:buildifier_test
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
@@ -2174,15 +2179,11 @@ commands:
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-python-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
     steps:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
-      - run: sudo apt-get update && sudo apt-get install fuse libgbm-dev
-      - run:
-          name: Fuse options
-          command: echo "user_allow_other" | sudo tee -a /etc/fuse.conf > /dev/null
       - run:
           name: Install kind
           command: |
@@ -2200,8 +2201,22 @@ commands:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
+      - run:
           name: Install pach
-          command: helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.service.type=NodePort,pachd.image.tag=${CIRCLE_SHA1}
+          command: |
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set pachd.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |

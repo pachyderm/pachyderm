@@ -14,7 +14,7 @@ import (
 
 // Run will run a transform pipeline until the driver is canceled.
 func Run(driver driver.Driver, logger logs.TaggedLogger) error {
-	reg, err := newRegistry(driver, logger)
+	reg, err := NewRegistry(driver, logger)
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func Run(driver driver.Driver, logger logs.TaggedLogger) error {
 					if jobInfo.State == pps.JobState_JOB_FINISHING {
 						return nil
 					}
-					return reg.startJob(proto.Clone(jobInfo).(*pps.JobInfo))
+					return reg.StartJob(proto.Clone(jobInfo).(*pps.JobInfo))
 				},
 			)
 			if errutil.IsDatabaseDisconnect(err) {

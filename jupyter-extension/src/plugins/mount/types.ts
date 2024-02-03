@@ -1,5 +1,5 @@
 import {Contents} from '@jupyterlab/services';
-import {SplitPanel} from '@lumino/widgets';
+import {TabPanel} from '@lumino/widgets';
 import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
 
 export type mountState =
@@ -12,7 +12,12 @@ export type mountState =
   | 'unmounted'
   | '';
 
-export type clusterStatus = 'INVALID' | 'AUTH_DISABLED' | 'AUTH_ENABLED';
+export type clusterStatus =
+  | 'NONE'
+  | 'INVALID'
+  | 'VALID_NO_AUTH'
+  | 'VALID_LOGGED_IN'
+  | 'VALID_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
@@ -96,7 +101,7 @@ export type AuthConfig = {
 export interface IMountPlugin {
   mountedRepos: Mount[];
   unmountedRepos: Repo[];
-  layout: SplitPanel;
+  layout: TabPanel;
   ready: Promise<void>;
 }
 
@@ -132,6 +137,7 @@ export type PpsConfig = {
   pipeline: Pipeline;
   image: string;
   requirements: string | null;
+  external_files: string | null;
   input_spec: string;
   port: string;
   gpu_mode: GpuMode;

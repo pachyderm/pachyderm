@@ -30,6 +30,7 @@ const (
 	API_StopJob_FullMethodName            = "/pps_v2.API/StopJob"
 	API_InspectDatum_FullMethodName       = "/pps_v2.API/InspectDatum"
 	API_ListDatum_FullMethodName          = "/pps_v2.API/ListDatum"
+	API_CreateDatum_FullMethodName        = "/pps_v2.API/CreateDatum"
 	API_RestartDatum_FullMethodName       = "/pps_v2.API/RestartDatum"
 	API_RerunPipeline_FullMethodName      = "/pps_v2.API/RerunPipeline"
 	API_CreatePipeline_FullMethodName     = "/pps_v2.API/CreatePipeline"
@@ -78,6 +79,7 @@ type APIClient interface {
 	InspectDatum(ctx context.Context, in *InspectDatumRequest, opts ...grpc.CallOption) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(ctx context.Context, in *ListDatumRequest, opts ...grpc.CallOption) (API_ListDatumClient, error)
+	CreateDatum(ctx context.Context, opts ...grpc.CallOption) (API_CreateDatumClient, error)
 	RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	RerunPipeline(ctx context.Context, in *RerunPipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	CreatePipeline(ctx context.Context, in *CreatePipelineRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -330,6 +332,37 @@ func (x *aPIListDatumClient) Recv() (*DatumInfo, error) {
 	return m, nil
 }
 
+func (c *aPIClient) CreateDatum(ctx context.Context, opts ...grpc.CallOption) (API_CreateDatumClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[5], API_CreateDatum_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPICreateDatumClient{stream}
+	return x, nil
+}
+
+type API_CreateDatumClient interface {
+	Send(*CreateDatumRequest) error
+	Recv() (*DatumInfo, error)
+	grpc.ClientStream
+}
+
+type aPICreateDatumClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPICreateDatumClient) Send(m *CreateDatumRequest) error {
+	return x.ClientStream.SendMsg(m)
+}
+
+func (x *aPICreateDatumClient) Recv() (*DatumInfo, error) {
+	m := new(DatumInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) RestartDatum(ctx context.Context, in *RestartDatumRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_RestartDatum_FullMethodName, in, out, opts...)
@@ -376,7 +409,7 @@ func (c *aPIClient) InspectPipeline(ctx context.Context, in *InspectPipelineRequ
 }
 
 func (c *aPIClient) ListPipeline(ctx context.Context, in *ListPipelineRequest, opts ...grpc.CallOption) (API_ListPipelineClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[5], API_ListPipeline_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_ListPipeline_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -462,7 +495,7 @@ func (c *aPIClient) RunCron(ctx context.Context, in *RunCronRequest, opts ...grp
 }
 
 func (c *aPIClient) CheckStatus(ctx context.Context, in *CheckStatusRequest, opts ...grpc.CallOption) (API_CheckStatusClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_CheckStatus_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_CheckStatus_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -539,7 +572,7 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *emptypb.Empty, opts ...gr
 }
 
 func (c *aPIClient) GetLogs(ctx context.Context, in *GetLogsRequest, opts ...grpc.CallOption) (API_GetLogsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_GetLogs_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_GetLogs_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +649,7 @@ func (c *aPIClient) RenderTemplate(ctx context.Context, in *RenderTemplateReques
 }
 
 func (c *aPIClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_ListTask_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_ListTask_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -648,7 +681,7 @@ func (x *aPIListTaskClient) Recv() (*task.TaskInfo, error) {
 }
 
 func (c *aPIClient) GetKubeEvents(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_GetKubeEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_GetKubeEvents_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_GetKubeEvents_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -680,7 +713,7 @@ func (x *aPIGetKubeEventsClient) Recv() (*LokiLogMessage, error) {
 }
 
 func (c *aPIClient) QueryLoki(ctx context.Context, in *LokiRequest, opts ...grpc.CallOption) (API_QueryLokiClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_QueryLoki_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[11], API_QueryLoki_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -762,6 +795,7 @@ type APIServer interface {
 	InspectDatum(context.Context, *InspectDatumRequest) (*DatumInfo, error)
 	// ListDatum returns information about each datum fed to a Pachyderm job
 	ListDatum(*ListDatumRequest, API_ListDatumServer) error
+	CreateDatum(API_CreateDatumServer) error
 	RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error)
 	RerunPipeline(context.Context, *RerunPipelineRequest) (*emptypb.Empty, error)
 	CreatePipeline(context.Context, *CreatePipelineRequest) (*emptypb.Empty, error)
@@ -841,6 +875,9 @@ func (UnimplementedAPIServer) InspectDatum(context.Context, *InspectDatumRequest
 }
 func (UnimplementedAPIServer) ListDatum(*ListDatumRequest, API_ListDatumServer) error {
 	return status.Errorf(codes.Unimplemented, "method ListDatum not implemented")
+}
+func (UnimplementedAPIServer) CreateDatum(API_CreateDatumServer) error {
+	return status.Errorf(codes.Unimplemented, "method CreateDatum not implemented")
 }
 func (UnimplementedAPIServer) RestartDatum(context.Context, *RestartDatumRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RestartDatum not implemented")
@@ -1123,6 +1160,32 @@ type aPIListDatumServer struct {
 
 func (x *aPIListDatumServer) Send(m *DatumInfo) error {
 	return x.ServerStream.SendMsg(m)
+}
+
+func _API_CreateDatum_Handler(srv interface{}, stream grpc.ServerStream) error {
+	return srv.(APIServer).CreateDatum(&aPICreateDatumServer{stream})
+}
+
+type API_CreateDatumServer interface {
+	Send(*DatumInfo) error
+	Recv() (*CreateDatumRequest, error)
+	grpc.ServerStream
+}
+
+type aPICreateDatumServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPICreateDatumServer) Send(m *DatumInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func (x *aPICreateDatumServer) Recv() (*CreateDatumRequest, error) {
+	m := new(CreateDatumRequest)
+	if err := x.ServerStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func _API_RestartDatum_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1850,6 +1913,12 @@ var API_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "ListDatum",
 			Handler:       _API_ListDatum_Handler,
 			ServerStreams: true,
+		},
+		{
+			StreamName:    "CreateDatum",
+			Handler:       _API_CreateDatum_Handler,
+			ServerStreams: true,
+			ClientStreams: true,
 		},
 		{
 			StreamName:    "ListPipeline",
