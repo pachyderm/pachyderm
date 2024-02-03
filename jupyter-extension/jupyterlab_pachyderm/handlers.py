@@ -1,4 +1,5 @@
 from base64 import b64encode
+from functools import wraps
 from pathlib import Path
 import json
 import traceback
@@ -33,6 +34,8 @@ VERSION = "v2"
 class BaseHandler(APIHandler):
     @property
     def client(self) -> Client:
+        if self.settings.get("pachyderm_client") is None:
+            raise ValueError("no instantiated pachyderm client")
         return self.settings["pachyderm_client"]
 
     @client.setter
@@ -53,6 +56,12 @@ class BaseHandler(APIHandler):
     @property
     def pps_client(self) -> PPSClient:
         return self.settings["pachyderm_pps_client"]
+
+
+# def require_pachyderm_client(func):
+#     @wraps(func)
+#     def inner(self, *args, **kwargs):
+#         ...
 
 
 class MountsHandler(BaseHandler):
@@ -506,7 +515,7 @@ class HealthHandler(BaseHandler):
     @tornado.web.authenticated
     async def get(self):
         response = {"status": "running"}
-        self.finish(response)
+        await self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -638,6 +647,7 @@ def setup_handlers(web_app):
     web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
     _handlers = [
+        ("/health", HealthHandler),
         ("/mounts", MountsHandler),
         ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),

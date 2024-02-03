@@ -3,6 +3,7 @@ import sys
 import subprocess
 import time
 import json
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from random import randint
@@ -11,6 +12,7 @@ import urllib
 
 import pytest
 import requests
+import tornado.web
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
@@ -19,9 +21,9 @@ from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
 from pachyderm_sdk.config import ConfigFile
 
-from . import TEST_NOTEBOOK
+from jupyterlab_pachyderm.tests import TEST_NOTEBOOK
 
-ADDRESS = "http://localhost:8888"
+ADDRESS = "http://localhost:8889"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
@@ -58,11 +60,19 @@ def pach_config(tmpdir_factory) -> Path:
     """Temporary path used to write the pach config for tests."""
     config_path = tmpdir_factory.mktemp('pachyderm').join("config.json")
     copyfile(PACH_CONFIG, config_path)
-    yield config_path
+    yield Path(config_path)
 
 
-@pytest.fixture(scope="module")
+@contextmanager
 def dev_server(pach_config: Path):
+    """A context manager for creating a dev-server instance manually.
+
+    Example
+    -------
+    >>> config: Path
+    >>> with dev_server(config):
+    >>>     ...  # do test
+    """
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
@@ -76,8 +86,7 @@ def dev_server(pach_config: Path):
         # Give time for python test server to start
         for _ in range(15):
             try:
-                r = requests.get(f"{BASE_URL}/config", timeout=1)
-                if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                if requests.get(f"{BASE_URL}/health", timeout=1).ok:
                     yield
                     break
             except Exception:
@@ -90,6 +99,12 @@ def dev_server(pach_config: Path):
         p.terminate()
         p.wait()
         time.sleep(1)
+
+
+@pytest.fixture(name='dev_server', scope="module")
+def dev_server_fixture(pach_config: Path):
+    with dev_server(pach_config):
+        yield
 
 @pytest.fixture
 def dev_server_with_unmount(dev_server):
@@ -590,25 +605,40 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
     )
 
 
-def test_config(dev_server, pach_config):
-    # PUT request
-    test_endpoint = "localhost:30650"
-    r = requests.put(
-        f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
-    )
+class TestConfigHandler:
 
-    config = ConfigFile.from_path(pach_config)
-    active_context = config.active_context
+    @staticmethod
+    def test_config_no_file(pach_config):
+        """Test that if there is no config file present, the extension does not
+        use a default config."""
+        # Arrange
+        pach_config.unlink()
 
-    assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
-    assert "30650" in active_context.pachd_address
+        with dev_server(pach_config):
+            with pytest.raises(tornado.web.HTTPError):
+                requests.get(f"{BASE_URL}/config")
 
-    # GET request
-    r = requests.get(f"{BASE_URL}/config")
+    @staticmethod
+    @pytest.mark.usefixtures("dev_server")
+    def test_config(pach_config):
+        # PUT request
+        test_endpoint = "localhost:30650"
+        r = requests.put(
+            f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
+        )
 
-    assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
+        config = ConfigFile.from_path(pach_config)
+        active_context = config.active_context
+
+        assert r.status_code == 200, r.text
+        assert r.json()["cluster_status"] != "INVALID"
+        assert "30650" in active_context.pachd_address
+
+        # GET request
+        r = requests.get(f"{BASE_URL}/config")
+
+        assert r.status_code == 200, r.text
+        assert r.json()["cluster_status"] != "INVALID"
 
 
 @pytest.fixture(params=[True, False])

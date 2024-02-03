@@ -23,5 +23,5 @@ if __name__ == "__main__":
     app.settings["identity_provider"] = TestIdentityProvider()
     app.settings["disable_check_xsrf"] = True
 
-    app.listen(8888)
+    app.listen(8889)
     tornado.ioloop.IOLoop.current().start()
