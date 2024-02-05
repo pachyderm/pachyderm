@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"path"
 	"sort"
@@ -93,6 +94,10 @@ const (
 	// dnsLabelLimit is the maximum length of a ReplicationController
 	// or Service name.
 	dnsLabelLimit = 63
+
+	// DefaultDatumBatchSize is the default number of datums to return to the client
+	// per CreateDatum request
+	DefaultDatumBatchSize = 100
 )
 
 var (
@@ -1243,7 +1248,74 @@ func (a *apiServer) collectDatums(ctx context.Context, job *pps.Job, cb func(*da
 }
 
 func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error) {
-	return status.Errorf(codes.Unimplemented, "method CreateDatum not implemented")
+	msg, err := server.Recv()
+	if err != nil {
+		return errors.Wrap(err, "server receive")
+	}
+	if msg.Input == nil {
+		return errors.Errorf("first message must specify an input")
+	}
+
+	it, err := a.getStreamingIterator(server.Context(), msg.Input)
+	if err != nil {
+		return errors.Wrap(err, "getting streaming iterator")
+	}
+	for {
+		number := msg.Number
+		if number == 0 {
+			number = DefaultDatumBatchSize
+		}
+		if err := errors.EnsureStack(it.Iterate(func(meta *datum.Meta) error {
+			if number == 0 {
+				return errutil.ErrBreak
+			}
+			info := convertDatumMetaToInfo(meta, nil)
+			info.State = pps.DatumState_UNKNOWN
+			if err := errors.EnsureStack(server.Send(info)); err != nil {
+				return err
+			}
+			number--
+			if number == 0 {
+				// Empty message indicates to client that batch is done
+				return errors.EnsureStack(server.Send(&pps.DatumInfo{}))
+			}
+			return nil
+		})); !errors.Is(err, errutil.ErrBreak) {
+			return errors.Wrap(err, "streaming iterate")
+		}
+		msg, err = server.Recv()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return errors.Wrap(err, "server receive")
+		}
+	}
+}
+
+func (a *apiServer) getStreamingIterator(ctx context.Context, input *pps.Input) (datum.Iterator, error) {
+	setInputDefaults("", input)
+	if visitErr := pps.VisitInput(input, func(input *pps.Input) error {
+		if input.Pfs != nil {
+			pachClient := a.env.GetPachClient(ctx)
+			ci, err := pachClient.InspectCommit(input.Pfs.Project, input.Pfs.Repo, input.Pfs.Branch, "")
+			if err != nil {
+				return err
+			}
+			input.Pfs.Commit = ci.Commit.Id
+			return nil
+		}
+		if input.Cron != nil {
+			return errors.New("can't create datums with a cron input, there will be no datums until the pipeline is created")
+		}
+		return errors.New("unimplemented input type")
+	}); visitErr != nil {
+		return nil, visitErr
+	}
+	pachClient := a.env.GetPachClient(ctx)
+	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
+	it := datum.NewCreateDatumStreamIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
+	return it, nil
 }
 
 func (a *apiServer) GetKubeEvents(request *pps.LokiRequest, apiGetKubeEventsServer pps.API_GetKubeEventsServer) (retErr error) {

@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
@@ -38,6 +39,75 @@ func NewIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input
 	}
 	return NewFileSetIterator(ctx, c, fileSetID, nil), nil
 }
+
+func NewCreateDatumStreamIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) Iterator {
+	ctx = pctx.Child(ctx, "CreateDatumStream")
+	cds := &createDatumStream{
+		ctx:               ctx,
+		c:                 c,
+		taskDoer:          taskDoer,
+		input:             input,
+		requestDatumsChan: make(chan bool),
+		fsidChan:          make(chan string),
+		errChan:           make(chan error, 1),
+		doneChan:          make(chan bool),
+	}
+	go cds.create(cds.input, cds.fsidChan)
+	return &createDatumStreamIterator{
+		createDatumStream: cds,
+		metaBuffer:        make([]*Meta, 0),
+	}
+}
+
+type createDatumStreamIterator struct {
+	*createDatumStream
+	metaBuffer []*Meta
+}
+
+// Return value of nil means all datums have been returned.
+// Return value of errutil.ErrBreak means that iteration is paused and
+// will be resumed when client asks for more.
+func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
+	for {
+		// Consume leftover datums from the buffer first before asking
+		// to create more.
+		if len(it.metaBuffer) == 0 {
+			select {
+			case <-it.doneChan:
+				return nil
+			case it.requestDatumsChan <- true:
+			}
+			select {
+			case fsid := <-it.fsidChan:
+				fsidIt := NewFileSetIterator(it.ctx, it.c, fsid, nil)
+				if err := fsidIt.Iterate(func(meta *Meta) error {
+					err := cb(meta)
+					// If callback has consumed all the datums it needs,
+					// add the leftover datums to the buffer.
+					if errors.Is(err, errutil.ErrBreak) {
+						it.metaBuffer = append(it.metaBuffer, meta)
+						return nil
+					}
+					return err
+				}); err != nil {
+					return errors.Wrap(err, "single file set iteration")
+				}
+				if len(it.metaBuffer) > 0 {
+					return errutil.ErrBreak
+				}
+			case err := <-it.errChan:
+				return errors.Wrap(err, "create()")
+			}
+		} else {
+			meta := it.metaBuffer[0]
+			if err := cb(meta); err != nil {
+				return errors.Wrap(err, "callback error")
+			}
+			it.metaBuffer = it.metaBuffer[1:]
+		}
+	}
+}
+
 
 // Hasher is the standard interface for a datum hasher.
 type Hasher interface {

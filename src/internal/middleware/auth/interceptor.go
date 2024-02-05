@@ -202,6 +202,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/InspectDatum":     authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatum":        authDisabledOr(authenticated),
 	"/pps_v2.API/ListDatumStream":  authDisabledOr(authenticated),
+	"/pps_v2.API/CreateDatum":  	authDisabledOr(authenticated),
 	"/pps_v2.API/RestartDatum":     authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipeline":   authDisabledOr(authenticated),
 	"/pps_v2.API/CreatePipelineV2": authDisabledOr(authenticated),
