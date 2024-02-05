@@ -54,7 +54,7 @@ def pachyderm_resources():
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dev_server(pach_config: Path):
     print("starting development server...")
     p = subprocess.Popen(
