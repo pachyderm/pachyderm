@@ -19,7 +19,6 @@ import tornado
 import tornado.concurrent
 import tornado.web
 
-from .env import PACH_CONFIG
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient
@@ -46,6 +45,10 @@ class BaseHandler(APIHandler):
         self.settings["pfs_contents_manager"] = PFSManager(client=new_client)
         self.settings["datum_contents_manager"] = DatumManager(client=new_client)
         self.settings["pachyderm_pps_client"] = PPSClient(client=new_client)
+
+    @property
+    def config_file(self) -> Path:
+        return self.settings["pachyderm_config_file"]
 
     @property
     def pfs_manager(self) -> PFSManager:
@@ -407,7 +410,7 @@ class ConfigHandler(BaseHandler):
         if cluster_status != self.CLUSTER_INVALID:
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.client.address, self.client.root_certs, None)
+                write_config(self.config_file, self.client.address, self.client.root_certs, None)
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
 
@@ -490,7 +493,7 @@ class AuthLoginHandler(BaseHandler):
 
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.client.address, self.client.root_certs, token)
+                write_config(self.config_file, self.client.address, self.client.root_certs, token)
             except RuntimeError as e:
                 get_logger().error(f"Error updating local config: {e}.", exc_info=True)
                 raise tornado.web.HTTPError(500, f"Error updating local config: {e}.")
@@ -595,15 +598,18 @@ class TestDownloadHandler(BaseHandler):
 
 
 def write_config(
+    config_file: Path,
     pachd_address: str,
     server_cas: Optional[bytes],
     session_token: Optional[str],
 ) -> None:
-    """Writes the pachd_address/server_cas context to the local config file.
-    This will create a new config file if one does not exist.
+    """Writes the pachd_address/server_cas context to a local config file.
+    This will create a new config file if file does not already exist.
 
     Parameters
     ----------
+    config_file : pathlib.Path
+        The location to write the config file.
     pachd_address : str
         The address to the pachd instance.
     server_cas : bytes, optional
@@ -624,21 +630,21 @@ def write_config(
         server_cas=server_cas,
     )
     name = f"jupyter-{pachd_address}"
-    if PACH_CONFIG.exists():
+    if config_file.exists():
         try:
-            config = ConfigFile.from_path(PACH_CONFIG)
+            config = ConfigFile.from_path(config_file)
         except Exception:
-            raise RuntimeError(f"failed to load config file: {PACH_CONFIG}")
+            raise RuntimeError(f"failed to load config file: {config_file}")
         config.add_context(name, context, overwrite=True)
     else:
         config = ConfigFile.new_with_context(name, context)
-        os.makedirs(PACH_CONFIG.parent, exist_ok=True)
-    config.write(PACH_CONFIG)
+        os.makedirs(config_file.parent, exist_ok=True)
+    config.write(config_file)
 
 
-def setup_handlers(web_app):
+def setup_handlers(web_app, config_file: Path):
     try:
-        client = Client().from_config(PACH_CONFIG)
+        client = Client().from_config(config_file)
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
@@ -651,6 +657,9 @@ def setup_handlers(web_app):
         web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
         web_app.settings["datum_contents_manager"] = DatumManager(client=client)
+
+    # This value is used by the AuthHandler and ConfigHandler.
+    web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
         ("/health", HealthHandler),

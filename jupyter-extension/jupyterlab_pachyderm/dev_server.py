@@ -5,6 +5,7 @@ from jupyter_server.auth.identity import IdentityProvider, User
 from jupyter_server.base.handlers import JupyterHandler
 
 from . import setup_handlers
+from .env import PACH_CONFIG
 
 
 class TestIdentityProvider(IdentityProvider):
@@ -17,7 +18,7 @@ class TestIdentityProvider(IdentityProvider):
 
 if __name__ == "__main__":
     app = tornado.web.Application(base_url="/")
-    setup_handlers(app)
+    setup_handlers(app, PACH_CONFIG)
 
     # Disable authorization checks between test API and dev-server
     app.settings["identity_provider"] = TestIdentityProvider()

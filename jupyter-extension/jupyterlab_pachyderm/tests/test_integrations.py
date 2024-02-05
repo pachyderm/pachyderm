@@ -7,15 +7,16 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from random import randint
-from shutil import copyfile
 import urllib
 
 import pytest
 import requests
-import tornado.web
+from httpx import AsyncClient
+from tornado.httpserver import HTTPServer
+from tornado.web import Application
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -53,14 +54,6 @@ def pachyderm_resources():
 
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
-
-
-@pytest.fixture(scope="module")
-def pach_config(tmpdir_factory) -> Path:
-    """Temporary path used to write the pach config for tests."""
-    config_path = tmpdir_factory.mktemp('pachyderm').join("config.json")
-    copyfile(PACH_CONFIG, config_path)
-    yield Path(config_path)
 
 
 @contextmanager
@@ -601,21 +594,22 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
 class TestConfigHandler:
 
     @staticmethod
-    def test_config_no_file(pach_config):
+    @pytest.mark.no_config
+    async def test_config_no_file(app: Application, http_client: AsyncClient, http_server: HTTPServer):
         """Test that if there is no config file present, the extension does not
         use a default config."""
         # Arrange
-        pach_config.unlink()
+        config_file = app.settings.get("pachyderm_config_file")
+        assert config_file is not None and not config_file.exists()
 
-        with dev_server(pach_config):
-            # Act
-            response = requests.get(f"{BASE_URL}/config")
+        # Act
+        response = await http_client.get("/config")
 
-            # Assert
-            response.raise_for_status()
-            payload = response.json()
-            assert payload["cluster_status"] == "INVALID"
-            assert payload["pachd_address"] == ""
+        # Assert
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["cluster_status"] == "INVALID"
+        assert payload["pachd_address"] == ""
 
     @staticmethod
     @pytest.mark.usefixtures("dev_server")
