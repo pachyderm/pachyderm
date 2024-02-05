@@ -1,5 +1,4 @@
 import React, {useRef} from 'react';
-import {closeIcon} from '@jupyterlab/ui-components';
 import isVisible, {useDatum} from './hooks/useDatum';
 import {caretLeftIcon, caretRightIcon} from '@jupyterlab/ui-components';
 import {
@@ -9,8 +8,6 @@ import {
 } from 'plugins/mount/types';
 
 type DatumProps = {
-  showDatum: boolean;
-  setShowDatum: (shouldShow: boolean) => Promise<void>;
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
   currentDatumInfo?: CurrentDatumResponse;
@@ -23,8 +20,6 @@ const placeholderText = `pfs:
 `;
 
 const Datum: React.FC<DatumProps> = ({
-  showDatum,
-  setShowDatum,
   open,
   pollRefresh,
   currentDatumInfo,
@@ -44,35 +39,11 @@ const Datum: React.FC<DatumProps> = ({
     callPrevDatum,
     callDownloadDatum,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
-  } = useDatum(
-    showDatum,
-    open,
-    pollRefresh,
-    repoViewInputSpec,
-    currentDatumInfo,
-  );
+  } = useDatum(open, pollRefresh, repoViewInputSpec, currentDatumInfo);
 
   return (
     <div className="pachyderm-mount-datum-base">
-      <div className="pachyderm-mount-datum-back">
-        <button
-          data-testid="Datum__back"
-          className="pachyderm-button-link"
-          onClick={async () => {
-            saveInputSpec();
-            await setShowDatum(false);
-          }}
-        >
-          Back{' '}
-          <closeIcon.react
-            tag="span"
-            className="pachyderm-mount-icon-padding"
-          />
-        </button>
-      </div>
-
       <span className="pachyderm-mount-datum-subheading">Test Datums</span>
 
       <div className="pachyderm-mount-datum-input-wrapper">

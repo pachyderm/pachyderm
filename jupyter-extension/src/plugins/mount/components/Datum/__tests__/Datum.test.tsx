@@ -10,11 +10,9 @@ import Datum from '../Datum';
 jest.mock('../../../../../handler');
 
 describe('datum screen', () => {
-  let setShowDatum = jest.fn();
   const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
 
   beforeEach(() => {
-    setShowDatum = jest.fn();
     mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI({}));
 
     // IntersectionObserver isn't available in test environment
@@ -40,8 +38,6 @@ describe('datum screen', () => {
 
       const {getByTestId, queryByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -88,8 +84,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -133,8 +127,6 @@ describe('datum screen', () => {
     it('error if bad syntax in input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -162,8 +154,6 @@ describe('datum screen', () => {
 
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -189,8 +179,6 @@ describe('datum screen', () => {
     it('valid json input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}
@@ -214,8 +202,6 @@ describe('datum screen', () => {
     it('valid yaml input spec', async () => {
       const {getByTestId, findByTestId} = render(
         <Datum
-          showDatum={true}
-          setShowDatum={setShowDatum}
           open={jest.fn()}
           pollRefresh={jest.fn()}
           repoViewInputSpec={{}}

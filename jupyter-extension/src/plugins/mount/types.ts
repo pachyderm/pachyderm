@@ -1,5 +1,5 @@
 import {Contents} from '@jupyterlab/services';
-import {SplitPanel} from '@lumino/widgets';
+import {TabPanel} from '@lumino/widgets';
 import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
 
 export type mountState =
@@ -101,7 +101,7 @@ export type AuthConfig = {
 export interface IMountPlugin {
   mountedRepos: Mount[];
   unmountedRepos: Repo[];
-  layout: SplitPanel;
+  layout: TabPanel;
   ready: Promise<void>;
 }
 
