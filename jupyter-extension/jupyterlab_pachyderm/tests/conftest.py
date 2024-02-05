@@ -56,8 +56,12 @@ def http_server_port() -> PortType:
     return tornado.testing.bind_unused_port()
 
 
-@pytest.yield_fixture
-def http_server(app, event_loop: asyncio.BaseEventLoop, http_server_port: PortType):
+@pytest.yield_fixture(name="http_server")
+def http_server_fixture(
+    app: tornado.web.Application,
+    event_loop: asyncio.BaseEventLoop,
+    http_server_port: PortType
+) -> tornado.httpserver.HTTPServer:
     """Start a tornado HTTP server that listens on all available handlers.
     ref: github.com/eukaryote/pytest-tornasync/blob/0.6.0.post2/src/pytest_tornasync/plugin.py
 
@@ -77,8 +81,12 @@ def http_server(app, event_loop: asyncio.BaseEventLoop, http_server_port: PortTy
 
 
 @pytest.fixture
-async def http_client(http_server_port: PortType) -> httpx.AsyncClient:
+async def http_client(
+    http_server: tornado.httpserver.HTTPServer,
+    http_server_port: PortType,
+) -> httpx.AsyncClient:
     """Creates a httpx.AsyncClient set with the correct base_url to hit our handlers."""
+    assert http_server  # Ensure server is created for tests.
     base_url = f"http://127.0.0.1:{http_server_port[1]}/{NAMESPACE}/{VERSION}"
     async with httpx.AsyncClient(base_url=base_url) as client:
         yield client

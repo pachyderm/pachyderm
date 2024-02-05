@@ -3,7 +3,6 @@ import sys
 import subprocess
 import time
 import json
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from random import randint
@@ -12,7 +11,6 @@ import urllib
 import pytest
 import requests
 from httpx import AsyncClient
-from tornado.httpserver import HTTPServer
 from tornado.web import Application
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
@@ -24,7 +22,7 @@ from pachyderm_sdk.config import ConfigFile
 
 from jupyterlab_pachyderm.tests import TEST_NOTEBOOK
 
-ADDRESS = "http://localhost:8889"
+ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
 ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
@@ -56,9 +54,8 @@ def pachyderm_resources():
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
 
-@contextmanager
+@pytest.fixture(scope="module")
 def dev_server(pach_config: Path):
-    """A context manager for creating a dev-server instance manually."""
     print("starting development server...")
     p = subprocess.Popen(
         [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
@@ -86,11 +83,6 @@ def dev_server(pach_config: Path):
         p.wait()
         time.sleep(1)
 
-
-@pytest.fixture(name='dev_server', scope="module")
-def dev_server_fixture(pach_config: Path):
-    with dev_server(pach_config):
-        yield
 
 @pytest.fixture
 def dev_server_with_unmount(dev_server):
@@ -595,7 +587,7 @@ class TestConfigHandler:
 
     @staticmethod
     @pytest.mark.no_config
-    async def test_config_no_file(app: Application, http_client: AsyncClient, http_server: HTTPServer):
+    async def test_config_no_file(app: Application, http_client: AsyncClient):
         """Test that if there is no config file present, the extension does not
         use a default config."""
         # Arrange
