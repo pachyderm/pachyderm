@@ -362,10 +362,9 @@ class ConfigHandler(BaseHandler):
     CLUSTER_VALID_LOGGED_IN = "VALID_LOGGED_IN"
     CLUSTER_VALID_LOGGED_OUT = "VALID_LOGGED_OUT"
 
-    @property
-    def cluster_status(self) -> str:
+    def cluster_status(self, client: Client) -> str:
         try:
-            self.client.auth.who_am_i()
+            client.auth.who_am_i()
         except grpc.RpcError as err:
             err: grpc.Call
             if err.code() == grpc.StatusCode.UNAUTHENTICATED:
@@ -396,8 +395,8 @@ class ConfigHandler(BaseHandler):
 
         # Attempt to instantiate client and test connection
         try:
-            self.client = Client.from_pachd_address(address, root_certs=cas)
-            cluster_status = self.cluster_status
+            client = Client.from_pachd_address(address, root_certs=cas)
+            cluster_status = self.cluster_status(client)
             get_logger().info(f"({address}) cluster status: {cluster_status}")
         except Exception as e:
             get_logger().error(
@@ -410,53 +409,63 @@ class ConfigHandler(BaseHandler):
             )
 
         if cluster_status != self.CLUSTER_INVALID:
+            self.client = client  # Set client only if valid.
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.config_file, self.client.address, self.client.root_certs, None)
+                write_config(self.config_file, client.address, client.root_certs, None)
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
 
         payload = {
             "cluster_status": cluster_status,
-            "pachd_address": self.client.address,
+            "pachd_address": client.address,
         }
         await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
     async def get(self):
+        # Try to get a pachyderm client.
         try:
-            payload = {
-                "cluster_status": self.cluster_status,
-                "pachd_address": self.client.address,
-            }
+            client = self.client
         except tornado.web.HTTPError as err:
             if err.reason != self._no_client_error.reason:
                 raise err
             payload = {"cluster_status": self.CLUSTER_INVALID, "pachd_address": ""}
+            await self.finish(json.dumps(payload))
+            return
+
+        try:
+            cluster_status = self.cluster_status(client)
         except Exception as e:
             get_logger().error("Error getting config.", exc_info=True)
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error getting config: {e}."
             )
+
+        payload = {
+            "cluster_status": cluster_status,
+            "pachd_address": client.address,
+        }
         await self.finish(json.dumps(payload))
 
 
 class AuthLoginHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
+        client = self.client
         try:
             # Note: The auth workflow is for the backend to initiate the process by
             # calling auth.get_oidc_login() which returns a url for the user to login
             # with, and a state token that the backend can use to complete the workflow.
             # Therefore, we send the url to the frontend for the user to login with and
             # wait until the server has created a new session token, which we then retrieve.
-            oidc_response = self.client.auth.get_oidc_login()
+            oidc_response = client.auth.get_oidc_login()
 
             # The login url will always specify the http protocol. If the user is connecting
             # over a secure https/grpcs connection, we should update the url to reflect this.
             # Checking if root certificates exists on the client is the best proxy currently
             # available to check if the client is communicating over a secure grpc channel.
-            if self.client.root_certs is not None:
+            if client.root_certs is not None:
                 # Usage of _replace method comes from urlparse documentation:
                 #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
                 # noinspection PyProtectedMember
@@ -471,7 +480,7 @@ class AuthLoginHandler(BaseHandler):
             # version of client.auth.authenticate because it is blocking -- using it blocks
             # the entire server until either the user successfully logs in or the OIDC login
             # attempt times out. So, we need to manually do this Authenticate asynchronously.
-            async with grpc.aio.insecure_channel(self.client.address) as channel:
+            async with grpc.aio.insecure_channel(client.address) as channel:
                 async_authenticate = channel.unary_unary(
                     "/auth_v2.API/Authenticate",
                     request_serializer=AuthenticateRequest.SerializeToString,
@@ -491,11 +500,11 @@ class AuthLoginHandler(BaseHandler):
                         return
                     raise err
                 token = response.pach_token
-            self.client.auth_token = token
+            client.auth_token = token
 
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.config_file, self.client.address, self.client.root_certs, token)
+                write_config(self.config_file, client.address, client.root_certs, token)
             except RuntimeError as e:
                 get_logger().error(f"Error updating local config: {e}.", exc_info=True)
                 raise tornado.web.HTTPError(500, f"Error updating local config: {e}.")
@@ -512,10 +521,7 @@ class AuthLogoutHandler(BaseHandler):
     async def put(self):
         try:
             self.client.auth_token = None
-            self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
-            self.settings["datum_contents_manager"] = DatumManager(client=self.client)
-            self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
-            self.finish()
+            await self.finish()
         except Exception as e:
             get_logger().error("Error logging out of auth.", exc_info=True)
             raise tornado.web.HTTPError(
