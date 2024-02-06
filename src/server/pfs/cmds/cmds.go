@@ -1620,8 +1620,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 						// We have a single source and the user has specified a path,
 						// we check if the path ends with a '/' and join with target if it does.
 						finalPath := file.Path
-						if strings.HasSuffix(file.Path, "/") {
-							finalPath = joinPaths(file.Path, target)
+						if strings.HasSuffix(target, "/") {
+							finalPath = joinPaths(target, file.Path)
 						}
 						if err := putFileHelper(mf, finalPath, source, recursive, appendFile, untar); err != nil {
 							return err
