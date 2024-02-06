@@ -47,6 +47,7 @@ def pachyderm_resources():
                     branch=pfs.Branch.from_uri(f"{repo}@{branch}")
                 ) as c:
                     c.put_file_from_bytes(path=f"/{file}", data=b"some data")
+                c.wait()
 
     yield repos, branches, files
 
@@ -371,10 +372,7 @@ async def test_download_file(
     assert r.status_code == 400, r.text
 
 
-@pytest.mark.skip(
-    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
-)
-def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
+async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     repos, branches, files = pachyderm_resources
     input_spec = {
         "input": {
@@ -403,75 +401,75 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
         }
     }
 
-    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
-    assert r.json()["all_datums_received"] == True
+    assert r.json()["all_datums_received"] is True
     datum0_id = r.json()["id"]
 
-    r = requests.get(f"{BASE_URL}/view_datum")
+    r = await http_client.get("/view_datum")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 3
 
-    r = requests.get(f"{BASE_URL}/view_datum/test_name")
+    r = await http_client.get("/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = await http_client.get(f"/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = await http_client.get(f"/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.put(f"{BASE_URL}/datums/_next")
+    r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
     assert r.json()["id"] != datum0_id
-    assert r.json()["all_datums_received"] == True
+    assert r.json()["all_datums_received"] is True
 
-    r = requests.get(f"{BASE_URL}/view_datum/test_name")
+    r = await http_client.get("/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = await http_client.get(f"/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = await http_client.get(f"/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.put(f"{BASE_URL}/datums/_prev")
+    r = await http_client.put("/datums/_prev")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
     assert r.json()["id"] == datum0_id
-    assert r.json()["all_datums_received"] == True
+    assert r.json()["all_datums_received"] is True
 
-    r = requests.get(f"{BASE_URL}/view_datum/test_name")
+    r = await http_client.get("/view_datum/test_name")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = await http_client.get(f"/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = await http_client.get(f"/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/datums")
+    r = await http_client.get("/datums")
     assert r.status_code == 200, r.text
     assert json.loads(r.json()["input"]) == input_spec["input"]
     assert r.json()["num_datums"] == 4
     assert r.json()["idx"] == 0
-    assert r.json()["all_datums_received"] == True
+    assert r.json()["all_datums_received"] is True
 
-    r = requests.put(f"{BASE_URL}/_unmount_all")
+    r = await http_client.put("/_unmount_all")
     assert r.status_code == 200, r.text
 
 
