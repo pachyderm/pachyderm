@@ -219,7 +219,7 @@ async def test_unmount(pachyderm_resources, http_client: AsyncClient):
     assert r.status_code == 400, r.text
 
 
-def test_pfs_pagination(pachyderm_resources, dev_server_with_unmount):
+async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     repos, _, files = pachyderm_resources
     to_mount = {
         "mounts": [
@@ -233,11 +233,11 @@ def test_pfs_pagination(pachyderm_resources, dev_server_with_unmount):
     }
 
     # Mount images repo on master branch for pfs calls
-    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    r = await http_client.put("/_mount", json=to_mount)
     assert r.status_code == 200, r.text
 
     # Assert default parameters return all
-    r = requests.get(f"{BASE_URL}/pfs/images")
+    r = await http_client.get("/pfs/images")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
@@ -245,10 +245,8 @@ def test_pfs_pagination(pachyderm_resources, dev_server_with_unmount):
     assert r["content"][1]["name"] == 'file2'
 
     # Assert pagination_marker=None and number=1 returns file1
-    url_params = {
-        'number': 1,
-    }
-    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    url_params = {'number': 1}
+    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
@@ -259,11 +257,12 @@ def test_pfs_pagination(pachyderm_resources, dev_server_with_unmount):
         'number': 1,
         'pagination_marker': 'default/images@master:/file1.py'
     }
-    r = requests.get(f"{BASE_URL}/pfs/images?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
     assert r["content"][0]["name"] == 'file2'
+
 
 def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
