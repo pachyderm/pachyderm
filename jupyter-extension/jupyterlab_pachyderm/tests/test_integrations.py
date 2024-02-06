@@ -313,8 +313,18 @@ async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClie
     assert r["content"][0]["name"] == 'file2'
 
 
-def test_download_file(pachyderm_resources, dev_server_with_unmount):
+async def test_download_file(
+    pachyderm_resources,
+    http_client: AsyncClient,
+    app: Application,
+    tmp_path: Path,
+):
     repos, _, files = pachyderm_resources
+
+    # Set root dir to a temporary path to ensure test is repeatable.
+    pfs_manager = app.settings.get("pfs_contents_manager")
+    assert pfs_manager is not None
+    pfs_manager.root_dir = str(tmp_path)
 
     to_mount = {
         "mounts": [
@@ -338,26 +348,26 @@ def test_download_file(pachyderm_resources, dev_server_with_unmount):
             },
         ]
     }
-    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    r = await http_client.put("/_mount", json=to_mount)
     assert r.status_code == 200, r.text
 
-    r = requests.put(f"{BASE_URL}/download/explore/{repos[0]}/{files[0]}")
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
-    assert Path(Path.cwd(), files[0]).exists
-    with open(Path(Path.cwd(), files[0]), "r") as file:
-        data = file.read()
-        assert data == "some data"
+    local_file = Path.cwd() / files[0]
+    assert local_file.exists()
+    assert local_file.read_text() == "some data"
 
-    r = requests.put(f"{BASE_URL}/download/explore/{repos[0]}/{files[0]}")
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 400, r.text
 
-    r = requests.put(f"{BASE_URL}/download/explore/{repos[1]}")
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 200, r.text
-    assert Path(Path.cwd(), repos[1]).exists
-    assert Path(Path.cwd(), repos[1]).is_dir
-    assert len(list(Path(Path.cwd(), repos[1]).iterdir())) == 2
+    local_path = Path.cwd() / repos[1]
+    assert local_path.exists()
+    assert local_path.is_dir()
+    assert len(list(local_path.iterdir())) == 2
 
-    r = requests.put(f"{BASE_URL}/download/explore/{repos[1]}")
+    r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 400, r.text
 
 
