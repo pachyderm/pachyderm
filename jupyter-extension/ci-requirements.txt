@@ -1,7 +1,7 @@
 black==21.10b0
 build==0.7.0
 check-manifest==0.47
-jupyterlab==3.2.2
+jupyterlab==3.6.7
 pytest-asyncio==0.16.0
 pytest-cov==3.0.0
 pytest-tornasync==0.6.0.post2
