@@ -604,6 +604,25 @@ class TestConfigHandler:
         assert payload["pachd_address"] == ""
 
     @staticmethod
+    @pytest.mark.no_config
+    async def test_do_not_set_invalid_config(app: Application, http_client: AsyncClient):
+        """Test that PUT /config does not store an invalid config."""
+        # Arrange
+        assert app.settings.get("pachyderm_client") is None
+        invalid_address = "localhost:33333"
+        data = {"pachd_address": invalid_address}
+
+        # Act
+        response = await http_client.put("/config", json=data)
+
+        # Assert
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["cluster_status"] == "INVALID"
+        assert payload["pachd_address"] == invalid_address
+        assert app.settings.get("pachyderm_client") is None
+
+    @staticmethod
     @pytest.mark.usefixtures("dev_server")
     def test_config(pach_config):
         # PUT request

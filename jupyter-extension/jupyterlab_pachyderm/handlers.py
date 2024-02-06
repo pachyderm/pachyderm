@@ -389,7 +389,7 @@ class ConfigHandler(BaseHandler):
         body = self.get_json_body()
         address = body.get("pachd_address")
         if not address:
-            get_logger().error("_config/put: no pachd address provided")
+            get_logger().error("config/put: no pachd address provided")
             raise tornado.web.HTTPError(500, "no pachd address provided")
         cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
