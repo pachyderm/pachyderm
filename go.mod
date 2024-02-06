@@ -85,7 +85,7 @@ require (
 	github.com/stretchr/testify v1.8.2
 	github.com/timewasted/go-accept-headers v0.0.0-20130320203746-c78f304b1b09
 	github.com/uber/jaeger-client-go v2.30.0+incompatible
-	github.com/vbauerster/mpb/v6 v6.0.2
+	github.com/vbauerster/mpb/v6 v6.0.4
 	github.com/wader/readline v0.0.0-20230307172220-bcb7158e7448
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
 	github.com/zeebo/xxh3 v1.0.2
@@ -155,7 +155,7 @@ require (
 	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/Microsoft/hcsshim v0.9.3 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20221026131551-cf6655e29de4 // indirect
-	github.com/VividCortex/ewma v1.1.1 // indirect
+	github.com/VividCortex/ewma v1.2.0 // indirect
 	github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d // indirect
 	github.com/acomagu/bufpipe v1.0.3 // indirect
 	github.com/aead/chacha20 v0.0.0-20180709150244-8b13a72661da // indirect
