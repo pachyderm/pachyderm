@@ -862,8 +862,8 @@ class CreateDatumRequest(betterproto.Message):
 
     number: int = betterproto.int64_field(2)
     """
-    Number of datums to return in next response. If unset, default batch size
-    is returned.
+    Number of datums to return in next batch. If unset, default batch size is
+    returned.
     """
 
 

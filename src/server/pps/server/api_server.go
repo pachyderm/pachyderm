@@ -1275,10 +1275,6 @@ func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error)
 				return err
 			}
 			number--
-			if number == 0 {
-				// Empty message indicates to client that batch is done
-				return errors.EnsureStack(server.Send(&pps.DatumInfo{}))
-			}
 			return nil
 		})); !errors.Is(err, errutil.ErrBreak) {
 			return errors.Wrap(err, "streaming iterate")

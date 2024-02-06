@@ -11,7 +11,7 @@
                 },
                 "number": {
                     "type": "integer",
-                    "description": "Number of datums to return in next response. If unset, default batch size is returned."
+                    "description": "Number of datums to return in next batch. If unset, default batch size is returned."
                 }
             },
             "additionalProperties": false,

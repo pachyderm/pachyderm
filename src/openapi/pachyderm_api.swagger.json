@@ -4234,7 +4234,7 @@
     },
     "/pps_v2.API/CreateDatum": {
       "post": {
-        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums. The end of a batch is indicated by an empty DatumInfo message.",
+        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
         "operationId": "API_CreateDatum",
         "responses": {
           "200": {
@@ -9256,7 +9256,7 @@
         "number": {
           "type": "string",
           "format": "int64",
-          "description": "Number of datums to return in next response. If unset, default batch\nsize is returned."
+          "description": "Number of datums to return in next batch. If unset, default batch size\nis returned."
         }
       }
     },
