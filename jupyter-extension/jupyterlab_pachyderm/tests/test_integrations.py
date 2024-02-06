@@ -113,7 +113,7 @@ async def test_list_mounts(pachyderm_resources, http_client: AsyncClient):
     assert len(resp["unmounted"]) == len(repos)
 
 
-def test_mount(pachyderm_resources, dev_server_with_unmount):
+async def test_mount(pachyderm_resources, http_client: AsyncClient):
     repos, _, files = pachyderm_resources
 
     to_mount = {
@@ -138,7 +138,7 @@ def test_mount(pachyderm_resources, dev_server_with_unmount):
             },
         ]
     }
-    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    r = await http_client.put("/_mount", json=to_mount)
     assert r.status_code == 200, r.text
 
     resp = r.json()
@@ -148,23 +148,21 @@ def test_mount(pachyderm_resources, dev_server_with_unmount):
     assert len(resp["unmounted"][0]["branches"]) == 1
     assert len(resp["unmounted"][1]["branches"]) == 2
 
-    r = requests.get(f"{BASE_URL}/pfs")
+    r = await http_client.get("/pfs")
     assert r.status_code == 200, r.text
     resp = r.json()
     assert len(resp["content"]) == 3
     assert sorted([c["name"] for c in resp["content"]]) == sorted(mounted_names)
 
-    r = requests.put(f"{BASE_URL}/_mount", data=json.dumps(to_mount))
+    r = await http_client.put("/_mount", json=to_mount)
     assert r.status_code == 400, r.text
 
-    r = requests.put(
-        f"{BASE_URL}/_unmount_all",
-    )
+    r = await http_client.put("/_unmount_all")
     assert r.status_code == 200, r.text
     assert r.json()["mounted"] == []
     assert len(r.json()["unmounted"]) == 3
 
-    r = requests.get(f"{BASE_URL}/pfs")
+    r = await http_client.get("/pfs")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 0
 
