@@ -30,7 +30,9 @@ VERSION = "v2"
 
 
 class BaseHandler(APIHandler):
-    _no_client_error = tornado.web.HTTPError(reason="no instantiated pachyderm client")
+    _no_client_error = tornado.web.HTTPError(
+        status_code=401, reason="no instantiated pachyderm client"
+    )
 
     @property
     def client(self) -> Client:
