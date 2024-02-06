@@ -90,18 +90,14 @@ def dev_server_with_unmount(dev_server):
     requests.put(f"{BASE_URL}/_unmount_all")
 
 
-def test_list_mounts(pachyderm_resources, dev_server_with_unmount):
+async def test_list_mounts(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
 
-    r = requests.put(
-        f"{BASE_URL}/_mount",
-        data=json.dumps(
-            {"mounts": [{"name": "mount1", "repo": repos[0], "branch": "master"}]}
-        ),
-    )
+    payload = {"mounts": [{"name": "mount1", "repo": repos[0], "branch": "master"}]}
+    r = await http_client.put("_mount", json=payload)
     assert r.status_code == 200, r.text
 
-    r = requests.get(f"{BASE_URL}/mounts")
+    r = await http_client.get("mounts")
     assert r.status_code == 200, r.text
 
     resp = r.json()
