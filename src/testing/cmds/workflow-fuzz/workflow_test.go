@@ -31,7 +31,7 @@ const (
 	namespace            = "fuzz-cluster-1"
 	useSucccessValWeight = .75
 	maxRepeatedCount     = 5
-	// usNilWeight          = .2
+	requestCount         = 1000
 )
 
 var (
@@ -115,7 +115,7 @@ func constantVal(value interface{}) Generator {
 	return func(genSource generatorSource) protoreflect.Value { return protoreflect.ValueOf(value) }
 }
 
-func randInt64Positive(genSource generatorSource) protoreflect.Value { // DNJ  TODO parametrize and return function?
+func randInt64Positive(genSource generatorSource) protoreflect.Value {
 	return protoreflect.ValueOf(genSource.r.Int63n(2000))
 }
 
@@ -124,7 +124,7 @@ func randNanos(genSource generatorSource) protoreflect.Value {
 }
 
 func randJson(genSource generatorSource) protoreflect.Value {
-	return protoreflect.ValueOf("") // DNJ TODO - random json generator
+	return protoreflect.ValueOf("")
 }
 
 func existingString(field string) Generator {
@@ -162,7 +162,6 @@ func randName(genSource generatorSource) protoreflect.Value {
 	return protoreflect.ValueOf(characters.String())
 }
 
-// DNJ TODO - rpc fuzz test
 func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
 	for fd, protoDescriptors := range protos {
 		svcMethods := map[string][]string{}
@@ -348,10 +347,6 @@ func getValueForField(ctx context.Context, genSource generatorSource) protorefle
 	if nameGenFunc, ok := genSource.index.NameGenerators[string(genSource.field.FullName())]; ok {
 		return nameGenFunc(genSource)
 	} else if kindGenFunc, ok := genSource.index.KindGenerators[genSource.field.Kind()]; ok {
-		// log.Info(ctx, "DNJ TODO - field kind log",
-		// 	zap.Any("field", genSource.field.FullName()),
-		// 	zap.Any("field", genSource.field.Kind()),
-		// )
 		return kindGenFunc(genSource)
 	} else {
 		log.Info(ctx, "Input generator not provided for requested field.",
@@ -368,10 +363,10 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 		successInputsMu.Lock()
 		if vals, ok := out[fieldName]; ok {
 			if !slices.ContainsFunc(vals, func(v protoreflect.Value) bool { return v.Interface() == fieldVal.Interface() }) { // avoid long lists of duplicates
-				out[fieldName] = append(vals, fieldVal) // DNJ TODO - test
+				out[fieldName] = append(vals, fieldVal)
 			}
 		} else {
-			out[fieldName] = []protoreflect.Value{fieldVal} // DNJ TODO repeated fields
+			out[fieldName] = []protoreflect.Value{fieldVal}
 		}
 		successInputsMu.Unlock()
 		if field.Kind() == protoreflect.MessageKind { // handle sub messages as well as saving the whole message
@@ -381,7 +376,7 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 				for i := 0; i < list.Len(); i++ {
 					listMsg, ok := list.Get(i).Message().(*dynamicpb.Message)
 					if !ok {
-						log.Info(ctx, "Storing a list of message values, but a the message was not a valid dynamicpb.Message", // DNJ TODO -error?
+						log.Info(ctx, "Storing a list of message values, but a the message was not a valid dynamicpb.Message",
 							zap.Any("field", field.FullName()),
 							zap.Any("msg", list.Get(i).String()))
 					} else {
@@ -430,27 +425,19 @@ func TestGrpcWorkflow(t *testing.T) { // DNJ TODO - better name
 	if !*runDefault {
 		t.Skip()
 	}
-	// We need a file logger since Go runs Fuzz in seperate procs
 	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
 	c := getSharedCluster(t)
-	// for i := 0; i < 100; i++ {
-	// 	fuzzGrpc(f, ctx, c, time.Now().Unix())
-	// 	time.Sleep(time.Millisecond * 1000)
-	// }
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(10)
-	// f.Fuzz(
-	for i := 0; i < 10000; i++ {
+	for i := 0; i < requestCount; i++ {
 		eg.Go(func() error {
 			fuzzGrpc(ctx, c, rand.Int63())
 			return nil
-			// log.Info(ctx, "Stored input", zap.String("success inputs", fmt.Sprintf("%#v", successInputs)))
 		})
 	}
 
 	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
-	//DNJ TODO validation in Fuzz()?
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
