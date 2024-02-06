@@ -473,11 +473,8 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     assert r.status_code == 200, r.text
 
 
-@pytest.mark.skip(
-    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
-)
-def test_download_datum(pachyderm_resources, dev_server_with_unmount):
-    repos, branches, files = pachyderm_resources
+async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
+    repos, _, files = pachyderm_resources
     input_spec = {
         "input": {
             "cross": [
@@ -504,75 +501,35 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
         }
     }
 
-    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 0
     assert r.json()["num_datums"] == 4
-    assert r.json()["all_datums_received"] == True
-    r = requests.put(f"{BASE_URL}/datums/_download")
+    assert r.json()["all_datums_received"] is True
+
+    r = await http_client.put("/datums/_download")
     assert r.status_code == 200, r.text
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
     assert sorted(
-        list(
-            os.walk(
-                os.path.join(
-                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
-                )
-            )
-        )[0][2]
+        list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]
     ) == sorted(files)
-    assert (
-        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
-        in list(os.walk(PFS_MOUNT_DIR))[0][1]
-    )
-    assert (
-        len(
-            list(
-                os.walk(
-                    os.path.join(
-                        PFS_MOUNT_DIR,
-                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
-                    )
-                )
-            )[0][2]
-        )
-        == 1
-    )
+    assert f"{repos[1]}_dev" in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[2])))[0][2]) == 1
 
-    r = requests.put(f"{BASE_URL}/datums/_next")
+    r = await http_client.put("/datums/_next")
     assert r.status_code == 200, r.text
     assert r.json()["idx"] == 1
     assert r.json()["num_datums"] == 4
-    assert r.json()["all_datums_received"] == True
-    r = requests.put(f"{BASE_URL}/datums/_download")
+    assert r.json()["all_datums_received"] is True
+
+    r = await http_client.put("/datums/_download")
     assert r.status_code == 200, r.text
     assert len(list(os.walk(PFS_MOUNT_DIR))[0][1]) == 3
     assert sorted(
-        list(
-            os.walk(
-                os.path.join(
-                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
-                )
-            )
-        )[0][2]
+        list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[0])))[0][2]
     ) == sorted(files)
-    assert (
-        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
-        in list(os.walk(PFS_MOUNT_DIR))[0][1]
-    )
-    assert (
-        len(
-            list(
-                os.walk(
-                    os.path.join(
-                        PFS_MOUNT_DIR,
-                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
-                    )
-                )
-            )[0][2]
-        )
-        == 1
-    )
+    assert f"{repos[1]}_dev" in list(os.walk(PFS_MOUNT_DIR))[0][1]
+    assert len(list(os.walk(os.path.join(PFS_MOUNT_DIR, repos[2])))[0][2]) == 1
 
 
 class TestConfigHandler:
