@@ -6,7 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
-import urllib
+import urllib.parse
 
 import pytest
 import requests
@@ -264,7 +264,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     assert r["content"][0]["name"] == 'file2'
 
 
-def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
+async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClient):
     repos, _, files = pachyderm_resources
     input_spec = {
         "input": {
@@ -278,7 +278,7 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     }
 
     # Mount images repo on master branch for view_datum calls
-    r = requests.put(f"{BASE_URL}/datums/_mount", data=json.dumps(input_spec))
+    r = await http_client.put("/datums/_mount", json=input_spec)
     assert r.status_code == 200, r.text
     r = r.json()
     assert r["idx"] == 0
@@ -286,7 +286,7 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     assert r["all_datums_received"] == 1
 
     # Assert default parameters return all
-    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}")
+    r = await http_client.get(f"/view_datum/{repos[0]}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
@@ -294,10 +294,8 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
     assert r["content"][1]["name"] == 'file2'
 
     # Assert pagination_marker=None and number=1 returns file1
-    url_params = {
-        'number': 1,
-    }
-    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    url_params = {'number': 1}
+    r = await http_client.get(f"/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
@@ -308,11 +306,12 @@ def test_view_datum_pagination(pachyderm_resources, dev_server_with_unmount):
         'number': 1,
         'pagination_marker': 'default/images@master:/file1.py'
     }
-    r = requests.get(f"{BASE_URL}/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    r = await http_client.get(f"/view_datum/{repos[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 1
     assert r["content"][0]["name"] == 'file2'
+
 
 def test_download_file(pachyderm_resources, dev_server_with_unmount):
     repos, _, files = pachyderm_resources
