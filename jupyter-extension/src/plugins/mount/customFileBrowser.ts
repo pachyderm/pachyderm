@@ -75,7 +75,6 @@ const createCustomFileBrowser = (
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item: any) => {
-            console.log(item);
             manager.openOrReveal(item.path);
           });
         },
@@ -87,7 +86,6 @@ const createCustomFileBrowser = (
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item) => {
-            console.log(item);
             Clipboard.copyToSystem(
               item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
             );
