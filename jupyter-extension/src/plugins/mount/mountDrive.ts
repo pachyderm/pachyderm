@@ -2,16 +2,22 @@ import {ModelDB} from '@jupyterlab/observables';
 import {Contents, ServerConnection} from '@jupyterlab/services';
 import {PartialJSONObject} from '@lumino/coreutils';
 import {Signal, ISignal} from '@lumino/signaling';
+import {showErrorMessage} from '@jupyterlab/apputils';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {URLExt} from '@jupyterlab/coreutils';
 import {requestAPI} from '../../handler';
-import {Paging} from './paging';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 
-// How many files to render in the FileBrowser UI per page
-const MAX_NUM_CONTENTS_PAGE = 100;
+// How many Content li are visible at a given time for the user to scroll.
+const VISIBLE_CONTENT_LIS = 500;
+// How many visible Content li that are padded on the top and bottom of the core set of visible Content li.
+// This padding enables the user to scroll while the Contents index changes.
+const VISIBLE_CONTENT_LI_PADDING = 200;
 // How many items to request per page
-const PAGINATION_NUMBER = 400;
+const PAGINATION_NUMBER = 1000;
+// How tall in pixels a Content list item is.
+const LI_HEIGHT_PX = 25;
+// An empty default representation of directory.
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   name: '',
   path: '',
@@ -26,30 +32,40 @@ const DEFAULT_CONTENT_MODEL: Contents.IModel = {
 };
 
 export class MountDrive implements Contents.IDrive {
-  _registry: DocumentRegistry;
+  // Properties necessary for implementing IDrive, but otherwise unused.
+  readonly _registry: DocumentRegistry;
   modelDBFactory?: ModelDB.IFactory | undefined;
-  readonly _model: Paging.IModel;
-
   private _fileChanged = new Signal<this, Contents.IChangedArgs>(this);
-  private _loading = new Signal<this, boolean>(this);
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
+
+  // Signal emits `true` on navigating to a new directory and `false` on response
+  private _loading = new Signal<this, boolean>(this);
+  // Contents cache for the Drive used to avoid the small Contents limit that can be visible in a FileBrowser.
   private _cache: {
     key: string | null;
     now: number | null;
     contents: Contents.IModel[];
+    filteredContents: Contents.IModel[];
   };
+  // Root path of the Drive
   private _path: string;
+  // Name suffix for each instance of a drive. Must be unique.
   private _nameSuffix: string;
   // DOM Node ID of the FileBrowser
   private _id: string;
   // Triggers a cd event without changing the current path in the FileBrowser which forces a re-render of the FileBrowser
   private _rerenderFileBrowser: () => Promise<void>;
-  // Updates the pagination UI after changes in page, contents, or maxPage have been made.
-  private _pagingUpdate: () => void;
   // Previous search filter used last time get was called. Used to track if the current page needs to be reset
   // to zero.
   private _previousFilter: string | null;
+  // The index determining which set of cached contents is visible to the user. Changed by scrolling the FileBrowser.
+  private _index: number;
+  // The current scroll position scroll of the FileBrowser contents.
+  private _scrollTop: number;
+  // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
+  // scroll event listeners.
+  private _hasScrollEventListener: boolean;
 
   constructor(
     registry: DocumentRegistry,
@@ -57,32 +73,28 @@ export class MountDrive implements Contents.IDrive {
     nameSuffix: string,
     id: string,
     _rerenderFileBrowser: () => Promise<void>,
-    _pagingUpdate: () => void,
   ) {
     this._registry = registry;
-    this._model = {page: 0, max_page: 0};
-    this._cache = {key: null, now: null, contents: []};
+    this._cache = {key: null, now: null, contents: [], filteredContents: []};
     this._path = path;
     this._nameSuffix = nameSuffix;
     this._id = id;
     this._rerenderFileBrowser = _rerenderFileBrowser;
-    this._pagingUpdate = _pagingUpdate;
     this._previousFilter = null;
+    this._index = 0;
+    this._scrollTop = 0;
+    this._hasScrollEventListener = false;
   }
 
   get name(): string {
     return MOUNT_BROWSER_PREFIX + this._nameSuffix;
   }
 
-  get model(): Paging.IModel {
-    return this._model;
-  }
-
   get fileChanged(): ISignal<this, Contents.IChangedArgs> {
     return this._fileChanged;
   }
 
-  // Signal emits `true` on expensive request to backend and `false` on response.
+  // Signal emits `true` on navigating to a new directory and `false` on response
   get loading(): ISignal<this, boolean> {
     return this._loading;
   }
@@ -90,6 +102,7 @@ export class MountDrive implements Contents.IDrive {
   get serverSettings(): ServerConnection.ISettings {
     return this._serverSettings;
   }
+
   get isDisposed(): boolean {
     return this._isDisposed;
   }
@@ -107,7 +120,7 @@ export class MountDrive implements Contents.IDrive {
     try {
       shallowResponse = await this._get(url, {content: '0'});
     } catch (e) {
-      console.log(url + ' not found');
+      showErrorMessage('Get Error', url + ' not found');
       return DEFAULT_CONTENT_MODEL;
     }
     const content = options?.content ? '1' : '0';
@@ -128,38 +141,33 @@ export class MountDrive implements Contents.IDrive {
         content,
       };
       const response = await this._get(url, getOptions);
-      this._loading.emit(false);
-      this._model.page = 1;
       const now = Date.now();
-      this._cache = {key: localPath, now, contents: response.content};
+      this._cache = {
+        key: localPath,
+        now,
+        contents: response.content,
+        filteredContents: [],
+      };
+      this.resetContentsNode();
+      this.filterContents();
+      this._loading.emit(false);
       this._fetchNextPage(response, now, url, getOptions);
     }
 
-    // Filter contents if filter defined
     const filter = this.getFilter();
-    const contents = !filter
-      ? this._cache.contents
-      : this._cache.contents.filter((content: Contents.IModel) => {
-          return content.name.toLowerCase().includes(filter);
-        });
-
-    // Reset page to 1 if the filter has changed and update the previousFilter for this check
-    // on the next call of this method.
     if (filter !== this._previousFilter) {
-      this._model.page = 1;
+      this.resetContentsNode();
+      this.filterContents();
     }
     this._previousFilter = filter;
 
-    // Update max page and pagination UI after contents have changed.
-    this._model.max_page = Math.ceil(contents.length / MAX_NUM_CONTENTS_PAGE);
-    this._pagingUpdate();
+    this.setupScrollingHandler();
 
+    const {start} = this.getContentsStart();
+    const {end} = this.getContentsEnd();
     return {
       ...shallowResponse,
-      content: contents.slice(
-        (this._model.page - 1) * MAX_NUM_CONTENTS_PAGE,
-        this._model.page * MAX_NUM_CONTENTS_PAGE,
-      ),
+      content: this._cache.filteredContents.slice(start, end),
     };
   }
 
@@ -191,9 +199,9 @@ export class MountDrive implements Contents.IDrive {
       // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
       // It will just add new pages and update the page selector without disrupting the user.
       this._cache.contents = this._cache.contents.concat(nextResponse.content);
+      this.filterContents();
 
       // Trigger a change directory event without a path change to force re-render the FileBrowser, then fetch the next page of results async.
-      await this._rerenderFileBrowser();
       this._fetchNextPage(
         nextResponse,
         timeOfLastDirectoryChange,
@@ -250,6 +258,114 @@ export class MountDrive implements Contents.IDrive {
     const selector = `#${this._id} .jp-FileBrowser-filterBox .jp-FilterBox input`;
     const node: HTMLInputElement | null = document.querySelector(selector);
     return node?.value?.toLowerCase() || null;
+  }
+
+  // Gets the DOM node containing the Contents of the FileBrowser. Should only be called
+  // after a FileBrowser has been created with this Drive otherwise an error is thrown.
+  private getContentsNode(): HTMLStyleElement | null {
+    const selector = `#${this._id} .jp-DirListing .jp-DirListing-content`;
+    const node: HTMLStyleElement | null = document.querySelector(selector);
+    return node;
+  }
+
+  // Scrolls the Contents DOM node to the top and resets the index. Should be called after a change in filter or directory.
+  private resetContentsNode(): void {
+    const contentsNode = this.getContentsNode();
+    this._index = 0;
+    if (contentsNode) {
+      (contentsNode as any).scrollTop = 0;
+    }
+  }
+
+  // Filters the cached contents into filteredContents. Should be called when the cached contents or filter changes
+  private filterContents(): void {
+    const filter = this.getFilter();
+    this._cache.filteredContents = !filter
+      ? this._cache.contents
+      : this._cache.contents.filter((content: Contents.IModel) => {
+          return content.name.toLowerCase().includes(filter);
+        });
+  }
+
+  // Gets the visible cached Contents start for slicing. atMin is true if the _index can no longer be decremented.
+  private getContentsStart(): {start: number; atMin: boolean} {
+    let start = (this._index - 1) * VISIBLE_CONTENT_LI_PADDING;
+    let atMin = false;
+    if (start < 0) {
+      start = 0;
+      atMin = true;
+    }
+    return {start, atMin};
+  }
+
+  // Gets the visible cached Contents end for slicing. atMin is true if the _index can no longer be decremented.
+  private getContentsEnd(): {end: number; atMax: boolean} {
+    let end =
+      VISIBLE_CONTENT_LIS + (this._index + 1) * VISIBLE_CONTENT_LI_PADDING;
+    let atMax = false;
+    if (end > this._cache.filteredContents.length) {
+      end = this._cache.filteredContents.length;
+      atMax = true;
+    }
+    return {end, atMax};
+  }
+
+  // Sets up the Contents scroll event listener necessary for infinite scroll pagination. Uses _hasScrollEventListener to ensure
+  // the event listener is only setup once.
+  private setupScrollingHandler(): void {
+    if (this._hasScrollEventListener) {
+      return;
+    }
+
+    const contentsNode = this.getContentsNode();
+    if (!contentsNode) {
+      return;
+    }
+
+    this._hasScrollEventListener = true;
+    let ignoreNextScroll = false;
+    contentsNode.addEventListener('scroll', () => {
+      const scrollDiff = contentsNode.scrollTop - this._scrollTop;
+      this._scrollTop = contentsNode.scrollTop;
+
+      const scrollHeight = contentsNode.scrollHeight;
+      const scrollNextHeight = Math.round(scrollHeight * 0.8);
+      const scrollPrevHeight = Math.round(scrollHeight * 0.2);
+
+      // Only the user scrolling to the upper or lower bound should trigger a change in index, not
+      // scrolls initiated by this JS client.
+      if (ignoreNextScroll) {
+        return;
+      }
+
+      // When the user scrolls to the upper 20% of the Contents DOM node we decrement the index,
+      // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
+      // with each index change.
+      const {atMin} = this.getContentsStart();
+      if (this._scrollTop < scrollPrevHeight && scrollDiff < 0 && !atMin) {
+        ignoreNextScroll = true;
+        this._index -= 1;
+        this._rerenderFileBrowser().then(() => {
+          this._scrollTop += VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          contentsNode.scrollTop = this._scrollTop;
+          ignoreNextScroll = false;
+        });
+      }
+
+      // When the user scrolls to the lower 80% of the Contents DOM node we increment the index,
+      // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
+      // with each index change.
+      const {atMax} = this.getContentsEnd();
+      if (this._scrollTop > scrollNextHeight && scrollDiff > 0 && !atMax) {
+        ignoreNextScroll = true;
+        this._index += 1;
+        this._rerenderFileBrowser().then(() => {
+          this._scrollTop -= VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          contentsNode.scrollTop = this._scrollTop;
+          ignoreNextScroll = false;
+        });
+      }
+    });
   }
 
   private async _get(
