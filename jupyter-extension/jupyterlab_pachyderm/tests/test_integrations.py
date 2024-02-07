@@ -6,6 +6,7 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
+from typing import Tuple
 import urllib.parse
 
 import pytest
@@ -596,7 +597,7 @@ class TestConfigHandler:
 
 
 @pytest.fixture(params=[True, False])
-def simple_pachyderm_env(request):
+def simple_pachyderm_env(request) -> Tuple[Client, pfs.Repo, pfs.Repo, pps.Pipeline]:
     client = Client.from_config()
     suffix = str(randint(100000, 999999))
 
@@ -655,13 +656,14 @@ def notebook_path(simple_pachyderm_env) -> Path:
         notebook_path.unlink()
 
 
-def test_pps(dev_server, simple_pachyderm_env, notebook_path):
+async def test_pps(http_client: AsyncClient, simple_pachyderm_env, notebook_path):
     client, repo, _companion_repo, pipeline = simple_pachyderm_env
     with client.pfs.commit(branch=pfs.Branch(repo=repo, name="master")) as commit:
         client.pfs.put_file_from_bytes(commit=commit, path="/data", data=b"data")
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
-    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data))
+    r = await http_client.put(f"/pps/_create/{notebook_path}", json=data)
+
     assert r.status_code == 200, r.text
     job_info = next(client.pps.list_job(pipeline=pipeline))
     job_info = client.pps.inspect_job(job=job_info.job, wait=True)
@@ -672,14 +674,15 @@ def test_pps(dev_server, simple_pachyderm_env, notebook_path):
     )
 
 
-def test_pps_last_modified_time_not_specified_validation(dev_server, notebook_path):
-    r = requests.put(f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps({}))
+async def test_pps_last_modified_time_not_specified_validation(http_client: AsyncClient, notebook_path):
+    r = await http_client.put(f"/pps/_create/{notebook_path}", json={})
     assert r.status_code == 400, r.text
     assert r.json()["reason"] == f"Bad Request: last_modified_time not specified"
 
+
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
-def test_pps_external_files_do_not_exist_validation(
-    dev_server, simple_pachyderm_env, notebook_path
+async def test_pps_external_files_do_not_exist_validation(
+    http_client: AsyncClient, simple_pachyderm_env, notebook_path
 ):
     _client, repo, _companion_repo, pipeline = simple_pachyderm_env
 
@@ -687,17 +690,16 @@ def test_pps_external_files_do_not_exist_validation(
     notebook_path.write_text(new_notebook_data)
     last_modified = datetime.utcfromtimestamp(os.path.getmtime(notebook_path))
     data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
-    r = requests.put(
-        f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
-    )
+    r = await http_client.put(f"/pps/_create/{notebook_path}", json=data)
 
     assert r.status_code == 400
     assert r.json()["message"] == 'Bad Request'
     assert r.json()["reason"] == 'external file does_not_exist.py could not be found in the directory of the Jupyter notebook'
 
+
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
-def test_pps_external_files_exists_in_another_directory_validation(
-    dev_server, simple_pachyderm_env, notebook_path
+async def test_pps_external_files_exists_in_another_directory_validation(
+    http_client: AsyncClient, simple_pachyderm_env, notebook_path
 ):
     _client, repo, _companion_repo, pipeline = simple_pachyderm_env
 
@@ -712,9 +714,7 @@ def test_pps_external_files_exists_in_another_directory_validation(
         notebook_directory.joinpath("world/hello.py").write_text("print('hello')")
         time.sleep(5)
 
-        r = requests.put(
-            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
-        )
+        r = await http_client.put(f"/pps/_create/{notebook_path}", json=data)
 
         assert r.status_code == 400
         assert r.json()["message"] == 'Bad Request'
@@ -723,9 +723,10 @@ def test_pps_external_files_exists_in_another_directory_validation(
         notebook_directory.joinpath("world/hello.py").unlink()
         notebook_directory.joinpath("world").rmdir()
 
+
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
-def test_pps_uploads_external_files(
-    dev_server, simple_pachyderm_env, notebook_path
+async def test_pps_uploads_external_files(
+    http_client: AsyncClient, simple_pachyderm_env, notebook_path
 ):
     client, repo, companion_repo, pipeline = simple_pachyderm_env
     new_notebook_data = _update_metadata(TEST_NOTEBOOK, repo, pipeline, 'hello.py,world.py')
@@ -736,9 +737,7 @@ def test_pps_uploads_external_files(
         TEST_NOTEBOOK.with_name("hello.py").write_text("print('hello')")
         TEST_NOTEBOOK.with_name("world.py").write_text("print('world')")
 
-        r = requests.put(
-            f"{BASE_URL}/pps/_create/{notebook_path}", data=json.dumps(data)
-        )
+        r = await http_client.put(f"/pps/_create/{notebook_path}", json=data)
 
         assert r.status_code == 200, r.text
         job_info = next(client.pps.list_job(pipeline=pipeline))
@@ -759,15 +758,16 @@ def test_pps_uploads_external_files(
         TEST_NOTEBOOK.with_name("hello.py").unlink()
         TEST_NOTEBOOK.with_name("world.py").unlink()
 
+
 @pytest.mark.parametrize("simple_pachyderm_env", [True], indirect=True)
-def test_pps_reuse_pipeline_name_different_project(
-    dev_server, simple_pachyderm_env, notebook_path
+async def test_pps_reuse_pipeline_name_different_project(
+    http_client: AsyncClient, simple_pachyderm_env, notebook_path
 ):
     """This tests creating a pipeline from a notebook within a project, and then creating a new
     pipeline with the same name inside the default project. A bug existed where reusing the pipeline
     name caused an error."""
     client, repo, _companion_repo, pipeline = simple_pachyderm_env
-    test_pps(dev_server, simple_pachyderm_env, notebook_path)
+    await test_pps(http_client, simple_pachyderm_env, notebook_path)
 
     default_project = pfs.Project(name="default")
     default_repo = pfs.Repo(name=repo.name, project=default_project)
@@ -780,9 +780,7 @@ def test_pps_reuse_pipeline_name_different_project(
         new_notebook = new_notebook.relative_to(os.getcwd())
         last_modified = datetime.utcfromtimestamp(os.path.getmtime(new_notebook))
         data = dict(last_modified_time=f"{datetime.isoformat(last_modified)}Z")
-        r = requests.put(
-            f"{BASE_URL}/pps/_create/{new_notebook}", data=json.dumps(data)
-        )
+        r = await http_client.put(f"/pps/_create/{new_notebook}", json=data)
         assert r.status_code == 200, r.text
         assert client.pps.inspect_pipeline(pipeline=default_pipeline)
     finally:
@@ -798,7 +796,7 @@ def test_pps_reuse_pipeline_name_different_project(
 
 @pytest.mark.parametrize("simple_pachyderm_env", [False], indirect=True)
 def test_pps_update_default_project_pipeline(
-    dev_server, simple_pachyderm_env, notebook_path
+    http_client: AsyncClient, simple_pachyderm_env, notebook_path
 ):
     """This tests creating and then updating a pipeline within the default project,
     but doing so using an empty string. A bug existed where we would incorrectly try to
@@ -813,5 +811,5 @@ def test_pps_update_default_project_pipeline(
     new_notebook_data = _update_metadata(TEST_NOTEBOOK, empty_repo, empty_pipeline)
     notebook_path.write_text(new_notebook_data)
 
-    test_pps(dev_server, simple_pachyderm_env, notebook_path)
-    test_pps(dev_server, simple_pachyderm_env, notebook_path)
+    test_pps(http_client, simple_pachyderm_env, notebook_path)
+    test_pps(http_client, simple_pachyderm_env, notebook_path)
