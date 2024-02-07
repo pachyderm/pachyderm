@@ -1,25 +1,17 @@
 import os
 import json
-import time
 import urllib.parse
-from datetime import datetime
 from pathlib import Path
-from random import randint
-from typing import Tuple
 
 import pytest
 from httpx import AsyncClient
 from tornado.web import Application
 
-from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
-from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from pachyderm_sdk import Client
-from pachyderm_sdk.api import pfs, pps
-from pachyderm_sdk.config import ConfigFile
+from pachyderm_sdk.api import pfs
 
 from jupyterlab_pachyderm.tests import DEFAULT_PROJECT
-
-DEFAULT_PROJECT = "default"
 
 
 @pytest.fixture
