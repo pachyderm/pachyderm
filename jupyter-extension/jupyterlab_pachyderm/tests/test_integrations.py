@@ -14,7 +14,7 @@ from httpx import AsyncClient
 from tornado.web import Application
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
+from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
@@ -572,23 +572,24 @@ class TestConfigHandler:
         assert app.settings.get("pachyderm_client") is None
 
     @staticmethod
-    @pytest.mark.usefixtures("dev_server")
-    def test_config(pach_config):
+    async def test_config(pach_config: Path, http_client: AsyncClient):
+        """Test that PUT /config with a valid configuration is processed
+        by the ConfigHandler as expected."""
         # PUT request
-        test_endpoint = "localhost:30650"
-        r = requests.put(
-            f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
-        )
+        local_active_context = ConfigFile.from_path(PACH_CONFIG).active_context
+
+        payload = {"pachd_address": local_active_context.pachd_address}
+        r = await http_client.put("/config", json=payload)
 
         config = ConfigFile.from_path(pach_config)
-        active_context = config.active_context
+        new_active_context = config.active_context
 
         assert r.status_code == 200, r.text
         assert r.json()["cluster_status"] != "INVALID"
-        assert "30650" in active_context.pachd_address
+        assert r.json()["pachd_address"] == new_active_context.pachd_address
 
         # GET request
-        r = requests.get(f"{BASE_URL}/config")
+        r = await http_client.get("/config")
 
         assert r.status_code == 200, r.text
         assert r.json()["cluster_status"] != "INVALID"
