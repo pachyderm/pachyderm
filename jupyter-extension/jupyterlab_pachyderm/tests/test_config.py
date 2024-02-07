@@ -13,7 +13,7 @@ from jupyterlab_pachyderm.env import PACH_CONFIG
 @pytest.mark.no_config
 async def test_config_no_file(app: Application, http_client: AsyncClient):
     """Test that if there is no config file present, the extension does not
-    use a default config."""
+    use a default config and the cluster status is INVALID."""
     # Arrange
     config_file = app.settings.get("pachyderm_config_file")
     assert config_file is not None and not config_file.exists()
@@ -30,9 +30,12 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
 
 @pytest.mark.no_config
 async def test_do_not_set_invalid_config(app: Application, http_client: AsyncClient):
-    """Test that PUT /config does not store an invalid config."""
+    """Test that PUT /config does not store an invalid config nor write to a config file."""
     # Arrange
     assert app.settings.get("pachyderm_client") is None
+    config_file = app.settings.get("pachyderm_config_file")
+    assert config_file is not None and not config_file.exists()
+
     invalid_address = "localhost:33333"
     data = {"pachd_address": invalid_address}
 
@@ -45,6 +48,9 @@ async def test_do_not_set_invalid_config(app: Application, http_client: AsyncCli
     assert payload["cluster_status"] == "INVALID"
     assert payload["pachd_address"] == invalid_address
     assert app.settings.get("pachyderm_client") is None
+
+    # Ensure that no config file was created.
+    assert config_file is not None and not config_file.exists()
 
 
 async def test_config(pach_config: Path, http_client: AsyncClient):
