@@ -74,7 +74,7 @@ const createCustomFileBrowser = (
         icon: 'fa fa-folder',
         mnemonic: 0,
         execute: () => {
-          each(browser.selectedItems(), (item: any) => {
+          each(browser.selectedItems(), (item) => {
             manager.openOrReveal(item.path);
           });
         },
