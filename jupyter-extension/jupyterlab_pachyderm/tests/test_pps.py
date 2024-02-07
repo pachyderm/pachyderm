@@ -14,7 +14,7 @@ from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
 
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
-from tests import DEFAULT_PROJECT, TEST_NOTEBOOK
+from jupyterlab_pachyderm.tests import DEFAULT_PROJECT, TEST_NOTEBOOK
 
 
 @pytest.fixture(params=[True, False])
