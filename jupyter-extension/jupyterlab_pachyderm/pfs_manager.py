@@ -147,24 +147,26 @@ def _get_dir_model(
     model["format"] = "json"
 
 
-def _download_file(client: Client, file: pfs.File):
+def _download_file(client: Client, file: pfs.File, destination: Path):
     """Downloads the given PFS file or directory to the CWD"""
     fileinfo = client.pfs.inspect_file(file=file)
     if fileinfo.file_type == pfs.FileType.FILE:
+        local_file = destination.joinpath(os.path.basename(file.path))
         with client.pfs.pfs_file(file=file) as src_file:
-            with open(Path(Path.cwd(), Path(file.path).name), "xb") as dst_file:
+            with local_file.open("xb") as dst_file:
                 shutil.copyfileobj(fsrc=src_file, fdst=dst_file)
     elif fileinfo.file_type == pfs.FileType.DIR:
         if file.path == "/" or file.path == "":
             dir_name = file.commit.repo.name
         else:
-            dir_name = Path(file.path).name
+            dir_name = os.path.basename(file.path)
 
-        if Path(Path.cwd(), dir_name).exists():
-            raise FileExistsError
+        local_path = destination.joinpath(dir_name)
+        if local_path.exists():
+            raise FileExistsError(local_path)
 
         with client.pfs.pfs_tar_file(file=file) as tar:
-            tar.extractall(path=dir_name)
+            tar.extractall(path=str(local_path))
     else:
         raise ValueError(
             f"Downloading {file.path} which is unsupported file type {fileinfo.file_type}"
@@ -292,7 +294,7 @@ class PFSManager(FileContentsManager):
 
     def download_file(self, path: str):
         file = self._get_file_from_path(path=path)
-        _download_file(client=self._client, file=file)
+        _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
         return False
@@ -700,7 +702,7 @@ class DatumManager(FileContentsManager):
 
     def download_file(self, path: str):
         file = self._get_file_from_path(path=path)
-        _download_file(client=self._client, file=file)
+        _download_file(client=self._client, file=file, destination=Path(self.root_dir))
 
     def is_hidden(self, path):
         return False
