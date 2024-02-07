@@ -13,7 +13,6 @@ import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
-import {Paging} from './paging';
 import {requestAPI} from '../../handler';
 
 const createCustomFileBrowser = (
@@ -33,16 +32,15 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
-    () => {
-      paging.update();
-    },
   );
   manager.services.contents.addDrive(drive);
 
   const browser = factory.createFileBrowser(id, {
     driveName: drive.name,
     state: null,
-    refreshInterval: 10000,
+    // Since we cache results in our MountDrive refreshing does nothing but waste render cycles. Thus we
+    // effectively disable it by setting it to the max.
+    refreshInterval: 2147483647,
   });
 
   const toolbar = browser.node
@@ -76,7 +74,8 @@ const createCustomFileBrowser = (
         icon: 'fa fa-folder',
         mnemonic: 0,
         execute: () => {
-          each(browser.selectedItems(), (item) => {
+          each(browser.selectedItems(), (item: any) => {
+            console.log(item);
             manager.openOrReveal(item.path);
           });
         },
@@ -88,6 +87,7 @@ const createCustomFileBrowser = (
         mnemonic: 0,
         execute: () => {
           each(browser.selectedItems(), (item) => {
+            console.log(item);
             Clipboard.copyToSystem(
               item.path.replace(MOUNT_BROWSER_PREFIX + nameSuffix, '/pfs/'),
             );
@@ -149,12 +149,6 @@ const createCustomFileBrowser = (
   } catch (e) {
     console.log('Failed to edit default browser.');
   }
-
-  const paging = new Paging({
-    browser_model: browser.model,
-    page_model: drive.model,
-  });
-  browser.layout.addWidget(paging);
 
   return browser;
 };
