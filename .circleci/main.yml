@@ -831,7 +831,7 @@ jobs:
             mkdir -p test-results
             pytest -v \
               --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm/tests/test_integrations.py
+              jupyterlab_pachyderm/tests
       - store_test_results:
           path: test-results
       - store_artifacts:
