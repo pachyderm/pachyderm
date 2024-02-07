@@ -19,7 +19,6 @@ import tornado
 import tornado.concurrent
 import tornado.web
 
-from .env import PACH_CONFIG
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient
@@ -31,9 +30,16 @@ VERSION = "v2"
 
 
 class BaseHandler(APIHandler):
+    _no_client_error = tornado.web.HTTPError(
+        status_code=401, reason="no instantiated pachyderm client"
+    )
+
     @property
     def client(self) -> Client:
-        return self.settings["pachyderm_client"]
+        client = self.settings.get("pachyderm_client")
+        if client is None:
+            raise self._no_client_error
+        return client
 
     @client.setter
     def client(self, new_client: Client) -> None:
@@ -43,16 +49,29 @@ class BaseHandler(APIHandler):
         self.settings["pachyderm_pps_client"] = PPSClient(client=new_client)
 
     @property
+    def config_file(self) -> Path:
+        return self.settings["pachyderm_config_file"]
+
+    @property
     def pfs_manager(self) -> PFSManager:
-        return self.settings["pfs_contents_manager"]
+        pfs_manager = self.settings.get("pfs_contents_manager")
+        if pfs_manager is None:
+            raise self._no_client_error
+        return pfs_manager
 
     @property
     def datum_manager(self) -> DatumManager:
-        return self.settings["datum_contents_manager"]
+        datum_manager = self.settings.get("datum_contents_manager")
+        if datum_manager is None:
+            raise self._no_client_error
+        return datum_manager
 
     @property
     def pps_client(self) -> PPSClient:
-        return self.settings["pachyderm_pps_client"]
+        pps_client = self.settings.get("pachyderm_pps_client")
+        if pps_client is None:
+            raise self._no_client_error
+        return pps_client
 
 
 class MountsHandler(BaseHandler):
@@ -343,12 +362,9 @@ class ConfigHandler(BaseHandler):
     CLUSTER_VALID_LOGGED_IN = "VALID_LOGGED_IN"
     CLUSTER_VALID_LOGGED_OUT = "VALID_LOGGED_OUT"
 
-    @property
-    def cluster_status(self) -> str:
-        if not self.client:
-            return self.CLUSTER_INVALID
+    def cluster_status(self, client: Client) -> str:
         try:
-            self.client.auth.who_am_i()
+            client.auth.who_am_i()
         except grpc.RpcError as err:
             err: grpc.Call
             if err.code() == grpc.StatusCode.UNAUTHENTICATED:
@@ -373,14 +389,14 @@ class ConfigHandler(BaseHandler):
         body = self.get_json_body()
         address = body.get("pachd_address")
         if not address:
-            get_logger().error("_config/put: no pachd address provided")
+            get_logger().error("config/put: no pachd address provided")
             raise tornado.web.HTTPError(500, "no pachd address provided")
         cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
         # Attempt to instantiate client and test connection
         try:
-            self.client = Client.from_pachd_address(address, root_certs=cas)
-            cluster_status = self.cluster_status
+            client = Client.from_pachd_address(address, root_certs=cas)
+            cluster_status = self.cluster_status(client)
             get_logger().info(f"({address}) cluster status: {cluster_status}")
         except Exception as e:
             get_logger().error(
@@ -393,49 +409,63 @@ class ConfigHandler(BaseHandler):
             )
 
         if cluster_status != self.CLUSTER_INVALID:
+            self.client = client  # Set client only if valid.
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.client.address, self.client.root_certs, None)
+                write_config(self.config_file, client.address, client.root_certs, None)
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
 
         payload = {
             "cluster_status": cluster_status,
-            "pachd_address": self.client.address,
+            "pachd_address": client.address,
         }
         await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
     async def get(self):
+        # Try to get a pachyderm client.
         try:
-            payload = {
-                "cluster_status": self.cluster_status,
-                "pachd_address": self.client.address,
-            }
+            client = self.client
+        except tornado.web.HTTPError as err:
+            if err.reason != self._no_client_error.reason:
+                raise err
+            payload = {"cluster_status": self.CLUSTER_INVALID, "pachd_address": ""}
             await self.finish(json.dumps(payload))
+            return
+
+        try:
+            cluster_status = self.cluster_status(client)
         except Exception as e:
             get_logger().error("Error getting config.", exc_info=True)
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error getting config: {e}."
             )
 
+        payload = {
+            "cluster_status": cluster_status,
+            "pachd_address": client.address,
+        }
+        await self.finish(json.dumps(payload))
+
 
 class AuthLoginHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
+        client = self.client
         try:
             # Note: The auth workflow is for the backend to initiate the process by
             # calling auth.get_oidc_login() which returns a url for the user to login
             # with, and a state token that the backend can use to complete the workflow.
             # Therefore, we send the url to the frontend for the user to login with and
             # wait until the server has created a new session token, which we then retrieve.
-            oidc_response = self.client.auth.get_oidc_login()
+            oidc_response = client.auth.get_oidc_login()
 
             # The login url will always specify the http protocol. If the user is connecting
             # over a secure https/grpcs connection, we should update the url to reflect this.
             # Checking if root certificates exists on the client is the best proxy currently
             # available to check if the client is communicating over a secure grpc channel.
-            if self.client.root_certs is not None:
+            if client.root_certs is not None:
                 # Usage of _replace method comes from urlparse documentation:
                 #   https://docs.python.org/3/library/urllib.parse.html#urllib.parse.urlparse
                 # noinspection PyProtectedMember
@@ -450,7 +480,7 @@ class AuthLoginHandler(BaseHandler):
             # version of client.auth.authenticate because it is blocking -- using it blocks
             # the entire server until either the user successfully logs in or the OIDC login
             # attempt times out. So, we need to manually do this Authenticate asynchronously.
-            async with grpc.aio.insecure_channel(self.client.address) as channel:
+            async with grpc.aio.insecure_channel(client.address) as channel:
                 async_authenticate = channel.unary_unary(
                     "/auth_v2.API/Authenticate",
                     request_serializer=AuthenticateRequest.SerializeToString,
@@ -470,11 +500,11 @@ class AuthLoginHandler(BaseHandler):
                         return
                     raise err
                 token = response.pach_token
-            self.client.auth_token = token
+            client.auth_token = token
 
             # Attempt to write new pachyderm context to config.
             try:
-                write_config(self.client.address, self.client.root_certs, token)
+                write_config(self.config_file, client.address, client.root_certs, token)
             except RuntimeError as e:
                 get_logger().error(f"Error updating local config: {e}.", exc_info=True)
                 raise tornado.web.HTTPError(500, f"Error updating local config: {e}.")
@@ -491,10 +521,7 @@ class AuthLogoutHandler(BaseHandler):
     async def put(self):
         try:
             self.client.auth_token = None
-            self.settings["pfs_contents_manager"] = PFSManager(client=self.client)
-            self.settings["datum_contents_manager"] = DatumManager(client=self.client)
-            self.settings["pachyderm_pps_client"] = PPSClient(client=self.client)
-            self.finish()
+            await self.finish()
         except Exception as e:
             get_logger().error("Error logging out of auth.", exc_info=True)
             raise tornado.web.HTTPError(
@@ -502,11 +529,11 @@ class AuthLogoutHandler(BaseHandler):
             )
 
 
-class HealthHandler(BaseHandler):
+class HealthHandler(APIHandler):
     @tornado.web.authenticated
     async def get(self):
         response = {"status": "running"}
-        self.finish(response)
+        await self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -579,15 +606,18 @@ class TestDownloadHandler(BaseHandler):
 
 
 def write_config(
+    config_file: Path,
     pachd_address: str,
     server_cas: Optional[bytes],
     session_token: Optional[str],
 ) -> None:
-    """Writes the pachd_address/server_cas context to the local config file.
-    This will create a new config file if one does not exist.
+    """Writes the pachd_address/server_cas context to a local config file.
+    This will create a new config file if file does not already exist.
 
     Parameters
     ----------
+    config_file : pathlib.Path
+        The location to write the config file.
     pachd_address : str
         The address to the pachd instance.
     server_cas : bytes, optional
@@ -608,36 +638,39 @@ def write_config(
         server_cas=server_cas,
     )
     name = f"jupyter-{pachd_address}"
-    if PACH_CONFIG.exists():
+    if config_file.exists():
         try:
-            config = ConfigFile.from_path(PACH_CONFIG)
+            config = ConfigFile.from_path(config_file)
         except Exception:
-            raise RuntimeError(f"failed to load config file: {PACH_CONFIG}")
+            raise RuntimeError(f"failed to load config file: {config_file}")
         config.add_context(name, context, overwrite=True)
     else:
         config = ConfigFile.new_with_context(name, context)
-        os.makedirs(PACH_CONFIG.parent, exist_ok=True)
-    config.write(PACH_CONFIG)
+        os.makedirs(config_file.parent, exist_ok=True)
+    config.write(config_file)
 
 
-def setup_handlers(web_app):
+def setup_handlers(web_app, config_file: Path):
     try:
-        client = Client().from_config(PACH_CONFIG)
+        client = Client().from_config(config_file)
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        client = Client()
         get_logger().debug(
-            "Could not find config file, creating localhost Pachyderm client"
+            "Could not find config file -- no pachyderm client instantiated"
         )
+    else:
+        web_app.settings["pachyderm_client"] = client
+        web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
+        web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
+        web_app.settings["datum_contents_manager"] = DatumManager(client=client)
 
-    web_app.settings["pachyderm_client"] = client
-    web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
-    web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
-    web_app.settings["datum_contents_manager"] = DatumManager(client=client)
+    # This value is used by the AuthHandler and ConfigHandler.
+    web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
+        ("/health", HealthHandler),
         ("/mounts", MountsHandler),
         ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),

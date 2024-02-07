@@ -6,20 +6,21 @@ import json
 from datetime import datetime
 from pathlib import Path
 from random import randint
-from shutil import copyfile
 import urllib
 
 import pytest
 import requests
+from httpx import AsyncClient
+from tornado.web import Application
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
-from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
+from jupyterlab_pachyderm.env import PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps
 from pachyderm_sdk.config import ConfigFile
 
-from . import TEST_NOTEBOOK
+from jupyterlab_pachyderm.tests import TEST_NOTEBOOK
 
 ADDRESS = "http://localhost:8888"
 BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
@@ -53,15 +54,7 @@ def pachyderm_resources():
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
 
-@pytest.fixture(scope="module")
-def pach_config(tmpdir_factory) -> Path:
-    """Temporary path used to write the pach config for tests."""
-    config_path = tmpdir_factory.mktemp('pachyderm').join("config.json")
-    copyfile(PACH_CONFIG, config_path)
-    yield config_path
-
-
-@pytest.fixture(scope="module")
+@pytest.fixture
 def dev_server(pach_config: Path):
     print("starting development server...")
     p = subprocess.Popen(
@@ -76,8 +69,7 @@ def dev_server(pach_config: Path):
         # Give time for python test server to start
         for _ in range(15):
             try:
-                r = requests.get(f"{BASE_URL}/config", timeout=1)
-                if r.status_code == 200 and r.json()["cluster_status"] != "INVALID":
+                if requests.get(f"{BASE_URL}/health", timeout=1).ok:
                     yield
                     break
             except Exception:
@@ -90,6 +82,7 @@ def dev_server(pach_config: Path):
         p.terminate()
         p.wait()
         time.sleep(1)
+
 
 @pytest.fixture
 def dev_server_with_unmount(dev_server):
@@ -590,25 +583,66 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
     )
 
 
-def test_config(dev_server, pach_config):
-    # PUT request
-    test_endpoint = "localhost:30650"
-    r = requests.put(
-        f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
-    )
+class TestConfigHandler:
 
-    config = ConfigFile.from_path(pach_config)
-    active_context = config.active_context
+    @staticmethod
+    @pytest.mark.no_config
+    async def test_config_no_file(app: Application, http_client: AsyncClient):
+        """Test that if there is no config file present, the extension does not
+        use a default config."""
+        # Arrange
+        config_file = app.settings.get("pachyderm_config_file")
+        assert config_file is not None and not config_file.exists()
 
-    assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
-    assert "30650" in active_context.pachd_address
+        # Act
+        response = await http_client.get("/config")
 
-    # GET request
-    r = requests.get(f"{BASE_URL}/config")
+        # Assert
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["cluster_status"] == "INVALID"
+        assert payload["pachd_address"] == ""
 
-    assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
+    @staticmethod
+    @pytest.mark.no_config
+    async def test_do_not_set_invalid_config(app: Application, http_client: AsyncClient):
+        """Test that PUT /config does not store an invalid config."""
+        # Arrange
+        assert app.settings.get("pachyderm_client") is None
+        invalid_address = "localhost:33333"
+        data = {"pachd_address": invalid_address}
+
+        # Act
+        response = await http_client.put("/config", json=data)
+
+        # Assert
+        response.raise_for_status()
+        payload = response.json()
+        assert payload["cluster_status"] == "INVALID"
+        assert payload["pachd_address"] == invalid_address
+        assert app.settings.get("pachyderm_client") is None
+
+    @staticmethod
+    @pytest.mark.usefixtures("dev_server")
+    def test_config(pach_config):
+        # PUT request
+        test_endpoint = "localhost:30650"
+        r = requests.put(
+            f"{BASE_URL}/config", data=json.dumps({"pachd_address": test_endpoint})
+        )
+
+        config = ConfigFile.from_path(pach_config)
+        active_context = config.active_context
+
+        assert r.status_code == 200, r.text
+        assert r.json()["cluster_status"] != "INVALID"
+        assert "30650" in active_context.pachd_address
+
+        # GET request
+        r = requests.get(f"{BASE_URL}/config")
+
+        assert r.status_code == 200, r.text
+        assert r.json()["cluster_status"] != "INVALID"
 
 
 @pytest.fixture(params=[True, False])

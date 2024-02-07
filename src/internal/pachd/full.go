@@ -164,10 +164,8 @@ type Full struct {
 	// TODO
 	// debugSrv debug.DebugServer
 
-	pfsWorker *pfs_server.Worker
-	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
-	// This functionality may be convertible to utility functions that operate on a PFS client.
-	//ppsWorker   *pps_server.Worker
+	pfsWorker   *pfs_server.Worker
+	ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
 }
 
@@ -186,12 +184,10 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		PFS:         pfs.NewAPIClient(pd.selfGRPC),
 		TaskService: task.NewEtcdService(env.EtcdClient, "debug"),
 	})
-	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
-	// This functionality may be convertible to utility functions that operate on a PFS client.
-	//pd.ppsWorker = pps_server.NewWorker(pps_server.WorkerEnv{
-	//	PFS:         pfs.NewAPIClient(pd.selfGRPC),
-	//	TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
-	//})
+	pd.ppsWorker = pps_server.NewWorker(pps_server.WorkerEnv{
+		PFS:         pfs.NewAPIClient(pd.selfGRPC),
+		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
+	})
 
 	pd.addSetup(
 		printVersion(),
@@ -278,11 +274,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 	pd.addBackground("pfsWorker", func(ctx context.Context) error {
 		return pd.pfsWorker.Run(ctx)
 	})
-	// TODO: PPS worker requires a pach client because some functionality only exists through the pach client.
-	// This functionality may be convertible to utility functions that operate on a PFS client.
-	//pd.addBackground("ppsWorker", func(ctx context.Context) error {
-	//	return pd.ppsWorker.Run(ctx)
-	//})
+	pd.addBackground("ppsWorker", func(ctx context.Context) error {
+		return pd.ppsWorker.Run(ctx)
+	})
 	pd.addBackground("debugWorker", func(ctx context.Context) error {
 		return pd.debugWorker.Run(ctx)
 	})
