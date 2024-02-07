@@ -377,9 +377,6 @@ def test_download_file(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 400, r.text
 
 
-@pytest.mark.skip(
-    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
-)
 def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
@@ -424,11 +421,11 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
@@ -443,11 +440,11 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
@@ -462,11 +459,11 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[1]}_dev")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[1]}_dev")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
-    r = requests.get(f"{BASE_URL}/view_datum/{DEFAULT_PROJECT}_{repos[2]}_master")
+    r = requests.get(f"{BASE_URL}/view_datum/{repos[2]}")
     assert r.status_code == 200, r.text
     assert len(r.json()["content"]) == 1
 
@@ -481,9 +478,6 @@ def test_mount_datums(pachyderm_resources, dev_server_with_unmount):
     assert r.status_code == 200, r.text
 
 
-@pytest.mark.skip(
-    reason="test flakes due to 'missing chunk' error that hasn't been diagnosed"
-)
 def test_download_datum(pachyderm_resources, dev_server_with_unmount):
     repos, branches, files = pachyderm_resources
     input_spec = {
@@ -493,6 +487,7 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
                     "pfs": {
                         "repo": repos[0],
                         "glob": "/",
+                        "name": "test_name",
                     }
                 },
                 {
@@ -524,13 +519,13 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
         list(
             os.walk(
                 os.path.join(
-                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
+                    PFS_MOUNT_DIR, "".join("test_name")
                 )
             )
         )[0][2]
     ) == sorted(files)
     assert (
-        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
+        "".join([repos[1], "_dev"])
         in list(os.walk(PFS_MOUNT_DIR))[0][1]
     )
     assert (
@@ -539,7 +534,7 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
                 os.walk(
                     os.path.join(
                         PFS_MOUNT_DIR,
-                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
+                        "".join(repos[2]),
                     )
                 )
             )[0][2]
@@ -559,13 +554,13 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
         list(
             os.walk(
                 os.path.join(
-                    PFS_MOUNT_DIR, "".join([DEFAULT_PROJECT, "_", repos[0], "_master"])
+                    PFS_MOUNT_DIR, "".join("test_name")
                 )
             )
         )[0][2]
     ) == sorted(files)
     assert (
-        "".join([DEFAULT_PROJECT, "_", repos[1], "_dev"])
+        "".join([repos[1], "_dev"])
         in list(os.walk(PFS_MOUNT_DIR))[0][1]
     )
     assert (
@@ -574,7 +569,7 @@ def test_download_datum(pachyderm_resources, dev_server_with_unmount):
                 os.walk(
                     os.path.join(
                         PFS_MOUNT_DIR,
-                        "".join([DEFAULT_PROJECT, "_", repos[2], "_master"]),
+                        "".join(repos[2]),
                     )
                 )
             )[0][2]
