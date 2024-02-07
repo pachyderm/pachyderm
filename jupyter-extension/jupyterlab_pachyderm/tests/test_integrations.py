@@ -1,20 +1,16 @@
 import os
-import sys
-import subprocess
-import time
 import json
+import time
+import urllib.parse
 from datetime import datetime
 from pathlib import Path
 from random import randint
 from typing import Tuple
-import urllib.parse
 
 import pytest
-import requests
 from httpx import AsyncClient
 from tornado.web import Application
 
-from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION
 from jupyterlab_pachyderm.env import PACH_CONFIG, PFS_MOUNT_DIR
 from jupyterlab_pachyderm.pps_client import METADATA_KEY, PpsConfig
 from pachyderm_sdk import Client
@@ -23,16 +19,11 @@ from pachyderm_sdk.config import ConfigFile
 
 from jupyterlab_pachyderm.tests import TEST_NOTEBOOK
 
-ADDRESS = "http://localhost:8888"
-BASE_URL = f"{ADDRESS}/{NAMESPACE}/{VERSION}"
-ROOT_TOKEN = "iamroot"
 DEFAULT_PROJECT = "default"
 
 
-@pytest.fixture()
+@pytest.fixture
 def pachyderm_resources():
-    print("creating pachyderm resources")
-
     repos = ["images", "edges", "montage"]
     branches = ["master", "dev"]
     files = ["file1", "file2"]
@@ -54,42 +45,6 @@ def pachyderm_resources():
 
     for repo in repos:
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
-
-
-@pytest.fixture
-def dev_server(pach_config: Path):
-    print("starting development server...")
-    p = subprocess.Popen(
-        [sys.executable, "-m", "jupyterlab_pachyderm.dev_server"],
-        env=dict(
-            os.environ,
-            PACH_CONFIG=str(pach_config),
-        ),
-        stdout=subprocess.PIPE,
-    )
-    try:
-        # Give time for python test server to start
-        for _ in range(15):
-            try:
-                if requests.get(f"{BASE_URL}/health", timeout=1).ok:
-                    yield
-                    break
-            except Exception:
-                pass
-            time.sleep(1)
-        else:
-            raise RuntimeError("could not start development server")
-    finally:
-        print("killing development server...")
-        p.terminate()
-        p.wait()
-        time.sleep(1)
-
-
-@pytest.fixture
-def dev_server_with_unmount(dev_server):
-    yield
-    requests.put(f"{BASE_URL}/_unmount_all")
 
 
 async def test_list_mounts(pachyderm_resources, http_client: AsyncClient):
