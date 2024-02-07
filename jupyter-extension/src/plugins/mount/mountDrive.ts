@@ -13,9 +13,9 @@ const VISIBLE_CONTENT_LIS = 500;
 // How many visible Content li that are padded on the top and bottom of the core set of visible Content li.
 // This padding enables the user to scroll while the Contents index changes.
 const VISIBLE_CONTENT_LI_PADDING = 200;
-// How many items to request per page
+// How many items to request per page.
 const PAGINATION_NUMBER = 1000;
-// How tall in pixels a Content list item is.
+// How tall in pixels a Content li is.
 const LI_HEIGHT_PX = 25;
 // An empty default representation of directory.
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
@@ -39,7 +39,7 @@ export class MountDrive implements Contents.IDrive {
   private _serverSettings = ServerConnection.makeSettings();
   private _isDisposed = false;
 
-  // Signal emits `true` on navigating to a new directory and `false` on response
+  // Signal emits `true` on navigating to a new directory and `false` on response.
   private _loading = new Signal<this, boolean>(this);
   // Contents cache for the Drive used to avoid the small Contents limit that can be visible in a FileBrowser.
   private _cache: {
@@ -48,21 +48,20 @@ export class MountDrive implements Contents.IDrive {
     contents: Contents.IModel[];
     filteredContents: Contents.IModel[];
   };
-  // Root path of the Drive
+  // Root path of this Drive
   private _path: string;
-  // Name suffix for each instance of a drive. Must be unique.
+  // Name suffix for this Drive. Must be unique across all Drive instances.
   private _nameSuffix: string;
-  // DOM Node ID of the FileBrowser
+  // DOM Node ID of the FileBrowser using this Drive.
   private _id: string;
-  // Triggers a cd event without changing the current path in the FileBrowser which forces a re-render of the FileBrowser
+  // Forces a re-render of the FileBrowser using this Drive.
   private _rerenderFileBrowser: () => Promise<void>;
-  // Previous search filter used last time get was called. Used to track if the current page needs to be reset
-  // to zero.
+  // Previous search filter value as of the previous _get call.
   private _previousFilter: string | null;
-  // The index determining which set of cached contents is visible to the user. Changed by scrolling the FileBrowser.
+  // The index determining which set of cached Contents is visible to the user. Changed by scrolling the Contents DOM node.
   private _index: number;
-  // The current scroll position scroll of the FileBrowser contents.
-  private _scrollTop: number;
+  // Previous scroll position of the Contents DOM node as of the previous user scroll event.
+  private _previousScrollTop: number;
   // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
   // scroll event listeners.
   private _hasScrollEventListener: boolean;
@@ -82,7 +81,7 @@ export class MountDrive implements Contents.IDrive {
     this._rerenderFileBrowser = _rerenderFileBrowser;
     this._previousFilter = null;
     this._index = 0;
-    this._scrollTop = 0;
+    this._previousScrollTop = 0;
     this._hasScrollEventListener = false;
   }
 
@@ -134,6 +133,13 @@ export class MountDrive implements Contents.IDrive {
 
     // If we don't have contents cached, then we fetch them and cache the results.
     if (localPath !== this._cache.key || !localPath) {
+      const now = Date.now();
+      this._cache = {
+        key: localPath,
+        now,
+        contents: [],
+        filteredContents: [],
+      };
       this._loading.emit(true);
       const getOptions = {
         ...options,
@@ -141,25 +147,19 @@ export class MountDrive implements Contents.IDrive {
         content,
       };
       const response = await this._get(url, getOptions);
-      const now = Date.now();
-      this._cache = {
-        key: localPath,
-        now,
-        contents: response.content,
-        filteredContents: [],
-      };
-      this.resetContentsNode();
+      this._cache.contents = response.content
       this.filterContents();
+      this.resetContentsNode();
       this._loading.emit(false);
       this._fetchNextPage(response, now, url, getOptions);
     }
 
-    const filter = this.getFilter();
-    if (filter !== this._previousFilter) {
+    const newFilter = this.getFilter();
+    if (newFilter !== this._previousFilter) {
       this.resetContentsNode();
       this.filterContents();
     }
-    this._previousFilter = filter;
+    this._previousFilter = newFilter;
 
     this.setupScrollingHandler();
 
@@ -260,8 +260,7 @@ export class MountDrive implements Contents.IDrive {
     return node?.value?.toLowerCase() || null;
   }
 
-  // Gets the DOM node containing the Contents of the FileBrowser. Should only be called
-  // after a FileBrowser has been created with this Drive otherwise an error is thrown.
+  // Gets the DOM node containing the Contents of the FileBrowser.
   private getContentsNode(): HTMLStyleElement | null {
     const selector = `#${this._id} .jp-DirListing .jp-DirListing-content`;
     const node: HTMLStyleElement | null = document.querySelector(selector);
@@ -298,7 +297,7 @@ export class MountDrive implements Contents.IDrive {
     return {start, atMin};
   }
 
-  // Gets the visible cached Contents end for slicing. atMin is true if the _index can no longer be decremented.
+  // Gets the visible cached Contents end for slicing. atMax is true if the _index can no longer be incremented.
   private getContentsEnd(): {end: number; atMax: boolean} {
     let end =
       VISIBLE_CONTENT_LIS + (this._index + 1) * VISIBLE_CONTENT_LI_PADDING;
@@ -325,8 +324,9 @@ export class MountDrive implements Contents.IDrive {
     this._hasScrollEventListener = true;
     let ignoreNextScroll = false;
     contentsNode.addEventListener('scroll', () => {
-      const scrollDiff = contentsNode.scrollTop - this._scrollTop;
-      this._scrollTop = contentsNode.scrollTop;
+      const scrollTop = contentsNode.scrollTop;
+      const scrollDiff = scrollTop - this._previousScrollTop;
+      this._previousScrollTop = scrollTop;
 
       const scrollHeight = contentsNode.scrollHeight;
       const scrollNextHeight = Math.round(scrollHeight * 0.8);
@@ -342,12 +342,12 @@ export class MountDrive implements Contents.IDrive {
       // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
       // with each index change.
       const {atMin} = this.getContentsStart();
-      if (this._scrollTop < scrollPrevHeight && scrollDiff < 0 && !atMin) {
+      if (scrollTop < scrollPrevHeight && scrollDiff < 0 && !atMin) {
         ignoreNextScroll = true;
         this._index -= 1;
         this._rerenderFileBrowser().then(() => {
-          this._scrollTop += VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
-          contentsNode.scrollTop = this._scrollTop;
+          this._previousScrollTop += VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          contentsNode.scrollTop = this._previousScrollTop;
           ignoreNextScroll = false;
         });
       }
@@ -356,12 +356,12 @@ export class MountDrive implements Contents.IDrive {
       // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
       // with each index change.
       const {atMax} = this.getContentsEnd();
-      if (this._scrollTop > scrollNextHeight && scrollDiff > 0 && !atMax) {
+      if (scrollTop > scrollNextHeight && scrollDiff > 0 && !atMax) {
         ignoreNextScroll = true;
         this._index += 1;
         this._rerenderFileBrowser().then(() => {
-          this._scrollTop -= VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
-          contentsNode.scrollTop = this._scrollTop;
+          this._previousScrollTop -= VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          contentsNode.scrollTop = this._previousScrollTop;
           ignoreNextScroll = false;
         });
       }
