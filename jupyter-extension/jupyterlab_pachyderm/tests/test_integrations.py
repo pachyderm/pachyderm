@@ -302,7 +302,7 @@ async def test_download_file(
 
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
-    local_file = Path.cwd() / files[0]
+    local_file = tmp_path / files[0]
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
@@ -311,7 +311,7 @@ async def test_download_file(
 
     r = await http_client.put(f"/download/explore/{repos[1]}")
     assert r.status_code == 200, r.text
-    local_path = Path.cwd() / repos[1]
+    local_path = tmp_path / repos[1]
     assert local_path.exists()
     assert local_path.is_dir()
     assert len(list(local_path.iterdir())) == 2
