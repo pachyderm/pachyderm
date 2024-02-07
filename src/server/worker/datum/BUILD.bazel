@@ -4,6 +4,7 @@ go_library(
     name = "datum",
     srcs = [
         "create.go",
+        "create_stream.go",
         "datum.go",
         "datum.pb.go",
         "datum.pb.validate.go",
@@ -19,6 +20,7 @@ go_library(
         "//src/auth",
         "//src/internal/client",
         "//src/internal/errors",
+        "//src/internal/errutil",
         "//src/internal/grpcutil",
         "//src/internal/log",
         "//src/internal/miscutil",

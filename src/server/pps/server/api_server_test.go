@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -21,7 +22,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -123,17 +123,17 @@ func TestListDatum(t *testing.T) {
 
 func TestCreateDatum(t *testing.T) {
 	ctx := pctx.TestContext(t)
-	pc := pachd.NewTestPachd(t)
+	pc := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption).PachClient
 
 	repo := tu.UniqueString("TestCreateDatum")
 	require.NoError(t, pc.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, pc.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
-	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
+	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
 
 	t.Run("EmptyRepo", func(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
-		datumClient.Send(&pps.CreateDatumRequest{Input: input})
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
 		_, err = datumClient.Recv()
 		require.ErrorIs(t, err, io.EOF)
 	})
@@ -149,7 +149,7 @@ func TestCreateDatum(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Requesting more datums than exist should return all datums without erroring
-		datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100})
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100}))
 		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize+100)
 		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
@@ -159,12 +159,12 @@ func TestCreateDatum(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Not specifying number of datums should return DefaultDatumBatchSize datums
-		datumClient.Send(&pps.CreateDatumRequest{Input: input})
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
 		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize)
 		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.NoError(t, err)
 		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
-		datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: 50})
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: 50}))
 		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 50, n)

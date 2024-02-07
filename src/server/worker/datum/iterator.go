@@ -109,7 +109,6 @@ func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
 	}
 }
 
-
 // Hasher is the standard interface for a datum hasher.
 type Hasher interface {
 	// Hash computes the datum hash based on the inputs.

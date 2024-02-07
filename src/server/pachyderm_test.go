@@ -3617,7 +3617,7 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	require.Equal(t, numFiles, len(fileInfos))
 }
 
-// Tests that time to first datum for CreateDatum is faster than ListDatum
+// Checks that "time to first datum" for CreateDatum is faster than ListDatum
 func TestCreateDatum(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -3625,7 +3625,7 @@ func TestCreateDatum(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
-	repo := tu.UniqueString("TestManyFilesCreateDatum")
+	repo := tu.UniqueString("TestCreateDatum")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// Need multiple shards worth of files to see benefit of CreateDatum
@@ -3633,10 +3633,13 @@ func TestCreateDatum(t *testing.T) {
 	numFiles := 5 * datum.ShardNumFiles
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	for i := 0; i < numFiles; i++ {
-		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(""), client.WithAppendPutFile()))
-	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
+	require.NoError(t, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 
 	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
 	var eg errgroup.Group
@@ -3654,7 +3657,7 @@ func TestCreateDatum(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		listDatumTimeToFirstDatum = time.Now().Sub(start).Seconds()
+		listDatumTimeToFirstDatum = time.Since(start).Seconds()
 		return nil
 	})
 	eg.Go(func() error {
@@ -3673,11 +3676,11 @@ func TestCreateDatum(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		createDatumTimeToFirstDatum = time.Now().Sub(start).Seconds()
+		createDatumTimeToFirstDatum = time.Since(start).Seconds()
 		return nil
 	})
 	require.NoError(t, eg.Wait())
-	// The choice for 0.75 should provide a reasonable buffer for the test to pass
+	// The choice of 0.75 provides a conservative buffer for the test to pass
 	require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
 }
 
