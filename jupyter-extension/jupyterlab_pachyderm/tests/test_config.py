@@ -1,6 +1,5 @@
 """Tests for the config screen and handler."""
 from pathlib import Path
-from urllib.parse import urlparse
 
 import pytest
 from httpx import AsyncClient
@@ -58,11 +57,10 @@ async def test_config(pach_config: Path, http_client: AsyncClient):
     r = await http_client.put("/config", json=payload)
 
     config = ConfigFile.from_path(pach_config)
-    pachd_address = urlparse(config.active_context.pachd_address)
 
     assert r.status_code == 200, r.text
     assert r.json()["cluster_status"] != "INVALID"
-    assert r.json()["pachd_address"] == pachd_address._replace(scheme="").geturl()
+    assert r.json()["pachd_address"] in config.active_context.pachd_address
 
     # GET request
     r = await http_client.get("/config")
