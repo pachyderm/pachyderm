@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
@@ -420,4 +421,85 @@ func computeStableKey(key string) string {
 	parts := strings.Split(key, "/")
 	sort.Strings(parts)
 	return path.Join(parts...)
+}
+
+func TestStreamingIterator(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	taskDoer := createTaskDoer(t, env)
+	c := env.PachClient
+	pfsC := c.PfsAPIClient
+
+	repo := tu.UniqueString("TestStreamingIterator")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	numFiles := 2 * datum.ShardNumFiles
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+
+	t.Run("ZeroDatums", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "!(**)")
+		input.Pfs.Commit = commit.Id
+		it := datum.NewCreateDatumStreamIterator(ctx, pfsC, taskDoer, input)
+		count := 0
+		require.NoError(t, it.Iterate(func(_ *datum.Meta) error {
+			count++
+			return nil
+		}))
+		require.Equal(t, 0, count)
+	})
+	t.Run("PauseAndResume", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
+		input.Pfs.Commit = commit.Id
+		it := datum.NewCreateDatumStreamIterator(ctx, pfsC, taskDoer, input)
+		seen := make(map[string]bool)
+
+		count := 0
+		err := it.Iterate(func(meta *datum.Meta) error {
+			if count == datum.ShardNumFiles/2 {
+				return errutil.ErrBreak
+			}
+			count++
+			if _, ok := seen[computeKey(meta)]; ok {
+				return errors.Errorf("duplicate datum: %s", computeKey(meta))
+			}
+			seen[computeKey(meta)] = true
+			return nil
+		})
+		require.ErrorIs(t, err, errutil.ErrBreak)
+		require.Equal(t, datum.ShardNumFiles/2, len(seen))
+		// Resume iteration
+		count = 0
+		err = it.Iterate(func(meta *datum.Meta) error {
+			if count == datum.ShardNumFiles/2 {
+				return errutil.ErrBreak
+			}
+			count++
+			if _, ok := seen[computeKey(meta)]; ok {
+				return errors.Errorf("duplicate datum: %s", computeKey(meta))
+			}
+			seen[computeKey(meta)] = true
+			return nil
+		})
+		require.ErrorIs(t, err, errutil.ErrBreak)
+		require.Equal(t, datum.ShardNumFiles, len(seen))
+		// Finish iteration
+		require.NoError(t, it.Iterate(func(meta *datum.Meta) error {
+			if _, ok := seen[computeKey(meta)]; ok {
+				return errors.Errorf("duplicate datum: %s", computeKey(meta))
+			}
+			seen[computeKey(meta)] = true
+			return nil
+		}))
+		require.Equal(t, 2*datum.ShardNumFiles, len(seen))
+	})
 }

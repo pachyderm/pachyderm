@@ -66,6 +66,7 @@ go_test(
         "//src/internal/client",
         "//src/internal/dockertestenv",
         "//src/internal/errors",
+        "//src/internal/errutil",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/tarutil",

@@ -14,7 +14,7 @@ import (
 const (
 	// The target number of files per shard. A smaller value returns datums to
 	// the client faster. A larger value reduces the overhead of creating datums.
-	shardNumFiles = 10000
+	ShardNumFiles = 10000
 )
 
 type createDatumStream struct {
@@ -61,7 +61,7 @@ func (cds *createDatumStream) createPFS(input *pps.PFSInput, fsidChan chan strin
 		if err := renewer.Add(ctx, fileSetID); err != nil {
 			return err
 		}
-		shards, err := client.ShardFileSetWithConfig(ctx, cds.c, fileSetID, shardNumFiles, 0)
+		shards, err := client.ShardFileSetWithConfig(ctx, cds.c, fileSetID, ShardNumFiles, 0)
 		if err != nil {
 			return err
 		}

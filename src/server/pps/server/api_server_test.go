@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"strings"
 	"testing"
 
@@ -20,8 +21,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -116,6 +119,71 @@ func TestListDatum(t *testing.T) {
 	for i, di := range datumIDs {
 		require.Equal(t, di, reverseDatumIDs[len(reverseDatumIDs)-1-i])
 	}
+}
+
+func TestCreateDatum(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	pc := pachd.NewTestPachd(t)
+
+	repo := tu.UniqueString("TestCreateDatum")
+	require.NoError(t, pc.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pc.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	input := &pps.Input{Pfs: &pps.PFSInput{Repo: repo, Glob: "/*"}}
+
+	t.Run("EmptyRepo", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		datumClient.Send(&pps.CreateDatumRequest{Input: input})
+		_, err = datumClient.Recv()
+		require.ErrorIs(t, err, io.EOF)
+	})
+
+	commit, err := pc.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	for i := 0; i < ppsserver.DefaultDatumBatchSize+50; i++ {
+		require.NoError(t, pc.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(fmt.Sprintf("file%d", i))))
+	}
+	require.NoError(t, pc.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
+
+	t.Run("SingleBatch", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		// Requesting more datums than exist should return all datums without erroring
+		datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100})
+		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize+100)
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, ppsserver.DefaultDatumBatchSize+50, n)
+	})
+	t.Run("MultipleBatches", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		// Not specifying number of datums should return DefaultDatumBatchSize datums
+		datumClient.Send(&pps.CreateDatumRequest{Input: input})
+		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize)
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.NoError(t, err)
+		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
+		datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: 50})
+		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, 50, n)
+	})
+	t.Run("UnimplementedInputTypes", func(t *testing.T) {
+		inputs := []*pps.Input{
+			{Union: []*pps.Input{}},
+			{Cross: []*pps.Input{}},
+			{Join: []*pps.Input{}},
+			{Group: []*pps.Input{}},
+		}
+		for _, input := range inputs {
+			datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+			require.NoError(t, err)
+			require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
+			_, err = datumClient.Recv()
+			require.ErrorContains(t, err, "unimplemented input type")
+		}
+	})
 }
 
 func TestRenderTemplate(t *testing.T) {

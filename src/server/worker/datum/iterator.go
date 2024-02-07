@@ -67,6 +67,7 @@ type createDatumStreamIterator struct {
 // Return value of nil means all datums have been returned.
 // Return value of errutil.ErrBreak means that iteration is paused and
 // will be resumed when client asks for more.
+// Return value of anything else means an error.
 func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
 	for {
 		// Consume leftover datums from the buffer first before asking
