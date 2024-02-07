@@ -147,7 +147,7 @@ export class MountDrive implements Contents.IDrive {
         content,
       };
       const response = await this._get(url, getOptions);
-      this._cache.contents = response.content
+      this._cache.contents = response.content;
       this.filterContents();
       this.resetContentsNode();
       this._loading.emit(false);
