@@ -18,7 +18,7 @@ describe('mount', () => {
     cy.findAllByText('/ pfs').should('have.length', 2);
     cy.findAllByText('Load').first().click();
     cy.findAllByText('Unload').should('have.length', 1);
-    cy.findAllByText('default_images').first().click();
+    cy.findAllByText('default_images').first().dblclick();
 
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
@@ -30,7 +30,7 @@ describe('mount', () => {
     cy.findByTestId('ListItem__select').select('branch');
     cy.findAllByText('Load').first().click();
     cy.findAllByText('Unload').should('have.length', 1);
-    cy.findAllByText('default_images_branch').first().click();
+    cy.findAllByText('default_images_branch').first().dblclick();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
