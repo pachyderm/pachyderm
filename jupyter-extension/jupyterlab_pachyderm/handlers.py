@@ -429,7 +429,7 @@ class ConfigHandler(BaseHandler):
         try:
             client = self.client
         except tornado.web.HTTPError:
-            payload = {"cluster_status": self.CLUSTER_NO_CONFIG, "pachd_address": ""}
+            payload = {"cluster_status": self.CLUSTER_UNKNOWN, "pachd_address": ""}
         else:
             cluster_status = self.cluster_status(client)
             payload = {
@@ -517,13 +517,6 @@ class AuthLogoutHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error logging out of auth: {e}."
             )
-
-
-class HealthHandler(APIHandler):
-    @tornado.web.authenticated
-    async def get(self):
-        response = {"status": "running"}
-        await self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -660,7 +653,6 @@ def setup_handlers(web_app, config_file: Path):
     web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
-        ("/health", HealthHandler),
         ("/mounts", MountsHandler),
         ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),
