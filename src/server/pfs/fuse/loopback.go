@@ -35,12 +35,6 @@ const (
 	dirty                  // we have full content for this file and the user has written to it
 )
 
-func (l *loopbackRoot) setState(mountName, state string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.stateMap[mountName] = state
-}
-
 func (l *loopbackRoot) getState(mountName string) string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
