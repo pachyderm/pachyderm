@@ -6,6 +6,7 @@ from typing import Tuple
 import asyncio
 import httpx
 import pytest
+import tornado.testing
 import tornado.web
 from tornado.httpserver import HTTPServer
 
@@ -56,7 +57,7 @@ def http_server_port() -> PortType:
     return tornado.testing.bind_unused_port()
 
 
-@pytest.yield_fixture(name="http_server")
+@pytest.fixture(name="http_server")
 def http_server_fixture(
     app: tornado.web.Application,
     event_loop: asyncio.BaseEventLoop,
