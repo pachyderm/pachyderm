@@ -24,7 +24,7 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
     # Assert
     response.raise_for_status()
     payload = response.json()
-    assert payload["cluster_status"] == "INVALID"
+    assert payload["cluster_status"] == "UNKNOWN"
     assert payload["pachd_address"] == ""
 
 
