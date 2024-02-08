@@ -35,7 +35,9 @@ export const useConfig = (
 
   useEffect(() => {
     setClusterStatus(authConfig.cluster_status);
-    setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
+    setShouldShowAddressInput(
+      ['NO_CONFIG', 'UNKNOWN', 'INVALID'].includes(authConfig.cluster_status),
+    );
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
@@ -62,6 +64,10 @@ export const useConfig = (
 
         if (response.cluster_status === 'INVALID') {
           setErrorMessage('Invalid address.');
+        } else if (response.cluster_status === 'UNKNOWN') {
+          setErrorMessage(
+            'An unexpected error occurred when attempting to set the address.',
+          );
         } else {
           updateConfig(response);
         }
