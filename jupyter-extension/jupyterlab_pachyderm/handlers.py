@@ -357,12 +357,20 @@ class ViewDatumHandler(ContentsHandler):
 
 
 class ConfigHandler(BaseHandler):
+    CLUSTER_UNKNOWN = "UNKNOWN"
+    """An UNKNOWN status indicates that the server is running, but we are unable to
+    determine the validity of the cluster config."""
+
     CLUSTER_INVALID = "INVALID"
     CLUSTER_VALID_NO_AUTH = "VALID_NO_AUTH"
     CLUSTER_VALID_LOGGED_IN = "VALID_LOGGED_IN"
     CLUSTER_VALID_LOGGED_OUT = "VALID_LOGGED_OUT"
 
     def cluster_status(self, client: Client) -> str:
+        """Determines the status of the client's connection to the cluster.
+
+        NOTE: This _will not_ error.
+        """
         try:
             client.auth.who_am_i()
         except grpc.RpcError as err:
@@ -380,6 +388,9 @@ class ConfigHandler(BaseHandler):
             return self.CLUSTER_VALID_NO_AUTH
         except ConnectionError:
             return self.CLUSTER_INVALID
+        except Exception:
+            # Something went wrong -- a worse state than INVALID.
+            return self.CLUSTER_UNKNOWN
         else:
             return self.CLUSTER_VALID_LOGGED_IN
 
@@ -394,21 +405,11 @@ class ConfigHandler(BaseHandler):
         cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
         # Attempt to instantiate client and test connection
-        try:
-            client = Client.from_pachd_address(address, root_certs=cas)
-            cluster_status = self.cluster_status(client)
-            get_logger().info(f"({address}) cluster status: {cluster_status}")
-        except Exception as e:
-            get_logger().error(
-                f"Error updating config with endpoint {body['pachd_address']}.",
-                exc_info=True,
-            )
-            raise tornado.web.HTTPError(
-                status_code=500,
-                reason=f"Error updating config with endpoint {body['pachd_address']}: {e}.",
-            )
+        client = Client.from_pachd_address(address, root_certs=cas)
+        cluster_status = self.cluster_status(client)
+        get_logger().info(f"({address}) cluster status: {cluster_status}")
 
-        if cluster_status != self.CLUSTER_INVALID:
+        if cluster_status not in {self.CLUSTER_INVALID, self.CLUSTER_UNKNOWN}:
             self.client = client  # Set client only if valid.
             # Attempt to write new pachyderm context to config.
             try:
@@ -427,25 +428,14 @@ class ConfigHandler(BaseHandler):
         # Try to get a pachyderm client.
         try:
             client = self.client
-        except tornado.web.HTTPError as err:
-            if err.reason != self._no_client_error.reason:
-                raise err
-            payload = {"cluster_status": self.CLUSTER_INVALID, "pachd_address": ""}
-            await self.finish(json.dumps(payload))
-            return
-
-        try:
+        except tornado.web.HTTPError:
+            payload = {"cluster_status": self.CLUSTER_UNKNOWN, "pachd_address": ""}
+        else:
             cluster_status = self.cluster_status(client)
-        except Exception as e:
-            get_logger().error("Error getting config.", exc_info=True)
-            raise tornado.web.HTTPError(
-                status_code=500, reason=f"Error getting config: {e}."
-            )
-
-        payload = {
-            "cluster_status": cluster_status,
-            "pachd_address": client.address,
-        }
+            payload = {
+                "cluster_status": cluster_status,
+                "pachd_address": client.address,
+            }
         await self.finish(json.dumps(payload))
 
 
@@ -527,13 +517,6 @@ class AuthLogoutHandler(BaseHandler):
             raise tornado.web.HTTPError(
                 status_code=500, reason=f"Error logging out of auth: {e}."
             )
-
-
-class HealthHandler(APIHandler):
-    @tornado.web.authenticated
-    async def get(self):
-        response = {"status": "running"}
-        await self.finish(response)
 
 
 class PPSCreateHandler(BaseHandler):
@@ -670,7 +653,6 @@ def setup_handlers(web_app, config_file: Path):
     web_app.settings["pachyderm_config_file"] = config_file
 
     _handlers = [
-        ("/health", HealthHandler),
         ("/mounts", MountsHandler),
         ("/projects", ProjectsHandler),
         ("/_mount", MountHandler),
