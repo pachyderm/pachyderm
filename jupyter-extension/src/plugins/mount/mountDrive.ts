@@ -118,7 +118,7 @@ export class MountDrive implements Contents.IDrive {
     const url = URLExt.join(this._path, localPath);
 
     // If we have cached content return that
-    if (localPath === this._cache.key) {
+    if (localPath === this._cache.key && localPath) {
       return this._getCachedContent();
     }
 
