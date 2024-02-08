@@ -30,9 +30,13 @@ describe('switching between repo and datum mode', () => {
 
     cy.findAllByText('Unload').should('have.length', 2);
     cy.wait(3000);
-    cy.findAllByText('default_images').first().click();
+    cy.get('#jupyterlab-pachyderm-browser-pfs')
+      .findByText('default_images')
+      .dblclick();
     cy.findAllByText('liberty.png').should('have.length', 1);
-    cy.findAllByText('default_images_branch').first().click();
+    cy.get('#jupyterlab-pachyderm-browser-pfs')
+      .findByText('default_images_branch')
+      .dblclick();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
