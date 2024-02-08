@@ -36,7 +36,7 @@ export const useConfig = (
   useEffect(() => {
     setClusterStatus(authConfig.cluster_status);
     setShouldShowAddressInput(
-      ['NO_CONFIG', 'UNKNOWN', 'INVALID'].includes(authConfig.cluster_status),
+      ['NONE', 'UNKNOWN', 'INVALID'].includes(authConfig.cluster_status),
     );
     setErrorMessage('');
     setAddressField('');
