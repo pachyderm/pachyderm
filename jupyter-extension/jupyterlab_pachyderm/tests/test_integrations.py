@@ -417,6 +417,33 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     assert r.json()["idx"] == 0
     assert r.json()["all_datums_received"] is True
 
+    # Test mounting a new datum while one is already mounted
+    input_spec = {
+        "input": {
+            "pfs": {
+                "repo": repos[0],
+                "glob": "/",
+                "branch": "dev",
+                "name": "test_name_2",
+            }
+        }
+    }
+
+    r = await http_client.put("/datums/_mount", json=input_spec)
+    assert r.status_code == 200, r.text
+    assert r.json()["idx"] == 0
+    assert r.json()["num_datums"] == 1
+    assert r.json()["all_datums_received"] is True
+    datum0_id = r.json()["id"]
+
+    r = await http_client.get("/view_datum")
+    assert r.status_code == 200, r.text
+    assert len(r.json()["content"]) == 1
+
+    r = await http_client.get("/view_datum/test_name_2")
+    assert r.status_code == 200, r.text
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+
     r = await http_client.put("/_unmount_all")
     assert r.status_code == 200, r.text
 
