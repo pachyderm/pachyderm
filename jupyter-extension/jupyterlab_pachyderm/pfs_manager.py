@@ -563,6 +563,7 @@ class DatumManager(FileContentsManager):
             self._datum_list = list(self._client.pps.list_datum(input=input))
             self._datum_index = 0
             self._mount_time = datetime.datetime.now()
+            self._repo_names.clear()
             self._populate_name_table(input=input)
             if len(self._datum_list) == 0:
                 self._reset()
