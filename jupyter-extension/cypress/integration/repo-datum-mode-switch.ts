@@ -34,9 +34,7 @@ describe('switching between repo and datum mode', () => {
       .findByText('default_images')
       .dblclick();
     cy.findAllByText('liberty.png').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('/ pfs')
-      .click();
+    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('/ pfs').click();
     cy.get('#jupyterlab-pachyderm-browser-pfs')
       .findByText('default_images_branch')
       .dblclick();
