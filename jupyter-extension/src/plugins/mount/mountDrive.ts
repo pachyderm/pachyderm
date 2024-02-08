@@ -9,14 +9,12 @@ import {requestAPI} from '../../handler';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 
 // How many Content li are visible at a given time for the user to scroll.
-const VISIBLE_CONTENT_LIS = 500;
+const VISIBLE_CONTENT_LI_COUNT = 500;
 // How many visible Content li that are padded on the top and bottom of the core set of visible Content li.
 // This padding enables the user to scroll while the Contents index changes.
 const VISIBLE_CONTENT_LI_PADDING = 200;
 // How many items to request per page.
 const PAGINATION_NUMBER = 1000;
-// How tall in pixels a Content li is.
-const LI_HEIGHT_PX = 25;
 // An empty default representation of directory.
 const DEFAULT_CONTENT_MODEL: Contents.IModel = {
   name: '',
@@ -47,6 +45,7 @@ export class MountDrive implements Contents.IDrive {
     now: number | null;
     contents: Contents.IModel[];
     filteredContents: Contents.IModel[];
+    shallowResponse: Contents.IModel;
   };
   // Root path of this Drive
   private _path: string;
@@ -74,7 +73,13 @@ export class MountDrive implements Contents.IDrive {
     _rerenderFileBrowser: () => Promise<void>,
   ) {
     this._registry = registry;
-    this._cache = {key: null, now: null, contents: [], filteredContents: []};
+    this._cache = {
+      key: null,
+      now: null,
+      shallowResponse: DEFAULT_CONTENT_MODEL,
+      contents: [],
+      filteredContents: [],
+    };
     this._path = path;
     this._nameSuffix = nameSuffix;
     this._id = id;
@@ -112,6 +117,11 @@ export class MountDrive implements Contents.IDrive {
   ): Promise<Contents.IModel> {
     const url = URLExt.join(this._path, localPath);
 
+    // If we have cached content return that
+    if (localPath === this._cache.key) {
+      return this._getCachedContent();
+    }
+
     // Make a no-content request to determine the type of content being requested.
     // If the content type is not a directory, then we want to preserve our cache
     //   and not paginate the results.
@@ -132,83 +142,27 @@ export class MountDrive implements Contents.IDrive {
     }
 
     // If we don't have contents cached, then we fetch them and cache the results.
-    if (localPath !== this._cache.key || !localPath) {
-      const now = Date.now();
-      this._cache = {
-        key: localPath,
-        now,
-        contents: [],
-        filteredContents: [],
-      };
-      this._loading.emit(true);
-      const getOptions = {
-        ...options,
-        number: PAGINATION_NUMBER,
-        content,
-      };
-      const response = await this._get(url, getOptions);
-      this._cache.contents = response.content;
-      this.filterContents();
-      this.resetContentsNode();
-      this._loading.emit(false);
-      this._fetchNextPage(response, now, url, getOptions);
-    }
-
-    const newFilter = this.getFilter();
-    if (newFilter !== this._previousFilter) {
-      this.resetContentsNode();
-      this.filterContents();
-    }
-    this._previousFilter = newFilter;
-
-    this.setupScrollingHandler();
-
-    const {start} = this.getContentsStart();
-    const {end} = this.getContentsEnd();
-    return {
-      ...shallowResponse,
-      content: this._cache.filteredContents.slice(start, end),
+    const now = Date.now();
+    this._cache = {
+      key: localPath,
+      now,
+      contents: [],
+      filteredContents: [],
+      shallowResponse,
     };
-  }
-
-  _fetchNextPage(
-    previousResponse: Contents.IModel,
-    timeOfLastDirectoryChange: number,
-    url: string,
-    getOptions: PartialJSONObject,
-  ): void {
-    // Stop fetching pages if we recieve a page less than expected file count of a page
-    if (previousResponse?.content?.length < PAGINATION_NUMBER) {
-      return;
-    }
-
-    // Invoking an async function without awaiting it lets us start the process of fetching the next pages in the background while
-    // continuing to render the the first page.
-    (async () => {
-      const nextResponse: Contents.IModel = await this._get(url, {
-        ...getOptions,
-        pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
-      });
-
-      // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
-      // cache with results after the user has changed directories.
-      if (this._cache.now !== timeOfLastDirectoryChange) {
-        return;
-      }
-
-      // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
-      // It will just add new pages and update the page selector without disrupting the user.
-      this._cache.contents = this._cache.contents.concat(nextResponse.content);
-      this.filterContents();
-
-      // Trigger a change directory event without a path change to force re-render the FileBrowser, then fetch the next page of results async.
-      this._fetchNextPage(
-        nextResponse,
-        timeOfLastDirectoryChange,
-        url,
-        getOptions,
-      );
-    })();
+    this._loading.emit(true);
+    const getOptions = {
+      ...options,
+      number: PAGINATION_NUMBER,
+      content,
+    };
+    const response = await this._get(url, getOptions);
+    this._cache.contents = response.content;
+    this.filterContents();
+    this.resetContentsNode();
+    this._loading.emit(false);
+    this._fetchNextPage(response, now, url, getOptions);
+    return this._getCachedContent();
   }
 
   getDownloadUrl(localPath: string): Promise<string> {
@@ -251,6 +205,64 @@ export class MountDrive implements Contents.IDrive {
     }
     this._isDisposed = true;
     Signal.clearData(this);
+  }
+
+  private _getCachedContent(): Contents.IModel {
+    const newFilter = this.getFilter();
+    if (newFilter !== this._previousFilter) {
+      this.resetContentsNode();
+      this.filterContents();
+    }
+    this._previousFilter = newFilter;
+
+    this.setupScrollingHandler();
+
+    const {start} = this.getContentsStart();
+    const {end} = this.getContentsEnd();
+    return {
+      ...this._cache.shallowResponse,
+      content: this._cache.filteredContents.slice(start, end),
+    };
+  }
+
+  private _fetchNextPage(
+    previousResponse: Contents.IModel,
+    timeOfLastDirectoryChange: number,
+    url: string,
+    getOptions: PartialJSONObject,
+  ): void {
+    // Stop fetching pages if we recieve a page less than expected file count of a page
+    if (previousResponse?.content?.length < PAGINATION_NUMBER) {
+      return;
+    }
+
+    // Invoking an async function without awaiting it lets us start the process of fetching the next pages in the background while
+    // continuing to render the the first page.
+    (async () => {
+      const nextResponse: Contents.IModel = await this._get(url, {
+        ...getOptions,
+        pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
+      });
+
+      // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
+      // cache with results after the user has changed directories.
+      if (this._cache.now !== timeOfLastDirectoryChange) {
+        return;
+      }
+
+      // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
+      // It will just add new pages and update the page selector without disrupting the user.
+      this._cache.contents = this._cache.contents.concat(nextResponse.content);
+      this.filterContents();
+
+      // Trigger a change directory event without a path change to force re-render the FileBrowser, then fetch the next page of results async.
+      this._fetchNextPage(
+        nextResponse,
+        timeOfLastDirectoryChange,
+        url,
+        getOptions,
+      );
+    })();
   }
 
   // Gets the user defined file name filter from the JupyterLab FilterBox.
@@ -300,7 +312,7 @@ export class MountDrive implements Contents.IDrive {
   // Gets the visible cached Contents end for slicing. atMax is true if the _index can no longer be incremented.
   private getContentsEnd(): {end: number; atMax: boolean} {
     let end =
-      VISIBLE_CONTENT_LIS + (this._index + 1) * VISIBLE_CONTENT_LI_PADDING;
+      VISIBLE_CONTENT_LI_COUNT + (this._index + 1) * VISIBLE_CONTENT_LI_PADDING;
     let atMax = false;
     if (end > this._cache.filteredContents.length) {
       end = this._cache.filteredContents.length;
@@ -332,6 +344,10 @@ export class MountDrive implements Contents.IDrive {
       const scrollNextHeight = Math.round(scrollHeight * 0.8);
       const scrollPrevHeight = Math.round(scrollHeight * 0.2);
 
+      const contentsListItemNode: HTMLStyleElement = contentsNode
+        .childNodes[0] as any;
+      const contentsListItemHeight = contentsListItemNode.clientHeight;
+
       // Only the user scrolling to the upper or lower bound should trigger a change in index, not
       // scrolls initiated by this JS client.
       if (ignoreNextScroll) {
@@ -346,7 +362,8 @@ export class MountDrive implements Contents.IDrive {
         ignoreNextScroll = true;
         this._index -= 1;
         this._rerenderFileBrowser().then(() => {
-          this._previousScrollTop += VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          this._previousScrollTop +=
+            VISIBLE_CONTENT_LI_PADDING * contentsListItemHeight;
           contentsNode.scrollTop = this._previousScrollTop;
           ignoreNextScroll = false;
         });
@@ -360,7 +377,8 @@ export class MountDrive implements Contents.IDrive {
         ignoreNextScroll = true;
         this._index += 1;
         this._rerenderFileBrowser().then(() => {
-          this._previousScrollTop -= VISIBLE_CONTENT_LI_PADDING * LI_HEIGHT_PX;
+          this._previousScrollTop -=
+            VISIBLE_CONTENT_LI_PADDING * contentsListItemHeight;
           contentsNode.scrollTop = this._previousScrollTop;
           ignoreNextScroll = false;
         });
