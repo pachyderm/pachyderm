@@ -53,7 +53,7 @@ const Datum: React.FC<DatumProps> = ({
         <textarea
           className="pachyderm-input"
           data-testid="Datum__inputSpecInput"
-          style={{minHeight: '200px'}}
+          style={{minHeight: '200px', resize: 'none'}}
           name="inputSpec"
           value={inputSpec}
           onChange={(e: any) => {
