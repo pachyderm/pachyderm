@@ -58,7 +58,7 @@ const MOCK_LOGS: LogMessage[] = [
 export const mockEmptyGetLogs = () =>
   rest.post<GetLogsRequest, Empty, LogMessage[]>(
     '/api/pps_v2.API/GetLogs',
-    (req, res, ctx) => {
+    (_req, res, ctx) => {
       return res(ctx.json([]));
     },
   );
@@ -66,7 +66,26 @@ export const mockEmptyGetLogs = () =>
 export const mockGetLogs = () =>
   rest.post<GetLogsRequest, Empty, LogMessage[]>(
     '/api/pps_v2.API/GetLogs',
-    (req, res, ctx) => {
-      return res(ctx.json(MOCK_LOGS));
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (
+        body.job?.id === '5c1aa9bc87dd411ba5a1be0c80a3ebc2' &&
+        body.pipeline?.name === 'montage'
+      ) {
+        return res(ctx.json(MOCK_LOGS));
+      }
+      return res(ctx.json([]));
+    },
+  );
+
+export const mockGetServiceOrSpoutLogs = () =>
+  rest.post<GetLogsRequest, Empty, LogMessage[]>(
+    '/api/pps_v2.API/GetLogs',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (!body.job) {
+        return res(ctx.json(MOCK_LOGS));
+      }
+      return res(ctx.json([]));
     },
   );

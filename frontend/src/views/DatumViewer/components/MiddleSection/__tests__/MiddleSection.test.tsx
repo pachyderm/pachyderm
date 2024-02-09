@@ -26,7 +26,11 @@ import {
   mockGetVersionInfo,
   mockInspectJobMontage5C,
 } from '@dash-frontend/mocks';
-import {mockEmptyGetLogs, mockGetLogs} from '@dash-frontend/mocks/logs';
+import {
+  mockEmptyGetLogs,
+  mockGetLogs,
+  mockGetServiceOrSpoutLogs,
+} from '@dash-frontend/mocks/logs';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import {default as MiddleSectionComponent} from '../MiddleSection';
@@ -255,6 +259,21 @@ describe('Datum Viewer Middle Section', () => {
       });
     });
 
+    it('should display Spout Pipeline logs', async () => {
+      server.use(mockGetServiceOrSpoutLogs());
+      server.use(mockGetSpoutPipeline());
+      render(<MiddleSection />);
+
+      const rows = await screen.findAllByTestId('LogRow__base');
+      expect(rows).toHaveLength(7);
+      expect(rows[0]).toHaveTextContent(
+        `Dec 1, 2023; 21:29 started process datum set task`,
+      );
+      expect(rows[6]).toHaveTextContent(
+        `Dec 1, 2023; 21:30 finished process datum set task`,
+      );
+    });
+
     it('should display correct Service Pipeline header', async () => {
       server.use(mockGetServicePipeline());
       render(<MiddleSection />);
@@ -263,6 +282,21 @@ describe('Datum Viewer Middle Section', () => {
           await screen.findByTestId('MiddleSection__title'),
         ).toHaveTextContent('Pipeline logs formontage');
       });
+    });
+
+    it('should display Service Pipeline logs', async () => {
+      server.use(mockGetServicePipeline());
+      server.use(mockGetServiceOrSpoutLogs());
+      render(<MiddleSection />);
+
+      const rows = await screen.findAllByTestId('LogRow__base');
+      expect(rows).toHaveLength(7);
+      expect(rows[0]).toHaveTextContent(
+        `Dec 1, 2023; 21:29 started process datum set task`,
+      );
+      expect(rows[6]).toHaveTextContent(
+        `Dec 1, 2023; 21:30 finished process datum set task`,
+      );
     });
 
     it('export options should download and copy selected logs', async () => {

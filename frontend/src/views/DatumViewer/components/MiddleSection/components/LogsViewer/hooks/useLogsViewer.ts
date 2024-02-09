@@ -75,15 +75,17 @@ const useLogsViewer = (
             name: projectId,
           },
         },
-        job: {
-          id: jobId,
-          pipeline: {
-            name: pipelineId,
-            project: {
-              name: projectId,
-            },
-          },
-        },
+        job: !isServiceOrSpout
+          ? {
+              id: jobId,
+              pipeline: {
+                name: pipelineId,
+                project: {
+                  name: projectId,
+                },
+              },
+            }
+          : undefined,
         datum: {
           id: datumId,
         },
