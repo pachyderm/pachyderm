@@ -10,6 +10,7 @@ import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import extractAndShortenIds from '@dash-frontend/lib/extractAndShortenIds';
 import readablePipelineType from '@dash-frontend/lib/readablePipelineType';
+import {Link} from '@pachyderm/components';
 
 import styles from './PipelineInfo.module.css';
 
@@ -66,6 +67,14 @@ const PipelineInfo: React.FC = () => {
       <Description term="Output Branch" loading={loading}>
         {pipeline?.details?.outputBranch}
       </Description>
+
+      {pipeline?.details?.service?.type === 'LoadBalancer' && (
+        <Description term="Service IP" loading={loading}>
+          <Link externalLink to={pipeline?.details?.service?.ip}>
+            {pipeline?.details?.service?.ip}
+          </Link>
+        </Description>
+      )}
 
       {!isServiceOrSpout && (
         <>

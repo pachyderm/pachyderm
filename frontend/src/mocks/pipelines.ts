@@ -253,6 +253,10 @@ const SERVICE_PIPELINE_INFO = buildPipeline({
     createdAt: getISOStringFromUnix(1690221505),
     datumTries: '3',
     outputBranch: 'master',
+    service: {
+      type: 'LoadBalancer',
+      ip: 'localhost',
+    },
   },
   version: '1',
   state: PipelineState.PIPELINE_RUNNING,

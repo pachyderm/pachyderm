@@ -606,6 +606,19 @@ description: >-
       ).toHaveTextContent(/service/i);
     });
 
+    it('should show service ip for a service pipeline of type LoadBalancer', async () => {
+      server.use(mockGetServicePipeline());
+
+      window.history.replaceState({}, '', '/lineage/default/pipelines/montage');
+      render(<Project />);
+
+      expect(
+        await screen.findByRole('definition', {
+          name: /service ip/i,
+        }),
+      ).toHaveTextContent(/localhost/i);
+    });
+
     it('should default to the info tab for a spout pipeline', async () => {
       server.use(mockGetSpoutPipeline());
 
