@@ -58,6 +58,7 @@ describe('FileBrowser', () => {
         name: /test/i,
       }).click();
 
+      cy.findByTestId('SidePanel__closeLeft').click();
       cy.findByText('image1.png').click();
       cy.findByRole('button', {
         name: 'Load older file versions',

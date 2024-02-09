@@ -51,7 +51,7 @@ const ProjectPreview: React.FC<ProjectPreviewProps> = ({project}) => {
     jobs,
     loading: jobsLoading,
     error: jobsError,
-  } = useJobSets(projectName, JOB_SET_LIMIT);
+  } = useJobSets({projectName}, JOB_SET_LIMIT);
   const {
     projectStatus,
     loading: projectStatusLoading,

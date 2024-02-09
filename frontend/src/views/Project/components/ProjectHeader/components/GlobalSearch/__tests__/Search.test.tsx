@@ -205,6 +205,4 @@ describe('Search', () => {
     await click(await screen.findByRole('button', {name: 'Clear'}));
     expect(screen.queryByText('images')).not.toBeInTheDocument();
   });
-
-  it.todo('should hide when clicked off of the dropdown'); // not sure if we can test this here
 });

@@ -23,9 +23,14 @@
 
 .resultsContainer {
   max-height: 15rem;
-  overflow-y: auto;
 }
 
 .loadingContainer {
   height: 5rem;
+}
+
+.unorderedList {
+  list-style: none;
+  margin: unset;
+  padding-left: unset;
 }

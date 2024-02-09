@@ -139,21 +139,20 @@ export const ChipRadio: React.FC<ChipRadioProps> = ({
   };
 
   return (
-    <label className={classes}>
-      <Group spacing={8} align="center" justify="center">
+    <button
+      disabled={disabled}
+      onClick={handleOnClick}
+      className={classes}
+      {...rest}
+    >
+      <Group spacing={4} align="center" justify="center">
         {IconSVG && (
           <Icon color="red" small={true}>
             <IconSVG />
           </Icon>
         )}
-        <button
-          disabled={disabled}
-          className={styles.input}
-          onClick={handleOnClick}
-          {...rest}
-        />
         {children}
       </Group>
-    </label>
+    </button>
   );
 };

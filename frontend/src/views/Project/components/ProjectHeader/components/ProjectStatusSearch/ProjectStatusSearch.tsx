@@ -48,7 +48,7 @@ const ProjectStatusSearch: React.FC = () => {
           <Icon color="green" className={styles.icon} small>
             <StatusCheckmarkSVG />
           </Icon>
-          Healthy Project
+          <div className={styles.hide}>Healthy Project</div>
         </div>
       ) : (
         <>
@@ -59,7 +59,7 @@ const ProjectStatusSearch: React.FC = () => {
             <Icon color="red" small>
               <StatusWarningSVG />
             </Icon>
-            Unhealthy Project
+            <div className={styles.hide}>Unhealthy Project</div>
           </Button>
         </>
       )}

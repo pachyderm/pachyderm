@@ -20,3 +20,9 @@
   position: absolute;
   right: 2rem;
 }
+
+@media (--medium-viewport) {
+  .hide {
+    display: none;
+  }
+}

@@ -1,6 +1,10 @@
 import path from 'path';
 
 import react from '@vitejs/plugin-react';
+import customMedia from 'postcss-custom-media';
+import flexbugFixes from 'postcss-flexbugs-fixes';
+import normalize from 'postcss-normalize';
+import presetEnv from 'postcss-preset-env';
 import copy from 'rollup-plugin-copy';
 import {visualizer} from 'rollup-plugin-visualizer';
 import {defineConfig} from 'vite';
@@ -8,7 +12,6 @@ import {ViteEjsPlugin} from 'vite-plugin-ejs';
 import EnvironmentPlugin from 'vite-plugin-environment';
 import svgr from 'vite-plugin-svgr';
 import tsconfigPaths from 'vite-tsconfig-paths';
-
 const NODE_ENV = process.env.NODE_ENV;
 
 const isProd = NODE_ENV === 'production' || NODE_ENV === 'staging';
@@ -108,4 +111,19 @@ export default defineConfig({
       ? [visualizer({filename: 'visualizer-stats.html'})]
       : []),
   ],
+  css: {
+    postcss: {
+      plugins: [
+        customMedia(),
+        normalize(),
+        flexbugFixes(),
+        presetEnv({
+          autoprefixer: {
+            flexbox: 'no-2009',
+          },
+          stage: 3,
+        }),
+      ],
+    },
+  },
 });

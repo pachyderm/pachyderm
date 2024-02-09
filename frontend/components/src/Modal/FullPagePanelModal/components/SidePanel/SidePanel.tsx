@@ -103,6 +103,7 @@ const SidePanel: React.FC<SidePanelProps> = ({
         })}
       >
         <Button
+          data-testid={`SidePanel__close${isLeft ? 'Left' : 'Right'}`}
           color="black"
           buttonType="ghost"
           IconSVG={chevronDirection ? PanelLeftSVG : PanelRightSVG}

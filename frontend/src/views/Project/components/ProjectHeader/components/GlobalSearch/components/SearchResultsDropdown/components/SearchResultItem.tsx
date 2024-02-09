@@ -29,12 +29,12 @@ const Underline = ({text = '', search = ''}) => {
   const regex = new RegExp(`^(${escapeRegExp(search)})`, 'gi');
   const parts = text.split(regex);
   return (
-    <span>
+    <span className={styles.underlineContainer} title={text}>
       {parts.map((part, i) =>
         search && regex.test(part) ? (
-          <div className={styles.underline} key={i}>
+          <span className={styles.underline} key={i}>
             {part}
-          </div>
+          </span>
         ) : (
           <span key={i}>{part}</span>
         ),
@@ -53,7 +53,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
   hasFailedSubjob,
 }) => {
   return (
-    <div
+    <li
       className={styles.base}
       onClick={onClick}
       data-testid="SearchResultItem__container"
@@ -75,7 +75,7 @@ export const SearchResultItem: React.FC<SearchResultItemProps> = ({
           )}
         </div>
       )}
-    </div>
+    </li>
   );
 };
 

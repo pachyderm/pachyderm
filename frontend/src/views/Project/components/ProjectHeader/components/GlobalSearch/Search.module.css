@@ -1,11 +1,13 @@
 .base {
   position: relative;
   margin-right: auto;
+  flex-grow: 1;
 }
 
 .dropdown {
+  width: 100%;
   position: absolute;
-  width: 31.25rem;
+  max-width: 23.75rem;
   opacity: 0;
   visibility: hidden;
   z-index: var(--z-index-dropdown-menu);

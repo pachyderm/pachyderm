@@ -21,7 +21,7 @@ const RunsTable: React.FC<RunsTableProps> = ({filtersExpanded}) => {
     jobs: jobSets,
     loading: jobSetsLoading,
     error: jobSetsError,
-  } = useJobSets(projectId);
+  } = useJobSets({projectName: projectId});
   const {sortedJobsets, formCtx, staticFilterKeys, clearableFiltersMap} =
     useJobSetFilters({jobSets});
 

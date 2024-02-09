@@ -20,3 +20,9 @@
   margin-top: 0.625rem;
   margin-bottom: 1.25rem;
 }
+
+.chip {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

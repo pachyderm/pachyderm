@@ -14,6 +14,10 @@
   flex-direction: column-reverse;
 }
 
+.vertical.spacing4 > * {
+  margin-top: 4px;
+}
+
 .vertical.spacing8 > * {
   margin-top: 8px;
 }
@@ -40,6 +44,10 @@
 
 .vertical.spacing128 > * {
   margin-top: 128px;
+}
+
+.horizontal.spacing4 > * {
+  margin-left: 4px;
 }
 
 .horizontal.spacing8 > * {

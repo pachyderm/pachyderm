@@ -17,3 +17,9 @@ export const jqCombine = (root: string, ...filters: string[]) => {
   }
   return [root, ...filters].join(' | ');
 };
+
+export const jqAnd = (...args: string[]) => {
+  if (args.length === 1) return args[0];
+
+  return args.join(' and ');
+};

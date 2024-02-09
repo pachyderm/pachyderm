@@ -18,6 +18,8 @@ import {
   StatusDotsSVG,
   NavigationHistorySVG,
   CloseSVG,
+  CheckmarkSVG,
+  LoadingDots,
 } from '@pachyderm/components';
 
 import {SearchResultItem} from '../../../ProjectHeader/components/GlobalSearch/components/SearchResultsDropdown/components';
@@ -35,7 +37,7 @@ const GlobalFilter: React.FC = () => {
     setDropdownOpen,
     loading,
     globalIdFilter,
-    handleClick,
+    handleClickSearchResult,
     jobsCount,
     filteredJobs,
     chips,
@@ -44,35 +46,49 @@ const GlobalFilter: React.FC = () => {
     toggleDateTimePicker,
     dateTimePickerOpen,
     dateTimeFilterValue,
-    buttonText,
-    removeFilter,
+    headerButtonText,
+    clearGlobalIdFilterAndInput,
+    showApplyFilterButton,
+    handleApplyFilter,
+    jobsLoading,
   } = useGlobalFilter();
 
-  // TODO: does jobsets poll? It clearly triggers when the DAG renders. That means it can be stale data. Refetch when you open the dropdown? Disable when dropdown is not open?
   return (
     <div className={styles.base} ref={containerRef}>
       <Button
         buttonType="tertiary"
         onClick={() => setDropdownOpen(!dropdownOpen)}
-        IconSVG={!globalIdFilter ? NavigationHistorySVG : undefined}
+        className={classnames({
+          [styles.idAppliedOrFocused]: dropdownOpen || globalIdFilter,
+        })}
       >
-        {globalIdFilter && <div className={styles.dot} />}
-        {!globalIdFilter ? (
-          'Previous Jobs'
-        ) : (
-          <div className={styles.buttonContent}>
-            <Icon small color="white">
-              <NavigationHistorySVG />
-            </Icon>
-            {buttonText}
-            <Icon small color="white">
-              <ChevronDownSVG />
-            </Icon>
-          </div>
-        )}
+        <div className={styles.buttonContent}>
+          <span className={styles.hideAtSmall}>
+            <div className={styles.center}>
+              {globalIdFilter && (
+                <Icon small color="white">
+                  <NavigationHistorySVG />
+                </Icon>
+              )}
+
+              {!globalIdFilter ? (
+                'Previous Jobs'
+              ) : (
+                <>
+                  <span className={styles.hideAtMedium}>Viewing</span>
+                  {headerButtonText}
+                </>
+              )}
+            </div>
+          </span>
+
+          <Icon small color="white">
+            {!globalIdFilter ? <NavigationHistorySVG /> : <ChevronDownSVG />}
+          </Icon>
+        </div>
       </Button>
       {dropdownOpen && (
-        <Form formContext={formCtx} className={classnames(styles.dropdownBase)}>
+        <Form formContext={formCtx} className={styles.dropdownBase}>
           <div className={styles.inputWrapper}>
             <div className={styles.input}>
               <Input
@@ -93,10 +109,21 @@ const GlobalFilter: React.FC = () => {
                 clearable
               />
             </div>
-            {globalIdFilter && (
+            {showApplyFilterButton && (
               <Button
                 className={styles.clearFilterButton}
-                onClick={removeFilter}
+                onClick={handleApplyFilter}
+                IconSVG={CheckmarkSVG}
+                buttonType="primary"
+                iconPosition="end"
+              >
+                Apply Filter
+              </Button>
+            )}
+            {!showApplyFilterButton && globalIdFilter && (
+              <Button
+                className={styles.clearFilterButton}
+                onClick={clearGlobalIdFilterAndInput}
                 IconSVG={CloseSVG}
                 buttonType="ghost"
                 iconPosition="end"
@@ -145,20 +172,25 @@ const GlobalFilter: React.FC = () => {
             />
           ) : (
             <ul className={styles.listContainer}>
-              {filteredJobs?.map((job) => {
-                const isFailedSubjob =
-                  restJobStateToNodeState(job.state) === NodeState.ERROR;
+              {jobsLoading && (
+                <div className={styles.emptyState}>
+                  <LoadingDots />
+                </div>
+              )}
+              {!jobsLoading &&
+                filteredJobs?.map((job) => {
+                  const isFailedSubjob =
+                    restJobStateToNodeState(job.state) === NodeState.ERROR;
 
-                const isRunningSubjob =
-                  restJobStateToNodeState(job.state) === NodeState.RUNNING;
+                  const isRunningSubjob =
+                    restJobStateToNodeState(job.state) === NodeState.RUNNING;
 
-                return (
-                  <li key={job.job?.id} className={styles.listItem}>
+                  return (
                     <SearchResultItem
                       key={job.job?.id}
                       searchValue=""
                       title=""
-                      onClick={() => handleClick(job.job?.id || '')}
+                      onClick={() => handleClickSearchResult(job.job?.id || '')}
                     >
                       <span className={styles.datetimeWrapper}>
                         {isFailedSubjob ? (
@@ -181,9 +213,8 @@ const GlobalFilter: React.FC = () => {
                       </span>
                       <span className={styles.id}>{job.job?.id}</span>
                     </SearchResultItem>
-                  </li>
-                );
-              })}
+                  );
+                })}
             </ul>
           )}
         </Form>

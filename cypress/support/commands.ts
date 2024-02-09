@@ -133,6 +133,53 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
           })}' | pachctl create pipeline`,
         );
     });
+  } else if (projectTemplate === 'error-opencv-with-one-success') {
+    return cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
+      cy.exec('pachctl create repo images')
+        .exec(
+          'pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png',
+        )
+        .exec(
+          `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/edges.pipeline.json`,
+        )
+        // invalid image to trigger an error state
+        .exec(`echo "gibberish" | pachctl put file images@master:badImage.png`)
+        .exec(
+          `echo '${JSON.stringify({
+            pipeline: {
+              name: 'montage',
+            },
+            description:
+              'A pipeline that combines images from the `images` and `edges` repositories into a montage.',
+            input: {
+              cross: [
+                {
+                  pfs: {
+                    glob: '/',
+                    repo: 'images',
+                  },
+                },
+                {
+                  pfs: {
+                    glob: '/',
+                    repo: 'edges',
+                  },
+                },
+              ],
+            },
+            transform: {
+              cmd: ['sh'],
+              image: 'dpokidov/imagemagick:7.0.10-58',
+              stdin: [
+                'montage -shadow -background SkyBlue -geometry 300x300+2+2 $(find /pfs -type f | sort) /pfs/out/montage.png',
+              ],
+            },
+            egress: {
+              URL: 's3://test',
+            },
+          })}' | pachctl create pipeline`,
+        );
+    });
   } else if (projectTemplate === 'file-browser') {
     return cy.exec('jq -r .pachReleaseCommit version.json').then(() => {
       cy.exec('pachctl create repo images')

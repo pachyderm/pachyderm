@@ -36,6 +36,7 @@ export const AdvancedDateTimeFilter = ({
             className={styles.dateTimeInput}
             type="date"
             id="startDate"
+            data-testid="AdvancedDateTimeFilter__startDate"
             {...register('startDate')}
           />
 
@@ -48,6 +49,7 @@ export const AdvancedDateTimeFilter = ({
             className={styles.dateTimeInput}
             type="date"
             id="endDate"
+            data-testid="AdvancedDateTimeFilter__endDate"
             {...register('endDate')}
           />
         </div>
@@ -57,6 +59,7 @@ export const AdvancedDateTimeFilter = ({
             className={styles.dateTimeInput}
             type="time"
             id="startTime"
+            data-testid="AdvancedDateTimeFilter__startTime"
             {...register('startTime')}
           />
 
@@ -69,6 +72,7 @@ export const AdvancedDateTimeFilter = ({
             className={styles.dateTimeInput}
             type="time"
             id="endTime"
+            data-testid="AdvancedDateTimeFilter__endTime"
             {...register('endTime')}
           />
         </div>

@@ -1,3 +1,4 @@
+import classNames from 'classnames';
 import React from 'react';
 
 import {JobState} from '@dash-frontend/api/pps';
@@ -55,66 +56,75 @@ const Dropdown: React.FC = () => {
           </Icon>
         )}
       </div>
-      <Tabs
-        initialActiveTabId={initialtab}
-        onSwitch={(tabId) =>
-          setSelectedTab(tabId === 'job' ? 'job' : 'pipeline')
-        }
-      >
-        <Tabs.TabsHeader className={styles.tabsContainer}>
-          <Tabs.Tab id="job">
-            <div className={styles.tabContainer}>
-              <Icon color="red" small>
-                <StatusWarningSVG />
-              </Icon>
-              {subJobsHeading}
-            </div>
-          </Tabs.Tab>
 
-          <Tabs.Tab id="pipeline">
-            <div className={styles.tabContainer}>
-              <Icon color="red" small>
-                <PipelineColorlessSVG />
-              </Icon>
-              {pipelinesHeading}
-            </div>
-          </Tabs.Tab>
-        </Tabs.TabsHeader>
+      {initialtab ? (
+        <Tabs
+          initialActiveTabId={initialtab}
+          onSwitch={(tabId) =>
+            setSelectedTab(tabId === 'job' ? 'job' : 'pipeline')
+          }
+        >
+          <Tabs.TabsHeader className={styles.tabsContainer}>
+            <Tabs.Tab id="job">
+              <div className={styles.tabContainer}>
+                <Icon color="red" small>
+                  <StatusWarningSVG />
+                </Icon>
+                {subJobsHeading}
+              </div>
+            </Tabs.Tab>
 
-        <div className={styles.resultsContainer}>
-          {loading ? (
-            <div className={styles.loadingContainer}>
-              <LoadingDots />
-            </div>
-          ) : searchResults && searchResults.length > 0 ? (
-            searchResults.map((pipeline) => {
-              return (
-                <SearchResultItem
-                  key={pipeline.pipeline?.name}
-                  title={pipeline.pipeline?.name || ''}
-                  searchValue={lowercaseQuery}
-                  onClick={() => pipelineOnClick(pipeline.pipeline?.name || '')}
-                  wasKilled={pipeline.lastJobState === JobState.JOB_KILLED}
-                  hasFailedPipeline={
-                    restPipelineStateToNodeState(pipeline.state) ===
-                    NodeState.ERROR
-                  }
-                  hasFailedSubjob={
-                    restJobStateToNodeState(pipeline.lastJobState) ===
-                    NodeState.ERROR
-                  }
-                />
-              );
-            })
-          ) : (
-            <div className={styles.noResults}>
-              <NotFoundMessage>
-                No matching {selectedTab === 'job' ? 'Subjobs' : 'Pipelines'}.
-              </NotFoundMessage>
-            </div>
-          )}
+            <Tabs.Tab id="pipeline">
+              <div className={styles.tabContainer}>
+                <Icon color="red" small>
+                  <PipelineColorlessSVG />
+                </Icon>
+                {pipelinesHeading}
+              </div>
+            </Tabs.Tab>
+          </Tabs.TabsHeader>
+
+          <ul className={(styles.resultsContainer, styles.unorderedList)}>
+            {loading ? (
+              <div className={styles.loadingContainer}>
+                <LoadingDots />
+              </div>
+            ) : searchResults && searchResults.length > 0 ? (
+              searchResults.map((pipeline) => {
+                return (
+                  <SearchResultItem
+                    key={pipeline.pipeline?.name}
+                    title={pipeline.pipeline?.name || ''}
+                    searchValue={lowercaseQuery}
+                    onClick={() =>
+                      pipelineOnClick(pipeline.pipeline?.name || '')
+                    }
+                    wasKilled={pipeline.lastJobState === JobState.JOB_KILLED}
+                    hasFailedPipeline={
+                      restPipelineStateToNodeState(pipeline.state) ===
+                      NodeState.ERROR
+                    }
+                    hasFailedSubjob={
+                      restJobStateToNodeState(pipeline.lastJobState) ===
+                      NodeState.ERROR
+                    }
+                  />
+                );
+              })
+            ) : (
+              <div className={styles.noResults}>
+                <NotFoundMessage>
+                  No matching {selectedTab === 'job' ? 'Subjobs' : 'Pipelines'}.
+                </NotFoundMessage>
+              </div>
+            )}
+          </ul>
+        </Tabs>
+      ) : (
+        <div className={classNames(styles.empty, styles.loadingContainer)}>
+          <LoadingDots />
         </div>
-      </Tabs>
+      )}
     </div>
   );
 };

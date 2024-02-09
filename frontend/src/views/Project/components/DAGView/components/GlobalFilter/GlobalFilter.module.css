@@ -11,6 +11,10 @@
   margin-left: 0 !important;
 }
 
+.idAppliedOrFocused {
+  background-color: var(--global-id-button-grey);
+}
+
 .dropdownBase {
   position: absolute;
   max-height: calc(100vh - 5rem);
@@ -82,10 +86,6 @@
   right: 0;
 }
 
-.listItem {
-  list-style: none;
-}
-
 .listContainer {
   padding: unset;
   margin: unset;
@@ -101,4 +101,22 @@
 
 .emptyState {
   height: 17rem;
+}
+
+.center {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+@media (--small-viewport) {
+  .hideAtSmall {
+    display: none;
+  }
+}
+
+@media (--medium-viewport) {
+  .hideAtMedium {
+    display: none;
+  }
 }

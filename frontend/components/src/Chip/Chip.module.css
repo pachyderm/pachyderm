@@ -60,6 +60,7 @@
   gap: 0.5rem;
   display: inline-flex;
   flex-wrap: wrap;
+  width: 100%;
 }
 
 .group > * {

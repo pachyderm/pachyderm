@@ -1,4 +1,4 @@
-import {useCallback, useMemo, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import {JobState} from '@dash-frontend/api/pps';
@@ -59,7 +59,16 @@ const useDropdown = () => {
     [searchResults],
   );
 
-  const initialtab = filteredSubJobs.length > 0 ? 'job' : 'pipeline';
+  const [initialtab, setInitialTab] = useState('');
+  useEffect(() => {
+    if (
+      !initialtab &&
+      searchResults &&
+      (filteredSubJobs.length !== 0 || filteredPipelines.length !== 0)
+    ) {
+      setInitialTab(filteredSubJobs.length > 0 ? 'job' : 'pipeline');
+    }
+  }, [filteredPipelines, filteredSubJobs, initialtab, searchResults]);
 
   const subJobsHeading = `${filteredSubJobs.length} Subjob ${
     (filteredSubJobs.length || 0) === 1 ? 'Failed' : 'Failures'
@@ -71,8 +80,8 @@ const useDropdown = () => {
   return {
     search,
     setSearch,
-    initialtab,
     setSelectedTab,
+    initialtab,
     filteredSubJobs,
     subJobsHeading,
     filteredPipelines,

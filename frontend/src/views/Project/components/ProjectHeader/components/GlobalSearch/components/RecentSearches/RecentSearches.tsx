@@ -21,19 +21,18 @@ const RecentSearches: React.FC = () => {
               Clear
             </Button>
           </div>
-          <div className={styles.recentSearchGroup}>
-            <ChipGroup>
-              {history.map((searchValue) => (
-                <Chip
-                  key={searchValue}
-                  onClickValue={searchValue}
-                  onClick={handleHistoryChipClick}
-                >
-                  {searchValue}
-                </Chip>
-              ))}
-            </ChipGroup>
-          </div>
+          <ChipGroup>
+            {history.map((searchValue) => (
+              <Chip
+                className={styles.chip}
+                key={searchValue}
+                onClickValue={searchValue}
+                onClick={handleHistoryChipClick}
+              >
+                {searchValue}
+              </Chip>
+            ))}
+          </ChipGroup>
         </div>
       )}
     </>

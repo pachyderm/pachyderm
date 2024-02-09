@@ -6,7 +6,7 @@ import styles from './Group.module.css';
 export type GroupProps = React.HTMLAttributes<HTMLDivElement> & {
   inline?: boolean;
   vertical?: boolean;
-  spacing?: 8 | 16 | 24 | 32 | 40 | 64 | 128;
+  spacing?: 4 | 8 | 16 | 24 | 32 | 40 | 64 | 128;
   justify?: 'end' | 'center' | 'stretch' | 'between';
   align?: 'center' | 'start' | 'end' | 'baseline';
   reverse?: boolean;
@@ -68,6 +68,7 @@ const Group: FunctionComponent<GroupProps> = ({
     [styles.alignEnd]: align === 'end',
     [styles.alignBaseline]: align === 'baseline',
 
+    [styles.spacing4]: spacing === 4,
     [styles.spacing8]: spacing === 8,
     [styles.spacing16]: spacing === 16,
     [styles.spacing24]: spacing === 24,

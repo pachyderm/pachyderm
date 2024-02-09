@@ -36,49 +36,38 @@ export const SimpleDateFilters = ({
   return (
     <div className={styles.chipWrapper}>
       {!!chips.lastHour || !!chips.lastDay || !!chips.lastWeek ? (
-        <>
-          <div className={styles.chipContainer}>
-            {!!chips.lastHour && (
-              <ChipRadio
-                name={FILTER}
-                id={FILTER_HOUR}
-                value={FILTER_HOUR}
-                IconSVG={StatusWarningSVG}
-              >
-                <label
-                  htmlFor={FILTER_HOUR}
-                  className={styles.unsetLabelStyles}
-                >{`(${chips.lastHour}) last hour`}</label>
-              </ChipRadio>
-            )}
-            {!!chips.lastDay && (
-              <ChipRadio
-                name={FILTER}
-                value={FILTER_DAY}
-                id={FILTER_DAY}
-                IconSVG={StatusWarningSVG}
-              >
-                <label
-                  htmlFor={FILTER_DAY}
-                  className={styles.unsetLabelStyles}
-                >{`(${chips.lastDay}) last day`}</label>
-              </ChipRadio>
-            )}
-            {!!chips.lastWeek && (
-              <ChipRadio
-                name={FILTER}
-                value={FILTER_WEEK}
-                id={FILTER_WEEK}
-                IconSVG={StatusWarningSVG}
-              >
-                <label
-                  htmlFor={FILTER_WEEK}
-                  className={styles.unsetLabelStyles}
-                >{`(${chips.lastWeek}) last 7 days`}</label>
-              </ChipRadio>
-            )}
-          </div>
-        </>
+        <div className={styles.chipContainer}>
+          {!!chips.lastHour && (
+            <ChipRadio
+              name={FILTER}
+              id={FILTER_HOUR}
+              value={FILTER_HOUR}
+              IconSVG={StatusWarningSVG}
+            >
+              {`(${chips.lastHour}) last hour`}
+            </ChipRadio>
+          )}
+          {!!chips.lastDay && (
+            <ChipRadio
+              name={FILTER}
+              value={FILTER_DAY}
+              id={FILTER_DAY}
+              IconSVG={StatusWarningSVG}
+            >
+              {`(${chips.lastDay}) last day`}
+            </ChipRadio>
+          )}
+          {!!chips.lastWeek && (
+            <ChipRadio
+              name={FILTER}
+              value={FILTER_WEEK}
+              id={FILTER_WEEK}
+              IconSVG={StatusWarningSVG}
+            >
+              {`(${chips.lastWeek}) last 7 days`}
+            </ChipRadio>
+          )}
+        </div>
       ) : (
         <span className={styles.noFailedJobsText}>
           <Icon color="green" small>

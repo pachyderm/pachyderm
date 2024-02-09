@@ -2,6 +2,8 @@
   display: flex;
   justify-content: space-between;
   padding: 0.5rem 1rem 0.5rem 1rem;
+  width: 100%;
+  gap: 1rem;
 }
 
 .base:hover {
@@ -15,7 +17,6 @@
 
 .underline {
   border-bottom: 1px solid var(--pachyderm-black);
-  display: inline-block;
 }
 
 .icons {
@@ -25,4 +26,10 @@
 
 .killed {
   color: var(--pachyderm-red);
+}
+
+.underlineContainer {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }

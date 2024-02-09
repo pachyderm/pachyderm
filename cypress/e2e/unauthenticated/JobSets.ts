@@ -36,6 +36,7 @@ describe('JobSets', () => {
       .within(() => cy.findByLabelText('Failed datums').click());
 
     cy.findByTestId('Filter__FAILEDChip').should('exist');
+    cy.findByTestId('SidePanel__closeLeft').click();
     cy.findAllByTestId('LogRow__base')
       .first()
       .parent()

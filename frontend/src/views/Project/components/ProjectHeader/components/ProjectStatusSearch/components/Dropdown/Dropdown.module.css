@@ -8,6 +8,7 @@
   border-radius: 3px;
   background-color: var(--white);
   box-shadow: 2px 2px 8px 0px rgba(14, 14, 15, 0.15);
+  min-height: 5.5rem;
 }
 
 .searchContainer {
@@ -41,6 +42,10 @@
   gap: 0.25rem;
 }
 
+.empty {
+  height: 4rem;
+}
+
 .loadingContainer {
   margin: 0 1.5rem;
 }
@@ -52,4 +57,10 @@
 .resultsContainer {
   max-height: calc(100vh - 10rem);
   overflow-y: auto;
+}
+
+.unorderedList {
+  list-style: none;
+  margin: unset;
+  padding-left: unset;
 }

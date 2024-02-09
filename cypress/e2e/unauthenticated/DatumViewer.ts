@@ -22,6 +22,7 @@ describe('DatumViewer', () => {
         timeout: 30000,
       }).click();
 
+      cy.findByTestId('SidePanel__closeLeft').click();
       // a bit flakey, can timeout
       cy.findAllByTestId('LogRow__base', {
         timeout: 90000,

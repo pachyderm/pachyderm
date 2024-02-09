@@ -75,7 +75,12 @@ const SearchResultsDropdown: React.FC = () => {
           >
             Pipelines
           </CaptionTextSmall>
-          <div className={styles.resultsContainer}>
+          <ul
+            className={classNames(
+              styles.resultsContainer,
+              styles.unorderedList,
+            )}
+          >
             {searchResults.pipelines.map((pipeline) => {
               return (
                 <SearchResultItem
@@ -94,7 +99,7 @@ const SearchResultsDropdown: React.FC = () => {
                 />
               );
             })}
-          </div>
+          </ul>
         </>
       );
     }
@@ -129,7 +134,12 @@ const SearchResultsDropdown: React.FC = () => {
           >
             Repos
           </CaptionTextSmall>
-          <div className={styles.resultsContainer}>
+          <ul
+            className={classNames(
+              styles.resultsContainer,
+              styles.unorderedList,
+            )}
+          >
             {searchResults.repos.map((repo) => {
               return (
                 <SearchResultItem
@@ -142,7 +152,7 @@ const SearchResultsDropdown: React.FC = () => {
                 </SearchResultItem>
               );
             })}
-          </div>
+          </ul>
         </>
       );
     }

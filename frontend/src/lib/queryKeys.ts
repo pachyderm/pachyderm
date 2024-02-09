@@ -34,11 +34,13 @@ const projectQueryKeys = {
     'jobs',
     args,
   ],
-  jobSets: ({projectId, args}: {projectId?: string; args: {limit: number}}) => [
+  jobSets: ({
     projectId,
-    'jobSets',
     args,
-  ],
+  }: {
+    projectId?: string;
+    args: {limit: number; jqFilter: string};
+  }) => [projectId, 'jobSets', args],
 };
 
 const pipelineQueryKeys = {
