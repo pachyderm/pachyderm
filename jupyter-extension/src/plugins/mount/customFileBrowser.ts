@@ -43,7 +43,7 @@ const createCustomFileBrowser = (
     // select and scroll to the file opened on a delay. The file attempting to be selected may not be visible and
     // if it is then it interferes with the user scrolling immediately.
     state: null,
-    auto: true,
+    auto: false,
     restore: false,
   });
 
