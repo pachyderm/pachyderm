@@ -91,7 +91,7 @@ export class MountPlugin implements IMountPlugin {
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
       const status = config.cluster_status;
-      if (status === 'INVALID' || status === 'VALID_LOGGED_OUT') {
+      if (['UNKNOWN', 'INVALID', 'VALID_LOGGED_OUT'].includes(status)) {
         this._panel.tabBar.hide();
         this.setCurrentView(this._configScreen);
       } else {
