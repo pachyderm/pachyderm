@@ -21,7 +21,7 @@ import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
 import * as requestAPI from '../../../handler';
 import {waitFor} from '@testing-library/react';
-import {Mount, MountSettings} from '../types';
+import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -189,6 +189,23 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget); // Config
     expect(plugin.layout.widgets[4]).toBeInstanceOf(ReactWidget); // Loader
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget); // Error
+  });
+
+  it('should show config screen when not connected to a cluster', async () => {
+    mockRequestAPI.requestAPI.mockImplementation(
+      mockedRequestAPI({cluster_status: 'UNKNOWN', pachd_address: ''}),
+    );
+
+    const plugin = new MountPlugin(
+      app,
+      settings,
+      docManager,
+      factory,
+      restorer,
+      widgetTracker,
+    );
+
+    expect(plugin.layout.currentWidget?.title.label === 'Config');
   });
   /* TODO: tests must be updated for the new FUSE-less impl
   it('return from pipeline view to the correct layout', async () => {
