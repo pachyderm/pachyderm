@@ -1,8 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.21.1
-
-toolchain go1.21.5
+go 1.22.0
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -12,7 +10,7 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.45.1
+	github.com/bazelbuild/rules_go v0.46.0
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
