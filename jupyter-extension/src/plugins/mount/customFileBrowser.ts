@@ -43,6 +43,13 @@ const createCustomFileBrowser = (
     // select and scroll to the file opened on a delay. The file attempting to be selected may not be visible and
     // if it is then it interferes with the user scrolling immediately.
     state: null,
+
+    // Setting this to false fixes an issue where the file browser was making requests
+    // to our backend before the backend was capable of handling them, i.e. before the
+    // user is connected to their pachd instance. When set to false, the poller that
+    // refreshes the file browser contents every `refreshInterval` ms is initiated on
+    // the first `cd` call that the file browser handles. This is compatible with how
+    // the plugin currently utilizes the file browser.
     auto: false,
     restore: false,
   });
