@@ -31,12 +31,12 @@ export const AdvancedDateTimeFilter = ({
       </div>
       <div className={styles.filtersContainer}>
         <div className={styles.dateTimeRow}>
-          {/* <label htmlFor="startDate">Start date</label> */}
           <input
             className={styles.dateTimeInput}
             type="date"
             id="startDate"
             data-testid="AdvancedDateTimeFilter__startDate"
+            aria-label="Start date"
             {...register('startDate')}
           />
 
@@ -44,22 +44,22 @@ export const AdvancedDateTimeFilter = ({
             <ArrowRightSVG />
           </Icon>
 
-          {/* <label htmlFor="endDate">End date</label> */}
           <input
             className={styles.dateTimeInput}
             type="date"
             id="endDate"
             data-testid="AdvancedDateTimeFilter__endDate"
+            aria-label="End date"
             {...register('endDate')}
           />
         </div>
         <div className={styles.dateTimeRow}>
-          {/* <label htmlFor="startTime">Start Time</label> */}
           <input
             className={styles.dateTimeInput}
             type="time"
             id="startTime"
             data-testid="AdvancedDateTimeFilter__startTime"
+            aria-label="Start time"
             {...register('startTime')}
           />
 
@@ -67,12 +67,12 @@ export const AdvancedDateTimeFilter = ({
             <ArrowRightSVG />
           </Icon>
 
-          {/* <label htmlFor="endTime">End Time</label> */}
           <input
             className={styles.dateTimeInput}
             type="time"
             id="endTime"
             data-testid="AdvancedDateTimeFilter__endTime"
+            aria-label="End time"
             {...register('endTime')}
           />
         </div>

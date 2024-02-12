@@ -36,7 +36,8 @@ export const useJobSets = (
 
   return {
     loading: isLoading,
-    jobs: data,
+    jobs: data?.jobSets,
+    countExceededLimit: data?.countExceededLimit,
     error: getErrorMessage(error),
   };
 };

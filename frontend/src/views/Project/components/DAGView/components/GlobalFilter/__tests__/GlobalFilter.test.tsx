@@ -212,6 +212,64 @@ describe('Global ID Filter', () => {
     ).toBeInTheDocument();
   });
 
+  it('shows a warning that more jobs may exist when the job count hits the limit', async () => {
+    server.use(
+      rest.post<ListJobRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/ListJob',
+        async (_req, res, ctx) =>
+          res(
+            ctx.json(
+              Array.from({length: 100}, (_value, index) =>
+                buildJob({
+                  job: {
+                    id: `${index % 50}c1aa9bc87dd411ba5a1be0c80a3ebc2`,
+                  },
+                }),
+              ),
+            ),
+          ),
+      ),
+    );
+
+    render(<GlobalIDFilter />);
+    await click(screen.getByRole('button', {name: 'Previous Jobs'}));
+
+    expect(
+      await screen.findByText(/More jobs may exist than shown./i),
+    ).toBeInTheDocument();
+  });
+
+  it('does not show a warning that more jobs may exist when more jobs than the limit exist', async () => {
+    server.use(
+      rest.post<ListJobRequest, Empty, JobInfo[]>(
+        '/api/pps_v2.API/ListJob',
+        async (_req, res, ctx) =>
+          res(
+            ctx.json(
+              Array.from({length: 99}, (_value, index) =>
+                buildJob({
+                  job: {
+                    id: `${index % 50}c1aa9bc87dd411ba5a1be0c80a3ebc2`,
+                  },
+                }),
+              ),
+            ),
+          ),
+      ),
+    );
+
+    render(<GlobalIDFilter />);
+    await click(screen.getByRole('button', {name: 'Previous Jobs'}));
+
+    await waitFor(() => {
+      expect(screen.getAllByRole('listitem')).toHaveLength(50);
+    });
+
+    expect(
+      screen.queryByText(/More jobs may exist than shown./i),
+    ).not.toBeInTheDocument();
+  });
+
   describe('Simple date filter', () => {
     afterEach(() => {
       jest.restoreAllMocks();
@@ -497,6 +555,79 @@ describe('Global ID Filter', () => {
       await waitFor(() => {
         expect(screen.getAllByRole('listitem')).toHaveLength(3);
       });
+    });
+
+    it('shows a warning that more jobs may exist when more jobs than the limit exist', async () => {
+      server.use(
+        rest.post<ListJobRequest, Empty, JobInfo[]>(
+          '/api/pps_v2.API/ListJob',
+          async (_req, res, ctx) =>
+            res(
+              ctx.json(
+                Array.from({length: 100}, (_value, index) =>
+                  buildJob({
+                    job: {
+                      id: `${index % 50}c1aa9bc87dd411ba5a1be0c80a3ebc2`,
+                    },
+                    state: JobState.JOB_FAILURE,
+                    created: '2024-01-25T12:00:00.000000000Z',
+                  }),
+                ),
+              ),
+            ),
+        ),
+      );
+
+      global.Date.now = jest.fn(() =>
+        new Date('2024-01-10T12:30:00').getTime(),
+      );
+
+      render(<GlobalIDFilter />);
+      await click(screen.getByRole('button', {name: 'Previous Jobs'}));
+
+      await click(await screen.findByText(/\(≥50\) last hour/i));
+
+      expect(
+        await screen.findByText(/More jobs may exist than shown./i),
+      ).toBeInTheDocument();
+    });
+
+    it('correctly shows ≥ for the given items when a job limit is hit', async () => {
+      server.use(
+        rest.post<ListJobRequest, Empty, JobInfo[]>(
+          '/api/pps_v2.API/ListJob',
+          async (_req, res, ctx) =>
+            res(
+              ctx.json(
+                Array.from({length: 100}, (_value, index) =>
+                  buildJob({
+                    job: {
+                      id: `${index}c1aa9bc87dd411ba5a1be0c80a3ebc2`,
+                    },
+                    state: JobState.JOB_FAILURE,
+                    created:
+                      index % 2 === 0
+                        ? '2024-01-25T12:00:00.000000000Z'
+                        : '2024-01-25T01:00:00.000000000Z',
+                  }),
+                ),
+              ),
+            ),
+        ),
+      );
+
+      global.Date.now = jest.fn(() =>
+        new Date('2024-01-25T12:30:00').getTime(),
+      );
+
+      render(<GlobalIDFilter />);
+      await click(screen.getByRole('button', {name: 'Previous Jobs'}));
+
+      expect(await screen.findByText(/\(50\) last hour/i)).toBeInTheDocument();
+      expect(await screen.findByText(/\(≥100\) last day/i)).toBeInTheDocument();
+      expect(
+        await screen.findByText(/\(≥100\) last 7 days/i),
+      ).toBeInTheDocument();
     });
   });
 

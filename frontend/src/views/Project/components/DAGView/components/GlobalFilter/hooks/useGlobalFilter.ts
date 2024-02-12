@@ -33,6 +33,8 @@ export const FILTER_HOUR = 'lastHour';
 export const FILTER_DAY = 'lastDay';
 export const FILTER_WEEK = 'lastWeek';
 
+const JOB_LIMIT = 100;
+
 const useGlobalFilter = () => {
   const {
     searchParams: {globalIdFilter},
@@ -91,9 +93,10 @@ const useGlobalFilter = () => {
 
   const {
     jobs,
+    countExceededLimit: jobsExceededLimit,
     loading: jobsLoading,
     error: jobsError,
-  } = useJobSets({projectName: projectId, jqFilter}, 100, dropdownOpen);
+  } = useJobSets({projectName: projectId, jqFilter}, JOB_LIMIT, dropdownOpen);
 
   const failedChipsArgs: string[] = [];
 
@@ -114,6 +117,7 @@ const useGlobalFilter = () => {
 
   const {
     jobs: failedJobs,
+    countExceededLimit: failedJobsExceededLimit,
     loading: _failedJobsLoading,
     error: _failedJobsError,
   } = useJobSets(
@@ -121,7 +125,7 @@ const useGlobalFilter = () => {
       projectName: projectId,
       jqFilter: jqFilter2,
     },
-    100,
+    JOB_LIMIT,
     dropdownOpen,
   );
 
@@ -319,6 +323,9 @@ const useGlobalFilter = () => {
     }
   }, [failedJobs, filter, memoizedJobs, showClearButton]);
 
+  const showMoreJobsAlert =
+    (showClearButton && failedJobsExceededLimit) || jobsExceededLimit;
+
   return {
     containerRef,
     formCtx,
@@ -343,6 +350,7 @@ const useGlobalFilter = () => {
     clearGlobalIdFilterAndInput,
     showApplyFilterButton,
     handleApplyFilter,
+    showMoreJobsAlert,
   };
 };
 

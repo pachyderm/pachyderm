@@ -342,11 +342,12 @@ export const useDAGView = (
     };
   }, [applySliderZoom, sliderZoomValue, zoomOut]);
 
+  // Always zoomOut when the global id filter changes.
   useEffect(() => {
     if (!loading) {
       dispatch({type: 'RESET'});
     }
-  }, [loading]);
+  }, [loading, searchParams.globalIdFilter]);
 
   useEffect(() => {
     if (!loading && (pipelineId || repoId)) {

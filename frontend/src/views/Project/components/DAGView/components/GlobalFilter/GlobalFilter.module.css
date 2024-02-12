@@ -23,7 +23,7 @@
   width: 37rem;
   right: -3.75rem;
   top: 3rem;
-  z-index: var(--z-index-dropdown-menu);
+  z-index: var(--z-index-global-filter);
   border: 1px solid var(--border-grey);
   border-radius: 3px;
   background-color: var(--white);
@@ -64,6 +64,12 @@
   color: var(--pachyderm-black);
   padding: 0.25rem 0.5rem 0.5rem 0.5rem;
   border-bottom: solid 1px var(--line-grey);
+}
+
+.warningText {
+  font-family: Montserrat, sans-serif;
+  color: var(--pachyderm-black);
+  padding: 0.25rem 0.5rem 0.5rem 0.5rem;
 }
 
 .datetimeWrapper {

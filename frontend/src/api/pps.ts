@@ -26,6 +26,7 @@ import {
   RunCronRequest,
 } from '@dash-frontend/generated/proto/pps/pps.pb';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
+import {InternalJobSet} from '@dash-frontend/lib/types';
 import {LOGS_PAGE_SIZE} from '@dash-frontend/views/DatumViewer/components/MiddleSection/components/LogsViewer/constants/logsViewersConstants';
 
 import {pps} from './base/api';
@@ -72,9 +73,11 @@ export const inspectJobSet = async (req: InspectJobSetRequest) => {
 export const listJobSets = async (
   req: Omit<ListJobRequest, 'number'>,
   limit: number,
-) => {
+): Promise<{countExceededLimit: boolean; jobSets: InternalJobSet[]}> => {
   const jobsMap = new Map<string, JobInfo[]>();
   const controller = new AbortController();
+
+  let counter = 0;
 
   try {
     await pps.ListJob(
@@ -89,6 +92,8 @@ export const listJobSets = async (
             return controller.abort();
           }
 
+          counter += 1;
+
           const jobsInJobSet = jobsMap.get(jobId) || [];
 
           jobsInJobSet.push(job);
@@ -102,13 +107,19 @@ export const listJobSets = async (
     );
   } catch (error) {
     if (isAbortSignalError(error)) {
-      return jobsMapToJobSet(jobsMap);
+      return {
+        countExceededLimit: counter >= limit,
+        jobSets: jobsMapToJobSet(jobsMap),
+      };
     }
 
     throw error;
   }
 
-  return jobsMapToJobSet(jobsMap);
+  return {
+    countExceededLimit: counter >= limit,
+    jobSets: jobsMapToJobSet(jobsMap),
+  };
 };
 
 type GetLogsPaging = {

@@ -5,8 +5,10 @@ import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import {UUID_WITHOUT_DASHES_REGEX} from '@dash-frontend/constants/pachCore';
+import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {NodeState} from '@dash-frontend/lib/types';
+import {jobsRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   Icon,
   Input,
@@ -20,6 +22,8 @@ import {
   CloseSVG,
   CheckmarkSVG,
   LoadingDots,
+  Link,
+  InfoSVG,
 } from '@pachyderm/components';
 
 import {SearchResultItem} from '../../../ProjectHeader/components/GlobalSearch/components/SearchResultsDropdown/components';
@@ -51,7 +55,10 @@ const GlobalFilter: React.FC = () => {
     showApplyFilterButton,
     handleApplyFilter,
     jobsLoading,
+    showMoreJobsAlert,
   } = useGlobalFilter();
+
+  const {projectId} = useUrlState();
 
   return (
     <div className={styles.base} ref={containerRef}>
@@ -139,6 +146,7 @@ const GlobalFilter: React.FC = () => {
               clearFilters={clearFilters}
               showClearButton={showClearButton}
               toggleDateTimePicker={toggleDateTimePicker}
+              canHaveMoreJobs={showMoreJobsAlert ?? false}
             />
           )}
           {dateTimePickerOpen && (
@@ -148,9 +156,8 @@ const GlobalFilter: React.FC = () => {
             />
           )}
           <div className={styles.infoText}>
-            Global IDs provide a historical snapshot of the DAG when a job had
-            run. You will see all the pipelines and subjobs that were processed
-            for a specific job.{' '}
+            Global IDs reflect the DAG&apos;s state when a job ran, showing all
+            processed pipelines and sub-jobs for that job.{' '}
             <BrandedDocLink
               pathWithoutDomain="concepts/advanced-concepts/globalid/"
               className={styles.link}
@@ -215,6 +222,27 @@ const GlobalFilter: React.FC = () => {
                     </SearchResultItem>
                   );
                 })}
+              {showMoreJobsAlert && (
+                <div className={styles.warningText}>
+                  <Icon color="grey" small>
+                    <InfoSVG />
+                  </Icon>{' '}
+                  More jobs may exist than shown. Either use a more narrow date
+                  time range or{' '}
+                  <Link
+                    to={jobsRoute(
+                      {
+                        projectId: projectId || '',
+                        tabId: 'jobs',
+                      },
+                      false,
+                    )}
+                  >
+                    go to the jobs page
+                  </Link>{' '}
+                  to see all jobs.
+                </div>
+              )}
             </ul>
           )}
         </Form>

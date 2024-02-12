@@ -23,6 +23,7 @@ export const SimpleDateFilters = ({
   showClearButton,
   clearFilters,
   toggleDateTimePicker,
+  canHaveMoreJobs,
 }: {
   chips: {
     lastHour: number;
@@ -32,7 +33,9 @@ export const SimpleDateFilters = ({
   showClearButton: boolean;
   clearFilters: () => void;
   toggleDateTimePicker: () => void;
+  canHaveMoreJobs: boolean;
 }) => {
+  const maxLastValue = Math.max(chips.lastHour, chips.lastDay, chips.lastWeek);
   return (
     <div className={styles.chipWrapper}>
       {!!chips.lastHour || !!chips.lastDay || !!chips.lastWeek ? (
@@ -44,7 +47,9 @@ export const SimpleDateFilters = ({
               value={FILTER_HOUR}
               IconSVG={StatusWarningSVG}
             >
-              {`(${chips.lastHour}) last hour`}
+              {`(${
+                canHaveMoreJobs && maxLastValue === chips.lastHour ? '≥' : ''
+              }${chips.lastHour}) last hour`}
             </ChipRadio>
           )}
           {!!chips.lastDay && (
@@ -54,7 +59,9 @@ export const SimpleDateFilters = ({
               id={FILTER_DAY}
               IconSVG={StatusWarningSVG}
             >
-              {`(${chips.lastDay}) last day`}
+              {`(${
+                canHaveMoreJobs && maxLastValue === chips.lastDay ? '≥' : ''
+              }${chips.lastDay}) last day`}
             </ChipRadio>
           )}
           {!!chips.lastWeek && (
@@ -64,7 +71,9 @@ export const SimpleDateFilters = ({
               id={FILTER_WEEK}
               IconSVG={StatusWarningSVG}
             >
-              {`(${chips.lastWeek}) last 7 days`}
+              {`(${
+                canHaveMoreJobs && maxLastValue === chips.lastWeek ? '≥' : ''
+              }${chips.lastWeek}) last 7 days`}
             </ChipRadio>
           )}
         </div>
