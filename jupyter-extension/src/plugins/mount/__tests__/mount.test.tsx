@@ -1,5 +1,5 @@
 // Force animation frames to resolve immediately. Necessary for executing deferred code from Lumino Polls
-window.requestAnimationFrame = (cb: any) => { return cb() }
+window.requestAnimationFrame = (cb: any) => { return cb(); }; // prettier-ignore
 
 import {ReactWidget, WidgetTracker} from '@jupyterlab/apputils';
 import {
