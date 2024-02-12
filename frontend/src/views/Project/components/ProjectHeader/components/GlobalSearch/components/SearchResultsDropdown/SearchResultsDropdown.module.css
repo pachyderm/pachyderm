@@ -23,6 +23,7 @@
 
 .resultsContainer {
   max-height: 15rem;
+  overflow-y: auto;
 }
 
 .loadingContainer {
