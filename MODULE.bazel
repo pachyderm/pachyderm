@@ -13,12 +13,6 @@ bazel_dep(name = "rules_python", version = "0.27.1")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
-archive_override(
-    module_name = "rules_go",
-    integrity = "sha256-gKmCd60TEdrNg3+bFttiiHcC6fHRxMn3ltASGkbI4YQ=",
-    urls = ["https://github.com/bazelbuild/rules_go/releases/download/v0.46.0/rules_go-v0.46.0.zip"],
-)
-
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
