@@ -1,3 +1,6 @@
+// Force animation frames to resolve immediately. Necessary for executing deferred code from Lumino Polls
+window.requestAnimationFrame = (cb: any) => { return cb() }
+
 import {ReactWidget, WidgetTracker} from '@jupyterlab/apputils';
 import {
   ILabShell,
@@ -13,30 +16,15 @@ import {
   FilterFileBrowserModel,
   IFileBrowserFactory,
 } from '@jupyterlab/filebrowser';
-import {ServiceManager} from '@jupyterlab/services';
+import {ServerConnection, ServiceManager} from '@jupyterlab/services';
 import {StateDB} from '@jupyterlab/statedb';
 import {CommandRegistry} from '@lumino/commands';
 import {SplitPanel, Widget} from '@lumino/widgets';
-import {mockedRequestAPI} from 'utils/testUtils';
 import {MountPlugin} from '../mount';
-import * as requestAPI from '../../../handler';
-import {waitFor} from '@testing-library/react';
+import * as handler from '../../../handler';
 import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
-
-const items = {
-  unmounted: [
-    {
-      repo: 'images',
-      branches: [],
-    },
-    {
-      repo: 'data',
-      branches: [],
-    },
-  ],
-};
 
 describe('mount plugin', () => {
   let app: JupyterLab;
@@ -48,10 +36,11 @@ describe('mount plugin', () => {
   let fileBrowser: FileBrowser;
   let restorer: ILayoutRestorer;
   let widgetTracker: ILabShell;
-  const mockRequestAPI = requestAPI as jest.Mocked<typeof requestAPI>;
+  const mockedRequestAPI = handler.requestAPI as jest.MockedFunction<
+    typeof handler.requestAPI
+  >;
   beforeEach(() => {
-    mockRequestAPI.requestAPI.mockImplementation(mockedRequestAPI(items));
-
+    mockedRequestAPI.mockClear();
     const opener = {
       open: (widget: Widget) => jest.fn(),
     };
@@ -117,58 +106,6 @@ describe('mount plugin', () => {
     );
   });
 */
-  it.skip('should poll for mounts', async () => {
-    mockRequestAPI.requestAPI
-      .mockImplementationOnce(mockedRequestAPI(items)) // call to api from setup function, part of auth flow.
-      .mockImplementationOnce(mockedRequestAPI(items))
-      .mockImplementationOnce(
-        mockedRequestAPI({
-          mounted: [
-            {
-              images: {
-                name: 'images',
-                repo: 'images',
-                branch: 'master',
-              },
-            },
-          ],
-          unmounted: [
-            {
-              data: {
-                repo: 'data',
-                branches: [],
-              },
-            },
-          ],
-        }),
-      );
-    const plugin = new MountPlugin(
-      app,
-      settings,
-      docManager,
-      factory,
-      restorer,
-      widgetTracker,
-    );
-
-    await plugin.ready;
-
-    jest.runAllTimers();
-    await waitFor(() => {
-      expect(plugin.unmountedRepos).toHaveLength(2);
-      expect(plugin.unmountedRepos[0].repo).toBe('images');
-      expect(plugin.unmountedRepos[1].repo).toBe('data');
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(2);
-    });
-    jest.runAllTimers();
-    await waitFor(() => {
-      expect(plugin.unmountedRepos).toHaveLength(1);
-      expect(plugin.unmountedRepos[0].repo).toBe('data');
-      expect(plugin.mountedRepos).toHaveLength(1);
-      expect(plugin.mountedRepos[0].name).toBe('images');
-      expect(mockRequestAPI.requestAPI).toHaveBeenCalledTimes(3);
-    });
-  });
 
   it('should generate the correct layout', async () => {
     const plugin = new MountPlugin(
@@ -191,9 +128,27 @@ describe('mount plugin', () => {
     expect(plugin.layout.widgets[5]).toBeInstanceOf(ReactWidget); // Error
   });
 
+  /*
+   This test is checking:
+     If
+   the plugin is instantiated and the backend does not have any config
+   for connecting to a pachd instance (GET /config returns status UNKNOWN),
+     Then
+   - the plugin will immediately redirect to the CONFIG screen,
+   - the poller will not make calls to GET /mounts or GET /projects (these requests would error).
+   */
   it('should show config screen when not connected to a cluster', async () => {
-    mockRequestAPI.requestAPI.mockImplementation(
-      mockedRequestAPI({cluster_status: 'UNKNOWN', pachd_address: ''}),
+    // Mock responses from GET /config
+    mockedRequestAPI.mockImplementation(
+      (endPoint?: string, method?: string) => {
+        if (endPoint === 'config' && (method === 'GET' || method === null)) {
+          return Promise.resolve({
+            cluster_status: 'UNKNOWN',
+            pachd_address: '',
+          });
+        }
+        throw ServerConnection.NetworkError;
+      },
     );
 
     const plugin = new MountPlugin(
@@ -204,9 +159,17 @@ describe('mount plugin', () => {
       restorer,
       widgetTracker,
     );
+    await plugin.ready;
 
-    expect(plugin.layout.currentWidget?.title.label === 'Config');
+    expect(plugin.layout.currentWidget?.title.className).toBe(
+      'pachyderm-config-tab', // Easiest way to assert the widget is the config panel.
+    );
+
+    expect(mockedRequestAPI).toHaveBeenCalledTimes(1);
+    expect(mockedRequestAPI).not.toHaveBeenCalledWith('mounts', 'GET');
+    expect(mockedRequestAPI).not.toHaveBeenCalledWith('projects', 'GET');
   });
+
   /* TODO: tests must be updated for the new FUSE-less impl
   it('return from pipeline view to the correct layout', async () => {
     const plugin = new MountPlugin(
