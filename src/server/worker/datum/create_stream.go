@@ -25,7 +25,6 @@ type createDatumStream struct {
 	requestDatumsChan chan bool
 	fsidChan          chan string
 	errChan           chan error
-	doneChan          chan bool
 }
 
 func (cds *createDatumStream) create(input *pps.Input, fsidCh chan string) {
@@ -48,10 +47,7 @@ func (cds *createDatumStream) create(input *pps.Input, fsidCh chan string) {
 }
 
 func (cds *createDatumStream) createPFS(input *pps.PFSInput, fsidChan chan string) {
-	defer func() {
-		close(cds.doneChan)
-		close(fsidChan)
-	}()
+	defer close(fsidChan)
 	authToken := getAuthToken(cds.ctx)
 	if err := client.WithRenewer(cds.ctx, cds.c, func(ctx context.Context, renewer *renew.StringSet) error {
 		fileSetID, err := client.GetFileSet(ctx, cds.c, input.Project, input.Repo, input.Branch, input.Commit)

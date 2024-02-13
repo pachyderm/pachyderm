@@ -50,7 +50,6 @@ func NewCreateDatumStreamIterator(ctx context.Context, c pfs.APIClient, taskDoer
 		requestDatumsChan: make(chan bool),
 		fsidChan:          make(chan string),
 		errChan:           make(chan error, 1),
-		doneChan:          make(chan bool),
 	}
 	go cds.create(cds.input, cds.fsidChan)
 	return &createDatumStreamIterator{
@@ -74,12 +73,11 @@ func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
 		// to create more.
 		if len(it.metaBuffer) == 0 {
 			select {
-			case <-it.doneChan:
-				return nil
 			case it.requestDatumsChan <- true:
-			}
-			select {
-			case fsid := <-it.fsidChan:
+			case fsid, ok := <-it.fsidChan:
+				if !ok {
+					return nil
+				}
 				fsidIt := NewFileSetIterator(it.ctx, it.c, fsid, nil)
 				if err := fsidIt.Iterate(func(meta *Meta) error {
 					err := cb(meta)
