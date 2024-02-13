@@ -117,8 +117,8 @@ const JobsList: React.FC<JobsListProps> = ({
                     {job.pipelineVersion}
                   </Table.DataCell>
                   <Table.DataCell width={320}>
-                    {`${job.dataTotal} Total`}
                     {getDatumStateBadges(job)}
+                    {`${job.dataTotal} Total`}
                   </Table.DataCell>
                   <Table.DataCell width={210}>
                     {getStandardDateFromISOString(job?.started)}

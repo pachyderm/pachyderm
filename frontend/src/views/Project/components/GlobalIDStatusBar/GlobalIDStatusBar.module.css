@@ -28,9 +28,3 @@
   display: flex;
   align-items: center;
 }
-
-.jobStates {
-  border-left: solid 1px var(--border-grey);
-  margin-left: 0.5rem;
-  padding-left: 0.5rem;
-}

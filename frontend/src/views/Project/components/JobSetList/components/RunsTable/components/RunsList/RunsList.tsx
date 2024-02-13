@@ -97,12 +97,12 @@ const RunsList: React.FC<RunsListProps> = ({
                   : '-'}
               </Table.DataCell>
               <Table.DataCell width={320}>
-                {`${jobSet?.jobs.length} Job${
-                  (jobSet?.jobs.length || 0) > 1 ? 's' : ''
-                } Total`}
                 <span className={styles.jobStates}>
                   <JobStateBadges jobSet={jobSet} />
                 </span>
+                {`${jobSet?.jobs.length} Job${
+                  (jobSet?.jobs.length || 0) > 1 ? 's' : ''
+                } Total`}
               </Table.DataCell>
               <Table.DataCell width={90}>
                 {getJobRuntime(

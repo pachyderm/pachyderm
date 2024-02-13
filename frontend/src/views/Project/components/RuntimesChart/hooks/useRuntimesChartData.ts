@@ -1,9 +1,9 @@
 import {ChartData} from 'chart.js';
+import {parseISO} from 'date-fns';
 import {draw} from 'patternomaly';
 import {useMemo, useCallback} from 'react';
 
 import {JobInfo} from '@dash-frontend/api/pps';
-import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 
 import {getChartColor} from '../RuntimesChart';
 
@@ -39,9 +39,10 @@ const useRuntimesChartData = (filteredJobs: JobInfo[], selectedJob: string) => {
       const job = jobsCrossReference[id][step];
       if (job) {
         return (
-          (getUnixSecondsFromISOString(job.finished) ||
-            Math.floor(Date.now() / 1000)) -
-          (getUnixSecondsFromISOString(job.created) || 0)
+          (job.finished
+            ? parseISO(job.finished).getTime() / 1000
+            : Math.floor(Date.now() / 1000)) -
+          (job.created ? parseISO(job.created).getTime() / 1000 : 0)
         );
       } else {
         return null;

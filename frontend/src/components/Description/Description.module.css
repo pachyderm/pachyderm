@@ -6,10 +6,6 @@
   margin: 0.09375rem 0;
 }
 
-.description {
-  line-break: anywhere;
-}
-
 .term + .description {
   margin-top: 0rem;
 }
