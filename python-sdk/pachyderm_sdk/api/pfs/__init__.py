@@ -70,6 +70,10 @@ class Delimiter(betterproto.Enum):
     CSV = 4
 
 
+class RepoPageOrdering(betterproto.Enum):
+    PROJECT_REPO = 0
+
+
 class GetFileSetRequestFileSetType(betterproto.Enum):
     TOTAL = 0
     DIFF = 1
@@ -310,6 +314,16 @@ class ListRepoRequest(betterproto.Message):
     projects filters out repos that do not belong in the list, while no
     projects means list all repos.
     """
+
+    page: "RepoPage" = betterproto.message_field(3)
+    """repo page defines the"""
+
+
+@dataclass(eq=False, repr=False)
+class RepoPage(betterproto.Message):
+    order: "RepoPageOrdering" = betterproto.enum_field(1)
+    page_size: int = betterproto.int64_field(2)
+    page_index: int = betterproto.int64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -1106,7 +1120,11 @@ class ApiStub:
         return self.__rpc_inspect_repo(request)
 
     def list_repo(
-        self, *, type: str = "", projects: Optional[List["Project"]] = None
+        self,
+        *,
+        type: str = "",
+        projects: Optional[List["Project"]] = None,
+        page: "RepoPage" = None
     ) -> Iterator["RepoInfo"]:
         projects = projects or []
 
@@ -1114,6 +1132,8 @@ class ApiStub:
         request.type = type
         if projects is not None:
             request.projects = projects
+        if page is not None:
+            request.page = page
 
         for response in self.__rpc_list_repo(request):
             yield response
@@ -1759,6 +1779,7 @@ class ApiBase:
         self,
         type: str,
         projects: Optional[List["Project"]],
+        page: "RepoPage",
         context: "grpc.ServicerContext",
     ) -> Iterator["RepoInfo"]:
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)

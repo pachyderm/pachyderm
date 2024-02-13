@@ -275,6 +275,17 @@ func (x *ListRepoRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	enc.AddObject("page", x.Page)
+	return nil
+}
+
+func (x *RepoPage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("order", x.Order.String())
+	enc.AddInt64("page_size", x.PageSize)
+	enc.AddInt64("page_index", x.PageIndex)
 	return nil
 }
 

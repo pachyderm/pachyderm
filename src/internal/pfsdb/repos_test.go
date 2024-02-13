@@ -3,9 +3,10 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"testing"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
@@ -179,7 +180,7 @@ func TestForEachRepo(t *testing.T) {
 			expectedInfos[i] = createInfo
 		}
 		i := 0
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.True(t, cmp.Equal(expectedInfos[i], repoWithID.RepoInfo, cmp.Comparer(compareRepos)))
 			i++
 			return nil
@@ -201,16 +202,94 @@ func TestForEachRepoFilter(t *testing.T) {
 			}
 		}
 		filter := &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}}
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoA", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "meta", repoWithID.RepoInfo.Repo.Type)
 			return nil
 		}), "should be able to call for each repo")
 		filter = &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}}
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoB", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "user", repoWithID.RepoInfo.Repo.Type)
 			return nil
 		}), "should be able to call for each repo")
 	})
+}
+
+func TestForEachRepoPage(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	collectRepoPage := func(tx *pachsql.Tx, page *pfs.RepoPage) []pfsdb.RepoInfoWithID {
+		repos := make([]pfsdb.RepoInfoWithID, 0)
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, page, func(repoWithID pfsdb.RepoInfoWithID) error {
+			repos = append(repos, repoWithID)
+			return nil
+		}), "should be able to call for each repo")
+		return repos
+	}
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		for _, repoName := range []string{"A", "B", "C", "D", "E"} {
+			createInfo := testRepo(repoName, "user")
+			_, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
+			require.NoError(t, err, "should be able to create repo")
+		}
+		// page larger than number of repos
+		rs := collectRepoPage(tx, &pfs.RepoPage{
+			PageSize:  20,
+			PageIndex: 0,
+		})
+		require.Equal(t, 5, len(rs))
+		rs = collectRepoPage(tx, &pfs.RepoPage{
+			PageSize:  3,
+			PageIndex: 0,
+		})
+		assertRepoSequence(t, []string{"A", "B", "C"}, rs)
+		rs = collectRepoPage(tx, &pfs.RepoPage{
+			PageSize:  3,
+			PageIndex: 1,
+		})
+		assertRepoSequence(t, []string{"D", "E"}, rs)
+		// page overbounds
+		rs = collectRepoPage(tx, &pfs.RepoPage{
+			PageSize:  3,
+			PageIndex: 2,
+		})
+		assertRepoSequence(t, []string{}, rs)
+	})
+}
+
+// the default order for ForEachRepo is dictated by the page size and is (project.name, repo.name)
+func TestForEachRepoDefaultOrder(t *testing.T) {
+	t.Parallel()
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		project := &pfs.Project{Name: "alpha"}
+		require.NoError(t,
+			pfsdb.CreateProject(ctx, tx, &pfs.ProjectInfo{Project: project}),
+			"should be able to create repo",
+		)
+		for i, repoName := range []string{"A", "B", "C"} {
+			createInfo := testRepo(repoName, "user")
+			if i == 2 {
+				createInfo.Repo.Project.Name = "alpha"
+			}
+			_, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
+			require.NoError(t, err, "should be able to create repo")
+		}
+		repos := make([]pfsdb.RepoInfoWithID, 0)
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+			repos = append(repos, repoWithID)
+			return nil
+		}), "should be able to call for each repo")
+		assertRepoSequence(t, []string{"C", "A", "B"}, repos)
+	})
+}
+
+func assertRepoSequence(t *testing.T, names []string, repos []pfsdb.RepoInfoWithID) {
+	require.Equal(t, len(names), len(repos))
+	for i, n := range names {
+		require.Equal(t, n, repos[i].RepoInfo.Repo.Name)
+	}
 }

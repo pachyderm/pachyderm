@@ -194,14 +194,16 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) (RepoID
 type repoColumn string
 
 const (
-	RepoColumnID        = repoColumn("repo.id")
-	RepoColumnCreatedAt = repoColumn("repo.created_at")
-	RepoColumnUpdatedAt = repoColumn("repo.updated_at")
+	RepoColumnID          = repoColumn("repo.id")
+	RepoColumnCreatedAt   = repoColumn("repo.created_at")
+	RepoColumnUpdatedAt   = repoColumn("repo.updated_at")
+	RepoColumnName        = repoColumn("repo.name")
+	RepoColumnProjectName = repoColumn("project.name")
 )
 
 type OrderByRepoColumn OrderByColumn[repoColumn]
 
-func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize, maxPages uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
 	var conditions []string
 	var values []any
 	if filter != nil {
@@ -234,13 +236,29 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 	query += "\n" + OrderByQuery[repoColumn](orderByGeneric...)
 	query = ext.Rebind(query)
 	return &RepoIterator{
-		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Repo](ctx, query, values, startPage, pageSize, maxPages),
 		ext:       ext,
 	}, nil
 }
 
-func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
-	iter, err := NewRepoIterator(ctx, tx, 0, 100, filter, orderBys...)
+func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
+	var maxPages uint64
+	if page == nil {
+		page = &pfs.RepoPage{
+			PageIndex: 0,
+			PageSize:  100,
+		}
+	} else {
+		maxPages = 1
+	}
+	if len(orderBys) == 0 {
+		var err error
+		orderBys, err = makePageOrderBys(page.Order)
+		if err != nil {
+			return err
+		}
+	}
+	iter, err := NewRepoIterator(ctx, tx, uint64(page.PageIndex), uint64(page.PageSize), maxPages, filter, orderBys...)
 	if err != nil {
 		return errors.Wrap(err, "for each repo")
 	}
@@ -250,9 +268,19 @@ func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, cb func(
 	return nil
 }
 
-func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
+func makePageOrderBys(ordering pfs.RepoPage_Ordering) ([]OrderByRepoColumn, error) {
+	if ordering == pfs.RepoPage_PROJECT_REPO {
+		return []OrderByRepoColumn{
+			{Column: RepoColumnProjectName, Order: SortOrderAsc},
+			{Column: RepoColumnName, Order: SortOrderAsc},
+		}, nil
+	}
+	return nil, errors.Errorf("cannot make page order bys for ordering %v", ordering)
+}
+
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, page *pfs.RepoPage, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
 	var repos []RepoInfoWithID
-	if err := ForEachRepo(ctx, tx, filter, func(repoWithID RepoInfoWithID) error {
+	if err := ForEachRepo(ctx, tx, filter, page, func(repoWithID RepoInfoWithID) error {
 		repos = append(repos, repoWithID)
 		return nil
 	}, orderBys...); err != nil {
@@ -294,7 +322,7 @@ func WatchRepos(ctx context.Context, db *pachsql.DB, listener collection.Postgre
 		return err
 	}
 	defer watcher.Close()
-	snapshot, err := NewRepoIterator(ctx, db, 0, reposPageSize, nil, OrderByRepoColumn{Column: RepoColumnID, Order: SortOrderAsc})
+	snapshot, err := NewRepoIterator(ctx, db, 0, reposPageSize, 0, nil, OrderByRepoColumn{Column: RepoColumnID, Order: SortOrderAsc})
 	if err != nil {
 		return err
 	}

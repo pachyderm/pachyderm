@@ -15,6 +15,11 @@
                     "additionalProperties": false,
                     "type": "array",
                     "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+                },
+                "page": {
+                    "$ref": "#/definitions/pfs_v2.RepoPage",
+                    "additionalProperties": false,
+                    "description": "repo page defines the"
                 }
             },
             "additionalProperties": false,
@@ -30,6 +35,26 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Project"
+        },
+        "pfs_v2.RepoPage": {
+            "properties": {
+                "order": {
+                    "enum": [
+                        "PROJECT_REPO"
+                    ],
+                    "type": "string",
+                    "title": "Ordering"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "pageIndex": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Page"
         }
     }
 }

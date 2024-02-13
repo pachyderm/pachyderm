@@ -133,7 +133,7 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	query += "\n" + OrderByQuery[projectColumn](orderByGeneric...)
 	query = extCtx.Rebind(query)
 	return &ProjectIterator{
-		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Project](ctx, query, values, startPage, pageSize, 0),
 		extCtx:    extCtx,
 	}, nil
 }
