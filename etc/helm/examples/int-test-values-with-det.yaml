@@ -65,7 +65,7 @@ determined:
   enabled: true
   enterpriseEdition: true
   useNodePortForMaster: true
-  detVersion: 0.27.1
+  detVersion: 0.28.0
   masterPort: 8282
   masterCpuRequest: 250m
   masterMemRequest: 512M # turn requests way down for automated smoke tests

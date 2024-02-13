@@ -63,7 +63,7 @@ global:
 
 determined:
   enabled: false
-  detVersion: "0.27.1"
+  detVersion: "0.28.0"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
