@@ -6,11 +6,17 @@ def test_bad_serialization(client: TestClient):
     """Test that errors that occur during message serialization are
     caught and explained to the user."""
     # Our interceptor raises TypeError from grpc.RpcError.
-    with pytest.raises(TypeError):
+    with pytest.raises(TypeError) as err:
         client.pfs.inspect_repo(repo="banana")  # Field `repo` should be a Repo.
-    with pytest.raises(TypeError):
-        list(client.pfs.list_repo(type=True))  # Field `type` should be a string.
+    assert err.value.args[0].startswith(
+        "An error occurred while trying to serialize the following InspectRepoRequest message."
+    )
 
+    with pytest.raises(TypeError) as err:
+        list(client.pfs.list_repo(type=True))  # Field `type` should be a string.
+    assert err.value.args[0].startswith(
+        "An error occurred while trying to serialize the following ListRepoRequest message."
+    )
 
 def test_bad_connection():
     """Test that errors which occur due to a failure to connect to
