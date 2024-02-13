@@ -1333,10 +1333,9 @@ func (s *debugServer) collectJobs(dfs DumpFS, pachClient *client.APIClient, pipe
 		},
 	}
 	if err := dfs.Write(filepath.Join(pipeline.Project.Name, pipeline.Name, "jobs.json"), func(w io.Writer) error {
-		// TODO: The limiting should eventually be a feature of list job.
 		var count int64
 		return pachClient.ListJobF(pipeline.Project.Name, pipeline.Name, nil, -1, false, func(ji *pps.JobInfo) error {
-			if count >= limit {
+			if limit != 0 && count >= limit {
 				return errutil.ErrBreak
 			}
 			count++
