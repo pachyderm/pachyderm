@@ -34,11 +34,13 @@ describe('BrandedDocLink', () => {
   it('should show the pachyderm docs when enterprise is inactive', async () => {
     render(<BrandedDocLink pathWithoutDomain="fruit" />);
 
-    expect(
-      screen.getByRole('link', {
-        name: /click here/i,
-      }),
-    ).toHaveAttribute('href', 'https://docs.pachyderm.com/latest/fruit');
+    await waitFor(() =>
+      expect(
+        screen.getByRole('link', {
+          name: /click here/i,
+        }),
+      ).toHaveAttribute('href', 'https://docs.pachyderm.com/0.0.x/fruit'),
+    );
   });
 
   it('removes leading slashes from to path', async () => {
@@ -66,7 +68,7 @@ describe('BrandedDocLink', () => {
         screen.getByRole('link', {
           name: /click here/i,
         }),
-      ).toHaveAttribute('href', 'https://mldm.pachyderm.com/latest/fruit'),
+      ).toHaveAttribute('href', 'https://mldm.pachyderm.com/0.0.x/fruit'),
     );
   });
 });

@@ -10,6 +10,7 @@ import {
   mockGetEnterpriseInfoInactive,
   mockGetAllJobs,
   mockEmptyJob,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -24,6 +25,7 @@ describe('JobSet Jobs List', () => {
 
   beforeAll(() => {
     server.listen();
+    server.use(mockGetVersionInfo());
     server.use(mockGetAllJobs());
     server.use(mockGetEnterpriseInfoInactive());
   });

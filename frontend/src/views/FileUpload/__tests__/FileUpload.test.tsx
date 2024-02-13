@@ -5,6 +5,7 @@ import React from 'react';
 
 import {
   mockGetEnterpriseInfoInactive,
+  mockGetVersionInfo,
   mockRepoImages,
 } from '@dash-frontend/mocks';
 import {
@@ -28,6 +29,7 @@ describe('views/FileUpload', () => {
 
   beforeEach(() => {
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockRepoImages());
     server.use(mockGetEnterpriseInfoInactive());
   });

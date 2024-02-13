@@ -16,6 +16,7 @@ import {
   buildJob,
   MONTAGE_JOB_INFO_1D,
   mockEmptyJobSet,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {click, type, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -33,6 +34,7 @@ describe('Global ID Filter', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/lineage/default');
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     // server.use(mockGetJobSet1D());
     server.use(mockGetAllJobs());
     server.use(mockGetEnterpriseInfoInactive());

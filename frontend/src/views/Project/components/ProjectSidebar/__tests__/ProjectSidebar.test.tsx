@@ -41,6 +41,7 @@ import {
   mockFalseGetAuthorize,
   mockTrueGetAuthorize,
   mockGetImageCommitsNoBranch,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -55,6 +56,7 @@ describe('ProjectSidebar', () => {
 
   beforeEach(() => {
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockPipelines());
     server.use(mockRepos());
     server.use(mockGetMontagePipeline());
@@ -884,7 +886,7 @@ description: >-
 
       expect(docsLink).toHaveAttribute(
         'href',
-        'https://docs.pachyderm.com/latest/prepare-data/ingest-data/',
+        'https://docs.pachyderm.com/0.0.x/prepare-data/ingest-data/',
       );
       expect(docsLink).toHaveAttribute('target', '_blank');
       expect(docsLink).toHaveAttribute('rel', 'noopener noreferrer');

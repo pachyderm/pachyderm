@@ -6,7 +6,7 @@ import React from 'react';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {RerunPipelineRequest} from '@dash-frontend/api/pps';
 import {RequestError} from '@dash-frontend/api/utils/error';
-import {mockGetEnterpriseInfo} from '@dash-frontend/mocks';
+import {mockGetEnterpriseInfo, mockGetVersionInfo} from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import RerunPipelineModalComponent from '../RerunPipelineModal';
@@ -30,6 +30,7 @@ describe('RerunPipelineModal', () => {
 
   beforeEach(() => {
     server.use(mockGetEnterpriseInfo());
+    server.use(mockGetVersionInfo());
   });
 
   afterAll(() => server.close());

@@ -20,6 +20,7 @@ import {
   mockFalseGetAuthorize,
   buildPipeline,
   mockGetEnterpriseInfo,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click, hover} from '@dash-frontend/testHelpers';
 
@@ -37,6 +38,7 @@ describe('Pipeline Actions Menu', () => {
   beforeEach(() => {
     window.history.replaceState('', '', '/lineage/default/pipelines/edges');
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockPipelinesEmpty());
     server.use(mockRepos());
     server.use(mockGetEdgesPipeline());

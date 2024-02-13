@@ -19,6 +19,7 @@ import {
   mockEmptyGetRoles,
   mockGetEnterpriseInfo,
   mockPipelinesEmpty,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -135,6 +136,7 @@ describe('Repo List', () => {
 
   beforeAll(() => {
     server.listen();
+    server.use(mockGetVersionInfo());
     server.use(mockEmptyGetRoles());
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetEnterpriseInfo());

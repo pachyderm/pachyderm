@@ -16,7 +16,10 @@ import {
   SetProjectDefaultsResponse,
 } from '@dash-frontend/api/pps';
 import {RequestError} from '@dash-frontend/api/utils/error';
-import {mockGetEnterpriseInfoInactive} from '@dash-frontend/mocks';
+import {
+  mockGetEnterpriseInfoInactive,
+  mockGetVersionInfo,
+} from '@dash-frontend/mocks';
 import {
   mockProjectDefaultsSchema,
   mockProjectDefaultsSchema404,
@@ -40,6 +43,7 @@ describe('ProjectConfig', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/project/default/defaults');
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockProjectDefaultsSchema404);
     server.use(mockGetEnterpriseInfoInactive());
     server.use(
@@ -281,6 +285,7 @@ describe('ProjectConfig', () => {
     ],
   ])('%p', async (_, mock) => {
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(
       rest.post<GetProjectDefaultsRequest, Empty, GetProjectDefaultsResponse>(

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
+import {useVersion} from '@dash-frontend/hooks/useVersion';
 import {Link, ExternalLinkSVG, Icon} from '@pachyderm/components';
 
 import styles from './BrandedDocLink.module.css';
@@ -13,11 +14,14 @@ const BrandedDocLink: React.FC<
   BrandedDocLinkProps & React.ComponentPropsWithoutRef<typeof Link>
 > = ({pathWithoutDomain, children, ...rest}) => {
   const {enterpriseActive} = useEnterpriseActive();
+  const {version} = useVersion();
 
   const domain = enterpriseActive ? 'mldm.pachyderm.com' : 'docs.pachyderm.com';
-  const version = 'latest';
+  const docsVersion = version
+    ? `${version.major}.${version.minor}.x`
+    : 'latest';
   const pathNoLeadingSlash = pathWithoutDomain.replace(/^\//, '');
-  const to = `https://${domain}/${version}/${pathNoLeadingSlash}`;
+  const to = `https://${domain}/${docsVersion}/${pathNoLeadingSlash}`;
 
   return (
     <Link externalLink to={to} {...rest}>

@@ -15,6 +15,7 @@ import {
   mockEmptyGetRoles,
   mockPipelines,
   mockRepos,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -33,6 +34,7 @@ describe('Pipelines', () => {
     window.history.replaceState('', '', '/project/default/pipelines');
 
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockEmptyGetAuthorize());
     server.use(mockRepos());
     server.use(mockPipelines());

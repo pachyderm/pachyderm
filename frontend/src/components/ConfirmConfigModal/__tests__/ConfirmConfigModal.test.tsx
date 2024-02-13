@@ -2,7 +2,10 @@ import {render, screen} from '@testing-library/react';
 import {setupServer} from 'msw/node';
 import React from 'react';
 
-import {mockGetEnterpriseInfoInactive} from '@dash-frontend/mocks';
+import {
+  mockGetEnterpriseInfoInactive,
+  mockGetVersionInfo,
+} from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
 import ConfirmConfigModalComponent from '../ConfirmConfigModal';
@@ -33,6 +36,7 @@ describe('ConfirmConfigModal', () => {
 
   beforeEach(() => {
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
   });
 

@@ -16,7 +16,10 @@ import {
   SetClusterDefaultsResponse,
 } from '@dash-frontend/api/pps';
 import {RequestError} from '@dash-frontend/api/utils/error';
-import {mockGetEnterpriseInfoInactive} from '@dash-frontend/mocks';
+import {
+  mockGetEnterpriseInfoInactive,
+  mockGetVersionInfo,
+} from '@dash-frontend/mocks';
 import {
   mockClusterDefaultsSchema,
   mockClusterDefaultsSchema404,
@@ -40,6 +43,7 @@ describe('ClusterConfig', () => {
   beforeEach(() => {
     window.history.replaceState({}, '', '/cluster/defaults');
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockClusterDefaultsSchema404);
     server.use(mockGetEnterpriseInfoInactive());
     server.use(
@@ -259,6 +263,7 @@ describe('ClusterConfig', () => {
     ],
   ])('%p', async (_, mock) => {
     server.resetHandlers();
+    server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(
       rest.post<GetClusterDefaultsRequest, Empty, GetClusterDefaultsResponse>(

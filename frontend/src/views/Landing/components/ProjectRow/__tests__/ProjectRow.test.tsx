@@ -26,6 +26,7 @@ import {
   mockHealthyPipelines,
   mockGetEnterpriseInfoInactive,
   mockTrueGetAuthorize,
+  mockGetVersionInfo,
 } from '@dash-frontend/mocks';
 import {
   withContextProviders,
@@ -56,6 +57,7 @@ describe('ProjectRow RBAC', () => {
   beforeAll(() => {
     server.use(mockHealthyPipelines());
     server.listen();
+    server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
   });
 
