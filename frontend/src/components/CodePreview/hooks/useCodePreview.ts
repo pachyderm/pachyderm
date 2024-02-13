@@ -12,8 +12,10 @@ const useCodePreview = (url?: string, source?: string) => {
     skip: !url,
   });
 
+  const errorResponse = data?.includes('problem inspecting file');
+
   return {
-    data: source || data,
+    data: source || (errorResponse ? undefined : data),
     loading: !url ? false : loading,
     error: !url ? undefined : error,
     reset,

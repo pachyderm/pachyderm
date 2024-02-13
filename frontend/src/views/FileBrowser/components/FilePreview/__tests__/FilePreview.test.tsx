@@ -1,4 +1,10 @@
-import {render, screen, within, waitFor} from '@testing-library/react';
+import {
+  render,
+  screen,
+  within,
+  waitFor,
+  waitForElementToBeRemoved,
+} from '@testing-library/react';
 import {rest} from 'msw';
 import {setupServer} from 'msw/node';
 import React from 'react';
@@ -163,6 +169,16 @@ describe('File Preview', () => {
         expect(await screen.findByText(`mock ${ext}`)).toBeInTheDocument();
       },
     );
+
+    it('should not render an error response from pfs', async () => {
+      renderFilePreview('txt', `problem inspecting file: rpc error: code `);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      expect(
+        screen.queryByText('problem inspecting file: rpc error: code'),
+      ).not.toBeInTheDocument();
+    });
 
     it.each(['htm', 'html'])('should render an %s file', async (ext) => {
       renderFilePreview(ext, files.html);
