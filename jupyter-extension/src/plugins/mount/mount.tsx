@@ -4,7 +4,7 @@ import {
   ILayoutRestorer,
   JupyterFrontEnd,
 } from '@jupyterlab/application';
-import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
+import {ReactWidget, showErrorMessage, UseSignal} from '@jupyterlab/apputils';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
@@ -12,7 +12,7 @@ import {INotebookModel, NotebookPanel} from '@jupyterlab/notebook';
 import {Contents} from '@jupyterlab/services';
 import {settingsIcon} from '@jupyterlab/ui-components';
 import {Signal} from '@lumino/signaling';
-import {SplitPanel, Widget} from '@lumino/widgets';
+import {SplitPanel, TabPanel, Widget} from '@lumino/widgets';
 
 import {mountLogoIcon} from '../../utils/icons';
 import {PollMounts} from './pollMounts';
@@ -24,7 +24,6 @@ import {
   Mount,
   CurrentDatumResponse,
   PfsInput,
-  ListMountsResponse,
   CrossInputSpec,
   PpsMetadata,
   PpsContext,
@@ -32,9 +31,8 @@ import {
 } from './types';
 import Config from './components/Config/Config';
 import Datum from './components/Datum/Datum';
+import Explore from './components/Explore/Explore';
 import Pipeline from './components/Pipeline/Pipeline';
-import PipelineSplash from './components/Pipeline/Splash';
-import SortableList from './components/SortableList/SortableList';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
 import {requestAPI} from '../../handler';
@@ -47,34 +45,28 @@ export const METADATA_KEY = 'pachyderm_pps';
 
 export class MountPlugin implements IMountPlugin {
   private _app: JupyterFrontEnd<JupyterFrontEnd.IShell, 'desktop' | 'mobile'>;
+
+  // Screens
+  private _panel: TabPanel;
   private _loader: ReactWidget;
   private _fullPageError: ReactWidget;
-  private _config: ReactWidget;
-  private _pipeline: ReactWidget;
-  private _pipelineSplash: ReactWidget;
-  private _mountedList: ReactWidget;
-  private _unmountedList: ReactWidget;
-  private _datum: ReactWidget;
+  private _configScreen: ReactWidget;
+  private _pipelineScreen: ReactWidget;
+  private _exploreScreen: SplitPanel;
+  private _datumScreen: SplitPanel;
+
   private _pfsBrowser: FileBrowser;
   private _datumBrowser: FileBrowser;
   private _poller: PollMounts;
-  private _panel: SplitPanel;
   private _widgetTracker: ILabShell;
-
-  private _showConfig = false;
-  private _showConfigSignal = new Signal<this, boolean>(this);
   private _readyPromise: Promise<void> = Promise.resolve();
 
-  private _showDatum = false;
-  private _showPipeline = false;
   private _keepMounted = false;
   private _currentDatumInfo: CurrentDatumResponse | undefined;
-  private _showDatumSignal = new Signal<this, boolean>(this);
   private _repoViewInputSpec: CrossInputSpec | PfsInput = {};
   private _saveInputSpecSignal = new Signal<this, CrossInputSpec | PfsInput>(
     this,
   );
-  private _showPipelineSignal = new Signal<this, boolean>(this);
   private _ppsContextSignal = new Signal<this, PpsContext>(this);
 
   constructor(
@@ -90,181 +82,54 @@ export class MountPlugin implements IMountPlugin {
     this._repoViewInputSpec = {};
     this._widgetTracker = widgetTracker;
 
+    // Setup Poller signals.
+    this._poller.mountedSignal.connect(this.verifyBrowserPath);
+    this._poller.mountedSignal.connect(this.refresh);
+    this._poller.mountedSignal.connect(this.saveMountedReposList);
+    this._poller.unmountedSignal.connect(this.refresh);
+
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.configSignal.connect((_, config) => {
-      if (config.cluster_status === 'INVALID' && !this._showConfig) {
-        this.setShowConfig(true);
+      const status = config.cluster_status;
+      if (['UNKNOWN', 'INVALID', 'VALID_LOGGED_OUT'].includes(status)) {
+        this._panel.tabBar.hide();
+        this.setCurrentView(this._configScreen);
+      } else {
+        this._panel.tabBar.show();
+        this._panel.currentWidget = this._exploreScreen;
       }
     });
 
     // This is used to detect if the user becomes unauthenticated of there are errors on the server
     this._poller.statusSignal.connect((_, status) => {
       if (status.code === 500) {
-        this.setShowFullPageError(true);
+        this._panel.tabBar.hide();
+        this.setCurrentView(this._fullPageError);
       }
 
-      if (status.code === 401 && !this._showConfig) {
-        this.setShowConfig(true);
+      if (status.code === 401) {
+        this._panel.tabBar.hide();
+        this.setCurrentView(this._configScreen);
       }
     });
 
     this._readyPromise = this.setup();
 
-    this._config = ReactWidget.create(
-      <UseSignal signal={this._showConfigSignal}>
-        {(_, showConfig) => (
-          <UseSignal signal={this._poller.configSignal}>
-            {(_, authConfig) => (
-              <UseSignal signal={this._poller.statusSignal}>
-                {(_, status) => (
-                  <Config
-                    showConfig={showConfig ? showConfig : this._showConfig}
-                    setShowConfig={this.setShowConfig}
-                    updateConfig={this.updateConfig}
-                    authConfig={authConfig ? authConfig : this._poller.config}
-                    refresh={this._poller.refresh}
-                  />
-                )}
-              </UseSignal>
-            )}
-          </UseSignal>
-        )}
-      </UseSignal>,
-    );
-    this._config.addClass('pachyderm-mount-config-wrapper');
-
-    this._mountedList = ReactWidget.create(
-      <UseSignal signal={this._poller.mountedSignal}>
-        {(_, mounted) => (
-          <div className="pachyderm-mount-base">
-            <div className="pachyderm-mount-config-container">
-              <div className="pachyderm-mount-base-title pachyderm-mount-base-title-button-font">
-                Explore
-              </div>
-              <button
-                className="pachyderm-button-link"
-                data-testid="Datum__mode"
-                onClick={() => this.setShowDatum(true)}
-                style={{
-                  marginRight: '0.25rem',
-                }}
-              >
-                Test{' '}
-              </button>
-              <button
-                className="pachyderm-button-link"
-                onClick={() => this.setShowPipeline(true)}
-              >
-                Publish{' '}
-                <sup className="pachyderm-button-alpha-notice">Alpha</sup>
-              </button>
-              <button
-                className="pachyderm-button-link"
-                data-testid="Config__mode"
-                onClick={() => this.setShowConfig(true)}
-              >
-                <settingsIcon.react
-                  tag="span"
-                  className="pachyderm-mount-icon-padding"
-                />
-              </button>
-            </div>
-            <SortableList
-              open={this.openPFS}
-              items={mounted ? mounted : this._poller.mounted}
-              updateData={this._poller.updateData}
-              mountedItems={[]}
-              type={'mounted'}
-              projects={[]}
-            />
-          </div>
-        )}
-      </UseSignal>,
-    );
-    this._mountedList.addClass('pachyderm-mount-react-wrapper');
-
-    this._unmountedList = ReactWidget.create(
-      <UseSignal signal={this._poller.unmountedSignal}>
-        {(_, unmounted) => (
-          <UseSignal signal={this._poller.projectSignal}>
-            {(_, projects) => (
-              <div className="pachyderm-mount-base">
-                <div className="pachyderm-mount-base-title">
-                  Unmounted Repositories
-                </div>
-                <SortableList
-                  open={this.openPFS}
-                  items={unmounted ? unmounted : this._poller.unmounted}
-                  updateData={this._poller.updateData}
-                  mountedItems={this._poller.mounted}
-                  type={'unmounted'}
-                  projects={projects ? projects : this._poller.projects}
-                />
-              </div>
-            )}
-          </UseSignal>
-        )}
-      </UseSignal>,
-    );
-    this._unmountedList.addClass('pachyderm-mount-react-wrapper');
-
-    this._datum = ReactWidget.create(
-      <UseSignal signal={this._showDatumSignal}>
-        {(_, showDatum) => (
-          <UseSignal signal={this._saveInputSpecSignal}>
-            {(_, repoViewInputSpec) => (
-              <Datum
-                showDatum={showDatum ? showDatum : this._showDatum}
-                setShowDatum={this.setShowDatum}
-                open={this.openDatum}
-                pollRefresh={this._poller.refresh}
-                currentDatumInfo={this._currentDatumInfo}
-                repoViewInputSpec={
-                  repoViewInputSpec
-                    ? repoViewInputSpec
-                    : this._repoViewInputSpec
-                }
-              />
-            )}
-          </UseSignal>
-        )}
-      </UseSignal>,
-    );
-    this._datum.addClass('pachyderm-mount-datum-wrapper');
-
-    this._pipeline = ReactWidget.create(
-      <UseSignal signal={this._ppsContextSignal}>
-        {(_, context) => (
-          <Pipeline
-            ppsContext={context}
-            settings={settings}
-            setShowPipeline={this.setShowPipeline}
-            saveNotebookMetadata={this.saveNotebookMetadata}
-            saveNotebookToDisk={this.saveNotebookToDisk}
+    // Instantiate all of the Screens.
+    this._configScreen = ReactWidget.create(
+      <UseSignal signal={this._poller.configSignal}>
+        {(_, authConfig) => (
+          <Config
+            updateConfig={this.updateConfig}
+            authConfig={authConfig ? authConfig : this._poller.config}
+            refresh={this._poller.refresh}
           />
         )}
       </UseSignal>,
     );
-
-    this._pipelineSplash = ReactWidget.create(
-      <PipelineSplash setShowPipeline={this.setShowPipeline} />,
-    );
-
-    this._pipeline.addClass('pachyderm-mount-pipeline-wrapper');
-    this._pipelineSplash.addClass('pachyderm-mount-pipeline-wrapper');
-
-    this._loader = ReactWidget.create(<LoadingDots />);
-
-    this._loader.addClass('pachyderm-mount-react-wrapper');
-
-    this._fullPageError = ReactWidget.create(
-      <UseSignal signal={this._poller.statusSignal}>
-        {(_, status) => (
-          <FullPageError status={status ? status : this._poller.status} />
-        )}
-      </UseSignal>,
-    );
-    this._fullPageError.addClass('pachyderm-mount-react-wrapper');
+    this._configScreen.addClass('pachyderm-mount-config-wrapper');
+    this._configScreen.title.icon = settingsIcon;
+    this._configScreen.title.className = 'pachyderm-config-tab';
 
     this._pfsBrowser = createCustomFileBrowser(
       app,
@@ -274,6 +139,35 @@ export class MountPlugin implements IMountPlugin {
       'explore',
       'pfs',
     );
+
+    this._exploreScreen = new SplitPanel({orientation: 'vertical'});
+    this._exploreScreen.addWidget(
+      ReactWidget.create(
+        <UseSignal signal={this._poller.mountedSignal}>
+          {(_, mounted) => (
+            <UseSignal signal={this._poller.unmountedSignal}>
+              {(_, unmounted) => (
+                <UseSignal signal={this._poller.projectSignal}>
+                  {(_, projects) => (
+                    <Explore
+                      mounted={mounted || this._poller.mounted}
+                      unmounted={unmounted || this._poller.unmounted}
+                      projects={projects || this._poller.projects}
+                      openPFS={this.openPFS}
+                      updateData={this._poller.updateData}
+                    />
+                  )}
+                </UseSignal>
+              )}
+            </UseSignal>
+          )}
+        </UseSignal>,
+      ),
+    );
+    this._exploreScreen.addWidget(this._pfsBrowser);
+    this._exploreScreen.title.label = 'Explore';
+    this._exploreScreen.title.className = 'pachyderm-explore-tab';
+
     this._datumBrowser = createCustomFileBrowser(
       app,
       manager,
@@ -282,41 +176,78 @@ export class MountPlugin implements IMountPlugin {
       'test',
       'datum',
     );
-    this._poller.mountedSignal.connect(this.verifyBrowserPath);
-    this._poller.mountedSignal.connect(this.refresh);
-    this._poller.unmountedSignal.connect(this.refresh);
+
+    this._datumScreen = new SplitPanel({orientation: 'vertical'});
+    this._datumScreen.addWidget(
+      ReactWidget.create(
+        <UseSignal signal={this._saveInputSpecSignal}>
+          {(_, repoViewInputSpec) => (
+            <Datum
+              open={this.openDatum}
+              pollRefresh={this._poller.refresh}
+              currentDatumInfo={this._currentDatumInfo}
+              repoViewInputSpec={
+                repoViewInputSpec ? repoViewInputSpec : this._repoViewInputSpec
+              }
+            />
+          )}
+        </UseSignal>,
+      ),
+    );
+    this._datumScreen.addWidget(this._datumBrowser);
+    this._datumScreen.addClass('pachyderm-mount-datum-wrapper');
+    this._datumScreen.title.label = 'Test';
+    this._datumScreen.title.className = 'pachyderm-test-tab';
+
+    this._pipelineScreen = ReactWidget.create(
+      <UseSignal signal={this._ppsContextSignal}>
+        {(_, context) => (
+          <Pipeline
+            ppsContext={context}
+            settings={settings}
+            isCurrentWidgetNotebook={this.isCurrentWidgetNotebook}
+            saveNotebookMetadata={this.saveNotebookMetadata}
+            saveNotebookToDisk={this.saveNotebookToDisk}
+          />
+        )}
+      </UseSignal>,
+    );
+    this._pipelineScreen.addClass('pachyderm-mount-pipeline-wrapper');
+    this._pipelineScreen.title.label = 'Publish';
+    this._pipelineScreen.title.className = 'pachyderm-publish-tab';
+
+    this._loader = ReactWidget.create(<LoadingDots />);
+    this._loader.addClass('pachyderm-mount-react-wrapper');
+    this._loader.title.label = 'Loading';
+
+    this._fullPageError = ReactWidget.create(
+      <UseSignal signal={this._poller.statusSignal}>
+        {(_, status) => (
+          <FullPageError status={status ? status : this._poller.status} />
+        )}
+      </UseSignal>,
+    );
+    this._fullPageError.addClass('pachyderm-mount-react-wrapper');
+    this._fullPageError.title.label = 'Error';
 
     this._widgetTracker.currentChanged.connect(this.handleWidgetChanged, this);
 
-    this._panel = new SplitPanel();
-    this._panel.orientation = 'vertical';
-    this._panel.spacing = 0;
+    // Construct the panel which organizes the screens.
+    this._panel = new TabPanel();
     this._panel.title.icon = mountLogoIcon;
     this._panel.title.caption = 'Pachyderm Mount';
     this._panel.id = 'pachyderm-mount';
-    this._panel.addWidget(this._mountedList);
-    this._panel.addWidget(this._unmountedList);
-    this._panel.addWidget(this._datum);
-    this._panel.addWidget(this._pipelineSplash);
-    this._panel.addWidget(this._pipeline);
-    this._panel.addWidget(this._pfsBrowser);
-    this._panel.addWidget(this._datumBrowser);
-    this._panel.setRelativeSizes([1, 1, 3, 3]);
 
+    this._panel.addWidget(this._exploreScreen);
+    this._panel.addWidget(this._datumScreen);
+    this._panel.addWidget(this._pipelineScreen);
+    this._panel.addWidget(this._configScreen);
+
+    // Add these widgets to the layout, but remove them as tabs.
     this._panel.addWidget(this._loader);
-    this._panel.addWidget(this._config);
+    this._panel.tabBar.removeTab(this._loader.title);
     this._panel.addWidget(this._fullPageError);
-
-    //default view: hide all till ready
-    this._config.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._mountedList.setHidden(true);
-    this._unmountedList.setHidden(true);
-    this._datum.setHidden(true);
-    this._pipelineSplash.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._pfsBrowser.setHidden(true);
-    this._datumBrowser.setHidden(true);
+    this._panel.tabBar.removeTab(this._fullPageError.title);
 
     window.addEventListener('resize', () => {
       this._panel.update();
@@ -352,12 +283,8 @@ export class MountPlugin implements IMountPlugin {
   ): Promise<void> => {
     if (this.isCurrentWidgetNotebook(widget.newValue)) {
       await this.handleNotebookChanged(widget.newValue);
-    }
-    // Only make this call if the user is currently in the "Publish" tab.
-    // Otherwise it can mess with the "Test" tab, where it switches off the "Test"
-    // tab to the "Explore" tab on a browser refresh.
-    if (this._showPipeline) {
-      this.setShowPipeline(this._showPipeline);
+    } else {
+      this._ppsContextSignal.emit({metadata: null, notebookModel: null});
     }
     await Promise.resolve();
   };
@@ -508,102 +435,8 @@ export class MountPlugin implements IMountPlugin {
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
   };
 
-  setShowDatum = async (shouldShow: boolean): Promise<void> => {
-    if (shouldShow) {
-      this._datum.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._pfsBrowser.setHidden(true);
-      this._datumBrowser.setHidden(false);
-      this.saveMountedReposList();
-    } else {
-      this._datum.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._pfsBrowser.setHidden(false);
-      this._datumBrowser.setHidden(true);
-    }
-    this._config.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showDatum = shouldShow;
-    this._showDatumSignal.emit(shouldShow);
-  };
-
-  setShowPipeline = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      if (this.isCurrentWidgetNotebook()) {
-        this._pipeline.setHidden(false);
-        this._pipelineSplash.setHidden(true);
-        this._mountedList.setHidden(true);
-        this._unmountedList.setHidden(true);
-        this._pfsBrowser.setHidden(true);
-      } else {
-        this._pipeline.setHidden(true);
-        this._pipelineSplash.setHidden(false);
-        this._mountedList.setHidden(true);
-        this._unmountedList.setHidden(true);
-        this._pfsBrowser.setHidden(true);
-      }
-    } else {
-      this._pipeline.setHidden(true);
-      this._pipelineSplash.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._pfsBrowser.setHidden(false);
-    }
-    this._config.setHidden(true);
-    this._datum.setHidden(true);
-    this._datumBrowser.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showPipeline = shouldShow;
-    this._showPipelineSignal.emit(shouldShow);
-  };
-
   setKeepMounted = (keep: boolean): void => {
     this._keepMounted = keep;
-  };
-
-  setShowConfig = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      this._config.setHidden(false);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._pfsBrowser.setHidden(true);
-    } else {
-      this._config.setHidden(true);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._pfsBrowser.setHidden(false);
-    }
-    this._datumBrowser.setHidden(true);
-    this._datum.setHidden(true);
-    this._pipeline.setHidden(true);
-    this._fullPageError.setHidden(true);
-    this._showConfig = shouldShow;
-    this._showConfigSignal.emit(shouldShow);
-  };
-
-  setShowFullPageError = (shouldShow: boolean): void => {
-    if (shouldShow) {
-      this._fullPageError.setHidden(false);
-      this._config.setHidden(true);
-      this._datum.setHidden(true);
-      this._mountedList.setHidden(true);
-      this._unmountedList.setHidden(true);
-      this._pfsBrowser.setHidden(true);
-      this._datumBrowser.setHidden(true);
-      this._pipeline.setHidden(true);
-    } else {
-      this._fullPageError.setHidden(true);
-      this._config.setHidden(false);
-      this._datum.setHidden(false);
-      this._mountedList.setHidden(false);
-      this._unmountedList.setHidden(false);
-      this._pfsBrowser.setHidden(false);
-      this._datumBrowser.setHidden(false);
-      this._pipeline.setHidden(false);
-    }
   };
 
   updateConfig = (config: AuthConfig): void => {
@@ -614,20 +447,15 @@ export class MountPlugin implements IMountPlugin {
     await this._poller.refresh();
 
     if (this._poller.status.code === 500) {
-      this.setShowFullPageError(true);
+      await showErrorMessage('Server Error', this._poller.status.message);
     } else {
-      this.setShowConfig(
-        this._poller.config.cluster_status === 'INVALID' ||
-          this._poller.status.code !== 200,
-      );
-
       if (this._poller.status.code === 200) {
         try {
           const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
           if (res['num_datums'] > 0) {
             this._keepMounted = true;
             this._currentDatumInfo = res;
-            await this.setShowDatum(true);
+            this.setCurrentView(this._datumScreen);
           }
         } catch (e) {
           console.log(e);
@@ -647,11 +475,15 @@ export class MountPlugin implements IMountPlugin {
     return this._poller.unmounted;
   }
 
-  get layout(): SplitPanel {
+  get layout(): TabPanel {
     return this._panel;
   }
 
   get ready(): Promise<void> {
     return this._readyPromise;
+  }
+
+  private setCurrentView(widget: Widget) {
+    this._panel.currentWidget = widget;
   }
 }

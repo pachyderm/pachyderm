@@ -168,8 +168,8 @@ export class PollMounts {
       const config = await requestAPI<AuthConfig>('config', 'GET');
       this.config = config;
       if (
-        config.cluster_status !== 'INVALID' &&
-        config.cluster_status !== 'VALID_LOGGED_OUT'
+        config.cluster_status === 'VALID_NO_AUTH' ||
+        config.cluster_status === 'VALID_LOGGED_IN'
       ) {
         const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
         this.status = {code: 200};
