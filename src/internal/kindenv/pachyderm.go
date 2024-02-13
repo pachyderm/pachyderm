@@ -40,7 +40,6 @@ func getPachydermVersions() (string, string, error) {
 		return "", "", errors.Wrap(err, "get worker image digest")
 	}
 	workerVersion = bytes.TrimRight(workerVersion[7:], "\n")
-	fmt.Printf("pachd=%s\nworker=%s\n", pachdVersion, workerVersion)
 	return string(pachdVersion), string(workerVersion), nil
 }
 
