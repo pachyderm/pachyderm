@@ -40,7 +40,7 @@
     "clean:labextension": "rimraf jupyterlab_pachyderm/labextension",
     "clean:all": "npm run clean:lib && npm run clean:labextension",
     "cypress:ci": "cypress open",
-    "cypress:headless": "cypress run --browser chrome --headless --record",
+    "cypress:headless": "cypress run --browser electron --headless",
     "e2e": "start-server-and-test start:e2e http-get://localhost:8888/api cypress:headless",
     "eslint": "eslint . --ext .ts,.tsx --fix",
     "eslint:check": "eslint . --ext .ts,.tsx",
