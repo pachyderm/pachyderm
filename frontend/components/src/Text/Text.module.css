@@ -77,6 +77,16 @@
   color: var(--pachyderm-black);
 }
 
+.idText,
+.idText * {
+  font-family: Menlo, monospace;
+  font-weight: 300;
+  font-size: 0.875rem;
+  line-height: 1.437rem;
+  letter-spacing: 0.2px;
+  color: var(--pachyderm-black);
+}
+
 .codeTextBlock {
   background-color: var(--background-blue-light);
   white-space: nowrap;

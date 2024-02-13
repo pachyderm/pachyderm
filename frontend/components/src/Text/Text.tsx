@@ -74,6 +74,21 @@ const CodeText: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   );
 };
 
+const IdText: React.FC<React.HTMLAttributes<HTMLSpanElement>> = ({
+  children,
+  className,
+  ...rest
+}) => {
+  return (
+    <span
+      className={`${styles.idText} ${className ? className : ''}`}
+      {...rest}
+    >
+      {children}
+    </span>
+  );
+};
+
 const CodeTextBlock: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
   children,
   className,
@@ -140,6 +155,7 @@ export {
   CodeText,
   CodeTextLarge,
   CodeTextBlock,
+  IdText,
   CaptionText,
   CaptionTextSmall,
 };

@@ -1,6 +1,6 @@
 import React from 'react';
 
-import {CaptionText, FullPagePanelModal} from '@pachyderm/components';
+import {FullPagePanelModal, IdText} from '@pachyderm/components';
 
 import DatumHeaderBreadcrumbs from './components/DatumHeaderBreadcrumbs';
 import LogsViewer from './components/LogsViewer';
@@ -43,9 +43,7 @@ const MiddleSection = () => {
         {!isServiceOrSpout && <DatumHeaderBreadcrumbs jobId={jobId} />}
         <div className={styles.header} data-testid="MiddleSection__title">
           <h6>{headerText}</h6>
-          <CaptionText color="black" className={styles.headerId}>
-            {headerValue}
-          </CaptionText>
+          <IdText>{headerValue}</IdText>
         </div>
 
         <div className={styles.tabs}>

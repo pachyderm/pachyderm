@@ -11,7 +11,7 @@ import {
 } from '@dash-frontend/lib/dateTime';
 import {getJobRuntime} from '@dash-frontend/lib/jobs';
 import {InternalJobSet} from '@dash-frontend/lib/types';
-import {Table} from '@pachyderm/components';
+import {IdText, Table} from '@pachyderm/components';
 
 import useRunsList from './hooks/useRunsList';
 import styles from './RunsList.module.css';
@@ -110,7 +110,9 @@ const RunsList: React.FC<RunsListProps> = ({
                   getUnixSecondsFromISOString(jobSet.finished),
                 )}
               </Table.DataCell>
-              <Table.DataCell>{jobSet?.job?.id}</Table.DataCell>
+              <Table.DataCell>
+                <IdText>{jobSet?.job?.id}</IdText>
+              </Table.DataCell>
             </Table.Row>
           ))}
         </Table.Body>

@@ -8,12 +8,12 @@ import useUrlState from '@dash-frontend/hooks/useUrlState';
 import RepoDetails from '@dash-frontend/views/Project/components/ProjectSidebar/components/RepoDetails';
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
-  CaptionText,
   LoadingDots,
   FullPagePanelModal,
   Button,
   ArrowLeftSVG,
   Pager,
+  IdText,
 } from '@pachyderm/components';
 
 import FileHeader from './components/FileHeader';
@@ -81,7 +81,7 @@ const FileBrowser: React.FC = () => {
                       ? 'Commit files for'
                       : `Folder: ${filePath.slice(0, -1)}`}
                   </h6>
-                  <CaptionText color="black">{selectedCommitId}</CaptionText>
+                  <IdText>{selectedCommitId}</IdText>
                 </div>
                 {!isRoot && (
                   <Button

@@ -10,10 +10,6 @@
   margin-bottom: 2.25rem;
 }
 
-.headerId {
-  overflow-wrap: break-word;
-}
-
 .tabs {
   display: flex;
   justify-content: space-between;

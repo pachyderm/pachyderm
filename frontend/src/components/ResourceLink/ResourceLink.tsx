@@ -6,7 +6,7 @@ import {
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
-import {Link, RepoSVG, PipelineSVG, Icon} from '@pachyderm/components';
+import {Link, RepoSVG, PipelineSVG, Icon, IdText} from '@pachyderm/components';
 
 import styles from './ResourceLink.module.css';
 
@@ -96,9 +96,9 @@ export const CommitLink: React.FC<CommitLinkProps> = ({
       aria-label={name}
       className={styles.base}
     >
-      <span {...rest} className={styles.nodeName}>
+      <IdText {...rest} className={styles.nodeName}>
         {name}
-      </span>
+      </IdText>
     </Link>
   );
 };

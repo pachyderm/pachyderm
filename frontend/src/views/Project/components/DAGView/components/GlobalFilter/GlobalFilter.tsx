@@ -22,6 +22,7 @@ import {
   CloseSVG,
   CheckmarkSVG,
   LoadingDots,
+  IdText,
   Link,
   InfoSVG,
 } from '@pachyderm/components';
@@ -218,7 +219,7 @@ const GlobalFilter: React.FC = () => {
                           ? getStandardDateFromISOString(job.created)
                           : '-'}
                       </span>
-                      <span className={styles.id}>{job.job?.id}</span>
+                      <IdText>{job.job?.id}</IdText>
                     </SearchResultItem>
                   );
                 })}
