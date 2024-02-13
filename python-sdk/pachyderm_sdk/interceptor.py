@@ -42,9 +42,8 @@ class MetadataClientInterceptor(ClientInterceptor):
 
 
 def _check_errors(error: Optional[grpc.Call], request: Message):
-    """Callback function that checks if a gRPC.Future experienced a
-    ConnectionError or TypeError and attempt to sanitize the error
-    message for the user.
+    """Callback function that handles and sanitizes specific errors (if they occur)
+    to better communicate these error states to the user.
     """
     if error is not None:
         code, details = error.code(), error.details()
