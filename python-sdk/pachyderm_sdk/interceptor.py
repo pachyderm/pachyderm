@@ -3,7 +3,7 @@ Implementation of a gRPC interceptor used to set request metadata
 and catch connection errors.
 """
 from os import environ
-from typing import Callable, Sequence, Optional, Tuple, Union, cast
+from typing import Callable, Sequence, Optional, Tuple, Union
 
 import grpc
 from betterproto import Message
@@ -34,21 +34,18 @@ class MetadataClientInterceptor(ClientInterceptor):
         try:
             future = method(request, new_details)
         except grpc.RpcError as error:
-            # gRPC error types are confusing - instantiated errors are Futures.
-            # ref: github.com/grpc/grpc/issues/25334#issuecomment-772730080
-            error = cast(error, grpc.Future)
+            error: grpc.Call
             _check_errors(error, request)
         else:
-            future.add_done_callback(lambda f: _check_errors(f, request))
+            future.add_done_callback(lambda f: _check_errors(f.exception(), request))
             return future
 
 
-def _check_errors(grpc_future: grpc.Future, request: Message):
+def _check_errors(error: Optional[grpc.Call], request: Message):
     """Callback function that checks if a gRPC.Future experienced a
     ConnectionError or TypeError and attempt to sanitize the error
     message for the user.
     """
-    error: Optional[grpc.Call] = grpc_future.exception()
     if error is not None:
         code, details = error.code(), error.details()
         unable_to_connect = "failed to connect to all addresses" in details

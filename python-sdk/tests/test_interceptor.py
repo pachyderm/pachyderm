@@ -18,6 +18,7 @@ def test_bad_serialization(client: TestClient):
         "An error occurred while trying to serialize the following ListRepoRequest message."
     )
 
+
 def test_bad_connection():
     """Test that errors which occur due to a failure to connect to
     the server are explained to the user."""
