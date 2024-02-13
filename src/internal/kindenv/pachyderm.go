@@ -99,9 +99,9 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 		strings.Join([]string{
 			// Configure images.
 			"pachd.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
-			"worker.image.repository=" + path.Join(cfg.ImagePullPath, "worker"),
+			"pachd.worker.image.repository=" + path.Join(cfg.ImagePullPath, "worker"),
 			"pachd.image.tag=" + pachdVersion,
-			"worker.image.tag=" + workerVersion,
+			"pachd.worker.image.tag=" + workerVersion,
 			// Configure the external hostname.
 			"proxy.host=" + cfg.Hostname,
 		}, ","),
