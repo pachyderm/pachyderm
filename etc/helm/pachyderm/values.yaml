@@ -188,6 +188,7 @@ determined:
     scimAuthenticationAttribute: ""
     autoProvisionUsers: false
     groupsClaimName: ""
+    displayNameClaimName: ""
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
@@ -198,6 +199,20 @@ determined:
   #     type: basic
   #     username: determined
   #     password: password
+
+  # saml (EE-only) enables Security Assertion Markup Language Integration, which is only available if
+  # enterpriseEdition is true. It allows users to use single sign-on with their organization’s identity
+  # provider.
+  # saml:
+  #   enabled:
+  #   provider:
+  #   idpRecipientUrl:
+  #   idpSsoUrl:
+  #   idpSsoDescriptorUrl:
+  #   idpCertPath:
+  #   autoProvisionUsers:
+  #   groupsAttributeName:
+  #   displayNameAttributeName:
 
   # db sets the configurations for the database.
   db:

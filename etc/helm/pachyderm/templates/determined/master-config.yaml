@@ -98,8 +98,11 @@ stringData:
       {{- if .Values.determined.oidc.autoProvisionUsers }}
       auto_provision_users: {{ .Values.determined.oidc.autoProvisionUsers }}
       {{- end }}
-      {{- if .Values.determined.oidc.groupsClaimName }}
-      groups_claim_name: {{ .Values.determined.oidc.groupsClaimName }}
+      {{- if .Values.determined.oidc.groupsAttributeName }}
+      groups_attribute_name: {{ .Values.determined.oidc.groupsAttributeName }}
+      {{- end }}
+      {{- if .Values.determined.oidc.displayNameAttributeName }}
+      display_name_attribute_name: {{ .Values.determined.oidc.displayNameAttributeName }}
       {{- end }}
     {{- end }}
 
@@ -116,6 +119,25 @@ stringData:
         username: {{ required "A valid username is required!" .Values.determined.scim.auth.username }}
         password: {{ required "A valid password type is required!" .Values.determined.scim.auth.password }}
         {{- end }}
+    {{- end }}
+
+    {{- if .Values.determined.saml }}
+    saml:
+      enabled: {{ .Values.determined.saml.enabled | default false }}
+      provider: {{ required "A valid provider entry is required!" .Values.determined.saml.provider}}
+      idp_recipient_url: {{ required "A valid recipient url is required!" .Values.determined.saml.idpRecipientUrl }}
+      idp_sso_url: {{ required "A valid sso url is required!" .Values.determined.saml.idpSsoUrl }}
+      idp_sso_descriptor_url: {{ required "A valid sso descriptor url is required!" .Values.determined.saml.idpSsoDescriptorUrl }}
+      idp_cert_path: {{ required "A valid idp cert path is required!" .Values.determined.saml.idpCertPath }}
+      {{- if .Values.determined.saml.autoProvisionUsers }}
+      auto_provision_users: {{ .Values.determined.saml.autoProvisionUsers }}
+      {{- end }}
+      {{- if .Values.determined.saml.groupsAttributeName }}
+      groups_attribute_name: {{ .Values.determined.saml.groupsAttributeName }}
+      {{- end }}
+      {{- if .Values.determined.saml.displayNameAttributeName }}
+      display_name_attribute_name: {{ .Values.determined.saml.displayNameAttributeName }}
+      {{- end }}
     {{- end }}
     {{- end }}
 
