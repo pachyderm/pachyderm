@@ -40,6 +40,7 @@ func getPachydermVersions() (string, string, error) {
 		return "", "", errors.Wrap(err, "get worker image digest")
 	}
 	workerVersion = bytes.TrimRight(workerVersion[7:], "\n")
+	fmt.Printf("pachd=%s\nworker=%s\n", pachdVersion, workerVersion)
 	return string(pachdVersion), string(workerVersion), nil
 }
 
@@ -99,9 +100,9 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 		strings.Join([]string{
 			// Configure images.
 			"pachd.image.repository=" + path.Join(cfg.ImagePullPath, "pachd"),
-			"worker.image.repository=" + path.Join(cfg.ImagePullPath, "worker"),
+			"pachd.worker.image.repository=" + path.Join(cfg.ImagePullPath, "worker"),
 			"pachd.image.tag=" + pachdVersion,
-			"worker.image.tag=" + workerVersion,
+			"pachd.worker.image.tag=" + workerVersion,
 			// Configure the external hostname.
 			"proxy.host=" + cfg.Hostname,
 		}, ","),
