@@ -470,6 +470,7 @@ go_library(
         "validate/UInt32Rules.schema.json",
         "validate/UInt64Rules.schema.json",
         "versionpb_v2/Version.schema.json",
+        "pps_v2/CreateDatumRequest.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],

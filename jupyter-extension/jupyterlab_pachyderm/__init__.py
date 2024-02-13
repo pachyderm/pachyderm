@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from .env import PACH_CONFIG
 from .handlers import setup_handlers
 
 
@@ -26,7 +27,7 @@ def _load_jupyter_server_extension(server_app):
     server_app: jupyterlab.labapp.LabApp
         JupyterLab application instance
     """
-    setup_handlers(server_app.web_app)
+    setup_handlers(server_app.web_app, PACH_CONFIG)
     server_app.log.info("Registered Pachyderm extension at URL path /pachyderm")
 
 

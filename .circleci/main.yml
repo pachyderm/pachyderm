@@ -37,10 +37,10 @@ parameters:
     default: ubuntu-2204:2023.04.2
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240125-b618e470f54bfef292a49d37af2c83443c431ddf@sha256:bb52805dfa8c3b1891e2b87f03f91e8f7f9b9d6b797a8b31645dc4ed97f7fb67
+    default: docker.io/pachyderm/ci-runner:20240205-3f2b2bba3c4cda4e990a413cd27d6cb21862fa5a@sha256:69778c8ae8e2189a6a6539bb70aaea7a2cf4d321f42256ab691daa613b1da10d
   go-version:
     type: string
-    default: "1.21.5"
+    default: "1.22.0"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -831,7 +831,7 @@ jobs:
             mkdir -p test-results
             pytest -v \
               --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm/tests/test_integrations.py
+              jupyterlab_pachyderm/tests
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -1260,7 +1260,7 @@ jobs:
             PR=$(gh pr create --base ${parentBranch} --title "bump pach version for release ${CIRCLE_TAG:1}" --body "bump pach version" --reviewer pachydermbuildbot --repo pachyderm/haberdashery)
             sleep 10 # give it a bit time for checks to attach
             gh pr checks ${PR} --watch --interval 10 --repo pachyderm/haberdashery
-            gh pr merge ${PR} --admin --repo pachyderm/haberdashery
+            gh pr merge ${PR} --rebase --admin --repo pachyderm/haberdashery
             sleep 2 # give it quick sec to merge, make sure we get right state.
             IS_MERGED=$(gh pr view ${PR} --json state --jq .state --repo pachyderm/haberdashery)
             if [[ "${IS_MERGED}" != "MERGED" ]]; then
