@@ -34,6 +34,8 @@ class MetadataClientInterceptor(ClientInterceptor):
         try:
             future = method(request, new_details)
         except grpc.RpcError as error:
+            # gRPC error types are confusing - instantiated errors are also grpc.Call objects.
+            # ref: github.com/grpc/grpc/issues/25334#issuecomment-772730080
             error: grpc.Call
             _check_errors(error, request)
         else:
