@@ -897,6 +897,13 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				time.Minute,
 				func() error {
 					deleteRelease(t, context.Background(), namespace, kubeClient)
+					if opts.Determined {
+						if determinedPriorityClassesExist(t, ctx, kubeClient) {
+							helmOpts.SetValues["determined.createNonNamespacedObjects"] = "false"
+						} else {
+							helmOpts.SetValues["determined.createNonNamespacedObjects"] = "true"
+						}
+					}
 					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}
