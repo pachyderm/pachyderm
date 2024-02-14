@@ -64,7 +64,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 		if err != nil {
 			return false, err
 		}
-		fmt.Println(idxBytes)
+		fmt.Println("core-2139", idxBytes)
 		if atEnd(idx.Path, r.filter) {
 			fmt.Println("core-2139: idx.Path", idx.Path, "skipped: idx outside upper bound")
 			return false, errutil.ErrBreak
