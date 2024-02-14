@@ -7,9 +7,9 @@
     "jupyterlab",
     "jupyterlab-extension"
   ],
-  "homepage": "https://github.com/pachyderm/jupyterlab-pachyderm",
+  "homepage": "https://github.com/pachyderm/pachyderm",
   "bugs": {
-    "url": "https://github.com/pachyderm/jupyterlab-pachyderm/issues"
+    "url": "https://github.com/pachyderm/pachyderm/issues"
   },
   "license": "BSD-3-Clause",
   "author": {
@@ -26,7 +26,7 @@
   "style": "style/index.css",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pachyderm/jupyterlab-pachyderm.git"
+    "url": "https://github.com/pachyderm/pachyderm.git"
   },
   "scripts": {
     "build": "npm run build:lib && npm run build:labextension:dev",
@@ -40,13 +40,14 @@
     "clean:labextension": "rimraf jupyterlab_pachyderm/labextension",
     "clean:all": "npm run clean:lib && npm run clean:labextension",
     "cypress:ci": "cypress open",
-    "cypress:headless": "cypress run --browser chrome --headless --config video=true --record",
+    "cypress:headless": "cypress run --browser electron --headless",
     "e2e": "start-server-and-test start:e2e http-get://localhost:8888/api cypress:headless",
     "eslint": "eslint . --ext .ts,.tsx --fix",
     "eslint:check": "eslint . --ext .ts,.tsx",
     "install:extension": "npm run build",
     "start:e2e": "jupyter lab --config ./scripts/jupyter_server_test_config.py",
     "test": "jest",
+    "test:ci": "jest --watch",
     "watch": "run-p watch:src watch:labextension",
     "watch:src": "tsc -w",
     "watch:labextension": "jupyter labextension watch ."
@@ -65,7 +66,7 @@
     "react": "^17.0.2",
     "rudder-sdk-js": "^1.2.1",
     "svg-url-loader": "^7.1.1",
-    "yaml": "^2.1.1"
+    "yaml": "^2.3.4"
   },
   "devDependencies": {
     "@babel/core": "^7.16.0",
@@ -73,8 +74,8 @@
     "@babel/preset-react": "^7.17.12",
     "@babel/preset-typescript": "^7.16.0",
     "@jupyterlab/builder": "^3.4.1",
-    "@svgr/cli": "^6.2.1",
-    "@testing-library/cypress": "^8.0.1",
+    "@svgr/cli": "^8.1.0",
+    "@testing-library/cypress": "^8.0.7",
     "@testing-library/jest-dom": "^5.15.1",
     "@testing-library/react": "^12.1.2",
     "@testing-library/user-event": "^13.5.0",
@@ -83,7 +84,7 @@
     "@types/react": "^17.0.34",
     "@typescript-eslint/eslint-plugin": "^4.8.1",
     "@typescript-eslint/parser": "^4.8.1",
-    "cypress": "^8.7.0",
+    "cypress": "^10.11.0",
     "eslint": "^7.14.0",
     "eslint-config-prettier": "^6.15.0",
     "eslint-plugin-prettier": "^3.1.4",
@@ -91,10 +92,9 @@
     "eslint-plugin-testing-library": "^3.10.2",
     "jest": "^27.3.1",
     "jest-fetch-mock": "^3.0.3",
-    "mkdirp": "^1.0.3",
     "npm-run-all": "^4.1.5",
     "prettier": "^2.1.1",
-    "rimraf": "^3.0.2",
+    "rimraf": "^5.0.5",
     "start-server-and-test": "^1.14.0",
     "ts-jest": "^27.0.7",
     "typescript": "~4.1.3"
