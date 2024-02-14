@@ -10,7 +10,7 @@ set -euxo pipefail
 REPO=pachyderm
 UNDERLYING=${UNDERLYING:-$VERSION}
 
-for product in pachd worker pachctl mount-server; do
+for product in pachd worker pachctl; do
     echo ""
     echo "push $product tag=$VERSION (based on tag=$UNDERLYING)..."
     echo ""

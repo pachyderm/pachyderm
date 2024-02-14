@@ -670,14 +670,11 @@ jobs:
                 description: Builds and uploads pachctl amd64 binary for extensions with a git commit SHA.
                 command: |
                   make release-pachctl GORELSNAP=--snapshot VERSION=<< parameters.version >>
-                  make release-mount-server GORELSNAP=--snapshot VERSION=<< parameters.version >>
             - run:
                 name: upload pachctl binaries
                 command: |
                   echo $PACHCTL_GOOGLE_UPLOAD_CREDS > /home/circleci/gcpcreds.json
                   cd /home/circleci/dist-pach/pachctl/
-                  gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
-                  cd /home/circleci/dist-pach/mount-server/
                   gcsupload -b pachyderm-builds -f `find * -name \*amd64.tar.gz` -k /home/circleci/gcpcreds.json
                   rm /home/circleci/gcpcreds.json
       - when:
@@ -693,7 +690,6 @@ jobs:
                   additional=${v%%-*}
                   index=${#additional}
                   make release-pachctl GORELSNAP=--snapshot VERSION=${v} VERSION_ADDITIONAL=${v:index}
-                  make release-mount-server GORELSNAP=--snapshot VERSION=${v}
             - persist_to_workspace:
                 root: ../
                 paths:
@@ -1216,10 +1212,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/mount-server/mount-server_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
             fi
   console-release-draft:
     docker:
@@ -2193,10 +2189,9 @@ commands:
       - install-helm
       - install-kubectl
       - run:
-          name: Install pachctl and mount-server
+          name: Install pachctl
           command: |
             sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-            sudo mv ./dist-pach/mount-server/mount-server_linux_amd64_v1/mount-server /usr/local/bin/mount-server
       - run:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind

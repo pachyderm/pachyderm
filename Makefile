@@ -90,9 +90,6 @@ release-docker-images:
 release-pachctl:
 	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --clean -f goreleaser/pachctl.yml
 
-release-mount-server:
-	@goreleaser release -p 1 $(GORELSNAP) $(GORELDEBUG) --release-notes=$(CHLOGFILE) --clean -f goreleaser/mount-server.yml
-
 docker-build:
 	DOCKER_BUILDKIT=1 goreleaser release -p 1 --snapshot $(GORELDEBUG) --skip-publish --clean -f goreleaser/docker.yml
 
@@ -134,7 +131,6 @@ docker-pull:
 	$(SKIP) docker pull pachyderm/pachd:$(VERSION)
 	$(SKIP) docker pull pachyderm/worker:$(VERSION)
 	$(SKIP) docker pull pachyderm/pachctl:$(VERSION)
-	$(SKIP) docker pull pachyderm/mount-server:$(VERSION)
 
 docker-push-release: docker-push
 	$(SKIP) docker push pachyderm/etcd:v3.5.1
