@@ -3,8 +3,10 @@ package index
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	fmt "fmt"
 	"io"
+	"strings"
 
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -57,16 +59,30 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 		return nil
 	}
 	traverseCb := func(idx *Index) (bool, error) {
+		fmt.Println("core-2139: analyzing idx.Path:", idx.Path)
+		idxBytes, err := json.Marshal(idx)
+		if err != nil {
+			return false, err
+		}
+		fmt.Println(idxBytes)
 		if atEnd(idx.Path, r.filter) {
+			fmt.Println("core-2139: idx.Path", idx.Path, "skipped: idx outside upper bound")
 			return false, errutil.ErrBreak
 		}
 		if idx.File != nil {
-			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
+			if !atStart(idx.Path, r.filter) {
+				fmt.Println("core-2139: idx.Path", idx.Path, "skipped: idx.File: file below lower bound")
 				return false, nil
 			}
+			if !(r.datum == "" || r.datum == idx.File.Datum) {
+				fmt.Println("core-2139: idx.Path", idx.Path, "skipped: idx.File: datum matches", r.datum)
+				return false, nil
+			}
+			fmt.Println("core-2139: idx.Path", idx.Path, "emitting file")
 			return false, cb(idx)
 		}
 		if !atStart(idx.Range.LastPath, r.filter) {
+			fmt.Println("core-2139: idx.Path", idx.Path, "skipped: idx.Range: last path below lower bound")
 			return false, nil
 		}
 		return true, nil
@@ -97,21 +113,32 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 	}
 	pbr := pbutil.NewReader(buf)
 	nextPrependBytes := []byte{}
+	idxChunkId := func(idx *Index) string {
+		if idx.Range != nil {
+			return string(idx.Range.ChunkRef.Ref.Id)
+		}
+		refs := make([]string, 0)
+		for _, ref := range idx.File.DataRefs {
+			refs = append(refs, string(ref.Ref.Id))
+		}
+		return "(" + strings.Join(refs, ",") + ")"
+	}
 	for {
 		leftoverBytes := buf.Bytes()
-		idx := &Index{}
-		if err := pbr.Read(idx); err != nil {
+		nextIdx := &Index{}
+		if err := pbr.Read(nextIdx); err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 				return leftoverBytes, nil
 			}
 			return nil, errors.EnsureStack(err)
 		}
-		nextLevel, err := cb(idx)
+		fmt.Println("core-2139: edge:", idxChunkId(idx), "->", idxChunkId(nextIdx))
+		nextLevel, err := cb(nextIdx)
 		if err != nil {
 			return nil, err
 		}
 		if nextLevel {
-			nextPrependBytes, err = r.traverse(ctx, idx, nextPrependBytes, cb)
+			nextPrependBytes, err = r.traverse(ctx, nextIdx, nextPrependBytes, cb)
 			if err != nil {
 				return nil, err
 			}

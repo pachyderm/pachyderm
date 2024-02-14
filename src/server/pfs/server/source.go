@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"path"
 	"strings"
@@ -84,7 +85,9 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
+		fmt.Println("core-2139: current idx.Path: ", idx.Path)
 		if s.upper != "" && idx.Path >= s.upper {
+			fmt.Println("core-2139: path", idx.Path, "is greater than upper", s.upper, ". breaking")
 			return errutil.ErrBreak
 		}
 		file := s.commitInfo.Commit.NewFile(idx.Path)
