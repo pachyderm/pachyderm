@@ -26,6 +26,7 @@ go_library(
         "//src/internal/testetcd",
         "//src/internal/transactionenv/txncontext",
         "//src/license",
+        "//src/logs",
         "//src/pfs",
         "//src/pps",
         "//src/proxy",
