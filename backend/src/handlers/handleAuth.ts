@@ -8,8 +8,8 @@ export const getAuthAccount = async (req: Request, res: Response) => {
   if (!idToken || typeof idToken !== 'string') {
     return res
       .json({
-        message: 'Bad Request',
-        details: ['An "idToken" is required.'],
+        message: 'Bad Request: An "idToken" is required',
+        details: ['no idToken provided'],
       })
       .status(400);
   }
@@ -33,7 +33,7 @@ export const getAuthAccount = async (req: Request, res: Response) => {
         if (error) {
           return res
             .json({
-              message: 'Authentication Error',
+              message: 'Authentication Error: Could not verify id token.',
               details: [String(error)],
             })
             .status(401);
@@ -61,7 +61,7 @@ export const getAuthAccount = async (req: Request, res: Response) => {
   } catch (error) {
     return res
       .json({
-        message: 'Authentication Error',
+        message: 'Authentication Error: Unable to extract account from token.',
         details: [String(error)],
       })
       .status(401);
@@ -69,14 +69,15 @@ export const getAuthAccount = async (req: Request, res: Response) => {
 };
 
 export const exchangeCode = async (req: Request, res: Response) => {
-  const {OAUTH_REDIRECT_URI: redirectUri = ''} = process.env;
+  const {OAUTH_REDIRECT_URI: redirectUri = '', ISSUER_URI: issuerUri = ''} =
+    process.env;
   const code = req.body.code;
 
   if (!code || typeof code !== 'string') {
     return res
       .json({
-        message: 'Bad Request',
-        details: ['A "code" is required.'],
+        message: 'Bad Request: A "code" is required.',
+        details: ['No code provided'],
       })
       .status(400);
   }
@@ -95,7 +96,7 @@ export const exchangeCode = async (req: Request, res: Response) => {
     } catch (error) {
       return res
         .json({
-          message: 'Authentication Error',
+          message: `Authentication Error: Could not contact OIDC client. ISSUER_URI ${issuerUri}`,
           details: [String(error)],
         })
         .status(401);
@@ -105,7 +106,7 @@ export const exchangeCode = async (req: Request, res: Response) => {
   } catch (error) {
     return res
       .json({
-        message: 'Authentication Error',
+        message: `Authentication Error: Could not contact OIDC client. ISSUER_URI ${issuerUri}`,
         details: [String(error)],
       })
       .status(401);
@@ -113,6 +114,7 @@ export const exchangeCode = async (req: Request, res: Response) => {
 };
 
 export const getAuthConfig = async (req: Request, res: Response) => {
+  const {ISSUER_URI: issuerUri = ''} = process.env;
   let issuer;
 
   try {
@@ -120,8 +122,8 @@ export const getAuthConfig = async (req: Request, res: Response) => {
   } catch (error) {
     return res
       .json({
-        message: 'Authentication Error',
-        details: ['Unable to connect to authorization issuer.', String(error)],
+        message: `Authentication Error: Unable to connect to authorization issuer. ISSUER_URI ${issuerUri}`,
+        details: [String(error)],
       })
       .status(401);
   }
@@ -137,8 +139,8 @@ export const getAuthConfig = async (req: Request, res: Response) => {
     if (!authUrl.pathname || !config.clientId || !config.pachdClientId) {
       return res
         .json({
-          message: 'Authentication Error',
-          details: ['Issuer is misconfigured.'],
+          message: `Authentication Error: Issuer is missing one or more required fields. AUTH_URL_PATH_NAME ${authUrl.pathname} CLIENT_ID ${config.clientId} PACH_CLIENT_ID ${config.pachdClientId}`,
+          details: [],
         })
         .status(401);
     }
@@ -147,11 +149,9 @@ export const getAuthConfig = async (req: Request, res: Response) => {
   } catch (error) {
     return res
       .json({
-        message: 'Authentication Error',
-        details: [
-          'Invalid Auth Config. Your IDP may be misconfigured.',
-          String(error),
-        ],
+        message:
+          'Authentication Error: Invalid Auth Config. Your IDP may be misconfigured.',
+        details: [String(error)],
       })
       .status(401);
   }

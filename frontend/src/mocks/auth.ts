@@ -9,6 +9,7 @@ import {
   AuthenticateResponse,
   Permission,
   WhoAmIRequest,
+  WhoAmIResponse,
 } from '@dash-frontend/api/auth';
 import {CODES, Empty} from '@dash-frontend/api/googleTypes';
 import {RequestError} from '@dash-frontend/api/utils/error';
@@ -130,13 +131,22 @@ export const mockWhoAmINotActivated = () =>
     },
   );
 
+export const mockWhoAmIActivated = () =>
+  rest.post<WhoAmIRequest, Empty, WhoAmIResponse>(
+    '/api/auth_v2.API/WhoAmI',
+    (_req, res, ctx) => {
+      return res(
+        ctx.json({username: 'cloud', expiration: '2055-01-01T00:00:00Z'}),
+      );
+    },
+  );
+
 export const mockAuthConfigError = () =>
   rest.get<never, never, RequestError>('/auth/config', (_req, res, ctx) => {
     return res(
       ctx.status(401),
       ctx.json({
-        message: 'Authentication Error',
-        details: ['Issuer is misconfigured.'],
+        message: 'Authentication Error: Issuer is misconfigured.',
       }),
     );
   });
@@ -146,11 +156,7 @@ export const mockAuthConfigNotConfigured = () =>
     return res(
       ctx.status(200),
       ctx.json({
-        message: 'Authentication Error',
-        details: [
-          'Unable to connect to authorization issuer.',
-          'OPError: expected 200 OK, got: 503 Service Unavailable',
-        ],
+        message: 'Authentication Error: Unable to connect to issuer.',
       }),
     );
   });
@@ -160,10 +166,7 @@ export const mockAuthExchanceError = () =>
     return res(
       ctx.status(200),
       ctx.json({
-        message: 'Authentication Error',
-        details: [
-          'OPError: invalid_grant (Invalid or expired code parameter.)',
-        ],
+        message: 'Authentication Error: Invalid code.',
       }),
     );
   });

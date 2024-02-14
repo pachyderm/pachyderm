@@ -18,6 +18,7 @@ import {
   mockAuthConfigError,
   mockAuthConfigNotConfigured,
   mockExchangeCode,
+  mockWhoAmIActivated,
   mockWhoAmINotActivated,
 } from '@dash-frontend/mocks';
 
@@ -36,6 +37,7 @@ describe('api/rest', () => {
 
   describe('config', () => {
     it('should return an auth config', async () => {
+      server.use(mockWhoAmIActivated());
       server.use(
         rest.get<Empty, Empty, AuthConfig>('/auth/config', (_req, res, ctx) => {
           return res(
@@ -55,6 +57,27 @@ describe('api/rest', () => {
       });
     });
 
+    it('should return an empty config when auth is disabled even with a valid config', async () => {
+      server.use(mockWhoAmINotActivated());
+      server.use(
+        rest.get<Empty, Empty, AuthConfig>('/auth/config', (_req, res, ctx) => {
+          return res(
+            ctx.json({
+              authEndpoint: '/dex',
+              clientId: 'client',
+              pachdClientId: 'pachd',
+            }),
+          );
+        }),
+      );
+
+      expect(await config()).toEqual({
+        authEndpoint: '',
+        clientId: '',
+        pachdClientId: '',
+      });
+    });
+
     it('should return an empty config when auth is disabled', async () => {
       server.use(mockAuthConfigNotConfigured());
       server.use(mockWhoAmINotActivated());
@@ -66,20 +89,8 @@ describe('api/rest', () => {
     });
 
     it('should throw other errors when auth is enabled', async () => {
+      server.use(mockWhoAmIActivated());
       server.use(mockAuthConfigError());
-      server.use(
-        rest.post<WhoAmIRequest, Empty, RequestError>(
-          '/api/auth_v2.API/WhoAmI',
-          (_req, res, ctx) => {
-            return res(
-              ctx.status(500),
-              ctx.json({
-                code: 1,
-              }),
-            );
-          },
-        ),
-      );
 
       await expect(() => config()).rejects.toThrow(
         'Authentication Error: Issuer is misconfigured.',
@@ -176,8 +187,7 @@ describe('api/rest', () => {
           (_req, res, ctx) => {
             return res(
               ctx.json({
-                message: 'Authenticate Error',
-                details: ['Could not exchange codes.'],
+                message: 'Authenticate Error: Could not exchange codes.',
               }),
             );
           },

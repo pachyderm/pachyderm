@@ -78,14 +78,14 @@ export const modifyRoleBinding = async (req: ModifyRoleBindingRequest) => {
 };
 
 export const authenticate = async (code: string) => {
-  const {idToken, message, details} = (await fetch('/auth/exchange', {
+  const {idToken, message} = (await fetch('/auth/exchange', {
     method: 'POST',
     headers: getHeaders(),
     body: JSON.stringify({code}),
   }).then((res) => res.json())) as Exchange & RequestError;
 
   if (!idToken) {
-    throw new Error(`${message}: ${details?.join(' ')}`);
+    throw new Error(message);
   }
 
   try {
@@ -114,34 +114,31 @@ export const authenticate = async (code: string) => {
 };
 
 export const config = async () => {
+  // Make sure auth is enabled before asking for the config
+  try {
+    await auth.WhoAmI({}, getRequestOptions());
+  } catch (error) {
+    const authDisabled = isAuthDisabled(error);
+
+    if (authDisabled) {
+      return {
+        authEndpoint: '',
+        clientId: '',
+        pachdClientId: '',
+      } as AuthConfig;
+    }
+  }
+
   const res = await fetch('/auth/config', {
     method: 'GET',
     headers: getHeaders(),
   });
 
-  const {message, details, authEndpoint, clientId, pachdClientId} =
+  const {message, authEndpoint, clientId, pachdClientId} =
     (await res.json()) as AuthConfig & RequestError;
 
-  if (!res.ok) {
-    throw new Error(`${message}: ${details?.join(' ')}`);
-  }
-
-  if (message) {
-    try {
-      await auth.WhoAmI({}, getRequestOptions());
-    } catch (error) {
-      const authDisabled = isAuthDisabled(error);
-
-      if (authDisabled) {
-        return {
-          authEndpoint: '',
-          clientId: '',
-          pachdClientId: '',
-        } as AuthConfig;
-      }
-
-      throw new Error(`${message}: ${details?.join(' ')}`);
-    }
+  if (!res.ok || message) {
+    throw new Error(message);
   }
 
   return {

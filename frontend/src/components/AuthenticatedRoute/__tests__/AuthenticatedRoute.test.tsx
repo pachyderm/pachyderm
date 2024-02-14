@@ -13,6 +13,7 @@ import {
   mockWhoAmINotActivated,
   mockAuthConfigError,
   mockAuthExchanceError,
+  mockWhoAmIActivated,
 } from '@dash-frontend/mocks';
 import {withContextProviders, loginUser} from '@dash-frontend/testHelpers';
 
@@ -53,6 +54,7 @@ describe('AuthenticatedRoute', () => {
   });
 
   it('should redirect unauthenticated users through the oauth flow', async () => {
+    server.use(mockWhoAmIActivated());
     window.history.pushState(
       '',
       '',
@@ -112,17 +114,18 @@ describe('AuthenticatedRoute', () => {
     render(<TestBed />);
 
     expect(
-      await screen.findByText('Unable to authenticate. Try again later.'),
+      await screen.findByText('Authentication Error: Invalid code.'),
     ).toBeInTheDocument();
   });
 
   it('should show an error page if the OIDC provider is misconfigured', async () => {
+    server.use(mockWhoAmIActivated());
     server.use(mockAuthConfigError());
 
     render(<TestBed />);
 
     expect(
-      await screen.findByText('Unable to authenticate. Try again later.'),
+      await screen.findByText('Authentication Error: Issuer is misconfigured.'),
     ).toBeInTheDocument();
   });
 });
