@@ -271,6 +271,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			"pps_v2.ParallelismSpec.constant":             constantVal(uint64(1)),
 		},
 	}
+	// traverse the message field graph and fill in randomized values
 	for i := 0; i < msgDesc.Fields().Len(); i++ {
 		field := msgDesc.Fields().Get(i)
 		var fieldVal protoreflect.Value
@@ -299,7 +300,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 						if v.IsValid() {
 							vals.Append(v)
 						} else {
-							log.Info(ctx, "Value in a list was not valid! ignoring.",
+							log.Debug(ctx, "Value in a list was not valid! ignoring.",
 								zap.Any("field", field.FullName()),
 								zap.Any("value", v.Interface()))
 						}
@@ -307,7 +308,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 				}
 				fieldVal = protoreflect.ValueOf(vals)
 			} else if field.IsMap() {
-				log.Info(ctx, "Map message type not yet implemented in value generation",
+				log.Debug(ctx, "Map message type not yet implemented in value generation",
 					zap.Any("field", field.FullName()))
 			} else {
 				fieldVal = getValueForField(ctx, genSource)
@@ -361,7 +362,7 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 					}
 				}
 			} else if field.IsMap() {
-				log.Info(ctx, "Saving the Map message type not yet implemented",
+				log.Debug(ctx, "Saving the Map message type not yet implemented",
 					zap.Any("field", field.FullName()))
 			} else if ok { // just a single message to recurse through
 				storeSuccessVals(ctx, subMsg, out)
