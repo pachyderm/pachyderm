@@ -40,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -85,6 +86,9 @@ type TransactionAPIClient transaction.APIClient
 // DebugClient is an alias of debug.DebugClient
 type DebugClient debug.DebugClient
 
+// LogsClient is an alias of logs.APIClient
+type LogsClient logs.APIClient
+
 // ProxyClient is an alias of proxy.APIClient
 type ProxyClient proxy.APIClient
 
@@ -98,6 +102,7 @@ type APIClient struct {
 	AdminAPIClient
 	TransactionAPIClient
 	DebugClient
+	LogsClient
 	ProxyClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
@@ -895,6 +900,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.ProxyClient = proxy.NewAPIClient(clientConn)
+	c.LogsClient = logs.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)
 	c.ctx = rctx

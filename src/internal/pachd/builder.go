@@ -35,6 +35,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -45,6 +46,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/server/http"
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -320,6 +322,15 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 		Listener: b.env.GetPostgresListener(),
 	})
 	b.forGRPCServer(func(s *grpc.Server) { proxy.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
+func (b *builder) registerLogsServer(ctx context.Context) error {
+	apiServer, err := logsserver.NewAPIServer()
+	if err != nil {
+		return err
+	}
+	b.forGRPCServer(func(s *grpc.Server) { logs.RegisterAPIServer(s, apiServer) })
 	return nil
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -51,6 +52,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		enterprise.File_enterprise_enterprise_proto,
 		identity.File_identity_identity_proto,
 		license.File_license_license_proto,
+		logs.File_logs_logs_proto,
 		pfs.File_pfs_pfs_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
