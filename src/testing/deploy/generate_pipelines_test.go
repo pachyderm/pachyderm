@@ -1,6 +1,6 @@
 //go:build k8s
 
-package workflowfuzz
+package main
 
 import (
 	"context"
@@ -28,33 +28,27 @@ import (
 )
 
 const (
-	namespace            = "fuzz-cluster-1"
-	useSucccessValWeight = .75
-	maxRepeatedCount     = 5
-	requestCount         = 1000
+	useSucccessValWeight = .75 // Likelyhood of using a pre-existing, known valid, value.
+	maxRepeatedCount     = 5   // The maximum number of random list values to generate.
+	nilInputWeight       = .35 // The likelyhood of using nil as a value in an Input field
+	maxInputDepth        = 15  // The maximum depth we should traverse the cyclical Input graph.
 )
 
 var (
-	runDefault      = flag.Bool("gen.default", true, "use the default data generators") // DNJ TODO - just hide in test harness? set back to false at least
-	successInputs   = map[string][]protoreflect.Value{}
+	runAmount       = flag.Int("gen.Amount", 250, "use the default data generators")
+	successInputs   = map[string][]protoreflect.Value{} // values of fields mapped to field names for reuse in subsequent requests
 	successInputsMu = sync.Mutex{}
 )
 
-var protosUnderTest = map[protoreflect.FileDescriptor][]string{ // DNJ TODO - make own rangeRPC function from rpc_fuzz_test? at least move list of apis to separate input file(s)
+var protosUnderTest = map[protoreflect.FileDescriptor][]string{
 	pfs.File_pfs_pfs_proto: {
-		pfs.API_CreateRepo_FullMethodName,
+		pfs.API_CreateRepo_FullMethodName, // It would be nice to include DeleteRepo but we need to weight it less so we create more than we delete.
 		pfs.API_CreateProject_FullMethodName,
-		// pfs.API_DeleteRepo_FullMethodName,
-		// pfs.API_DeleteProject_FullMethodName, // DNJ TODO - weighting?
-		// pfs.API_InspectProjectV2_FullMethodName,
-		// pfs.API_InspectRepo_FullMethodName,
 		pfs.API_ListProject_FullMethodName,
 		pfs.API_ListRepo_FullMethodName,
-		// pfs.API_ListBranch_FullMethodName,
 	},
 	pps.File_pps_pps_proto: {
 		pps.API_CreatePipeline_FullMethodName,
-		// pps.API_InspectPipeline_FullMethodName,
 		pps.API_ListPipeline_FullMethodName,
 	},
 }
@@ -64,11 +58,13 @@ type GeneratorIndex struct {
 	NameGenerators map[string]Generator
 }
 
-type generatorSource struct { // DNJ TODO - should this hold successInputs?
+type generatorSource struct {
 	ctx   context.Context
 	r     *rand.Rand
 	field protoreflect.FieldDescriptor
-	// msg      *dynamicpb.Message
+	// The deepest current traversal of the cyclic Input graph.
+	// If we are above this level when setting input we should always generate nil since there can be only one input.
+	// This doesn't work in some edge cases and is pretty confusing. It would be nice to have a better solution here.
 	hasInputLevel *int
 	ancestry      []protoreflect.FieldDescriptor
 	index         GeneratorIndex
@@ -77,33 +73,37 @@ type generatorSource struct { // DNJ TODO - should this hold successInputs?
 type Generator func(generatorSource) protoreflect.Value
 
 func subinput(genSource generatorSource) protoreflect.Value {
-	if len(genSource.ancestry) > genSource.r.Intn(15) {
-		return protoreflect.ValueOf(nil) // no multi-inputs
+	if len(genSource.ancestry) > genSource.r.Intn(maxInputDepth) {
+		return protoreflect.ValueOf(nil) // have to terminate eventually in the input chain
 	} else {
-		if len(genSource.ancestry) > 1 {
-			log.Info(genSource.ctx, "DNJ TODO Input generator going deeper.",
-				zap.Int("level", *genSource.hasInputLevel),
-				zap.Any("ancestry", len(genSource.ancestry)),
-				zap.Any("ancestor", genSource.ancestry[len(genSource.ancestry)-2].FullName()),
-			)
-		}
 		*genSource.hasInputLevel = len(genSource.ancestry)
-		return protoreflect.ValueOf(inputGenerator(genSource.ctx, genSource.r, genSource.field.Message(), successInputs, genSource)) // DNJ TODO - this depth lineage is too confusing
+		return protoreflect.ValueOf(
+			inputGenerator(
+				genSource.ctx,
+				genSource.r,
+				genSource.field.Message(),
+				successInputs,
+				genSource,
+			),
+		)
 	}
 }
 
 func pfsInput(genSource generatorSource) protoreflect.Value {
-	//DNJ TODO - how to know we are at the end of the input chain to avoid termination weight?
-	if *genSource.hasInputLevel >= len(genSource.ancestry) || .35 > genSource.r.Float32() { // DNJ TODO magic number - inputTerminationWeight?
+	ancestrylen := len(genSource.ancestry)
+	if *genSource.hasInputLevel >= ancestrylen || nilInputWeight > genSource.r.Float32() {
 		return protoreflect.ValueOf(nil)
 	} else {
-		log.Info(genSource.ctx, "DNJ TODO Input generator stopping with pfs input.",
-			zap.Int("level", *genSource.hasInputLevel),
-			zap.Any("ancestry", len(genSource.ancestry)),
-			zap.Any("ancestor", genSource.ancestry[len(genSource.ancestry)-2].FullName()),
+		*genSource.hasInputLevel = ancestrylen // Only one input per level allowed
+		return protoreflect.ValueOf(
+			inputGenerator(
+				genSource.ctx,
+				genSource.r,
+				genSource.field.Message(),
+				successInputs,
+				genSource,
+			),
 		)
-		*genSource.hasInputLevel = len(genSource.ancestry) // Only one input per level allowed
-		return protoreflect.ValueOf(inputGenerator(genSource.ctx, genSource.r, genSource.field.Message(), successInputs, genSource))
 	}
 }
 
@@ -166,8 +166,8 @@ func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd pr
 	for fd, protoDescriptors := range protos {
 		svcMethods := map[string][]string{}
 		for _, name := range protoDescriptors {
-			split := strings.Split(name, "/") // DNJ TODO - what is up with the / separator?
-			svcName := split[1]               // 0 is empty
+			split := strings.Split(name, "/")
+			svcName := split[1] // 0 is empty
 			methodName := split[2]
 			if arr, ok := svcMethods[svcName]; !ok {
 				svcMethods[svcName] = []string{methodName}
@@ -191,24 +191,6 @@ func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd pr
 	}
 }
 
-func getSharedCluster(t testing.TB) *client.APIClient {
-	k := testutil.GetKubeClient(t)
-	minikubetestenv.PutNamespace(t, namespace)
-	pachClient := minikubetestenv.InstallRelease(t, context.Background(), namespace, k, &minikubetestenv.DeployOpts{
-		CleanupAfter:       false,
-		UseLeftoverCluster: true,
-		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "1Gi",
-			"prxoy.resources.limits.memory":   "1Gi",
-			"proxy.replicas":                  "10", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
-			"console.enabled":                 "true",
-			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
-			"pachd.activateAuth":              "false",
-		},
-	})
-	return pachClient
-}
-
 func randString(r *rand.Rand, minlength int, maxLength int) string {
 	var characters strings.Builder
 	length := r.Intn(maxLength) + minlength
@@ -218,14 +200,13 @@ func randString(r *rand.Rand, minlength int, maxLength int) string {
 	return characters.String()
 }
 
-func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]protoreflect.Value, prevSource generatorSource) *dynamicpb.Message { // DNJ TODO - generics maybe?
+func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]protoreflect.Value, prevSource generatorSource) *dynamicpb.Message {
 	msg := dynamicpb.NewMessage(msgDesc)
-	// DNJ TODO type enum?
-	defaultGenerators := GeneratorIndex{ // DNJ TODO - full custom inputs, how to handle for specific fields? Maybe do my own hash with field name or have a field name map of generators that is checlked first?
+	defaultGenerators := GeneratorIndex{
 		KindGenerators: map[protoreflect.Kind]Generator{
 			protoreflect.BoolKind: func(gen generatorSource) protoreflect.Value {
 				return protoreflect.ValueOf(gen.r.Float32() < .5)
-			}, // DNJ TODO - Generics and/or pass context for error?
+			},
 			protoreflect.StringKind: func(gen generatorSource) protoreflect.Value {
 				return protoreflect.ValueOf(randString(gen.r, 1, 5))
 			},
@@ -247,7 +228,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 				return protoreflect.ValueOf(enum.Get(selected).Number())
 			},
 			protoreflect.MessageKind: func(gen generatorSource) protoreflect.Value {
-				return protoreflect.ValueOf(inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs, gen)) // DNJ TODO - this depth lineage is too confusing
+				return protoreflect.ValueOf(inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs, gen))
 			},
 		},
 		NameGenerators: map[string]Generator{
@@ -255,9 +236,9 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			"pps_v2.Input.cross":                          subinput,
 			"pps_v2.Input.union":                          subinput,
 			"pps_v2.Input.group":                          subinput,
-			"pps_v2.Input.cron":                           noValue, // DNJ TODO - handle multiple input types set - store info in GenSource
+			"pps_v2.Input.cron":                           noValue,
 			"pps_v2.Input.pfs":                            pfsInput,
-			"google.protobuf.Int64Value.value":            randInt64Positive, // DNJ TODO - read ancestry to decide?
+			"google.protobuf.Int64Value.value":            randInt64Positive,
 			"google.protobuf.Duration.seconds":            randInt64Positive,
 			"google.protobuf.Duration.nanos":              randNanos,
 			"google.protobuf.Timestamp.seconds":           randInt64Positive,
@@ -290,11 +271,11 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			"pps_v2.ParallelismSpec.constant":             constantVal(uint64(1)),
 		},
 	}
-	for i := 0; i < msgDesc.Fields().Len(); i++ { // DNJ TODO fuzz each type and recurse
+	for i := 0; i < msgDesc.Fields().Len(); i++ {
 		field := msgDesc.Fields().Get(i)
 		var fieldVal protoreflect.Value
 		successInputsMu.Lock()
-		if successVals, ok := potentialInputs[string(field.FullName())]; ok && // DNJ TODO figure out input naming
+		if successVals, ok := potentialInputs[string(field.FullName())]; ok &&
 			r.Float32() < useSucccessValWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
 			successInputsMu.Unlock()
@@ -309,9 +290,10 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			}
 			genSource.ancestry = append(prevSource.ancestry, field)
 			if field.IsList() { // fall-back to normal assignment if 1 or fewer selected
-				count := r.Intn(maxRepeatedCount) // DNJ TODO how to handle input level here? move list handling to a type function to manually handle??
+				count := r.Intn(maxRepeatedCount)
 				vals := msg.NewField(field).List()
-				if !strings.Contains(string(field.FullName()), "pps_v2.Input") || *genSource.hasInputLevel < len(genSource.ancestry) { // DNJ TODO how to fix 1-off handling
+				// we have one-off handling for input here. This should be re-worked to handle this more generically in the generators.
+				if !strings.Contains(string(field.FullName()), "pps_v2.Input") || *genSource.hasInputLevel < len(genSource.ancestry) {
 					for i := 0; i < count; i++ {
 						v := getValueForField(ctx, genSource)
 						if v.IsValid() {
@@ -330,11 +312,6 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 			} else {
 				fieldVal = getValueForField(ctx, genSource)
 			}
-		}
-		if string(field.Name()) == "operator" {
-			log.Info(ctx, "DNJ TODO Field for input what?!",
-				zap.Any("field", field.FullName()),
-				zap.Any("fieldVal", fieldVal.Interface()))
 		}
 		if fieldVal.IsValid() {
 			msg.Set(field, fieldVal)
@@ -356,8 +333,8 @@ func getValueForField(ctx context.Context, genSource generatorSource) protorefle
 	}
 }
 
+// store successful values from requet inputs and outputs to be reused later.
 func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]protoreflect.Value) {
-	// DNJ TODO expander
 	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
 		fieldName := string(field.FullName())
 		successInputsMu.Lock()
@@ -395,50 +372,83 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 
 }
 
-func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) { // DNJ TODO - can and/or should this be public?
-	r := rand.New(rand.NewSource(seed)) // DNJ TODO - accept intrface that Rand stisifies to allow custom value sourcing? move successvals logic there! needs Float32 and Intn right now
+// generate and send requests for each API in the proto list once.
+func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
+	r := rand.New(rand.NewSource(seed))
 	rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
 		input := inputGenerator(ctx, r, md.Input(), successInputs, generatorSource{hasInputLevel: new(int)})
 		reply := dynamicpb.NewMessage(md.Output())
-		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))      // DNJ TODO move to rpc fuzz test and make function for this.
-		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil { // DNJ TODO - do in goroutine so we don't wait for response?
-			log.Info(ctx, "Invoke grpc method err",
+		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))
+		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
+			log.Info(ctx, "Invoke grpc method had an  err",
+				zap.Error(err),
 				zap.String("method name", fullName),
 				zap.String("input", input.String()),
-				zap.Error(err),
 			)
 		} else {
 			log.Info(ctx, "successful rpc call, saving fields for re-use",
 				zap.String("method name", fullName),
-				zap.String("input", input.String()),
 				zap.String("reply", reply.String()),
+				zap.String("input", input.String()),
 			)
 			storeSuccessVals(ctx, input, successInputs)
 			storeSuccessVals(ctx, reply, successInputs)
 		}
-		// t.Logf("Reply: %#v", reply)
 	})
 }
 
-// DNJ TODO context and logger?
-func TestGrpcWorkflow(t *testing.T) { // DNJ TODO - better name
-	if !*runDefault {
-		t.Skip()
+// Test generating random dags and verifying they get through the upgrade and pass fsck.
+// We aren't using Fuzz* because that works better with stateless fuzzing. Here, the whole point
+// is to add interesting state tot the DB.
+func TestCreateDags(t *testing.T) {
+	ra := *runAmount
+	if ra <= 0 || testing.Short() {
+		t.Skip("Skipping DAG generation test")
 	}
 	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
-	c := getSharedCluster(t)
+
+	deployOpts := &minikubetestenv.DeployOpts{
+		Version:            "2.8.3",
+		CleanupAfter:       false,
+		UseLeftoverCluster: false,
+		ValueOverrides: map[string]string{
+			"prxoy.resources.requests.memory": "1Gi",
+			"prxoy.resources.limits.memory":   "1Gi",
+			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
+			"console.enabled":                 "true",
+			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
+			"pachd.activateAuth":              "false",
+		},
+	}
+	k := testutil.GetKubeClient(t)
+	namespace, _ := minikubetestenv.ClaimCluster(t)
+	c := minikubetestenv.InstallRelease(t, context.Background(), namespace, k, deployOpts)
+
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(10)
-	for i := 0; i < requestCount; i++ {
+	for i := 0; i < ra; i++ {
 		eg.Go(func() error {
 			fuzzGrpc(ctx, c, rand.Int63())
 			return nil
 		})
 	}
-
-	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
+	deployOpts.Version = "local"
+	minikubetestenv.UpgradeRelease(t, ctx, namespace, testutil.GetKubeClient(t), deployOpts)
+	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
+		require.NoError(t, err, "fsck should not error after upgrade")
+	}
+	for i := 0; i < ra; i++ {
+		eg.Go(func() error {
+			fuzzGrpc(ctx, c, rand.Int63())
+			return nil
+		})
+	}
+	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
+		require.NoError(t, err, "fsck should not error after upgrade and fuzzing")
+	}
+	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
 }
