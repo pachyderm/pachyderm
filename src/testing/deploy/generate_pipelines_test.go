@@ -369,7 +369,6 @@ func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[strin
 		}
 		return true // always continue since there's no error case
 	})
-
 }
 
 // generate and send requests for each API in the proto list once.
@@ -436,7 +435,7 @@ func TestCreateDags(t *testing.T) {
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
-	deployOpts.Version = "local"
+	deployOpts.Version = "" // use the default (this commit in CI)
 	minikubetestenv.UpgradeRelease(t, ctx, namespace, testutil.GetKubeClient(t), deployOpts)
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after upgrade")
