@@ -62,7 +62,7 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 		fmt.Println("core-2139: analyzing idx.Path:", idx.Path)
 		idxBytes, err := json.Marshal(idx)
 		if err != nil {
-			return false, err
+			return false, errors.Wrap(err, "core-2139 marshalling idx")
 		}
 		fmt.Println("core-2139", idxBytes)
 		if atEnd(idx.Path, r.filter) {
