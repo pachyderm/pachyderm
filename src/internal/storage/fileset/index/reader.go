@@ -243,9 +243,11 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 	pathRange := &PathRange{}
 	var numFiles, sizeBytes int64
 	traverseCb := func(idx *Index) (bool, error) {
+		fmt.Println("core-2139: shard file set: idx.Path", idx.Path)
 		if numFiles >= r.shardConfig.NumFiles || sizeBytes >= r.shardConfig.SizeBytes {
 			pathRange.Upper = idx.Path
 			shards = append(shards, pathRange)
+			fmt.Println("core-2139: shard file set: added path range: lower", pathRange.Lower, "upper", pathRange.Upper)
 			pathRange = &PathRange{
 				Lower: idx.Path,
 			}
