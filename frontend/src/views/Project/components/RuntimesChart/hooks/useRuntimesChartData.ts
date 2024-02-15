@@ -37,12 +37,12 @@ const useRuntimesChartData = (filteredJobs: JobInfo[], selectedJob: string) => {
   const getJobDuration = useCallback(
     (id: string, step: string) => {
       const job = jobsCrossReference[id][step];
-      if (job) {
+      if (job && job.started) {
         return (
           (job.finished
             ? parseISO(job.finished).getTime() / 1000
             : Math.floor(Date.now() / 1000)) -
-          (job.created ? parseISO(job.created).getTime() / 1000 : 0)
+          (job.started ? parseISO(job.started).getTime() / 1000 : 0)
         );
       } else {
         return null;
