@@ -202,7 +202,7 @@ func randString(r *rand.Rand, minlength int, maxLength int) string {
 
 func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.MessageDescriptor, potentialInputs map[string][]protoreflect.Value, prevSource generatorSource) *dynamicpb.Message {
 	msg := dynamicpb.NewMessage(msgDesc)
-	defaultGenerators := GeneratorIndex{
+	defaultGenerators := GeneratorIndex{ // currently these are private to this funciton with the hope of being able to provide a list of generators to alter behavior as needed
 		KindGenerators: map[protoreflect.Kind]Generator{
 			protoreflect.BoolKind: func(gen generatorSource) protoreflect.Value {
 				return protoreflect.ValueOf(gen.r.Float32() < .5)
@@ -334,41 +334,52 @@ func getValueForField(ctx context.Context, genSource generatorSource) protorefle
 	}
 }
 
-// store successful values from requet inputs and outputs to be reused later.
-func storeSuccessVals(ctx context.Context, msg *dynamicpb.Message, out map[string][]protoreflect.Value) {
-	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
-		fieldName := string(field.FullName())
-		successInputsMu.Lock()
-		if vals, ok := out[fieldName]; ok {
-			if !slices.ContainsFunc(vals, func(v protoreflect.Value) bool { return v.Interface() == fieldVal.Interface() }) { // avoid long lists of duplicates
-				out[fieldName] = append(vals, fieldVal)
-			}
-		} else {
-			out[fieldName] = []protoreflect.Value{fieldVal}
+func containsProtoVal(vals []protoreflect.Value, searchVal protoreflect.Value) bool {
+	return slices.ContainsFunc(vals, func(v protoreflect.Value) bool {
+		return v.Interface() == searchVal.Interface()
+	})
+}
+
+func setFieldCache(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) {
+	fieldName := string(field.FullName())
+	successInputsMu.Lock()
+	defer successInputsMu.Unlock()
+	if vals, ok := successInputs[fieldName]; ok {
+		if !containsProtoVal(vals, fieldVal) { // avoid long lists of duplicates
+			successInputs[fieldName] = append(vals, fieldVal)
 		}
-		successInputsMu.Unlock()
+	} else {
+		successInputs[fieldName] = []protoreflect.Value{fieldVal}
+	}
+}
+
+// recursively store successful values from request inputs and outputs to be reused later.
+func cacheSuccessVals(ctx context.Context, msg *dynamicpb.Message) {
+	msg.Range(func(field protoreflect.FieldDescriptor, fieldVal protoreflect.Value) bool {
+		setFieldCache(field, fieldVal)
 		if field.Kind() == protoreflect.MessageKind { // handle sub messages as well as saving the whole message
 			subMsg, ok := fieldVal.Interface().(*dynamicpb.Message)
 			if field.IsList() {
-				list := fieldVal.List()
-				for i := 0; i < list.Len(); i++ {
-					listMsg, ok := list.Get(i).Message().(*dynamicpb.Message)
-					if !ok {
-						log.Info(ctx, "Storing a list of message values, but a the message was not a valid dynamicpb.Message",
-							zap.Any("field", field.FullName()),
-							zap.Any("msg", list.Get(i).String()))
+				valList := fieldVal.List()
+				for i := 0; i < valList.Len(); i++ {
+					if listMsg, ok := valList.Get(i).Message().(*dynamicpb.Message); ok {
+						cacheSuccessVals(ctx, listMsg)
 					} else {
-						storeSuccessVals(ctx, listMsg, out)
+						log.Error(ctx, // This should never happen since we checked that we have a message type and a list type.
+							"Storing a list of message values, but a the message was not a valid dynamicpb.Message",
+							zap.Any("field", field.FullName()),
+							zap.Any("msg", valList.Get(i).String()),
+						)
 					}
 				}
 			} else if field.IsMap() {
 				log.Debug(ctx, "Saving the Map message type not yet implemented",
 					zap.Any("field", field.FullName()))
 			} else if ok { // just a single message to recurse through
-				storeSuccessVals(ctx, subMsg, out)
+				cacheSuccessVals(ctx, subMsg)
 			}
 		}
-		return true // always continue since there's no error case
+		return true // always continue since we skip fields we don't handle
 	})
 }
 
@@ -391,8 +402,8 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
 				zap.String("reply", reply.String()),
 				zap.String("input", input.String()),
 			)
-			storeSuccessVals(ctx, input, successInputs)
-			storeSuccessVals(ctx, reply, successInputs)
+			cacheSuccessVals(ctx, input)
+			cacheSuccessVals(ctx, reply)
 		}
 	})
 }
@@ -413,8 +424,8 @@ func TestCreateDags(t *testing.T) {
 		CleanupAfter:       false,
 		UseLeftoverCluster: false,
 		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "1Gi",
-			"prxoy.resources.limits.memory":   "1Gi",
+			"prxoy.resources.requests.memory": "250MB",
+			"prxoy.resources.limits.memory":   "250MB",
 			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
 			"console.enabled":                 "true",
 			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
