@@ -109,7 +109,12 @@ describe('Search', () => {
     expect(await screen.findByTestId('Search__dropdown')).toBeInTheDocument();
   });
 
-  it('should route to selected repo', async () => {
+  it('should route to selected repo and remove search params', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/lineage/default?globalIdFilter=9a387948e2e74c0f88981b915e7c4e3c',
+    );
     server.use(mockPipelinesEmpty());
     server.use(
       rest.post<ListRepoRequest, Empty, RepoInfo[]>(
@@ -128,9 +133,15 @@ describe('Search', () => {
     });
     await click(searchResult);
     expect(window.location.pathname).toBe('/lineage/default/repos/images');
+    expect(window.location.search).toBe('');
   });
 
-  it('should route to selected pipeline', async () => {
+  it('should route to selected pipeline and remove search params', async () => {
+    window.history.replaceState(
+      {},
+      '',
+      '/lineage/default?globalIdFilter=9a387948e2e74c0f88981b915e7c4e3c',
+    );
     server.use(
       rest.post<ListPipelineRequest, Empty, PipelineInfo[]>(
         '/api/pps_v2.API/ListPipeline',
@@ -152,6 +163,7 @@ describe('Search', () => {
     await click((await screen.findAllByText('edges'))[0]);
 
     expect(window.location.pathname).toBe('/lineage/default/pipelines/edges');
+    expect(window.location.search).toBe('');
   });
 
   it('should save recent searches and populate search bar', async () => {

@@ -39,10 +39,13 @@ const SearchResultsDropdown: React.FC = () => {
     (repoName: string) => {
       onResultSelect(repoName);
       browserHistory.push(
-        repoRoute({
-          projectId,
-          repoId: repoName,
-        }),
+        repoRoute(
+          {
+            projectId,
+            repoId: repoName,
+          },
+          false,
+        ),
       );
     },
     [browserHistory, onResultSelect, projectId],
@@ -52,11 +55,14 @@ const SearchResultsDropdown: React.FC = () => {
     (pipelineName: string, tabId?: string) => {
       onResultSelect(pipelineName);
       browserHistory.push(
-        pipelineRoute({
-          projectId,
-          pipelineId: pipelineName,
-          tabId: tabId,
-        }),
+        pipelineRoute(
+          {
+            projectId,
+            pipelineId: pipelineName,
+            tabId: tabId,
+          },
+          false,
+        ),
       );
     },
     [browserHistory, onResultSelect, projectId],
