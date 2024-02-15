@@ -85,14 +85,6 @@ and then running
 docker exec -it <container id> bash
 ```
 
-Iterating on the mount server, from inside a `pachyderm` checkout:
-
-```
-CGO_ENABLED=0 make install
-docker cp /home/luke/gocode/bin/pachctl jupyterlab_pachyderm_frontend_dev:/usr/local/bin/pachctl
-docker exec -ti jupyterlab_pachyderm_frontend_dev pkill -f pachctl
-```
-
 ## Local Virtual Environment Setup 
 When developing in python, it is good practice to set up a virtual environment. A simple guid to set up a virtual environment is as follows:
 create a virtual environment using venv
@@ -161,7 +153,7 @@ folder is located. Then you can remove the symlink named `jupyterlab-pachyderm` 
 
 ## Locally building the docker image
 
-Useful if iterating on the Dockerfile locally or iterating on changes to a version of mount-server.
+Useful if iterating on the Dockerfile locally.
 
 Create & activate venv:
 ```
@@ -208,14 +200,6 @@ First make sure the server extension is enabled:
 
 ```
 jupyter server extension list 2>&1 | grep -ie "jupyterlab_pachyderm.*OK"
-```
-
-# Install Jupyterhub locally (Sidecar mode testing)
-
-```
-helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
-helm repo update
-helm install jhub jupyterhub/jupyterhub --version 2.0.0 --values scripts/jhub-dev-helm-values.yml
 ```
 
 Note: Use any username and no password to login

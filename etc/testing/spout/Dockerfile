@@ -1,4 +1,4 @@
-ARG GOVERSION=golang:1.21.5
+ARG GOVERSION=golang:1.22.0
 FROM $GOVERSION
 RUN mkdir /app
 ADD . /app/

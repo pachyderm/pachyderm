@@ -13,7 +13,6 @@ import {each} from '@lumino/algorithm';
 
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
-import {Paging} from './paging';
 import {requestAPI} from '../../handler';
 
 const createCustomFileBrowser = (
@@ -33,16 +32,26 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
-    () => {
-      paging.update();
-    },
   );
   manager.services.contents.addDrive(drive);
 
   const browser = factory.createFileBrowser(id, {
     driveName: drive.name,
-    state: null,
     refreshInterval: 10000,
+
+    // Restoring the state and path after a refresh causes issues with infinite scrolling since it attempts to
+    // select and scroll to the file opened on a delay. The file attempting to be selected may not be visible and
+    // if it is then it interferes with the user scrolling immediately.
+    state: null,
+
+    // Setting this to false fixes an issue where the file browser was making requests
+    // to our backend before the backend was capable of handling them, i.e. before the
+    // user is connected to their pachd instance. When set to false, the poller that
+    // refreshes the file browser contents every `refreshInterval` ms is initiated on
+    // the first `cd` call that the file browser handles. This is compatible with how
+    // the plugin currently utilizes the file browser.
+    auto: false,
+    restore: false,
   });
 
   const toolbar = browser.node
@@ -149,12 +158,6 @@ const createCustomFileBrowser = (
   } catch (e) {
     console.log('Failed to edit default browser.');
   }
-
-  const paging = new Paging({
-    browser_model: browser.model,
-    page_model: drive.model,
-  });
-  browser.layout.addWidget(paging);
 
   return browser;
 };

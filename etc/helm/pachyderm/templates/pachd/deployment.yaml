@@ -124,7 +124,7 @@ spec:
           value: {{ .Values.pachd.storage.local.hostPath | default $randHostPath }}pachd
         {{- end }}
         - name: WORKER_IMAGE
-          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion .Values.pachd.image.tag }}"
+          value: "{{ .Values.global.image.registry }}{{ .Values.pachd.worker.image.repository }}:{{ default .Chart.AppVersion (or .Values.pachd.worker.image.tag .Values.pachd.image.tag) }}"
         {{- if and (eq ( include "pachyderm.storageBackend" . ) "LOCAL") .Values.pachd.storage.local.requireRoot }}
         - name: WORKER_USES_ROOT
           value: "True"
@@ -415,15 +415,15 @@ spec:
         {{- end }}
         {{- if ne .Values.pachd.determined.credentialsSecretName "" }}
         - name: DETERMINED_USERNAME
-          valueFrom:          
+          valueFrom:
             secretKeyRef:
               name: {{ .Values.pachd.determined.credentialsSecretName }}
               key: determined-username
         - name: DETERMINED_PASSWORD
-          valueFrom:          
+          valueFrom:
             secretKeyRef:
-              name: {{ .Values.pachd.determined.credentialsSecretName }}              
-              key: determined-password          
+              name: {{ .Values.pachd.determined.credentialsSecretName }}
+              key: determined-password
         {{- end }}
         {{- if ne .Values.pachd.determined.apiEndpoint "" }}
         - name: DETERMINED_API_URL
@@ -432,7 +432,7 @@ spec:
         {{- if .Values.determined.tlsSecret }}
         - name: DETERMINED_TLS
           value: "true"
-        {{- end }}                
+        {{- end }}
         {{- if ne .Values.pachd.defaultSidecarCPURequest "" }}
         - name: SIDECAR_DEFAULT_CPU_REQUEST
           value: {{ .Values.pachd.defaultSidecarCPURequest | quote }}
