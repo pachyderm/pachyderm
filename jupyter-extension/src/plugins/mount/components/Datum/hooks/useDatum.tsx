@@ -26,12 +26,10 @@ export type useDatumResponse = {
   callDownloadDatum: () => Promise<void>;
   callUnmountAll: () => Promise<void>;
   errorMessage: string;
-  saveInputSpec: () => void;
   initialInputSpec: JSONObject;
 };
 
 export const useDatum = (
-  showDatum: boolean,
   open: (path: string) => void,
   pollRefresh: () => Promise<void>,
   repoViewInputSpec: CrossInputSpec | PfsInput,
@@ -54,38 +52,36 @@ export const useDatum = (
   >({});
 
   useEffect(() => {
-    if (showDatum) {
-      // Executes when browser reloaded; resume at currently mounted datum
-      if (currentDatumInfo) {
-        setShouldShowCycler(true);
-        setShouldShowDownload(true);
-        setCurrDatum({
-          id: '',
-          idx: currentDatumInfo.idx,
-          num_datums: currentDatumInfo.num_datums,
-          all_datums_received: currentDatumInfo.all_datums_received,
-        });
-        setInputSpec(inputSpecObjToText(currentDatumInfo.input));
-      }
-      // Pre-populate input spec from mounted repos
-      else {
-        if (typeof datumViewInputSpec === 'string') {
-          setInputSpec(datumViewInputSpec);
+    // Executes when browser reloaded; resume at currently mounted datum
+    if (currentDatumInfo) {
+      setShouldShowCycler(true);
+      setShouldShowDownload(true);
+      setCurrDatum({
+        id: '',
+        idx: currentDatumInfo.idx,
+        num_datums: currentDatumInfo.num_datums,
+        all_datums_received: currentDatumInfo.all_datums_received,
+      });
+      setInputSpec(inputSpecObjToText(currentDatumInfo.input));
+    }
+    // Pre-populate input spec from mounted repos
+    else {
+      if (typeof datumViewInputSpec === 'string') {
+        setInputSpec(datumViewInputSpec);
+      } else {
+        let specToShow = {};
+        if (Object.keys(datumViewInputSpec).length === 0) {
+          specToShow = repoViewInputSpec;
         } else {
-          let specToShow = {};
-          if (Object.keys(datumViewInputSpec).length === 0) {
-            specToShow = repoViewInputSpec;
-          } else {
-            specToShow = datumViewInputSpec;
-          }
-          setInputSpec(inputSpecObjToText(specToShow));
-          setInitialInputSpec(specToShow);
+          specToShow = datumViewInputSpec;
         }
+        setInputSpec(inputSpecObjToText(specToShow));
+        setInitialInputSpec(specToShow);
       }
     }
-  }, [showDatum, repoViewInputSpec]);
+  }, [repoViewInputSpec]);
 
-  const saveInputSpec = (): void => {
+  useEffect(() => {
     try {
       const inputSpecObj = inputSpecTextToObj();
       if (isEqual(repoViewInputSpec, inputSpecObj)) {
@@ -100,7 +96,7 @@ export const useDatum = (
         throw e;
       }
     }
-  };
+  }, [inputSpec]);
 
   const inputSpecTextToObj = (): JSONObject => {
     let spec = {};
@@ -253,7 +249,6 @@ export const useDatum = (
     callDownloadDatum,
     callUnmountAll,
     errorMessage,
-    saveInputSpec,
     initialInputSpec,
   };
 };
