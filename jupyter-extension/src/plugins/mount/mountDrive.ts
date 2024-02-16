@@ -130,15 +130,18 @@ export class MountDrive implements Contents.IDrive {
     }
     const content = options?.content ? '1' : '0';
     if (content === '0') {
+      this._loading.emit(false);
       return shallowResponse;
     }
 
     if (shallowResponse.type !== 'directory') {
+      this._loading.emit(false);
       return await this._get(url, {...options, content});
     }
 
     // If we don't have contents cached, then we fetch them and cache the results.
     this.resetContentsNode();
+    this._loading.emit(false);
     const now = Date.now();
     this._cache = {
       key: localPath,
@@ -245,7 +248,9 @@ export class MountDrive implements Contents.IDrive {
     // It will just add new pages and update the page selector without disrupting the user.
     this._cache.contents = this._cache.contents.concat(nextResponse.content);
     this.filterContents();
-    await this.updateScrollPosition();
+    if (previousResponse) {
+      await this.updateScrollPosition();
+    }
 
     // Stop fetching pages if we recieve a page less than expected file count of a page
     if (nextResponse?.content?.length < PAGINATION_NUMBER) {
@@ -268,6 +273,10 @@ export class MountDrive implements Contents.IDrive {
   private async updateScrollPosition(): Promise<void> {
     const contentsNode = this.getContentsNode();
     if (!contentsNode) {
+      return;
+    }
+
+    if (contentsNode.scrollHeight === 0) {
       return;
     }
 
