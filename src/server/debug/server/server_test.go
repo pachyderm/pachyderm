@@ -15,12 +15,16 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -609,5 +613,140 @@ metadata:
 func TestLoadTestEmbed(t *testing.T) {
 	for _, s := range defaultLoadSpecs {
 		require.NotEqual(t, "", s)
+	}
+}
+
+func TestListApps(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	s := &debugServer{
+		env: Env{
+			GetKubeClient: func() kubernetes.Interface {
+				return fake.NewSimpleClientset(
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "etcd-0",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite": "pachyderm",
+								"app":   "etcd",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "etcd",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.2",
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "etcd-1",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite": "pachyderm",
+								"app":   "etcd",
+							},
+						},
+						Spec: v1.PodSpec{
+							Containers: []v1.Container{
+								{
+									Name: "etcd",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.3",
+						},
+					},
+					&v1.Pod{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      "default-edges-abc123",
+							Namespace: "default",
+							Labels: map[string]string{
+								"suite":           "pachyderm",
+								"app":             "pipeline",
+								"pipelineProject": "default",
+								"pipelineName":    "edges",
+							},
+						},
+						Spec: v1.PodSpec{
+							InitContainers: []v1.Container{
+								{
+									Name: "init",
+								},
+							},
+							Containers: []v1.Container{
+								{
+									Name: "user",
+								},
+								{
+									Name: "storage",
+								},
+							},
+						},
+						Status: v1.PodStatus{
+							PodIP: "10.0.0.4",
+						},
+					},
+				)
+			},
+			Config: pachconfig.Configuration{
+				GlobalConfiguration: &pachconfig.GlobalConfiguration{
+					Namespace: "default",
+				},
+			},
+		},
+	}
+	got, err := s.listApps(ctx, []*pps.Pipeline{
+		{Project: &pfs.Project{Name: "default"}, Name: "edges"},
+		{Project: &pfs.Project{Name: "default"}, Name: "montage"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []*debug.App{
+		{
+			Name: "default/edges",
+			Pipeline: &debug.Pipeline{
+				Project: "default",
+				Name:    "edges",
+			},
+			Pods: []*debug.Pod{
+				{
+					Name:       "default-edges-abc123",
+					Ip:         "10.0.0.4",
+					Containers: []string{"user", "storage"},
+				},
+			},
+		},
+		{
+			Name: "default/montage",
+			Pipeline: &debug.Pipeline{
+				Project: "default",
+				Name:    "montage",
+			},
+		},
+		{
+			Name: "etcd",
+			Pods: []*debug.Pod{
+				{
+					Name:       "etcd-0",
+					Ip:         "10.0.0.2",
+					Containers: []string{"etcd"},
+				},
+				{
+					Name:       "etcd-1",
+					Ip:         "10.0.0.3",
+					Containers: []string{"etcd"},
+				},
+			},
+		},
+	}
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Errorf("apps (-want +got):\n%s", diff)
 	}
 }
