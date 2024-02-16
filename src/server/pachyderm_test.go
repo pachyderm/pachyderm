@@ -8652,6 +8652,7 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "commit 2 data", buf.String())
 }
+
 // TestCancelManyJobs creates many jobs to test that the handling of many
 // incoming job events is correct. Each job comes up (which tests that that
 // cancelling job 'a' does not cancel subsequent job 'b'), must be the only job
