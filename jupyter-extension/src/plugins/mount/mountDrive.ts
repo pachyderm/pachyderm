@@ -152,7 +152,7 @@ export class MountDrive implements Contents.IDrive {
       number: PAGINATION_NUMBER,
       content,
     };
-    this._loading.emit(true)
+    this._loading.emit(true);
     await this._fetchNextPage(null, now, url, getOptions);
     return this._getCachedContent();
   }
@@ -209,7 +209,10 @@ export class MountDrive implements Contents.IDrive {
 
     return {
       ...this._cache.shallowResponse,
-      content: this._cache.filteredContents.slice(this._index, this._index + VISIBLE_CONTENT_LI_COUNT),
+      content: this._cache.filteredContents.slice(
+        this._index,
+        this._index + VISIBLE_CONTENT_LI_COUNT,
+      ),
     };
   }
 
@@ -220,17 +223,21 @@ export class MountDrive implements Contents.IDrive {
     getOptions: PartialJSONObject,
   ): Promise<void> {
     const nextResponseParams = {
-      ...getOptions
+      ...getOptions,
     };
     if (previousResponse) {
-      nextResponseParams.pagination_marker = previousResponse.content.slice(-1)[0].file_uri
+      nextResponseParams.pagination_marker =
+        previousResponse.content.slice(-1)[0].file_uri;
     }
-    const nextResponse: Contents.IModel = await this._get(url, nextResponseParams);
+    const nextResponse: Contents.IModel = await this._get(
+      url,
+      nextResponseParams,
+    );
 
     // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
     // cache with results after the user has changed directories.
     if (this._cache.now !== timeOfLastDirectoryChange) {
-      this._loading.emit(false)
+      this._loading.emit(false);
       return;
     }
 
@@ -242,7 +249,7 @@ export class MountDrive implements Contents.IDrive {
 
     // Stop fetching pages if we recieve a page less than expected file count of a page
     if (nextResponse?.content?.length < PAGINATION_NUMBER) {
-      this._loading.emit(false)
+      this._loading.emit(false);
       return;
     }
 
@@ -254,7 +261,7 @@ export class MountDrive implements Contents.IDrive {
       url,
       getOptions,
     ).catch((e) => {
-      showErrorMessage('Failed Fetching Next Results', e)
+      showErrorMessage('Failed Fetching Next Results', e);
     });
   }
 
@@ -264,7 +271,12 @@ export class MountDrive implements Contents.IDrive {
       return;
     }
 
-    const scrolledToBottom = Math.abs(contentsNode.scrollHeight - contentsNode.scrollTop - contentsNode.clientHeight) < 1;
+    const scrolledToBottom =
+      Math.abs(
+        contentsNode.scrollHeight -
+          contentsNode.scrollTop -
+          contentsNode.clientHeight,
+      ) < 1;
     if (!scrolledToBottom) {
       return;
     }
@@ -323,8 +335,13 @@ export class MountDrive implements Contents.IDrive {
     contentsNode.addEventListener('scroll', () => {
       const indexPercent = contentsNode.scrollTop / contentsNode.scrollHeight;
       // Prevent scrolling the index past the upper limit of visible content li nodes
-      let index = Math.round(indexPercent * this._cache.filteredContents.length);
-      if (index + VISIBLE_CONTENT_LI_COUNT > this._cache.filteredContents.length) {
+      let index = Math.round(
+        indexPercent * this._cache.filteredContents.length,
+      );
+      if (
+        index + VISIBLE_CONTENT_LI_COUNT >
+        this._cache.filteredContents.length
+      ) {
         index = this._cache.filteredContents.length - VISIBLE_CONTENT_LI_COUNT;
       }
       this._index = index;
