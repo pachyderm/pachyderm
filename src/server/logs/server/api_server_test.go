@@ -14,7 +14,8 @@ import (
 func TestEmptyRequest(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	respStream, err := env.PachClient.LogsClient.GetLogs(ctx, &logs.GetLogsRequest{})
+	logsClient := logs.NewAPIClient(env.PachClient.ClientConn())
+	respStream, err := logsClient.GetLogs(ctx, &logs.GetLogsRequest{})
 	require.NoError(t, err, "logs.GetLogs request error")
 	resp, err := respStream.Recv()
 	require.NoError(t, err, "logs.GetLogs stream error")
