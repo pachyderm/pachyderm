@@ -1,3 +1,33 @@
+# Trino
+
+This branch was created by msteffen for the purpose of demoing an integration between Trino and Pachyderm at the Feb 2023 Miami offsite.
+
+See the directory [_trino_stuff](tree/msteffen/20230207/master/trino/_trino_stuff) for the files I authored to do this demo
+
+## Why Trino
+
+- "Data Science" currently describes two currently-mostly-disjoint groups: people training deep learning models using the latest AI techniques, and people querying line-of-business datasets with SQL
+  - The number of people doing the latter is much larger than the number of people doing the former. The reason Databricks is rich is because there are a lot of people doing the latter with SparkSQL.
+- Pachyderm is currently very useful to the former group. It could be very useful to the latter, and, more importantly, could bridge the two (e.g. by allowing people to plug a sentiment analysis model into their existing data and trivially add a "user sentiment" column—called a "feature" in the lingo—to one of their tables).
+- This branch contains a small demo that begins to explore this possibility.
+- Trino is a distributed SQL engine. You give it an OLAP (i.e. read-only) SQL query, it turns that SQL query into a bunch of low-level tasks to e.g. read parquet files from S3, join it with the result of a postgres query, etc. and stream the result back to you. It's sort of like Google's Dremel, but while Dremel could only do OLAP queries on large datasets in a specific form on Google's infra, Trina can do OLAP queries on a wide variety of data structures in a wide variety of storage (S3, Postgres, etc).
+- This examples deploys a small trino cluster, connects it to Pachyderm via Pachyderm's HTTP API (S3 gateway was hard for some reason that I no longer remember), and queries some data living in Pachyderm. It is slow and inefficient and mostly silly, but it does work.
+- Longer-term, it would make sense to write a Trino connector for Pachyderm. This would allow users to query arbitrary versioned data in Pachyderm, hopefully efficiently.
+
+## How
+
+- Per above, see the `_trino_stuff` directory
+- The `trino-server-406/etc` directory has most of the Trino config files that make the demo work
+  - `etc/catalog/pach.properties` is a big one. It tells Trino that there's a dataset in Pachyderm, and to use Trino's `example-http` connector to talk to it, and passes the address of the dataset metadata file (as a Pachyderm HTTP path) to the `example-http` connector.
+- `config.properties` just configures the single-node Trino cluster that the demo deploys. It tells the node to act as a coordinator (compiles SQL queries into low-level tasks, assigns the low-level tasks, and coordinates their execution), a discovery service endpoint, and worker (by not setting `node-scheduler.include-coordinator`)
+- `jvm.config` just configures the JVM that runs the Trino node
+- `log.properties` sets the trino node's logging behavior. Not important
+- `node.properties` I don't remember what this does
+
+- See `trino-example-data/generate-and-load.sh` for info on placing all data correctly for the demo
+
+---
+
 <p align="center">
 	<img src='./Pachyderm_Icon-01.svg' height='225' title='Pachyderm'>
 </p>
