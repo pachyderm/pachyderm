@@ -1617,26 +1617,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 							return err
 						}
 					} else if len(sources) == 1 {
-						if recursive {
-							// We have a single source and the user has specified a path and recursive,
-							// if fullPath is true, we join file.Path with target, otherwise we use file.Path as the path.
-							finalPath := file.Path
-							if fullPath {
-								finalPath = joinPaths(file.Path, target)
-							}
-							if err := putFileHelper(mf, finalPath, source, recursive, appendFile, untar); err != nil {
-								return err
-							}
-						} else {
-							// We have a single source and the user has specified a path,
-							// we check if the path ends with a '/' and join with target if it does.
-							finalPath := file.Path
-							if strings.HasSuffix(file.Path, "/") {
-								finalPath = joinPaths(file.Path, target)
-							}
-							if err := putFileHelper(mf, finalPath, source, recursive, appendFile, untar); err != nil {
-								return err
-							}
+						finalPath := file.Path
+						if recursive && fullPath || !recursive && strings.HasSuffix(file.Path, "/") {
+							finalPath = joinPaths(file.Path, target)
+						}
+						if err := putFileHelper(mf, finalPath, source, recursive, appendFile, untar); err != nil {
+							return err
 						}
 					} else {
 						// We have multiple sources and the user has specified a path,
