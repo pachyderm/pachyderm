@@ -10,7 +10,6 @@ import {
   AuthenticateRequest,
   AuthenticateResponse,
   Exchange,
-  WhoAmIRequest,
 } from '@dash-frontend/api/auth';
 import {Empty, CODES} from '@dash-frontend/api/googleTypes';
 import {RequestError} from '@dash-frontend/api/utils/error';
@@ -128,26 +127,6 @@ describe('api/rest', () => {
         email: '',
         name: 'User',
       });
-    });
-
-    it('throw other errors when auth is enabled', async () => {
-      server.use(
-        rest.post<WhoAmIRequest, Empty, RequestError>(
-          '/api/auth_v2.API/WhoAmI',
-          (_req, res, ctx) => {
-            return res(
-              ctx.status(401),
-              ctx.json({
-                message: 'some error',
-              }),
-            );
-          },
-        ),
-      );
-
-      await expect(() => account()).rejects.toThrow(
-        'Authentication Error: Could not retrieve an account.',
-      );
     });
   });
 

@@ -171,7 +171,7 @@ export const account = async () => {
         } as Account;
       }
 
-      throw new Error('Authentication Error: Could not retrieve an account.');
+      throw error;
     }
   }
 };

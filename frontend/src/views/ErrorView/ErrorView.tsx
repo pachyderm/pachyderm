@@ -3,7 +3,7 @@ import {Helmet} from 'react-helmet';
 
 import CodePreview from '@dash-frontend/components/CodePreview';
 import View from '@dash-frontend/components/View';
-import LandingHeader from '@dash-frontend/views/Landing/components/LandingHeader';
+import {StaticLandingHeader} from '@dash-frontend/views/Landing/components/LandingHeader';
 import {
   Button,
   StatusWarningSVG,
@@ -36,7 +36,7 @@ const ErrorView: React.FC<ErrorViewProps> = ({
       <Helmet>
         <title>{'Console - Error'}</title>
       </Helmet>
-      <LandingHeader disableBranding />
+      <StaticLandingHeader />
       <View>
         <Group vertical spacing={16} align="center" className={styles.base}>
           <Group vertical spacing={32} className={styles.content}>

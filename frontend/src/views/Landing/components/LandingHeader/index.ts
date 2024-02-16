@@ -1,3 +1,3 @@
-import LandingHeader from './LandingHeader';
+import {LandingHeader, StaticLandingHeader} from './LandingHeader';
 
-export default LandingHeader;
+export {LandingHeader as default, StaticLandingHeader};

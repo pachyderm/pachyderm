@@ -56,8 +56,16 @@ const DashUI: React.FC = () => {
                         path={[PROJECT_PATH, LINEAGE_PATH]}
                         component={AuthenticatedRoute(Project)}
                       />
-
-                      <Route path="/not-found" exact component={ErrorView} />
+                      <Route
+                        path="/not-found"
+                        exact
+                        component={() => (
+                          <ErrorView
+                            errorMessage="404: Page Not Found"
+                            showBackHomeButton
+                          />
+                        )}
+                      />
                       <Redirect to={'/not-found'} />
                     </Switch>
                   </Suspense>

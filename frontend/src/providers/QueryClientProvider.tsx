@@ -15,6 +15,7 @@ import {
   constructMessageFromError,
   isAuthDisabled,
   isAuthExpired,
+  isNotConnected,
 } from '@dash-frontend/api/utils/error';
 import {DEFAULT_POLLING_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import logout from '@dash-frontend/lib/logout';
@@ -23,6 +24,10 @@ const onQueryError = (
   error: unknown,
   query: Query<unknown, unknown, unknown>,
 ) => {
+  if (isNotConnected(error)) {
+    return;
+  }
+
   if (isAuthExpired(error)) {
     return logout();
   }

@@ -11,7 +11,7 @@ type LandingHeaderProps = {
   disableBranding?: boolean;
 };
 
-const LandingHeader: React.FC<LandingHeaderProps> = ({
+export const LandingHeader: React.FC<LandingHeaderProps> = ({
   disableBranding = false,
 }) => {
   const {enterpriseActive, loading} = useEnterpriseActive(disableBranding);
@@ -56,4 +56,16 @@ const LandingHeader: React.FC<LandingHeaderProps> = ({
   );
 };
 
-export default LandingHeader;
+export const StaticLandingHeader: React.FC = () => {
+  return (
+    <Header>
+      <Group justify="stretch" align="center">
+        <Group align="center" justify="center" spacing={24}>
+          <a className={styles.logoLink} href="/">
+            <h5 className={styles.pachydermLogoHeader}>Console</h5>
+          </a>
+        </Group>
+      </Group>
+    </Header>
+  );
+};

@@ -75,6 +75,14 @@ export const isNotFound = (error: unknown) => {
   return isErrorWithCode(error) && error.code === CODES.NotFound;
 };
 
+export const isNotConnected = (error: unknown) => {
+  return (
+    isErrorWithMessage(error) &&
+    (error.message.includes('no healthy upstream') ||
+      error.message.includes('is not valid JSON'))
+  );
+};
+
 export const constructMessageFromError = (error: unknown) => {
   let message = '';
   if (
