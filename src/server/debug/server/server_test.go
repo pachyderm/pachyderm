@@ -701,14 +701,14 @@ func TestListApps(t *testing.T) {
 			},
 		},
 	}
-	got, err := s.listApps(ctx, []*pps.Pipeline{
+	gotRunning, gotPossible, err := s.listApps(ctx, []*pps.Pipeline{
 		{Project: &pfs.Project{Name: "default"}, Name: "edges"},
 		{Project: &pfs.Project{Name: "default"}, Name: "montage"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []*debug.App{
+	wantPossible := []*debug.App{
 		{
 			Name: "default/edges",
 			Pipeline: &debug.Pipeline{
@@ -746,7 +746,12 @@ func TestListApps(t *testing.T) {
 			},
 		},
 	}
-	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
-		t.Errorf("apps (-want +got):\n%s", diff)
+	if diff := cmp.Diff(wantPossible, gotPossible, protocmp.Transform()); diff != "" {
+		t.Errorf("possible apps (-want +got):\n%s", diff)
+	}
+
+	wantRunning := []*debug.App{wantPossible[0], wantPossible[2]}
+	if diff := cmp.Diff(wantRunning, gotRunning, protocmp.Transform()); diff != "" {
+		t.Errorf("running apps (-want +got):\n%s", diff)
 	}
 }

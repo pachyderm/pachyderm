@@ -120,7 +120,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	for _, p := range pis {
 		pipelines = append(pipelines, p.GetPipeline())
 	}
-	apps, err := s.listApps(ctx, pipelines)
+	apps, possibleApps, err := s.listApps(ctx, pipelines)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Version:   true,
 				Describes: apps,
 				Logs:      apps,
-				LokiLogs:  apps,
+				LokiLogs:  possibleApps,
 				Profiles:  pachApps,
 			},
 			InputRepos: true,
@@ -162,7 +162,10 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	}, nil
 }
 
-func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (_ []*debug.App, retErr error) {
+// list apps returns a list of running apps, and a list of apps which may possibly exist.  The
+// intent is to use the first result for things like "kubectl describe" and the second for getting
+// loki logs.
+func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (running []*debug.App, possible []*debug.App, retErr error) {
 	ctx, end := log.SpanContext(ctx, "listApps")
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
@@ -179,7 +182,7 @@ func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (
 		}),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "list apps")
+		return nil, nil, errors.Wrap(err, "list apps")
 	}
 
 	pipelineMap := make(map[string]*pps.Pipeline)
@@ -212,15 +215,15 @@ func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (
 		}
 		app.Pods = append(app.Pods, pod)
 	}
-	var res []*debug.App
 	for _, app := range apps {
 		sort.Slice(app.Pods, func(i, j int) bool {
 			return app.Pods[i].Name < app.Pods[j].Name
 		})
-		res = append(res, app)
+		running = append(running, app)
+		possible = append(possible, app)
 	}
 	for name, pipeline := range pipelineMap {
-		res = append(res, &debug.App{
+		possible = append(possible, &debug.App{
 			Name: name,
 			Pipeline: &debug.Pipeline{
 				Project: pipeline.GetProject().GetName(),
@@ -228,17 +231,20 @@ func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (
 			},
 		})
 	}
-	sort.Slice(res, func(i, j int) bool {
-		return res[i].GetName() < res[j].GetName()
+	sort.Slice(running, func(i, j int) bool {
+		return running[i].GetName() < running[j].GetName()
 	})
-	return res, nil
+	sort.Slice(possible, func(i, j int) bool {
+		return possible[i].GetName() < possible[j].GetName()
+	})
+	return running, possible, nil
 }
 
 func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error {
 	if len(reqApps) == 0 {
 		return nil
 	}
-	apps, err := s.listApps(ctx, nil)
+	apps, _, err := s.listApps(ctx, nil)
 	if err != nil {
 		return err
 	}
