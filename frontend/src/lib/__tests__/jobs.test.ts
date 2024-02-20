@@ -1,5 +1,5 @@
 import {JobState} from '@dash-frontend/api/pps';
-import {readableJobState, getJobRuntime} from '@dash-frontend/lib/jobs';
+import {readableJobState} from '@dash-frontend/lib/jobs';
 
 describe('readableJobState', () => {
   const cases: [JobState | string, string][] = [
@@ -17,17 +17,5 @@ describe('readableJobState', () => {
   ];
   test.each(cases)('%p returns %p', (input, result) => {
     expect(readableJobState(input)).toBe(result);
-  });
-});
-
-describe('getJobRuntime', () => {
-  const cases: [number | null, number | null, string][] = [
-    [null, null, 'In Progress'],
-    [1689125549, null, ' - In Progress'],
-    [null, 1689126549, 'In Progress'],
-    [1689125549, 1689126549, '16 mins 40 s'],
-  ];
-  test.each(cases)('%p returns %p', (input1, input2, result) => {
-    expect(getJobRuntime(input1, input2)).toContain(result);
   });
 });

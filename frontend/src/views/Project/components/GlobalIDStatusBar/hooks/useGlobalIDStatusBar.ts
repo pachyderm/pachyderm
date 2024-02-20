@@ -1,11 +1,14 @@
-import {useCallback, useMemo} from 'react';
+import {useCallback} from 'react';
 
 import {restJobStateToNodeState} from '@dash-frontend/api/utils/nodeStateMappers';
-import {jobInfosToJobSet} from '@dash-frontend/api/utils/transform';
+import {
+  getAggregateJobState,
+  jobInfosToJobSet,
+} from '@dash-frontend/api/utils/transform';
 import {useJobSet} from '@dash-frontend/hooks/useJobSet';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {calculateJobTotalRuntime} from '@dash-frontend/lib/dateTime';
+import {calculateJobSetTotalRuntime} from '@dash-frontend/lib/dateTime';
 import {NodeState} from '@dash-frontend/lib/types';
 
 import {jobsRoute} from '../../../utils/routes';
@@ -18,14 +21,7 @@ export const useGlobalIDStatusBar = () => {
     getNewSearchParamsAndGo,
     getUpdatedSearchParams,
   } = useUrlQueryState();
-  const {jobSet: jobSets} = useJobSet(globalIdFilter, Boolean(globalIdFilter));
-
-  const jobSet = useMemo(() => {
-    if (jobSets?.length && jobSets?.[0]?.job?.id === globalIdFilter) {
-      return jobSets[0];
-    }
-    return undefined;
-  }, [globalIdFilter, jobSets]);
+  const {jobSet} = useJobSet(globalIdFilter, Boolean(globalIdFilter));
 
   const closeStatusBar = useCallback(() => {
     getNewSearchParamsAndGo({
@@ -51,19 +47,19 @@ export const useGlobalIDStatusBar = () => {
     [getUpdatedSearchParams, globalIdFilter, projectId],
   );
 
-  const showErrorBorder =
-    restJobStateToNodeState(jobSet?.state) === NodeState.ERROR;
-  const totalRuntime = calculateJobTotalRuntime(jobSet, 'Still Processing');
-  const internalJobSets = jobSets ? jobInfosToJobSet(jobSets) : undefined;
-
-  const totalSubJobs = `${internalJobSets?.jobs.length} Subjob${
-    (internalJobSets?.jobs.length || 0) > 1 ? 's' : ''
+  const showErrorBorder = jobSet
+    ? restJobStateToNodeState(getAggregateJobState(jobSet)) === NodeState.ERROR
+    : false;
+  const internalJobSet = jobSet ? jobInfosToJobSet(jobSet) : undefined;
+  const totalRuntime = calculateJobSetTotalRuntime(internalJobSet);
+  const totalSubJobs = `${internalJobSet?.jobs.length} Subjob${
+    (internalJobSet?.jobs.length || 0) > 1 ? 's' : ''
   } Total`;
 
   return {
     globalIdFilter,
     getPathToJobsTable,
-    internalJobSets,
+    internalJobSet,
     totalRuntime,
     totalSubJobs,
     closeStatusBar,

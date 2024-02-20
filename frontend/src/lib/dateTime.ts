@@ -8,6 +8,8 @@ import {
 
 import {JobInfo} from '@dash-frontend/api/pps';
 
+import {InternalJobSet} from './types';
+
 export const STANDARD_DATE_FORMAT = 'MMM d, yyyy; H:mm';
 
 export const SECONDS_IN_MINUTE = 60;
@@ -117,14 +119,41 @@ export const getDurationToNowFromISOString = (
 };
 
 /**
- * Used to calcualte the total runtime of a job.
+ * Used to calculate the total runtime of a job.
  * Response is a formatted string representing
  * the calculated runtime.
  */
-export const calculateJobTotalRuntime = (jobInfo?: JobInfo, nullCase = 'N/A') =>
+export const calculateJobTotalRuntime = (
+  jobInfo?: Pick<JobInfo, 'finished' | 'started'>,
+  nullCase = 'N/A',
+) =>
   jobInfo?.finished && jobInfo?.started
     ? formatDurationFromSeconds(
         getUnixSecondsFromISOString(jobInfo.finished) -
           getUnixSecondsFromISOString(jobInfo.started),
       )
     : nullCase;
+
+/**
+ * Used to calculate the total runtime of an internal jobset.
+ * Response is a formatted string representing
+ * the calculated runtime.
+ */
+export const calculateJobSetTotalRuntime = (
+  internalJobSet?: Pick<InternalJobSet, 'finished' | 'started'>,
+) => {
+  const startedAt = internalJobSet?.started;
+  const finishedAt = internalJobSet?.finished;
+  if (finishedAt && startedAt) {
+    return formatDurationFromSeconds(
+      getUnixSecondsFromISOString(finishedAt) -
+        getUnixSecondsFromISOString(startedAt),
+    );
+  }
+  if (startedAt) {
+    return `${formatDurationFromSecondsToNow(
+      getUnixSecondsFromISOString(startedAt),
+    )} - In Progress`;
+  }
+  return 'In Progress';
+};

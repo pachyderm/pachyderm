@@ -6,8 +6,7 @@ import {JobInfo} from '@dash-frontend/api/pps';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
-import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
-import {getJobRuntime} from '@dash-frontend/lib/jobs';
+import {calculateJobTotalRuntime} from '@dash-frontend/lib/dateTime';
 import {CaptionTextSmall, Button} from '@pachyderm/components';
 
 import styles from './DatumsSidebar.module.css';
@@ -70,11 +69,7 @@ const DatumsSidebar: React.FC<DatumsSidebarProps> = ({
           <CaptionTextSmall className={styles.listItemText}>
             {job.dataFailed} Failed{' '}
             {Number(job?.dataFailed) > 1 ? 'Datums' : 'Datum'};{' '}
-            {getJobRuntime(
-              getUnixSecondsFromISOString(job.started),
-              getUnixSecondsFromISOString(job.finished),
-            )}{' '}
-            Runtime
+            {calculateJobTotalRuntime(job, 'In Progress')} Runtime
           </CaptionTextSmall>
           <Button
             className={styles.button}

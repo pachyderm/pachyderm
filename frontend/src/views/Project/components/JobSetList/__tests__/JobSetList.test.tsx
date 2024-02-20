@@ -45,7 +45,7 @@ describe('JobSet Jobs List', () => {
 
     const jobs = screen.getAllByTestId('RunsList__row');
     expect(jobs[1]).toHaveTextContent('a4423427351e42aabc40c1031928628e');
-    expect(jobs[1]).toHaveTextContent('2 s');
+    expect(jobs[1]).toHaveTextContent('4 s');
     expect(jobs[1]).toHaveTextContent('2 Jobs Total');
     expect(jobs[1]).toHaveTextContent('Aug 1, 2023; 14:20');
   });

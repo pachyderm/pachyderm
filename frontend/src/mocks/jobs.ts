@@ -72,8 +72,8 @@ const MONTAGE_JOB_INFO_A4 = buildJob({
   outputCommit: {id: 'a4423427351e42aabc40c1031928628e'},
   state: JobState.JOB_UNRUNNABLE,
   created: getISOStringFromUnix(1690899628),
-  started: getISOStringFromUnix(1690899628),
-  finished: getISOStringFromUnix(1690899630),
+  started: getISOStringFromUnix(1690899630),
+  finished: getISOStringFromUnix(1690899632),
   reason: 'unrunnable because the following upstream pipelines failed: edges',
 });
 

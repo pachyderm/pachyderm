@@ -1,3 +1,4 @@
+import {JobInfo} from '@dash-frontend/api/pps';
 import {
   SECONDS_IN_MINUTE,
   SECONDS_IN_HOUR,
@@ -8,7 +9,11 @@ import {
   getStandardDateFromUnixSeconds,
   getISOStringFromUnix,
   getUnixSecondsFromISOString,
+  calculateJobTotalRuntime,
+  calculateJobSetTotalRuntime,
 } from '@dash-frontend/lib/dateTime';
+
+import {InternalJobSet} from '../types';
 
 describe('getDurationToNow', () => {
   it('returns the correct duration', () => {
@@ -95,5 +100,49 @@ describe('getTimeFromISOString', () => {
     expect(getUnixSecondsFromISOString('2023-09-27T08:20:55.707925Z')).toBe(
       1695802855,
     );
+  });
+});
+
+describe('calculateJobTotalRuntime', () => {
+  const pastTimeSeconds = Date.now() / 1000 - 2 * SECONDS_IN_HOUR; // two hours ago
+  const cases: [Pick<JobInfo, 'finished' | 'started'>, string][] = [
+    [{started: undefined, finished: undefined}, 'N/A'],
+    [
+      {started: getISOStringFromUnix(pastTimeSeconds), finished: undefined},
+      'N/A',
+    ],
+    [{started: undefined, finished: '2023-07-12T01:49:09.000Z'}, 'N/A'],
+    [
+      {
+        started: '2023-07-12T01:32:29.000Z',
+        finished: '2023-07-12T01:49:09.000Z',
+      },
+      '16 mins 40 s',
+    ],
+  ];
+  test.each(cases)('%p returns %p', (input, result) => {
+    expect(calculateJobTotalRuntime(input)).toContain(result);
+  });
+});
+
+describe('calculateJobSetTotalRuntime', () => {
+  const pastTimeSeconds = Date.now() / 1000 - 2 * SECONDS_IN_HOUR; // two hours ago
+  const cases: [Pick<InternalJobSet, 'finished' | 'started'>, string][] = [
+    [{started: undefined, finished: undefined}, 'In Progress'],
+    [
+      {started: getISOStringFromUnix(pastTimeSeconds), finished: undefined},
+      '2 h 0 min - In Progress',
+    ],
+    [{started: undefined, finished: '2023-07-12T01:49:09.000Z'}, 'In Progress'],
+    [
+      {
+        started: '2023-07-12T01:32:29.000Z',
+        finished: '2023-07-12T01:49:09.000Z',
+      },
+      '16 mins 40 s',
+    ],
+  ];
+  test.each(cases)('%p returns %p', (input, result) => {
+    expect(calculateJobSetTotalRuntime(input)).toContain(result);
   });
 });

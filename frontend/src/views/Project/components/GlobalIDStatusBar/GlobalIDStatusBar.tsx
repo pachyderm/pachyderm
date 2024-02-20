@@ -12,7 +12,7 @@ const GlobalIDStatusBar: React.FC = () => {
   const {
     globalIdFilter,
     getPathToJobsTable,
-    internalJobSets,
+    internalJobSet,
     totalRuntime,
     totalSubJobs,
     closeStatusBar,
@@ -44,8 +44,8 @@ const GlobalIDStatusBar: React.FC = () => {
               color="black"
             >
               {totalSubJobs}
-              {internalJobSets && (
-                <JobStateBadges jobSet={internalJobSets} showToolTips={false} />
+              {internalJobSet && (
+                <JobStateBadges jobSet={internalJobSet} showToolTips={false} />
               )}
             </Button>
           </div>

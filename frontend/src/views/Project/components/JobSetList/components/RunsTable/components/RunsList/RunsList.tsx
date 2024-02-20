@@ -6,10 +6,9 @@ import JobStateBadges from '@dash-frontend/components/JobStateBadges';
 import {TableViewWrapper} from '@dash-frontend/components/TableView';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import {
+  calculateJobSetTotalRuntime,
   getStandardDateFromISOString,
-  getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
-import {getJobRuntime} from '@dash-frontend/lib/jobs';
 import {InternalJobSet} from '@dash-frontend/lib/types';
 import {IdText, Table} from '@pachyderm/components';
 
@@ -105,10 +104,7 @@ const RunsList: React.FC<RunsListProps> = ({
                 } Total`}
               </Table.DataCell>
               <Table.DataCell width={90}>
-                {getJobRuntime(
-                  getUnixSecondsFromISOString(jobSet.started),
-                  getUnixSecondsFromISOString(jobSet.finished),
-                )}
+                {calculateJobSetTotalRuntime(jobSet)}
               </Table.DataCell>
               <Table.DataCell>
                 <IdText>{jobSet?.job?.id}</IdText>

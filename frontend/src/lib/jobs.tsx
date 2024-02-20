@@ -3,10 +3,6 @@ import React from 'react';
 
 import {JobState} from '@dash-frontend/api/pps';
 import {
-  formatDurationFromSeconds,
-  formatDurationFromSecondsToNow,
-} from '@dash-frontend/lib/dateTime';
-import {
   StatusWarningSVG,
   StatusDotsSVG,
   StatusCheckmarkSVG,
@@ -87,17 +83,4 @@ export const getVisualJobState = (state?: JobState): JobVisualState => {
     default:
       return 'IDLE';
   }
-};
-
-export const getJobRuntime = (
-  startedAt?: number | null,
-  finishedAt?: number | null,
-) => {
-  if (finishedAt && startedAt) {
-    return formatDurationFromSeconds(finishedAt - startedAt);
-  }
-  if (startedAt) {
-    return `${formatDurationFromSecondsToNow(startedAt)} - In Progress`;
-  }
-  return 'In Progress';
 };

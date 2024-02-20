@@ -10,15 +10,11 @@ import {
 import {useJobs} from '@dash-frontend/hooks/useJobs';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {
+  calculateJobTotalRuntime,
   getStandardDateFromISOString,
-  getUnixSecondsFromISOString,
 } from '@dash-frontend/lib/dateTime';
 import formatBytes from '@dash-frontend/lib/formatBytes';
-import {
-  getJobStateIcon,
-  getVisualJobState,
-  getJobRuntime,
-} from '@dash-frontend/lib/jobs';
+import {getJobStateIcon, getVisualJobState} from '@dash-frontend/lib/jobs';
 import {Table, Form} from '@pachyderm/components';
 
 import useJobsList from './hooks/useJobsList';
@@ -124,10 +120,7 @@ const JobsList: React.FC<JobsListProps> = ({
                     {getStandardDateFromISOString(job?.started)}
                   </Table.DataCell>
                   <Table.DataCell width={120}>
-                    {getJobRuntime(
-                      getUnixSecondsFromISOString(job.started),
-                      getUnixSecondsFromISOString(job.finished),
-                    )}
+                    {calculateJobTotalRuntime(job, 'In Progress')}
                   </Table.DataCell>
                   <Table.DataCell width={120}>
                     {formatBytes(job.stats?.downloadBytes)}

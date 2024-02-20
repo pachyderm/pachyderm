@@ -55,7 +55,7 @@ describe('Global ID status bar', () => {
   it('should display subjob states and route to the subjobs table', async () => {
     render(<GlobalIDStatusBar />);
 
-    await click(await screen.findByText('2 s'));
+    await click(await screen.findByText('4 s'));
 
     expect(window.location.pathname).toBe('/project/default/jobs/runtimes');
     expect(window.location.search).toContain(
