@@ -36,7 +36,7 @@
     "openid-client": "4.4.0",
     "p-queue": "6.6.2",
     "retry": "^0.13.1",
-    "uuid": "9.0.0",
+    "uuid": "9.0.1",
     "zstd-codec": "^0.1.4"
   },
   "devDependencies": {
@@ -52,7 +52,7 @@
     "@types/lodash": "4.14.199",
     "@types/mime-types": "2.1.1",
     "@types/retry": "^0.12.5",
-    "@types/uuid": "8.3.4",
+    "@types/uuid": "9.0.8",
     "@typescript-eslint/eslint-plugin": "^5.38.0",
     "cors": "^2.8.5",
     "eslint": "^8.24.0",
