@@ -116,7 +116,11 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	for _, pi := range pis {
 		ps = append(ps, &debug.Pipeline{Name: pi.Pipeline.Name, Project: pi.Pipeline.Project.Name})
 	}
-	apps, err := s.listApps(ctx)
+	var pipelines []*pps.Pipeline
+	for _, p := range pis {
+		pipelines = append(pipelines, p.GetPipeline())
+	}
+	apps, possibleApps, err := s.listApps(ctx, pipelines)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +149,7 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Version:   true,
 				Describes: apps,
 				Logs:      apps,
-				LokiLogs:  apps,
+				LokiLogs:  possibleApps,
 				Profiles:  pachApps,
 			},
 			InputRepos: true,
@@ -158,7 +162,10 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 	}, nil
 }
 
-func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr error) {
+// list apps returns a list of running apps, and a list of apps which may possibly exist.  The
+// intent is to use the first result for things like "kubectl describe" and the second for getting
+// loki logs.
+func (s *debugServer) listApps(ctx context.Context, pipelines []*pps.Pipeline) (running []*debug.App, possible []*debug.App, retErr error) {
 	ctx, end := log.SpanContext(ctx, "listApps")
 	defer end(log.Errorp(&retErr))
 	ctx, c := context.WithTimeout(ctx, 10*time.Minute)
@@ -175,14 +182,21 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 		}),
 	})
 	if err != nil {
-		return nil, errors.Wrap(err, "list apps")
+		return nil, nil, errors.Wrap(err, "list apps")
 	}
+
+	pipelineMap := make(map[string]*pps.Pipeline)
+	for _, p := range pipelines {
+		pipelineMap[p.String()] = p
+	}
+
 	apps := make(map[string]*debug.App)
 	for _, p := range pods.Items {
 		var appName string
 		// pipelines are represented as their own apps here even though they all share the label app=pipeline
 		if p.Labels["app"] == "pipeline" {
 			appName = fmt.Sprintf("%s/%s", p.Labels["pipelineProject"], p.Labels["pipelineName"])
+			delete(pipelineMap, appName)
 		} else {
 			appName = p.Labels["app"]
 		}
@@ -201,18 +215,36 @@ func (s *debugServer) listApps(ctx context.Context) (_ []*debug.App, retErr erro
 		}
 		app.Pods = append(app.Pods, pod)
 	}
-	var res []*debug.App
 	for _, app := range apps {
-		res = append(res, app)
+		sort.Slice(app.Pods, func(i, j int) bool {
+			return app.Pods[i].Name < app.Pods[j].Name
+		})
+		running = append(running, app)
+		possible = append(possible, app)
 	}
-	return res, nil
+	for name, pipeline := range pipelineMap {
+		possible = append(possible, &debug.App{
+			Name: name,
+			Pipeline: &debug.Pipeline{
+				Project: pipeline.GetProject().GetName(),
+				Name:    pipeline.GetName(),
+			},
+		})
+	}
+	sort.Slice(running, func(i, j int) bool {
+		return running[i].GetName() < running[j].GetName()
+	})
+	sort.Slice(possible, func(i, j int) bool {
+		return possible[i].GetName() < possible[j].GetName()
+	})
+	return running, possible, nil
 }
 
 func (s *debugServer) fillApps(ctx context.Context, reqApps []*debug.App) error {
 	if len(reqApps) == 0 {
 		return nil
 	}
-	apps, err := s.listApps(ctx)
+	apps, _, err := s.listApps(ctx, nil)
 	if err != nil {
 		return err
 	}
