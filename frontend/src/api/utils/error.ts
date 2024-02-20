@@ -56,7 +56,10 @@ export const isUnknown = (error: unknown) => {
 };
 
 export const isAuthDisabled = (error: unknown) => {
-  return isErrorWithCode(error) && error.code === CODES.Unimplemented;
+  return (
+    isNotConnected(error) ||
+    (isErrorWithCode(error) && error.code === CODES.Unimplemented)
+  );
 };
 
 export const isAuthExpired = (error: unknown) => {
@@ -79,7 +82,7 @@ export const isNotConnected = (error: unknown) => {
   return (
     isErrorWithMessage(error) &&
     (error.message.includes('no healthy upstream') ||
-      error.message.includes('is not valid JSON'))
+      error.message.includes('upstream connect error'))
   );
 };
 

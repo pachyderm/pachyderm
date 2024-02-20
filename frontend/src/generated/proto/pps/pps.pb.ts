@@ -539,6 +539,12 @@ export type ListDatumRequest = {
     reverse?: boolean;
 };
 
+export type CreateDatumRequest = {
+    __typename?: "CreateDatumRequest";
+    input?: Input;
+    number?: string;
+};
+
 export type DatumSetSpec = {
     __typename?: "DatumSetSpec";
     number?: string;

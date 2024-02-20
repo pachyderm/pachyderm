@@ -60,9 +60,16 @@ const result = await fetch(url, req);
 // http other than 200 will not throw an error, instead the .ok will become false.
 // see https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API/Using_Fetch#
 if (!result.ok) {
-const resp = await result.json();
-if (typeof resp === 'object' && 'error' in resp) {
-  throw resp.error;
+const contentType = result.headers.get('Content-Type');
+let resp;
+if (contentType === 'application/json'){
+  const resp = await result.json();
+  if (typeof resp === 'object' && 'error' in resp) {
+    throw resp.error;
+  }
+} else if (contentType === 'text/plain') {
+  resp = await result.text();
+  throw new Error(resp);  
 }
 throw resp;
 }
@@ -94,6 +101,47 @@ return;`;
     originalFunction,
     modifiedFunction,
   );
+};
+
+const modifyFetchReq = (func) => {
+  const originalFunction =
+    'const {pathPrefix, ...req} = init || {}\n\n' +
+    // eslint-disable-next-line no-template-curly-in-string
+    '  const url = pathPrefix ? `${pathPrefix}${path}` : path\n\n' +
+    '  return fetch(url, req).then(r => r.json().then((body: O) => {\n' +
+    '    if (!r.ok) { throw body; }\n' +
+    '    return body;\n' +
+    '  })) as Promise<O>';
+
+  const modifiedFunction = `const { pathPrefix, ...req } = init || {};
+
+  const url = pathPrefix ? \`\${pathPrefix}\${path}\` : path;
+
+  return fetch(url, req).then((r) => {
+    const contentType = r.headers.get('Content-Type');
+    if (contentType === 'application/json') {
+      return r.json().then((body: O) => {
+        if (!r.ok) {
+          throw body;
+        }
+        return body;
+      });
+    } else if (contentType === 'text/plain') {
+      return r.text().then((body: O) => {
+        if (!r.ok) {
+          throw new Error(body);
+        }
+        return body;
+      });
+    } else {
+      if (!r.ok) {
+        throw body;
+      }
+      return body;
+    }
+  }) as Promise<O>;`;
+
+  return modifyFunction(func, 'fetchReq', originalFunction, modifiedFunction);
 };
 
 const modifyGetNewLineDelimitedJSONDecodingStream = (func) => {
@@ -175,6 +223,8 @@ const modifyFetchStreamingErrorHandling = (
         modifiedFunctionsCount += 1;
       } else if (modifyGetNewLineDelimitedJSONDecodingStream(func)) {
         modifiedFunctionsCount += 1;
+      } else if (modifyFetchReq(func)) {
+        modifiedFunctionsCount += 1;
       }
     });
 
@@ -187,13 +237,13 @@ const modifyFetchStreamingErrorHandling = (
 
   project.saveSync();
 
-  if (modifiedFunctionsCount !== 2) {
+  if (modifiedFunctionsCount !== 3) {
     console.log(
-      `ERROR: Modified ${modifiedFunctionsCount} function(s). Wanted to modify exactly 2.`,
+      `ERROR: Modified ${modifiedFunctionsCount} function(s). Wanted to modify exactly 3.`,
     );
   } else {
     console.log(
-      `SUCCESS: Modified functions 'fetchStreamingRequest' and 'getNewLineDelimitedJSONDecodingStream' in fetch.pb.ts`,
+      `SUCCESS: Modified functions 'fetchStreamingRequest', 'fetchReq', and 'getNewLineDelimitedJSONDecodingStream' in fetch.pb.ts`,
     );
   }
 };
