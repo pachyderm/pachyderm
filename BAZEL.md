@@ -147,6 +147,15 @@ based on your working tree in the test's environment.
 Go and Python source code. `bazel run //:gazelle` will run it. You'll need to run it when you add
 new Go source files, packages, or change dependencies.
 
+It addresses this sort of error:
+
+```
+compilepkg: missing strict dependencies:
+        /tmp/bazel-working-directory/_main/src/server/auth/server/testing/admin_test.go: import of "github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+No dependencies were provided.
+Check that imports in Go sources match importpath attributes in deps.
+```
+
 ### Buildifier
 
 If you edit BUILD files, run `bazel test //:buildifier_test` (potentially with `--test_output=all`)

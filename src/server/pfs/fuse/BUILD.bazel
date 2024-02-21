@@ -26,7 +26,6 @@ go_library(
         "//src/internal/signals",
         "//src/internal/uuid",
         "//src/pfs",
-        "//src/pps",
         "//src/server/pfs",
         "@com_github_hanwen_go_fuse_v2//fs",
         "@com_github_hanwen_go_fuse_v2//fuse",
