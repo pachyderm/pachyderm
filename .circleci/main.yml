@@ -1275,8 +1275,8 @@ jobs:
             SECONDS=0
             while :; do
                 docker pull pachyderm/haberdashery:${CIRCLE_TAG:1} 2>/dev/null && break
-                if (( $SECONDS > 1 )); then
-                    printf 'Waited 10 minutes for console docker image, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures\n' >&2
+                if (( $SECONDS > 600 )); then
+                    printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
                     exit 1
                 fi
                 sleep 1
