@@ -55,7 +55,6 @@ go_test(
     name = "datum_test",
     size = "small",
     srcs = [
-        "create_test.go",
         "datum_test.go",
         "iterator_internal_test.go",
         "iterator_test.go",
