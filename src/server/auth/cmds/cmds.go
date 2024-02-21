@@ -793,7 +793,7 @@ func SetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -845,7 +845,7 @@ func SetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}

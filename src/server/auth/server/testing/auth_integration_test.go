@@ -25,6 +25,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -688,6 +689,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
+	ctx := pctx.TestContext(t)
 	c, _ := minikubetestenv.AcquireCluster(t, defaultTestOptions)
 	tu.ActivateAuthClient(t, c)
 	alice := tu.Robot(tu.UniqueString("alice"))
@@ -732,7 +734,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// subscribe to the pipeline2 cron repo and wait for inputs
 	repo := client.NewRepo(pfs.DefaultProjectName, pipeline2)
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*60)
 	defer cancel() //cleanup resources
 
 	checkCronCommits := func(n int) error {
@@ -767,7 +769,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// re-authenticate, as old tokens were deleted
 	aliceClient = tu.AuthenticateClient(t, c, alice)
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(alice, []string{auth.RepoWriterRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(ctx, alice, []string{auth.RepoWriterRole}))
 
 	// make sure the cron is working
 	require.NoError(t, checkCronCommits(5))
