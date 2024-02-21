@@ -2501,7 +2501,7 @@ func TestCreateProject(t *testing.T) {
 	// create a project and check the caller is the owner
 	projectName := tu.UniqueString("project" + t.Name())
 	require.NoError(t, aliceClient.CreateProject(projectName))
-	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwnerRole), tu.GetProjectRoleBinding(t, aliceClient, projectName))
+	require.Equal(t, tu.BuildBindings(alice, auth.ProjectOwnerRole), tu.GetProjectRoleBinding(ctx, t, aliceClient, projectName))
 
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails

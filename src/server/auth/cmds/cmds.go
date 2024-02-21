@@ -752,14 +752,15 @@ func GetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 		Use:   "{{alias}} <project>",
 		Short: "Get the role bindings for a project",
 		Long:  "This command returns the role bindings for a given project.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			project := args[0]
-			resp, err := c.GetProjectRoleBinding(project)
+			resp, err := c.GetProjectRoleBinding(ctx, project)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
