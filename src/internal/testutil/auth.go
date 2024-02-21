@@ -139,9 +139,9 @@ func GetRepoRoleBinding(ctx context.Context, t *testing.T, c *client.APIClient, 
 	return resp
 }
 
-func GetProjectRoleBinding(t *testing.T, c *client.APIClient, project string) *auth.RoleBinding {
+func GetProjectRoleBinding(ctx context.Context, t *testing.T, c *client.APIClient, project string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetProjectRoleBinding(project)
+	resp, err := c.GetProjectRoleBinding(ctx, project)
 	require.NoError(t, err)
 	return resp
 }
