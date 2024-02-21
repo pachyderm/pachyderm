@@ -37,8 +37,9 @@ func (c APIClient) GetClusterRoleBinding(ctx context.Context) (*auth.RoleBinding
 	return resp.Binding, nil
 }
 
-func (c APIClient) ModifyClusterRoleBinding(principal string, roles []string) error {
-	_, err := c.ModifyRoleBinding(c.Ctx(), &auth.ModifyRoleBindingRequest{
+func (c APIClient) ModifyClusterRoleBinding(ctx context.Context, principal string, roles []string) error {
+	ctx = c.AddMetadata(ctx)
+	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		Principal: principal,
 		Roles:     roles,
