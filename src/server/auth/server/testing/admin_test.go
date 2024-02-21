@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -88,6 +89,7 @@ func TestActivateKnownToken(t *testing.T) {
 // TestSuperAdminRWO tests adding and removing cluster super admins, as well as super admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestSuperAdminRWO(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
@@ -126,7 +128,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
@@ -151,7 +153,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -177,7 +179,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
@@ -188,6 +190,7 @@ func TestSuperAdminRWO(t *testing.T) {
 // TestFSAdminRWO tests adding and removing cluster FS admins, as well as FS admins
 // reading, writing, and moderating (owning) all repos in the cluster.
 func TestFSAdminRWO(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
@@ -226,7 +229,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 1, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName)) // check that ACL wasn't updated
@@ -251,7 +254,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoReaderRole})
 	require.NoError(t, err)
 	// check that ACL was updated
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot("carol"), auth.RepoReaderRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
@@ -277,7 +280,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that no commits were created
 
 	// bob can't update the ACL
-	err = bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
+	err = bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, tu.Robot("carol"), []string{auth.RepoWriterRole})
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 	// check that ACL wasn't updated
@@ -288,6 +291,7 @@ func TestFSAdminRWO(t *testing.T) {
 // when the repo's ACL is empty (indicating that no user has explicit access to
 // to the repo)
 func TestFSAdminFixBrokenRepo(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice, bob := tu.Robot(tu.UniqueString("alice")), tu.Robot(tu.UniqueString("bob"))
@@ -309,7 +313,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.Equal(t, tu.BuildClusterBindings(bob, auth.RepoOwnerRole), bindings)
 
 	// admin deletes the repo's ACL
-	require.NoError(t, rootClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, alice, []string{}))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, alice, []string{}))
 
 	// Check that the ACL is empty
 	require.Nil(t, tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repoName).Entries)
@@ -322,7 +326,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 
 	// bob, an FS admin, can update the ACL to put Alice back, even though reading the ACL
 	// will fail
-	require.NoError(t, bobClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repoName, alice, []string{auth.RepoOwnerRole}))
+	require.NoError(t, bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repoName, alice, []string{auth.RepoOwnerRole}))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repoName))
 
 	// now alice can write to the repo
@@ -558,6 +562,7 @@ func TestRobotUserWhoAmI(t *testing.T) {
 // TestRobotUserACL tests that a robot user can create a repo, add users
 // to their repo, and be added to user's repo.
 func TestRobotUserACL(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
@@ -577,7 +582,7 @@ func TestRobotUserACL(t *testing.T) {
 	require.NoError(t, robotClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 
-	require.NoError(t, robotClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoWriterRole, tu.Robot(robotUser), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 
 	// test that alice can commit to the robot user's repo
@@ -589,7 +594,7 @@ func TestRobotUserACL(t *testing.T) {
 	repo2 := tu.UniqueString("TestRobotUserACL")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo2))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
-	require.NoError(t, aliceClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
+	require.NoError(t, aliceClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo2, tu.Robot(robotUser), []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Robot(robotUser), auth.RepoWriterRole), tu.GetRepoRoleBinding(t, aliceClient, pfs.DefaultProjectName, repo2))
 
 	// test that the robot can commit to alice's repo
@@ -601,6 +606,7 @@ func TestRobotUserACL(t *testing.T) {
 // TestGroupRoleBinding tests that a group can be added to a role binding
 // and confers access to members
 func TestGroupRoleBinding(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
@@ -610,7 +616,7 @@ func TestGroupRoleBinding(t *testing.T) {
 	// root creates a repo and adds a group writer access
 	repo := tu.UniqueString("TestGroupRoleBinding")
 	require.NoError(t, rootClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.NoError(t, rootClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
+	require.NoError(t, rootClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo, group, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(group, auth.RepoWriterRole, auth.RootUser, auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, rootClient, pfs.DefaultProjectName, repo))
 
 	// add alice to the group
@@ -632,6 +638,7 @@ func TestGroupRoleBinding(t *testing.T) {
 // 3) access other users' repos
 // 4) update repo ACLs,
 func TestRobotUserAdmin(t *testing.T) {
+	ctx := pctx.TestContext(t)
 	env := at.EnvWithAuth(t)
 	c := env.PachClient
 	alice := tu.Robot(tu.UniqueString("alice"))
@@ -673,7 +680,7 @@ func TestRobotUserAdmin(t *testing.T) {
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
-	require.NoError(t, robotClient.ModifyRepoRoleBinding(pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
+	require.NoError(t, robotClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo, alice, []string{auth.RepoWriterRole}))
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(t, robotClient, pfs.DefaultProjectName, repo))
 	commit, err = aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)

@@ -622,7 +622,8 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 		Example: "\t- {{alias}} foo repoOwner user:alan.watts@domain.com" +
 			"\t- {{alias}} foo repoWriter, repoReader robot:my-robot" +
 			"\t- {{alias}} foo none robot:my-robot --project foobar",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(3, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			var roles []string
 			if args[1] == "none" {
 				roles = []string{}
@@ -636,7 +637,7 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyRepoRoleBinding(project, repo, subject, roles)
+			err = c.ModifyRepoRoleBinding(ctx, project, repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
