@@ -653,14 +653,15 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 		Long:  "This command returns the role bindings for a given repo.",
 		Example: "\t- {{alias}} foo" +
 			"\t- {{alias}} foo --project bar",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(ctx, project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
