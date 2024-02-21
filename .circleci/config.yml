@@ -25,15 +25,15 @@ executors:
   small-node:
     resource_class: small
     docker:
-      - image: cimg/node:18.16.0
+      - image: cimg/node:20.11.0
   medium-node:
     resource_class: medium
     docker:
-      - image: cimg/node:18.16.0
+      - image: cimg/node:20.11.0
   xlarge-node:
     resource_class: xlarge
     docker:
-      - image: cimg/node:18.16.0
+      - image: cimg/node:20.11.0
 
 commands:
   node-install-all:
@@ -86,7 +86,7 @@ commands:
 jobs:
   components-storybook-release:
     docker:
-      - image: cimg/node:18.16.0
+      - image: cimg/node:20.11.0
     steps:
       - checkout
       - run: sudo npm install -g netlify-cli@14.4.0
@@ -137,7 +137,7 @@ jobs:
     resource_class: xlarge
     parallelism: 3
     machine:
-      image: ubuntu-2004:202201-02
+      image: default
     steps:
       - checkout
       - node-install-all
@@ -153,7 +153,7 @@ jobs:
     resource_class: xlarge
     parallelism: 3
     machine:
-      image: ubuntu-2004:202201-02
+      image: default
     steps:
       - checkout
       - node-install-all
@@ -169,7 +169,7 @@ jobs:
   build:
     resource_class: small
     docker:
-      - image: cimg/node:18.16.0
+      - image: cimg/node:20.11.0
     steps:
       - checkout
       - node-install-all
@@ -206,7 +206,7 @@ jobs:
 
   preview:
     docker:
-      - image: node:18.16.0
+      - image: node:20.11.0
     steps:
       - checkout
       - jq/install

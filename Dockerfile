@@ -1,4 +1,4 @@
-FROM node:18.16.0-buster-slim
+FROM node:20.11-buster-slim
 
 WORKDIR /usr/src/app
 
@@ -18,7 +18,7 @@ WORKDIR /usr/src/app/backend
 RUN npm i module-alias
 
 
-FROM node:18.16.0-buster-slim
+FROM node:20.11-buster-slim
 
 ARG DOCKER_TAG=${DOCKER_TAG:-local}
 ENV REACT_APP_RELEASE_VERSION=${DOCKER_TAG:-local}
