@@ -43,24 +43,24 @@
                 "verbatim": {
                     "$ref": "#/definitions/logs.VerbatimLogMessage",
                     "additionalProperties": false,
-                    "description": "The verbatim line from Loki."
+                    "description": "The verbatim line from Loki"
                 },
                 "fields": {
                     "additionalProperties": {
                         "type": "string"
                     },
                     "type": "object",
-                    "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; // A raw JSON parse of the entire line.  A raw JSON parse of the entire line."
+                    "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; A raw JSON parse of the entire line"
                 },
                 "nativeTimestamp": {
                     "type": "string",
-                    "description": "If a parseable timestamp was found in `fields`.",
+                    "description": "If a parseable timestamp was found in `fields`",
                     "format": "date-time"
                 },
                 "ppsLogMessage": {
                     "$ref": "#/definitions/pps_v2.LogMessage",
                     "additionalProperties": false,
-                    "description": "For code that wants to filter on pipeline/job/etc."
+                    "description": "For code that wants to filter on pipeline/job/etc"
                 }
             },
             "additionalProperties": false,

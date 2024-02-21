@@ -7385,15 +7385,15 @@
       "properties": {
         "logql": {
           "type": "string",
-          "description": "Arbitrary LogQL query."
+          "title": "Arbitrary LogQL query"
         },
         "pod": {
           "type": "string",
-          "description": "A pod's logs (all containers)."
+          "title": "A pod's logs (all containers)"
         },
         "podContainer": {
           "$ref": "#/definitions/logsPodContainer",
-          "description": "One container."
+          "title": "One container"
         },
         "app": {
           "type": "string",
@@ -7401,15 +7401,15 @@
         },
         "master": {
           "$ref": "#/definitions/logsPipelineLogQuery",
-          "description": "All master worker lines from a pipeline."
+          "title": "All master worker lines from a pipeline"
         },
         "storage": {
           "$ref": "#/definitions/logsPipelineLogQuery",
-          "description": "All storage container lines from a pipeline."
+          "title": "All storage container lines from a pipeline"
         },
         "user": {
           "$ref": "#/definitions/logsUserLogQuery",
-          "description": "All worker lines from a pipeline/job."
+          "title": "All worker lines from a pipeline/job"
         }
       }
     },
@@ -7459,7 +7459,7 @@
         },
         "level": {
           "$ref": "#/definitions/logsLogLevel",
-          "description": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior."
+          "title": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior"
         }
       }
     },
@@ -7524,23 +7524,23 @@
       "properties": {
         "verbatim": {
           "$ref": "#/definitions/logsVerbatimLogMessage",
-          "description": "The verbatim line from Loki."
+          "title": "The verbatim line from Loki"
         },
         "fields": {
           "type": "object",
           "additionalProperties": {
             "type": "string"
           },
-          "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; // A raw JSON parse of the entire line.\n\nA raw JSON parse of the entire line."
+          "title": "map\u003cstring, google.protobuf.Any\u003e fields = 2;\nA raw JSON parse of the entire line"
         },
         "nativeTimestamp": {
           "type": "string",
           "format": "date-time",
-          "description": "If a parseable timestamp was found in `fields`."
+          "title": "If a parseable timestamp was found in `fields`"
         },
         "ppsLogMessage": {
           "$ref": "#/definitions/pps_v2LogMessage",
-          "description": "For code that wants to filter on pipeline/job/etc."
+          "title": "For code that wants to filter on pipeline/job/etc"
         }
       }
     },
@@ -7594,12 +7594,12 @@
         "from": {
           "type": "string",
           "format": "date-time",
-          "description": "Can be null."
+          "title": "Can be null"
         },
         "until": {
           "type": "string",
           "format": "date-time",
-          "description": "Can be null."
+          "title": "Can be null"
         }
       }
     },
@@ -7608,11 +7608,11 @@
       "properties": {
         "project": {
           "type": "string",
-          "description": "All pipelines in the project."
+          "title": "All pipelines in the project"
         },
         "pipeline": {
           "$ref": "#/definitions/logsPipelineLogQuery",
-          "description": "One pipeline in a project."
+          "title": "One pipeline in a project"
         },
         "datum": {
           "type": "string",
@@ -7620,14 +7620,14 @@
         },
         "job": {
           "type": "string",
-          "description": "One job, across pipelines and projects."
+          "title": "One job, across pipelines and projects"
         },
         "pipelineJob": {
           "$ref": "#/definitions/logsPipelineJobLogQuery",
-          "description": "One job in one pipeline."
+          "title": "One job in one pipeline"
         }
       },
-      "description": "Only returns \"user\" logs."
+      "title": "Only returns \"user\" logs"
     },
     "logsVerbatimLogMessage": {
       "type": "object",

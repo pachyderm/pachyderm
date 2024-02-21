@@ -74,7 +74,8 @@ func (LogLevel) EnumDescriptor() ([]byte, []int) {
 type LogFormat int32
 
 const (
-	LogFormat_LOG_FORMAT_UNKNOWN                 LogFormat = 0 // error
+	// error
+	LogFormat_LOG_FORMAT_UNKNOWN                 LogFormat = 0
 	LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP LogFormat = 1
 	LogFormat_LOG_FORMAT_PARSED_JSON             LogFormat = 2
 	LogFormat_LOG_FORMAT_PPS_LOGMESSAGE          LogFormat = 3
@@ -314,31 +315,38 @@ type isAdminLogQuery_AdminType interface {
 }
 
 type AdminLogQuery_Logql struct {
-	Logql string `protobuf:"bytes,1,opt,name=logql,proto3,oneof"` // Arbitrary LogQL query.
+	// Arbitrary LogQL query
+	Logql string `protobuf:"bytes,1,opt,name=logql,proto3,oneof"`
 }
 
 type AdminLogQuery_Pod struct {
-	Pod string `protobuf:"bytes,2,opt,name=pod,proto3,oneof"` // A pod's logs (all containers).
+	// A pod's logs (all containers)
+	Pod string `protobuf:"bytes,2,opt,name=pod,proto3,oneof"`
 }
 
 type AdminLogQuery_PodContainer struct {
-	PodContainer *PodContainer `protobuf:"bytes,3,opt,name=pod_container,json=podContainer,proto3,oneof"` // One container.
+	// One container
+	PodContainer *PodContainer `protobuf:"bytes,3,opt,name=pod_container,json=podContainer,proto3,oneof"`
 }
 
 type AdminLogQuery_App struct {
-	App string `protobuf:"bytes,4,opt,name=app,proto3,oneof"` // One "app" (logql -> {app=X})
+	// One "app" (logql -> {app=X})
+	App string `protobuf:"bytes,4,opt,name=app,proto3,oneof"`
 }
 
 type AdminLogQuery_Master struct {
-	Master *PipelineLogQuery `protobuf:"bytes,5,opt,name=master,proto3,oneof"` // All master worker lines from a pipeline.
+	// All master worker lines from a pipeline
+	Master *PipelineLogQuery `protobuf:"bytes,5,opt,name=master,proto3,oneof"`
 }
 
 type AdminLogQuery_Storage struct {
-	Storage *PipelineLogQuery `protobuf:"bytes,6,opt,name=storage,proto3,oneof"` // All storage container lines from a pipeline.
+	// All storage container lines from a pipeline
+	Storage *PipelineLogQuery `protobuf:"bytes,6,opt,name=storage,proto3,oneof"`
 }
 
 type AdminLogQuery_User struct {
-	User *UserLogQuery `protobuf:"bytes,7,opt,name=user,proto3,oneof"` // All worker lines from a pipeline/job.
+	// All worker lines from a pipeline/job
+	User *UserLogQuery `protobuf:"bytes,7,opt,name=user,proto3,oneof"`
 }
 
 func (*AdminLogQuery_Logql) isAdminLogQuery_AdminType() {}
@@ -410,6 +418,7 @@ func (x *PodContainer) GetContainer() string {
 	return ""
 }
 
+// Only returns "user" logs
 type UserLogQuery struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -504,23 +513,28 @@ type isUserLogQuery_UserType interface {
 }
 
 type UserLogQuery_Project struct {
-	Project string `protobuf:"bytes,1,opt,name=project,proto3,oneof"` // All pipelines in the project.
+	// All pipelines in the project
+	Project string `protobuf:"bytes,1,opt,name=project,proto3,oneof"`
 }
 
 type UserLogQuery_Pipeline struct {
-	Pipeline *PipelineLogQuery `protobuf:"bytes,2,opt,name=pipeline,proto3,oneof"` // One pipeline in a project.
+	// One pipeline in a project
+	Pipeline *PipelineLogQuery `protobuf:"bytes,2,opt,name=pipeline,proto3,oneof"`
 }
 
 type UserLogQuery_Datum struct {
-	Datum string `protobuf:"bytes,3,opt,name=datum,proto3,oneof"` // One datum.
+	// One datum.
+	Datum string `protobuf:"bytes,3,opt,name=datum,proto3,oneof"`
 }
 
 type UserLogQuery_Job struct {
-	Job string `protobuf:"bytes,4,opt,name=job,proto3,oneof"` // One job, across pipelines and projects.
+	// One job, across pipelines and projects
+	Job string `protobuf:"bytes,4,opt,name=job,proto3,oneof"`
 }
 
 type UserLogQuery_PipelineJob struct {
-	PipelineJob *PipelineJobLogQuery `protobuf:"bytes,5,opt,name=pipeline_job,json=pipelineJob,proto3,oneof"` // One job in one pipeline.
+	// One job in one pipeline
+	PipelineJob *PipelineJobLogQuery `protobuf:"bytes,5,opt,name=pipeline_job,json=pipelineJob,proto3,oneof"`
 }
 
 func (*UserLogQuery_Project) isUserLogQuery_UserType() {}
@@ -706,7 +720,8 @@ type LogFilter struct {
 	TimeRange *TimeRangeLogFilter `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
 	Limit     uint64              `protobuf:"varint,2,opt,name=limit,proto3" json:"limit,omitempty"`
 	Regex     *RegexLogFilter     `protobuf:"bytes,3,opt,name=regex,proto3" json:"regex,omitempty"`
-	Level     LogLevel            `protobuf:"varint,4,opt,name=level,proto3,enum=logs.LogLevel" json:"level,omitempty"` // Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior.
+	// Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior
+	Level LogLevel `protobuf:"varint,4,opt,name=level,proto3,enum=logs.LogLevel" json:"level,omitempty"`
 }
 
 func (x *LogFilter) Reset() {
@@ -774,8 +789,10 @@ type TimeRangeLogFilter struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	From  *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`   // Can be null.
-	Until *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=until,proto3" json:"until,omitempty"` // Can be null.
+	// Can be null
+	From *timestamppb.Timestamp `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	// Can be null
+	Until *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=until,proto3" json:"until,omitempty"`
 }
 
 func (x *TimeRangeLogFilter) Reset() {
@@ -1249,11 +1266,15 @@ type ParsedJSONLogMessage struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Verbatim *VerbatimLogMessage `protobuf:"bytes,1,opt,name=verbatim,proto3" json:"verbatim,omitempty"` // The verbatim line from Loki.
-	// map<string, google.protobuf.Any> fields = 2; // A raw JSON parse of the entire line.
-	Fields          map[string]string      `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"` // A raw JSON parse of the entire line.
-	NativeTimestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=native_timestamp,json=nativeTimestamp,proto3" json:"native_timestamp,omitempty"`                                                // If a parseable timestamp was found in `fields`.
-	PpsLogMessage   *pps.LogMessage        `protobuf:"bytes,4,opt,name=pps_log_message,json=ppsLogMessage,proto3" json:"pps_log_message,omitempty"`                                                    // For code that wants to filter on pipeline/job/etc.
+	// The verbatim line from Loki
+	Verbatim *VerbatimLogMessage `protobuf:"bytes,1,opt,name=verbatim,proto3" json:"verbatim,omitempty"`
+	// map<string, google.protobuf.Any> fields = 2;
+	// A raw JSON parse of the entire line
+	Fields map[string]string `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key,proto3" protobuf_val:"bytes,2,opt,name=value,proto3"`
+	// If a parseable timestamp was found in `fields`
+	NativeTimestamp *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=native_timestamp,json=nativeTimestamp,proto3" json:"native_timestamp,omitempty"`
+	// For code that wants to filter on pipeline/job/etc
+	PpsLogMessage *pps.LogMessage `protobuf:"bytes,4,opt,name=pps_log_message,json=ppsLogMessage,proto3" json:"pps_log_message,omitempty"`
 }
 
 func (x *ParsedJSONLogMessage) Reset() {

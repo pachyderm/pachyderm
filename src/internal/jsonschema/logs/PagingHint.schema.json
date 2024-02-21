@@ -21,16 +21,16 @@
             "properties": {
                 "logql": {
                     "type": "string",
-                    "description": "Arbitrary LogQL query."
+                    "description": "Arbitrary LogQL query"
                 },
                 "pod": {
                     "type": "string",
-                    "description": "A pod's logs (all containers)."
+                    "description": "A pod's logs (all containers)"
                 },
                 "podContainer": {
                     "$ref": "#/definitions/logs.PodContainer",
                     "additionalProperties": false,
-                    "description": "One container."
+                    "description": "One container"
                 },
                 "app": {
                     "type": "string",
@@ -39,17 +39,17 @@
                 "master": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "All master worker lines from a pipeline."
+                    "description": "All master worker lines from a pipeline"
                 },
                 "storage": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "All storage container lines from a pipeline."
+                    "description": "All storage container lines from a pipeline"
                 },
                 "user": {
                     "$ref": "#/definitions/logs.UserLogQuery",
                     "additionalProperties": false,
-                    "description": "All worker lines from a pipeline/job."
+                    "description": "All worker lines from a pipeline/job"
                 }
             },
             "additionalProperties": false,
@@ -235,12 +235,12 @@
             "properties": {
                 "from": {
                     "type": "string",
-                    "description": "Can be null.",
+                    "description": "Can be null",
                     "format": "date-time"
                 },
                 "until": {
                     "type": "string",
-                    "description": "Can be null.",
+                    "description": "Can be null",
                     "format": "date-time"
                 }
             },
@@ -252,12 +252,12 @@
             "properties": {
                 "project": {
                     "type": "string",
-                    "description": "All pipelines in the project."
+                    "description": "All pipelines in the project"
                 },
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "One pipeline in a project."
+                    "description": "One pipeline in a project"
                 },
                 "datum": {
                     "type": "string",
@@ -265,12 +265,12 @@
                 },
                 "job": {
                     "type": "string",
-                    "description": "One job, across pipelines and projects."
+                    "description": "One job, across pipelines and projects"
                 },
                 "pipelineJob": {
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
-                    "description": "One job in one pipeline."
+                    "description": "One job in one pipeline"
                 }
             },
             "additionalProperties": false,
@@ -303,7 +303,7 @@
                 }
             ],
             "title": "User Log Query",
-            "description": "Only returns \"user\" logs."
+            "description": "Only returns \"user\" logs"
         }
     }
 }

@@ -6,12 +6,12 @@
             "properties": {
                 "project": {
                     "type": "string",
-                    "description": "All pipelines in the project."
+                    "description": "All pipelines in the project"
                 },
                 "pipeline": {
                     "$ref": "#/definitions/logs.PipelineLogQuery",
                     "additionalProperties": false,
-                    "description": "One pipeline in a project."
+                    "description": "One pipeline in a project"
                 },
                 "datum": {
                     "type": "string",
@@ -19,12 +19,12 @@
                 },
                 "job": {
                     "type": "string",
-                    "description": "One job, across pipelines and projects."
+                    "description": "One job, across pipelines and projects"
                 },
                 "pipelineJob": {
                     "$ref": "#/definitions/logs.PipelineJobLogQuery",
                     "additionalProperties": false,
-                    "description": "One job in one pipeline."
+                    "description": "One job in one pipeline"
                 }
             },
             "additionalProperties": false,
@@ -57,7 +57,7 @@
                 }
             ],
             "title": "User Log Query",
-            "description": "Only returns \"user\" logs."
+            "description": "Only returns \"user\" logs"
         },
         "logs.PipelineJobLogQuery": {
             "properties": {
