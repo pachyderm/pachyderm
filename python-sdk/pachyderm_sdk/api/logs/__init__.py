@@ -182,13 +182,8 @@ class ParsedJsonLogMessage(betterproto.Message):
     verbatim: "VerbatimLogMessage" = betterproto.message_field(1)
     """The verbatim line from Loki"""
 
-    fields: Dict[str, str] = betterproto.map_field(
-        2, betterproto.TYPE_STRING, betterproto.TYPE_STRING
-    )
-    """
-    map<string, google.protobuf.Any> fields = 2; A raw JSON parse of the entire
-    line
-    """
+    object: "betterproto_lib_google_protobuf.Struct" = betterproto.message_field(2)
+    """A raw JSON parse of the entire line"""
 
     native_timestamp: datetime = betterproto.message_field(3)
     """If a parseable timestamp was found in `fields`"""

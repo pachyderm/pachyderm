@@ -7526,12 +7526,9 @@
           "$ref": "#/definitions/logsVerbatimLogMessage",
           "title": "The verbatim line from Loki"
         },
-        "fields": {
+        "object": {
           "type": "object",
-          "additionalProperties": {
-            "type": "string"
-          },
-          "title": "map\u003cstring, google.protobuf.Any\u003e fields = 2;\nA raw JSON parse of the entire line"
+          "title": "A raw JSON parse of the entire line"
         },
         "nativeTimestamp": {
           "type": "string",

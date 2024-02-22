@@ -248,12 +248,10 @@
                     "additionalProperties": false,
                     "description": "The verbatim line from Loki"
                 },
-                "fields": {
-                    "additionalProperties": {
-                        "type": "string"
-                    },
+                "object": {
+                    "additionalProperties": false,
                     "type": "object",
-                    "description": "map\u003cstring, google.protobuf.Any\u003e fields = 2; A raw JSON parse of the entire line"
+                    "description": "A raw JSON parse of the entire line"
                 },
                 "nativeTimestamp": {
                     "type": "string",

@@ -5,7 +5,6 @@
 package logs
 
 import (
-	fmt "fmt"
 	protoextensions "github.com/pachyderm/pachyderm/v2/src/protoextensions"
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -248,12 +247,11 @@ func (x *ParsedJSONLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error
 	} else {
 		enc.AddReflected("verbatim", x.Verbatim)
 	}
-	enc.AddObject("fields", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
-		for k, v := range x.Fields {
-			enc.AddString(fmt.Sprintf("%v", k), v)
-		}
-		return nil
-	}))
+	if obj, ok := interface{}(x.Object).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("object", obj)
+	} else {
+		enc.AddReflected("object", x.Object)
+	}
 	protoextensions.AddTimestamp(enc, "native_timestamp", x.NativeTimestamp)
 	enc.AddObject("pps_log_message", x.PpsLogMessage)
 	return nil

@@ -4,6 +4,8 @@ package logs;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/logs";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
 import "pps/pps.proto";
 
 message LogQuery {
@@ -138,9 +140,8 @@ message VerbatimLogMessage {
 message ParsedJSONLogMessage {
   // The verbatim line from Loki
   VerbatimLogMessage verbatim = 1;
-  //map<string, google.protobuf.Any> fields = 2;
   // A raw JSON parse of the entire line
-  map<string, string> fields = 2;
+  google.protobuf.Struct object = 2;
   // If a parseable timestamp was found in `fields`
   google.protobuf.Timestamp native_timestamp = 3;
   // For code that wants to filter on pipeline/job/etc

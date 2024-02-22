@@ -5,6 +5,7 @@
 */
 
 import * as fm from "../fetch.pb"
+import * as GoogleProtobufStruct from "../google/protobuf/struct.pb"
 import * as GoogleProtobufTimestamp from "../google/protobuf/timestamp.pb"
 import * as Pps_v2Pps from "../pps/pps.pb"
 
@@ -122,7 +123,7 @@ export type VerbatimLogMessage = {
 
 export type ParsedJSONLogMessage = {
   verbatim?: VerbatimLogMessage
-  fields?: {[key: string]: string}
+  object?: GoogleProtobufStruct.Struct
   nativeTimestamp?: GoogleProtobufTimestamp.Timestamp
   ppsLogMessage?: Pps_v2Pps.LogMessage
 }
