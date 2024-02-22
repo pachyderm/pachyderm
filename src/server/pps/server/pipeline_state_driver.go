@@ -118,7 +118,7 @@ func (sd *stateDriver) Watch(ctx context.Context) (<-chan *watch.Event, func(), 
 }
 
 func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.PipelineInfo) error) error {
-	return ppsutil.ListPipelineInfo(ctx, sd.pipelines, nil, 0, f)
+	return ppsutil.ListPipelineInfo(ctx, sd.pipelines, nil, 0, 0, f)
 }
 
 func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {

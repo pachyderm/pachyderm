@@ -400,7 +400,7 @@ func (c *postgresCollection) listQueryStr(ctx context.Context, withFields map[st
 			query += fmt.Sprintf(" order by %s %s, key asc", target, order)
 		}
 	}
-
+	offset += opts.Offset
 	if batchLimit := opts.Limit - offset; opts.Limit > 0 && batchLimit < c.listBufferCapacity {
 		query += fmt.Sprintf(" limit %d", batchLimit)
 	} else {

@@ -479,6 +479,7 @@ func ListPipelineInfo(ctx context.Context,
 	pipelines col.PostgresCollection,
 	filter *pps.Pipeline,
 	history int64,
+	offset int64,
 	f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
 	versionMap := make(map[string]uint64)
@@ -505,12 +506,14 @@ func ListPipelineInfo(ctx context.Context,
 
 		return f(p)
 	}
+	// TODO: is int(offset) correct casting?
+	opts := &col.Options{Target: col.SortByKey, Order: col.SortAscend, Offset: int(offset)}
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,
 			ppsdb.PipelinesNameKey(filter),
 			p,
-			col.DefaultOptions(),
+			opts,
 			checkPipelineVersion); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -520,7 +523,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		return nil
 	}
-	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, opts, checkPipelineVersion))
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {
