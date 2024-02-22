@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"fmt"
 
 	"golang.org/x/sync/semaphore"
 
@@ -77,6 +78,7 @@ func (b *Batcher) createBatch(entries []*entry, buf []byte) error {
 		if err != nil {
 			return nil, err
 		}
+		fmt.Printf("PFS-208: created upload task via createBatch(): id: %x\n", dataRef.Ref.Id)
 		// Handle chunk callback.
 		if b.chunkFunc != nil {
 			var metas []interface{}

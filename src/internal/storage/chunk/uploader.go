@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -54,6 +55,7 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 			if err != nil {
 				return nil, err
 			}
+			fmt.Printf("PFS-208: created upload task via Upload(): id: %x\n", dataRef.Ref.Id)
 			return func() error {
 				dataRefs = append(dataRefs, dataRef)
 				return nil
@@ -101,6 +103,7 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 					if err != nil {
 						return nil, err
 					}
+					fmt.Printf("PFS-208: created upload task via Copy(): id: %x\n", dataRef.Ref.Id)
 					return func() error {
 						stableDataRefs = append(stableDataRefs, dataRef)
 						return nil
@@ -197,6 +200,7 @@ func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID
 		return nil, err
 	}
 	contentHash := Hash(chunkBytes)
+	fmt.Printf("PFS-208: upload: creating chunk: id: %x data: %x\n.", ref.Id, contentHash)
 	return &DataRef{
 		Hash:      contentHash,
 		Ref:       ref,

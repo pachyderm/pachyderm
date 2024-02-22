@@ -5,6 +5,7 @@ import (
 	"compress/gzip"
 	"context"
 	"crypto/cipher"
+	"fmt"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -52,6 +53,7 @@ func Get(ctx context.Context, client Client, ref *Ref) ([]byte, error) {
 	var rawData []byte
 	err := client.Get(ctx, ref.Id, func(ctext []byte) error {
 		rawData = nil
+		fmt.Printf("PFS-208: got ref: %x verifying data.\n", ref.Id)
 		if err := verifyData(ref.Id, ctext); err != nil {
 			return err
 		}
@@ -183,6 +185,7 @@ func cryptoXOR(key, dst, src []byte) {
 }
 
 func verifyData(id ID, x []byte) error {
+	fmt.Printf("PFS-208: verifying data: id: %x bytes: %x\n", id, x)
 	actualHash := Hash(x)
 	if !bytes.Equal(actualHash[:], id) {
 		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)

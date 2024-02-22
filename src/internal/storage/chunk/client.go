@@ -186,6 +186,7 @@ func (c *trackedClient) CheckEntries(ctx context.Context, first []byte, limit in
 	for _, ent := range ents {
 		if readChunks {
 			if err := c.pool.GetF(ctx, c.store, chunkKey(ent.ChunkID, ent.Gen), func(data []byte) error {
+				fmt.Printf("PFS-208: checking entry: %x verifying data.\n", ent.ChunkID)
 				return verifyData(ent.ChunkID, data)
 			}); err != nil {
 				if pacherr.IsNotExist(err) {
