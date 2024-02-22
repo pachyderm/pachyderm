@@ -57,7 +57,7 @@ type pageIterator[T ModelType] struct {
 	pagesSeen               int
 }
 
-// if pages == 0, then interpret as unlimited pages
+// if maxPages == 0, then interpret as unlimited pages
 func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize, maxPages uint64) pageIterator[T] {
 	return pageIterator[T]{
 		query:    query,
