@@ -67,11 +67,6 @@ export type PipelineJobLogQuery = {
   job?: string
 }
 
-export type PipelineDatumLogQuery = {
-  pipeline?: PipelineLogQuery
-  datum?: string
-}
-
 export type LogFilter = {
   timeRange?: TimeRangeLogFilter
   limit?: string

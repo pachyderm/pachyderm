@@ -71,11 +71,6 @@ message PipelineJobLogQuery {
   string job = 2;
 }
 
-message PipelineDatumLogQuery {
-  PipelineLogQuery pipeline = 1;
-  string datum = 2;
-}
-
 message LogFilter {
   TimeRangeLogFilter time_range = 1;
   uint64 limit = 2;

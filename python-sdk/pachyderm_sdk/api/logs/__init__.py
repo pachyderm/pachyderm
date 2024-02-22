@@ -109,12 +109,6 @@ class PipelineJobLogQuery(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class PipelineDatumLogQuery(betterproto.Message):
-    pipeline: "PipelineLogQuery" = betterproto.message_field(1)
-    datum: str = betterproto.string_field(2)
-
-
-@dataclass(eq=False, repr=False)
 class LogFilter(betterproto.Message):
     time_range: "TimeRangeLogFilter" = betterproto.message_field(1)
     limit: int = betterproto.uint64_field(2)
