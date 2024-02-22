@@ -1919,6 +1919,44 @@
         ]
       }
     },
+    "/logs.API/GetLogs": {
+      "post": {
+        "operationId": "API_GetLogs",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/logsGetLogsResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of logsGetLogsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/logsGetLogsRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/CreateRepo": {
       "post": {
         "summary": "CreateRepo creates a new repo.",
@@ -5682,18 +5720,6 @@
       ],
       "default": "UNKNOWN"
     },
-    "SetLogLevelRequestLogLevel": {
-      "type": "string",
-      "enum": [
-        "UNKNOWN",
-        "DEBUG",
-        "INFO",
-        "ERROR",
-        "OFF"
-      ],
-      "default": "UNKNOWN",
-      "description": " - OFF: Only GRPC logs can be turned off."
-    },
     "admin_v2ClusterInfo": {
       "type": "object",
       "properties": {
@@ -6645,10 +6671,10 @@
       "type": "object",
       "properties": {
         "pachyderm": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "grpc": {
-          "$ref": "#/definitions/SetLogLevelRequestLogLevel"
+          "$ref": "#/definitions/debug_v2SetLogLevelRequestLogLevel"
         },
         "duration": {
           "type": "string"
@@ -6657,6 +6683,18 @@
           "type": "boolean"
         }
       }
+    },
+    "debug_v2SetLogLevelRequestLogLevel": {
+      "type": "string",
+      "enum": [
+        "UNKNOWN",
+        "DEBUG",
+        "INFO",
+        "ERROR",
+        "OFF"
+      ],
+      "default": "UNKNOWN",
+      "description": " - OFF: Only GRPC logs can be turned off."
     },
     "debug_v2SetLogLevelResponse": {
       "type": "object",
@@ -7339,6 +7377,265 @@
         },
         "enterpriseServer": {
           "type": "boolean"
+        }
+      }
+    },
+    "logsAdminLogQuery": {
+      "type": "object",
+      "properties": {
+        "logql": {
+          "type": "string",
+          "title": "Arbitrary LogQL query"
+        },
+        "pod": {
+          "type": "string",
+          "title": "A pod's logs (all containers)"
+        },
+        "podContainer": {
+          "$ref": "#/definitions/logsPodContainer",
+          "title": "One container"
+        },
+        "app": {
+          "type": "string",
+          "title": "One \"app\" (logql -\u003e {app=X})"
+        },
+        "master": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "All master worker lines from a pipeline"
+        },
+        "storage": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "All storage container lines from a pipeline"
+        },
+        "user": {
+          "$ref": "#/definitions/logsUserLogQuery",
+          "title": "All worker lines from a pipeline/job"
+        }
+      }
+    },
+    "logsGetLogsRequest": {
+      "type": "object",
+      "properties": {
+        "query": {
+          "$ref": "#/definitions/logsLogQuery"
+        },
+        "filter": {
+          "$ref": "#/definitions/logsLogFilter"
+        },
+        "tail": {
+          "type": "boolean"
+        },
+        "wantPagingHint": {
+          "type": "boolean"
+        },
+        "logFormat": {
+          "$ref": "#/definitions/logsLogFormat"
+        }
+      }
+    },
+    "logsGetLogsResponse": {
+      "type": "object",
+      "properties": {
+        "pagingHint": {
+          "$ref": "#/definitions/logsPagingHint"
+        },
+        "log": {
+          "$ref": "#/definitions/logsLogMessage"
+        }
+      }
+    },
+    "logsLogFilter": {
+      "type": "object",
+      "properties": {
+        "timeRange": {
+          "$ref": "#/definitions/logsTimeRangeLogFilter"
+        },
+        "limit": {
+          "type": "string",
+          "format": "uint64"
+        },
+        "regex": {
+          "$ref": "#/definitions/logsRegexLogFilter"
+        },
+        "level": {
+          "$ref": "#/definitions/logsLogLevel",
+          "title": "Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior"
+        }
+      }
+    },
+    "logsLogFormat": {
+      "type": "string",
+      "enum": [
+        "LOG_FORMAT_UNKNOWN",
+        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+        "LOG_FORMAT_PARSED_JSON",
+        "LOG_FORMAT_PPS_LOGMESSAGE"
+      ],
+      "default": "LOG_FORMAT_UNKNOWN",
+      "title": "- LOG_FORMAT_UNKNOWN: error"
+    },
+    "logsLogLevel": {
+      "type": "string",
+      "enum": [
+        "LOG_LEVEL_DEBUG",
+        "LOG_LEVEL_INFO",
+        "LOG_LEVEL_ERROR"
+      ],
+      "default": "LOG_LEVEL_DEBUG"
+    },
+    "logsLogMessage": {
+      "type": "object",
+      "properties": {
+        "verbatim": {
+          "$ref": "#/definitions/logsVerbatimLogMessage"
+        },
+        "json": {
+          "$ref": "#/definitions/logsParsedJSONLogMessage"
+        },
+        "ppsLogMessage": {
+          "$ref": "#/definitions/pps_v2LogMessage"
+        }
+      }
+    },
+    "logsLogQuery": {
+      "type": "object",
+      "properties": {
+        "user": {
+          "$ref": "#/definitions/logsUserLogQuery"
+        },
+        "admin": {
+          "$ref": "#/definitions/logsAdminLogQuery"
+        }
+      }
+    },
+    "logsPagingHint": {
+      "type": "object",
+      "properties": {
+        "older": {
+          "$ref": "#/definitions/logsGetLogsRequest"
+        },
+        "newer": {
+          "$ref": "#/definitions/logsGetLogsRequest"
+        }
+      }
+    },
+    "logsParsedJSONLogMessage": {
+      "type": "object",
+      "properties": {
+        "verbatim": {
+          "$ref": "#/definitions/logsVerbatimLogMessage",
+          "title": "The verbatim line from Loki"
+        },
+        "object": {
+          "type": "object",
+          "title": "A raw JSON parse of the entire line"
+        },
+        "nativeTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "title": "If a parseable timestamp was found in `fields`"
+        },
+        "ppsLogMessage": {
+          "$ref": "#/definitions/pps_v2LogMessage",
+          "title": "For code that wants to filter on pipeline/job/etc"
+        }
+      }
+    },
+    "logsPipelineJobLogQuery": {
+      "type": "object",
+      "properties": {
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery"
+        },
+        "job": {
+          "type": "string"
+        }
+      }
+    },
+    "logsPipelineLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string"
+        },
+        "pipeline": {
+          "type": "string"
+        }
+      }
+    },
+    "logsPodContainer": {
+      "type": "object",
+      "properties": {
+        "pod": {
+          "type": "string"
+        },
+        "container": {
+          "type": "string"
+        }
+      }
+    },
+    "logsRegexLogFilter": {
+      "type": "object",
+      "properties": {
+        "pattern": {
+          "type": "string"
+        },
+        "negate": {
+          "type": "boolean"
+        }
+      }
+    },
+    "logsTimeRangeLogFilter": {
+      "type": "object",
+      "properties": {
+        "from": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Can be null"
+        },
+        "until": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Can be null"
+        }
+      }
+    },
+    "logsUserLogQuery": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "title": "All pipelines in the project"
+        },
+        "pipeline": {
+          "$ref": "#/definitions/logsPipelineLogQuery",
+          "title": "One pipeline in a project"
+        },
+        "datum": {
+          "type": "string",
+          "description": "One datum."
+        },
+        "job": {
+          "type": "string",
+          "title": "One job, across pipelines and projects"
+        },
+        "pipelineJob": {
+          "$ref": "#/definitions/logsPipelineJobLogQuery",
+          "title": "One job in one pipeline"
+        }
+      },
+      "title": "Only returns \"user\" logs"
+    },
+    "logsVerbatimLogMessage": {
+      "type": "object",
+      "properties": {
+        "line": {
+          "type": "string",
+          "format": "byte"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
         }
       }
     },

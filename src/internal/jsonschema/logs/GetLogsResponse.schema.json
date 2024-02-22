@@ -1,0 +1,479 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetLogsResponse",
+    "definitions": {
+        "GetLogsResponse": {
+            "properties": {
+                "pagingHint": {
+                    "$ref": "#/definitions/logs.PagingHint",
+                    "additionalProperties": false
+                },
+                "log": {
+                    "$ref": "#/definitions/logs.LogMessage",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "paging_hint"
+                    ]
+                },
+                {
+                    "required": [
+                        "log"
+                    ]
+                }
+            ],
+            "title": "Get Logs Response"
+        },
+        "logs.AdminLogQuery": {
+            "properties": {
+                "logql": {
+                    "type": "string",
+                    "description": "Arbitrary LogQL query"
+                },
+                "pod": {
+                    "type": "string",
+                    "description": "A pod's logs (all containers)"
+                },
+                "podContainer": {
+                    "$ref": "#/definitions/logs.PodContainer",
+                    "additionalProperties": false,
+                    "description": "One container"
+                },
+                "app": {
+                    "type": "string",
+                    "description": "One \"app\" (logql -\u003e {app=X})"
+                },
+                "master": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "All master worker lines from a pipeline"
+                },
+                "storage": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "All storage container lines from a pipeline"
+                },
+                "user": {
+                    "$ref": "#/definitions/logs.UserLogQuery",
+                    "additionalProperties": false,
+                    "description": "All worker lines from a pipeline/job"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "logql"
+                    ]
+                },
+                {
+                    "required": [
+                        "pod"
+                    ]
+                },
+                {
+                    "required": [
+                        "pod_container"
+                    ]
+                },
+                {
+                    "required": [
+                        "app"
+                    ]
+                },
+                {
+                    "required": [
+                        "master"
+                    ]
+                },
+                {
+                    "required": [
+                        "storage"
+                    ]
+                },
+                {
+                    "required": [
+                        "user"
+                    ]
+                }
+            ],
+            "title": "Admin Log Query"
+        },
+        "logs.GetLogsRequest": {
+            "properties": {
+                "query": {
+                    "$ref": "#/definitions/logs.LogQuery",
+                    "additionalProperties": false
+                },
+                "filter": {
+                    "$ref": "#/definitions/logs.LogFilter",
+                    "additionalProperties": false
+                },
+                "tail": {
+                    "type": "boolean"
+                },
+                "wantPagingHint": {
+                    "type": "boolean"
+                },
+                "logFormat": {
+                    "enum": [
+                        "LOG_FORMAT_UNKNOWN",
+                        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+                        "LOG_FORMAT_PARSED_JSON",
+                        "LOG_FORMAT_PPS_LOGMESSAGE"
+                    ],
+                    "type": "string",
+                    "title": "Log Format"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Logs Request"
+        },
+        "logs.LogFilter": {
+            "properties": {
+                "timeRange": {
+                    "$ref": "#/definitions/logs.TimeRangeLogFilter",
+                    "additionalProperties": false
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "regex": {
+                    "$ref": "#/definitions/logs.RegexLogFilter",
+                    "additionalProperties": false
+                },
+                "level": {
+                    "enum": [
+                        "LOG_LEVEL_DEBUG",
+                        "LOG_LEVEL_INFO",
+                        "LOG_LEVEL_ERROR"
+                    ],
+                    "type": "string",
+                    "title": "Log Level"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Log Filter"
+        },
+        "logs.LogMessage": {
+            "properties": {
+                "verbatim": {
+                    "$ref": "#/definitions/logs.VerbatimLogMessage",
+                    "additionalProperties": false
+                },
+                "json": {
+                    "$ref": "#/definitions/logs.ParsedJSONLogMessage",
+                    "additionalProperties": false
+                },
+                "ppsLogMessage": {
+                    "$ref": "#/definitions/pps_v2.LogMessage",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "verbatim"
+                    ]
+                },
+                {
+                    "required": [
+                        "json"
+                    ]
+                },
+                {
+                    "required": [
+                        "pps_log_message"
+                    ]
+                }
+            ],
+            "title": "Log Message"
+        },
+        "logs.LogQuery": {
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/logs.UserLogQuery",
+                    "additionalProperties": false
+                },
+                "admin": {
+                    "$ref": "#/definitions/logs.AdminLogQuery",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "user"
+                    ]
+                },
+                {
+                    "required": [
+                        "admin"
+                    ]
+                }
+            ],
+            "title": "Log Query"
+        },
+        "logs.PagingHint": {
+            "properties": {
+                "older": {
+                    "$ref": "#/definitions/logs.GetLogsRequest",
+                    "additionalProperties": false
+                },
+                "newer": {
+                    "$ref": "#/definitions/logs.GetLogsRequest",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Paging Hint"
+        },
+        "logs.ParsedJSONLogMessage": {
+            "properties": {
+                "verbatim": {
+                    "$ref": "#/definitions/logs.VerbatimLogMessage",
+                    "additionalProperties": false,
+                    "description": "The verbatim line from Loki"
+                },
+                "object": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "description": "A raw JSON parse of the entire line"
+                },
+                "nativeTimestamp": {
+                    "type": "string",
+                    "description": "If a parseable timestamp was found in `fields`",
+                    "format": "date-time"
+                },
+                "ppsLogMessage": {
+                    "$ref": "#/definitions/pps_v2.LogMessage",
+                    "additionalProperties": false,
+                    "description": "For code that wants to filter on pipeline/job/etc"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Parsed JSON Log Message"
+        },
+        "logs.PipelineJobLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false
+                },
+                "job": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Job Log Query"
+        },
+        "logs.PipelineLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "pipeline": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Log Query"
+        },
+        "logs.PodContainer": {
+            "properties": {
+                "pod": {
+                    "type": "string"
+                },
+                "container": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pod Container"
+        },
+        "logs.RegexLogFilter": {
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "negate": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Regex Log Filter"
+        },
+        "logs.TimeRangeLogFilter": {
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                },
+                "until": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Time Range Log Filter"
+        },
+        "logs.UserLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "All pipelines in the project"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "One pipeline in a project"
+                },
+                "datum": {
+                    "type": "string",
+                    "description": "One datum."
+                },
+                "job": {
+                    "type": "string",
+                    "description": "One job, across pipelines and projects"
+                },
+                "pipelineJob": {
+                    "$ref": "#/definitions/logs.PipelineJobLogQuery",
+                    "additionalProperties": false,
+                    "description": "One job in one pipeline"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "project"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
+                    ]
+                },
+                {
+                    "required": [
+                        "datum"
+                    ]
+                },
+                {
+                    "required": [
+                        "job"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline_job"
+                    ]
+                }
+            ],
+            "title": "User Log Query",
+            "description": "Only returns \"user\" logs"
+        },
+        "logs.VerbatimLogMessage": {
+            "properties": {
+                "line": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Verbatim Log Message"
+        },
+        "pps_v2.InputFile": {
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "This file's absolute path within its pfs repo."
+                },
+                "hash": {
+                    "type": "string",
+                    "description": "This file's hash",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Input File"
+        },
+        "pps_v2.LogMessage": {
+            "properties": {
+                "projectName": {
+                    "type": "string",
+                    "description": "The job and pipeline for which a PFS file is being processed (if the job is an orphan job, pipeline name and ID will be unset)"
+                },
+                "pipelineName": {
+                    "type": "string"
+                },
+                "jobId": {
+                    "type": "string"
+                },
+                "workerId": {
+                    "type": "string"
+                },
+                "datumId": {
+                    "type": "string"
+                },
+                "master": {
+                    "type": "boolean"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.InputFile"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "The PFS files being processed (one per pipeline/job input)"
+                },
+                "user": {
+                    "type": "boolean",
+                    "description": "User is true if log message comes from the users code."
+                },
+                "ts": {
+                    "type": "string",
+                    "description": "The message logged, and the time at which it was logged",
+                    "format": "date-time"
+                },
+                "message": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Log Message",
+            "description": "LogMessage is a log line from a PPS worker, annotated with metadata indicating when and why the line was logged."
+        }
+    }
+}
