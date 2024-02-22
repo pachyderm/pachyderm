@@ -35,12 +35,6 @@ const (
 	dirty                  // we have full content for this file and the user has written to it
 )
 
-func (l *loopbackRoot) setState(mountName, state string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.stateMap[mountName] = state
-}
-
 func (l *loopbackRoot) getState(mountName string) string {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -603,7 +597,7 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	// don't download while we're anything other than mounted
 	// TODO: we probably want some more locking/coordination (in the other
 	// direction) to stop the state machine changing state _during_ a download()
-	// NB: empty string case is to support pachctl mount as well as mount-server
+	// NB: empty string case is to support pachctl mount
 	if !(st == "" || st == "mounted") {
 		log.Info(pctx.TODO(), "Skipping download because of state", zap.String("origPath", origPath), zap.String("name", name), zap.String("state", st), zap.Int32("getFileState(origPath)", int32(n.getFileState(origPath))), zap.Int32("state", int32(state)))
 		// return an error to stop an empty directory listing being cached by

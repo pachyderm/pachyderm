@@ -1,0 +1,149 @@
+syntax = "proto3";
+
+package logs;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/logs";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
+import "pps/pps.proto";
+
+message LogQuery {
+  oneof query_type {
+    UserLogQuery user = 1;
+    AdminLogQuery admin = 2;
+  }
+}
+
+message AdminLogQuery {
+  oneof admin_type {
+    // Arbitrary LogQL query
+    string logql = 1;
+    // A pod's logs (all containers)
+    string pod = 2;
+    // One container
+    PodContainer pod_container = 3;
+    // One "app" (logql -> {app=X})
+    string app = 4;
+    // All master worker lines from a pipeline
+    PipelineLogQuery master = 5;
+    // All storage container lines from a pipeline
+    PipelineLogQuery storage = 6;
+    // All worker lines from a pipeline/job
+    UserLogQuery user = 7;
+  }
+}
+
+message PodContainer {
+  string pod = 1;
+  string container = 2;
+}
+
+enum LogLevel {
+  LOG_LEVEL_DEBUG = 0;
+  LOG_LEVEL_INFO = 1;
+  LOG_LEVEL_ERROR = 2;
+}
+
+// Only returns "user" logs
+message UserLogQuery {
+  oneof user_type {
+    // All pipelines in the project
+    string project = 1;
+    // One pipeline in a project
+    PipelineLogQuery pipeline = 2;
+    // One datum.
+    string datum = 3;
+    // One job, across pipelines and projects
+    string job = 4;
+    // One job in one pipeline
+    PipelineJobLogQuery pipeline_job = 5;
+  }
+}
+
+message PipelineLogQuery {
+  string project = 1;
+  string pipeline = 2;
+}
+
+message PipelineJobLogQuery {
+  PipelineLogQuery pipeline = 1;
+  string job = 2;
+}
+
+message LogFilter {
+  TimeRangeLogFilter time_range = 1;
+  uint64 limit = 2;
+  RegexLogFilter regex = 3;
+  // Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior
+  LogLevel level = 4;
+}
+
+message TimeRangeLogFilter {
+  // Can be null
+  google.protobuf.Timestamp from = 1;
+  // Can be null
+  google.protobuf.Timestamp until = 2;
+}
+
+message RegexLogFilter {
+  string pattern = 1;
+  bool negate = 2;
+}
+
+enum LogFormat {
+  // error
+  LOG_FORMAT_UNKNOWN = 0;
+  LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = 1;
+  LOG_FORMAT_PARSED_JSON = 2;
+  LOG_FORMAT_PPS_LOGMESSAGE = 3;
+}
+
+message GetLogsRequest {
+  LogQuery query = 1;
+  LogFilter filter = 2;
+  bool tail = 3;
+  bool want_paging_hint = 4;
+  LogFormat log_format = 5;
+}
+
+message GetLogsResponse {
+  oneof response_type {
+    PagingHint paging_hint = 1;
+    LogMessage log = 2;
+  }
+}
+
+message PagingHint {
+  GetLogsRequest older = 1;
+  GetLogsRequest newer = 2;
+}
+
+message LogMessage {
+  oneof log_type {
+    VerbatimLogMessage verbatim = 1;
+    ParsedJSONLogMessage json = 2;
+    pps_v2.LogMessage pps_log_message = 3;
+  }
+}
+
+message VerbatimLogMessage {
+  bytes line = 1;
+  google.protobuf.Timestamp timestamp = 2;
+}
+
+message ParsedJSONLogMessage {
+  // The verbatim line from Loki
+  VerbatimLogMessage verbatim = 1;
+  // A raw JSON parse of the entire line
+  google.protobuf.Struct object = 2;
+  // If a parseable timestamp was found in `fields`
+  google.protobuf.Timestamp native_timestamp = 3;
+  // For code that wants to filter on pipeline/job/etc
+  pps_v2.LogMessage pps_log_message = 4;
+}
+
+
+service API {
+  rpc GetLogs(GetLogsRequest) returns (stream GetLogsResponse) {}
+}
