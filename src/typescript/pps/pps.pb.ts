@@ -81,6 +81,10 @@ export enum PipelineInfoPipelineType {
   PIPELINE_TYPE_SERVICE = "PIPELINE_TYPE_SERVICE",
 }
 
+export enum PipelinePageOrdering {
+  PROJECT_PIPELINE = "PROJECT_PIPELINE",
+}
+
 export type SecretMount = {
   name?: string
   key?: string
@@ -582,6 +586,13 @@ export type ListPipelineRequest = {
   jqFilter?: string
   commitSet?: Pfs_v2Pfs.CommitSet
   projects?: Pfs_v2Pfs.Project[]
+  page?: PipelinePage
+}
+
+export type PipelinePage = {
+  order?: PipelinePageOrdering
+  pageSize?: string
+  pageIndex?: string
 }
 
 export type DeletePipelineRequest = {

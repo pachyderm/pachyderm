@@ -16257,6 +16257,19 @@
           ]
         },
         {
+          "name": "Ordering",
+          "longName": "PipelinePage.Ordering",
+          "fullName": "pps_v2.PipelinePage.Ordering",
+          "description": "",
+          "values": [
+            {
+              "name": "PROJECT_PIPELINE",
+              "number": "0",
+              "description": ""
+            }
+          ]
+        },
+        {
           "name": "PipelineState",
           "longName": "PipelineState",
           "fullName": "pps_v2.PipelineState",
@@ -19458,6 +19471,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "page",
+              "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned.",
+              "label": "",
+              "type": "PipelinePage",
+              "longType": "PipelinePage",
+              "fullType": "pps_v2.PipelinePage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -20638,6 +20663,54 @@
               "type": "PipelineInfo",
               "longType": "PipelineInfo",
               "fullType": "pps_v2.PipelineInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinePage",
+          "longName": "PipelinePage",
+          "fullName": "pps_v2.PipelinePage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "order",
+              "description": "",
+              "label": "",
+              "type": "Ordering",
+              "longType": "PipelinePage.Ordering",
+              "fullType": "pps_v2.PipelinePage.Ordering",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_size",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

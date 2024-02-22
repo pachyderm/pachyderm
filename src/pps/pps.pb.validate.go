@@ -8949,6 +8949,35 @@ func (m *ListPipelineRequest) validate(all bool) error {
 
 	}
 
+	if all {
+		switch v := interface{}(m.GetPage()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ListPipelineRequestValidationError{
+					field:  "Page",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ListPipelineRequestValidationError{
+					field:  "Page",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetPage()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ListPipelineRequestValidationError{
+				field:  "Page",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	if len(errors) > 0 {
 		return ListPipelineRequestMultiError(errors)
 	}
@@ -9028,6 +9057,111 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = ListPipelineRequestValidationError{}
+
+// Validate checks the field values on PipelinePage with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *PipelinePage) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on PipelinePage with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in PipelinePageMultiError, or
+// nil if none found.
+func (m *PipelinePage) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *PipelinePage) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Order
+
+	// no validation rules for PageSize
+
+	// no validation rules for PageIndex
+
+	if len(errors) > 0 {
+		return PipelinePageMultiError(errors)
+	}
+
+	return nil
+}
+
+// PipelinePageMultiError is an error wrapping multiple validation errors
+// returned by PipelinePage.ValidateAll() if the designated constraints aren't met.
+type PipelinePageMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m PipelinePageMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m PipelinePageMultiError) AllErrors() []error { return m }
+
+// PipelinePageValidationError is the validation error returned by
+// PipelinePage.Validate if the designated constraints aren't met.
+type PipelinePageValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e PipelinePageValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e PipelinePageValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e PipelinePageValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e PipelinePageValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e PipelinePageValidationError) ErrorName() string { return "PipelinePageValidationError" }
+
+// Error satisfies the builtin error interface
+func (e PipelinePageValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sPipelinePage.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = PipelinePageValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = PipelinePageValidationError{}
 
 // Validate checks the field values on DeletePipelineRequest with the rules
 // defined in the proto definition for this message. If any rules are

@@ -138,6 +138,10 @@ class PipelineInfoPipelineType(betterproto.Enum):
     PIPELINE_TYPE_SERVICE = 3
 
 
+class PipelinePageOrdering(betterproto.Enum):
+    PROJECT_PIPELINE = 0
+
+
 @dataclass(eq=False, repr=False)
 class SecretMount(betterproto.Message):
     name: str = betterproto.string_field(1)
@@ -1037,12 +1041,25 @@ class ListPipelineRequest(betterproto.Message):
     Projects to filter on. Empty list means no filter, so return all pipelines.
     """
 
+    page: "PipelinePage" = betterproto.message_field(7)
+    """
+    Page indicates which page of a certain size to return. If page is left
+    empty, all of the selected pipelines will be returned.
+    """
+
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("details"):
             warnings.warn(
                 "ListPipelineRequest.details is deprecated", DeprecationWarning
             )
+
+
+@dataclass(eq=False, repr=False)
+class PipelinePage(betterproto.Message):
+    order: "PipelinePageOrdering" = betterproto.enum_field(1)
+    page_size: int = betterproto.int64_field(2)
+    page_index: int = betterproto.int64_field(3)
 
 
 @dataclass(eq=False, repr=False)
@@ -1828,7 +1845,8 @@ class ApiStub:
         details: bool = False,
         jq_filter: str = "",
         commit_set: "_pfs__.CommitSet" = None,
-        projects: Optional[List["_pfs__.Project"]] = None
+        projects: Optional[List["_pfs__.Project"]] = None,
+        page: "PipelinePage" = None
     ) -> Iterator["PipelineInfo"]:
         projects = projects or []
 
@@ -1842,6 +1860,8 @@ class ApiStub:
             request.commit_set = commit_set
         if projects is not None:
             request.projects = projects
+        if page is not None:
+            request.page = page
 
         for response in self.__rpc_list_pipeline(request):
             yield response
