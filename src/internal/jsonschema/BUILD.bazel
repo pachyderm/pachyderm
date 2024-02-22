@@ -479,7 +479,6 @@ go_library(
         "logs/LogQuery.schema.json",
         "logs/PagingHint.schema.json",
         "logs/ParsedJSONLogMessage.schema.json",
-        "logs/PipelineDatumLogQuery.schema.json",
         "logs/PipelineJobLogQuery.schema.json",
         "logs/PipelineLogQuery.schema.json",
         "logs/PodContainer.schema.json",
