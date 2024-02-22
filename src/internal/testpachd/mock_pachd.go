@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/middleware/validation"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -2051,6 +2052,29 @@ func (api *proxyServerAPI) Listen(req *proxy.ListenRequest, srv proxy.API_Listen
 	return errors.Errorf("unhandled pachd mock proxy.Listen")
 }
 
+/* Logs Server Mocks */
+
+type logs_GetLogsFunc func(*logs.GetLogsRequest, logs.API_GetLogsServer) error
+type mockLogsGetLogs struct{ handler logs_GetLogsFunc }
+
+func (mock *mockLogsGetLogs) Use(cb logs_GetLogsFunc) { mock.handler = cb }
+
+type logsServerAPI struct {
+	logs.UnsafeAPIServer
+	mock *mockLogsServer
+}
+type mockLogsServer struct {
+	api     logsServerAPI
+	GetLogs mockLogsGetLogs
+}
+
+func (api *logsServerAPI) GetLogs(req *logs.GetLogsRequest, srv logs.API_GetLogsServer) error {
+	if api.mock.GetLogs.handler != nil {
+		return api.mock.GetLogs.handler(req, srv)
+	}
+	return errors.Errorf("unhandled pachd mock logs.GetLogs")
+}
+
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -2072,6 +2096,7 @@ type MockPachd struct {
 	Version       mockVersionServer
 	Admin         mockAdminServer
 	Proxy         mockProxyServer
+	Logs          mockLogsServer
 }
 
 type InterceptorOption func(mock *MockPachd) grpcutil.Interceptor
@@ -2104,6 +2129,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	mock.Version.api.mock = &mock.Version
 	mock.Admin.api.mock = &mock.Admin
 	mock.Proxy.api.mock = &mock.Proxy
+	mock.Logs.api.mock = &mock.Logs
 	mock.Identity.api.mock = &mock.Identity
 	mock.GetAuthServer = func() authserver.APIServer {
 		return &mock.Auth.api
@@ -2170,6 +2196,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)
 	proxy.RegisterAPIServer(server.Server, &mock.Proxy.api)
+	logs.RegisterAPIServer(server.Server, &mock.Logs.api)
 	license.RegisterAPIServer(server.Server, &mock.License.api)
 	identity.RegisterAPIServer(server.Server, &mock.Identity.api)
 

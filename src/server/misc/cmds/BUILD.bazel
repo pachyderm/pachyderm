@@ -30,6 +30,7 @@ go_library(
         "//src/internal/promutil",
         "//src/internal/signals",
         "//src/license",
+        "//src/logs",
         "//src/pfs",
         "//src/pps",
         "//src/proxy",
