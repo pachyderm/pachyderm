@@ -10,9 +10,6 @@ import {MOUNT_BROWSER_PREFIX} from './mount';
 
 // How many Content li are visible at a given time for the user to scroll.
 const VISIBLE_CONTENT_LI_COUNT = 500;
-// How many visible Content li that are padded on the top and bottom of the core set of visible Content li.
-// This padding enables the user to scroll while the Contents index changes.
-const VISIBLE_CONTENT_LI_PADDING = 200;
 // How many items to request per page.
 const PAGINATION_NUMBER = 1000;
 // An empty default representation of directory.
@@ -59,8 +56,6 @@ export class MountDrive implements Contents.IDrive {
   private _previousFilter: string | null;
   // The index determining which set of cached Contents is visible to the user. Changed by scrolling the Contents DOM node.
   private _index: number;
-  // Previous scroll position of the Contents DOM node as of the previous user scroll event.
-  private _previousScrollTop: number;
   // True if the FileBrowser contents scrolling event listener has been setup, false if not. Avoids setting up multiple
   // scroll event listeners.
   private _hasScrollEventListener: boolean;
@@ -86,7 +81,6 @@ export class MountDrive implements Contents.IDrive {
     this._rerenderFileBrowser = _rerenderFileBrowser;
     this._previousFilter = null;
     this._index = 0;
-    this._previousScrollTop = 0;
     this._hasScrollEventListener = false;
   }
 
@@ -115,6 +109,8 @@ export class MountDrive implements Contents.IDrive {
     localPath: string,
     options?: Contents.IFetchOptions,
   ): Promise<Contents.IModel> {
+    this.setupScrollingHandler();
+
     const url = URLExt.join(this._path, localPath);
 
     // If we have cached content return that
@@ -134,14 +130,18 @@ export class MountDrive implements Contents.IDrive {
     }
     const content = options?.content ? '1' : '0';
     if (content === '0') {
+      this._loading.emit(false);
       return shallowResponse;
     }
 
     if (shallowResponse.type !== 'directory') {
+      this._loading.emit(false);
       return await this._get(url, {...options, content});
     }
 
     // If we don't have contents cached, then we fetch them and cache the results.
+    this.resetContentsNode();
+    this._loading.emit(false);
     const now = Date.now();
     this._cache = {
       key: localPath,
@@ -150,18 +150,13 @@ export class MountDrive implements Contents.IDrive {
       filteredContents: [],
       shallowResponse,
     };
-    this._loading.emit(true);
     const getOptions = {
       ...options,
       number: PAGINATION_NUMBER,
       content,
     };
-    const response = await this._get(url, getOptions);
-    this._cache.contents = response.content;
-    this.filterContents();
-    this.resetContentsNode();
-    this._loading.emit(false);
-    this._fetchNextPage(response, now, url, getOptions);
+    this._loading.emit(true);
+    await this._fetchNextPage(null, now, url, getOptions);
     return this._getCachedContent();
   }
 
@@ -215,54 +210,89 @@ export class MountDrive implements Contents.IDrive {
     }
     this._previousFilter = newFilter;
 
-    this.setupScrollingHandler();
-
-    const {start} = this.getContentsStart();
-    const {end} = this.getContentsEnd();
     return {
       ...this._cache.shallowResponse,
-      content: this._cache.filteredContents.slice(start, end),
+      content: this._cache.filteredContents.slice(
+        this._index,
+        this._index + VISIBLE_CONTENT_LI_COUNT,
+      ),
     };
   }
 
-  private _fetchNextPage(
-    previousResponse: Contents.IModel,
+  private async _fetchNextPage(
+    previousResponse: Contents.IModel | null,
     timeOfLastDirectoryChange: number,
     url: string,
     getOptions: PartialJSONObject,
-  ): void {
+  ): Promise<void> {
+    const nextResponseParams = {
+      ...getOptions,
+    };
+    if (previousResponse) {
+      nextResponseParams.pagination_marker =
+        previousResponse.content.slice(-1)[0].file_uri;
+    }
+    const nextResponse: Contents.IModel = await this._get(
+      url,
+      nextResponseParams,
+    );
+
+    // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
+    // cache with results after the user has changed directories.
+    if (this._cache.now !== timeOfLastDirectoryChange) {
+      this._loading.emit(false);
+      return;
+    }
+
+    // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
+    // It will just add new pages and update the page selector without disrupting the user.
+    this._cache.contents = this._cache.contents.concat(nextResponse.content);
+    this.filterContents();
+    if (previousResponse) {
+      await this.updateScrollPosition();
+    }
+
     // Stop fetching pages if we recieve a page less than expected file count of a page
-    if (previousResponse?.content?.length < PAGINATION_NUMBER) {
+    if (nextResponse?.content?.length < PAGINATION_NUMBER) {
+      this._loading.emit(false);
       return;
     }
 
     // Invoking an async function without awaiting it lets us start the process of fetching the next pages in the background while
     // continuing to render the the first page.
-    (async () => {
-      const nextResponse: Contents.IModel = await this._get(url, {
-        ...getOptions,
-        pagination_marker: previousResponse.content.slice(-1)[0].file_uri,
-      });
+    this._fetchNextPage(
+      nextResponse,
+      timeOfLastDirectoryChange,
+      url,
+      getOptions,
+    ).catch((e) => {
+      showErrorMessage('Failed Fetching Next Results', e);
+    });
+  }
 
-      // Check to make sure that the time of the last actual directory change matches what is in the cache to prevent accidentally updating the
-      // cache with results after the user has changed directories.
-      if (this._cache.now !== timeOfLastDirectoryChange) {
-        return;
-      }
+  private async updateScrollPosition(): Promise<void> {
+    const contentsNode = this.getContentsNode();
+    if (!contentsNode) {
+      return;
+    }
 
-      // Update the cache contents and refresh the FileBrowser. Note this will not cause any changes in the current scroll position or file selection.
-      // It will just add new pages and update the page selector without disrupting the user.
-      this._cache.contents = this._cache.contents.concat(nextResponse.content);
-      this.filterContents();
+    if (contentsNode.scrollHeight === 0) {
+      return;
+    }
 
-      // Trigger a change directory event without a path change to force re-render the FileBrowser, then fetch the next page of results async.
-      this._fetchNextPage(
-        nextResponse,
-        timeOfLastDirectoryChange,
-        url,
-        getOptions,
-      );
-    })();
+    const scrolledToBottom =
+      Math.abs(
+        contentsNode.scrollHeight -
+          contentsNode.scrollTop -
+          contentsNode.clientHeight,
+      ) < 1;
+    if (!scrolledToBottom) {
+      return;
+    }
+    const indexPercent = this._index / this._cache.filteredContents.length;
+    contentsNode.scrollTop = contentsNode.scrollHeight * indexPercent;
+
+    await this._rerenderFileBrowser();
   }
 
   // Gets the user defined file name filter from the JupyterLab FilterBox.
@@ -298,29 +328,6 @@ export class MountDrive implements Contents.IDrive {
         });
   }
 
-  // Gets the visible cached Contents start for slicing. atMin is true if the _index can no longer be decremented.
-  private getContentsStart(): {start: number; atMin: boolean} {
-    let start = (this._index - 1) * VISIBLE_CONTENT_LI_PADDING;
-    let atMin = false;
-    if (start < 0) {
-      start = 0;
-      atMin = true;
-    }
-    return {start, atMin};
-  }
-
-  // Gets the visible cached Contents end for slicing. atMax is true if the _index can no longer be incremented.
-  private getContentsEnd(): {end: number; atMax: boolean} {
-    let end =
-      VISIBLE_CONTENT_LI_COUNT + (this._index + 1) * VISIBLE_CONTENT_LI_PADDING;
-    let atMax = false;
-    if (end > this._cache.filteredContents.length) {
-      end = this._cache.filteredContents.length;
-      atMax = true;
-    }
-    return {end, atMax};
-  }
-
   // Sets up the Contents scroll event listener necessary for infinite scroll pagination. Uses _hasScrollEventListener to ensure
   // the event listener is only setup once.
   private setupScrollingHandler(): void {
@@ -334,55 +341,20 @@ export class MountDrive implements Contents.IDrive {
     }
 
     this._hasScrollEventListener = true;
-    let ignoreNextScroll = false;
     contentsNode.addEventListener('scroll', () => {
-      const scrollTop = contentsNode.scrollTop;
-      const scrollDiff = scrollTop - this._previousScrollTop;
-      this._previousScrollTop = scrollTop;
-
-      const scrollHeight = contentsNode.scrollHeight;
-      const scrollNextHeight = Math.round(scrollHeight * 0.8);
-      const scrollPrevHeight = Math.round(scrollHeight * 0.2);
-
-      const contentsListItemNode: HTMLStyleElement = contentsNode
-        .childNodes[0] as any;
-      const contentsListItemHeight = contentsListItemNode.clientHeight;
-
-      // Only the user scrolling to the upper or lower bound should trigger a change in index, not
-      // scrolls initiated by this JS client.
-      if (ignoreNextScroll) {
-        return;
+      const indexPercent = contentsNode.scrollTop / contentsNode.scrollHeight;
+      // Prevent scrolling the index past the upper limit of visible content li nodes
+      let index = Math.round(
+        indexPercent * this._cache.filteredContents.length,
+      );
+      if (
+        index + VISIBLE_CONTENT_LI_COUNT >
+        this._cache.filteredContents.length
+      ) {
+        index = this._cache.filteredContents.length - VISIBLE_CONTENT_LI_COUNT;
       }
-
-      // When the user scrolls to the upper 20% of the Contents DOM node we decrement the index,
-      // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
-      // with each index change.
-      const {atMin} = this.getContentsStart();
-      if (scrollTop < scrollPrevHeight && scrollDiff < 0 && !atMin) {
-        ignoreNextScroll = true;
-        this._index -= 1;
-        this._rerenderFileBrowser().then(() => {
-          this._previousScrollTop +=
-            VISIBLE_CONTENT_LI_PADDING * contentsListItemHeight;
-          contentsNode.scrollTop = this._previousScrollTop;
-          ignoreNextScroll = false;
-        });
-      }
-
-      // When the user scrolls to the lower 80% of the Contents DOM node we increment the index,
-      // rerender the FileBrowser, and offset the scrollTop by how many Contents become change visibility
-      // with each index change.
-      const {atMax} = this.getContentsEnd();
-      if (scrollTop > scrollNextHeight && scrollDiff > 0 && !atMax) {
-        ignoreNextScroll = true;
-        this._index += 1;
-        this._rerenderFileBrowser().then(() => {
-          this._previousScrollTop -=
-            VISIBLE_CONTENT_LI_PADDING * contentsListItemHeight;
-          contentsNode.scrollTop = this._previousScrollTop;
-          ignoreNextScroll = false;
-        });
-      }
+      this._index = index;
+      this._rerenderFileBrowser();
     });
   }
 

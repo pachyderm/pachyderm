@@ -653,14 +653,15 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 		Long:  "This command returns the role bindings for a given repo.",
 		Example: "\t- {{alias}} foo" +
 			"\t- {{alias}} foo --project bar",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(ctx, project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -752,14 +753,15 @@ func GetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 		Use:   "{{alias}} <project>",
 		Short: "Get the role bindings for a project",
 		Long:  "This command returns the role bindings for a given project.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			project := args[0]
-			resp, err := c.GetProjectRoleBinding(project)
+			resp, err := c.GetProjectRoleBinding(ctx, project)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -792,7 +794,7 @@ func SetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -844,7 +846,7 @@ func SetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}

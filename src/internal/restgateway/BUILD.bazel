@@ -14,6 +14,7 @@ go_library(
         "//src/internal/errors",
         "//src/internal/pctx",
         "//src/license",
+        "//src/logs",
         "//src/pfs",
         "//src/pps",
         "//src/proxy",

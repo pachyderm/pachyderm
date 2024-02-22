@@ -132,16 +132,16 @@ func BuildBindings(s ...string) *auth.RoleBinding {
 	return &b
 }
 
-func GetRepoRoleBinding(t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
+func GetRepoRoleBinding(ctx context.Context, t *testing.T, c *client.APIClient, projectName, repoName string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetRepoRoleBinding(projectName, repoName)
+	resp, err := c.GetRepoRoleBinding(ctx, projectName, repoName)
 	require.NoError(t, err)
 	return resp
 }
 
-func GetProjectRoleBinding(t *testing.T, c *client.APIClient, project string) *auth.RoleBinding {
+func GetProjectRoleBinding(ctx context.Context, t *testing.T, c *client.APIClient, project string) *auth.RoleBinding {
 	t.Helper()
-	resp, err := c.GetProjectRoleBinding(project)
+	resp, err := c.GetProjectRoleBinding(ctx, project)
 	require.NoError(t, err)
 	return resp
 }
