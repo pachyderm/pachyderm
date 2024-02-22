@@ -790,6 +790,24 @@ func leaseRenewer(t testing.TB, ctx context.Context, kube *kube.Clientset, initi
 	}
 }
 
+func syncDetPriorityClasses(
+	t testing.TB,
+	ctx context.Context,
+	kubeClient *kube.Clientset,
+	opts *DeployOpts,
+	helmOpts *helm.Options,
+) {
+	if opts.Determined {
+		// PriorityClasses are non-namespaced objects and attempting to recreate them when they were already created
+		// by the same Helm Install in a different namespace will fail to install.
+		// Determined has the createNonNamespacedObjects flag that skips creation of these PriorityClasses.
+		// If we try and fail we should re-check to see if the classes exist, it's possible another test in
+		// another namespace created these objects as we were trying to do the install.
+		opts.ValueOverrides["determined.createNonNamespacedObjects"] = strconv.FormatBool(!determinedPriorityClassesExist(t, ctx, kubeClient))
+		helmOpts.SetValues["determined.createNonNamespacedObjects"] = opts.ValueOverrides["determined.createNonNamespacedObjects"]
+	}
+}
+
 func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient *kube.Clientset, mustUpgrade bool, opts *DeployOpts) *client.APIClient {
 	if opts.CleanupAfter {
 		t.Cleanup(func() {
@@ -885,6 +903,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 		require.NoErrorWithinTRetry(t,
 			time.Minute,
 			func() error {
+				syncDetPriorityClasses(t, ctx, kubeClient, opts, helmOpts)
 				return errors.EnsureStack(helm.UpgradeE(t, helmOpts, chartPath, namespace))
 			})
 		waitForInstallFinished()
@@ -897,14 +916,7 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 				time.Minute,
 				func() error {
 					deleteRelease(t, context.Background(), namespace, kubeClient)
-					if opts.Determined {
-						// PriorityClasses are non-namespaced objects and attempting to recreate them when they were already created
-						// by the same Helm Install in a different namespace will fail to install.
-						// Determined has the createNonNamespacedObjects flag that skips creation of these PriorityClasses.
-						// If we try and fail we should re-check to see if the classes exist, it's possible another test in
-						// another namespace created these objects as we were trying to do the install.
-						helmOpts.SetValues["determined.createNonNamespacedObjects"] = strconv.FormatBool(!determinedPriorityClassesExist(t, ctx, kubeClient))
-					}
+					syncDetPriorityClasses(t, ctx, kubeClient, opts, helmOpts)
 					return errors.EnsureStack(helm.InstallE(t, helmOpts, chartPath, namespace))
 				})
 		}
