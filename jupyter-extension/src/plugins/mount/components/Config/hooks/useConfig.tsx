@@ -40,7 +40,6 @@ export const useConfig = (
     setShouldShowAddressInput(
       ['UNHEALTHY', 'HEALTHY_INVALID_CLUSTER'].includes(healthCheck.status),
     );
-    // setShouldShowAddressInput(true);
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
@@ -65,13 +64,6 @@ export const useConfig = (
               }
             : {pachd_address: tmpAddress},
         );
-
-        // const healthCheck = await requestAPI<HealthCheck>(
-        //   'health',
-        //   'GET',
-        // );
-
-        // setStatus(healthCheck.status);
 
         if (status === 'HEALTHY_INVALID_CLUSTER') {
           setErrorMessage('Invalid address.');

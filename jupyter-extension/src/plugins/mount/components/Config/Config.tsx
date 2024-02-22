@@ -39,9 +39,6 @@ const Config: React.FC<ConfigProps> = ({
   } = useConfig(updateConfig, healthCheck, authConfig, refresh);
   const authEnabled =
     status === 'HEALTHY_LOGGED_IN' || status === 'HEALTHY_LOGGED_OUT';
-  console.log(shouldShowAddressInput);
-  console.log(authConfig.pachd_address);
-  console.log(status);
   return (
     <>
       <div className="pachyderm-mount-config-form-base">

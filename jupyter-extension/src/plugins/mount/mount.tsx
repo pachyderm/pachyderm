@@ -441,23 +441,6 @@ export class MountPlugin implements IMountPlugin {
 
   setup = async (): Promise<void> => {
     await this._poller.refresh();
-
-    // if (this._poller.status.code === 500) {
-    //   await showErrorMessage('Server Error', this._poller.status.message);
-    // } else {
-    //   if (this._poller.status.code === 200) {
-    //     try {
-    //       const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
-    //       if (res['num_datums'] > 0) {
-    //         this._keepMounted = true;
-    //         this._currentDatumInfo = res;
-    //         this.setCurrentView(this._datumScreen);
-    //       }
-    //     } catch (e) {
-    //       console.log(e);
-    //     }
-    //   }
-    // }
     this._loader.setHidden(true);
   };
 
