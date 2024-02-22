@@ -8516,7 +8516,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "title": "type is the type of (system) repos that should be returned\nan empty string requests all repos"
+          "description": "Type is the type of (system) repo that should be returned.\nAn empty string requests all repos."
         },
         "projects": {
           "type": "array",
@@ -8524,11 +8524,11 @@
             "type": "object",
             "$ref": "#/definitions/pfs_v2Project"
           },
-          "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+          "description": "Filters out repos whos project isn't represented.\nAn empty list of projects doesn't filter repos by their project."
         },
         "page": {
           "$ref": "#/definitions/pfs_v2RepoPage",
-          "title": "repo page defines the"
+          "description": "Specifies which page of repos should be returned.\nIf page isn't specified, a single page containing all the relevant repos is returned."
         }
       }
     },

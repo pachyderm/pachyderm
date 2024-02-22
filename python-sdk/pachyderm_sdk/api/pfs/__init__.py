@@ -305,18 +305,21 @@ class InspectRepoRequest(betterproto.Message):
 class ListRepoRequest(betterproto.Message):
     type: str = betterproto.string_field(1)
     """
-    type is the type of (system) repos that should be returned an empty string
-    requests all repos
+    Type is the type of (system) repo that should be returned. An empty string
+    requests all repos.
     """
 
     projects: List["Project"] = betterproto.message_field(2)
     """
-    projects filters out repos that do not belong in the list, while no
-    projects means list all repos.
+    Filters out repos whos project isn't represented. An empty list of projects
+    doesn't filter repos by their project.
     """
 
     page: "RepoPage" = betterproto.message_field(3)
-    """repo page defines the"""
+    """
+    Specifies which page of repos should be returned. If page isn't specified,
+    a single page containing all the relevant repos is returned.
+    """
 
 
 @dataclass(eq=False, repr=False)

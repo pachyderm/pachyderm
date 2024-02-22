@@ -1581,12 +1581,14 @@ type ListRepoRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	// type is the type of (system) repos that should be returned
-	// an empty string requests all repos
+	// Type is the type of (system) repo that should be returned.
+	// An empty string requests all repos.
 	Type string `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
-	// projects filters out repos that do not belong in the list, while no projects means list all repos.
+	// Filters out repos whos project isn't represented.
+	// An empty list of projects doesn't filter repos by their project.
 	Projects []*Project `protobuf:"bytes,2,rep,name=projects,proto3" json:"projects,omitempty"`
-	// repo page defines the
+	// Specifies which page of repos should be returned.
+	// If page isn't specified, a single page containing all the relevant repos is returned.
 	Page *RepoPage `protobuf:"bytes,3,opt,name=page,proto3" json:"page,omitempty"`
 }
 
