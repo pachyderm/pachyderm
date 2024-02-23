@@ -69,12 +69,12 @@ export const readableJobState = (jobState: JobState | string) => {
 export const getVisualJobState = (state?: JobState): JobVisualState => {
   switch (state) {
     case JobState.JOB_SUCCESS:
-    case JobState.JOB_CREATED:
       return 'SUCCESS';
     case JobState.JOB_EGRESSING:
     case JobState.JOB_RUNNING:
     case JobState.JOB_STARTING:
     case JobState.JOB_FINISHING:
+    case JobState.JOB_CREATED:
       return 'RUNNING';
     case JobState.JOB_FAILURE:
     case JobState.JOB_KILLED:
