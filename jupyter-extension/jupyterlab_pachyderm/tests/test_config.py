@@ -19,13 +19,16 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
     assert config_file is not None and not config_file.exists()
 
     # Act
-    response = await http_client.get("/config")
+    config_response = await http_client.get("/config")
+    health_response = await http_client.get("/health")
 
     # Assert
-    response.raise_for_status()
-    payload = response.json()
-    assert payload["cluster_status"] == "UNKNOWN"
-    assert payload["pachd_address"] == ""
+    config_response.raise_for_status()
+    health_response.raise_for_status()
+    config_payload = config_response.json()
+    health_payload = health_response.json()
+    assert health_payload["status"] == "HEALTHY_INVALID_CLUSTER"
+    assert config_payload["pachd_address"] == ""
 
 
 @pytest.mark.no_config
@@ -40,13 +43,16 @@ async def test_do_not_set_invalid_config(app: Application, http_client: AsyncCli
     data = {"pachd_address": invalid_address}
 
     # Act
-    response = await http_client.put("/config", json=data)
+    config_response = await http_client.put("/config", json=data)
+    health_response = await http_client.get("/health")
 
     # Assert
-    response.raise_for_status()
-    payload = response.json()
-    assert payload["cluster_status"] == "INVALID"
-    assert payload["pachd_address"] == invalid_address
+    config_response.raise_for_status()
+    health_response.raise_for_status()
+    config_payload = config_response.json()
+    health_payload = health_response.json()
+    assert health_payload["status"] == "HEALTHY_INVALID_CLUSTER"
+    assert config_payload["pachd_address"] == invalid_address
     assert app.settings.get("pachyderm_client") is None
 
     # Ensure that no config file was created.
@@ -61,15 +67,14 @@ async def test_config(pach_config: Path, http_client: AsyncClient):
 
     payload = {"pachd_address": local_active_context.pachd_address}
     r = await http_client.put("/config", json=payload)
+    health_response = await http_client.get("/health")
 
     config = ConfigFile.from_path(pach_config)
 
     assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
     assert r.json()["pachd_address"] in config.active_context.pachd_address
+    assert health_response.json()["status"] != "HEALTHY_INVALID"
+    assert health_response.json()["status"] != "UNHEALTHY"
 
-    # GET request
     r = await http_client.get("/config")
-
     assert r.status_code == 200, r.text
-    assert r.json()["cluster_status"] != "INVALID"
