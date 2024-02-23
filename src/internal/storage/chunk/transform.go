@@ -184,11 +184,21 @@ func cryptoXOR(key, dst, src []byte) {
 	ciph.XORKeyStream(dst, src)
 }
 
+func readBackVerifyData(id []byte, x []byte) error {
+	actualHash := Hash(x)
+	fmt.Printf("PFS-208: read-back verifying data: id: %v hash: %v\n", id, actualHash)
+	if !bytes.Equal(actualHash[:], id) {
+		fmt.Printf("PFS-208: bad chunk! HAVE: %v WANT: %v\n", actualHash, id)
+		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)
+	}
+	return nil
+}
+
 func verifyData(id ID, x []byte) error {
 	actualHash := Hash(x)
-	fmt.Printf("PFS-208: verifying data: id: %x hash: %x\n", id, actualHash)
+	fmt.Printf("PFS-208: verifying data: id: %v hash: %v\n", id, actualHash)
 	if !bytes.Equal(actualHash[:], id) {
-		fmt.Printf("PFS-208: bad chunk! HAVE: %x WANT: %x\n", actualHash, id)
+		fmt.Printf("PFS-208: bad chunk! HAVE: %v WANT: %v\n", actualHash, id)
 		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)
 	}
 	return nil
