@@ -21,8 +21,6 @@ export type useConfigResponse = {
 };
 
 export const useConfig = (
-  showConfig: boolean,
-  setShowConfig: (shouldShow: boolean) => void,
   updateConfig: (shouldShow: AuthConfig) => void,
   authConfig: AuthConfig,
   refresh: () => Promise<void>,
@@ -36,26 +34,15 @@ export const useConfig = (
   const [serverCa, setServerCa] = useState('');
 
   useEffect(() => {
-    if (showConfig) {
-      setClusterStatus(authConfig.cluster_status);
-      setShouldShowAddressInput(authConfig.cluster_status === 'INVALID');
-    }
+    setClusterStatus(authConfig.cluster_status);
+    setShouldShowAddressInput(
+      ['NONE', 'UNKNOWN', 'INVALID'].includes(authConfig.cluster_status),
+    );
     setErrorMessage('');
     setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
-  }, [showConfig, authConfig]);
-
-  // If the user successfully connects to a non-auth cluster or logs into their cluster,
-  // we want to switch off of the config screen.
-  useEffect(() => {
-    if (
-      clusterStatus === 'VALID_NO_AUTH' ||
-      clusterStatus === 'VALID_LOGGED_IN'
-    ) {
-      setShowConfig(false);
-    }
-  }, [clusterStatus]);
+  }, [authConfig]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
@@ -77,9 +64,12 @@ export const useConfig = (
 
         if (response.cluster_status === 'INVALID') {
           setErrorMessage('Invalid address.');
+        } else if (response.cluster_status === 'UNKNOWN') {
+          setErrorMessage(
+            'An unexpected error occurred when attempting to set the address.',
+          );
         } else {
           updateConfig(response);
-          setClusterStatus(response.cluster_status);
         }
       } else {
         setErrorMessage(

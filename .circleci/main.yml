@@ -831,7 +831,7 @@ jobs:
             mkdir -p test-results
             pytest -v \
               --junitxml=test-results/junit.xml \
-              jupyterlab_pachyderm/tests/test_integrations.py
+              jupyterlab_pachyderm/tests
       - store_test_results:
           path: test-results
       - store_artifacts:
@@ -861,7 +861,7 @@ jobs:
             pip install `find dist/ -name \*.whl`
 
             # Install just what need to run cypress tests
-            npm install cypress@^8.7.0
+            npm install cypress@^10.11.0
             npm install start-server-and-test@^1.14.0
 
             # Enable the examples extension
