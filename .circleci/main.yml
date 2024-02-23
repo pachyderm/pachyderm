@@ -1384,9 +1384,6 @@ jobs:
       - install-helm
       - install-kubectl
       - start-minikube-large
-      - run:
-          name: Install minio
-          command: kubectl apply --validate=false -f ../etc/testing/minio.yaml
       - attach_workspace:
           at: ./
       - run:
@@ -1398,6 +1395,9 @@ jobs:
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
       - wait-for-minikube
+      - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
       - run:
           name: Install pach
           command: |
