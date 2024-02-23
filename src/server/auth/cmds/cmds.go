@@ -637,7 +637,7 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyRepoRoleBinding(ctx, project, repo, subject, roles)
+			err = c.ModifyRepoRoleBinding(c.Ctx(), project, repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}

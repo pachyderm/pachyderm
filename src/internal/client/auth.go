@@ -72,7 +72,6 @@ func (c APIClient) GetRepoRoleBinding(ctx context.Context, projectName, repoName
 
 // Update the roles bound to a repo within a project.
 func (c APIClient) ModifyRepoRoleBinding(ctx context.Context, projectName, repoName, principal string, roles []string) error {
-	ctx = c.AddMetadata(ctx)
 	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  NewRepo(projectName, repoName).AuthResource(),
 		Principal: principal,
