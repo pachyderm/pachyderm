@@ -185,10 +185,10 @@ func cryptoXOR(key, dst, src []byte) {
 }
 
 func verifyData(id ID, x []byte) error {
-	fmt.Printf("PFS-208: verifying data: id: %v bytes: %x\n", id, x)
 	actualHash := Hash(x)
+	fmt.Printf("PFS-208: verifying data: id: %x hash: %x\n", id, actualHash)
 	if !bytes.Equal(actualHash[:], id) {
-		fmt.Printf("PFS-208: bad chunk! HAVE: %v WANT: %v\n", actualHash, id)
+		fmt.Printf("PFS-208: bad chunk! HAVE: %x WANT: %x\n", actualHash, id)
 		return errors.Errorf("bad chunk. HAVE: %v WANT: %v", actualHash, id)
 	}
 	return nil

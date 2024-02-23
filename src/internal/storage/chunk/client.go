@@ -74,7 +74,7 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 		}
 		return chunkID, nil
 	}
-	fmt.Printf("PFS-208: upload: create: chunk: id: %v data: %x\n", chunkID, chunkData)
+	fmt.Printf("PFS-208: upload: create: chunk: id: %x\n", chunkID)
 	if err := c.store.Put(ctx, key, chunkData); err != nil {
 		return nil, errors.EnsureStack(err)
 	}

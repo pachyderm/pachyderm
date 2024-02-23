@@ -78,7 +78,7 @@ func (b *Batcher) createBatch(entries []*entry, buf []byte) error {
 		if err != nil {
 			return nil, err
 		}
-		fmt.Printf("PFS-208: created upload task via createBatch(): id: %x\n", dataRef.Ref.Id)
+		fmt.Printf("PFS-208: created upload task via createBatch(): id: %x hash: %x\n", dataRef.Ref.Id, dataRef.Hash)
 		// Handle chunk callback.
 		if b.chunkFunc != nil {
 			var metas []interface{}

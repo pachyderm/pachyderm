@@ -55,7 +55,7 @@ func (u *Uploader) Upload(meta interface{}, r io.Reader) error {
 			if err != nil {
 				return nil, err
 			}
-			fmt.Printf("PFS-208: created upload task via Upload(): id: %x\n", dataRef.Ref.Id)
+			fmt.Printf("PFS-208: created upload task via Upload(): id: %x hash: %x\n", dataRef.Ref.Id, dataRef.Hash)
 			return func() error {
 				dataRefs = append(dataRefs, dataRef)
 				return nil
@@ -103,7 +103,7 @@ func (u *Uploader) Copy(meta interface{}, dataRefs []*DataRef) error {
 					if err != nil {
 						return nil, err
 					}
-					fmt.Printf("PFS-208: created upload task via Copy(): id: %x\n", dataRef.Ref.Id)
+					fmt.Printf("PFS-208: created upload task via Copy(): id: %x hash: %x\n", dataRef.Ref.Id, dataRef.Hash)
 					return func() error {
 						stableDataRefs = append(stableDataRefs, dataRef)
 						return nil
@@ -200,7 +200,7 @@ func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID
 		return nil, err
 	}
 	contentHash := Hash(chunkBytes)
-	fmt.Printf("PFS-208: upload: created chunk: id: %v\n.", ref.Id)
+	fmt.Printf("PFS-208: upload: created chunk: id: %x hash: %x\n.", []byte(ref.Id), contentHash)
 	return &DataRef{
 		Hash:      contentHash,
 		Ref:       ref,
