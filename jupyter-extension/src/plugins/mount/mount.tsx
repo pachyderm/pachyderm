@@ -89,27 +89,20 @@ export class MountPlugin implements IMountPlugin {
     this._poller.unmountedSignal.connect(this.refresh);
 
     // This is used to detect if the config goes bad (pachd address changes)
-    this._poller.configSignal.connect((_, config) => {
-      const status = config.cluster_status;
-      if (['UNKNOWN', 'INVALID', 'VALID_LOGGED_OUT'].includes(status)) {
+    this._poller.healthSignal.connect((_, healthCheck) => {
+      const status = healthCheck.status;
+      if (
+        status === 'HEALTHY_INVALID_CLUSTER' ||
+        status === 'HEALTHY_LOGGED_OUT'
+      ) {
         this._panel.tabBar.hide();
         this.setCurrentView(this._configScreen);
+      } else if (status === 'UNHEALTHY') {
+        this._panel.tabBar.hide();
+        this.setCurrentView(this._fullPageError);
       } else {
         this._panel.tabBar.show();
         this._panel.currentWidget = this._exploreScreen;
-      }
-    });
-
-    // This is used to detect if the user becomes unauthenticated of there are errors on the server
-    this._poller.statusSignal.connect((_, status) => {
-      if (status.code === 500) {
-        this._panel.tabBar.hide();
-        this.setCurrentView(this._fullPageError);
-      }
-
-      if (status.code === 401) {
-        this._panel.tabBar.hide();
-        this.setCurrentView(this._configScreen);
       }
     });
 
@@ -117,11 +110,12 @@ export class MountPlugin implements IMountPlugin {
 
     // Instantiate all of the Screens.
     this._configScreen = ReactWidget.create(
-      <UseSignal signal={this._poller.configSignal}>
-        {(_, authConfig) => (
+      <UseSignal signal={this._poller.healthSignal}>
+        {(_, healthCheck) => (
           <Config
             updateConfig={this.updateConfig}
-            authConfig={authConfig ? authConfig : this._poller.config}
+            healthCheck={healthCheck ? healthCheck : this._poller.health}
+            authConfig={this._poller.config}
             refresh={this._poller.refresh}
           />
         )}
@@ -221,9 +215,11 @@ export class MountPlugin implements IMountPlugin {
     this._loader.title.label = 'Loading';
 
     this._fullPageError = ReactWidget.create(
-      <UseSignal signal={this._poller.statusSignal}>
-        {(_, status) => (
-          <FullPageError status={status ? status : this._poller.status} />
+      <UseSignal signal={this._poller.healthSignal}>
+        {(_, healthCheck) => (
+          <FullPageError
+            healthCheck={healthCheck ? healthCheck : this._poller.health}
+          />
         )}
       </UseSignal>,
     );
@@ -445,23 +441,6 @@ export class MountPlugin implements IMountPlugin {
 
   setup = async (): Promise<void> => {
     await this._poller.refresh();
-
-    if (this._poller.status.code === 500) {
-      await showErrorMessage('Server Error', this._poller.status.message);
-    } else {
-      if (this._poller.status.code === 200) {
-        try {
-          const res = await requestAPI<CurrentDatumResponse>('datums', 'GET');
-          if (res['num_datums'] > 0) {
-            this._keepMounted = true;
-            this._currentDatumInfo = res;
-            this.setCurrentView(this._datumScreen);
-          }
-        } catch (e) {
-          console.log(e);
-        }
-      }
-    }
     this._loader.setHidden(true);
   };
 
