@@ -1439,12 +1439,12 @@ jobs:
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
-            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
-            PACH_PYTHON_TEST_HOST="$(minikube ip)" \
+            PACH_PYTHON_TEST_HOST="$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)" \
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
