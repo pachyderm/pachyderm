@@ -43,7 +43,6 @@ var defaultTestOptions = minikubetestenv.WithValueOverrides(map[string]string{
 // TestListDatum tests that you must have READER access to all of job's
 // input repos to call ListDatum on that job
 func TestListDatum(t *testing.T) {
-	ctx := pctx.TestContext(t)
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -511,7 +510,6 @@ func TestGetPachdLogsRequiresPerm(t *testing.T) {
 // stop, but for now it's required to revoke the pipeline's access directly
 func TestPipelineRevoke(t *testing.T) {
 	t.Skip("TestPipelineRevoke is broken")
-	ctx := pctx.TestContext(t)
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}

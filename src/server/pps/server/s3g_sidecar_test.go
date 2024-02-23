@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/ppsutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
@@ -630,7 +629,6 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 	}()
 
 	t.Run("S3Inputs", func(t *testing.T) {
-		ctx := pctx.TestContext(t)
 		s3in := tu.UniqueString("s3_data")
 		require.NoError(t, c.CreateRepo(projectName, s3in))
 		pfsin := tu.UniqueString("pfs_data")
@@ -811,7 +809,6 @@ func testS3SkippedDatums(t *testing.T, c *client.APIClient, ns, projectName stri
 	})
 
 	t.Run("S3Output", func(t *testing.T) {
-		ctx := pctx.TestContext(t)
 		repo := tu.UniqueString("pfs_data")
 		require.NoError(t, c.CreateRepo(projectName, repo))
 		// Pipelines with S3 output should not skip datums, as they have no way of
