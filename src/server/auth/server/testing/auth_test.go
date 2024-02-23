@@ -2265,7 +2265,7 @@ func TestDeactivateFSAdmin(t *testing.T) {
 	aliceClient, adminClient := tu.AuthenticateClient(t, c, alice), tu.AuthenticateClient(t, c, auth.RootUser)
 
 	// admin makes alice an fs admin
-	require.NoError(t, adminClient.ModifyClusterRoleBinding(ctx, alice, []string{auth.RepoOwnerRole}))
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(adminClient.Ctx(), alice, []string{auth.RepoOwnerRole}))
 
 	// wait until alice shows up in admin list
 	resp, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
@@ -2491,7 +2491,7 @@ func TestDeleteAll(t *testing.T) {
 	require.Matches(t, "not authorized", err.Error())
 
 	// admin makes alice an fs admin
-	require.NoError(t, adminClient.ModifyClusterRoleBinding(ctx, alice, []string{auth.RepoOwnerRole}))
+	require.NoError(t, adminClient.ModifyClusterRoleBinding(adminClient.Ctx(), alice, []string{auth.RepoOwnerRole}))
 
 	// wait until alice shows up in admin list
 	resp, err := aliceClient.GetClusterRoleBinding(aliceClient.Ctx())
@@ -2522,7 +2522,7 @@ func TestCreateProject(t *testing.T) {
 	// revoke cluster level role binding that grants all users ProjectCreate role
 	// and see if create project fails
 	rootClient := tu.AuthenticateClient(t, client, auth.RootUser)
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(ctx, auth.AllClusterUsersSubject, []string{}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), auth.AllClusterUsersSubject, []string{}))
 	require.ErrorContains(t, aliceClient.CreateProject(projectName), "not authorized to perform this operation - needs permissions [PROJECT_CREATE] on CLUSTER")
 }
 

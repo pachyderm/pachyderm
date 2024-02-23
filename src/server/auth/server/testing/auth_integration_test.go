@@ -771,7 +771,7 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 
 	// re-authenticate, as old tokens were deleted
 	aliceClient = tu.AuthenticateClient(t, c, alice)
-	require.NoError(t, rootClient.ModifyClusterRoleBinding(ctx, alice, []string{auth.RepoWriterRole}))
+	require.NoError(t, rootClient.ModifyClusterRoleBinding(rootClient.Ctx(), alice, []string{auth.RepoWriterRole}))
 
 	// make sure the cron is working
 	require.NoError(t, checkCronCommits(5))

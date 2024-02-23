@@ -38,7 +38,6 @@ func (c APIClient) GetClusterRoleBinding(ctx context.Context) (*auth.RoleBinding
 }
 
 func (c APIClient) ModifyClusterRoleBinding(ctx context.Context, principal string, roles []string) error {
-	ctx = c.AddMetadata(ctx)
 	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  &auth.Resource{Type: auth.ResourceType_CLUSTER},
 		Principal: principal,
@@ -51,7 +50,7 @@ func (c APIClient) ModifyClusterRoleBinding(ctx context.Context, principal strin
 }
 
 func (c APIClient) GetProjectRoleBinding(ctx context.Context, project string) (*auth.RoleBinding, error) {
-	resp, err := c.GetRoleBinding(c.AddMetadata(ctx), &auth.GetRoleBindingRequest{
+	resp, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project},
 	})
 	if err != nil {

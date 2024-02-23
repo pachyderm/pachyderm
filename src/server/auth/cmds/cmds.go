@@ -762,7 +762,7 @@ func GetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 			}
 			defer c.Close()
 			project := args[0]
-			resp, err := c.GetProjectRoleBinding(ctx, project)
+			resp, err := c.GetProjectRoleBinding(c.Ctx(), project)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -795,7 +795,7 @@ func SetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
+			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -847,7 +847,7 @@ func SetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(ctx, subject, roles)
+			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
