@@ -90,6 +90,15 @@ func (c *trackedClient) Create(ctx context.Context, md Metadata, chunkData []byt
 	if err := c.errIfNotExists(ctx, key); err != nil {
 		return nil, err
 	}
+	if err := c.Get(ctx, chunkID, func(ctext []byte) error {
+		fmt.Printf("PFS-208: got ref in read-back: %x verifying data.\n", chunkID)
+		if err := readBackVerifyData(chunkID, ctext); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "client.create")
+	}
 	if err := c.afterUpload(ctx, chunkID, gen); err != nil {
 		return nil, err
 	}
