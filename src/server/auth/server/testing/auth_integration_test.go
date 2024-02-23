@@ -526,7 +526,7 @@ func TestPipelineRevoke(t *testing.T) {
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo, bob, []string{auth.RepoReaderRole}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(ctx, t, aliceClient, pfs.DefaultProjectName, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, bob, auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 	commit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
 
 	// bob creates a pipeline
@@ -542,14 +542,14 @@ func TestPipelineRevoke(t *testing.T) {
 		false,
 	))
 	require.Equal(t,
-		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(ctx, t, bobClient, pfs.DefaultProjectName, pipeline))
+		tu.BuildBindings(bob, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(bobClient.Ctx(), t, bobClient, pfs.DefaultProjectName, pipeline))
 	// bob adds alice as a reader of the pipeline's output repo, so alice can
 	// flush input commits (which requires her to inspect commits in the output)
 	// and update the pipeline
 	require.NoError(t, bobClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, pipeline, alice, []string{auth.RepoWriterRole}))
 	require.Equal(t,
 		tu.BuildBindings(bob, auth.RepoOwnerRole, alice, auth.RepoWriterRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole),
-		tu.GetRepoRoleBinding(ctx, t, bobClient, pfs.DefaultProjectName, pipeline))
+		tu.GetRepoRoleBinding(bobClient.Ctx(), t, bobClient, pfs.DefaultProjectName, pipeline))
 
 	// alice commits to the input repo, and the pipeline runs successfully
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
@@ -563,7 +563,7 @@ func TestPipelineRevoke(t *testing.T) {
 	// inherit bob's privileges)
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(ctx, pfs.DefaultProjectName, repo, bob, []string{}))
 	require.Equal(t,
-		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(ctx, t, aliceClient, pfs.DefaultProjectName, repo))
+		tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoReaderRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 	require.NoError(t, aliceClient.PutFile(commit, "/file", strings.NewReader("test")))
 	require.NoErrorWithinT(t, 45*time.Second, func() error {
 		_, err := aliceClient.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit.Id)
@@ -778,7 +778,6 @@ func TestPreActivationCronPipelinesKeepRunningAfterActivation(t *testing.T) {
 }
 
 func TestPipelinesRunAfterExpiration(t *testing.T) {
-	ctx := pctx.TestContext(t)
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -790,7 +789,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	// alice creates a repo
 	repo := tu.UniqueString("TestPipelinesRunAfterExpiration")
 	require.NoError(t, aliceClient.CreateRepo(pfs.DefaultProjectName, repo))
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(ctx, t, aliceClient, pfs.DefaultProjectName, repo))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, repo))
 
 	// alice creates a pipeline
 	pipeline := tu.UniqueString("alice-pipeline")
@@ -806,7 +805,7 @@ func TestPipelinesRunAfterExpiration(t *testing.T) {
 	))
 	require.OneOfEquals(t, pipeline, tu.PipelineNames(t, aliceClient, pfs.DefaultProjectName))
 	// check that alice owns the output repo too,
-	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(ctx, t, aliceClient, pfs.DefaultProjectName, pipeline))
+	require.Equal(t, tu.BuildBindings(alice, auth.RepoOwnerRole, tu.Pl(pfs.DefaultProjectName, pipeline), auth.RepoWriterRole), tu.GetRepoRoleBinding(aliceClient.Ctx(), t, aliceClient, pfs.DefaultProjectName, pipeline))
 
 	// Make sure alice's pipeline runs successfully
 	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")

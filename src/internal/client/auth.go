@@ -61,7 +61,6 @@ func (c APIClient) GetProjectRoleBinding(ctx context.Context, project string) (*
 
 // Return the roles bound to a repo within a project.
 func (c APIClient) GetRepoRoleBinding(ctx context.Context, projectName, repoName string) (*auth.RoleBinding, error) {
-	ctx = c.AddMetadata(ctx)
 	resp, err := c.GetRoleBinding(ctx, &auth.GetRoleBindingRequest{
 		Resource: NewRepo(projectName, repoName).AuthResource(),
 	})
