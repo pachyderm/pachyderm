@@ -1416,7 +1416,7 @@ jobs:
               --set pachd.storage.minio.secret=minioadmin \
               --set-string pachd.storage.minio.signature="" \
               --set-string pachd.storage.minio.secure=false \
-              --set proxy.service.type=NodePort \
+              --set pachd.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
@@ -1429,7 +1429,7 @@ jobs:
               --set pachd.storage.minio.secret=minioadmin \
               --set-string pachd.storage.minio.signature="" \
               --set-string pachd.storage.minio.secure=false \
-              --set proxy.service.type=NodePort \
+              --set pachd.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
               --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
