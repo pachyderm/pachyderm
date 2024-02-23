@@ -1389,10 +1389,6 @@ jobs:
       - install-helm
       - install-kubectl
       - run:
-          name: Install pachctl
-          command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-      - run:
           name: Start kind
           command: kind create cluster && kubectl config set current-context kind-kind
       - run:
@@ -1408,7 +1404,6 @@ jobs:
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
-      - wait-for-minikube
       - run:
           name: Install pach
           command: |
