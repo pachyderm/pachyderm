@@ -1380,10 +1380,21 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - install-minikube
+      - run:
+          name: Install kind
+          command: |
+            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+            && chmod +x ./kind-linux-amd64 \
+            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
       - install-helm
       - install-kubectl
-      - start-minikube-large
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+      - run:
+          name: Start kind
+          command: kind create cluster && kubectl config set current-context kind-kind
       - run:
           name: Install minio
           command: kubectl apply -f ../etc/testing/minio.yaml
@@ -1428,7 +1439,6 @@ jobs:
               --set proxy.service.httpNodePort=30081 \
               --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
               --set pachd.rootToken=roottoken1234
-            
       - run:
           name: Install pach
           command: |
