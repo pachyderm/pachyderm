@@ -34,6 +34,35 @@ class BaseHandler(APIHandler):
         status_code=401, reason="no instantiated pachyderm client"
     )
 
+    HEALTHCHECK_UNHEALTHY = "UNHEALTHY"
+    HEALTHCHECK_INVALID_CLUSTER = "HEALTHY_INVALID_CLUSTER"
+    HEALTHCHECK_NO_AUTH = "HEALTHY_NO_AUTH"
+    HEALTHCHECK_LOGGED_IN = "HEALTHY_LOGGED_IN"
+    HEALTHCHECK_LOGGED_OUT = "HEALTHY_LOGGED_OUT"
+
+    def status(self, client: Client) -> str:
+        """Determines the status of the client's connection to the cluster."""
+        try:
+            client.auth.who_am_i()
+        except grpc.RpcError as err:
+            err: grpc.Call
+            if err.code() == grpc.StatusCode.UNAUTHENTICATED:
+                return self.HEALTHCHECK_LOGGED_OUT
+            elif (
+                err.code() == grpc.StatusCode.UNIMPLEMENTED
+                and "the auth service is not activated" in err.details()
+            ):
+                return self.HEALTHCHECK_NO_AUTH
+            else:
+                return self.HEALTHCHECK_INVALID_CLUSTER
+        except errors.AuthServiceNotActivated:
+            return self.HEALTHCHECK_NO_AUTH
+        except ConnectionError:
+            # Cannot connect to Pachyderm
+            return self.HEALTHCHECK_INVALID_CLUSTER
+        else:
+            return self.HEALTHCHECK_LOGGED_IN
+
     @property
     def client(self) -> Client:
         client = self.settings.get("pachyderm_client")
@@ -357,43 +386,7 @@ class ViewDatumHandler(ContentsHandler):
 
 
 class ConfigHandler(BaseHandler):
-    CLUSTER_UNKNOWN = "UNKNOWN"
-    """An UNKNOWN status indicates that the server is running, but we are unable to
-    determine the validity of the cluster config."""
-
-    CLUSTER_INVALID = "INVALID"
-    CLUSTER_VALID_NO_AUTH = "VALID_NO_AUTH"
-    CLUSTER_VALID_LOGGED_IN = "VALID_LOGGED_IN"
-    CLUSTER_VALID_LOGGED_OUT = "VALID_LOGGED_OUT"
-
-    def cluster_status(self, client: Client) -> str:
-        """Determines the status of the client's connection to the cluster.
-
-        NOTE: This _will not_ error.
-        """
-        try:
-            client.auth.who_am_i()
-        except grpc.RpcError as err:
-            err: grpc.Call
-            if err.code() == grpc.StatusCode.UNAUTHENTICATED:
-                return self.CLUSTER_VALID_LOGGED_OUT
-            elif (
-                err.code() == grpc.StatusCode.UNIMPLEMENTED
-                and "the auth service is not activated" in err.details()
-            ):
-                return self.CLUSTER_VALID_NO_AUTH
-            else:
-                return self.CLUSTER_INVALID
-        except errors.AuthServiceNotActivated:
-            return self.CLUSTER_VALID_NO_AUTH
-        except ConnectionError:
-            return self.CLUSTER_INVALID
-        except Exception:
-            # Something went wrong -- a worse state than INVALID.
-            return self.CLUSTER_UNKNOWN
-        else:
-            return self.CLUSTER_VALID_LOGGED_IN
-
+    # TODO: should we return server CAs?
     @tornado.web.authenticated
     async def put(self):
         # Validate input.
@@ -406,10 +399,13 @@ class ConfigHandler(BaseHandler):
 
         # Attempt to instantiate client and test connection
         client = Client.from_pachd_address(address, root_certs=cas)
-        cluster_status = self.cluster_status(client)
+        cluster_status = self.status(client)
         get_logger().info(f"({address}) cluster status: {cluster_status}")
 
-        if cluster_status not in {self.CLUSTER_INVALID, self.CLUSTER_UNKNOWN}:
+        if cluster_status not in {
+            self.HEALTHCHECK_INVALID_CLUSTER,
+            self.HEALTHCHECK_UNHEALTHY,
+        }:
             self.client = client  # Set client only if valid.
             # Attempt to write new pachyderm context to config.
             try:
@@ -417,10 +413,7 @@ class ConfigHandler(BaseHandler):
             except RuntimeError as e:
                 get_logger().error(f"Error writing local config: {e}.", exc_info=True)
 
-        payload = {
-            "cluster_status": cluster_status,
-            "pachd_address": client.address,
-        }
+        payload = {"pachd_address": client.address}
         await self.finish(json.dumps(payload))
 
     @tornado.web.authenticated
@@ -429,14 +422,34 @@ class ConfigHandler(BaseHandler):
         try:
             client = self.client
         except tornado.web.HTTPError:
-            payload = {"cluster_status": self.CLUSTER_UNKNOWN, "pachd_address": ""}
+            payload = {"pachd_address": ""}
         else:
-            cluster_status = self.cluster_status(client)
-            payload = {
-                "cluster_status": cluster_status,
-                "pachd_address": client.address,
-            }
+            payload = {"pachd_address": client.address}
         await self.finish(json.dumps(payload))
+
+
+class HealthHandler(BaseHandler):
+    @tornado.web.authenticated
+    async def get(self):
+        try:
+            client = self.client
+        except tornado.web.HTTPError:
+            # client not instantiated, user needs to configure the Pachyderm cluster
+            status = self.HEALTHCHECK_INVALID_CLUSTER
+        else:
+            try:
+                status = self.status(client)
+            except Exception as e:
+                await self.finish(
+                    json.dumps(
+                        {
+                            "status": self.HEALTHCHECK_UNHEALTHY,
+                            "message": e,
+                        }
+                    )
+                )
+                return
+        await self.finish(json.dumps({"status": status}))
 
 
 class AuthLoginHandler(BaseHandler):
@@ -666,6 +679,7 @@ def setup_handlers(web_app, config_file: Path):
         (r"/pfs%s" % path_regex, PFSHandler),
         (r"/view_datum%s" % path_regex, ViewDatumHandler),
         ("/config", ConfigHandler),
+        ("/health", HealthHandler),
         ("/auth/_login", AuthLoginHandler),
         ("/auth/_logout", AuthLogoutHandler),
         (r"/pps/_create%s" % path_regex, PPSCreateHandler),

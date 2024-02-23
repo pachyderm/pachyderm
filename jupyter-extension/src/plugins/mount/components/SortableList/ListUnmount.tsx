@@ -1,12 +1,6 @@
 import React, {useEffect, useState} from 'react';
 import {requestAPI} from '../../../../handler';
-import {ListMountsResponse, mountState, Repo, Mount} from '../../types';
-
-export const DISABLED_STATES: mountState[] = [
-  'unmounting',
-  'mounting',
-  'error',
-];
+import {ListMountsResponse, Repo, Mount} from '../../types';
 
 type ListUnmountProps = {
   item: Repo;
