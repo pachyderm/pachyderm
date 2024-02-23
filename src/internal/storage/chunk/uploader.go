@@ -200,7 +200,7 @@ func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID
 		return nil, err
 	}
 	contentHash := Hash(chunkBytes)
-	fmt.Printf("PFS-208: upload: creating chunk: id: %x data: %x\n.", ref.Id, contentHash)
+	fmt.Printf("PFS-208: upload: created chunk: id: %v\n.", ref.Id)
 	return &DataRef{
 		Hash:      contentHash,
 		Ref:       ref,
