@@ -22,7 +22,7 @@ import {CommandRegistry} from '@lumino/commands';
 import {SplitPanel, Widget} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
-import {MountSettings} from '../types';
+import {HealthCheckStatus, MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
@@ -70,42 +70,6 @@ describe('mount plugin', () => {
       registry: new CommandRegistry(),
     });
   });
-  /* TODO: tests must be updated for the new FUSE-less impl
-  it('should accept /pfs/out as a valid FileBrowser path', async () => {
-    const plugin = new MountPlugin(
-      app,
-      settings,
-      docManager,
-      factory,
-      restorer,
-      widgetTracker,
-    );
-    const mounts: Mount[] = [
-      {
-        name: 'default_images',
-        project: 'default',
-        branch: 'master',
-        repo: 'images',
-      },
-    ];
-    expect(
-      plugin.isValidBrowserPath('mount-browser:default_images', mounts),
-    ).toBe(true);
-    expect(
-      plugin.isValidBrowserPath('mount-browser:default_images/testdir', mounts),
-    ).toBe(true);
-    expect(
-      plugin.isValidBrowserPath('mount-browser:default_edges', mounts),
-    ).toBe(false);
-    expect(
-      plugin.isValidBrowserPath('mount-browser:default_edges/testdir', mounts),
-    ).toBe(false);
-    expect(plugin.isValidBrowserPath('mount-browser:out', mounts)).toBe(true);
-    expect(plugin.isValidBrowserPath('mount-browser:out/testdir', mounts)).toBe(
-      true,
-    );
-  });
-*/
 
   it('should generate the correct layout', async () => {
     const plugin = new MountPlugin(
@@ -132,19 +96,18 @@ describe('mount plugin', () => {
    This test is checking:
      If
    the plugin is instantiated and the backend does not have any config
-   for connecting to a pachd instance (GET /config returns status UNKNOWN),
+   for connecting to a pachd instance (GET /health returns status HEALTHCHECK_INVALID_CLUSTER),
      Then
    - the plugin will immediately redirect to the CONFIG screen,
    - the poller will not make calls to GET /mounts or GET /projects (these requests would error).
    */
   it('should show config screen when not connected to a cluster', async () => {
-    // Mock responses from GET /config
+    // Mock responses from GET /health
     mockedRequestAPI.mockImplementation(
       (endPoint?: string, method?: string) => {
-        if (endPoint === 'config' && (method === 'GET' || method === null)) {
+        if (endPoint === 'health' && (method === 'GET' || method === null)) {
           return Promise.resolve({
-            cluster_status: 'UNKNOWN',
-            pachd_address: '',
+            status: 'HEALTHY_INVALID_CLUSTER',
           });
         }
         throw ServerConnection.NetworkError;
