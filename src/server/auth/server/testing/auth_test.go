@@ -2235,7 +2235,7 @@ func TestGetPermissions_Project(t *testing.T) {
 	err = rootClient.CreateRepo(project, repo)
 	require.NoError(t, err, "should create repo")
 
-	err = rootClient.ModifyProjectRoleBinding(project, "user:alice", []string{"projectOwner"})
+	err = rootClient.ModifyProjectRoleBinding(rootClient.Ctx(), project, "user:alice", []string{"projectOwner"})
 	require.NoError(t, err, "should make alice a project owner")
 
 	perms, err := rootClient.GetPermissionsForPrincipal(rootClient.Ctx(), &auth.GetPermissionsForPrincipalRequest{
@@ -2537,7 +2537,7 @@ func TestModifyRoleBindingAccess(t *testing.T) {
 	// bob owns project2 and project1/repo2
 	require.NoError(t, aliceClient.CreateProject(project1))
 	require.NoError(t, aliceClient.CreateRepo(project1, repo1))
-	require.NoError(t, aliceClient.ModifyProjectRoleBinding(project1, bob, []string{auth.ProjectWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRoleBinding(aliceClient.Ctx(), project1, bob, []string{auth.ProjectWriterRole}))
 	require.NoError(t, bobClient.CreateRepo(project1, repo2))
 	require.NoError(t, bobClient.CreateProject(project2))
 	// auth resources
@@ -2715,7 +2715,7 @@ func TestDeleteRepos(t *testing.T) {
 	/// alice adds bob to the ACL of repo1 as an owner
 	/// alice grants bob projectWriter so that bob can create repos later
 	require.NoError(t, aliceClient.ModifyRepoRoleBinding(projectName, "repoA", bob, []string{auth.RepoOwnerRole}))
-	require.NoError(t, aliceClient.ModifyProjectRoleBinding(projectName, bob, []string{auth.ProjectWriterRole}))
+	require.NoError(t, aliceClient.ModifyProjectRoleBinding(aliceClient.Ctx(), projectName, bob, []string{auth.ProjectWriterRole}))
 
 	// repoC belongs to bob and should be deleted
 	require.NoError(t, bobClient.CreateRepo(projectName, "repoC"))
