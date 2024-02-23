@@ -1384,6 +1384,9 @@ jobs:
       - install-helm
       - install-kubectl
       - start-minikube-large
+      - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
       - attach_workspace:
           at: ./
       - run:
@@ -1395,6 +1398,37 @@ jobs:
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
       - wait-for-minikube
+      - run:
+          name: Install pach
+          command: |
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm \
+              --namespace enterprise \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set proxy.service.httpNodePort=30081 \
+              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
+              --set pachd.rootToken=roottoken1234
+            
       - run:
           name: Install pach
           command: |
