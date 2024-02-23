@@ -1380,20 +1380,13 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: Install kind
-          command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
+      - install-minikube
       - install-helm
       - install-kubectl
-      - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
+      - start-minikube-large
       - run:
           name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
+          command: kubectl apply --validate=false -f ../etc/testing/minio.yaml
       - attach_workspace:
           at: ./
       - run:
@@ -1404,6 +1397,7 @@ jobs:
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
+      - wait-for-minikube
       - run:
           name: Install pach
           command: |
@@ -1416,7 +1410,7 @@ jobs:
               --set pachd.storage.minio.secret=minioadmin \
               --set-string pachd.storage.minio.signature="" \
               --set-string pachd.storage.minio.secure=false \
-              --set pachd.service.type=NodePort \
+              --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
@@ -1429,7 +1423,7 @@ jobs:
               --set pachd.storage.minio.secret=minioadmin \
               --set-string pachd.storage.minio.signature="" \
               --set-string pachd.storage.minio.secure=false \
-              --set pachd.service.type=NodePort \
+              --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
               --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
@@ -1439,12 +1433,12 @@ jobs:
           command: |
             sleep 20
             kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run pachyderm-sdk-check-connection "$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane):30080"; do sleep 5; done
-            until poetry run pachyderm-sdk-check-connection "$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane):30081"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
-            PACH_PYTHON_TEST_HOST="$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)" \
+            PACH_PYTHON_TEST_HOST="$(minikube ip)" \
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
