@@ -12,6 +12,7 @@ import (
 	identity_v2 "github.com/pachyderm/pachyderm/v2/src/identity"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
+	logs "github.com/pachyderm/pachyderm/v2/src/logs"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -294,6 +295,12 @@ func (c *unsupportedLicenseBuilderClient) ListUserClusters(_ context.Context, _ 
 
 func (c *unsupportedLicenseBuilderClient) UpdateCluster(_ context.Context, _ *license_v2.UpdateClusterRequest, opts ...grpc.CallOption) (*license_v2.UpdateClusterResponse, error) {
 	return nil, unsupportedError("UpdateCluster")
+}
+
+type unsupportedLogsBuilderClient struct{}
+
+func (c *unsupportedLogsBuilderClient) GetLogs(_ context.Context, _ *logs.GetLogsRequest, opts ...grpc.CallOption) (logs.API_GetLogsClient, error) {
+	return nil, unsupportedError("GetLogs")
 }
 
 type unsupportedPfsBuilderClient struct{}

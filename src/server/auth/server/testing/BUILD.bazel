@@ -13,6 +13,7 @@ go_test(
         "//src/internal/backoff",
         "//src/internal/client",
         "//src/internal/errors",
+        "//src/internal/pctx",
         "//src/internal/protoutil",
         "//src/internal/require",
         "//src/internal/testutil",

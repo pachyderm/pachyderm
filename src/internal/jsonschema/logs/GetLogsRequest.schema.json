@@ -1,0 +1,294 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/GetLogsRequest",
+    "definitions": {
+        "GetLogsRequest": {
+            "properties": {
+                "query": {
+                    "$ref": "#/definitions/logs.LogQuery",
+                    "additionalProperties": false
+                },
+                "filter": {
+                    "$ref": "#/definitions/logs.LogFilter",
+                    "additionalProperties": false
+                },
+                "tail": {
+                    "type": "boolean"
+                },
+                "wantPagingHint": {
+                    "type": "boolean"
+                },
+                "logFormat": {
+                    "enum": [
+                        "LOG_FORMAT_UNKNOWN",
+                        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
+                        "LOG_FORMAT_PARSED_JSON",
+                        "LOG_FORMAT_PPS_LOGMESSAGE"
+                    ],
+                    "type": "string",
+                    "title": "Log Format"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Get Logs Request"
+        },
+        "logs.AdminLogQuery": {
+            "properties": {
+                "logql": {
+                    "type": "string",
+                    "description": "Arbitrary LogQL query"
+                },
+                "pod": {
+                    "type": "string",
+                    "description": "A pod's logs (all containers)"
+                },
+                "podContainer": {
+                    "$ref": "#/definitions/logs.PodContainer",
+                    "additionalProperties": false,
+                    "description": "One container"
+                },
+                "app": {
+                    "type": "string",
+                    "description": "One \"app\" (logql -\u003e {app=X})"
+                },
+                "master": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "All master worker lines from a pipeline"
+                },
+                "storage": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "All storage container lines from a pipeline"
+                },
+                "user": {
+                    "$ref": "#/definitions/logs.UserLogQuery",
+                    "additionalProperties": false,
+                    "description": "All worker lines from a pipeline/job"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "logql"
+                    ]
+                },
+                {
+                    "required": [
+                        "pod"
+                    ]
+                },
+                {
+                    "required": [
+                        "pod_container"
+                    ]
+                },
+                {
+                    "required": [
+                        "app"
+                    ]
+                },
+                {
+                    "required": [
+                        "master"
+                    ]
+                },
+                {
+                    "required": [
+                        "storage"
+                    ]
+                },
+                {
+                    "required": [
+                        "user"
+                    ]
+                }
+            ],
+            "title": "Admin Log Query"
+        },
+        "logs.LogFilter": {
+            "properties": {
+                "timeRange": {
+                    "$ref": "#/definitions/logs.TimeRangeLogFilter",
+                    "additionalProperties": false
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "regex": {
+                    "$ref": "#/definitions/logs.RegexLogFilter",
+                    "additionalProperties": false
+                },
+                "level": {
+                    "enum": [
+                        "LOG_LEVEL_DEBUG",
+                        "LOG_LEVEL_INFO",
+                        "LOG_LEVEL_ERROR"
+                    ],
+                    "type": "string",
+                    "title": "Log Level"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Log Filter"
+        },
+        "logs.LogQuery": {
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/logs.UserLogQuery",
+                    "additionalProperties": false
+                },
+                "admin": {
+                    "$ref": "#/definitions/logs.AdminLogQuery",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "user"
+                    ]
+                },
+                {
+                    "required": [
+                        "admin"
+                    ]
+                }
+            ],
+            "title": "Log Query"
+        },
+        "logs.PipelineJobLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false
+                },
+                "job": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Job Log Query"
+        },
+        "logs.PipelineLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "pipeline": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Log Query"
+        },
+        "logs.PodContainer": {
+            "properties": {
+                "pod": {
+                    "type": "string"
+                },
+                "container": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pod Container"
+        },
+        "logs.RegexLogFilter": {
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "negate": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Regex Log Filter"
+        },
+        "logs.TimeRangeLogFilter": {
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                },
+                "until": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Time Range Log Filter"
+        },
+        "logs.UserLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "All pipelines in the project"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "One pipeline in a project"
+                },
+                "datum": {
+                    "type": "string",
+                    "description": "One datum."
+                },
+                "job": {
+                    "type": "string",
+                    "description": "One job, across pipelines and projects"
+                },
+                "pipelineJob": {
+                    "$ref": "#/definitions/logs.PipelineJobLogQuery",
+                    "additionalProperties": false,
+                    "description": "One job in one pipeline"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "project"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
+                    ]
+                },
+                {
+                    "required": [
+                        "datum"
+                    ]
+                },
+                {
+                    "required": [
+                        "job"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline_job"
+                    ]
+                }
+            ],
+            "title": "User Log Query",
+            "description": "Only returns \"user\" logs"
+        }
+    }
+}

@@ -39,6 +39,7 @@ import (
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -49,6 +50,7 @@ import (
 	enterpriseserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
@@ -71,6 +73,7 @@ type RealEnv struct {
 	AuthServer               authapi.APIServer
 	IdentityServer           identity.APIServer
 	EnterpriseServer         enterprise.APIServer
+	LogsServer               logs.APIServer
 	LicenseServer            license.APIServer
 	PPSServer                ppsapi.APIServer
 	PFSServer                pfsapi.APIServer
@@ -312,6 +315,9 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
+	realEnv.LogsServer, err = logsserver.NewAPIServer()
+	require.NoError(t, err)
+
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
 	linkServers(&realEnv.MockPachd.Admin, realEnv.AdminServer)
 	linkServers(&realEnv.MockPachd.Auth, realEnv.AuthServer)
@@ -320,6 +326,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	linkServers(&realEnv.MockPachd.Transaction, realEnv.TransactionServer)
 	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
+	linkServers(&realEnv.MockPachd.Logs, realEnv.LogsServer)
 
 	return realEnv
 }
