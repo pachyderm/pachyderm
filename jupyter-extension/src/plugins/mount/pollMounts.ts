@@ -1,6 +1,7 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
+import {isEqual} from 'lodash';
 import {
   AuthConfig,
   HealthCheck,
@@ -87,7 +88,7 @@ export class PollMounts {
   }
 
   set health(healthCheck: HealthCheck) {
-    if (JSON.stringify(healthCheck) === JSON.stringify(this._health)) {
+    if (isEqual(healthCheck, this._health)) {
       return;
     }
 
@@ -100,7 +101,7 @@ export class PollMounts {
   }
 
   set config(config: AuthConfig) {
-    if (JSON.stringify(config) === JSON.stringify(this._config)) {
+    if (isEqual(config, this._config)) {
       return;
     }
     this._config = config;
@@ -135,7 +136,7 @@ export class PollMounts {
   };
 
   updateData = (data: ListMountsResponse): void => {
-    if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
+    if (isEqual(data, this._rawData)) {
       this._rawData = data;
       this.mounted = Array.from(Object.values(data.mounted));
       this.unmounted = Array.from(Object.values(data.unmounted));
@@ -143,7 +144,7 @@ export class PollMounts {
   };
 
   updateProjects = (data: ProjectInfo[]): void => {
-    if (JSON.stringify(data) !== JSON.stringify(this.projects)) {
+    if (isEqual(data, this.projects)) {
       this.projects = data;
     }
   };
