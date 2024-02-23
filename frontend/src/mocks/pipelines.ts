@@ -256,6 +256,7 @@ const SERVICE_PIPELINE_INFO = buildPipeline({
     service: {
       type: 'LoadBalancer',
       ip: 'localhost',
+      externalPort: 80,
     },
   },
   version: '1',

@@ -614,11 +614,16 @@ description: >-
       window.history.replaceState({}, '', '/lineage/default/pipelines/montage');
       render(<Project />);
 
-      expect(
-        await screen.findByRole('definition', {
-          name: /service ip/i,
-        }),
-      ).toHaveTextContent(/localhost/i);
+      const field = await screen.findByRole('definition', {
+        name: /service ip/i,
+      });
+
+      expect(field).toHaveTextContent(/localhost/i);
+
+      expect(within(field).getByRole('link')).toHaveAttribute(
+        'href',
+        'http://localhost:80',
+      );
     });
 
     it('should default to the info tab for a spout pipeline', async () => {

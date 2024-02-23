@@ -70,8 +70,11 @@ const PipelineInfo: React.FC = () => {
 
       {pipeline?.details?.service?.type === 'LoadBalancer' && (
         <Description term="Service IP" loading={loading}>
-          <Link externalLink to={pipeline?.details?.service?.ip}>
-            {pipeline?.details?.service?.ip}
+          <Link
+            externalLink
+            to={`http://${pipeline?.details?.service?.ip}:${pipeline?.details?.service?.externalPort}`}
+          >
+            {`${pipeline?.details?.service?.ip}:${pipeline?.details?.service?.externalPort}`}
           </Link>
         </Description>
       )}
