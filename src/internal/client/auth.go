@@ -85,7 +85,6 @@ func (c APIClient) ModifyRepoRoleBinding(ctx context.Context, projectName, repoN
 
 // ModifyProjectRoleBinding binds a user's roles to a project.
 func (c APIClient) ModifyProjectRoleBinding(ctx context.Context, projectName, principal string, roles []string) error {
-	ctx = c.AddMetadata(ctx)
 	_, err := c.ModifyRoleBinding(ctx, &auth.ModifyRoleBindingRequest{
 		Resource:  NewProject(projectName).AuthResource(),
 		Principal: principal,
