@@ -1,0 +1,149 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/LogMessage",
+    "definitions": {
+        "LogMessage": {
+            "properties": {
+                "verbatim": {
+                    "$ref": "#/definitions/logs.VerbatimLogMessage",
+                    "additionalProperties": false
+                },
+                "json": {
+                    "$ref": "#/definitions/logs.ParsedJSONLogMessage",
+                    "additionalProperties": false
+                },
+                "ppsLogMessage": {
+                    "$ref": "#/definitions/pps_v2.LogMessage",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "verbatim"
+                    ]
+                },
+                {
+                    "required": [
+                        "json"
+                    ]
+                },
+                {
+                    "required": [
+                        "pps_log_message"
+                    ]
+                }
+            ],
+            "title": "Log Message"
+        },
+        "logs.ParsedJSONLogMessage": {
+            "properties": {
+                "verbatim": {
+                    "$ref": "#/definitions/logs.VerbatimLogMessage",
+                    "additionalProperties": false,
+                    "description": "The verbatim line from Loki"
+                },
+                "object": {
+                    "additionalProperties": false,
+                    "type": "object",
+                    "description": "A raw JSON parse of the entire line"
+                },
+                "nativeTimestamp": {
+                    "type": "string",
+                    "description": "If a parseable timestamp was found in `fields`",
+                    "format": "date-time"
+                },
+                "ppsLogMessage": {
+                    "$ref": "#/definitions/pps_v2.LogMessage",
+                    "additionalProperties": false,
+                    "description": "For code that wants to filter on pipeline/job/etc"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Parsed JSON Log Message"
+        },
+        "logs.VerbatimLogMessage": {
+            "properties": {
+                "line": {
+                    "type": "string",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Verbatim Log Message"
+        },
+        "pps_v2.InputFile": {
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "This file's absolute path within its pfs repo."
+                },
+                "hash": {
+                    "type": "string",
+                    "description": "This file's hash",
+                    "format": "binary",
+                    "binaryEncoding": "base64"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Input File"
+        },
+        "pps_v2.LogMessage": {
+            "properties": {
+                "projectName": {
+                    "type": "string",
+                    "description": "The job and pipeline for which a PFS file is being processed (if the job is an orphan job, pipeline name and ID will be unset)"
+                },
+                "pipelineName": {
+                    "type": "string"
+                },
+                "jobId": {
+                    "type": "string"
+                },
+                "workerId": {
+                    "type": "string"
+                },
+                "datumId": {
+                    "type": "string"
+                },
+                "master": {
+                    "type": "boolean"
+                },
+                "data": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.InputFile"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "The PFS files being processed (one per pipeline/job input)"
+                },
+                "user": {
+                    "type": "boolean",
+                    "description": "User is true if log message comes from the users code."
+                },
+                "ts": {
+                    "type": "string",
+                    "description": "The message logged, and the time at which it was logged",
+                    "format": "date-time"
+                },
+                "message": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Log Message",
+            "description": "LogMessage is a log line from a PPS worker, annotated with metadata indicating when and why the line was logged."
+        }
+    }
+}

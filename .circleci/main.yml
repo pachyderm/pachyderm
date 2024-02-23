@@ -1267,16 +1267,16 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
               then
                   echo "git tag has - assuming prerelease."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
               else
                   echo "regular release."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
               fi
             SECONDS=0
             while :; do
-                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1}-1 2>/dev/null && break
-                if (( $SECONDS > 1 )); then
-                    printf 'Waited 10 minutes for console docker image, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures\n' >&2
+                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1} 2>/dev/null && break
+                if (( $SECONDS > 600 )); then
+                    printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
                     exit 1
                 fi
                 sleep 1
@@ -2023,7 +2023,7 @@ workflows:
       - release-github:
           name: github-release-console
           repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}-1
+          tag: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - sign-off

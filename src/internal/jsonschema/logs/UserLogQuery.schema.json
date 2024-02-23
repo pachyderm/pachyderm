@@ -1,0 +1,90 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/UserLogQuery",
+    "definitions": {
+        "UserLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string",
+                    "description": "All pipelines in the project"
+                },
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false,
+                    "description": "One pipeline in a project"
+                },
+                "datum": {
+                    "type": "string",
+                    "description": "One datum."
+                },
+                "job": {
+                    "type": "string",
+                    "description": "One job, across pipelines and projects"
+                },
+                "pipelineJob": {
+                    "$ref": "#/definitions/logs.PipelineJobLogQuery",
+                    "additionalProperties": false,
+                    "description": "One job in one pipeline"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "project"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline"
+                    ]
+                },
+                {
+                    "required": [
+                        "datum"
+                    ]
+                },
+                {
+                    "required": [
+                        "job"
+                    ]
+                },
+                {
+                    "required": [
+                        "pipeline_job"
+                    ]
+                }
+            ],
+            "title": "User Log Query",
+            "description": "Only returns \"user\" logs"
+        },
+        "logs.PipelineJobLogQuery": {
+            "properties": {
+                "pipeline": {
+                    "$ref": "#/definitions/logs.PipelineLogQuery",
+                    "additionalProperties": false
+                },
+                "job": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Job Log Query"
+        },
+        "logs.PipelineLogQuery": {
+            "properties": {
+                "project": {
+                    "type": "string"
+                },
+                "pipeline": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Log Query"
+        }
+    }
+}

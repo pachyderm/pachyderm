@@ -19,6 +19,7 @@ filegroup(
         "//src/internal/task:protos",
         "//src/internal/tracing/extended:protos",
         "//src/license:protos",
+        "//src/logs:protos",
         "//src/pfs:protos",
         "//src/pjs:protos",
         "//src/pps:protos",
