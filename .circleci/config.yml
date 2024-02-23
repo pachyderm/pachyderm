@@ -180,7 +180,7 @@ jobs:
         type: string
     resource_class: << parameters.resource_class >>
     machine:
-      image: ubuntu-2004:202101-01
+      image: default
     steps:
       - checkout
       - restore_cache:
@@ -196,7 +196,7 @@ jobs:
             - /tmp/docker-cache
   docker-manifest:
     machine:
-      image: ubuntu-2004:202101-01
+      image: default
     steps:
       - checkout
       - run:
@@ -254,7 +254,7 @@ jobs:
   test-docker-console-can-render:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202201-02
+      image: default
     steps:
       - checkout
       - run: npm ci
