@@ -60,3 +60,9 @@ if [ ! -f cached-deps/helm ]; then
       mv ./linux-${ARCH}/helm cached-deps/helm
 fi
 
+if [ ! -f cached-deps/helm ]; then
+  curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
+    --output "./datadog-ci" && chmod +x "./datadog-ci"
+  mv ./datadog-ci cached-deps/datadog-ci
+fi
+            
