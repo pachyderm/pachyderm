@@ -167,7 +167,7 @@ func TestForEachRepo(t *testing.T) {
 		size := 210
 		expectedInfos := make([]*pfs.RepoInfo, size)
 		for i := 0; i < size; i++ {
-			createInfo := testRepo(fmt.Sprintf("%s%d", testRepoName, i), "unknown")
+			createInfo := testRepo(fmt.Sprintf("%s%03d", testRepoName, i), "unknown")
 			id, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
 			require.NoError(t, err, "should be able to create repo")
 			require.Equal(t, pfsdb.RepoID(i+1), id, "id should be auto incremented")
