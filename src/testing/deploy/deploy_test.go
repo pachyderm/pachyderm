@@ -35,7 +35,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 		Enterprise:   true,
 		PortOffset:   portOffset,
 		Determined:   true,
-		CleanupAfter: true,
+		CleanupAfter: false,
 	}
 	valueOverrides["pachd.replicas"] = "1"
 	opts.ValueOverrides = valueOverrides
@@ -47,7 +47,7 @@ func TestInstallAndUpgradeEnterpriseWithEnv(t *testing.T) {
 	c.SetAuthToken("")
 	mockIDPLogin(t, c)
 	// Test Upgrade
-	opts.CleanupAfter = false
+	opts.CleanupAfter = true
 	// set new root token via env
 	opts.AuthUser = ""
 	token := "new-root-token"
