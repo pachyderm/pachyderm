@@ -43,6 +43,7 @@ const PipelineEditor = () => {
     setEditorText,
     initialDoc,
     error,
+    addProject,
     createPipeline,
     createLoading,
     goToLineage,
@@ -69,7 +70,7 @@ const PipelineEditor = () => {
   const continueWithCreateOrUpdate = () => {
     if (isCreatingOrDuplicating) {
       createPipeline({
-        createPipelineRequestJson: editorText,
+        createPipelineRequestJson: addProject(editorText),
         update: !isCreatingOrDuplicating,
       });
     } else {
@@ -245,7 +246,7 @@ const PipelineEditor = () => {
           onHide={closeUpdateModal}
           onSubmit={({reprocess}: {reprocess: boolean}) =>
             createPipeline({
-              createPipelineRequestJson: editorText,
+              createPipelineRequestJson: addProject(editorText),
               update: true,
               reprocess,
             })

@@ -138,14 +138,34 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     }
   }, [createDryData?.effectiveCreatePipelineRequestJson, effectiveSpec]);
 
+  const addProject = useCallback(
+    (editorText: string) => {
+      try {
+        const editorTextJSON = JSON.parse(editorText);
+        if (editorTextJSON?.pipeline?.project?.name) {
+          return editorText;
+        } else {
+          return JSON.stringify({
+            ...editorTextJSON,
+            pipeline: {...editorTextJSON?.pipeline, project: {name: projectId}},
+          });
+        }
+      } catch {
+        setIsValidJSON(false);
+      }
+    },
+    [projectId],
+  );
+
   useEffect(() => {
     // check if valid json on editorText change and trigger dry run
     try {
       const editorTextJSON = JSON.parse(editorText);
+      const editorTextWithProject = addProject(editorText);
       setIsValidJSON(true);
       !pipelineLoading &&
         createPipelineDryRun({
-          createPipelineRequestJson: editorText,
+          createPipelineRequestJson: editorTextWithProject,
           dryRun: true,
           update: !isCreatingOrDuplicating,
         });
@@ -154,6 +174,7 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
       setIsValidJSON(false);
     }
   }, [
+    addProject,
     createPipelineDryRun,
     editorText,
     isCreating,
@@ -241,6 +262,7 @@ const usePipelineEditor = (closeUpdateModal: () => void) => {
     setEditorText,
     initialDoc,
     error,
+    addProject,
     createPipeline,
     createLoading,
     goToLineage,

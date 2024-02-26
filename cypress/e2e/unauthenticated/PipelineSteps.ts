@@ -19,6 +19,7 @@ describe('Pipelines', () => {
       win.location.href = 'about:blank';
     });
     cy.deleteReposAndPipelines();
+    cy.exec('pachctl delete project pipelineInferProject -f', {failOnNonZeroExit: false});
   });
 
   it('should allow a user to select a subset of pipelines to inspect jobs and apply a global ID', () => {
@@ -98,6 +99,40 @@ describe('Pipelines', () => {
 
     // new pipeline has been created
     cy.get('#GROUP_fcd0346ddb31ee5a39ed7eb2271c659bf855737d').should('exist');
+  });
+
+  it('should infer the project name if not provided', () => {
+    cy.exec('pachctl create project pipelineInferProject');
+    cy.visit('/');
+    cy.findAllByText(/^View(\sProject)*$/)
+      .eq(1)
+      .click();
+    cy.findByRole('button', {name: 'Create', timeout: 12000}).click();
+    cy.findByRole('menuitem', {
+      name: 'Pipeline',
+      timeout: 12000,
+    }).click();
+
+    cy.findByRole('textbox').type(
+      `{selectAll}{backspace}{
+  "pipeline": {
+    "name": "noProject"
+  },
+  "transform": {}
+}${'{del}'.repeat(40)}`,
+      {delay: 0},
+    );
+
+    // assert that the effective spec added the correct project name
+    cy.findByRole('tab', {name: /effective spec/i}).click();
+    cy.findByRole('textbox').should('contain.text', 'pipelineInferProject');
+
+    cy.findByRole('button', {
+      name: /create pipeline/i,
+    }).click();
+
+    // new pipeline has been created in the same project
+    cy.get('#GROUP_6e78a0c2510b56582f8b7a23aebf9e6df267512b').should('exist');
   });
 
   it('should allow a user to update a pipeline', () => {
