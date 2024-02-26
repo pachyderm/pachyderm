@@ -44,7 +44,7 @@ export const jobInfosToJobSet = (jobInfos: JobInfo[]): InternalJobSet => {
   const inProgress = Boolean(jobs.find((job) => !job.finished));
 
   return {
-    job: job.job,
+    job: job?.job,
     created,
     started,
     finished,

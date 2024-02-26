@@ -15,7 +15,7 @@
 .chipGroup {
   background-color: var(--white);
   display: inline-flex;
-  justify-content: end;
+  justify-content: flex-end;
   margin: 0;
   padding-right: 1rem;
   padding-bottom: 0.25rem;
