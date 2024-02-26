@@ -58,7 +58,7 @@ commonAnnotations: {}
 ##
 image:
   registry: docker.io
-  repository: bitnami/postgresql
+  repository: pachyderm/postgresql
   tag: 15
   ## Specify a imagePullPolicy
   ## Defaults to 'Always' if image tag is 'latest', else set to 'IfNotPresent'
