@@ -141,10 +141,10 @@ jobs:
       TEST_RESULTS: /tmp/test-results
     steps:
       - checkout
-      - run:
-          name: Collect node stats
-          command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
-          background: true
+      # - run:
+      #     name: Collect node stats
+      #     command: sar 10 -BbdHwzS -I SUM -n DEV -q -r ALL -u ALL -h
+      #     background: true
       - run:
           name: setup env vars
           command: |
