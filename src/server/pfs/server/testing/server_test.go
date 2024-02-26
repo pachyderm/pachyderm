@@ -8,6 +8,7 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"runtime"
@@ -4132,6 +4133,31 @@ func TestPathRange(t *testing.T) {
 			require.Equal(t, 0, len(expectedPaths))
 		})
 	}
+}
+
+func TestPathRangeDirectory(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	masterCommit := client.NewCommit(pfs.DefaultProjectName, repo, "master", "")
+	dirPath := "/dir/"
+	filePath := path.Join(dirPath, "file-2")
+	require.NoError(t, env.PachClient.PutFile(masterCommit, filePath, &bytes.Buffer{}))
+	c, err := env.PachClient.PfsAPIClient.GlobFile(ctx, &pfs.GlobFileRequest{
+		Commit:    masterCommit,
+		Pattern:   "**",
+		PathRange: &pfs.PathRange{Upper: "/dir/file-1"},
+	})
+	require.NoError(t, err)
+	var outputPaths []string
+	require.NoError(t, grpcutil.ForEach[*pfs.FileInfo](c, func(fi *pfs.FileInfo) error {
+		outputPaths = append(outputPaths, fi.File.Path)
+		return nil
+	}))
+	require.Equal(t, 1, len(outputPaths))
+	require.Equal(t, dirPath, outputPaths[0])
 }
 
 func TestApplyWriteOrder(t *testing.T) {
