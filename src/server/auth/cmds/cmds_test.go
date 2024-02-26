@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"fmt"
 	"os/exec"
 	"strings"
 	"testing"
@@ -245,7 +244,6 @@ pachctl auth check repo {{.repo}} --project {{.project}} >/tmp/bim 2>&1`,
 			"project", project,
 			"repo", repo,
 		).Run())
-		fmt.Println("QQQ tcgs", c.AuthToken())
 		require.NoError(t, tu.PachctlBashCmd(t, c, `pachctl auth get repo {{.repo}} --project {{.project}} >/tmp/foobar 2>&1`,
 			"project", project,
 			"repo", repo,

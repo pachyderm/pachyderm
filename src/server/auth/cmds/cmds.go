@@ -394,7 +394,6 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			fmt.Println("QQQ wami", c.AuthToken())
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
