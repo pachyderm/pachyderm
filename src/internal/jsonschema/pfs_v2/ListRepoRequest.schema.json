@@ -6,7 +6,7 @@
             "properties": {
                 "type": {
                     "type": "string",
-                    "description": "type is the type of (system) repos that should be returned an empty string requests all repos"
+                    "description": "Type is the type of (system) repo that should be returned. An empty string requests all repos."
                 },
                 "projects": {
                     "items": {
@@ -14,7 +14,12 @@
                     },
                     "additionalProperties": false,
                     "type": "array",
-                    "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+                    "description": "Filters out repos whos project isn't represented. An empty list of projects doesn't filter repos by their project."
+                },
+                "page": {
+                    "$ref": "#/definitions/pfs_v2.RepoPage",
+                    "additionalProperties": false,
+                    "description": "Specifies which page of repos should be returned. If page isn't specified, a single page containing all the relevant repos is returned."
                 }
             },
             "additionalProperties": false,
@@ -30,6 +35,26 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Project"
+        },
+        "pfs_v2.RepoPage": {
+            "properties": {
+                "order": {
+                    "enum": [
+                        "PROJECT_REPO"
+                    ],
+                    "type": "string",
+                    "title": "Ordering"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "pageIndex": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Page"
         }
     }
 }

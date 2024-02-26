@@ -195,11 +195,24 @@ message InspectRepoRequest {
 }
 
 message ListRepoRequest {
-  // type is the type of (system) repos that should be returned
-  // an empty string requests all repos
+  // Type is the type of (system) repo that should be returned.
+  // An empty string requests all repos.
   string type = 1;
-  // projects filters out repos that do not belong in the list, while no projects means list all repos.
+  // Filters out repos whos project isn't represented.
+  // An empty list of projects doesn't filter repos by their project.
   repeated Project projects = 2;
+  // Specifies which page of repos should be returned.
+  // If page isn't specified, a single page containing all the relevant repos is returned.
+  RepoPage page = 3;
+}
+
+message RepoPage {
+  enum Ordering {
+    PROJECT_REPO = 0;
+  }
+  Ordering order = 1;
+  int64 page_size = 2;
+  int64 page_index = 3;
 }
 
 message DeleteRepoRequest {

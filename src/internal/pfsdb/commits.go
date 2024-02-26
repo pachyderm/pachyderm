@@ -837,7 +837,7 @@ func NewCommitsIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 	query += "\n" + OrderByQuery[commitColumn](orderByGeneric...)
 	query = extCtx.Rebind(query)
 	return &CommitIterator{
-		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Commit](ctx, query, values, startPage, pageSize, 0),
 		extCtx:    extCtx,
 	}, nil
 }
@@ -908,7 +908,7 @@ func WatchCommitsInRepo(ctx context.Context, db *pachsql.DB, listener collection
 	// Optimized query for getting commits in a repo.
 	query := getCommit + fmt.Sprintf(" WHERE %s = ?  ORDER BY %s ASC", CommitColumnRepoID, CommitColumnID)
 	query = db.Rebind(query)
-	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize), extCtx: db}
+	snapshot := &CommitIterator{paginator: newPageIterator[Commit](ctx, query, []any{repoID}, 0, commitsPageSize, 0), extCtx: db}
 	return watchCommits(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 

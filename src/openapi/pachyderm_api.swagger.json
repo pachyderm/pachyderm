@@ -5696,6 +5696,13 @@
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
     },
+    "RepoPageOrdering": {
+      "type": "string",
+      "enum": [
+        "PROJECT_REPO"
+      ],
+      "default": "PROJECT_REPO"
+    },
     "SQLDatabaseEgressFileFormat": {
       "type": "object",
       "properties": {
@@ -8509,7 +8516,7 @@
       "properties": {
         "type": {
           "type": "string",
-          "title": "type is the type of (system) repos that should be returned\nan empty string requests all repos"
+          "description": "Type is the type of (system) repo that should be returned.\nAn empty string requests all repos."
         },
         "projects": {
           "type": "array",
@@ -8517,7 +8524,11 @@
             "type": "object",
             "$ref": "#/definitions/pfs_v2Project"
           },
-          "description": "projects filters out repos that do not belong in the list, while no projects means list all repos."
+          "description": "Filters out repos whos project isn't represented.\nAn empty list of projects doesn't filter repos by their project."
+        },
+        "page": {
+          "$ref": "#/definitions/pfs_v2RepoPage",
+          "description": "Specifies which page of repos should be returned.\nIf page isn't specified, a single page containing all the relevant repos is returned."
         }
       }
     },
@@ -8683,6 +8694,22 @@
         }
       },
       "title": "Details are only provided when explicitly requested"
+    },
+    "pfs_v2RepoPage": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/RepoPageOrdering"
+        },
+        "pageSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pageIndex": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
     },
     "pfs_v2SQLDatabaseEgress": {
       "type": "object",
