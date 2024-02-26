@@ -152,13 +152,21 @@ async def test_unmount(pachyderm_resources, http_client: AsyncClient):
     assert r.status_code == 200, r.text
     assert len(r.json()["mounted"]) == 1
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][0]["branches"]) == 1
+    for repo in r.json()["unmounted"]:
+        if repo["repo"] == repos[0]:
+            print(repo)
+            branches = repo["branches"]
+            assert len(branches) == 1
 
     r = await http_client.put("/_unmount", json={"mounts": [repos[0]]})
     assert r.status_code == 200, r.text
     assert len(r.json()["mounted"]) == 0
     assert len(r.json()["unmounted"]) == 3
-    assert len(r.json()["unmounted"][0]["branches"]) == 2
+    for repo in r.json()["unmounted"]:
+        if repo["repo"] == repos[0]:
+            print(repo)
+            branches = repo["branches"]
+            assert len(branches) == 2
 
     r = await http_client.get("/pfs")
     assert r.status_code == 200, r.text
