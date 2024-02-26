@@ -206,7 +206,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
-    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+    assert sorted([c["name"] for c in r["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
     url_params = {'number': 1}
@@ -254,7 +254,7 @@ async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClie
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
-    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
+    assert sorted([c["name"] for c in r["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
     url_params = {'number': 1}
