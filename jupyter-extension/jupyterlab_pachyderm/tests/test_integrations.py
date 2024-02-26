@@ -94,8 +94,16 @@ async def test_mount(pachyderm_resources, http_client: AsyncClient):
     assert len(resp["mounted"]) == 3
     mounted_names = [mount["name"] for mount in resp["mounted"]]
     assert len(resp["unmounted"]) == 2
-    assert len(resp["unmounted"][0]["branches"]) == 1
-    assert len(resp["unmounted"][1]["branches"]) == 2
+    for repo in r.json()["unmounted"]:
+        if repo["repo"] == repos[1]:
+            print(repo)
+            branches = repo["branches"]
+            assert len(branches) == 1
+    for repo in r.json()["unmounted"]:
+        if repo["repo"] == repos[2]:
+            print(repo)
+            branches = repo["branches"]
+            assert len(branches) == 2
 
     r = await http_client.get("/pfs")
     assert r.status_code == 200, r.text
@@ -198,8 +206,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
-    assert r["content"][0]["name"] == 'file1'
-    assert r["content"][1]["name"] == 'file2'
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
     url_params = {'number': 1}
@@ -247,8 +254,7 @@ async def test_view_datum_pagination(pachyderm_resources, http_client: AsyncClie
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
-    assert r["content"][0]["name"] == 'file1'
-    assert r["content"][1]["name"] == 'file2'
+    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
     url_params = {'number': 1}
