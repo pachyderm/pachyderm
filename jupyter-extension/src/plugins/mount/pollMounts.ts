@@ -88,7 +88,7 @@ export class PollMounts {
   }
 
   set health(healthCheck: HealthCheck) {
-    if (isEqual(healthCheck, this._health)) {
+    if (JSON.stringify(healthCheck) === JSON.stringify(this._health)) {
       return;
     }
 
@@ -101,7 +101,7 @@ export class PollMounts {
   }
 
   set config(config: AuthConfig) {
-    if (isEqual(config, this._config)) {
+    if (JSON.stringify(config) === JSON.stringify(this._config)) {
       return;
     }
     this._config = config;
@@ -136,7 +136,7 @@ export class PollMounts {
   };
 
   updateData = (data: ListMountsResponse): void => {
-    if (isEqual(data, this._rawData)) {
+    if (JSON.stringify(data) !== JSON.stringify(this._rawData)) {
       this._rawData = data;
       this.mounted = Array.from(Object.values(data.mounted));
       this.unmounted = Array.from(Object.values(data.unmounted));
@@ -144,7 +144,7 @@ export class PollMounts {
   };
 
   updateProjects = (data: ProjectInfo[]): void => {
-    if (isEqual(data, this.projects)) {
+    if (JSON.stringify(data) !== JSON.stringify(this.projects)) {
       this.projects = data;
     }
   };
