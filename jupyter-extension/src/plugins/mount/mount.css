@@ -467,3 +467,7 @@ textarea {
 .pachyderm-pipeline-error {
   color: red;
 }
+
+.pachyderm-config-tab .p-TabBar-tabIcon svg {
+  transform: translate(-1px, 3px)
+}
