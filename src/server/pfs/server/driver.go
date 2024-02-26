@@ -267,7 +267,7 @@ func (d *driver) hasProjectAccess(
 	return true, nil
 }
 
-func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project) ([]*pfs.RepoInfo, error) {
+func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project, page *pfs.RepoPage) ([]*pfs.RepoInfo, error) {
 	projectNames := make(map[string]bool, 0)
 	for _, project := range projects {
 		projectNames[project.GetName()] = true
@@ -289,7 +289,7 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 		return d.env.Auth.CheckProjectIsAuthorizedInTransaction(txnCtx, &pfs.Project{Name: project}, auth.Permission_PROJECT_LIST_REPO)
 	}, 100)
 	var repos []*pfs.RepoInfo
-	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, filter, func(repoWithID pfsdb.RepoInfoWithID) error {
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, filter, page, func(repoWithID pfsdb.RepoInfoWithID) error {
 		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok && len(projectNames) > 0 {
 			return nil // project doesn't match filter.
 		}
@@ -333,7 +333,7 @@ func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project, force
 }
 
 func (d *driver) deleteReposInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, projects []*pfs.Project, force bool) ([]*pfs.Repo, error) {
-	repos, err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "", projects)
+	repos, err := d.listRepoInTransaction(ctx, txnCtx, false /* includeAuth */, "", projects, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repos")
 	}
@@ -497,7 +497,7 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		Name:    repo.Name,
 		Project: repo.Project,
 	}
-	related, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter)
+	related, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter, nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "list repo by name")
 	}
@@ -755,7 +755,7 @@ func (d *driver) deleteProject(ctx context.Context, txnCtx *txncontext.Transacti
 		return errors.Wrapf(err, "user is not authorized to delete project %q", project)
 	}
 	var errs error
-	repos, err := d.listRepoInTransaction(ctx, txnCtx, false, "", []*pfs.Project{project})
+	repos, err := d.listRepoInTransaction(ctx, txnCtx, false, "", []*pfs.Project{project}, nil)
 	if err != nil {
 		return errors.Wrap(err, "list repos to determine if any still exist")
 	}
@@ -945,6 +945,7 @@ func (d *driver) finishCommit(ctx context.Context, txnCtx *txncontext.Transactio
 	return pfsdb.UpdateCommit(ctx, txnCtx.SqlTx, commitWithID.ID, commitInfo, pfsdb.AncestryOpt{SkipParent: true, SkipChildren: true})
 }
 
+// NOTE: repoSize() is only calculated based on the "master" branch
 func (d *driver) repoSize(ctx context.Context, txnCtx *txncontext.TransactionContext, repoInfo *pfs.RepoInfo) (int64, error) {
 	for _, branch := range repoInfo.Branches {
 		if branch.Name == "master" {
