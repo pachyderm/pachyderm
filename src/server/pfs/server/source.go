@@ -61,10 +61,6 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 		// emit /d1/f1 and /d2/.
 		pr := &index.PathRange{
 			Lower: sc.pathRange.Lower,
-			Upper: sc.pathRange.Upper,
-		}
-		if pr.Upper != "" {
-			pr.Upper += string(rune(0))
 		}
 		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(pr))
 		s.upper = sc.pathRange.Upper
