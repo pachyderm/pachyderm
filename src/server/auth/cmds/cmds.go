@@ -387,12 +387,14 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "This command prints your Pachyderm identity (e.g., `user:alan.watts@domain.com`) and session expiration.",
-		Run: cmdutil.Run(func([]string) error {
+		Run: cmdutil.RunCmd(func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
+			fmt.Println("QQQ wami", c.AuthToken())
 			resp, err := c.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
 			if err != nil {
 				return errors.Wrapf(grpcutil.ScrubGRPC(err), "error")
@@ -662,7 +664,7 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetRepoRoleBinding(ctx, project, repo)
+			resp, err := c.GetRepoRoleBinding(c.Ctx(), project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
