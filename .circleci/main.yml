@@ -265,7 +265,7 @@ jobs:
           path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
-      - datadog-test-upload:
+      - run:
           name: Upload test results to DataDog
           command: |-
             curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" --output "/usr/local/bin/datadog-ci" && chmod +x "/usr/local/bin/datadog-ci"
