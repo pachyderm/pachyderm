@@ -517,11 +517,9 @@ func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId Comm
 		Lineage:   make(map[CommitID]CommitID),
 		FoundRoot: true,
 	}
-	earliestAncestor := make(map[CommitID]bool)
 	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
 		ancestry.Lineage[parentId] = childId
-		delete(earliestAncestor, childId)
-		earliestAncestor[parentId] = true
+		ancestry.EarliestDiscovered = parentId
 		return nil
 	}); err != nil {
 		if errors.As(err, new(*MaxDepthReachedError)) {
@@ -529,9 +527,6 @@ func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId Comm
 		} else {
 			return nil, errors.Wrap(err, "get commit ancestry")
 		}
-	}
-	for i := range earliestAncestor {
-		ancestry.EarliestDiscovered = i
 	}
 	return ancestry, nil
 }
