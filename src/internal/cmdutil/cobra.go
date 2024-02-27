@@ -93,6 +93,14 @@ func Run(run func(args []string) error) func(*cobra.Command, []string) {
 	}
 }
 
+func RunCmd(run func(cmd *cobra.Command, args []string) error) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if err := run(cmd, args); err != nil {
+			ErrorAndExitf("%v", err)
+		}
+	}
+}
+
 // ErrorAndExitf errors with the given format and args, and then exits.
 func ErrorAndExitf(format string, args ...interface{}) {
 	if errString := strings.TrimSpace(fmt.Sprintf(format, args...)); errString != "" {
