@@ -22,6 +22,8 @@ import (
 )
 
 const (
+	DefaultMaxSearchDepth = 1000
+
 	// CommitsChannelName is used to watch events for the commits table.
 	CommitsChannelName     = "pfs_commits"
 	CommitsRepoChannelName = "pfs_commits_repo_"
@@ -175,6 +177,21 @@ func (err *CommitAlreadyExistsError) Error() string {
 
 func (err *CommitAlreadyExistsError) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
+}
+
+// MaxDepthReachedError is returned when a recursive query iterates beyond a maximum depth.
+type MaxDepthReachedError struct {
+	LastCommitSearched CommitID
+	Depth              int
+}
+
+// Error satisfies the error interface.
+func (err *MaxDepthReachedError) Error() string {
+	return fmt.Sprintf("max depth reached: %d\n", err.Depth)
+}
+
+func (err *MaxDepthReachedError) GRPCStatus() *status.Status {
+	return status.New(codes.ResourceExhausted, err.Error())
 }
 
 // AncestryOpt allows users to create commitInfos and skip creating the ancestry information.
@@ -485,6 +502,78 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 	return children, nil
 }
 
+// CommitAncestry models a lineage of the CommitID values of the ancestors of Start.
+type CommitAncestry struct {
+	Start              CommitID
+	Lineage            map[CommitID]CommitID
+	EarliestDiscovered CommitID // EarliestDiscovered is the root of the commit ancestry tree if FoundRoot is true.
+	FoundRoot          bool     // FoundRoot is true if GetCommitAncestry reaches a root of a commit ancestry tree.
+}
+
+// GetCommitAncestry returns a CommitAncestry from startId up to maxDepth.
+func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (*CommitAncestry, error) {
+	ancestry := &CommitAncestry{
+		Start:     startId,
+		Lineage:   make(map[CommitID]CommitID),
+		FoundRoot: true,
+	}
+	earliestAncestor := make(map[CommitID]bool)
+	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
+		ancestry.Lineage[parentId] = childId
+		delete(earliestAncestor, childId)
+		earliestAncestor[parentId] = true
+		return nil
+	}); err != nil {
+		if errors.As(err, new(*MaxDepthReachedError)) {
+			ancestry.FoundRoot = false
+		} else {
+			return nil, errors.Wrap(err, "get commit ancestry")
+		}
+	}
+	for i := range earliestAncestor {
+		ancestry.EarliestDiscovered = i
+	}
+	return ancestry, nil
+}
+
+// ForEachCommitAncestor queries postgres for ancestors of startId up to the maxDepth. cb() is called for each ancestor.
+// maxDepth is optional.
+func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint, cb func(parentId, childId CommitID) error) error {
+	query := `
+		WITH RECURSIVE ancestry AS (
+			SELECT parent, child FROM pfs.commit_ancestry WHERE child = $1 
+			UNION
+			SELECT ca.parent, ca.child FROM pfs.commit_ancestry ca
+			JOIN ancestry a ON ca.child = a.parent
+		)
+		SELECT a.parent, a.child
+		FROM ancestry a;
+			`
+	rows, err := extCtx.QueryContext(ctx, query, startId)
+	if err != nil {
+		return errors.Wrap(err, "get oldest commit ancestor")
+	}
+	defer rows.Close()
+	if maxDepth == 0 {
+		maxDepth = DefaultMaxSearchDepth
+	}
+	depth := uint(0)
+	for rows.Next() {
+		var parent, child CommitID
+		if err := rows.Scan(&parent, &child); err != nil {
+			return errors.Wrap(err, "scanning parent and child row")
+		}
+		if err := cb(parent, child); err != nil {
+			return errors.Wrap(err, "calling cb() on parent and child")
+		}
+		depth++
+		if depth >= maxDepth {
+			return &MaxDepthReachedError{LastCommitSearched: parent}
+		}
+	}
+	return nil
+}
+
 func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
 	id, err := GetCommitID(ctx, tx, commit)
 	if err != nil {
@@ -749,9 +838,9 @@ func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 
 // CommitWithID is returned by the commit iterator.
 type CommitWithID struct {
-	ID         CommitID
-	CommitInfo *pfs.CommitInfo
-	Revision   int64
+	ID CommitID
+	*pfs.CommitInfo
+	Revision int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.

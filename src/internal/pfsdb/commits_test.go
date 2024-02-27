@@ -3,6 +3,8 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"testing"
 	"time"
 
@@ -592,6 +594,60 @@ func TestListCommitRevision(t *testing.T) {
 				require.True(t, revMap[i], "revision should exist.")
 			}
 		})
+	})
+}
+
+func TestGetCommitAncestry(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		for trees := 0; trees < 5; trees++ {
+			makeCommitTree(ctx, t, 5, db)
+		}
+		startId := pfsdb.CommitID(12)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 0)
+			require.NoError(t, err, "should be able to get ancestry")
+			require.Equal(t, ancestry.EarliestDiscovered, pfsdb.CommitID(7), "root should be 7, (1-6) should be a separate tree")
+			require.Equal(t, ancestry.FoundRoot, true, "root should have been found")
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{7: 8, 8: 9, 9: 10, 10: 11, 11: 12}
+			if diff := cmp.Diff(expected, ancestry.Lineage,
+				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
+			}
+		})
+	})
+}
+
+func TestGetCommitAncestryMaxDepth(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		makeCommitTree(ctx, t, 10, db)
+		startId := pfsdb.CommitID(10)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 5)
+			require.NoError(t, err, "should be able to get ancestry")
+			require.Equal(t, ancestry.EarliestDiscovered, pfsdb.CommitID(5), "earliest discovered is incorrect")
+			require.Equal(t, ancestry.FoundRoot, false, "root should not have been found")
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{9: 10, 8: 9, 7: 8, 6: 7, 5: 6}
+			if diff := cmp.Diff(expected, ancestry.Lineage,
+				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
+			}
+		})
+	})
+}
+
+func makeCommitTree(ctx context.Context, t *testing.T, depth int, db *pachsql.DB) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		rootCommit := testCommit(ctx, t, tx, testRepoName)
+		_, err := pfsdb.CreateCommit(ctx, tx, rootCommit)
+		require.NoError(t, err, "should be able to create root commit")
+		parent := rootCommit
+		for i := 0; i < depth; i++ {
+			child := testCommit(ctx, t, tx, testRepoName)
+			child.ParentCommit = parent.Commit
+			_, err := pfsdb.CreateCommit(ctx, tx, child)
+			require.NoError(t, err, "should be able to create commit")
+			parent = child
+		}
 	})
 }
 
