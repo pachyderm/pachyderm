@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"path"
 	"path/filepath"
@@ -569,6 +570,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 			}
 			return nil, errors.EnsureStack(err)
 		}
+		fmt.Println("core-2139: get file set: commit finished: total file set for repo", commit.Repo.Name, "commit", commit.Id, "total file set id", id)
 		return id, nil
 	}
 	// Compose the base file set with the diffs.
@@ -586,6 +588,7 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 					Commit:     commitInfo.Commit,
 				}
 			}
+			fmt.Println("core-2139: get file set: commit not finished:", commit.Repo.Name, "commit", commit.Id)
 			// ¯\_(ツ)_/¯
 			baseId, err := d.getFileSet(ctx, baseCommit)
 			if err != nil {
@@ -600,7 +603,9 @@ func (d *driver) getFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.I
 	if err != nil {
 		return nil, errors.EnsureStack(err)
 	}
+	fmt.Println("core-2139: get file set: diff file set for repo", commit.Repo.Name, "commit", commit.Id, "diff file set id", id)
 	ids = append(ids, *id)
+	fmt.Println("core-2139: get file set: composing file sets for repo", commit.Repo.Name, "commit", commit.Id, "file set ids", ids)
 	return d.storage.Filesets.Compose(ctx, ids, defaultTTL)
 }
 

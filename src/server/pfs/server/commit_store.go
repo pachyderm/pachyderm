@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"database/sql"
+	"fmt"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -109,7 +110,12 @@ func (cs *postgresCommitStore) GetTotalFileSetTx(tx *pachsql.Tx, commit *pfs.Com
 	if id == nil {
 		return nil, errNoTotalFileSet
 	}
-	return cs.s.CloneTx(tx, *id, defaultTTL)
+	cloneId, err := cs.s.CloneTx(tx, *id, defaultTTL)
+	if err != nil {
+		return nil, errors.Wrap(err, "clone file set")
+	}
+	fmt.Println("core-2139: get total file set for repo", commit.Repo, "commit", commit.Id, "cloned total file set:", cloneId, "original:", id)
+	return cloneId, err
 }
 
 func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.Commit) (*fileset.ID, error) {
@@ -124,7 +130,12 @@ func (cs *postgresCommitStore) GetDiffFileSet(ctx context.Context, commit *pfs.C
 	}); err != nil {
 		return nil, err
 	}
-	return cs.s.Compose(ctx, ids, defaultTTL)
+	id, err := cs.s.Compose(ctx, ids, defaultTTL)
+	if err != nil {
+		return nil, errors.Wrap(err, "compose file set")
+	}
+	fmt.Println("core-2139: get diff file set for repo", commit.Repo, "commit", commit.Id, "composed diff file set:", id, "originals:", ids)
+	return id, err
 }
 
 func (cs *postgresCommitStore) SetTotalFileSet(ctx context.Context, commit *pfs.Commit, id fileset.ID) error {

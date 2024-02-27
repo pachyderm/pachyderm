@@ -2,6 +2,7 @@ package transform
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -167,6 +168,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 			if err != nil {
 				return err
 			}
+			fmt.Println("core-2139: create parallel datums: create datums: file set id:", fileSetID)
 			return renewer.Add(ctx, fileSetID)
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -179,6 +181,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 				if err != nil {
 					return err
 				}
+				fmt.Println("core-2139: create parallel datums: base file set id:", baseFileSetID)
 				return renewer.Add(ctx, baseFileSetID)
 			}); err != nil {
 				return errors.EnsureStack(err)
@@ -186,6 +189,7 @@ func (pj *pendingJob) createParallelDatums(ctx context.Context, taskDoer task.Do
 		}
 		// Create the output datum file set for the new datums (datums that do not exist in the base job).
 		outputFileSetID, err = pj.createJobDatumFileSetParallel(ctx, taskDoer, renewer, fileSetID, baseFileSetID)
+		fmt.Println("core-2139: create parallel datums: output file set id:", outputFileSetID)
 		return err
 	}); err != nil {
 		return "", err
@@ -306,6 +310,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 		var fileSetID string
 		if err := pj.logger.LogStep("creating full job datum file set", func() error {
 			fileSetID, err = createDatums(pachClient, taskDoer, pj.ji.Job)
+			fmt.Println("core-2139: create serial datums: create datums: file set id:", fileSetID)
 			if err != nil {
 				return err
 			}
@@ -315,6 +320,7 @@ func (pj *pendingJob) createSerialDatums(ctx context.Context, taskDoer task.Doer
 		}
 		// Create the output datum file set for the datums that were not processed by the base (failed, recovered, etc.).
 		outputFileSetID, err = pj.createJobDatumFileSetSerial(ctx, taskDoer, renewer, fileSetID, pj.baseMetaCommit)
+		fmt.Println("core-2139: create serial datums: output file set id:", outputFileSetID)
 		return err
 	}); err != nil {
 		return "", err

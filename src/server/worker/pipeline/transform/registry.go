@@ -389,6 +389,7 @@ func createDatumSets(pachClient *client.APIClient, pj *pendingJob, taskDoer task
 	}
 	var datumSets []*pfs.PathRange
 	if err := pj.logger.LogStep("creating datum sets", func() error {
+		fmt.Println("core-2139: sharding file set: id:", fileSetID)
 		shards, err := pachClient.ShardFileSet(fileSetID)
 		if err != nil {
 			return err
