@@ -36,7 +36,7 @@ const Config: React.FC<ConfigProps> = ({
     setShowAdvancedOptions,
     serverCa,
     setServerCa,
-  } = useConfig(updateConfig, healthCheck, authConfig, refresh);
+  } = useConfig(updateConfig, healthCheck, refresh);
   const authEnabled =
     status === 'HEALTHY_LOGGED_IN' || status === 'HEALTHY_LOGGED_OUT';
   return (

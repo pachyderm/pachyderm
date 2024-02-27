@@ -23,7 +23,6 @@ export type useConfigResponse = {
 export const useConfig = (
   updateConfig: (shouldShow: AuthConfig) => void,
   healthCheck: HealthCheck,
-  authConfig: AuthConfig,
   refresh: () => Promise<void>,
 ): useConfigResponse => {
   const [loading, setLoading] = useState(false);
@@ -41,11 +40,11 @@ export const useConfig = (
       ['UNHEALTHY', 'HEALTHY_INVALID_CLUSTER'].includes(healthCheck.status),
     );
     setErrorMessage('');
-    setAddressField(authConfig.pachd_address ? authConfig.pachd_address : '');
+    setAddressField('');
     setServerCa('');
     setShowAdvancedOptions(false);
     setStatus(healthCheck.status);
-  }, [healthCheck, authConfig]);
+  }, [healthCheck]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
