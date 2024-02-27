@@ -120,7 +120,7 @@ export class MountPlugin implements IMountPlugin {
                 authConfig={config ? config : this._poller.config}
                 refresh={this._poller.refresh}
               />
-          )}
+            )}
           </UseSignal>
         )}
       </UseSignal>,
