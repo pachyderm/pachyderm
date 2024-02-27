@@ -96,12 +96,10 @@ async def test_mount(pachyderm_resources, http_client: AsyncClient):
     assert len(resp["unmounted"]) == 2
     for repo in r.json()["unmounted"]:
         if repo["repo"] == repos[1]:
-            print(repo)
             branches = repo["branches"]
             assert len(branches) == 1
     for repo in r.json()["unmounted"]:
         if repo["repo"] == repos[2]:
-            print(repo)
             branches = repo["branches"]
             assert len(branches) == 2
 
@@ -162,7 +160,6 @@ async def test_unmount(pachyderm_resources, http_client: AsyncClient):
     assert len(r.json()["unmounted"]) == 3
     for repo in r.json()["unmounted"]:
         if repo["repo"] == repos[0]:
-            print(repo)
             branches = repo["branches"]
             assert len(branches) == 1
 
@@ -172,7 +169,6 @@ async def test_unmount(pachyderm_resources, http_client: AsyncClient):
     assert len(r.json()["unmounted"]) == 3
     for repo in r.json()["unmounted"]:
         if repo["repo"] == repos[0]:
-            print(repo)
             branches = repo["branches"]
             assert len(branches) == 2
 
