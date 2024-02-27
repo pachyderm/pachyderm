@@ -41,11 +41,11 @@ export const useConfig = (
       ['UNHEALTHY', 'HEALTHY_INVALID_CLUSTER'].includes(healthCheck.status),
     );
     setErrorMessage('');
-    setAddressField('');
+    setAddressField(authConfig.pachd_address ? authConfig.pachd_address : '');
     setServerCa('');
     setShowAdvancedOptions(false);
     setStatus(healthCheck.status);
-  }, [healthCheck]);
+  }, [healthCheck, authConfig]);
 
   const updatePachdAddress = async () => {
     setLoading(true);
