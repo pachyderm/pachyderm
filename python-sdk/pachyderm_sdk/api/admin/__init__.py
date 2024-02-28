@@ -103,28 +103,3 @@ class ApiStub:
             request.current_project = current_project
 
         return self.__rpc_inspect_cluster(request)
-
-
-class ApiBase:
-
-    def inspect_cluster(
-        self,
-        client_version: "_version__.Version",
-        current_project: "_pfs__.Project",
-        context: "grpc.ServicerContext",
-    ) -> "ClusterInfo":
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "admin_v2.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "InspectCluster": grpc.unary_unary_rpc_method_handler(
-                self.inspect_cluster,
-                request_deserializer=InspectClusterRequest.FromString,
-                response_serializer=InspectClusterRequest.SerializeToString,
-            ),
-        }
