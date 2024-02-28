@@ -38,6 +38,7 @@ go_library(
         "//src/internal/tls",
         "//src/internal/tracing",
         "//src/license",
+        "//src/logs",
         "//src/pfs",
         "//src/pjs",
         "//src/pps",

@@ -1,32 +1,16 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
+import {isEqual} from 'lodash';
 import {
   AuthConfig,
+  HealthCheck,
   Mount,
   ListMountsResponse,
-  mountState,
   Repo,
   ProjectInfo,
 } from './types';
 import {ServerConnection} from '@jupyterlab/services';
-
-export const MOUNTED_STATES: mountState[] = [
-  'unmounting',
-  'mounted',
-  'mounting',
-  'error',
-];
-export const UNMOUNTED_STATES: mountState[] = [
-  'gone',
-  'discovering',
-  'unmounted',
-];
-
-export type ServerStatus = {
-  code: number;
-  message?: string;
-};
 
 export class PollMounts {
   constructor(name: string) {
@@ -39,17 +23,19 @@ export class PollMounts {
   private _mounted: Mount[] = [];
   private _unmounted: Repo[] = [];
   private _projects: ProjectInfo[] = [];
-  private _status: ServerStatus = {code: 999, message: ''};
   private _config: AuthConfig = {
     pachd_address: '',
-    cluster_status: 'INVALID',
+  };
+  private _health: HealthCheck = {
+    status: 'HEALTHY_INVALID_CLUSTER',
+    message: '',
   };
 
   private _mountedSignal = new Signal<this, Mount[]>(this);
   private _unmountedSignal = new Signal<this, Repo[]>(this);
   private _projectSignal = new Signal<this, ProjectInfo[]>(this);
-  private _statusSignal = new Signal<this, ServerStatus>(this);
   private _configSignal = new Signal<this, AuthConfig>(this);
+  private _healthSignal = new Signal<this, HealthCheck>(this);
 
   private _dataPoll = new Poll({
     auto: true,
@@ -97,17 +83,17 @@ export class PollMounts {
     this._projectSignal.emit(data);
   }
 
-  get status(): ServerStatus {
-    return this._status;
+  get health(): HealthCheck {
+    return this._health;
   }
 
-  set status(status: ServerStatus) {
-    if (JSON.stringify(status) === JSON.stringify(this._status)) {
+  set health(healthCheck: HealthCheck) {
+    if (JSON.stringify(healthCheck) === JSON.stringify(this._health)) {
       return;
     }
 
-    this._status = status;
-    this._statusSignal.emit(status);
+    this._health = healthCheck;
+    this._healthSignal.emit(healthCheck);
   }
 
   get config(): AuthConfig {
@@ -132,8 +118,8 @@ export class PollMounts {
     return this._projectSignal;
   }
 
-  get statusSignal(): ISignal<this, ServerStatus> {
-    return this._statusSignal;
+  get healthSignal(): ISignal<this, HealthCheck> {
+    return this._healthSignal;
   }
 
   get configSignal(): ISignal<this, AuthConfig> {
@@ -165,22 +151,21 @@ export class PollMounts {
 
   async getData(): Promise<void> {
     try {
-      const config = await requestAPI<AuthConfig>('config', 'GET');
-      this.config = config;
+      const healthCheck = await requestAPI<HealthCheck>('health', 'GET');
+      this.health = healthCheck;
       if (
-        config.cluster_status === 'VALID_NO_AUTH' ||
-        config.cluster_status === 'VALID_LOGGED_IN'
+        healthCheck.status === 'HEALTHY_LOGGED_IN' ||
+        healthCheck.status === 'HEALTHY_NO_AUTH'
       ) {
         const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
-        this.status = {code: 200};
         this.updateData(data);
         const project = await requestAPI<ProjectInfo[]>('projects', 'GET');
         this.updateProjects(project);
       }
     } catch (error) {
       if (error instanceof ServerConnection.ResponseError) {
-        this.status = {
-          code: error.response.status,
+        this.health = {
+          status: 'UNHEALTHY',
           message: error.response.statusText,
         };
       }

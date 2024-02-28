@@ -1181,11 +1181,11 @@ cloudsqlAuthProxy:
     # repository is the image repo to pull from; together with tag it
     # replicates the --dash-image & --registry arguments to pachctl
     # deploy.
-    repository: "gcr.io/cloudsql-docker/gce-proxy"
+    repository: "gcr.io/cloud-sql-connectors/cloud-sql-proxy"
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --dash-image argument to pachctl deploy.
-    tag: "1.23.0"
+    tag: "2.8.2"
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []

@@ -2,23 +2,12 @@ import {Contents} from '@jupyterlab/services';
 import {TabPanel} from '@lumino/widgets';
 import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
 
-export type mountState =
-  | 'unmounting'
-  | 'mounted'
-  | 'mounting'
-  | 'error'
-  | 'gone'
-  | 'discovering'
-  | 'unmounted'
-  | '';
-
-export type clusterStatus =
-  | 'NONE'
-  | 'UNKNOWN'
-  | 'INVALID'
-  | 'VALID_NO_AUTH'
-  | 'VALID_LOGGED_IN'
-  | 'VALID_LOGGED_OUT';
+export type HealthCheckStatus =
+  | 'UNHEALTHY'
+  | 'HEALTHY_INVALID_CLUSTER'
+  | 'HEALTHY_NO_AUTH'
+  | 'HEALTHY_LOGGED_IN'
+  | 'HEALTHY_LOGGED_OUT';
 
 export type authorization = 'off' | 'none' | 'read' | 'write';
 
@@ -93,8 +82,12 @@ export type ProjectInfo = {
   created_at: string;
 };
 
+export type HealthCheck = {
+  status: HealthCheckStatus;
+  message?: string;
+};
+
 export type AuthConfig = {
-  cluster_status: clusterStatus;
   pachd_address?: string;
   server_cas?: string;
 };

@@ -90,7 +90,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -155,7 +155,7 @@ jobs:
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export RUNNER_INDEX="$CIRCLE_NODE_INDEX"' >> $BASH_ENV
 
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -517,7 +517,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -1267,16 +1267,16 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
               then
                   echo "git tag has - assuming prerelease."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --prerelease --repo pachyderm/haberdashery
               else
                   echo "regular release."
-                  gh release create --draft ${CIRCLE_TAG:1}-1 --tittle ${CIRCLE_TAG:1}-1 --target $parentBranch --generate-notes --repo pachyderm/haberdashery
+                  gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
               fi
             SECONDS=0
             while :; do
-                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1}-1 2>/dev/null && break
-                if (( $SECONDS > 1 )); then
-                    printf 'Waited 10 minutes for console docker image, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures\n' >&2
+                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1} 2>/dev/null && break
+                if (( $SECONDS > 600 )); then
+                    printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
                     exit 1
                 fi
                 sleep 1
@@ -1396,11 +1396,38 @@ jobs:
           command: poetry --no-ansi install
       - wait-for-minikube
       - run:
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
+      - run:
           name: Install pach
           command: |
-            helm install pachd ../etc/helm/pachyderm --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm --namespace enterprise --set deployTarget=LOCAL,pachd.image.tag=${CIRCLE_SHA1},proxy.service.type=NodePort,proxy.service.httpNodePort=30081,pachd.enterpriseLicenseKey=${ENT_ACT_CODE},pachd.rootToken=roottoken1234
+            helm install pachd-enterprise ../etc/helm/pachyderm \
+              --namespace enterprise \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set proxy.service.httpNodePort=30081 \
+              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
+              --set pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
@@ -2023,7 +2050,7 @@ workflows:
       - release-github:
           name: github-release-console
           repo: pachyderm/haberdashery
-          tag: ${CIRCLE_TAG:1}-1
+          tag: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
             - sign-off

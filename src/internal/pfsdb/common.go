@@ -47,26 +47,33 @@ func OrderByQuery[T ColumnName](orderBys ...OrderByColumn[T]) string {
 }
 
 type pageIterator[T ModelType] struct {
-	query         string
-	values        []any
-	limit, offset uint64
-	page          []T
-	pageIdx       int
-	lastTimestamp time.Time
-	revision      int64
+	query                   string
+	values                  []any
+	limit, offset, maxPages uint64
+	page                    []T
+	pageIdx                 int
+	lastTimestamp           time.Time
+	revision                int64
+	pagesSeen               int
 }
 
-func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize uint64) pageIterator[T] {
+// if maxPages == 0, then interpret as unlimited pages
+func newPageIterator[T ModelType](ctx context.Context, query string, values []any, startPage, pageSize, maxPages uint64) pageIterator[T] {
 	return pageIterator[T]{
 		query:    query,
 		values:   values,
 		revision: -1, // first revision should be 0 and we increment before returning.
 		limit:    pageSize,
 		offset:   startPage * pageSize,
+		maxPages: maxPages,
 	}
 }
 
 func (i *pageIterator[T]) nextPage(ctx context.Context, extCtx sqlx.ExtContext) (err error) {
+	defer func() { i.pagesSeen++ }()
+	if i.maxPages > 0 && i.pagesSeen >= int(i.maxPages) {
+		return stream.EOS()
+	}
 	var page []T
 	query := i.query + fmt.Sprintf("\nLIMIT %d OFFSET %d", i.limit, i.offset)
 	if err := sqlx.SelectContext(ctx, extCtx, &page, query, i.values...); err != nil {

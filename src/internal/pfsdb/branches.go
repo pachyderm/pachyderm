@@ -154,7 +154,7 @@ func NewBranchIterator(ctx context.Context, ext sqlx.ExtContext, startPage, page
 	query += "\n" + OrderByQuery[branchColumn](orderByGeneric...)
 	query = ext.Rebind(query)
 	return &BranchIterator{
-		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize),
+		paginator: newPageIterator[Branch](ctx, query, values, startPage, pageSize, 0),
 		ext:       ext,
 	}, nil
 }
@@ -679,7 +679,7 @@ func WatchBranchesInRepo(ctx context.Context, db *pachsql.DB, listener collectio
 	// Optimized query for getting branches in a repo.
 	query := getBranchBaseQuery + fmt.Sprintf("\nWHERE %s = ?\nORDER BY %s ASC", BranchColumnRepoID, BranchColumnID)
 	query = db.Rebind(query)
-	snapshot := &BranchIterator{paginator: newPageIterator[Branch](ctx, query, []any{repoID}, 0, branchesPageSize), ext: db}
+	snapshot := &BranchIterator{paginator: newPageIterator[Branch](ctx, query, []any{repoID}, 0, branchesPageSize, 0), ext: db}
 	return watchBranches(ctx, db, snapshot, watcher.Watch(), onUpsert, onDelete)
 }
 

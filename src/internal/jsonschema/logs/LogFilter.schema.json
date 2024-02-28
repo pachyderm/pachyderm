@@ -1,0 +1,63 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/LogFilter",
+    "definitions": {
+        "LogFilter": {
+            "properties": {
+                "timeRange": {
+                    "$ref": "#/definitions/logs.TimeRangeLogFilter",
+                    "additionalProperties": false
+                },
+                "limit": {
+                    "type": "integer"
+                },
+                "regex": {
+                    "$ref": "#/definitions/logs.RegexLogFilter",
+                    "additionalProperties": false
+                },
+                "level": {
+                    "enum": [
+                        "LOG_LEVEL_DEBUG",
+                        "LOG_LEVEL_INFO",
+                        "LOG_LEVEL_ERROR"
+                    ],
+                    "type": "string",
+                    "title": "Log Level"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Log Filter"
+        },
+        "logs.RegexLogFilter": {
+            "properties": {
+                "pattern": {
+                    "type": "string"
+                },
+                "negate": {
+                    "type": "boolean"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Regex Log Filter"
+        },
+        "logs.TimeRangeLogFilter": {
+            "properties": {
+                "from": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                },
+                "until": {
+                    "type": "string",
+                    "description": "Can be null",
+                    "format": "date-time"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Time Range Log Filter"
+        }
+    }
+}

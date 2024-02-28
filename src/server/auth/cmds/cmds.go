@@ -387,7 +387,8 @@ func WhoamiCmd(ctx context.Context, pachctlCfg *pachctl.Config) *cobra.Command {
 	whoami := &cobra.Command{
 		Short: "Print your Pachyderm identity",
 		Long:  "This command prints your Pachyderm identity (e.g., `user:alan.watts@domain.com`) and session expiration.",
-		Run: cmdutil.Run(func([]string) error {
+		Run: cmdutil.RunCmd(func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -622,7 +623,8 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 		Example: "\t- {{alias}} foo repoOwner user:alan.watts@domain.com" +
 			"\t- {{alias}} foo repoWriter, repoReader robot:my-robot" +
 			"\t- {{alias}} foo none robot:my-robot --project foobar",
-		Run: cmdutil.RunFixedArgs(3, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(3, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			var roles []string
 			if args[1] == "none" {
 				roles = []string{}
@@ -636,7 +638,7 @@ func SetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyRepoRoleBinding(project, repo, subject, roles)
+			err = c.ModifyRepoRoleBinding(c.Ctx(), project, repo, subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -653,14 +655,15 @@ func GetRepoRoleBindingCmd(ctx context.Context, pachCtx *config.Context, pachctl
 		Long:  "This command returns the role bindings for a given repo.",
 		Example: "\t- {{alias}} foo" +
 			"\t- {{alias}} foo --project bar",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			repo := args[0]
-			resp, err := c.GetRepoRoleBinding(project, repo)
+			resp, err := c.GetRepoRoleBinding(c.Ctx(), project, repo)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -752,14 +755,15 @@ func GetProjectRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 		Use:   "{{alias}} <project>",
 		Short: "Get the role bindings for a project",
 		Long:  "This command returns the role bindings for a given project.",
-		Run: cmdutil.RunBoundedArgs(1, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
 			project := args[0]
-			resp, err := c.GetProjectRoleBinding(project)
+			resp, err := c.GetProjectRoleBinding(c.Ctx(), project)
 			if err != nil {
 				return grpcutil.ScrubGRPC(err)
 			}
@@ -792,7 +796,7 @@ func SetClusterRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config) *
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
@@ -844,7 +848,7 @@ func SetEnterpriseRoleBindingCmd(ctx context.Context, pachctlCfg *pachctl.Config
 				return errors.Wrapf(err, "could not connect")
 			}
 			defer c.Close()
-			err = c.ModifyClusterRoleBinding(subject, roles)
+			err = c.ModifyClusterRoleBinding(c.Ctx(), subject, roles)
 			return grpcutil.ScrubGRPC(err)
 		}),
 	}
