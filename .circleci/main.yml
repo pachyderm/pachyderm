@@ -90,7 +90,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -155,7 +155,7 @@ jobs:
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
             echo 'export RUNNER_INDEX="$CIRCLE_NODE_INDEX"' >> $BASH_ENV
 
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
@@ -517,7 +517,7 @@ jobs:
 
             echo 'export PATH=/home/circleci/project/cached-deps:$PATH' >> $BASH_ENV
             echo 'export PATH=$GOPATH/bin:$PATH' >> $BASH_ENV
-            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(.*) ]]
+            if [[ "$CIRCLE_BRANCH" -eq "" ]] && [[ "$CIRCLE_TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(.*) ]]
             then
               echo 'export TEST_IMAGE_SHA=$CIRCLE_SHA1' >> $BASH_ENV
             else
