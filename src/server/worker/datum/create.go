@@ -8,6 +8,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	internalauth "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/renew"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -434,6 +435,9 @@ func deserializeComposeTaskResult(taskAny *anypb.Any) (*ComposeTaskResult, error
 }
 
 func getAuthToken(ctx context.Context) string {
+	if whoami := internalauth.GetWhoAmI(ctx); whoami == "" {
+		return ""
+	}
 	authToken, err := auth.GetAuthTokenOutgoing(ctx)
 	if err != nil {
 		log.Error(ctx, "no auth token", zap.Error(err))
