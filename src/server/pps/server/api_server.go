@@ -1252,17 +1252,20 @@ func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error)
 	if err != nil {
 		return errors.Wrap(err, "server receive")
 	}
-	if msg.Input == nil {
+	startMsg, ok := msg.Body.(*pps.CreateDatumRequest_Start)
+	if !ok {
+		return errors.Errorf("first message must be a StartCreateDatumRequest message")
+	}
+	if startMsg.Start.Input == nil {
 		return errors.Errorf("first message must specify an input")
 	}
-
-	it, err := a.getStreamingIterator(server.Context(), msg.Input)
+	it, err := a.getStreamingIterator(server.Context(), startMsg.Start.Input)
 	if err != nil {
 		return errors.Wrap(err, "getting streaming iterator")
 	}
+	number := startMsg.Start.Number
 	for {
-		number := msg.Number
-		if number == 0 {
+		if number <= 0 {
 			number = DefaultDatumBatchSize
 		}
 		if err := errors.EnsureStack(it.Iterate(func(meta *datum.Meta) error {
@@ -1286,6 +1289,11 @@ func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error)
 			}
 			return errors.Wrap(err, "server receive")
 		}
+		continueMsg, ok := msg.Body.(*pps.CreateDatumRequest_Continue)
+		if !ok {
+			return errors.Errorf("subsequent messages must be a ContinueCreateDatumRequest message")
+		}
+		number = continueMsg.Continue.Number
 	}
 }
 
@@ -1310,7 +1318,7 @@ func (a *apiServer) getStreamingIterator(ctx context.Context, input *pps.Input) 
 	}
 	pachClient := a.env.GetPachClient(ctx)
 	taskDoer := a.env.TaskService.NewDoer(driver.PreprocessingTaskNamespace(nil), uuid.NewWithoutDashes(), nil)
-	it := datum.NewCreateDatumStreamIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
+	it := datum.NewStreamingDatumIterator(pachClient.Ctx(), pachClient.PfsAPIClient, taskDoer, input)
 	return it, nil
 }
 

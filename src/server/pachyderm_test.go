@@ -3667,7 +3667,7 @@ func TestCreateDatum(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		req := &pps.CreateDatumRequest{Input: input}
+		req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
 		start := time.Now()
 		if err := client.Send(req); err != nil {
 			return err

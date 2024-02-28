@@ -17,53 +17,45 @@ const (
 	ShardNumFiles = 10000
 )
 
-type createDatumStream struct {
-	ctx               context.Context
-	c                 pfs.APIClient
-	taskDoer          task.Doer
-	input             *pps.Input
-	requestDatumsChan chan bool
-	fsidChan          chan string
-	errChan           chan error
-}
-
-func (cds *createDatumStream) create(input *pps.Input, fsidCh chan string) {
+// Creates datums from the given input and sends the file set ids over fsidChan
+// as they are created. Should be called in a goroutine.
+func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input, fsidChan chan<- string, errChan chan<- error, requestDatumsChan <-chan struct{}) {
 	switch {
 	case input.Pfs != nil:
-		cds.createPFS(input.Pfs, fsidCh)
+		streamingCreatePFS(ctx, c, taskDoer, input.Pfs, fsidChan, errChan, requestDatumsChan)
 	case input.Union != nil:
-		cds.errChan <- errors.New("union input type unimplemented")
+		errChan <- errors.New("union input type unimplemented")
 	case input.Cross != nil:
-		cds.errChan <- errors.New("cross input type unimplemented")
+		errChan <- errors.New("cross input type unimplemented")
 	case input.Join != nil:
-		cds.errChan <- errors.New("join input type unimplemented")
+		errChan <- errors.New("join input type unimplemented")
 	case input.Group != nil:
-		cds.errChan <- errors.New("group input type unimplemented")
+		errChan <- errors.New("group input type unimplemented")
 	case input.Cron != nil:
-		cds.errChan <- errors.New("can't create datums for cron input type")
+		errChan <- errors.New("can't create datums for cron input type")
 	default:
-		cds.errChan <- errors.Errorf("unrecognized input type: %v", input)
+		errChan <- errors.Errorf("unrecognized input type: %v", input)
 	}
 }
 
-func (cds *createDatumStream) createPFS(input *pps.PFSInput, fsidChan chan string) {
+func streamingCreatePFS(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.PFSInput, fsidChan chan<- string, errChan chan<- error, requestDatumsChan <-chan struct{}) {
 	defer close(fsidChan)
-	authToken := getAuthToken(cds.ctx)
-	if err := client.WithRenewer(cds.ctx, cds.c, func(ctx context.Context, renewer *renew.StringSet) error {
-		fileSetID, err := client.GetFileSet(ctx, cds.c, input.Project, input.Repo, input.Branch, input.Commit)
+	authToken := getAuthToken(ctx)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		fileSetID, err := client.GetFileSet(ctx, c, input.Project, input.Repo, input.Branch, input.Commit)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "get file set")
 		}
 		if err := renewer.Add(ctx, fileSetID); err != nil {
-			return err
+			return errors.Wrap(err, "renew file set")
 		}
-		shards, err := client.ShardFileSetWithConfig(ctx, cds.c, fileSetID, ShardNumFiles, 0)
+		shards, err := client.ShardFileSetWithConfig(ctx, c, fileSetID, ShardNumFiles, 0)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "shard file set")
 		}
 		for i, shard := range shards {
 			// Block until the client requests more datums
-			<-cds.requestDatumsChan
+			<-requestDatumsChan
 			input, err := serializePFSTask(&PFSTask{
 				Input:     input,
 				PathRange: shard,
@@ -71,23 +63,28 @@ func (cds *createDatumStream) createPFS(input *pps.PFSInput, fsidChan chan strin
 				AuthToken: authToken,
 			})
 			if err != nil {
-				return err
+				return errors.Wrap(err, "serialize pfs task")
 			}
-			output, err := task.DoOne(ctx, cds.taskDoer, input)
+			output, err := task.DoOne(ctx, taskDoer, input)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "do task")
 			}
 			result, err := deserializePFSTaskResult(output)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "deserialize pfs task result")
 			}
 			if err := renewer.Add(ctx, result.FileSetId); err != nil {
-				return err
+				return errors.Wrap(err, "renew result file set")
 			}
-			cds.fsidChan <- result.FileSetId
+			select {
+			case <-ctx.Done():
+				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+			case fsidChan <- result.FileSetId:
+			}
+
 		}
 		return nil
 	}); err != nil {
-		cds.errChan <- err
+		errChan <- errors.Wrap(err, "streamingCreatePFS")
 	}
 }

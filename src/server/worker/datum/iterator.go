@@ -40,40 +40,42 @@ func NewIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input
 	return NewFileSetIterator(ctx, c, fileSetID, nil), nil
 }
 
-func NewCreateDatumStreamIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) Iterator {
-	ctx = pctx.Child(ctx, "CreateDatumStream")
-	cds := &createDatumStream{
+func NewStreamingDatumIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) Iterator {
+	ctx = pctx.Child(ctx, "StreamingDatumIterator")
+	fsidChan := make(chan string)
+	errChan := make(chan error, 1)
+	requestDatumsChan := make(chan struct{})
+	go streamingCreate(ctx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
+	return &streamingDatumIterator{
 		ctx:               ctx,
 		c:                 c,
-		taskDoer:          taskDoer,
-		input:             input,
-		requestDatumsChan: make(chan bool),
-		fsidChan:          make(chan string),
-		errChan:           make(chan error, 1),
-	}
-	go cds.create(cds.input, cds.fsidChan)
-	return &createDatumStreamIterator{
-		createDatumStream: cds,
 		metaBuffer:        make([]*Meta, 0),
+		fsidChan:          fsidChan,
+		errChan:           errChan,
+		requestDatumsChan: requestDatumsChan,
 	}
 }
 
-type createDatumStreamIterator struct {
-	*createDatumStream
-	metaBuffer []*Meta
+type streamingDatumIterator struct {
+	ctx               context.Context
+	c                 pfs.APIClient
+	metaBuffer        []*Meta
+	fsidChan          <-chan string
+	errChan           <-chan error
+	requestDatumsChan chan<- struct{}
 }
 
 // Return value of nil means all datums have been returned.
 // Return value of errutil.ErrBreak means that iteration is paused and
 // will be resumed when client asks for more.
 // Return value of anything else means an error.
-func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
+func (it *streamingDatumIterator) Iterate(cb func(*Meta) error) error {
 	for {
 		// Consume leftover datums from the buffer first before asking
 		// to create more.
 		if len(it.metaBuffer) == 0 {
 			select {
-			case it.requestDatumsChan <- true:
+			case it.requestDatumsChan <- struct{}{}:
 			case fsid, ok := <-it.fsidChan:
 				if !ok {
 					return nil
@@ -83,7 +85,7 @@ func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
 					err := cb(meta)
 					// If callback has consumed all the datums it needs,
 					// add the leftover datums to the buffer.
-					if errors.Is(err, errutil.ErrBreak) {
+					if err != nil && errors.Is(err, errutil.ErrBreak) {
 						it.metaBuffer = append(it.metaBuffer, meta)
 						return nil
 					}
@@ -95,7 +97,7 @@ func (it *createDatumStreamIterator) Iterate(cb func(*Meta) error) error {
 					return errutil.ErrBreak
 				}
 			case err := <-it.errChan:
-				return errors.Wrap(err, "create()")
+				return errors.Wrap(err, "streamingCreate")
 			}
 		} else {
 			meta := it.metaBuffer[0]

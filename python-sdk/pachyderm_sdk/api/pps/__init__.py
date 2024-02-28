@@ -851,20 +851,38 @@ class ListDatumRequestFilter(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class CreateDatumRequest(betterproto.Message):
+class StartCreateDatumRequest(betterproto.Message):
     input: "Input" = betterproto.message_field(1)
     """
     Input is the input to list datums from. The datums listed are the ones
-    that would be run if a pipeline was created with the provided input. The
-    input field is only required for the first request. The server ignores
-    subsequent requests' input field.
+    that would be run if a pipeline was created with the provided input.
     """
 
-    number: int = betterproto.int64_field(2)
+    number: int = betterproto.int32_field(2)
     """
-    Number of datums to return in next batch. If unset, default batch size is
+    Number of datums to return in first batch. If 0, default batch size is
     returned.
     """
+
+
+@dataclass(eq=False, repr=False)
+class ContinueCreateDatumRequest(betterproto.Message):
+    number: int = betterproto.int32_field(1)
+    """
+    Number of datums to return in next batch. If 0, default batch size is
+    returned.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class CreateDatumRequest(betterproto.Message):
+    """
+    Emits a stream of datums as they are created from the given input. Client
+    must cancel the stream when it no longer wants to receive datums.
+    """
+
+    start: "StartCreateDatumRequest" = betterproto.message_field(1, group="body")
+    continue_: "ContinueCreateDatumRequest" = betterproto.message_field(2, group="body")
 
 
 @dataclass(eq=False, repr=False)

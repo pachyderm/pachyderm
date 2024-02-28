@@ -133,7 +133,7 @@ func TestCreateDatum(t *testing.T) {
 	t.Run("EmptyRepo", func(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
 		_, err = datumClient.Recv()
 		require.ErrorIs(t, err, io.EOF)
 	})
@@ -149,7 +149,7 @@ func TestCreateDatum(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Requesting more datums than exist should return all datums without erroring
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100}))
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100}}}))
 		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize+100)
 		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
@@ -159,12 +159,12 @@ func TestCreateDatum(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Not specifying number of datums should return DefaultDatumBatchSize datums
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
 		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize)
 		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.NoError(t, err)
 		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input, Number: 50}))
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{Number: 50}}}))
 		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 50, n)
@@ -179,10 +179,26 @@ func TestCreateDatum(t *testing.T) {
 		for _, input := range inputs {
 			datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 			require.NoError(t, err)
-			require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Input: input}))
+			require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
 			_, err = datumClient.Recv()
 			require.ErrorContains(t, err, "unimplemented input type")
 		}
+	})
+	t.Run("WrongRequestMessage", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{}}}))
+		_, err = datumClient.Recv()
+		require.ErrorContains(t, err, "first message must be a StartCreateDatumRequest message")
+
+		datumClient, err = pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: 1}}}))
+		_, err = datumClient.Recv()
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		_, err = datumClient.Recv()
+		require.ErrorContains(t, err, "subsequent messages must be a ContinueCreateDatumRequest message")
 	})
 }
 

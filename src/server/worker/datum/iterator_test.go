@@ -448,7 +448,7 @@ func TestStreamingIterator(t *testing.T) {
 		t.Parallel()
 		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "!(**)")
 		input.Pfs.Commit = commit.Id
-		it := datum.NewCreateDatumStreamIterator(ctx, pfsC, taskDoer, input)
+		it := datum.NewStreamingDatumIterator(ctx, pfsC, taskDoer, input)
 		count := 0
 		require.NoError(t, it.Iterate(func(_ *datum.Meta) error {
 			count++
@@ -460,7 +460,7 @@ func TestStreamingIterator(t *testing.T) {
 		t.Parallel()
 		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
 		input.Pfs.Commit = commit.Id
-		it := datum.NewCreateDatumStreamIterator(ctx, pfsC, taskDoer, input)
+		it := datum.NewStreamingDatumIterator(ctx, pfsC, taskDoer, input)
 		seen := make(map[string]bool)
 
 		count := 0
@@ -501,5 +501,16 @@ func TestStreamingIterator(t *testing.T) {
 			return nil
 		}))
 		require.Equal(t, 2*datum.ShardNumFiles, len(seen))
+	})
+
+	t.Run("IterationError", func(t *testing.T) {
+		t.Parallel()
+		badInput := client.NewPFSInput(pfs.DefaultProjectName, "nonexistent-repo", "/*")
+		badInput.Pfs.Commit = commit.Id
+		it := datum.NewStreamingDatumIterator(ctx, pfsC, taskDoer, badInput)
+		err := it.Iterate(func(_ *datum.Meta) error {
+			return nil
+		})
+		require.YesError(t, err)
 	})
 }

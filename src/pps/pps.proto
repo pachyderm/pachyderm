@@ -670,15 +670,29 @@ message ListDatumRequest {
   bool reverse = 6;
 }
 
-message CreateDatumRequest {
+message StartCreateDatumRequest {
   // Input is the input to list datums from. The datums listed are the ones 
   // that would be run if a pipeline was created with the provided input.
-  // The input field is only required for the first request. The server
-  // ignores subsequent requests' input field.
-  Input input = 1;
-  // Number of datums to return in next batch. If unset, default batch size
+  Input input = 1 [(validate.rules).message.required = true];
+  // Number of datums to return in first batch. If 0, default batch size
   // is returned.
-  int64 number = 2;
+  int32 number = 2 [(validate.rules).int32.gte = 0];
+}
+message ContinueCreateDatumRequest {
+  // Number of datums to return in next batch. If 0, default batch size
+  // is returned.
+  int32 number = 1 [(validate.rules).int32.gte = 0];
+}
+
+// Emits a stream of datums as they are created from the given input. Client
+// must cancel the stream when it no longer wants to receive datums.
+message CreateDatumRequest {
+  // Use StartCreateDatumRequest for the first request and 
+  // ContinueCreateDatumRequest for subsequent requests.
+  oneof body {
+     StartCreateDatumRequest start = 1;
+     ContinueCreateDatumRequest continue = 2;
+  }
 }
 
 // DatumSetSpec specifies how a pipeline should split its datums into datum sets.
