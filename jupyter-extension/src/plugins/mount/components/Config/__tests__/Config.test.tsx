@@ -1,5 +1,5 @@
 import React from 'react';
-import {render, waitFor} from '@testing-library/react';
+import {findByTestId, render, waitFor} from '@testing-library/react';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
@@ -117,6 +117,30 @@ describe('config screen', () => {
       });
     });
 
+    it('logged in should display option to change address', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_LOGGED_IN',
+      };
+
+      const {getByTestId, queryByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      await getByTestId('Config__pachdAddressCancel').click();
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+    });
+
     it('should allow user to login', async () => {
       const healthCheck: HealthCheck = {
         status: 'HEALTHY_LOGGED_OUT',
@@ -172,6 +196,30 @@ describe('config screen', () => {
       getByTestId('Config__pachdAddressUpdate');
       expect(queryByTestId('Config__login')).not.toBeInTheDocument();
       expect(queryByTestId('Config__logout')).not.toBeInTheDocument();
+    });
+
+    it('should display option to change address', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_NO_AUTH',
+      };
+
+      const {getByTestId, queryByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      await getByTestId('Config__pachdAddressCancel').click();
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
     });
   });
 

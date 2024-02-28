@@ -87,7 +87,10 @@ const Config: React.FC<ConfigProps> = ({
                   marginBottom: '1rem',
                 }}
               >
-                <span className="pachyderm-mount-config-subheading">
+                <span
+                  className="pachyderm-mount-config-subheading"
+                  data-testid="Config__mountConfigSubheading"
+                >
                   {authConfig.pachd_address
                     ? 'Update Configuration'
                     : 'Connect To a Cluster'}
