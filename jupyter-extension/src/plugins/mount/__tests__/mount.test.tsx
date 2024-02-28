@@ -23,6 +23,7 @@ import {SplitPanel, Widget} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
 import {HealthCheckStatus, MountSettings} from '../types';
+import { findByTestId, getByTestId } from '@testing-library/react';
 
 jest.mock('../../../handler');
 
@@ -133,8 +134,19 @@ describe('mount plugin', () => {
     expect(mockedRequestAPI).not.toHaveBeenCalledWith('projects', 'GET');
   });
 
-  /* TODO: tests must be updated for the new FUSE-less impl
   it('return from pipeline view to the correct layout', async () => {
+    // Mock responses from GET /health
+    mockedRequestAPI.mockImplementation(
+      (endPoint?: string, method?: string) => {
+        if (endPoint === 'health' && (method === 'GET' || method === null)) {
+          return Promise.resolve({
+            status: 'HEALTHY_NO_AUTH',
+          });
+        }
+        throw ServerConnection.NetworkError;
+      },
+    );
+
     const plugin = new MountPlugin(
       app,
       settings,
@@ -143,20 +155,15 @@ describe('mount plugin', () => {
       restorer,
       widgetTracker,
     );
-    const pipelineSplash = plugin.layout.widgets[3];
-    const fileBrowser = plugin.layout.widgets[5];
-    expect(fileBrowser).toBeInstanceOf(FileBrowser);
 
-    plugin.setShowConfig(false);
-    expect(pipelineSplash.isHidden).toBe(true);
-    expect(fileBrowser.isHidden).toBe(false);
+    await plugin.ready;
 
-    plugin.setShowPipeline(true);
-    expect(pipelineSplash.isHidden).toBe(false);
-    expect(fileBrowser.isHidden).toBe(true);
-
-    plugin.setShowPipeline(false);
-    expect(pipelineSplash.isHidden).toBe(true);
-    expect(fileBrowser.isHidden).toBe(false);
-  });*/
+    expect(plugin.layout.currentWidget?.title.className == "pachyderm-explore-tab");
+    plugin.setCurrentView(plugin.layout.widgets[1]);
+    expect(plugin.layout.currentWidget?.title.className == "pachyderm-test-tab");
+    plugin.setCurrentView(plugin.layout.widgets[2]);
+    expect(plugin.layout.currentWidget?.title.className == "pachyderm-publish-tab");
+    plugin.setCurrentView(plugin.layout.widgets[0]);
+    expect(plugin.layout.currentWidget?.title.className == "pachyderm-explore-tab");
+  });
 });
