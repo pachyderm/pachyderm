@@ -92,7 +92,6 @@ func TestGetProject(t *testing.T) {
 		// validate error for attempting to get non-existent project.
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
-		fmt.Println(err)
 		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))
 		return nil
 	}))
