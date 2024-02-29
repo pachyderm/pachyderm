@@ -3,6 +3,7 @@ import React from 'react';
 import {EMAIL_SUPPORT, SLACK_SUPPORT} from '@dash-frontend/constants/links';
 import {useEnterpriseActive} from '@dash-frontend/hooks/useEnterpriseActive';
 import {useVersion} from '@dash-frontend/hooks/useVersion';
+import {getReleaseVersion} from '@dash-frontend/lib/runtimeVariables';
 import {
   CaptionTextSmall,
   HamburgerSVG,
@@ -17,16 +18,14 @@ type HeaderDropdownProps = {
   errorPage?: boolean;
 };
 
-const CONSOLE_VERSION = process.env.REACT_APP_RELEASE_VERSION;
-
 const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
   const {enterpriseActive} = useEnterpriseActive(errorPage);
   const {version} = useVersion({enabled: !errorPage});
-  const consoleVersion = CONSOLE_VERSION;
+  const consoleVersion = getReleaseVersion();
   const pachdVersionString = version
     ? `${version.major}.${version.minor}.${version.micro}${version.additional}`
     : 'unknown';
-  const emailLinkWithPrefill = `${EMAIL_SUPPORT}?subject=Console%20Support&body=Console%20version:%20${CONSOLE_VERSION}%0APachd%20version:%20${pachdVersionString}`;
+  const emailLinkWithPrefill = `${EMAIL_SUPPORT}?subject=Console%20Support&body=Console%20version:%20${consoleVersion}%0APachd%20version:%20${pachdVersionString}`;
 
   const onDropdownMenuSelect = (id: string) => {
     switch (id) {

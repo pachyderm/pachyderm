@@ -44,7 +44,10 @@ describe('HeaderDropdown', () => {
   });
 
   describe('with Auth', () => {
+    const pachDashConfig = window.pachDashConfig;
+
     beforeEach(() => {
+      window.pachDashConfig = pachDashConfig;
       loginUser();
     });
 
@@ -66,6 +69,29 @@ describe('HeaderDropdown', () => {
       expect(await screen.findByText('User Test')).toBeInTheDocument();
       expect(await screen.findByText('Console test')).toBeInTheDocument();
       expect(screen.getByText('Pachd 0.0.0')).toBeInTheDocument();
+    });
+
+    it('should show the runtime console version', async () => {
+      jest.mocked(account).mockResolvedValue({
+        id: '1234567890',
+        email: '',
+        name: 'User Test',
+      });
+
+      window.pachDashConfig = {
+        REACT_APP_RUNTIME_ISSUER_URI: '',
+        REACT_APP_RELEASE_VERSION: '2.9.1',
+      };
+
+      render(<HeaderDropdown />);
+
+      await click(
+        screen.getByRole('button', {
+          name: /header menu/i,
+        }),
+      );
+
+      expect(await screen.findByText('Console 2.9.1')).toBeInTheDocument();
     });
 
     it("should display the user's email as a fallback", async () => {

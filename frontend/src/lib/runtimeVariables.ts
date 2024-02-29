@@ -36,3 +36,14 @@ export const getDisableTelemetry = () => {
 
   return disableTelemetry === 'true';
 };
+
+export const getReleaseVersion = () => {
+  let releaseVersion = '';
+  if (window.pachDashConfig) {
+    releaseVersion = window.pachDashConfig.REACT_APP_RELEASE_VERSION || '';
+  } else {
+    releaseVersion = process.env.REACT_APP_RELEASE_VERSION || '';
+  }
+
+  return releaseVersion;
+};

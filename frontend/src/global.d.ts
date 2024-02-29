@@ -51,6 +51,7 @@ declare interface Window {
     REACT_APP_RUNTIME_ISSUER_URI: string;
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
     REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
+    REACT_APP_RELEASE_VERSION?: string;
   };
 }
 
