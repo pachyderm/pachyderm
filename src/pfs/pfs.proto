@@ -759,10 +759,6 @@ service API {
   rpc SquashCommit(SquashCommitRequest) returns (SquashCommitResponse) {}
   // DropCommit drops the provided commit.
   rpc DropCommit(DropCommitRequest) returns (DropCommitResponse) {}
-  // WalkCommitProvenance starts from one or more commits and returns a stream of all commits that are transitively provenant on that commit.
-  rpc WalkCommitProvenance(WalkCommitProvenanceRequest) returns (stream CommitInfo) {}
-  // WalkCommitSubvenance starts from one or more commits and returns a stream of all commits that are transitively subvenant on that commit.
-  rpc WalkCommitSubvenance(WalkCommitSubvenanceRequest) returns (stream CommitInfo) {}
 
   // InspectCommitSet returns the info about a CommitSet.
   rpc InspectCommitSet(InspectCommitSetRequest) returns (stream CommitInfo) {}
@@ -785,11 +781,6 @@ service API {
   rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
-  // WalkBranchProvenance starts from one or more branches and returns a stream of all branches that are transitively provenant on that branch.
-  rpc WalkBranchProvenance(WalkBranchProvenanceRequest) returns (stream BranchInfo) {}
-  // WalkBranchSubvenance starts from one or more branches and returns a stream of all branches that are transitively subvenant on that branch.
-  rpc WalkBranchSubvenance(WalkBranchSubvenanceRequest) returns (stream BranchInfo) {}
-
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}
