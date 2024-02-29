@@ -2,6 +2,7 @@ package datum
 
 import (
 	"context"
+	reflect "reflect"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -9,6 +10,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -24,7 +26,7 @@ func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, i
 	case input.Pfs != nil:
 		streamingCreatePFS(ctx, c, taskDoer, input.Pfs, fsidChan, errChan, requestDatumsChan)
 	case input.Union != nil:
-		errChan <- errors.New("union input type unimplemented")
+		streamingCreateUnion(ctx, c, taskDoer, input.Union, fsidChan, errChan, requestDatumsChan)
 	case input.Cross != nil:
 		errChan <- errors.New("cross input type unimplemented")
 	case input.Join != nil:
@@ -38,7 +40,15 @@ func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, i
 	}
 }
 
-func streamingCreatePFS(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.PFSInput, fsidChan chan<- string, errChan chan<- error, requestDatumsChan <-chan struct{}) {
+func streamingCreatePFS(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	input *pps.PFSInput,
+	fsidChan chan<- string,
+	errChan chan<- error,
+	requestDatumsChan <-chan struct{},
+) {
 	defer close(fsidChan)
 	authToken := getAuthToken(ctx)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
@@ -81,10 +91,92 @@ func streamingCreatePFS(ctx context.Context, c pfs.APIClient, taskDoer task.Doer
 				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
 			case fsidChan <- result.FileSetId:
 			}
-
 		}
 		return nil
 	}); err != nil {
 		errChan <- errors.Wrap(err, "streamingCreatePFS")
+	}
+}
+
+func streamingCreateUnion(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	inputs []*pps.Input,
+	fsidChan chan<- string,
+	errChan chan<- error,
+	requestDatumsChan <-chan struct{},
+) {
+	defer close(fsidChan)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		childrenChans := initChildrenChans(len(inputs))
+		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
+		err := consumeChildrenChans(childrenChans, func(_ int, fsid string) error {
+			fsidChan <- fsid
+			return nil
+		})
+		return errors.Wrap(err, "consuming children channels")
+	}); err != nil {
+		errChan <- errors.Wrap(err, "createUnion")
+	}
+}
+
+func initChildrenChans(num int) []chan string {
+	childrenFsidChans := make([]chan string, num)
+	for i := 0; i < num; i++ { // TODO: go 1.22
+		childrenFsidChans[i] = make(chan string)
+	}
+	return childrenFsidChans
+}
+
+func consumeChildrenChans(childrenChans []chan string, cb func(int, string) error) error {
+	cases := make([]reflect.SelectCase, len(childrenChans))
+	for i, childChan := range childrenChans {
+		cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(childChan)}
+	}
+	finished := 0
+	for finished < len(cases) {
+		i, value, ok := reflect.Select(cases)
+		if ok {
+			fsid := value.Interface().(string)
+			if err := cb(i, fsid); err != nil {
+				return errors.Wrap(err, "consumeChildrenChans")
+			}
+		} else {
+			finished++
+		}
+	}
+	return nil
+}
+
+func streamingCreateInputs(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	renewer *renew.StringSet,
+	inputs []*pps.Input,
+	errChan chan<- error,
+	requestDatumsChan <-chan struct{},
+	childrenChans []chan string,
+) {
+	eg, ctx := errgroup.WithContext(ctx)
+	for i, input := range inputs { // TODO: go 1.22
+		i := i
+		input := input
+		eg.Go(func() error {
+			fsidChan := make(chan string)
+			go streamingCreate(ctx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
+			for fsid := range fsidChan {
+				if err := renewer.Add(ctx, fsid); err != nil {
+					return errors.Wrap(err, "renew file set")
+				}
+				childrenChans[i] <- fsid
+			}
+			close(childrenChans[i])
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		errChan <- errors.Wrap(err, "createInputs")
 	}
 }
