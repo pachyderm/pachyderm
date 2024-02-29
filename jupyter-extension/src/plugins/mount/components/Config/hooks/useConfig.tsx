@@ -23,7 +23,6 @@ export type useConfigResponse = {
 export const useConfig = (
   updateConfig: (shouldShow: AuthConfig) => void,
   healthCheck: HealthCheck,
-  authConfig: AuthConfig,
   refresh: () => Promise<void>,
 ): useConfigResponse => {
   const [loading, setLoading] = useState(false);

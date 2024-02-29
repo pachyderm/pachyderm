@@ -45,14 +45,16 @@ async def test_do_not_set_invalid_config(app: Application, http_client: AsyncCli
     # Act
     config_response = await http_client.put("/config", json=data)
     health_response = await http_client.get("/health")
+    config_get_response = await http_client.get("/config")
 
     # Assert
-    config_response.raise_for_status()
+    assert config_response.status_code == 400
+    config_get_response.raise_for_status()
     health_response.raise_for_status()
-    config_payload = config_response.json()
     health_payload = health_response.json()
+    config_get_payload = config_get_response.json()
     assert health_payload["status"] == "HEALTHY_INVALID_CLUSTER"
-    assert config_payload["pachd_address"] == invalid_address
+    assert config_get_payload["pachd_address"] == ""
     assert app.settings.get("pachyderm_client") is None
 
     # Ensure that no config file was created.

@@ -112,12 +112,16 @@ export class MountPlugin implements IMountPlugin {
     this._configScreen = ReactWidget.create(
       <UseSignal signal={this._poller.healthSignal}>
         {(_, healthCheck) => (
-          <Config
-            updateConfig={this.updateConfig}
-            healthCheck={healthCheck ? healthCheck : this._poller.health}
-            authConfig={this._poller.config}
-            refresh={this._poller.refresh}
-          />
+          <UseSignal signal={this._poller.configSignal}>
+            {(_, config) => (
+              <Config
+                updateConfig={this.updateConfig}
+                healthCheck={healthCheck ? healthCheck : this._poller.health}
+                authConfig={config ? config : this._poller.config}
+                refresh={this._poller.refresh}
+              />
+            )}
+          </UseSignal>
         )}
       </UseSignal>,
     );
