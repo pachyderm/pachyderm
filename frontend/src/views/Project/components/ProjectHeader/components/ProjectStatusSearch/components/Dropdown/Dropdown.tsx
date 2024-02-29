@@ -84,7 +84,12 @@ const Dropdown: React.FC = () => {
             </Tabs.Tab>
           </Tabs.TabsHeader>
 
-          <ul className={(styles.resultsContainer, styles.unorderedList)}>
+          <ul
+            className={classNames(
+              styles.resultsContainer,
+              styles.unorderedList,
+            )}
+          >
             {loading ? (
               <div className={styles.loadingContainer}>
                 <LoadingDots />
