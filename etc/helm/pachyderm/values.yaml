@@ -389,7 +389,8 @@ console:
     pullPolicy: "IfNotPresent"
     # tag is the image repo to pull from; together with repository it
     # replicates the --console-image argument to pachctl deploy.
-    tag: "2.8.4"
+    # defaults to .Chart.AppVersion
+    tag: ""
   priorityClassName: ""
   nodeSelector: {}
   tolerations: []
