@@ -394,7 +394,7 @@ class ConfigHandler(BaseHandler):
         address = body.get("pachd_address")
         if not address:
             get_logger().error("config/put: no pachd address provided")
-            raise tornado.web.HTTPError(500, "no pachd address provided")
+            raise tornado.web.HTTPError(400, "no pachd address provided")
         cas = bytes(body["server_cas"], "utf-8") if "server_cas" in body else None
 
         # Attempt to instantiate client and test connection
@@ -402,10 +402,11 @@ class ConfigHandler(BaseHandler):
         cluster_status = self.status(client)
         get_logger().info(f"({address}) cluster status: {cluster_status}")
 
-        if cluster_status not in {
-            self.HEALTHCHECK_INVALID_CLUSTER,
-            self.HEALTHCHECK_UNHEALTHY,
-        }:
+        if cluster_status == self.HEALTHCHECK_UNHEALTHY:
+            raise tornado.web.HTTPError(500, "An error occurred.")
+        elif cluster_status == self.HEALTHCHECK_INVALID_CLUSTER:
+            raise tornado.web.HTTPError(400, f"Could not connect to {address}")
+        else:
             self.client = client  # Set client only if valid.
             # Attempt to write new pachyderm context to config.
             try:

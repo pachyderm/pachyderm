@@ -157,6 +157,8 @@ export class PollMounts {
         healthCheck.status === 'HEALTHY_LOGGED_IN' ||
         healthCheck.status === 'HEALTHY_NO_AUTH'
       ) {
+        const config = await requestAPI<AuthConfig>('config', 'GET');
+        this.config = config;
         const data = await requestAPI<ListMountsResponse>('mounts', 'GET');
         this.updateData(data);
         const project = await requestAPI<ProjectInfo[]>('projects', 'GET');
