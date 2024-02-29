@@ -267,6 +267,7 @@ jobs:
           path: /tmp/test-results
       - run:
           name: Upload test results to DataDog
+          when: always
           command: |-
             DD_ENV=ci datadog-ci junit upload --service pachyderm /tmp/test-results/circle/
       - codecov/upload:
@@ -1570,6 +1571,7 @@ jobs:
           when: always
       - run:
           name: Upload test results to DataDog
+          when: always
           command: |-
             curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
               --output "./datadog-ci" && chmod +x "./datadog-ci"
@@ -1601,6 +1603,7 @@ jobs:
           when: always
       - run:
           name: Upload test results to DataDog
+          when: always
           command: |-
             curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
               --output "./datadog-ci" && chmod +x "./datadog-ci"
