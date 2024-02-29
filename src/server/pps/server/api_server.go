@@ -1279,7 +1279,9 @@ func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error)
 			}
 			number--
 			return nil
-		})); !errors.Is(err, errutil.ErrBreak) {
+		})); err == nil {
+			return nil 
+		} else if !errors.Is(err, errutil.ErrBreak) {
 			return errors.Wrap(err, "streaming iterate")
 		}
 		msg, err = server.Recv()
@@ -1312,7 +1314,7 @@ func (a *apiServer) getStreamingIterator(ctx context.Context, input *pps.Input) 
 		if input.Cron != nil {
 			return errors.New("can't create datums with a cron input, there will be no datums until the pipeline is created")
 		}
-		return errors.New("unimplemented input type")
+		return nil
 	}); visitErr != nil {
 		return nil, visitErr
 	}
