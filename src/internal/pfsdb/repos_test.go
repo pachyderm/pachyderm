@@ -151,9 +151,15 @@ func TestGetRepo(t *testing.T) {
 		repoID, err := pfsdb.UpsertRepo(ctx, tx, createInfo)
 		require.NoError(t, err, "should be able to create repo")
 		createCommitAndBranches(ctx, tx, t, createInfo)
+		// validate GetRepo.
 		getInfo, err := pfsdb.GetRepo(ctx, tx, repoID)
 		require.NoError(t, err, "should be able to get a repo")
 		require.True(t, cmp.Equal(createInfo, getInfo, cmp.Comparer(compareRepos)))
+		// validate GetRepoInfoWithID.
+		getInfoWithID, err := pfsdb.GetRepoInfoWithID(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
+		require.NoError(t, err, "should be able to get a repo")
+		require.True(t, cmp.Equal(createInfo, getInfoWithID.RepoInfo, cmp.Comparer(compareRepos)))
+		// validate error for attempting to get non-existent repo.
 		_, err = pfsdb.GetRepo(ctx, tx, 3)
 		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
 	})

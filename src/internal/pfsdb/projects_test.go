@@ -79,11 +79,17 @@ func TestGetProject(t *testing.T) {
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
-		// the 'default' project is ID 1.
+		// the 'default' project already exists with an ID 1.
 		getInfo, err := pfsdb.GetProject(cbCtx, tx, 2)
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
+		// validate GetProjectWithID.
+		getInfoWithID, err := pfsdb.GetProjectWithID(cbCtx, tx, testProj)
+		require.NoError(t, err, "should be able to get a project")
+		require.Equal(t, createInfo.Project.Name, getInfoWithID.ProjectInfo.Project.Name)
+		require.Equal(t, createInfo.Description, getInfoWithID.ProjectInfo.Description)
+		// validate error for attempting to get non-existent project.
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
 		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))

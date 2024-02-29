@@ -37,8 +37,7 @@ func (err *ProjectNotFoundError) Error() string {
 }
 
 func (err *ProjectNotFoundError) Is(other error) bool {
-	_, ok := other.(*ProjectNotFoundError)
-	return ok
+	return errors.As(other, &ProjectNotFoundError{})
 }
 
 func (err *ProjectNotFoundError) GRPCStatus() *status.Status {
@@ -88,9 +87,9 @@ type ProjectIterator struct {
 }
 
 type ProjectWithID struct {
-	ProjectInfo *pfs.ProjectInfo
-	ID          ProjectID
-	Revision    int64
+	*pfs.ProjectInfo
+	ID       ProjectID
+	Revision int64
 }
 
 func (i *ProjectIterator) Next(ctx context.Context, dst *ProjectWithID) error {
@@ -190,19 +189,33 @@ func DeleteProject(ctx context.Context, tx *pachsql.Tx, projectName string) erro
 
 // GetProject is like GetProjectByName, but retrieves an entry using the row id.
 func GetProject(ctx context.Context, tx *pachsql.Tx, id ProjectID) (*pfs.ProjectInfo, error) {
-	return getProject(ctx, tx, "id", id)
+	proj, err := getProject(ctx, tx, "id", id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get project by name")
+	}
+	return proj.ProjectInfo, nil
 }
 
 // GetProjectByName retrieves an entry from the core.projects table by project name.
 func GetProjectByName(ctx context.Context, tx *pachsql.Tx, projectName string) (*pfs.ProjectInfo, error) {
+	proj, err := getProject(ctx, tx, "name", projectName)
+	if err != nil {
+		return nil, errors.Wrap(err, "get project by name")
+	}
+	return proj.ProjectInfo, nil
+}
+
+// GetProjectWithID is like GetProjectByName, but retrieves an entry along with its id.
+func GetProjectWithID(ctx context.Context, tx *pachsql.Tx, projectName string) (*ProjectWithID, error) {
 	return getProject(ctx, tx, "name", projectName)
 }
 
-func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*pfs.ProjectInfo, error) {
-	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at FROM core.projects WHERE %s = $1", where), whereVal)
+func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*ProjectWithID, error) {
+	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, id FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
+	id := 0
 	var createdAt time.Time
-	err := row.Scan(&project.Project.Name, &project.Description, &createdAt)
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -213,7 +226,10 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 		return nil, errors.Wrap(err, "scanning project row")
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
-	return project, nil
+	return &ProjectWithID{
+		ID:          ProjectID(id),
+		ProjectInfo: project,
+	}, nil
 }
 
 // UpsertProject updates all fields of an existing project entry in the core.projects table by name. If 'upsert' is set to true, UpsertProject()
