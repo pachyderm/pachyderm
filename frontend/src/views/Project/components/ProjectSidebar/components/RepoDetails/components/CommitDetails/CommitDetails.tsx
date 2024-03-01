@@ -59,20 +59,27 @@ const CommitDetails: React.FC<CommitDetailsProps> = ({
     repoId: commit.commit?.repo?.name || '',
     commitId: commit.parentCommit?.id || '',
   };
+  const isCommitOpen = !commit?.finished;
 
   return (
     <div className={styles.base}>
       <div className={styles.commitCardHeader}>
         {formatBytes(commit.details?.sizeBytes)}
         <CaptionTextSmall>
-          {parentCommitSize}{' '}
-          {commitDiff?.size !== 0 && (
-            <CaptionTextSmall
-              className={styles[`delta${getDeltaSymbol(commitDiff?.size)}`]}
-            >
-              {getDeltaSymbol(commitDiff?.size, true)}{' '}
-              {commitDiff?.sizeDisplay?.replace('-', '')}
-            </CaptionTextSmall>
+          {isCommitOpen ? (
+            'Commit Open'
+          ) : (
+            <>
+              {parentCommitSize}{' '}
+              {commitDiff?.size !== 0 && (
+                <CaptionTextSmall
+                  className={styles[`delta${getDeltaSymbol(commitDiff?.size)}`]}
+                >
+                  {getDeltaSymbol(commitDiff?.size, true)}{' '}
+                  {commitDiff?.sizeDisplay?.replace('-', '')}
+                </CaptionTextSmall>
+              )}
+            </>
           )}
         </CaptionTextSmall>
       </div>

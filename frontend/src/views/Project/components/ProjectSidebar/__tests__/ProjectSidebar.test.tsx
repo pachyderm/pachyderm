@@ -11,6 +11,7 @@ import React from 'react';
 
 import {Permission} from '@dash-frontend/api/auth';
 import {Empty} from '@dash-frontend/api/googleTypes';
+import {CommitInfo, ListCommitRequest} from '@dash-frontend/api/pfs';
 import {
   InspectPipelineRequest,
   ListJobRequest,
@@ -42,6 +43,7 @@ import {
   mockTrueGetAuthorize,
   mockGetImageCommitsNoBranch,
   mockGetVersionInfo,
+  buildCommit,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -824,6 +826,35 @@ description: >-
       expect(previousCommits).toHaveLength(1);
       expect(previousCommits[0]).toHaveTextContent(/73fe17.../);
       expect(previousCommits[0]).toHaveTextContent('Jul 24, 2023; 17:58');
+    });
+
+    it('should display open commit status for open commits', async () => {
+      window.history.replaceState('', '', '/lineage/default/repos/images');
+
+      server.use(
+        rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+          '/api/pfs_v2.API/ListCommit',
+          async (_req, res, ctx) => {
+            return res(
+              ctx.json([
+                buildCommit({
+                  commit: {
+                    id: 'g2bb3e50cd124b76840145a8c18f8892',
+                    repo: {name: 'images', project: {name: 'default'}},
+                  },
+                  started: '2023-07-24T17:58:25Z',
+                  finished: undefined,
+                }),
+              ]),
+            );
+          },
+        ),
+      );
+
+      render(<Project />);
+
+      await screen.findByRole('heading', {name: 'images'});
+      expect(screen.getByText(/commit open/i)).toBeInTheDocument();
     });
 
     it('should display specific commit details when a global id filter is applied', async () => {
