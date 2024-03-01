@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"sort"
 	"strings"
 	"time"
 
@@ -38,24 +39,30 @@ func (w *nameAndTarWriter) WriteHeader(h *tar.Header) error {
 }
 
 func addToArchive(ctx context.Context, tw *nameAndTarWriter, f fs.FS) error {
-	// TODO(jrockway): For this to be hermetic, WalkDir needs to always visit files in the same
-	// order.  This is a detail of the underlying filesystem, probably.
-	if err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) (retErr error) {
+	var paths []string
+	if err := fs.WalkDir(f, ".", func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return errors.Wrap(err, "WalkFn called with error")
 		}
 		if d.IsDir() {
 			return nil
 		}
-		log.Debug(ctx, "adding file", zap.String("path", path), zap.Any("entry", d))
+		paths = append(paths, path)
+		return nil
+	}); err != nil {
+		return errors.Wrapf(err, "walk %v", f)
+	}
+	sort.Strings(paths)
+	add := func(path string) (retErr error) {
+		log.Debug(ctx, "adding file", zap.String("path", path))
 		fh, err := f.Open(path)
 		if err != nil {
-			return errors.Wrap(err, "open source")
+			return errors.Wrap(err, "open")
 		}
-		defer errors.Close(&retErr, fh, "close source")
+		defer errors.Close(&retErr, fh, "close")
 		info, err := fh.Stat()
 		if err != nil {
-			return errors.Wrap(err, "stat source")
+			return errors.Wrap(err, "stat")
 		}
 		if err := tw.WriteHeader(&tar.Header{
 			Name:       path,
@@ -69,14 +76,17 @@ func addToArchive(ctx context.Context, tw *nameAndTarWriter, f fs.FS) error {
 			ChangeTime: time.Unix(0, 0),
 			Mode:       0o600,
 		}); err != nil {
-			return errors.Wrapf(err, "write header for %v", path)
+			return errors.Wrap(err, "write header")
 		}
 		if n, err := io.Copy(tw, fh); err != nil {
-			return errors.Wrapf(err, "copy %v into tar (%v bytes)", path, n)
+			return errors.Wrapf(err, "copy into tar (%v bytes)", n)
 		}
 		return nil
-	}); err != nil {
-		return errors.Wrapf(err, "walk %v", f)
+	}
+	for _, path := range paths {
+		if err := add(path); err != nil {
+			return errors.Wrapf(err, "add %v", path)
+		}
 	}
 	return nil
 }
