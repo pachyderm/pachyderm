@@ -534,34 +534,32 @@ func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId Comm
 // ForEachCommitAncestor queries postgres for ancestors of startId up to the maxDepth. cb() is called for each ancestor.
 // maxDepth is optional.
 func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint, cb func(parentId, childId CommitID) error) error {
+	if maxDepth == 0 {
+		maxDepth = DefaultMaxSearchDepth
+	}
 	query := `
 		WITH RECURSIVE ancestry AS (
-			SELECT parent, child FROM pfs.commit_ancestry WHERE child = $1 
+			SELECT parent, child, 0 as depth FROM pfs.commit_ancestry WHERE child = $1
 			UNION
-			SELECT ca.parent, ca.child FROM pfs.commit_ancestry ca
+			SELECT ca.parent, ca.child, a.depth+1 FROM pfs.commit_ancestry ca
 			JOIN ancestry a ON ca.child = a.parent
 		)
-		SELECT a.parent, a.child
-		FROM ancestry a;
-			`
-	rows, err := extCtx.QueryContext(ctx, query, startId)
+		SELECT a.parent, a.child, depth
+		FROM ancestry a WHERE depth <= $2;`
+	rows, err := extCtx.QueryContext(ctx, query, startId, maxDepth)
 	if err != nil {
 		return errors.Wrap(err, "get oldest commit ancestor")
 	}
 	defer rows.Close()
-	if maxDepth == 0 {
-		maxDepth = DefaultMaxSearchDepth
-	}
-	depth := uint(0)
 	for rows.Next() {
 		var parent, child CommitID
-		if err := rows.Scan(&parent, &child); err != nil {
+		var depth uint
+		if err := rows.Scan(&parent, &child, &depth); err != nil {
 			return errors.Wrap(err, "scanning parent and child row")
 		}
 		if err := cb(parent, child); err != nil {
 			return errors.Wrap(err, "calling cb() on parent and child")
 		}
-		depth++
 		if depth >= maxDepth {
 			return &MaxDepthReachedError{LastCommitSearched: parent}
 		}

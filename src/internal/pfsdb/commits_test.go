@@ -622,7 +622,7 @@ func TestGetCommitAncestryMaxDepth(t *testing.T) {
 		makeCommitTree(ctx, t, 10, db)
 		startId := pfsdb.CommitID(10)
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
-			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 5)
+			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 4) // includes startId
 			require.NoError(t, err, "should be able to get ancestry")
 			require.Equal(t, ancestry.EarliestDiscovered, pfsdb.CommitID(5), "earliest discovered is incorrect")
 			require.Equal(t, ancestry.FoundRoot, false, "root should not have been found")
