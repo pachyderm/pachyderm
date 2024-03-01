@@ -542,10 +542,10 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 			SELECT parent, child, 0 as depth FROM pfs.commit_ancestry WHERE child = $1
 			UNION
 			SELECT ca.parent, ca.child, a.depth+1 FROM pfs.commit_ancestry ca
-			JOIN ancestry a ON ca.child = a.parent
+			JOIN ancestry a ON ca.child = a.parent WHERE depth <= $2
 		)
 		SELECT a.parent, a.child, depth
-		FROM ancestry a WHERE depth <= $2;`
+		FROM ancestry a;`
 	rows, err := extCtx.QueryContext(ctx, query, startId, maxDepth)
 	if err != nil {
 		return errors.Wrap(err, "get oldest commit ancestor")
