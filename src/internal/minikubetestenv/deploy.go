@@ -209,6 +209,8 @@ func withBase(namespace string) *helm.Options {
 			"pachd.defaultSidecarStorageRequest":  "100Mi",
 			"console.enabled":                     "false",
 			"postgresql.persistence.size":         "5Gi",
+			"postgresql.extraEnv[0].name":         "POSTGRESQL_FSYNC",
+			"postgresql.extraEnv[0].value":        "off",
 			"etcd.storageSize":                    "5Gi",
 			"pachw.resources.requests.cpu":        "250m",
 		},
