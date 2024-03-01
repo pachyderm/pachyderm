@@ -23,7 +23,7 @@ import {SplitPanel, Widget} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
 import {HealthCheckStatus, MountSettings} from '../types';
-import { findByTestId, getByTestId } from '@testing-library/react';
+import {findByTestId, getByTestId} from '@testing-library/react';
 
 jest.mock('../../../handler');
 
@@ -158,12 +158,20 @@ describe('mount plugin', () => {
 
     await plugin.ready;
 
-    expect(plugin.layout.currentWidget?.title.className == "pachyderm-explore-tab");
+    expect(
+      plugin.layout.currentWidget?.title.className === 'pachyderm-explore-tab',
+    );
     plugin.setCurrentView(plugin.layout.widgets[1]);
-    expect(plugin.layout.currentWidget?.title.className == "pachyderm-test-tab");
+    expect(
+      plugin.layout.currentWidget?.title.className === 'pachyderm-test-tab',
+    );
     plugin.setCurrentView(plugin.layout.widgets[2]);
-    expect(plugin.layout.currentWidget?.title.className == "pachyderm-publish-tab");
+    expect(
+      plugin.layout.currentWidget?.title.className === 'pachyderm-publish-tab',
+    );
     plugin.setCurrentView(plugin.layout.widgets[0]);
-    expect(plugin.layout.currentWidget?.title.className == "pachyderm-explore-tab");
+    expect(
+      plugin.layout.currentWidget?.title.className === 'pachyderm-explore-tab',
+    );
   });
 });
