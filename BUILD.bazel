@@ -99,6 +99,7 @@ buildifier_test(
     lint_mode = "warn",
     mode = "diff",
     no_sandbox = True,
+    tags = ["style"],
     workspace = "//:MODULE.bazel",
 )
 
@@ -136,5 +137,17 @@ test_suite(
     tags = ["manual"],
     tests = [
         "//src/server/pfs/fuse:fuse_test",
+    ],
+)
+
+test_suite(
+    name = "style_tests",
+    tags = [
+        "manual",
+        "style",
+    ],
+    tests = [
+        ":buildifier_test",
+        "//src/proto:check_generated_protos",
     ],
 )

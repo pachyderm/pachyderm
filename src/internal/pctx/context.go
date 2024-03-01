@@ -2,6 +2,8 @@ package pctx
 
 import (
 	"context"
+	"os"
+	"os/signal"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
@@ -19,6 +21,11 @@ func TODO() context.Context {
 func Background(process string) context.Context {
 	ctx := log.AddLogger(context.Background())
 	return Child(ctx, process)
+}
+
+// Interactive returns a context for use in command-line apps.
+func Interactive() (context.Context, context.CancelFunc) {
+	return signal.NotifyContext(log.AddLogger(context.Background()), os.Interrupt)
 }
 
 // Option is an option for customizing a child context.
