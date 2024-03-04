@@ -161,9 +161,6 @@ message CommitPicker {
     string id = 2;
   }
 
-  // TODO: add a picker option to pick commit by uuid.
-  // the uuid could be generated using AES so that it doesn't have to be stored.
-
   // This models .N syntax.
   message BranchRoot {
     uint32 offset = 1;
