@@ -21,7 +21,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 // resource is a starlark.Value wrapper around unstructured.Unstructured.  It is used over
@@ -425,7 +425,7 @@ func NewClientset(namespace string, sc kubernetes.Interface, dc dynamic.Interfac
 				}
 				opts := &v1.PodLogOptions{
 					Container:  container,
-					LimitBytes: pointer.Int64(10 * units.MB),
+					LimitBytes: ptr.To[int64](10 * units.MB),
 					Previous:   previous,
 				}
 				ctx := ourstar.GetContext(t)
