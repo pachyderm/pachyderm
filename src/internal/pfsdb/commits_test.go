@@ -606,10 +606,8 @@ func TestGetCommitAncestry(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 0)
 			require.NoError(t, err, "should be able to get ancestry")
-			require.Equal(t, ancestry.EarliestDiscovered, pfsdb.CommitID(7), "root should be 7, (1-6) should be a separate tree")
-			require.Equal(t, ancestry.FoundRoot, true, "root should have been found")
 			expected := map[pfsdb.CommitID]pfsdb.CommitID{7: 8, 8: 9, 9: 10, 10: 11, 11: 12}
-			if diff := cmp.Diff(expected, ancestry.Lineage,
+			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
 			}
@@ -624,10 +622,8 @@ func TestGetCommitAncestryMaxDepth(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 4) // includes startId
 			require.NoError(t, err, "should be able to get ancestry")
-			require.Equal(t, ancestry.EarliestDiscovered, pfsdb.CommitID(5), "earliest discovered is incorrect")
-			require.Equal(t, ancestry.FoundRoot, false, "root should not have been found")
 			expected := map[pfsdb.CommitID]pfsdb.CommitID{9: 10, 8: 9, 7: 8, 6: 7, 5: 6}
-			if diff := cmp.Diff(expected, ancestry.Lineage,
+			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
 			}

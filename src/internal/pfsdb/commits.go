@@ -181,21 +181,6 @@ func (err *CommitAlreadyExistsError) GRPCStatus() *status.Status {
 	return status.New(codes.AlreadyExists, err.Error())
 }
 
-// MaxDepthReachedError is returned when a recursive query iterates beyond a maximum depth.
-type MaxDepthReachedError struct {
-	LastCommitSearched CommitID
-	Depth              int
-}
-
-// Error satisfies the error interface.
-func (err *MaxDepthReachedError) Error() string {
-	return fmt.Sprintf("max depth reached: %d\n", err.Depth)
-}
-
-func (err *MaxDepthReachedError) GRPCStatus() *status.Status {
-	return status.New(codes.ResourceExhausted, err.Error())
-}
-
 // AncestryOpt allows users to create commitInfos and skip creating the ancestry information.
 // This allows a user to create the commits in an arbitrary order, then create their ancestry later.
 type AncestryOpt struct {
@@ -513,22 +498,13 @@ type CommitAncestry struct {
 }
 
 // GetCommitAncestry returns a CommitAncestry from startId up to maxDepth.
-func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (*CommitAncestry, error) {
-	ancestry := &CommitAncestry{
-		Start:     startId,
-		Lineage:   make(map[CommitID]CommitID),
-		FoundRoot: true,
-	}
+func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (map[CommitID]CommitID, error) {
+	ancestry := make(map[CommitID]CommitID)
 	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
-		ancestry.Lineage[parentId] = childId
-		ancestry.EarliestDiscovered = parentId
+		ancestry[parentId] = childId
 		return nil
 	}); err != nil {
-		if errors.As(err, new(*MaxDepthReachedError)) {
-			ancestry.FoundRoot = false
-		} else {
-			return nil, errors.Wrap(err, "get commit ancestry")
-		}
+		return nil, errors.Wrap(err, "get commit ancestry")
 	}
 	return ancestry, nil
 }
@@ -566,9 +542,6 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 		}
 		if err := cb(parent, child); err != nil {
 			return errors.Wrap(err, "calling cb() on parent and child")
-		}
-		if depth >= maxDepth {
-			return &MaxDepthReachedError{LastCommitSearched: parent}
 		}
 	}
 	return nil
