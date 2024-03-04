@@ -2382,7 +2382,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "2vPLUnwbRgB0KFoOyzioQmytJFZe52FDvmBsvoAcvC4=",
+        "bzlTransitiveDigest": "vweSNQG7KLiHZLBoJTcv660+1yRGDT0eFyKVdvXafsc=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2613,8 +2613,8 @@
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~non_module_deps~io_k8s_dl_kubectl_aarch64_macos",
-              "url": "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
-              "sha256": "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
+              "url": "https://dl.k8s.io/release/v1.29.2/bin/darwin/arm64/kubectl",
+              "sha256": "ce030f86625df96560402573d86d4e6f4b8b956ca3e3b9df57cb8ccf2b9a540c",
               "executable": true,
               "downloaded_file_path": "kubectl"
             }
@@ -2665,8 +2665,8 @@
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~non_module_deps~io_k8s_dl_kubectl_aarch64_linux",
-              "url": "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
-              "sha256": "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+              "url": "https://dl.k8s.io/release/v1.29.2/bin/linux/arm64/kubectl",
+              "sha256": "3507ecb4224cf05ae2151a98d4932253624e7762159936d5347b19fe037655ca",
               "executable": true,
               "downloaded_file_path": "kubectl"
             }
@@ -2813,8 +2813,8 @@
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~non_module_deps~io_k8s_dl_kubectl_x86_64_linux",
-              "url": "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
-              "sha256": "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+              "url": "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl",
+              "sha256": "7816d067740f47f949be826ac76943167b7b3a38c4f0c18b902fffa8779a5afa",
               "executable": true,
               "downloaded_file_path": "kubectl"
             }
@@ -2885,8 +2885,8 @@
             "ruleClassName": "http_file",
             "attributes": {
               "name": "_main~non_module_deps~io_k8s_dl_kubectl_x86_64_macos",
-              "url": "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
-              "sha256": "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+              "url": "https://dl.k8s.io/release/v1.29.2/bin/darwin/amd64/kubectl",
+              "sha256": "bb04d9450d9c9fa120956c5cc7c8dfaa700297038ff9c941741e730b02bbd1f3",
               "executable": true,
               "downloaded_file_path": "kubectl"
             }
