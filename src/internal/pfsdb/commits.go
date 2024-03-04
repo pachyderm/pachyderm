@@ -489,14 +489,6 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 	return children, nil
 }
 
-// CommitAncestry models a lineage of the CommitID values of the ancestors of Start.
-type CommitAncestry struct {
-	Start              CommitID
-	Lineage            map[CommitID]CommitID
-	EarliestDiscovered CommitID // EarliestDiscovered is the root of the commit ancestry tree if FoundRoot is true.
-	FoundRoot          bool     // FoundRoot is true if GetCommitAncestry reaches a root of a commit ancestry tree.
-}
-
 // GetCommitAncestry returns a CommitAncestry from startId up to maxDepth.
 func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (map[CommitID]CommitID, error) {
 	ancestry := make(map[CommitID]CommitID)
