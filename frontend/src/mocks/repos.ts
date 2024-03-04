@@ -7,6 +7,7 @@ import {
   InspectRepoRequest,
   RepoInfo,
 } from '@dash-frontend/api/pfs';
+import {RequestError} from '@dash-frontend/api/utils/error';
 
 export const buildRepo = (repo: Partial<RepoInfo> = {}): RepoInfo => {
   const defaultRepo: RepoInfo = {
@@ -112,14 +113,21 @@ export const mockRepoImages = () =>
   );
 
 export const mockRepoEdges = () =>
-  rest.post<InspectRepoRequest, Empty, RepoInfo>(
+  rest.post<InspectRepoRequest, Empty, RepoInfo | RequestError>(
     '/api/pfs_v2.API/InspectRepo',
     async (req, res, ctx) => {
       const body = await req.json();
       if (body.repo.name === 'edges' && body.repo.project.name === 'default') {
         return res(ctx.json(REPO_INFO_EDGES));
       }
-      return res(ctx.json({}));
+      return res(
+        ctx.status(403),
+        ctx.json({
+          code: 5,
+          message: 'not found',
+          details: [],
+        }),
+      );
     },
   );
 

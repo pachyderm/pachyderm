@@ -4,7 +4,7 @@ import React from 'react';
 
 import {Permission} from '@dash-frontend/api/auth';
 import {
-  mockRepos,
+  mockRepoEdges,
   mockEmptyGetAuthorize,
   mockFalseGetAuthorize,
   mockTrueGetAuthorize,
@@ -27,7 +27,7 @@ describe('project sidenav', () => {
     server.resetHandlers();
     server.use(mockEmptyGetAuthorize());
     server.use(mockGetVersionInfo());
-    server.use(mockRepos());
+    server.use(mockRepoEdges());
     window.history.replaceState('', '', '/project/default');
   });
 
@@ -52,7 +52,7 @@ describe('project sidenav', () => {
         exact: false,
       });
 
-      await type(nameInput, 'montage');
+      await type(nameInput, 'edges');
 
       expect(
         await screen.findByText('Repo name already in use'),

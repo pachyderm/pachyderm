@@ -6,7 +6,7 @@ import React from 'react';
 import {Empty} from '@dash-frontend/api/googleTypes';
 import {CreateRepoRequest} from '@dash-frontend/api/pfs';
 import {RequestError} from '@dash-frontend/api/utils/error';
-import {mockRepos} from '@dash-frontend/mocks';
+import {mockRepoEdges} from '@dash-frontend/mocks';
 import {withContextProviders, type, click} from '@dash-frontend/testHelpers';
 
 import CreateRepoModalComponent from '../CreateRepoModal';
@@ -24,7 +24,7 @@ describe('CreateRepoModal', () => {
 
   beforeEach(() => {
     server.resetHandlers();
-    server.use(mockRepos());
+    server.use(mockRepoEdges());
     window.history.replaceState('', '', '/lineage/default');
   });
 
@@ -35,7 +35,7 @@ describe('CreateRepoModal', () => {
 
     const nameInput = await screen.findByRole('textbox', {name: /name/i});
 
-    await type(nameInput, 'images');
+    await type(nameInput, 'edges');
 
     expect(
       await screen.findByText('Repo name already in use'),

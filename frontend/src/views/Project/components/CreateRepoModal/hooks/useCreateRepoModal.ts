@@ -3,7 +3,7 @@ import {useCallback} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {useCreateRepo} from '@dash-frontend/hooks/useCreateRepo';
-import {useRepos} from '@dash-frontend/hooks/useRepos';
+import {useRepoSearch} from '@dash-frontend/hooks/useRepoSearch';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 
 type CreateRepoFormValues = {
@@ -16,25 +16,32 @@ const useCreateRepoModal = (onHide?: () => void) => {
   const {createRepo, loading, error} = useCreateRepo({
     onSuccess: onHide,
   });
-  const {repos, loading: reposLoading, error: reposError} = useRepos(projectId);
-
   const formCtx = useForm<CreateRepoFormValues>({mode: 'onChange'});
 
   const {
     watch,
     reset,
     formState: {errors: formErrors},
+    setError,
   } = formCtx;
 
   const name = watch('name');
 
+  const {getRepo} = useRepoSearch(() => {
+    setError('name', {
+      type: 'error',
+      message: 'Repo name already in use',
+    });
+  });
+
   const validateRepoName = useCallback(
-    (value: string) => {
-      if (repos && repos.map((repo) => repo?.repo?.name).includes(value)) {
-        return 'Repo name already in use';
-      }
+    (val: string) => {
+      getRepo({
+        repo: {project: {name: projectId}, name: val},
+      });
+      return undefined;
     },
-    [repos],
+    [getRepo, projectId],
   );
 
   const isFormComplete = Boolean(name) && isEmpty(formErrors);
@@ -63,10 +70,10 @@ const useCreateRepoModal = (onHide?: () => void) => {
 
   return {
     formCtx,
-    error: reposError || error,
+    error,
     handleSubmit,
     isFormComplete,
-    loading: loading || reposLoading,
+    loading,
     validateRepoName,
     reset,
   };
