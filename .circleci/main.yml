@@ -803,7 +803,7 @@ jobs:
   jupyter-extension-integration-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -840,7 +840,7 @@ jobs:
   jupyter-extension-e2e-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202111-01
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -1016,8 +1016,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1034,8 +1033,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1312,7 +1310,6 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -1347,8 +1344,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - install-poetry
       - run:
           name: build
@@ -1365,8 +1361,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 20.10.18
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1379,7 +1374,7 @@ jobs:
   test-python-sdk:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
@@ -1488,7 +1483,6 @@ jobs:
     executor: python
     steps:
       - setup_remote_docker:
-          version: 20.10.18
           docker_layer_caching: true
       - run:
           name: docker login
