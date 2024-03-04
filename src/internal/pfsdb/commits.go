@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -548,9 +550,14 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 		FROM ancestry a;`
 	rows, err := extCtx.QueryContext(ctx, query, startId, maxDepth)
 	if err != nil {
-		return errors.Wrap(err, "get oldest commit ancestor")
+		return errors.Wrap(err, "get commit ancestry")
 	}
-	defer rows.Close()
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Error(ctx, "closing rows", zap.Error(err))
+		}
+	}()
 	for rows.Next() {
 		var parent, child CommitID
 		var depth uint
