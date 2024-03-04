@@ -14,4 +14,5 @@ helm install \
 	--version=$PACHYDERM_VERSION \
 	--set deployTarget=LOCAL \
 	--set console.enabled=false \
+    --set pachd.metrics.enabled=false \
 	--set console.config.disableTelemetry=true

@@ -79,6 +79,7 @@ You don't need to do anything special here. Just enable k8s.
              --wait --timeout 10m pachd pachyderm/pachyderm \
              --version=2.6.0 \
              -f enterpriseProxyHelmValues.yaml \
+             --set pachd.metrics.enabled=false \
              --set pachd.enterpriseLicenseKey=$PACHYDERM_ENTERPRISE_KEY
      ```
 
@@ -90,6 +91,7 @@ You don't need to do anything special here. Just enable k8s.
              --wait --timeout 10m pachd pachyderm/pachyderm \
              --version=2.6.0 \
              -f enterpriseProxyHelmValues.yaml \
+             --set pachd.metrics.enabled=false \
              -f kind.yaml \
              --set pachd.enterpriseLicenseKey=$PACHYDERM_ENTERPRISE_KEY
      ```
@@ -156,7 +158,7 @@ and does not handle being restarted well without a full wipe.
 ## Deploy locally without the Console pod (Port-Forward) (Deprecated)
 
 1. If you haven't already, start up minikube with `minikube start`
-1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.2.3 pachyderm/pachyderm`
+1. Install pachyderm locally: `helm install pachyderm --set deployTarget=LOCAL --version 2.2.3 pachyderm/pachyderm --set pachd.metrics.enabled=false`
 1. Delete your existing pachctl config file: `rm ~/.pachyderm/config.json`
 1. If using Enterprise, [configure auth](#with-auth0-deprecated), otherwise, your Console deploy will stay in Community Edition.
 1. Run `pachctl port-forward`.

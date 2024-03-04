@@ -15,6 +15,7 @@ helm install \
     --set console.image.tag=${CIRCLE_SHA1} \
     --set console.config.disableTelemetry=true \
     --set pachd.image.tag=${PACHD_VERSION} \
+    --set pachd.metrics.enabled=false \
     -f kind.yaml
 
 pachctl connect grpc://127.0.0.1:80

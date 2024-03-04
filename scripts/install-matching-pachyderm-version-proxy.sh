@@ -17,4 +17,5 @@ helm install \
 	--set console.config.disableTelemetry=true \
     --set proxy.enabled=true \
     --set proxy.host=localhost \
+    --set pachd.metrics.enabled=false \
     --set proxy.service.type=LoadBalancer

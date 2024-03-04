@@ -241,6 +241,7 @@ jobs:
               --set pachd.image.tag=$RELEASE_COMMIT \\
               --set proxy.enabled=true \\
               --set proxy.host=localhost \\
+              --set pachd.metrics.enabled=false \\
               --set proxy.service.type=LoadBalancer
 
             echo '{\"pachd_address\": \"grpc://127.0.0.1:80\"}' | pachctl config set context local --overwrite

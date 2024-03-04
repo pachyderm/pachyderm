@@ -14,6 +14,7 @@ helm install \
     -f enterpriseProxyHelmValues.yaml \
     --set console.image.tag=${CIRCLE_SHA1} \
     --set pachd.image.tag=${PACHD_VERSION} \
+    --set pachd.metrics.enabled=false \
     --set proxy.service.type=NodePort
 
 pachctl connect grpc://127.0.0.1:80
