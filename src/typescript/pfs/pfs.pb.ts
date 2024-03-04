@@ -73,10 +73,35 @@ export type Repo = {
   project?: Project
 }
 
+export type RepoPickerRepoName = {
+  project?: ProjectPicker
+  name?: string
+  type?: string
+}
+
+
+type BaseRepoPicker = {
+}
+
+export type RepoPicker = BaseRepoPicker
+  & OneOf<{ name: RepoPickerRepoName }>
+
 export type Branch = {
   repo?: Repo
   name?: string
 }
+
+export type BranchPickerBranchName = {
+  repo?: RepoPicker
+  name?: string
+}
+
+
+type BaseBranchPicker = {
+}
+
+export type BranchPicker = BaseBranchPicker
+  & OneOf<{ name: BranchPickerBranchName }>
 
 export type File = {
   commit?: Commit
@@ -131,6 +156,28 @@ export type Commit = {
   branch?: Branch
 }
 
+export type CommitPickerCommitByGlobalId = {
+  repo?: RepoPicker
+  id?: string
+}
+
+export type CommitPickerBranchRoot = {
+  offset?: number
+  branch?: BranchPicker
+}
+
+export type CommitPickerAncestorOf = {
+  offset?: number
+  start?: CommitPicker
+}
+
+
+type BaseCommitPicker = {
+}
+
+export type CommitPicker = BaseCommitPicker
+  & OneOf<{ branchHead: BranchPicker; id: CommitPickerCommitByGlobalId; ancestor: CommitPickerAncestorOf; branchRoot: CommitPickerBranchRoot }>
+
 export type CommitInfoDetails = {
   sizeBytes?: string
   compactingTime?: GoogleProtobufDuration.Duration
@@ -179,6 +226,13 @@ export type ProjectInfo = {
   authInfo?: AuthInfo
   createdAt?: GoogleProtobufTimestamp.Timestamp
 }
+
+
+type BaseProjectPicker = {
+}
+
+export type ProjectPicker = BaseProjectPicker
+  & OneOf<{ name: string }>
 
 export type CreateRepoRequest = {
   repo?: Repo

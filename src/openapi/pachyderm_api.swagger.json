@@ -7857,7 +7857,7 @@
           "$ref": "#/definitions/pfs_v2CommitInfoDetails"
         }
       },
-      "title": "CommitInfo is the main data structure representing a commit in etcd"
+      "title": "CommitInfo is the main data structure representing a commit in postgres"
     },
     "pfs_v2CommitInfoDetails": {
       "type": "object",
