@@ -28,7 +28,7 @@ sudo chown root:root /etc/fuse.conf
 # To get the latest kubectl version:
 # curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt
 if [ ! -f cached-deps/kubectl ] ; then
-    KUBECTL_VERSION=v1.27.4
+    KUBECTL_VERSION=v1.29.1
     curl -L -o kubectl https://storage.googleapis.com/kubernetes-release/release/${KUBECTL_VERSION}/bin/linux/${ARCH}/kubectl && \
         chmod +x ./kubectl
         mv ./kubectl cached-deps/kubectl
@@ -38,7 +38,7 @@ fi
 # To get the latest minikube version:
 # curl https://api.github.com/repos/kubernetes/minikube/releases | jq -r .[].tag_name | sort -V | tail -n1
 if [ ! -f cached-deps/minikube ] ; then
-    MINIKUBE_VERSION=v1.31.2
+    MINIKUBE_VERSION=v1.32.0
     curl -L -o minikube https://storage.googleapis.com/minikube/releases/${MINIKUBE_VERSION}/minikube-linux-${ARCH} && \
         chmod +x ./minikube
         mv ./minikube cached-deps/minikube
@@ -54,9 +54,8 @@ fi
 
 # Install helm
 if [ ! -f cached-deps/helm ]; then
-  HELM_VERSION=3.5.4
+  HELM_VERSION=3.14.0
   curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz \
       | tar xzf - linux-${ARCH}/helm
       mv ./linux-${ARCH}/helm cached-deps/helm
 fi
-

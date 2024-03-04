@@ -44,6 +44,9 @@ parameters:
   go-releaser-version:
     type: string
     default: "1.17.1"
+  kubernetes-version:
+    type: string
+    default: "v1.29.2"
   run_load_tests:
     type: boolean
     default: false
@@ -2271,13 +2274,13 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   start-minikube-large:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:
