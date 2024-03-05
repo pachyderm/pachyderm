@@ -12,7 +12,6 @@ lint:
 	helm lint pachyderm --set deployTarget=LOCAL
 
 test: pachyderm/values.schema.json kubeval-aws-gp2 kubeval-aws-gp3 kubeval-gcp kubeval-gcp-tls kubeval-hub kubeval-local kubeval-local-dev kubeval-minio kubeval-microsoft
-	go test -race ./... -count 1
 
 kubeval-aws-gp2:
 	helm template pachyderm -f examples/aws-gp2-values.yaml | kubeval -v 1.24.1 --schema-location https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master --strict

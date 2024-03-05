@@ -3,3 +3,12 @@ filegroup(
     srcs = glob(["**/*"]),
     visibility = ["//visibility:public"],
 )
+
+sh_test(
+    name = "helm_lint",
+    size = "small",
+    srcs = ["lint.sh"],
+    data = ["//etc/helm/pachyderm:pachyderm", "//tools/helm"],
+    tags = ["style"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)

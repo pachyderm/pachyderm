@@ -24,3 +24,6 @@
 .idea/
 *.tmproj
 .vscode/
+
+BUILD.bazel
+lint.sh

@@ -288,8 +288,6 @@ jobs:
           name: install kubeval
           command: |
             wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
-      - run: make lint
-      - run: make test
       - run: make kubeval-gcp
       - run: make kubeval-aws
       - save_cache:
