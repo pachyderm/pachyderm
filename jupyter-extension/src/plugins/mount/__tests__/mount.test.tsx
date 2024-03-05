@@ -19,7 +19,7 @@ import {
 import {ServerConnection, ServiceManager} from '@jupyterlab/services';
 import {StateDB} from '@jupyterlab/statedb';
 import {CommandRegistry} from '@lumino/commands';
-import {SplitPanel, Widget} from '@lumino/widgets';
+import {Panel, SplitPanel, Widget} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
 import {HealthCheckStatus, MountSettings} from '../types';
@@ -85,7 +85,7 @@ describe('mount plugin', () => {
     expect(plugin.layout.id).toBe('pachyderm-mount');
 
     expect(plugin.layout.widgets).toHaveLength(6);
-    expect(plugin.layout.widgets[0]).toBeInstanceOf(SplitPanel); // Explore
+    expect(plugin.layout.widgets[0]).toBeInstanceOf(Panel); // Explore
     expect(plugin.layout.widgets[1]).toBeInstanceOf(SplitPanel); // Datum
     expect(plugin.layout.widgets[2]).toBeInstanceOf(ReactWidget); // Pipeline
     expect(plugin.layout.widgets[3]).toBeInstanceOf(ReactWidget); // Config
