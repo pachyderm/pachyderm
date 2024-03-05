@@ -665,7 +665,9 @@ def setup_handlers(web_app, config_file: Path):
         )
     except FileNotFoundError:
         if PACHD_ADDRESS:
-            client = Client().from_pachd_address(pachd_address=PACHD_ADDRESS, auth_token=DEX_TOKEN)
+            client = Client().from_pachd_address(pachd_address=PACHD_ADDRESS)
+            if DEX_TOKEN:
+                client.auth_token = client.auth.authenticate(id_token=DEX_TOKEN).pach_token
             get_logger().debug(
                 f"Created Pachyderm client for {client.address} from env var"
             )
