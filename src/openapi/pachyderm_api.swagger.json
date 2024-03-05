@@ -4234,6 +4234,7 @@
     },
     "/pps_v2.API/CreateDatum": {
       "post": {
+        "summary": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
         "operationId": "API_CreateDatum",
         "responses": {
           "200": {
@@ -9245,17 +9246,24 @@
       },
       "description": "Response for check status request. Provides alerts if any."
     },
+    "pps_v2ContinueCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in next batch. If 0, default batch size\nis returned."
+        }
+      }
+    },
     "pps_v2CreateDatumRequest": {
       "type": "object",
       "properties": {
-        "input": {
-          "$ref": "#/definitions/pps_v2Input",
-          "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.\nThe input field is only required for the first request. The server\nignores subsequent requests' input field."
+        "start": {
+          "$ref": "#/definitions/pps_v2StartCreateDatumRequest"
         },
-        "number": {
-          "type": "string",
-          "format": "int64",
-          "title": "Number of datums to return in next response"
+        "continue": {
+          "$ref": "#/definitions/pps_v2ContinueCreateDatumRequest"
         }
       },
       "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums."
@@ -10856,6 +10864,20 @@
       "properties": {
         "service": {
           "$ref": "#/definitions/pps_v2Service"
+        }
+      }
+    },
+    "pps_v2StartCreateDatumRequest": {
+      "type": "object",
+      "properties": {
+        "input": {
+          "$ref": "#/definitions/pps_v2Input",
+          "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input."
+        },
+        "number": {
+          "type": "integer",
+          "format": "int32",
+          "description": "Number of datums to return in first batch. If 0, default batch size\nis returned."
         }
       }
     },

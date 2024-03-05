@@ -216,31 +216,3 @@ class ApiStub:
 
         for response in self.__rpc_get_logs(request):
             yield response
-
-
-class ApiBase:
-
-    def get_logs(
-        self,
-        query: "LogQuery",
-        filter: "LogFilter",
-        tail: bool,
-        want_paging_hint: bool,
-        log_format: "LogFormat",
-        context: "grpc.ServicerContext",
-    ) -> Iterator["GetLogsResponse"]:
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details("Method not implemented!")
-        raise NotImplementedError("Method not implemented!")
-
-    __proto_path__ = "logs.API"
-
-    @property
-    def __rpc_methods__(self):
-        return {
-            "GetLogs": grpc.unary_stream_rpc_method_handler(
-                self.get_logs,
-                request_deserializer=GetLogsRequest.FromString,
-                response_serializer=GetLogsRequest.SerializeToString,
-            ),
-        }
