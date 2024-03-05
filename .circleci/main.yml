@@ -550,6 +550,7 @@ jobs:
           keys:
             - pach-go-mod-cache-v2-{{ arch }}-{{ checksum "go.sum" }}
       - run: make install # Install pachctl
+      - run: go install gotest.tools/gotestsum@latest
       - save_cache:
           key: pach-go-build-cache-v1-{{ arch }}-{{ .Branch }}-{{ checksum "current_week" }}
           paths:
