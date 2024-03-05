@@ -1,0 +1,33 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "prototar_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/proto/prototar",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_zeebo_xxh3//:xxh3",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "prototar",
+    embed = [":prototar_lib"],
+    visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "prototar_test",
+    srcs = ["main_test.go"],
+    embed = [":prototar_lib"],
+    deps = [
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+    ],
+)

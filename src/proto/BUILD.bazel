@@ -48,11 +48,9 @@ host_native_binary(
     target = ":bin/protoc",
 )
 
-# bazel build //src/proto:run will regenerate the protos in your working copy.
 sh_binary(
-    name = "run",
-    srcs = ["run.sh"],
-    args = ["$(locations //src:all_protos)"],
+    name = "compile_sh",
+    srcs = ["compile.sh"],
     data = [
         ":gopatch_bin",
         ":proto.patch",
@@ -63,15 +61,63 @@ sh_binary(
         ":protoc-gen-openapiv2_bin",
         ":protoc-gen-validate-go_bin",
         ":protoc_bin",
-        "//src:all_protos",
         "//src/proto/pachgen",
         "//src/proto/protoc-gen-zap",
+        "//src/proto/prototar",
         "@com_github_chrusty_protoc_gen_jsonschema//cmd/protoc-gen-jsonschema",
         "@com_google_protobuf//:descriptor_proto_srcs",
         "@com_google_protobuf//:well_known_type_protos",
         "@go_sdk//:bin/gofmt",
         "@org_golang_google_grpc_cmd_protoc_gen_go_grpc//:protoc-gen-go-grpc",
     ],
-    visibility = ["//:__pkg__"],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+genrule(
+    name = "gen_go_proto_bundle",
+    outs = [
+        "go_protos.tar",
+        "go_protos_forgotten_files.txt",
+    ],
+    cmd = "$(location compile_sh) $(location go_protos.tar) $(location go_protos_forgotten_files.txt) $(locations //src:all_protos)",
+    tools = [
+        "compile_sh",
+        "//src:all_protos",
+    ],
+)
+
+sh_binary(
+    name = "extract_sh",
+    srcs = ["extract.sh"],
+    args = ["$(location go_protos.tar)"],
+    data = [
+        "go_protos.tar",
+        "//src/proto/prototar",
+    ],
+    deps = ["@bazel_tools//tools/bash/runfiles"],
+)
+
+# bazel build //src/proto:run will regenerate the protos in your working copy.
+alias(
+    name = "run",
+    actual = "extract_sh",
+    visibility = ["//visibility:public"],
+)
+
+sh_test(
+    name = "check_generated_protos",
+    size = "small",
+    srcs = ["test.sh"],
+    data = [
+        "go_protos.tar",
+        "//src/proto/prototar",
+    ],
+    tags = [
+        "external",
+        "manual",
+        "no-cache",
+        "no-sandbox",
+        "style",
+    ],
     deps = ["@bazel_tools//tools/bash/runfiles"],
 )

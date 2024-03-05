@@ -265,6 +265,28 @@
   
     - [API](#license_v2-API)
   
+- [logs/logs.proto](#logs_logs-proto)
+    - [AdminLogQuery](#logs-AdminLogQuery)
+    - [GetLogsRequest](#logs-GetLogsRequest)
+    - [GetLogsResponse](#logs-GetLogsResponse)
+    - [LogFilter](#logs-LogFilter)
+    - [LogMessage](#logs-LogMessage)
+    - [LogQuery](#logs-LogQuery)
+    - [PagingHint](#logs-PagingHint)
+    - [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage)
+    - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
+    - [PipelineLogQuery](#logs-PipelineLogQuery)
+    - [PodContainer](#logs-PodContainer)
+    - [RegexLogFilter](#logs-RegexLogFilter)
+    - [TimeRangeLogFilter](#logs-TimeRangeLogFilter)
+    - [UserLogQuery](#logs-UserLogQuery)
+    - [VerbatimLogMessage](#logs-VerbatimLogMessage)
+  
+    - [LogFormat](#logs-LogFormat)
+    - [LogLevel](#logs-LogLevel)
+  
+    - [API](#logs-API)
+  
 - [pfs/pfs.proto](#pfs_pfs-proto)
     - [ActivateAuthRequest](#pfs_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pfs_v2-ActivateAuthResponse)
@@ -343,6 +365,7 @@
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
+    - [RepoPage](#pfs_v2-RepoPage)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -359,7 +382,9 @@
     - [CommitState](#pfs_v2-CommitState)
     - [Delimiter](#pfs_v2-Delimiter)
     - [FileType](#pfs_v2-FileType)
+    - [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType)
     - [OriginKind](#pfs_v2-OriginKind)
+    - [RepoPage.Ordering](#pfs_v2-RepoPage-Ordering)
     - [SQLDatabaseEgress.FileFormat.Type](#pfs_v2-SQLDatabaseEgress-FileFormat-Type)
   
     - [API](#pfs_v2-API)
@@ -403,6 +428,7 @@
     - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
     - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
+    - [CreateDatumRequest](#pps_v2-CreateDatumRequest)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
     - [CreatePipelineV2Request](#pps_v2-CreatePipelineV2Request)
@@ -4275,6 +4301,315 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 
 
+<a name="logs_logs-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## logs/logs.proto
+
+
+
+<a name="logs-AdminLogQuery"></a>
+
+### AdminLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| logql | [string](#string) |  | Arbitrary LogQL query |
+| pod | [string](#string) |  | A pod&#39;s logs (all containers) |
+| pod_container | [PodContainer](#logs-PodContainer) |  | One container |
+| app | [string](#string) |  | One &#34;app&#34; (logql -&gt; {app=X}) |
+| master | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All master worker lines from a pipeline |
+| storage | [PipelineLogQuery](#logs-PipelineLogQuery) |  | All storage container lines from a pipeline |
+| user | [UserLogQuery](#logs-UserLogQuery) |  | All worker lines from a pipeline/job |
+
+
+
+
+
+
+<a name="logs-GetLogsRequest"></a>
+
+### GetLogsRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| query | [LogQuery](#logs-LogQuery) |  |  |
+| filter | [LogFilter](#logs-LogFilter) |  |  |
+| tail | [bool](#bool) |  |  |
+| want_paging_hint | [bool](#bool) |  |  |
+| log_format | [LogFormat](#logs-LogFormat) |  |  |
+
+
+
+
+
+
+<a name="logs-GetLogsResponse"></a>
+
+### GetLogsResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| paging_hint | [PagingHint](#logs-PagingHint) |  |  |
+| log | [LogMessage](#logs-LogMessage) |  |  |
+
+
+
+
+
+
+<a name="logs-LogFilter"></a>
+
+### LogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| time_range | [TimeRangeLogFilter](#logs-TimeRangeLogFilter) |  |  |
+| limit | [uint64](#uint64) |  |  |
+| regex | [RegexLogFilter](#logs-RegexLogFilter) |  |  |
+| level | [LogLevel](#logs-LogLevel) |  | Minimum log level to return; worker will always run at level debug, but setting INFO here restores original behavior |
+
+
+
+
+
+
+<a name="logs-LogMessage"></a>
+
+### LogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  |  |
+| json | [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage) |  |  |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  |  |
+
+
+
+
+
+
+<a name="logs-LogQuery"></a>
+
+### LogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| user | [UserLogQuery](#logs-UserLogQuery) |  |  |
+| admin | [AdminLogQuery](#logs-AdminLogQuery) |  |  |
+
+
+
+
+
+
+<a name="logs-PagingHint"></a>
+
+### PagingHint
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| older | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
+| newer | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
+
+
+
+
+
+
+<a name="logs-ParsedJSONLogMessage"></a>
+
+### ParsedJSONLogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
+| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
+
+
+
+
+
+
+<a name="logs-PipelineJobLogQuery"></a>
+
+### PipelineJobLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  |  |
+| job | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-PipelineLogQuery"></a>
+
+### PipelineLogQuery
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  |  |
+| pipeline | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-PodContainer"></a>
+
+### PodContainer
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pod | [string](#string) |  |  |
+| container | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="logs-RegexLogFilter"></a>
+
+### RegexLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| pattern | [string](#string) |  |  |
+| negate | [bool](#bool) |  |  |
+
+
+
+
+
+
+<a name="logs-TimeRangeLogFilter"></a>
+
+### TimeRangeLogFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
+| until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
+
+
+
+
+
+
+<a name="logs-UserLogQuery"></a>
+
+### UserLogQuery
+Only returns &#34;user&#34; logs
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [string](#string) |  | All pipelines in the project |
+| pipeline | [PipelineLogQuery](#logs-PipelineLogQuery) |  | One pipeline in a project |
+| datum | [string](#string) |  | One datum. |
+| job | [string](#string) |  | One job, across pipelines and projects |
+| pipeline_job | [PipelineJobLogQuery](#logs-PipelineJobLogQuery) |  | One job in one pipeline |
+
+
+
+
+
+
+<a name="logs-VerbatimLogMessage"></a>
+
+### VerbatimLogMessage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| line | [bytes](#bytes) |  |  |
+| timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+
+
+
+
+
+ 
+
+
+<a name="logs-LogFormat"></a>
+
+### LogFormat
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| LOG_FORMAT_UNKNOWN | 0 | error |
+| LOG_FORMAT_VERBATIM_WITH_TIMESTAMP | 1 |  |
+| LOG_FORMAT_PARSED_JSON | 2 |  |
+| LOG_FORMAT_PPS_LOGMESSAGE | 3 |  |
+
+
+
+<a name="logs-LogLevel"></a>
+
+### LogLevel
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| LOG_LEVEL_DEBUG | 0 |  |
+| LOG_LEVEL_INFO | 1 |  |
+| LOG_LEVEL_ERROR | 2 |  |
+
+
+ 
+
+ 
+
+
+<a name="logs-API"></a>
+
+### API
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| GetLogs | [GetLogsRequest](#logs-GetLogsRequest) | [GetLogsResponse](#logs-GetLogsResponse) stream |  |
+
+ 
+
+
+
 <a name="pfs_pfs-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
@@ -5123,6 +5458,7 @@ DeleteReposRequest is used to delete more than one repo at once.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | commit | [Commit](#pfs_v2-Commit) |  |  |
+| type | [GetFileSetRequest.FileSetType](#pfs_v2-GetFileSetRequest-FileSetType) |  |  |
 
 
 
@@ -5358,8 +5694,9 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| type | [string](#string) |  | type is the type of (system) repos that should be returned an empty string requests all repos |
-| projects | [Project](#pfs_v2-Project) | repeated | projects filters out repos that do not belong in the list, while no projects means list all repos. |
+| type | [string](#string) |  | Type is the type of (system) repo that should be returned. An empty string requests all repos. |
+| projects | [Project](#pfs_v2-Project) | repeated | Filters out repos whos project isn&#39;t represented. An empty list of projects doesn&#39;t filter repos by their project. |
+| page | [RepoPage](#pfs_v2-RepoPage) |  | Specifies which page of repos should be returned. If page isn&#39;t specified, a single page containing all the relevant repos is returned. |
 
 
 
@@ -5535,6 +5872,23 @@ Details are only provided when explicitly requested
 
 
 
+<a name="pfs_v2-RepoPage"></a>
+
+### RepoPage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| order | [RepoPage.Ordering](#pfs_v2-RepoPage-Ordering) |  |  |
+| page_size | [int64](#int64) |  |  |
+| page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-SQLDatabaseEgress"></a>
 
 ### SQLDatabaseEgress
@@ -5587,12 +5941,17 @@ Details are only provided when explicitly requested
 <a name="pfs_v2-ShardFileSetRequest"></a>
 
 ### ShardFileSetRequest
-
+If both num_files and size_bytes are set, shards are created
+based on whichever threshold is surpassed first. If a shard
+configuration field (num_files, size_bytes) is unset, the
+storage&#39;s default value is used.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | file_set_id | [string](#string) |  |  |
+| num_files | [int64](#int64) |  | Number of files targeted in each shard |
+| size_bytes | [int64](#int64) |  | Size (in bytes) targeted for each shard |
 
 
 
@@ -5777,6 +6136,18 @@ The states are increasingly specific, i.e. a commit that is FINISHED also counts
 
 
 
+<a name="pfs_v2-GetFileSetRequest-FileSetType"></a>
+
+### GetFileSetRequest.FileSetType
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| TOTAL | 0 |  |
+| DIFF | 1 |  |
+
+
+
 <a name="pfs_v2-OriginKind"></a>
 
 ### OriginKind
@@ -5788,6 +6159,17 @@ These are the different places where a commit may be originated from
 | USER | 1 |  |
 | AUTO | 2 |  |
 | FSCK | 3 |  |
+
+
+
+<a name="pfs_v2-RepoPage-Ordering"></a>
+
+### RepoPage.Ordering
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| PROJECT_REPO | 0 |  |
 
 
 
@@ -6421,6 +6803,23 @@ Response for check status request. Provides alerts if any.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | create_pipeline_request | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) |  | CreatePipelineRequest contains the default JSON CreatePipelineRequest into which pipeline specs are merged to form the effective spec used to create a pipeline. |
+
+
+
+
+
+
+<a name="pps_v2-CreateDatumRequest"></a>
+
+### CreateDatumRequest
+Emits a stream of datums as they are created from the given input. Client
+must cancel the stream when it no longer wants to receive datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| input | [Input](#pps_v2-Input) |  | Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input. The input field is only required for the first request. The server ignores subsequent requests&#39; input field. |
+| number | [int64](#int64) |  | Number of datums to return in next response |
 
 
 
@@ -8174,6 +8573,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopJob | [StopJobRequest](#pps_v2-StopJobRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
+| CreateDatum | [CreateDatumRequest](#pps_v2-CreateDatumRequest) stream | [DatumInfo](#pps_v2-DatumInfo) stream |  |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
@@ -9506,6 +9906,7 @@ WellKnownRegex contain some well-known patterns.
 | file_set_id | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
 | set_spec | [datum.SetSpec](#datum-SetSpec) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
@@ -9540,6 +9941,7 @@ WellKnownRegex contain some well-known patterns.
 | file_set_id | [string](#string) |  |  |
 | base_file_set_id | [string](#string) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
@@ -9576,6 +9978,7 @@ WellKnownRegex contain some well-known patterns.
 | base_meta_commit | [pfs_v2.Commit](#pfs_v2-Commit) |  |  |
 | no_skip | [bool](#bool) |  |  |
 | path_range | [pfs_v2.PathRange](#pfs_v2-PathRange) |  |  |
+| auth_token | [string](#string) |  |  |
 
 
 
