@@ -16097,37 +16097,69 @@
           ]
         },
         {
-          "name": "CreateDatumRequest",
-          "longName": "CreateDatumRequest",
-          "fullName": "pps_v2.CreateDatumRequest",
-          "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums.",
+          "name": "ContinueCreateDatumRequest",
+          "longName": "ContinueCreateDatumRequest",
+          "fullName": "pps_v2.ContinueCreateDatumRequest",
+          "description": "",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
           "extensions": [],
           "fields": [
             {
-              "name": "input",
-              "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.\nThe input field is only required for the first request. The server\nignores subsequent requests' input field.",
+              "name": "number",
+              "description": "Number of datums to return in next batch. If 0, default batch size\nis returned.",
               "label": "",
-              "type": "Input",
-              "longType": "Input",
-              "fullType": "pps_v2.Input",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CreateDatumRequest",
+          "longName": "CreateDatumRequest",
+          "fullName": "pps_v2.CreateDatumRequest",
+          "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "StartCreateDatumRequest",
+              "longType": "StartCreateDatumRequest",
+              "fullType": "pps_v2.StartCreateDatumRequest",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
               "defaultValue": ""
             },
             {
-              "name": "number",
-              "description": "Number of datums to return in next response",
+              "name": "continue",
+              "description": "",
               "label": "",
-              "type": "int64",
-              "longType": "int64",
-              "fullType": "int64",
+              "type": "ContinueCreateDatumRequest",
+              "longType": "ContinueCreateDatumRequest",
+              "fullType": "pps_v2.ContinueCreateDatumRequest",
               "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
+              "isoneof": true,
+              "oneofdecl": "body",
               "defaultValue": ""
             }
           ]
@@ -21086,6 +21118,58 @@
           ]
         },
         {
+          "name": "StartCreateDatumRequest",
+          "longName": "StartCreateDatumRequest",
+          "fullName": "pps_v2.StartCreateDatumRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "input",
+              "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.",
+              "label": "",
+              "type": "Input",
+              "longType": "Input",
+              "fullType": "pps_v2.Input",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "number",
+              "description": "Number of datums to return in first batch. If 0, default batch size\nis returned.",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "StartPipelineRequest",
           "longName": "StartPipelineRequest",
           "fullName": "pps_v2.StartPipelineRequest",
@@ -21883,7 +21967,7 @@
             },
             {
               "name": "CreateDatum",
-              "description": "",
+              "description": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
               "requestType": "CreateDatumRequest",
               "requestLongType": "CreateDatumRequest",
               "requestFullType": "pps_v2.CreateDatumRequest",

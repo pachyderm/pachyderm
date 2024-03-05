@@ -428,6 +428,7 @@
     - [CheckStatusRequest](#pps_v2-CheckStatusRequest)
     - [CheckStatusResponse](#pps_v2-CheckStatusResponse)
     - [ClusterDefaults](#pps_v2-ClusterDefaults)
+    - [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest)
     - [CreateDatumRequest](#pps_v2-CreateDatumRequest)
     - [CreatePipelineRequest](#pps_v2-CreatePipelineRequest)
     - [CreatePipelineTransaction](#pps_v2-CreatePipelineTransaction)
@@ -506,6 +507,7 @@
     - [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest)
     - [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse)
     - [Spout](#pps_v2-Spout)
+    - [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest)
     - [StartPipelineRequest](#pps_v2-StartPipelineRequest)
     - [StopJobRequest](#pps_v2-StopJobRequest)
     - [StopPipelineRequest](#pps_v2-StopPipelineRequest)
@@ -6809,6 +6811,21 @@ Response for check status request. Provides alerts if any.
 
 
 
+<a name="pps_v2-ContinueCreateDatumRequest"></a>
+
+### ContinueCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| number | [int32](#int32) |  | Number of datums to return in next batch. If 0, default batch size is returned. |
+
+
+
+
+
+
 <a name="pps_v2-CreateDatumRequest"></a>
 
 ### CreateDatumRequest
@@ -6818,8 +6835,8 @@ must cancel the stream when it no longer wants to receive datums.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| input | [Input](#pps_v2-Input) |  | Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input. The input field is only required for the first request. The server ignores subsequent requests&#39; input field. |
-| number | [int64](#int64) |  | Number of datums to return in next response |
+| start | [StartCreateDatumRequest](#pps_v2-StartCreateDatumRequest) |  |  |
+| continue | [ContinueCreateDatumRequest](#pps_v2-ContinueCreateDatumRequest) |  |  |
 
 
 
@@ -8242,6 +8259,22 @@ request from kubernetes, for scheduling.
 
 
 
+<a name="pps_v2-StartCreateDatumRequest"></a>
+
+### StartCreateDatumRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| input | [Input](#pps_v2-Input) |  | Input is the input to list datums from. The datums listed are the ones that would be run if a pipeline was created with the provided input. |
+| number | [int32](#int32) |  | Number of datums to return in first batch. If 0, default batch size is returned. |
+
+
+
+
+
+
 <a name="pps_v2-StartPipelineRequest"></a>
 
 ### StartPipelineRequest
@@ -8573,7 +8606,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | StopJob | [StopJobRequest](#pps_v2-StopJobRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | InspectDatum | [InspectDatumRequest](#pps_v2-InspectDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) |  |
 | ListDatum | [ListDatumRequest](#pps_v2-ListDatumRequest) | [DatumInfo](#pps_v2-DatumInfo) stream | ListDatum returns information about each datum fed to a Pachyderm job |
-| CreateDatum | [CreateDatumRequest](#pps_v2-CreateDatumRequest) stream | [DatumInfo](#pps_v2-DatumInfo) stream |  |
+| CreateDatum | [CreateDatumRequest](#pps_v2-CreateDatumRequest) stream | [DatumInfo](#pps_v2-DatumInfo) stream | CreateDatum prioritizes time to first datum. Each request returns a batch of datums. |
 | RestartDatum | [RestartDatumRequest](#pps_v2-RestartDatumRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | RerunPipeline | [RerunPipelineRequest](#pps_v2-RerunPipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
 | CreatePipeline | [CreatePipelineRequest](#pps_v2-CreatePipelineRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) |  |
