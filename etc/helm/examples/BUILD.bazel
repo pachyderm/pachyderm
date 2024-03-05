@@ -1,0 +1,5 @@
+filegroup(
+    name = "examples",
+    srcs = glob(["*.yaml"]),
+    visibility = ["//etc/helm/test:__pkg__"],
+)

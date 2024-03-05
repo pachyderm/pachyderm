@@ -1,0 +1,35 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "test_test",
+    srcs = [
+        "affinity_test.go",
+        "aws_test.go",
+        "global_test.go",
+        "google_test.go",
+        "hub_test.go",
+        "label_test.go",
+        "local_test.go",
+        "microsoft_test.go",
+        "minio_test.go",
+        "pachyderm_helm_test.go",
+        "priority_class_name_test.go",
+        "rbac_test.go",
+        "tls_test.go",
+    ],
+    data = ["//etc/helm/examples", "//etc/helm/pachyderm"] + glob(["*.yaml"]),
+    deps = [
+        "@com_github_gruntwork_io_terratest//modules/helm",
+        "@com_github_gruntwork_io_terratest//modules/k8s",
+        "@com_github_gruntwork_io_terratest//modules/logger",
+        "@com_github_instrumenta_kubeval//kubeval",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+        "@io_k8s_api//apps/v1:apps",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_api//networking/v1:networking",
+        "@io_k8s_api//networking/v1beta1",
+        "@io_k8s_api//rbac/v1:rbac",
+        "@io_k8s_apimachinery//pkg/util/intstr",
+        "@io_k8s_kubectl//pkg/scheme",
+    ],
+)

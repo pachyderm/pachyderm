@@ -1,0 +1,5 @@
+filegroup(
+    name = "pachyderm",
+    srcs = glob(["**/*"]),
+    visibility = ["//visibility:public"],
+)
