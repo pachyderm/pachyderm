@@ -8,8 +8,8 @@ import (
 	"strings"
 	"text/template"
 
-	descriptor "github.com/golang/protobuf/protoc-gen-go/descriptor" //nolint:depguard
-	plugin "github.com/golang/protobuf/protoc-gen-go/plugin"         //nolint:depguard
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
 func init() {

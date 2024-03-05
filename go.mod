@@ -32,7 +32,6 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/golang/protobuf v1.5.3
 	github.com/google/btree v1.1.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-jsonnet v0.20.0
@@ -122,6 +121,7 @@ require (
 require (
 	github.com/BurntSushi/toml v1.3.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect

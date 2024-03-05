@@ -3793,10 +3793,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "9b5af5707c8bbc9dcd35a6d089e3592bcbb9008ea87697f600629039390c396a",
+          "@@//:go.mod": "d57127c1b3210d91bb605483b9f5b4e76307825a0c9b9d509b8d86a0c029c5bd",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "0b6daf0866fad27aac041c72c64d6ab3ced4e467c85461ffe0946091423739b0",
+          "@@//:go.sum": "06ffad3602037bae99c2a519ecc700d430aeef915f78b954893c997c6d208049",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -5749,9 +5749,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:pPC6BG5ex8PDFnkbrGU3EixyhKcQ2aDuBS36lqK/C7I=",
+              "sum": "h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=",
               "replace": "",
-              "version": "v1.32.0"
+              "version": "v1.33.0"
             }
           },
           "com_github_emirpasic_gods": {
@@ -6854,7 +6854,6 @@
                 "com_github_fsouza_go_dockerclient": "github.com/fsouza/go-dockerclient",
                 "com_github_go_logr_zapr": "github.com/go-logr/zapr",
                 "com_github_go_sql_driver_mysql": "github.com/go-sql-driver/mysql",
-                "com_github_golang_protobuf": "github.com/golang/protobuf",
                 "com_github_google_btree": "github.com/google/btree",
                 "com_github_google_go_cmp": "github.com/google/go-cmp",
                 "@jsonnet_go~0.20.0": "github.com/google/go-jsonnet",
@@ -6941,6 +6940,7 @@
                 "io_k8s_sigs_yaml": "sigs.k8s.io/yaml",
                 "com_github_burntsushi_toml": "github.com/BurntSushi/toml",
                 "com_github_evanphx_json_patch_v5": "github.com/evanphx/json-patch/v5",
+                "com_github_golang_protobuf": "github.com/golang/protobuf",
                 "com_github_google_gnostic_models": "github.com/google/gnostic-models",
                 "com_github_google_safetext": "github.com/google/safetext",
                 "com_github_moby_term": "github.com/moby/term",
@@ -10129,7 +10129,6 @@
             "com_github_fsouza_go_dockerclient",
             "com_github_go_logr_zapr",
             "com_github_go_sql_driver_mysql",
-            "com_github_golang_protobuf",
             "com_github_google_btree",
             "com_github_google_go_cmp",
             "com_github_google_gofuzz",
