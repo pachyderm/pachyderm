@@ -12,6 +12,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
@@ -37,6 +38,75 @@ func NewIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input
 		return nil, err
 	}
 	return NewFileSetIterator(ctx, c, fileSetID, nil), nil
+}
+
+func NewStreamingDatumIterator(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, input *pps.Input) Iterator {
+	ctx = pctx.Child(ctx, "StreamingDatumIterator")
+	fsidChan := make(chan string)
+	errChan := make(chan error, 1)
+	requestDatumsChan := make(chan struct{})
+	go streamingCreate(ctx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
+	return &streamingDatumIterator{
+		ctx:               ctx,
+		c:                 c,
+		metaBuffer:        make([]*Meta, 0),
+		fsidChan:          fsidChan,
+		errChan:           errChan,
+		requestDatumsChan: requestDatumsChan,
+	}
+}
+
+type streamingDatumIterator struct {
+	ctx               context.Context
+	c                 pfs.APIClient
+	metaBuffer        []*Meta
+	fsidChan          <-chan string
+	errChan           <-chan error
+	requestDatumsChan chan<- struct{}
+}
+
+// Return value of nil means all datums have been returned.
+// Return value of errutil.ErrBreak means that iteration is paused and
+// will be resumed when client asks for more.
+// Return value of anything else means an error.
+func (it *streamingDatumIterator) Iterate(cb func(*Meta) error) error {
+	for {
+		// Consume leftover datums from the buffer first before asking
+		// to create more.
+		if len(it.metaBuffer) == 0 {
+			select {
+			case it.requestDatumsChan <- struct{}{}:
+			case fsid, ok := <-it.fsidChan:
+				if !ok {
+					return nil
+				}
+				fsidIt := NewFileSetIterator(it.ctx, it.c, fsid, nil)
+				if err := fsidIt.Iterate(func(meta *Meta) error {
+					err := cb(meta)
+					// If callback has consumed all the datums it needs,
+					// add the leftover datums to the buffer.
+					if err != nil && errors.Is(err, errutil.ErrBreak) {
+						it.metaBuffer = append(it.metaBuffer, meta)
+						return nil
+					}
+					return err
+				}); err != nil {
+					return errors.Wrap(err, "single file set iteration")
+				}
+				if len(it.metaBuffer) > 0 {
+					return errutil.ErrBreak
+				}
+			case err := <-it.errChan:
+				return errors.Wrap(err, "streamingCreate")
+			}
+		} else {
+			meta := it.metaBuffer[0]
+			if err := cb(meta); err != nil {
+				return errors.Wrap(err, "callback error")
+			}
+			it.metaBuffer = it.metaBuffer[1:]
+		}
+	}
 }
 
 // Hasher is the standard interface for a datum hasher.

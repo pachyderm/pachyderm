@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"io"
 	"strings"
 	"testing"
 
@@ -13,6 +14,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	ppsserver "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -22,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
@@ -116,6 +119,87 @@ func TestListDatum(t *testing.T) {
 	for i, di := range datumIDs {
 		require.Equal(t, di, reverseDatumIDs[len(reverseDatumIDs)-1-i])
 	}
+}
+
+func TestCreateDatum(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	pc := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption).PachClient
+
+	repo := tu.UniqueString("TestCreateDatum")
+	require.NoError(t, pc.CreateRepo(pfs.DefaultProjectName, repo))
+	require.NoError(t, pc.CreateBranch(pfs.DefaultProjectName, repo, "master", "", "", nil))
+	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
+
+	t.Run("EmptyRepo", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		_, err = datumClient.Recv()
+		require.ErrorIs(t, err, io.EOF)
+	})
+
+	commit, err := pc.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	for i := 0; i < ppsserver.DefaultDatumBatchSize+50; i++ {
+		require.NoError(t, pc.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(fmt.Sprintf("file%d", i))))
+	}
+	require.NoError(t, pc.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
+
+	t.Run("SingleBatch", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		// Requesting more datums than exist should return all datums without erroring
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100}}}))
+		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize+100)
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, ppsserver.DefaultDatumBatchSize+50, n)
+	})
+	t.Run("MultipleBatches", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		// Not specifying number of datums should return DefaultDatumBatchSize datums
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize)
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.NoError(t, err)
+		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{Number: 50}}}))
+		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, 50, n)
+	})
+	t.Run("UnimplementedInputTypes", func(t *testing.T) {
+		inputs := []*pps.Input{
+			{Union: []*pps.Input{}},
+			{Cross: []*pps.Input{}},
+			{Join: []*pps.Input{}},
+			{Group: []*pps.Input{}},
+		}
+		for _, input := range inputs {
+			datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+			require.NoError(t, err)
+			require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+			_, err = datumClient.Recv()
+			require.ErrorContains(t, err, "unimplemented input type")
+		}
+	})
+	t.Run("WrongRequestMessage", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{}}}))
+		_, err = datumClient.Recv()
+		require.ErrorContains(t, err, "first message must be a StartCreateDatumRequest message")
+
+		datumClient, err = pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: 1}}}))
+		_, err = datumClient.Recv()
+		require.NoError(t, err)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		_, err = datumClient.Recv()
+		require.ErrorContains(t, err, "subsequent messages must be a ContinueCreateDatumRequest message")
+	})
 }
 
 func TestRenderTemplate(t *testing.T) {

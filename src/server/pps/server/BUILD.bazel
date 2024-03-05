@@ -136,6 +136,8 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/ppsutil",
         "//src/internal/require",
+        "//src/internal/stream",
+        "//src/internal/task",
         "//src/internal/testpachd",
         "//src/internal/testpachd/realenv",
         "//src/internal/testutil",
