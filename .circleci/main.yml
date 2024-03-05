@@ -265,11 +265,7 @@ jobs:
           path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
-      - run:
-          name: Upload test results to DataDog
-          when: always
-          command: |-
-            DD_ENV=ci datadog-ci junit upload --service pachyderm /tmp/test-results/circle/
+      - collect-bazel-datadog-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   helm-tests:
@@ -1569,13 +1565,7 @@ jobs:
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
-      - run:
-          name: Upload test results to DataDog
-          when: always
-          command: |-
-            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
-              --output "./datadog-ci" && chmod +x "./datadog-ci"
-            DD_ENV=ci ./datadog-ci junit upload --service pachyderm /tmp/bazel-testlogs/
+      - collect-bazel-datadog-results
       - store_test_results:
           path: /tmp/bazel-testlogs/
   bazel-tests:
@@ -1601,13 +1591,7 @@ jobs:
       - run:
           command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
           when: always
-      - run:
-          name: Upload test results to DataDog
-          when: always
-          command: |-
-            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
-              --output "./datadog-ci" && chmod +x "./datadog-ci"
-            DD_ENV=ci ./datadog-ci junit upload --service pachyderm /tmp/bazel-testlogs/
+      - collect-bazel-datadog-results
       - store_test_results:
           path: /tmp/bazel-testlogs/
       - codecov/upload:
@@ -2172,6 +2156,22 @@ workflows:
             - aws-prerelease-testing
 
 commands:
+  collect-bazel-datadog-results:
+    steps:
+      - run:
+          name: Upload test results to DataDog
+          when: always
+          command: |-
+            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
+              --output "./datadog-ci" && chmod +x "./datadog-ci"
+            DD_ENV=ci ./datadog-ci junit upload --service pachyderm \
+            /tmp/bazel-testlogs/buildifier_test/ \
+            /tmp/bazel-testlogs/oci/worker_image_test/ \
+            /tmp/bazel-testlogs/src/internal/obj/integrationtests/amazon_test/ \
+            /tmp/bazel-testlogs/src/internal/obj/integrationtests/google_test/ \
+            /tmp/bazel-testlogs/src/internal/obj/integrationtests/microsoft_test/ \
+            /tmp/bazel-testlogs/src/internal/obj/integrationtests/minio_test/ \
+            /tmp/bazel-testlogs/src/server/pfs/server/server_test/
   install-helm:
     steps:
       - run:
