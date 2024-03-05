@@ -700,7 +700,7 @@ jobs:
             - /home/circleci/.cache # Note, this is different from the cache location for the machine executors
   check-prettier:
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     steps:
       - checkout
       - run: sudo npm install -g prettier
@@ -885,7 +885,7 @@ jobs:
   jupyter-extension-frontend-test:
     resource_class: xlarge
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
