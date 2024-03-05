@@ -108,8 +108,8 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "TODO: add a picker option to pick commit by uuid.\n the uuid could be generated using AES so that it doesn't have to be stored.",
-            "description": "TODO: add a picker option to pick commit by uuid. the uuid could be generated using AES so that it doesn't have to be stored.  This models .N syntax."
+            "title": "Branch Root",
+            "description": "This models .N syntax."
         },
         "pfs_v2.CommitPicker.CommitByGlobalId": {
             "properties": {
