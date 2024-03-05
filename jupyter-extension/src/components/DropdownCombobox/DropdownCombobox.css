@@ -1,0 +1,31 @@
+.pachyderm-DropdownCombobox {
+  width: 100%;
+  margin-top: 0;
+  padding-top: 1em;
+  position: relative;
+  display: inline-block;
+}
+
+.pachyderm-DropdownCombobox > div, ul {
+  margin: 0 0.85em 0 0.85em;
+  padding: 0;
+}
+
+.pachyderm-DropdownCombobox > ul {
+  width: 97%;
+  list-style: none;
+  z-index: 3;
+  position: absolute;
+  background-color: white;
+  box-shadow: 0 0.5em 1em 0 rgba(0,0,0,0.2);
+}
+
+.pachyderm-DropdownCombobox > ul > li {
+  padding: 0.29em;
+  margin-left: 0.85em;
+  margin-right: 0.85em;
+}
+
+.p-Widget {
+  overflow: visible;
+}
