@@ -310,7 +310,7 @@ jobs:
       - run:
           name: install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       - run:
           name: make cr release dirs
           command: |
@@ -361,7 +361,7 @@ jobs:
       - run:
           name: download and install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run:
@@ -2163,8 +2163,8 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            wget https://get.helm.sh/helm-v3.7.1-linux-${ARCH}.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            wget https://get.helm.sh/helm-v3.14.2-linux-${ARCH}.tar.gz && \
+            tar -zxvf helm-v3.14.2-linux-${ARCH}.tar.gz && \
             chmod +x linux-amd64/helm && \
             sudo mv linux-amd64/helm /usr/local/bin/helm
   install-kubectl:
@@ -2184,7 +2184,7 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.32.0/minikube-linux-${ARCH} && \
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
@@ -2196,7 +2196,7 @@ commands:
       - run:
           name: Install kind
           command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64" \
             && chmod +x ./kind-linux-amd64 \
             && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
       - install-helm
