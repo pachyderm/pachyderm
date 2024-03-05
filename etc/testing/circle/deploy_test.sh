@@ -33,7 +33,7 @@ then
     if [ "${#test_names}" -gt 0 ]
     then
         test_names="${test_names::-1}" # trim last |
-       gotestsum --raw-command --debug --junitfile=/tmp/test-results/circle/gotestsum-report.xml -- go test -v=test2json -run "$test_names" -failfast -parallel=3 -timeout 3600s ./src/testing/deploy -tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/go-test-results.txt
+       gotestsum --raw-command --debug --junitfile=/tmp/test-results/circle/gotestsum-report.xml -- go test -v=test2json -json -run "$test_names" -failfast -parallel=3 -timeout 3600s ./src/testing/deploy -tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/go-test-results.txt
     fi
 else
     go test -v=test2json -failfast -parallel=3 -timeout 3600s ./src/testing/deploy -tags=k8s -cover -test.gocoverdir="$TEST_RESULTS" -covermode=atomic -coverpkg=./... | stdbuf -i0 tee -a /tmp/go-test-results.txt
