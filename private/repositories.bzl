@@ -280,29 +280,29 @@ def helm_deps():
 def kind_deps():
     http_file(
         name = "io_k8s_sigs_kind_x86_64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
-        sha256 = "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64",
+        sha256 = "e4264d7ee07ca642fe52818d7c0ed188b193c214889dd055c929dbcb968d1f62",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
-        sha256 = "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-arm64",
+        sha256 = "4431805115da3b54290e3e976fe2db9a7e703f116177aace6735dfa1d8a4f3fe",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_x86_64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
-        sha256 = "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-amd64",
+        sha256 = "28a9f7ad7fd77922c639e21c034d0f989b33402693f4f842099cd9185b144d20",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
-        sha256 = "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-arm64",
+        sha256 = "c8dd3b287965150ae4db668294edc48229116e95d94620c306d8fae932ee633f",
         executable = True,
         downloaded_file_path = "kind",
     )
