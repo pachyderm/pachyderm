@@ -2164,9 +2164,7 @@ commands:
           name: Upload test results to DataDog
           when: always
           command: |-
-            npm version
-            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
-              --output "./datadog-ci" && chmod +x "./datadog-ci"
+            npm install -g @datadog/datadog-ci
             DD_ENV=ci ./datadog-ci junit upload --service pachyderm \
             /tmp/test-results/circle/
   collect-bazel-datadog-results:
