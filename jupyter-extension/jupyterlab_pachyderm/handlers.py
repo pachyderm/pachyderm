@@ -19,6 +19,7 @@ import tornado
 import tornado.concurrent
 import tornado.web
 
+from .env import PACHD_ADDRESS, DEX_TOKEN
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient
@@ -648,16 +649,36 @@ def write_config(
 
 
 def setup_handlers(web_app, config_file: Path):
+    """
+    Sets up the Pachyderm client and the HTTP request handler.
+
+    Config for the Pachyderm client will first be attempted by reading
+    the local config file. This falls back to the PACHD_ADDRESS and
+    DEX_TOKEN env vars, and finally defaulting to a localhost client
+    on the default port 30650 failing that.
+    """
+    client = None
     try:
         client = Client().from_config(config_file)
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        get_logger().debug(
-            "Could not find config file -- no pachyderm client instantiated"
-        )
-    else:
+        if PACHD_ADDRESS:
+            client = Client().from_pachd_address(pachd_address=PACHD_ADDRESS)
+            if DEX_TOKEN:
+                client.auth_token = client.auth.authenticate(
+                    id_token=DEX_TOKEN
+                ).pach_token
+            get_logger().debug(
+                f"Created Pachyderm client for {client.address} from env var"
+            )
+        else:
+            get_logger().debug(
+                "Could not find config file -- no pachyderm client instantiated"
+            )
+
+    if client:
         web_app.settings["pachyderm_client"] = client
         web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)
