@@ -265,7 +265,7 @@ jobs:
           path: "/tmp/test-results/circle"
       - store_artifacts:
           path: /tmp/test-results
-      - collect-bazel-datadog-results
+      - collect-integration-datadog-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   helm-tests:
@@ -480,6 +480,7 @@ jobs:
           name: Dump debugging info in case of failure
           when: on_fail
           command: etc/testing/circle/kube_debug.sh
+      - collect-integration-datadog-results
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
@@ -581,6 +582,7 @@ jobs:
           path: /tmp/test-results
       - store_artifacts:
           path: /tmp/test-results
+      - collect-integration-datadog-results
       - collect-test-results
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
@@ -2156,6 +2158,16 @@ workflows:
             - aws-prerelease-testing
 
 commands:
+  collect-integration-datadog-results:
+    steps:
+      - run:
+          name: Upload test results to DataDog
+          when: always
+          command: |-
+            curl -L --fail "https://github.com/DataDog/datadog-ci/releases/latest/download/datadog-ci_linux-x64" \
+              --output "./datadog-ci" && chmod +x "./datadog-ci"
+            DD_ENV=ci ./datadog-ci junit upload --service pachyderm \
+            /tmp/test-results/circle/
   collect-bazel-datadog-results:
     steps:
       - run:
