@@ -622,7 +622,7 @@ func TestGetCommitAncestryMaxDepth(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 4) // includes startId
 			require.NoError(t, err, "should be able to get ancestry")
-			expected := map[pfsdb.CommitID]pfsdb.CommitID{9: 10, 8: 9, 7: 8, 6: 7, 5: 6}
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{9: 10, 8: 9, 7: 8, 6: 7}
 			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)

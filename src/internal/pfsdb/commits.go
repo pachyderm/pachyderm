@@ -508,14 +508,14 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 		maxDepth = DefaultMaxSearchDepth
 	}
 	query := `
-		WITH RECURSIVE ancestry AS (
-			SELECT parent, child, 0 as depth FROM pfs.commit_ancestry WHERE child = $1
-			UNION
-			SELECT ca.parent, ca.child, a.depth+1 FROM pfs.commit_ancestry ca
-			JOIN ancestry a ON ca.child = a.parent WHERE depth <= $2
-		)
-		SELECT a.parent, a.child, depth
-		FROM ancestry a;`
+	WITH RECURSIVE ancestry AS (
+		SELECT parent, child, 1 as depth FROM pfs.commit_ancestry WHERE child = $1
+		UNION
+		SELECT ca.parent, ca.child, depth+1 FROM pfs.commit_ancestry ca
+		JOIN ancestry a ON ca.child = a.parent WHERE depth <= $2
+	)
+	SELECT a.parent, a.child, depth
+	FROM ancestry a WHERE depth <= $2;`
 	rows, err := extCtx.QueryContext(ctx, query, startId, maxDepth)
 	if err != nil {
 		return errors.Wrap(err, "get commit ancestry")
