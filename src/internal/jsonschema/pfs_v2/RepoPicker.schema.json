@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RepoPicker",
+    "definitions": {
+        "RepoPicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker.RepoName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Repo Picker",
+            "description": "Repo defines mutually exclusive pickers that resolve to a single repository. Currently, the only way to pick a repo is by composing a repo name and type with a project. If the type is omitted, the 'user' type will be used as a default. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.ProjectPicker": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Project Picker",
+            "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project. Currently, the only way to pick a project is by using a project name. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.RepoPicker.RepoName": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "description": "type is optional. If omitted, the default type is 'user'."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Name"
+        }
+    }
+}

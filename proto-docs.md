@@ -296,6 +296,8 @@
     - [AuthInfo](#pfs_v2-AuthInfo)
     - [Branch](#pfs_v2-Branch)
     - [BranchInfo](#pfs_v2-BranchInfo)
+    - [BranchPicker](#pfs_v2-BranchPicker)
+    - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
     - [CheckStorageResponse](#pfs_v2-CheckStorageResponse)
     - [ClearCacheRequest](#pfs_v2-ClearCacheRequest)
@@ -304,6 +306,10 @@
     - [CommitInfo](#pfs_v2-CommitInfo)
     - [CommitInfo.Details](#pfs_v2-CommitInfo-Details)
     - [CommitOrigin](#pfs_v2-CommitOrigin)
+    - [CommitPicker](#pfs_v2-CommitPicker)
+    - [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf)
+    - [CommitPicker.BranchRoot](#pfs_v2-CommitPicker-BranchRoot)
+    - [CommitPicker.CommitByGlobalId](#pfs_v2-CommitPicker-CommitByGlobalId)
     - [CommitSet](#pfs_v2-CommitSet)
     - [CommitSetInfo](#pfs_v2-CommitSetInfo)
     - [ComposeFileSetRequest](#pfs_v2-ComposeFileSetRequest)
@@ -360,12 +366,15 @@
     - [PathRange](#pfs_v2-PathRange)
     - [Project](#pfs_v2-Project)
     - [ProjectInfo](#pfs_v2-ProjectInfo)
+    - [ProjectPicker](#pfs_v2-ProjectPicker)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
     - [RepoPage](#pfs_v2-RepoPage)
+    - [RepoPicker](#pfs_v2-RepoPicker)
+    - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -4745,6 +4754,39 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 
 
 
+<a name="pfs_v2-BranchPicker"></a>
+
+### BranchPicker
+BranchPicker defines mutually exclusive pickers that resolve to a single branch.
+Currently, the only way to pick a branch is by composing a branch name with a repo.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchPicker-BranchName"></a>
+
+### BranchPicker.BranchName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| repo | [RepoPicker](#pfs_v2-RepoPicker) |  |  |
+| name | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-CheckStorageRequest"></a>
 
 ### CheckStorageRequest
@@ -4829,7 +4871,7 @@ protos)
 <a name="pfs_v2-CommitInfo"></a>
 
 ### CommitInfo
-CommitInfo is the main data structure representing a commit in etcd
+CommitInfo is the main data structure representing a commit in postgres
 
 
 | Field | Type | Label | Description |
@@ -4878,6 +4920,75 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | kind | [OriginKind](#pfs_v2-OriginKind) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker"></a>
+
+### CommitPicker
+CommitPicker defines mutually exclusive pickers that resolve to a single commit.
+Commits can be picked relatively from some other commit like a parent or start of branch.
+Alternatively, they can be picked via their global Id, which is composed of a repo picker and an id.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| branch_head | [BranchPicker](#pfs_v2-BranchPicker) |  |  |
+| id | [CommitPicker.CommitByGlobalId](#pfs_v2-CommitPicker-CommitByGlobalId) |  |  |
+| ancestor | [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf) |  |  |
+| branch_root | [CommitPicker.BranchRoot](#pfs_v2-CommitPicker-BranchRoot) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-AncestorOf"></a>
+
+### CommitPicker.AncestorOf
+This models ^ syntax recursively.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| offset | [uint32](#uint32) |  |  |
+| start | [CommitPicker](#pfs_v2-CommitPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-BranchRoot"></a>
+
+### CommitPicker.BranchRoot
+This models .N syntax.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| offset | [uint32](#uint32) |  |  |
+| branch | [BranchPicker](#pfs_v2-BranchPicker) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitPicker-CommitByGlobalId"></a>
+
+### CommitPicker.CommitByGlobalId
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| repo | [RepoPicker](#pfs_v2-RepoPicker) |  |  |
+| id | [string](#string) |  |  |
 
 
 
@@ -5787,6 +5898,23 @@ DeleteReposRequest is used to delete more than one repo at once.
 
 
 
+<a name="pfs_v2-ProjectPicker"></a>
+
+### ProjectPicker
+ProjectPicker defines mutually exclusive pickers that resolve to a single project.
+Currently, the only way to pick a project is by using a project name.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="pfs_v2-PutCacheRequest"></a>
 
 ### PutCacheRequest
@@ -5885,6 +6013,41 @@ Details are only provided when explicitly requested
 | order | [RepoPage.Ordering](#pfs_v2-RepoPage-Ordering) |  |  |
 | page_size | [int64](#int64) |  |  |
 | page_index | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoPicker"></a>
+
+### RepoPicker
+Repo defines mutually exclusive pickers that resolve to a single repository.
+Currently, the only way to pick a repo is by composing a repo name and type with a project.
+If the type is omitted, the &#39;user&#39; type will be used as a default.
+Picker messages should only be used as request parameters.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| name | [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoPicker-RepoName"></a>
+
+### RepoPicker.RepoName
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| name | [string](#string) |  |  |
+| type | [string](#string) |  | type is optional. If omitted, the default type is &#39;user&#39;. |
 
 
 

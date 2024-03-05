@@ -94,8 +94,46 @@ class Repo(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class RepoPicker(betterproto.Message):
+    """
+    Repo defines mutually exclusive pickers that resolve to a single
+    repository. Currently, the only way to pick a repo is by composing a repo
+    name and type with a project. If the type is omitted, the 'user' type will
+    be used as a default. Picker messages should only be used as request
+    parameters.
+    """
+
+    name: "RepoPickerRepoName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class RepoPickerRepoName(betterproto.Message):
+    project: "ProjectPicker" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
+    type: str = betterproto.string_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class Branch(betterproto.Message):
     repo: "Repo" = betterproto.message_field(1)
+    name: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class BranchPicker(betterproto.Message):
+    """
+    BranchPicker defines mutually exclusive pickers that resolve to a single
+    branch. Currently, the only way to pick a branch is by composing a branch
+    name with a repo. Picker messages should only be used as request
+    parameters.
+    """
+
+    name: "BranchPickerBranchName" = betterproto.message_field(1, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class BranchPickerBranchName(betterproto.Message):
+    repo: "RepoPicker" = betterproto.message_field(1)
     name: str = betterproto.string_field(2)
 
 
@@ -228,8 +266,48 @@ class Commit(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class CommitPicker(betterproto.Message):
+    """
+    CommitPicker defines mutually exclusive pickers that resolve to a single
+    commit. Commits can be picked relatively from some other commit like a
+    parent or start of branch. Alternatively, they can be picked via their
+    global Id, which is composed of a repo picker and an id. Picker messages
+    should only be used as request parameters.
+    """
+
+    branch_head: "BranchPicker" = betterproto.message_field(1, group="picker")
+    id: "CommitPickerCommitByGlobalId" = betterproto.message_field(2, group="picker")
+    ancestor: "CommitPickerAncestorOf" = betterproto.message_field(3, group="picker")
+    branch_root: "CommitPickerBranchRoot" = betterproto.message_field(4, group="picker")
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerCommitByGlobalId(betterproto.Message):
+    repo: "RepoPicker" = betterproto.message_field(1)
+    id: str = betterproto.string_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerBranchRoot(betterproto.Message):
+    """This models .N syntax."""
+
+    offset: int = betterproto.uint32_field(1)
+    branch: "BranchPicker" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
+class CommitPickerAncestorOf(betterproto.Message):
+    """This models ^ syntax recursively."""
+
+    offset: int = betterproto.uint32_field(1)
+    start: "CommitPicker" = betterproto.message_field(2)
+
+
+@dataclass(eq=False, repr=False)
 class CommitInfo(betterproto.Message):
-    """CommitInfo is the main data structure representing a commit in etcd"""
+    """
+    CommitInfo is the main data structure representing a commit in postgres
+    """
 
     commit: "Commit" = betterproto.message_field(1)
     origin: "CommitOrigin" = betterproto.message_field(2)
@@ -287,6 +365,17 @@ class ProjectInfo(betterproto.Message):
     description: str = betterproto.string_field(2)
     auth_info: "AuthInfo" = betterproto.message_field(3)
     created_at: datetime = betterproto.message_field(4)
+
+
+@dataclass(eq=False, repr=False)
+class ProjectPicker(betterproto.Message):
+    """
+    ProjectPicker defines mutually exclusive pickers that resolve to a single
+    project. Currently, the only way to pick a project is by using a project
+    name. Picker messages should only be used as request parameters.
+    """
+
+    name: str = betterproto.string_field(1, group="picker")
 
 
 @dataclass(eq=False, repr=False)
