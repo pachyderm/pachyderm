@@ -2382,7 +2382,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "vweSNQG7KLiHZLBoJTcv660+1yRGDT0eFyKVdvXafsc=",
+        "bzlTransitiveDigest": "l1tQRL1OCvrJK5V+VEh5EiB7GyUoe2bd9cNVysS44Jo=",
         "accumulatedFileDigests": {},
         "envVariables": {},
         "generatedRepoSpecs": {
@@ -2494,9 +2494,9 @@
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~non_module_deps~sh_helm_aarch64_macos",
-              "url": "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+              "url": "https://get.helm.sh/helm-v3.14.2-darwin-arm64.tar.gz",
               "build_file_content": "exports_files([\"helm\"])",
-              "sha256": "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+              "sha256": "ff502fd39b06497fa3d5a51ec2ced02b9fcfdb0e9a948d315fb1b2f13ddc39fb",
               "strip_prefix": "darwin-arm64"
             }
           },
@@ -2537,9 +2537,9 @@
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~non_module_deps~sh_helm_x86_64_macos",
-              "url": "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+              "url": "https://get.helm.sh/helm-v3.14.2-darwin-amd64.tar.gz",
               "build_file_content": "exports_files([\"helm\"])",
-              "sha256": "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+              "sha256": "64c633ae194bde77b7e7b7936a2814a7417817dc8b7bb7d270bd24a7a17b8d12",
               "strip_prefix": "darwin-amd64"
             }
           },
@@ -2602,9 +2602,9 @@
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~non_module_deps~sh_helm_x86_64_linux",
-              "url": "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+              "url": "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz",
               "build_file_content": "exports_files([\"helm\"])",
-              "sha256": "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+              "sha256": "0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5",
               "strip_prefix": "linux-amd64"
             }
           },
@@ -2761,9 +2761,9 @@
             "ruleClassName": "http_archive",
             "attributes": {
               "name": "_main~non_module_deps~sh_helm_aarch64_linux",
-              "url": "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+              "url": "https://get.helm.sh/helm-v3.14.2-linux-arm64.tar.gz",
               "build_file_content": "exports_files([\"helm\"])",
-              "sha256": "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+              "sha256": "c65d6a9557bb359abc2c0d26670de850b52327dc3976ad6f9e14c298ea3e1b61",
               "strip_prefix": "linux-arm64"
             }
           },

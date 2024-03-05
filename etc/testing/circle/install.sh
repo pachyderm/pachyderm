@@ -54,7 +54,7 @@ fi
 
 # Install helm
 if [ ! -f cached-deps/helm ]; then
-  HELM_VERSION=3.14.0
+  HELM_VERSION=3.14.2
   curl -L https://get.helm.sh/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz \
       | tar xzf - linux-${ARCH}/helm
       mv ./linux-${ARCH}/helm cached-deps/helm

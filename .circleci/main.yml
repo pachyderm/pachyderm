@@ -283,7 +283,7 @@ jobs:
       - run:
           name: install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
       - run:
           name: install kubeval
           command: |
