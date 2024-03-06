@@ -3,11 +3,11 @@ module(
     repo_name = "com_github_pachyderm_pachyderm",
 )
 
-bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq and rules_oci/#425.
+bazel_dep(name = "aspect_bazel_lib", version = "2.5.0")  # Needed for arm64 jq and rules_oci/#425.
 bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.35.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.45.1")
+bazel_dep(name = "rules_go", version = "0.46.0")
 bazel_dep(name = "rules_oci", version = "1.5.1")
 bazel_dep(name = "rules_python", version = "0.27.1")
 
@@ -17,7 +17,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.21.5",
+    version = "1.21.8",
 )
 use_repo(go_sdk, "go_sdk")
 
@@ -110,6 +110,23 @@ go_deps.gazelle_override(
         "gazelle:proto disable_global",
     ],
     path = "sourcegraph.com/sourcegraph/appdash",
+)
+
+# These next two directives are necessary if google.golang.org/protobuf in go.mod is different from
+# what rules_go bundles (see go/private/repositories.bzl for the version they use).
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "google.golang.org/protobuf",
+)
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
+        # -go_naming_convention import_alias -proto disable_global` in a checkout of
+        # google.golang.org/protobuf corresponding to the version we use in go.mod.
+        "//private:google-golang-org-protobuf.patch",
+    ],
+    path = "google.golang.org/protobuf",
 )
 
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries

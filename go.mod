@@ -1,8 +1,6 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.21.1
-
-toolchain go1.21.5
+go 1.21.8
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -12,7 +10,7 @@ require (
 	github.com/adrg/xdg v0.4.0
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
-	github.com/bazelbuild/rules_go v0.45.1
+	github.com/bazelbuild/rules_go v0.46.0
 	github.com/c-bata/go-prompt v0.2.5
 	github.com/cevaris/ordered_map v0.0.0-20190319150403-3adeae072e73
 	github.com/chmduquesne/rollinghash v4.0.0+incompatible
@@ -34,7 +32,7 @@ require (
 	github.com/fsouza/go-dockerclient v1.4.1
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/btree v1.1.2
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-jsonnet v0.20.0
@@ -109,7 +107,7 @@ require (
 	google.golang.org/api v0.149.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231127180814-3a041ad873d4
 	google.golang.org/grpc v1.59.0
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0

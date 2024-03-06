@@ -1,0 +1,3 @@
+!.github
+!.circleci
+MODULE.bazel.lock
