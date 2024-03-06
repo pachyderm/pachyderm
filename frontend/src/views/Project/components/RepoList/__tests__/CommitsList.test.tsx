@@ -82,9 +82,7 @@ describe('Repo Commits List', () => {
 
     await click((await screen.findAllByTestId('DropdownButton__button'))[2]);
     await click(
-      (
-        await screen.findAllByText('Apply Global ID and view in DAG')
-      )[2],
+      (await screen.findAllByText('Apply Global ID and view in DAG'))[2],
     );
 
     expect(window.location.search).toBe(

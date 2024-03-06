@@ -77,9 +77,7 @@ describe('JobSet Jobs List', () => {
 
     await click((await screen.findAllByTestId('DropdownButton__button'))[0]);
     await click(
-      (
-        await screen.findAllByText('Apply Global ID and view in DAG')
-      )[0],
+      (await screen.findAllByText('Apply Global ID and view in DAG'))[0],
     );
 
     expect(window.location.search).toBe(
