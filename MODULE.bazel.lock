@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 3,
-  "moduleFileHash": "1874a4761d8bbd413f77fb99dd23894a52608a557d58c6452e98937b73409d76",
+  "moduleFileHash": "189a3ab1b66709caf4f2589def72748905e1a4510afd342fd468fd0e90112c8f",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -430,6 +430,35 @@
               }
             },
             {
+              "tagName": "gazelle_override",
+              "attributeValues": {
+                "build_file_generation": "off",
+                "path": "google.golang.org/protobuf"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 117,
+                "column": 25
+              }
+            },
+            {
+              "tagName": "module_override",
+              "attributeValues": {
+                "patch_strip": 1,
+                "patches": [
+                  "//private:google-golang-org-protobuf.patch"
+                ],
+                "path": "google.golang.org/protobuf"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 121,
+                "column": 24
+              }
+            },
+            {
               "tagName": "module",
               "attributeValues": {
                 "path": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
@@ -439,7 +468,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 117,
+                "line": 134,
                 "column": 15
               }
             },
@@ -453,7 +482,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 129,
+                "line": 146,
                 "column": 15
               }
             },
@@ -467,7 +496,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 134,
+                "line": 151,
                 "column": 15
               }
             },
@@ -481,7 +510,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 139,
+                "line": 156,
                 "column": 15
               }
             },
@@ -495,7 +524,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 144,
+                "line": 161,
                 "column": 15
               }
             },
@@ -509,7 +538,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 149,
+                "line": 166,
                 "column": 15
               }
             },
@@ -523,7 +552,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 154,
+                "line": 171,
                 "column": 15
               }
             }
@@ -537,7 +566,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 286,
+            "line": 303,
             "column": 32
           },
           "imports": {
@@ -604,7 +633,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 344,
+            "line": 361,
             "column": 20
           },
           "imports": {
@@ -629,7 +658,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 347,
+                "line": 364,
                 "column": 9
               }
             },
@@ -647,7 +676,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 358,
+                "line": 375,
                 "column": 9
               }
             },
@@ -661,7 +690,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 369,
+                "line": 386,
                 "column": 9
               }
             },
@@ -675,7 +704,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 374,
+                "line": 391,
                 "column": 9
               }
             }
@@ -689,7 +718,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 381,
+            "line": 398,
             "column": 23
           },
           "imports": {},
@@ -704,7 +733,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 382,
+                "line": 399,
                 "column": 17
               }
             }
@@ -3796,7 +3825,7 @@
           "@@//:go.mod": "9a32d60b068a48b06dc012a5036fff718872de8398a1a9870e01e894b0f58d6b",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "0b6daf0866fad27aac041c72c64d6ab3ced4e467c85461ffe0946091423739b0",
+          "@@//:go.sum": "71edde028c74edb15334066d0f33db08641bdf5571a799f2a7934687003fea0e",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -5745,13 +5774,17 @@
               "name": "gazelle~0.35.0~go_deps~org_golang_google_protobuf",
               "importpath": "google.golang.org/protobuf",
               "build_directives": [],
-              "build_file_generation": "auto",
+              "build_file_generation": "off",
               "build_extra_args": [],
-              "patches": [],
-              "patch_args": [],
-              "sum": "h1:pPC6BG5ex8PDFnkbrGU3EixyhKcQ2aDuBS36lqK/C7I=",
+              "patches": [
+                "@@//private:google-golang-org-protobuf.patch"
+              ],
+              "patch_args": [
+                "-p1"
+              ],
+              "sum": "h1:uNO2rsAINq/JlFpSdYEKIZ0uKD/R9cpdv0T+yoGwGmI=",
               "replace": "",
-              "version": "v1.32.0"
+              "version": "v1.33.0"
             }
           },
           "com_github_emirpasic_gods": {
@@ -9222,9 +9255,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:KhyjKVUg7Usr/dYsdSqoFveMYd5ko72D+zANwlG1mmg=",
+              "sum": "h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=",
               "replace": "",
-              "version": "v1.5.3"
+              "version": "v1.5.4"
             }
           },
           "com_github_gorilla_handlers": {
