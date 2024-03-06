@@ -3822,10 +3822,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "2ff87a37450ae690ff2b2a78b2be8e8c94fdbe5798277faa0ebafbfc1e618768",
+          "@@//:go.mod": "8fb98657403322521ed8dc60ea184a29bb6add68e8ad930f3a05db7fde1ba080",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "71edde028c74edb15334066d0f33db08641bdf5571a799f2a7934687003fea0e",
+          "@@//:go.sum": "a700ae9cb7786f5eb187122b7a26bbf4c9a6085ab7c5476adb6e64ef7b1db8d1",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -3940,9 +3940,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:WHzDWdXUvbc5bG2ObdrGfaNpQz7ft7QN9HHmJlbiB1E=",
+              "sum": "h1:T0TX0tmXU8a3CbNXzEKGeU5mIVOdf0oykP+u2lIVU/I=",
               "replace": "",
-              "version": "v0.16.0"
+              "version": "v1.0.0"
             }
           },
           "com_github_golang_glog": {
@@ -4518,9 +4518,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:MFAyzUPrTwLOwCi+cltN0ZVyy4phU41lwH+lyMyQTS4=",
+              "sum": "h1:gvmNvqrPYovvyRmCSygkUDyL8lC5Tl845MLEwqpxhEU=",
               "replace": "",
-              "version": "v1.7.0"
+              "version": "v1.20.0"
             }
           },
           "com_github_pmezard_go_difflib": {
@@ -4569,6 +4569,22 @@
               "sum": "h1:Bnktung50rzCWUb6TIfOMc/RFmpuIvKeD8NeGwyyL14=",
               "replace": "",
               "version": "v3.10.0"
+            }
+          },
+          "io_opentelemetry_go_otel_metric": {
+            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "name": "gazelle~0.35.0~go_deps~io_opentelemetry_go_otel_metric",
+              "importpath": "go.opentelemetry.io/otel/metric",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:ZlrO8Hu9+GAhnepmRGhSU7/VkpjrNowxRN9GyKR4wzA=",
+              "replace": "",
+              "version": "v1.20.0"
             }
           },
           "com_github_hashicorp_hcl_v2": {
@@ -5098,9 +5114,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:Ky1MObd188aGbgb5OgNnwGuEEwI9MVIcc7rBW6zk5Ak=",
+              "sum": "h1:PzIubN4/sjByhDRHLviCjJuweBXWFZWhghjg7cS28+M=",
               "replace": "",
-              "version": "v0.28.0"
+              "version": "v0.46.0"
             }
           },
           "com_github_satori_go_uuid": {
@@ -5436,9 +5452,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:j+zJOnnEjF/kyHlDDgGnVL/AIqIJPq8UoB2GSNfkUfQ=",
+              "sum": "h1:xs88BrvEv273UsB79e0hcVrlUWmS0a8upikMFhSyAtA=",
               "replace": "",
-              "version": "v1.3.7"
+              "version": "v1.3.8"
             }
           },
           "in_gopkg_inf_v0": {
@@ -6006,9 +6022,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:4OmStpcKVOfvDOgCt7UriAPtKolwIhxpnSNI/yK+1B0=",
+              "sum": "h1:5Jf6imeFZlZtKv9Qbo6qt2ZkmWtdWx/wzcCbNUlAWGM=",
               "replace": "",
-              "version": "v1.7.0"
+              "version": "v1.20.0"
             }
           },
           "com_github_coreos_go_semver": {
@@ -6342,9 +6358,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:hz6w5Cb4p7dbt642m8Y35Ts9yWPWUCymc3v4Z/aiGEU=",
+              "sum": "h1:OK2fZKI5hX/+BTK76gXSTyZMrbnARyX9S643GenNGb8=",
               "replace": "",
-              "version": "v3.5.8"
+              "version": "v3.5.12"
             }
           },
           "com_github_stretchr_testify": {
@@ -6979,6 +6995,7 @@
                 "com_github_moby_term": "github.com/moby/term",
                 "com_github_mxk_go_flowrate": "github.com/mxk/go-flowrate",
                 "com_github_pelletier_go_toml": "github.com/pelletier/go-toml",
+                "io_opentelemetry_go_otel_metric": "go.opentelemetry.io/otel/metric",
                 "com_google_cloud_go": "cloud.google.com/go",
                 "com_google_cloud_go_compute": "cloud.google.com/go/compute",
                 "com_google_cloud_go_compute_metadata": "cloud.google.com/go/compute/metadata",
@@ -7792,9 +7809,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:4wSsluwyTbGGmyjJktOf3wFQoTBIURXHnq9n/G/JQHs=",
+              "sum": "h1:W4sw5ZoU2Juc9gBWuLk5U6fHfNVyY1WC5g9uiXZio/c=",
               "replace": "",
-              "version": "v3.5.9"
+              "version": "v3.5.12"
             }
           },
           "com_github_azure_go_autorest_autorest_to": {
@@ -7826,9 +7843,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:wM4IAfiY1+vrCAkUicIOzkyjpV9MawnAul2KvxeMgy4=",
+              "sum": "h1:7r22RufdDsq2z3STjoR7Msz6fYH8tmbkdheGfwJNRmU=",
               "replace": "",
-              "version": "v3.5.8"
+              "version": "v3.5.12"
             }
           },
           "com_github_containerd_cgroups": {
@@ -8086,9 +8103,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:ERKrevVTnCw3Wu4I3mtR15QU3gtWy86cBo6De0jEohg=",
+              "sum": "h1:YBftPWNWd4WwGqtY2yeZL2ef8rHAxPBD8KFhJpmcqms=",
               "replace": "",
-              "version": "v2.10.2"
+              "version": "v2.16.0"
             }
           },
           "com_github_jackc_chunkreader_v2": {
@@ -8118,9 +8135,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:cFAlzYUlVYDysBEH2T5hyJZMh3+5+WCBvSnK6Q8UtC4=",
+              "sum": "h1:y4OZtCnogmCPw98Zjyt5a6+QwPLGkiQsYW5oUqylYbM=",
               "replace": "",
-              "version": "v4.1.3"
+              "version": "v4.2.1"
             }
           },
           "com_github_coreos_go_systemd_v22": {
@@ -8527,9 +8544,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:IGp9Ozt8awy3qRTXSIYJd/o/cr4oUyrm9MF1RJ2dr/c=",
+              "sum": "h1:0m4ovXYo1CHaA/Mp3X/Fak5sRNIWf01wk/X1/G3sGKI=",
               "replace": "",
-              "version": "v2.305.8"
+              "version": "v2.305.12"
             }
           },
           "io_etcd_go_etcd_client_v3": {
@@ -8543,9 +8560,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:B6ngTKZSWWowHEoaucOKHQR/AtZKaoHLiUpWxOLG4l4=",
+              "sum": "h1:v5lCPXn1pf1Uu3M4laUE2hp/geOTc5uPcYYsNe1lDxg=",
               "replace": "",
-              "version": "v3.5.8"
+              "version": "v3.5.12"
             }
           },
           "com_github_klauspost_cpuid_v2": {
@@ -9091,9 +9108,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:Z2lA3Tdch0iDcrhJXDIlC94XE+bxok1F9B+4Lz/lGsM=",
+              "sum": "h1:vsb/ggIY+hUjD/zCAQHpzTmndPqv/ml2ArbsbfBYTAc=",
               "replace": "",
-              "version": "v1.7.0"
+              "version": "v1.20.0"
             }
           },
           "com_github_minio_minio_go_v7": {
@@ -9189,9 +9206,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:cMDtmgJ5FpRvqx9x2Aq+Mm0O6K/zcUkH73SFz20TuBw=",
+              "sum": "h1:DeFD0VgTZ+Cj6hxravYYZE2W4GlneVH81iAOPjZkzk8=",
               "replace": "",
-              "version": "v1.7.0"
+              "version": "v1.20.0"
             }
           },
           "com_github_charmbracelet_bubbles": {
@@ -9239,9 +9256,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:eK9fU6Pd6IJD1k0u4zAq1NZsSsEOOimlP3kIkpcQrho=",
+              "sum": "h1:EtMjsbfyfkwZuA2JlKOiBfuGkFCekv5H178qjXypbG8=",
               "replace": "",
-              "version": "v3.5.8"
+              "version": "v3.5.12"
             }
           },
           "com_github_golang_protobuf": {
@@ -9431,9 +9448,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:tPp9YRn/UBFAHdhOQUII9eUs7aOK35eulpMhX4YBd+M=",
+              "sum": "h1:EYDL6pWwyOsylrQyLp2w+HkQ46ATiOvoEdMarindU2A=",
               "replace": "",
-              "version": "v3.5.8"
+              "version": "v3.5.12"
             }
           },
           "com_github_bmatcuk_doublestar_v4": {
@@ -9847,9 +9864,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:O37Iogk1lEkMRXewVtZ1BBTVn5JEp8GrJvP92bJqC6o=",
+              "sum": "h1:+yxVAPZPbQhbC3OfAkeIVTky6iTFpcr4SiY9om7mXSQ=",
               "replace": "",
-              "version": "v1.7.0"
+              "version": "v1.20.0"
             }
           },
           "com_github_muesli_reflow": {
