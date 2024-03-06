@@ -606,7 +606,7 @@ func TestGetCommitAncestry(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 0)
 			require.NoError(t, err, "should be able to get ancestry")
-			expected := map[pfsdb.CommitID]pfsdb.CommitID{7: 8, 8: 9, 9: 10, 10: 11, 11: 12}
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{8: 7, 9: 8, 10: 9, 11: 10, 12: 11}
 			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
@@ -622,7 +622,7 @@ func TestGetCommitAncestryMaxDepth(t *testing.T) {
 		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 4) // includes startId
 			require.NoError(t, err, "should be able to get ancestry")
-			expected := map[pfsdb.CommitID]pfsdb.CommitID{9: 10, 8: 9, 7: 8, 6: 7}
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{10: 9, 9: 8, 8: 7, 7: 6}
 			if diff := cmp.Diff(expected, ancestry,
 				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
 				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)

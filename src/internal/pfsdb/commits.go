@@ -489,11 +489,11 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 	return children, nil
 }
 
-// GetCommitAncestry returns a CommitAncestry from startId up to maxDepth.
+// GetCommitAncestry returns a map of child CommitID values to parent CommitIDs including the startId up to maxDepth.
 func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (map[CommitID]CommitID, error) {
 	ancestry := make(map[CommitID]CommitID)
 	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
-		ancestry[parentId] = childId
+		ancestry[childId] = parentId
 		return nil
 	}); err != nil {
 		return nil, errors.Wrap(err, "get commit ancestry")
@@ -535,6 +535,9 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 		if err := cb(parent, child); err != nil {
 			return errors.Wrap(err, "calling cb() on parent and child")
 		}
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrap(err, "iterating over commit ancestry")
 	}
 	return nil
 }
