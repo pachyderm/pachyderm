@@ -729,3 +729,27 @@ func watchBranches(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator
 		}
 	}
 }
+
+func PickBranch(ctx context.Context, branchPicker *pfs.BranchPicker, tx *pachsql.Tx) (*BranchInfoWithID, error) {
+	if branchPicker == nil || branchPicker.Picker == nil {
+		return nil, errors.New("branch picker cannot be nil")
+	}
+	switch branchPicker.Picker.(type) {
+	case *pfs.BranchPicker_Name:
+		picker := branchPicker.GetName()
+		repo, err := PickRepo(ctx, picker.Repo, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "picking branch")
+		}
+		branchInfoWithID, err := GetBranchInfoWithID(ctx, tx, &pfs.Branch{
+			Repo: repo.RepoInfo.Repo,
+			Name: picker.Name,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "picking branch")
+		}
+		return branchInfoWithID, nil
+	default:
+		return nil, errors.New(fmt.Sprintf("branch picker is of an unknown type: %T", branchPicker.Picker))
+	}
+}

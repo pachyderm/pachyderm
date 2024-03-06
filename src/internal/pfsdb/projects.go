@@ -261,3 +261,19 @@ func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo
 	}
 	return nil
 }
+
+func PickProject(ctx context.Context, projectPicker *pfs.ProjectPicker, tx *pachsql.Tx) (*ProjectWithID, error) {
+	if projectPicker == nil || projectPicker.Picker == nil {
+		return nil, errors.New("project picker cannot be nil")
+	}
+	switch projectPicker.Picker.(type) {
+	case *pfs.ProjectPicker_Name:
+		projectWithID, err := GetProjectWithID(ctx, tx, projectPicker.GetName())
+		if err != nil {
+			return nil, errors.Wrap(err, "picking project")
+		}
+		return projectWithID, nil
+	default:
+		return nil, errors.New(fmt.Sprintf("project picker is of an unknown type: %T", projectPicker.Picker))
+	}
+}
