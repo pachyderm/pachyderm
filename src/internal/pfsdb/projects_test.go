@@ -181,7 +181,7 @@ func TestPickProject(t *testing.T) {
 		require.Equal(t, expected.ID, got.ID)
 		_, err = pfsdb.PickProject(ctx, nil, tx)
 		require.YesError(t, err, "should error with a nil picker")
-		got, err = pfsdb.PickProject(ctx, badProjectPicker, tx)
+		_, err = pfsdb.PickProject(ctx, badProjectPicker, tx)
 		require.YesError(t, err, "pick project should error with bad picker")
 		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
 	})

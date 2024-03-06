@@ -780,6 +780,7 @@ func testPickCommitByBranchHead(t *testing.T) {
 }
 
 func testPickCommitByBranchRoot(t *testing.T) {
+	t.Parallel()
 	offset := uint32(1002)
 	branchRootPicker := &pfs.CommitPicker{
 		Picker: &pfs.CommitPicker_BranchRoot_{
@@ -823,6 +824,7 @@ func testPickCommitByBranchRoot(t *testing.T) {
 }
 
 func testPickCommitByAncestor(t *testing.T) {
+	t.Parallel()
 	offset := 10
 	branchHeadPicker := &pfs.CommitPicker{
 		Picker: &pfs.CommitPicker_BranchHead{
@@ -865,7 +867,7 @@ func testPickCommitByAncestor(t *testing.T) {
 		require.NoError(t, err, "should be able to pick commit")
 		require.Equal(t, expected.ID, got.ID)
 		// test offset > depth.
-		ancestorPicker.GetAncestor().Offset = 15
+		ancestorPicker.GetAncestor().Offset = uint32(depth + 5)
 		_, err = pfsdb.PickCommit(ctx, ancestorPicker, tx)
 		require.YesError(t, err, "should not be able to pick commit with invalid offset")
 	})
