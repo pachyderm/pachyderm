@@ -3822,10 +3822,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "8fb98657403322521ed8dc60ea184a29bb6add68e8ad930f3a05db7fde1ba080",
+          "@@//:go.mod": "97f0961c555658c242d6c637de94620035be7cc3ff30bbbdc480f29b98cb0a47",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "a700ae9cb7786f5eb187122b7a26bbf4c9a6085ab7c5476adb6e64ef7b1db8d1",
+          "@@//:go.sum": "726148f1ab5fca7985224d20afdcd468b99ed2afb2af96198cd0d9a5103324fb",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -7204,7 +7204,6 @@
                 "io_opencensus_go": "go.opencensus.io",
                 "io_opentelemetry_go_contrib_instrumentation_google_golang_org_grpc_otelgrpc": "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc",
                 "io_opentelemetry_go_otel": "go.opentelemetry.io/otel",
-                "io_opentelemetry_go_otel_exporters_otlp_internal_retry": "go.opentelemetry.io/otel/exporters/otlp/internal/retry",
                 "io_opentelemetry_go_otel_exporters_otlp_otlptrace": "go.opentelemetry.io/otel/exporters/otlp/otlptrace",
                 "io_opentelemetry_go_otel_exporters_otlp_otlptrace_otlptracegrpc": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
                 "io_opentelemetry_go_otel_sdk": "go.opentelemetry.io/otel/sdk",
@@ -7898,22 +7897,6 @@
               "sum": "h1:v1ta+49hkWZyvaKwrQB8elexRqm6Y0aMLjCNsrYxo6g=",
               "replace": "",
               "version": "v1.0.0"
-            }
-          },
-          "io_opentelemetry_go_otel_exporters_otlp_internal_retry": {
-            "bzlFile": "@@gazelle~0.35.0//internal:go_repository.bzl",
-            "ruleClassName": "go_repository",
-            "attributes": {
-              "name": "gazelle~0.35.0~go_deps~io_opentelemetry_go_otel_exporters_otlp_internal_retry",
-              "importpath": "go.opentelemetry.io/otel/exporters/otlp/internal/retry",
-              "build_directives": [],
-              "build_file_generation": "auto",
-              "build_extra_args": [],
-              "patches": [],
-              "patch_args": [],
-              "sum": "h1:7Yxsak1q4XrJ5y7XBnNwqWx9amMZvoidCctv62XOQ6Y=",
-              "replace": "",
-              "version": "v1.7.0"
             }
           },
           "com_github_blend_go_sdk": {
