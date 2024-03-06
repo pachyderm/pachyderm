@@ -7,7 +7,7 @@ bazel_dep(name = "aspect_bazel_lib", version = "2.1.0")  # Needed for arm64 jq a
 bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.35.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
-bazel_dep(name = "rules_go", version = "0.45.1")
+bazel_dep(name = "rules_go", version = "0.46.0")
 bazel_dep(name = "rules_oci", version = "1.5.1")
 bazel_dep(name = "rules_python", version = "0.27.1")
 
