@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"go.uber.org/zap"
 	"strings"
 
 	"github.com/jmoiron/sqlx"
@@ -22,6 +24,8 @@ import (
 )
 
 const (
+	DefaultMaxSearchDepth = 1000
+
 	// CommitsChannelName is used to watch events for the commits table.
 	CommitsChannelName     = "pfs_commits"
 	CommitsRepoChannelName = "pfs_commits_repo_"
@@ -485,6 +489,59 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 	return children, nil
 }
 
+// GetCommitAncestry returns a map of child CommitID values to parent CommitIDs including the startId up to maxDepth.
+func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (map[CommitID]CommitID, error) {
+	ancestry := make(map[CommitID]CommitID)
+	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
+		ancestry[childId] = parentId
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "get commit ancestry")
+	}
+	return ancestry, nil
+}
+
+// ForEachCommitAncestor queries postgres for ancestors of startId up to the maxDepth. cb() is called for each ancestor.
+// maxDepth is optional.
+func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint, cb func(parentId, childId CommitID) error) error {
+	if maxDepth == 0 {
+		maxDepth = DefaultMaxSearchDepth
+	}
+	query := `
+	WITH RECURSIVE ancestry AS (
+		SELECT parent, child, 1 as depth FROM pfs.commit_ancestry WHERE child = $1
+		UNION
+		SELECT ca.parent, ca.child, depth+1 FROM pfs.commit_ancestry ca
+		JOIN ancestry a ON ca.child = a.parent WHERE depth < $2
+	)
+	SELECT a.parent, a.child, depth
+	FROM ancestry a;`
+	rows, err := extCtx.QueryContext(ctx, query, startId, maxDepth)
+	if err != nil {
+		return errors.Wrap(err, "get commit ancestry")
+	}
+	defer func() {
+		err := rows.Close()
+		if err != nil {
+			log.Error(ctx, "closing rows", zap.Error(err))
+		}
+	}()
+	for rows.Next() {
+		var parent, child CommitID
+		var depth uint
+		if err := rows.Scan(&parent, &child, &depth); err != nil {
+			return errors.Wrap(err, "scanning parent and child row")
+		}
+		if err := cb(parent, child); err != nil {
+			return errors.Wrap(err, "calling cb() on parent and child")
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return errors.Wrap(err, "iterating over commit ancestry")
+	}
+	return nil
+}
+
 func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
 	id, err := GetCommitID(ctx, tx, commit)
 	if err != nil {
@@ -749,9 +806,9 @@ func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 
 // CommitWithID is returned by the commit iterator.
 type CommitWithID struct {
-	ID         CommitID
-	CommitInfo *pfs.CommitInfo
-	Revision   int64
+	ID CommitID
+	*pfs.CommitInfo
+	Revision int64
 }
 
 // this dropped global variable instantiation forces the compiler to check whether CommitIterator implements stream.Iterator.
