@@ -11,4 +11,6 @@ const esModules = [
 baseConfig.transformIgnorePatterns = [`/node_modules/(?!${esModules}).+`];
 baseConfig.preset = 'ts-jest/presets/js-with-babel';
 baseConfig.testEnvironment = 'jsdom';
+baseConfig.setupFilesAfterEnv.push('<rootDir>/jest.setup.js');
+baseConfig.timers = 'legacy';
 module.exports = baseConfig;
