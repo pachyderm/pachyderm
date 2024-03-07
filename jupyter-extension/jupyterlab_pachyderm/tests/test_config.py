@@ -9,6 +9,8 @@ from pachyderm_sdk.config import ConfigFile
 
 from jupyterlab_pachyderm.env import PACH_CONFIG
 
+from .conftest import ENV_VAR_TEST_ADDR
+
 
 @pytest.mark.no_config
 async def test_config_no_file(app: Application, http_client: AsyncClient):
@@ -29,6 +31,46 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
     health_payload = health_response.json()
     assert health_payload["status"] == "HEALTHY_INVALID_CLUSTER"
     assert config_payload["pachd_address"] == ""
+
+
+@pytest.mark.no_config
+@pytest.mark.env_var
+async def test_config_env_var(app: Application, http_client: AsyncClient):
+    """Test that when the PACHD_ADDRESS env var is set and there is no config
+    file, that the client is configured using the env var"""
+    config_file = app.settings.get("pachyderm_config_file")
+    assert config_file is not None and not config_file.exists()
+
+    config_response = await http_client.get("/config")
+    health_response = await http_client.get("/health")
+
+    config_response.raise_for_status()
+    health_response.raise_for_status()
+    config_payload = config_response.json()
+    health_payload = health_response.json()
+    assert health_payload["status"] == "HEALTHY_INVALID_CLUSTER"
+    assert config_payload["pachd_address"] == ENV_VAR_TEST_ADDR
+
+
+@pytest.mark.env_var
+async def test_config_env_var_overridden(app: Application, http_client: AsyncClient):
+    """Test that when the PACHD_ADDRESS env var is set and there is a config file,
+    that the client uses the config file and not the env var"""
+    config_file = app.settings.get("pachyderm_config_file")
+    assert config_file is not None and config_file.exists()
+
+    config_response = await http_client.get("/config")
+    health_response = await http_client.get("/health")
+
+    config_response.raise_for_status()
+    health_response.raise_for_status()
+    config_payload = config_response.json()
+    health_payload = health_response.json()
+    assert (
+        health_payload["status"] == "HEALTHY_NO_AUTH"
+        or health_payload["status"] == "HEALTHY_LOGGED_IN"
+    )
+    assert config_payload["pachd_address"] != ENV_VAR_TEST_ADDR
 
 
 @pytest.mark.no_config

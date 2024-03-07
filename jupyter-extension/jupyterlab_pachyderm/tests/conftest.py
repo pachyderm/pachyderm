@@ -8,12 +8,12 @@ import httpx
 import pytest
 import tornado.testing
 import tornado.web
-from tornado.httpserver import HTTPServer
 
 from jupyterlab_pachyderm.handlers import NAMESPACE, VERSION, setup_handlers
 from jupyterlab_pachyderm.env import PACH_CONFIG
 
 PortType = Tuple[socket.socket, int]
+ENV_VAR_TEST_ADDR = "foo.pachyderm.bar:1234"
 
 
 @pytest.fixture
@@ -30,7 +30,18 @@ def pach_config(request, tmp_path) -> Path:
 
 
 @pytest.fixture
-def app(pach_config) -> tornado.web.Application:
+def pach_config_env_var(request) -> str:
+    """Set the env var to configure the pachd address to a test value.
+
+    Only works if the test is marked with @pytest.mark.env_var.
+    """
+    if request.node.get_closest_marker("env_var"):
+        return ENV_VAR_TEST_ADDR
+    return None
+
+
+@pytest.fixture
+def app(pach_config, pach_config_env_var) -> tornado.web.Application:
     """Create a instance of our application.
     This fixture is used by the http_server fixture.
     """
@@ -45,7 +56,7 @@ def app(pach_config) -> tornado.web.Application:
             return User("test-user")
 
     app = tornado.web.Application(base_url="/")
-    setup_handlers(app, pach_config)
+    setup_handlers(app, pach_config, pach_config_env_var)
     app.settings["identity_provider"] = TestIdentityProvider()
     app.settings["disable_check_xsrf"] = True
     return app
@@ -61,7 +72,7 @@ def http_server_port() -> PortType:
 def http_server_fixture(
     app: tornado.web.Application,
     event_loop: asyncio.BaseEventLoop,
-    http_server_port: PortType
+    http_server_port: PortType,
 ) -> tornado.httpserver.HTTPServer:
     """Start a tornado HTTP server that listens on all available handlers.
     ref: github.com/eukaryote/pytest-tornasync/blob/0.6.0.post2/src/pytest_tornasync/plugin.py
@@ -76,9 +87,7 @@ def http_server_fixture(
     server.stop()
 
     if hasattr(server, "close_all_connections"):
-        event_loop.run_until_complete(
-            server.close_all_connections()
-        )
+        event_loop.run_until_complete(server.close_all_connections())
 
 
 @pytest.fixture
