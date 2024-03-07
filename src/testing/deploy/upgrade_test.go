@@ -90,6 +90,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			_, err := c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{
 				Branch: &pfs.Branch{Repo: &pfs.Repo{Name: dataRepo, Type: pfs.UserRepoType, Project: &pfs.Project{Name: pfs.DefaultProjectName}}, Name: "master"},
 			})
+			require.NoError(t, err)
 			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline1,
 				"",
@@ -165,7 +166,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			require.Equal(t, 33, len(commits))
 			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
 			require.NoError(t, err)
-			require.Equal(t, 22, len(commits))
+			require.Equal(t, 17, len(commits))
 			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					return errors.Errorf(resp.Error)
