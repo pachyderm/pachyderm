@@ -1,0 +1,17 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ContinueCreateDatumRequest",
+    "definitions": {
+        "ContinueCreateDatumRequest": {
+            "properties": {
+                "number": {
+                    "type": "integer",
+                    "description": "Number of datums to return in next batch. If 0, default batch size is returned."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Continue Create Datum Request"
+        }
+    }
+}

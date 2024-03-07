@@ -250,59 +250,59 @@ def helm_deps():
     build = """exports_files(["helm"])"""
     http_archive(
         name = "sh_helm_x86_64_linux",
-        url = "https://get.helm.sh/helm-v3.14.0-linux-amd64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz",
         build_file_content = build,
-        sha256 = "f43e1c3387de24547506ab05d24e5309c0ce0b228c23bd8aa64e9ec4b8206651",
+        sha256 = "0885a501d586c1e949e9b113bf3fb3290b0bbf74db9444a1d8c2723a143006a5",
         strip_prefix = "linux-amd64",
     )
     http_archive(
         name = "sh_helm_aarch64_linux",
-        url = "https://get.helm.sh/helm-v3.14.0-linux-arm64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-linux-arm64.tar.gz",
         build_file_content = build,
-        sha256 = "b29e61674731b15f6ad3d1a3118a99d3cc2ab25a911aad1b8ac8c72d5a9d2952",
+        sha256 = "c65d6a9557bb359abc2c0d26670de850b52327dc3976ad6f9e14c298ea3e1b61",
         strip_prefix = "linux-arm64",
     )
     http_archive(
         name = "sh_helm_x86_64_macos",
-        url = "https://get.helm.sh/helm-v3.14.0-darwin-amd64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-darwin-amd64.tar.gz",
         build_file_content = build,
-        sha256 = "804586896496f7b3da97f56089ea00f220e075e969b6fdf6c0b7b9cdc22de120",
+        sha256 = "64c633ae194bde77b7e7b7936a2814a7417817dc8b7bb7d270bd24a7a17b8d12",
         strip_prefix = "darwin-amd64",
     )
     http_archive(
         name = "sh_helm_aarch64_macos",
-        url = "https://get.helm.sh/helm-v3.14.0-darwin-arm64.tar.gz",
+        url = "https://get.helm.sh/helm-v3.14.2-darwin-arm64.tar.gz",
         build_file_content = build,
-        sha256 = "c2f36f3289a01c7c93ca11f84d740a170e0af1d2d0280bd523a409a62b8dfa1d",
+        sha256 = "ff502fd39b06497fa3d5a51ec2ced02b9fcfdb0e9a948d315fb1b2f13ddc39fb",
         strip_prefix = "darwin-arm64",
     )
 
 def kind_deps():
     http_file(
         name = "io_k8s_sigs_kind_x86_64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-amd64",
-        sha256 = "513a7213d6d3332dd9ef27c24dab35e5ef10a04fa27274fe1c14d8a246493ded",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64",
+        sha256 = "e4264d7ee07ca642fe52818d7c0ed188b193c214889dd055c929dbcb968d1f62",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_linux",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-linux-arm64",
-        sha256 = "639f7808443559aa30c3642d9913b1615d611a071e34f122340afeda97b8f422",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-arm64",
+        sha256 = "4431805115da3b54290e3e976fe2db9a7e703f116177aace6735dfa1d8a4f3fe",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_x86_64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-amd64",
-        sha256 = "bffd8fb2006dc89fa0d1dde5ba6bf48caacb707e4df8551528f49145ebfeb7ad",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-amd64",
+        sha256 = "28a9f7ad7fd77922c639e21c034d0f989b33402693f4f842099cd9185b144d20",
         executable = True,
         downloaded_file_path = "kind",
     )
     http_file(
         name = "io_k8s_sigs_kind_aarch64_macos",
-        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.20.0/kind-darwin-arm64",
-        sha256 = "8df041a5cae55471f3b039c3c9942226eb909821af63b5677fc80904caffaabf",
+        url = "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-darwin-arm64",
+        sha256 = "c8dd3b287965150ae4db668294edc48229116e95d94620c306d8fae932ee633f",
         executable = True,
         downloaded_file_path = "kind",
     )
@@ -310,29 +310,29 @@ def kind_deps():
 def kubectl_deps():
     http_file(
         name = "io_k8s_dl_kubectl_x86_64_linux",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/amd64/kubectl",
-        sha256 = "69ab3a931e826bf7ac14d38ba7ca637d66a6fcb1ca0e3333a2cafdf15482af9f",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/linux/amd64/kubectl",
+        sha256 = "7816d067740f47f949be826ac76943167b7b3a38c4f0c18b902fffa8779a5afa",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_aarch64_linux",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/linux/arm64/kubectl",
-        sha256 = "96d6dc7b2bdcd344ce58d17631c452225de5bbf59b83fd3c89c33c6298fb5d8b",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/linux/arm64/kubectl",
+        sha256 = "3507ecb4224cf05ae2151a98d4932253624e7762159936d5347b19fe037655ca",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_x86_64_macos",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/amd64/kubectl",
-        sha256 = "c4da86e5c0fc9415db14a48d9ef1515b0b472346cbc9b7f015175b6109505d2c",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/darwin/amd64/kubectl",
+        sha256 = "bb04d9450d9c9fa120956c5cc7c8dfaa700297038ff9c941741e730b02bbd1f3",
         executable = True,
         downloaded_file_path = "kubectl",
     )
     http_file(
         name = "io_k8s_dl_kubectl_aarch64_macos",
-        url = "https://dl.k8s.io/release/v1.29.1/bin/darwin/arm64/kubectl",
-        sha256 = "c31b99d7bf0faa486a6554c5f96e36af4821a488e90176a12ba18298bc4c8fb0",
+        url = "https://dl.k8s.io/release/v1.29.2/bin/darwin/arm64/kubectl",
+        sha256 = "ce030f86625df96560402573d86d4e6f4b8b956ca3e3b9df57cb8ccf2b9a540c",
         executable = True,
         downloaded_file_path = "kubectl",
     )

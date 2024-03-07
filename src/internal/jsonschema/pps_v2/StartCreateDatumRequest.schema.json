@@ -1,34 +1,22 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/CreateDatumRequest",
+    "$ref": "#/definitions/StartCreateDatumRequest",
     "definitions": {
-        "CreateDatumRequest": {
+        "StartCreateDatumRequest": {
             "properties": {
-                "start": {
-                    "$ref": "#/definitions/pps_v2.StartCreateDatumRequest",
-                    "additionalProperties": false
+                "input": {
+                    "$ref": "#/definitions/pps_v2.Input",
+                    "additionalProperties": false,
+                    "description": "Input is the input to list datums from. The datums listed are the ones  that would be run if a pipeline was created with the provided input."
                 },
-                "continue": {
-                    "$ref": "#/definitions/pps_v2.ContinueCreateDatumRequest",
-                    "additionalProperties": false
+                "number": {
+                    "type": "integer",
+                    "description": "Number of datums to return in first batch. If 0, default batch size is returned."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "oneOf": [
-                {
-                    "required": [
-                        "start"
-                    ]
-                },
-                {
-                    "required": [
-                        "continue"
-                    ]
-                }
-            ],
-            "title": "Create Datum Request",
-            "description": "Emits a stream of datums as they are created from the given input. Client must cancel the stream when it no longer wants to receive datums."
+            "title": "Start Create Datum Request"
         },
         "pfs_v2.Trigger": {
             "properties": {
@@ -61,17 +49,6 @@
             "type": "object",
             "title": "Trigger",
             "description": "Trigger defines the conditions under which a head is moved, and to which branch it is moved."
-        },
-        "pps_v2.ContinueCreateDatumRequest": {
-            "properties": {
-                "number": {
-                    "type": "integer",
-                    "description": "Number of datums to return in next batch. If 0, default batch size is returned."
-                }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "title": "Continue Create Datum Request"
         },
         "pps_v2.CronInput": {
             "properties": {
@@ -349,22 +326,6 @@
                 }
             ],
             "title": "PFS Input"
-        },
-        "pps_v2.StartCreateDatumRequest": {
-            "properties": {
-                "input": {
-                    "$ref": "#/definitions/pps_v2.Input",
-                    "additionalProperties": false,
-                    "description": "Input is the input to list datums from. The datums listed are the ones  that would be run if a pipeline was created with the provided input."
-                },
-                "number": {
-                    "type": "integer",
-                    "description": "Number of datums to return in first batch. If 0, default batch size is returned."
-                }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "title": "Start Create Datum Request"
         }
     }
 }

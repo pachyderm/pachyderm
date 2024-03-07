@@ -10402,6 +10402,66 @@
           ]
         },
         {
+          "name": "BranchPicker",
+          "longName": "BranchPicker",
+          "fullName": "pfs_v2.BranchPicker",
+          "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch.\nCurrently, the only way to pick a branch is by composing a branch name with a repo.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "BranchName",
+              "longType": "BranchPicker.BranchName",
+              "fullType": "pfs_v2.BranchPicker.BranchName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchName",
+          "longName": "BranchPicker.BranchName",
+          "fullName": "pfs_v2.BranchPicker.BranchName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "repo",
+              "description": "",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "CheckStorageRequest",
           "longName": "CheckStorageRequest",
           "fullName": "pfs_v2.CheckStorageRequest",
@@ -10573,7 +10633,7 @@
           "name": "CommitInfo",
           "longName": "CommitInfo",
           "fullName": "pfs_v2.CommitInfo",
-          "description": "CommitInfo is the main data structure representing a commit in etcd",
+          "description": "CommitInfo is the main data structure representing a commit in postgres",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
@@ -10790,6 +10850,174 @@
               "type": "OriginKind",
               "longType": "OriginKind",
               "fullType": "pfs_v2.OriginKind",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CommitPicker",
+          "longName": "CommitPicker",
+          "fullName": "pfs_v2.CommitPicker",
+          "description": "CommitPicker defines mutually exclusive pickers that resolve to a single commit.\nCommits can be picked relatively from some other commit like a parent or start of branch.\nAlternatively, they can be picked via their global Id, which is composed of a repo picker and an id.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "branch_head",
+              "description": "",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "CommitByGlobalId",
+              "longType": "CommitPicker.CommitByGlobalId",
+              "fullType": "pfs_v2.CommitPicker.CommitByGlobalId",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "ancestor",
+              "description": "",
+              "label": "",
+              "type": "AncestorOf",
+              "longType": "CommitPicker.AncestorOf",
+              "fullType": "pfs_v2.CommitPicker.AncestorOf",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch_root",
+              "description": "",
+              "label": "",
+              "type": "BranchRoot",
+              "longType": "CommitPicker.BranchRoot",
+              "fullType": "pfs_v2.CommitPicker.BranchRoot",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "AncestorOf",
+          "longName": "CommitPicker.AncestorOf",
+          "fullName": "pfs_v2.CommitPicker.AncestorOf",
+          "description": "This models ^ syntax recursively.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "offset",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "BranchRoot",
+          "longName": "CommitPicker.BranchRoot",
+          "fullName": "pfs_v2.CommitPicker.BranchRoot",
+          "description": "This models .N syntax.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "offset",
+              "description": "",
+              "label": "",
+              "type": "uint32",
+              "longType": "uint32",
+              "fullType": "uint32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "branch",
+              "description": "",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CommitByGlobalId",
+          "longName": "CommitPicker.CommitByGlobalId",
+          "fullName": "pfs_v2.CommitPicker.CommitByGlobalId",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "repo",
+              "description": "",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -13072,6 +13300,30 @@
           ]
         },
         {
+          "name": "ProjectPicker",
+          "longName": "ProjectPicker",
+          "fullName": "pfs_v2.ProjectPicker",
+          "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project.\nCurrently, the only way to pick a project is by using a project name.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PutCacheRequest",
           "longName": "PutCacheRequest",
           "fullName": "pfs_v2.PutCacheRequest",
@@ -13376,6 +13628,78 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RepoPicker",
+          "longName": "RepoPicker",
+          "fullName": "pfs_v2.RepoPicker",
+          "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "RepoName",
+              "longType": "RepoPicker.RepoName",
+              "fullType": "pfs_v2.RepoPicker.RepoName",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "picker",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RepoName",
+          "longName": "RepoPicker.RepoName",
+          "fullName": "pfs_v2.RepoPicker.RepoName",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "name",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "type",
+              "description": "type is optional. If omitted, the default type is 'user'.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -16097,37 +16421,69 @@
           ]
         },
         {
-          "name": "CreateDatumRequest",
-          "longName": "CreateDatumRequest",
-          "fullName": "pps_v2.CreateDatumRequest",
-          "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums.",
+          "name": "ContinueCreateDatumRequest",
+          "longName": "ContinueCreateDatumRequest",
+          "fullName": "pps_v2.ContinueCreateDatumRequest",
+          "description": "",
           "hasExtensions": false,
           "hasFields": true,
           "hasOneofs": false,
           "extensions": [],
           "fields": [
             {
-              "name": "input",
-              "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.\nThe input field is only required for the first request. The server\nignores subsequent requests' input field.",
+              "name": "number",
+              "description": "Number of datums to return in next batch. If 0, default batch size\nis returned.",
               "label": "",
-              "type": "Input",
-              "longType": "Input",
-              "fullType": "pps_v2.Input",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "CreateDatumRequest",
+          "longName": "CreateDatumRequest",
+          "fullName": "pps_v2.CreateDatumRequest",
+          "description": "Emits a stream of datums as they are created from the given input. Client\nmust cancel the stream when it no longer wants to receive datums.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "start",
+              "description": "",
+              "label": "",
+              "type": "StartCreateDatumRequest",
+              "longType": "StartCreateDatumRequest",
+              "fullType": "pps_v2.StartCreateDatumRequest",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "body",
               "defaultValue": ""
             },
             {
-              "name": "number",
-              "description": "Number of datums to return in next response",
+              "name": "continue",
+              "description": "",
               "label": "",
-              "type": "int64",
-              "longType": "int64",
-              "fullType": "int64",
+              "type": "ContinueCreateDatumRequest",
+              "longType": "ContinueCreateDatumRequest",
+              "fullType": "pps_v2.ContinueCreateDatumRequest",
               "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
+              "isoneof": true,
+              "oneofdecl": "body",
               "defaultValue": ""
             }
           ]
@@ -21086,6 +21442,58 @@
           ]
         },
         {
+          "name": "StartCreateDatumRequest",
+          "longName": "StartCreateDatumRequest",
+          "fullName": "pps_v2.StartCreateDatumRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "input",
+              "description": "Input is the input to list datums from. The datums listed are the ones \nthat would be run if a pipeline was created with the provided input.",
+              "label": "",
+              "type": "Input",
+              "longType": "Input",
+              "fullType": "pps_v2.Input",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "number",
+              "description": "Number of datums to return in first batch. If 0, default batch size\nis returned.",
+              "label": "",
+              "type": "int32",
+              "longType": "int32",
+              "fullType": "int32",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "int32.gte",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "StartPipelineRequest",
           "longName": "StartPipelineRequest",
           "fullName": "pps_v2.StartPipelineRequest",
@@ -21883,7 +22291,7 @@
             },
             {
               "name": "CreateDatum",
-              "description": "",
+              "description": "CreateDatum prioritizes time to first datum. Each request returns a batch\nof datums.",
               "requestType": "CreateDatumRequest",
               "requestLongType": "CreateDatumRequest",
               "requestFullType": "pps_v2.CreateDatumRequest",

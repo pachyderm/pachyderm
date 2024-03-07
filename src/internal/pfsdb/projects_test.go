@@ -3,6 +3,8 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -92,6 +94,7 @@ func TestGetProject(t *testing.T) {
 		// validate error for attempting to get non-existent project.
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
+		fmt.Println(err)
 		require.True(t, (&pfsdb.ProjectNotFoundError{ID: 3}).Is(err))
 		return nil
 	}))
@@ -153,4 +156,33 @@ func TestUpdateProjectByID(t *testing.T) {
 		require.NoError(t, pfsdb.UpdateProject(cbCtx, tx, 2, projInfo), "should be able to update project")
 		return nil
 	}))
+}
+
+func testProjectPicker() *pfs.ProjectPicker {
+	return &pfs.ProjectPicker{
+		Picker: &pfs.ProjectPicker_Name{
+			Name: "default",
+		},
+	}
+}
+
+func TestPickProject(t *testing.T) {
+	t.Parallel()
+	namePicker := testProjectPicker()
+	badProjectPicker := deepcopy.Copy(namePicker).(*pfs.ProjectPicker)
+	badProjectPicker.Picker.(*pfs.ProjectPicker_Name).Name = "does not exist"
+	expected := &pfsdb.ProjectWithID{ID: 1}
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		// default project already exists after migration, so no need to create it.
+		got, err := pfsdb.PickProject(ctx, namePicker, tx)
+		require.NoError(t, err, "should be able to pick project")
+		require.Equal(t, expected.ID, got.ID)
+		_, err = pfsdb.PickProject(ctx, nil, tx)
+		require.YesError(t, err, "should error with a nil picker")
+		_, err = pfsdb.PickProject(ctx, badProjectPicker, tx)
+		require.YesError(t, err, "pick project should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.ProjectNotFoundError{}))
+	})
 }

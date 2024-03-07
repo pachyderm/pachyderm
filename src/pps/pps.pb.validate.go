@@ -6923,6 +6923,272 @@ var _ interface {
 	ErrorName() string
 } = ListDatumRequestValidationError{}
 
+// Validate checks the field values on StartCreateDatumRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *StartCreateDatumRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on StartCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// StartCreateDatumRequestMultiError, or nil if none found.
+func (m *StartCreateDatumRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *StartCreateDatumRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetInput() == nil {
+		err := StartCreateDatumRequestValidationError{
+			field:  "Input",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if all {
+		switch v := interface{}(m.GetInput()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, StartCreateDatumRequestValidationError{
+					field:  "Input",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, StartCreateDatumRequestValidationError{
+					field:  "Input",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return StartCreateDatumRequestValidationError{
+				field:  "Input",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if m.GetNumber() < 0 {
+		err := StartCreateDatumRequestValidationError{
+			field:  "Number",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return StartCreateDatumRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// StartCreateDatumRequestMultiError is an error wrapping multiple validation
+// errors returned by StartCreateDatumRequest.ValidateAll() if the designated
+// constraints aren't met.
+type StartCreateDatumRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m StartCreateDatumRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m StartCreateDatumRequestMultiError) AllErrors() []error { return m }
+
+// StartCreateDatumRequestValidationError is the validation error returned by
+// StartCreateDatumRequest.Validate if the designated constraints aren't met.
+type StartCreateDatumRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e StartCreateDatumRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e StartCreateDatumRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e StartCreateDatumRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e StartCreateDatumRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e StartCreateDatumRequestValidationError) ErrorName() string {
+	return "StartCreateDatumRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e StartCreateDatumRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sStartCreateDatumRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = StartCreateDatumRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = StartCreateDatumRequestValidationError{}
+
+// Validate checks the field values on ContinueCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ContinueCreateDatumRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ContinueCreateDatumRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ContinueCreateDatumRequestMultiError, or nil if none found.
+func (m *ContinueCreateDatumRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ContinueCreateDatumRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetNumber() < 0 {
+		err := ContinueCreateDatumRequestValidationError{
+			field:  "Number",
+			reason: "value must be greater than or equal to 0",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return ContinueCreateDatumRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ContinueCreateDatumRequestMultiError is an error wrapping multiple
+// validation errors returned by ContinueCreateDatumRequest.ValidateAll() if
+// the designated constraints aren't met.
+type ContinueCreateDatumRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ContinueCreateDatumRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ContinueCreateDatumRequestMultiError) AllErrors() []error { return m }
+
+// ContinueCreateDatumRequestValidationError is the validation error returned
+// by ContinueCreateDatumRequest.Validate if the designated constraints aren't met.
+type ContinueCreateDatumRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ContinueCreateDatumRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ContinueCreateDatumRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ContinueCreateDatumRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ContinueCreateDatumRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ContinueCreateDatumRequestValidationError) ErrorName() string {
+	return "ContinueCreateDatumRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ContinueCreateDatumRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sContinueCreateDatumRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ContinueCreateDatumRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ContinueCreateDatumRequestValidationError{}
+
 // Validate checks the field values on CreateDatumRequest with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -6945,36 +7211,92 @@ func (m *CreateDatumRequest) validate(all bool) error {
 
 	var errors []error
 
-	if all {
-		switch v := interface{}(m.GetInput()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, CreateDatumRequestValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
+	switch v := m.Body.(type) {
+	case *CreateDatumRequest_Start:
+		if v == nil {
+			err := CreateDatumRequestValidationError{
+				field:  "Body",
+				reason: "oneof value cannot be a typed-nil",
 			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, CreateDatumRequestValidationError{
-					field:  "Input",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
+			if !all {
+				return err
 			}
+			errors = append(errors, err)
 		}
-	} else if v, ok := interface{}(m.GetInput()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return CreateDatumRequestValidationError{
-				field:  "Input",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
 
-	// no validation rules for Number
+		if all {
+			switch v := interface{}(m.GetStart()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Start",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Start",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetStart()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateDatumRequestValidationError{
+					field:  "Start",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *CreateDatumRequest_Continue:
+		if v == nil {
+			err := CreateDatumRequestValidationError{
+				field:  "Body",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetContinue()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Continue",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, CreateDatumRequestValidationError{
+						field:  "Continue",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetContinue()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return CreateDatumRequestValidationError{
+					field:  "Continue",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
 
 	if len(errors) > 0 {
 		return CreateDatumRequestMultiError(errors)
