@@ -3,6 +3,8 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 	"testing"
 	"time"
 
@@ -544,5 +546,46 @@ func TestBranchTrigger(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, pfsdb.DeleteBranch(ctx, tx, &pfsdb.BranchInfoWithID{ID: stagingBranchID, BranchInfo: stagingBranchInfo}, true /* force */))
 		})
+	})
+}
+
+func testBranchPicker() *pfs.BranchPicker {
+	return &pfs.BranchPicker{
+		Picker: &pfs.BranchPicker_Name{
+			Name: &pfs.BranchPicker_BranchName{
+				Name: "test-branch",
+				Repo: testRepoPicker(),
+			},
+		},
+	}
+}
+
+func TestPickBranch(t *testing.T) {
+	t.Parallel()
+	namePicker := testBranchPicker()
+	badBranchPicker := deepcopy.Copy(namePicker).(*pfs.BranchPicker)
+	badBranchPicker.GetName().Name = "does not exist"
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
+		commitInfoWithID1 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: repoInfo.Repo,
+				Name: "test-branch",
+			},
+			Head: commitInfoWithID1.CommitInfo.Commit,
+		}
+		id, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickBranch(ctx, namePicker, tx)
+		require.NoError(t, err, "should be able to pick branch")
+		require.Equal(t, id, got.ID)
+		_, err = pfsdb.PickBranch(ctx, nil, tx)
+		require.YesError(t, err, "pick branch should error with a nil picker")
+		_, err = pfsdb.PickBranch(ctx, badBranchPicker, tx)
+		require.YesError(t, err, "pick branch should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.BranchNotFoundError{}))
 	})
 }

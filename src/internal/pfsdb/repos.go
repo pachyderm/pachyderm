@@ -389,3 +389,32 @@ func watchRepos(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[Re
 		}
 	}
 }
+
+func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (*RepoInfoWithID, error) {
+	if repoPicker == nil || repoPicker.Picker == nil {
+		return nil, errors.New("repo picker cannot be nil")
+	}
+	switch repoPicker.Picker.(type) {
+	case *pfs.RepoPicker_Name:
+		picker := repoPicker.GetName()
+		proj, err := PickProject(ctx, picker.Project, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "picking repo")
+		}
+		repo := &pfs.Repo{
+			Project: proj.ProjectInfo.Project,
+			Type:    pfs.UserRepoType,
+			Name:    picker.Name,
+		}
+		if picker.Type != "" {
+			repo.Type = picker.Type
+		}
+		repoInfoWithID, err := GetRepoInfoWithID(ctx, tx, repo.Project.Name, repo.Name, repo.Type)
+		if err != nil {
+			return nil, errors.Wrap(err, "picking repo")
+		}
+		return repoInfoWithID, nil
+	default:
+		return nil, errors.Errorf("repo picker is of an unknown type: %T", repoPicker.Picker)
+	}
+}
