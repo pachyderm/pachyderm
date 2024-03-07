@@ -1,5 +1,7 @@
 import {LabIcon} from '@jupyterlab/ui-components';
 
+// This cannot be imported via the module system because our webpack config imports svg wrapped as ReactComponent.
+// LabIcon expects a string in order to properly validate the content.
 // `class="jp-icon3"` must be added to the first path element in this svg to be a LabIcon
 const fileSvg = `
 <?xml version="1.0" encoding="UTF-8"?>
@@ -9,6 +11,8 @@ const fileSvg = `
 </svg>
 `;
 
+// This cannot be imported via the module system because our webpack config imports svg wrapped as ReactComponent.
+// LabIcon expects a string in order to properly validate the content.
 // `class="jp-icon3"` must be added to the first path element in this svg to be a LabIcon
 const mountLogoSvg = `
 <?xml version="1.0" encoding="UTF-8"?>
@@ -35,6 +39,8 @@ const mountLogoSvg = `
 </svg>
 `;
 
+// This cannot be imported via the module system because our webpack config imports svg wrapped as ReactComponent.
+// LabIcon expects a string in order to properly validate the content.
 // `class="jp-icon3"` must be added to the first path element in this svg to be a LabIcon
 const repoSvg = `
 <?xml version="1.0" encoding="UTF-8"?>
@@ -61,6 +67,8 @@ const repoSvg = `
 </svg>
 `;
 
+// This cannot be imported via the module system because our webpack config imports svg wrapped as ReactComponent.
+// LabIcon expects a string in order to properly validate the content.
 // `class="jp-icon3"` must be added to the first path element in this svg to be a LabIcon
 const infoSvg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg width="20" height="20"
