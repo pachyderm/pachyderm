@@ -274,6 +274,6 @@ func PickProject(ctx context.Context, projectPicker *pfs.ProjectPicker, tx *pach
 		}
 		return projectWithID, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("project picker is of an unknown type: %T", projectPicker.Picker))
+		return nil, errors.Errorf("project picker is of an unknown type: %T", projectPicker.Picker)
 	}
 }

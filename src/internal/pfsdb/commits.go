@@ -25,7 +25,7 @@ import (
 )
 
 const (
-	MaxSearchDepth = uint(1000)
+	MaxSearchDepth = 1000
 
 	// CommitsChannelName is used to watch events for the commits table.
 	CommitsChannelName     = "pfs_commits"
@@ -536,9 +536,6 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 			return errors.Wrap(err, "scanning parent and child row")
 		}
 		if err := cb(parent, child); err != nil {
-			if err == errutil.ErrBreak {
-				return nil
-			}
 			return errors.Wrap(err, "calling cb() on parent and child")
 		}
 	}
@@ -552,21 +549,20 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 func forEachCommitAncestorUntilRoot(ctx context.Context, tx *pachsql.Tx, startId CommitID, cb func(parentId, childId CommitID) error) error {
 	commitPtr := startId
 	earliest := commitPtr
-	stop := false
 	for {
 		if err := ForEachCommitAncestor(ctx, tx, commitPtr, MaxSearchDepth, func(parentId, childId CommitID) error {
 			earliest = parentId
 			if err := cb(parentId, childId); err != nil {
-				if err == errutil.ErrBreak {
-					stop = true
-				}
 				return err
 			}
 			return nil
 		}); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
 			return errors.Wrap(err, "for each commit ancestor in batches")
 		}
-		if earliest == commitPtr || stop { // root was found or errutil.ErrBreak was encountered.
+		if earliest == commitPtr { // root was found.
 			return nil
 		}
 		commitPtr = earliest
@@ -1083,7 +1079,7 @@ func PickCommit(ctx context.Context, commitPicker *pfs.CommitPicker, tx *pachsql
 	case *pfs.CommitPicker_BranchRoot_:
 		return pickCommitBranchRoot(ctx, commitPicker.GetBranchRoot(), tx)
 	default:
-		return nil, errors.New(fmt.Sprintf("commit picker is of an unknown type: %T", commitPicker.Picker))
+		return nil, errors.Errorf("commit picker is of an unknown type: %T", commitPicker.Picker)
 	}
 }
 
@@ -1135,7 +1131,7 @@ func pickCommitAncestorOf(ctx context.Context, ancestorOf *pfs.CommitPicker_Ance
 		return nil, errors.Wrap(err, "picking commit")
 	}
 	if uint32(offset) != ancestorOf.Offset {
-		return nil, errors.Errorf("picking commit: invalid offset for ancestor of commit: %s, offset: %d, maximum depth: %d",
+		return nil, errors.Errorf("picking commit: invalid offset for ancestor of commit: %s, offset requested: %d, offset traversable: %d",
 			CommitKey(startCommit.Commit), ancestorOf.Offset, offset)
 	}
 	commitInfo, err := GetCommit(ctx, tx, commitPtr)

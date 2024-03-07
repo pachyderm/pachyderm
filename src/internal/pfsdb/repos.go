@@ -415,6 +415,6 @@ func PickRepo(ctx context.Context, repoPicker *pfs.RepoPicker, tx *pachsql.Tx) (
 		}
 		return repoInfoWithID, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("repo picker is of an unknown type: %T", repoPicker.Picker))
+		return nil, errors.Errorf("repo picker is of an unknown type: %T", repoPicker.Picker)
 	}
 }

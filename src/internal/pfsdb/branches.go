@@ -750,6 +750,6 @@ func PickBranch(ctx context.Context, branchPicker *pfs.BranchPicker, tx *pachsql
 		}
 		return branchInfoWithID, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("branch picker is of an unknown type: %T", branchPicker.Picker))
+		return nil, errors.Errorf("branch picker is of an unknown type: %T", branchPicker.Picker)
 	}
 }
