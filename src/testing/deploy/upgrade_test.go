@@ -76,8 +76,8 @@ func TestUpgradeTrigger(t *testing.T) {
 		t.Skip("Skipping upgrade test")
 	}
 	fromVersions := []string{
-		"2.7.0",
-		"2.8.3",
+		"2.7.6",
+		"2.8.5",
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -86,6 +86,10 @@ func TestUpgradeTrigger(t *testing.T) {
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
+			// after 2.7.x pachyderm doesn't come with a "master" branch anymore, so we create it in this test
+			_, err := c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{
+				Branch: &pfs.Branch{Repo: &pfs.Repo{Name: dataRepo, Type: pfs.UserRepoType, Project: &pfs.Project{Name: pfs.DefaultProjectName}}, Name: "master"},
+			})
 			require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
 				pipeline1,
 				"",
@@ -158,10 +162,10 @@ func TestUpgradeTrigger(t *testing.T) {
 			}, 10*time.Second)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 			require.NoError(t, err)
-			require.Equal(t, 23, len(commits))
+			require.Equal(t, 33, len(commits))
 			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
 			require.NoError(t, err)
-			require.Equal(t, 12, len(commits))
+			require.Equal(t, 22, len(commits))
 			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
 					return errors.Errorf(resp.Error)
