@@ -53,7 +53,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		hint.Older.Filter.TimeRange.From = timestamppb.New(from.Add(from.Sub(until)))
 		hint.Older.Filter.TimeRange.Until = timestamppb.New(from)
 		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(until.Add(until.Sub(from)))
+		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
 		if err := responseWriter.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_PagingHint{PagingHint: hint}}); err != nil {
 			return errors.Wrap(err, "error publishing paging hint")
 		}
