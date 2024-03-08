@@ -482,6 +482,8 @@ etcd:
     # type specifies the Kubernetes type of the etcd service.
     type: ClusterIP
   tolerations: []
+  # If true, store etcd state in memory.
+  inMemory: false
 
 enterpriseServer:
   enabled: false
