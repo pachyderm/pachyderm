@@ -2557,6 +2557,84 @@
         ]
       }
     },
+    "/pfs_v2.API/WalkCommitProvenance": {
+      "post": {
+        "summary": "WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.",
+        "operationId": "API_WalkCommitProvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2CommitInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2CommitInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkCommitProvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkCommitSubvenance": {
+      "post": {
+        "summary": "WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.",
+        "operationId": "API_WalkCommitSubvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2CommitInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2CommitInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkCommitSubvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/CreateBranch": {
       "post": {
         "summary": "CreateBranch creates a new branch.",
@@ -2683,6 +2761,84 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pfs_v2DeleteBranchRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkBranchProvenance": {
+      "post": {
+        "summary": "WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.",
+        "operationId": "API_WalkBranchProvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2BranchInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2BranchInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkBranchProvenanceRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/WalkBranchSubvenance": {
+      "post": {
+        "summary": "WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.",
+        "operationId": "API_WalkBranchSubvenance",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/pfs_v2BranchInfo"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of pfs_v2BranchInfo"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2WalkBranchSubvenanceRequest"
             }
           }
         ]
@@ -5639,6 +5795,54 @@
         }
       }
     },
+    "BranchPickerBranchName": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker"
+        },
+        "name": {
+          "type": "string"
+        }
+      }
+    },
+    "CommitPickerAncestorOf": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "start": {
+          "$ref": "#/definitions/pfs_v2CommitPicker"
+        }
+      },
+      "description": "This models ^ syntax recursively."
+    },
+    "CommitPickerBranchRoot": {
+      "type": "object",
+      "properties": {
+        "offset": {
+          "type": "integer",
+          "format": "int64"
+        },
+        "branch": {
+          "$ref": "#/definitions/pfs_v2BranchPicker"
+        }
+      },
+      "description": "This models .N syntax."
+    },
+    "CommitPickerCommitByGlobalId": {
+      "type": "object",
+      "properties": {
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker"
+        },
+        "id": {
+          "type": "string"
+        }
+      }
+    },
     "DumpV2RequestDefaults": {
       "type": "object",
       "properties": {
@@ -5703,6 +5907,21 @@
         "PROJECT_REPO"
       ],
       "default": "PROJECT_REPO"
+    },
+    "RepoPickerRepoName": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "description": "type is optional. If omitted, the default type is 'user'."
+        }
+      }
     },
     "SQLDatabaseEgressFileFormat": {
       "type": "object",
@@ -7748,6 +7967,15 @@
         }
       }
     },
+    "pfs_v2BranchPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/BranchPickerBranchName"
+        }
+      },
+      "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch.\nCurrently, the only way to pick a branch is by composing a branch name with a repo.\nPicker messages should only be used as request parameters."
+    },
     "pfs_v2CheckStorageRequest": {
       "type": "object",
       "properties": {
@@ -7883,6 +8111,24 @@
           "$ref": "#/definitions/pfs_v2OriginKind"
         }
       }
+    },
+    "pfs_v2CommitPicker": {
+      "type": "object",
+      "properties": {
+        "branchHead": {
+          "$ref": "#/definitions/pfs_v2BranchPicker"
+        },
+        "id": {
+          "$ref": "#/definitions/CommitPickerCommitByGlobalId"
+        },
+        "ancestor": {
+          "$ref": "#/definitions/CommitPickerAncestorOf"
+        },
+        "branchRoot": {
+          "$ref": "#/definitions/CommitPickerBranchRoot"
+        }
+      },
+      "description": "CommitPicker defines mutually exclusive pickers that resolve to a single commit.\nCommits can be picked relatively from some other commit like a parent or start of branch.\nAlternatively, they can be picked via their global Id, which is composed of a repo picker and an id.\nPicker messages should only be used as request parameters."
     },
     "pfs_v2CommitSet": {
       "type": "object",
@@ -8606,6 +8852,15 @@
         }
       }
     },
+    "pfs_v2ProjectPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        }
+      },
+      "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project.\nCurrently, the only way to pick a project is by using a project name.\nPicker messages should only be used as request parameters."
+    },
     "pfs_v2PutCacheRequest": {
       "type": "object",
       "properties": {
@@ -8711,6 +8966,15 @@
           "format": "int64"
         }
       }
+    },
+    "pfs_v2RepoPicker": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "$ref": "#/definitions/RepoPickerRepoName"
+        }
+      },
+      "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters."
     },
     "pfs_v2SQLDatabaseEgress": {
       "type": "object",
@@ -8864,6 +9128,98 @@
         }
       },
       "description": "Trigger defines the conditions under which a head is moved, and to which\nbranch it is moved."
+    },
+    "pfs_v2WalkBranchProvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxBranches": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkBranchSubvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2BranchPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxBranches": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkCommitProvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2CommitPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxCommits": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
+    },
+    "pfs_v2WalkCommitSubvenanceRequest": {
+      "type": "object",
+      "properties": {
+        "start": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2CommitPicker"
+          },
+          "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+        },
+        "maxCommits": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 10,000 if unspecified"
+        },
+        "maxDepth": {
+          "type": "string",
+          "format": "uint64",
+          "title": "defaults to 1000 if unspecified"
+        }
+      }
     },
     "pfs_v2WalkFileRequest": {
       "type": "object",

@@ -1,0 +1,117 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/WalkBranchSubvenanceRequest",
+    "definitions": {
+        "WalkBranchSubvenanceRequest": {
+            "properties": {
+                "start": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.BranchPicker"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "if more than one picker is specified, the result stream is the concatenation of the streams of each picker."
+                },
+                "maxBranches": {
+                    "type": "integer",
+                    "description": "defaults to 10,000 if unspecified"
+                },
+                "maxDepth": {
+                    "type": "integer",
+                    "description": "defaults to 1000 if unspecified"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Walk Branch Subvenance Request"
+        },
+        "pfs_v2.BranchPicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker.BranchName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Branch Picker",
+            "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch. Currently, the only way to pick a branch is by composing a branch name with a repo. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.BranchPicker.BranchName": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch Name"
+        },
+        "pfs_v2.ProjectPicker": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Project Picker",
+            "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project. Currently, the only way to pick a project is by using a project name. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.RepoPicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker.RepoName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Repo Picker",
+            "description": "Repo defines mutually exclusive pickers that resolve to a single repository. Currently, the only way to pick a repo is by composing a repo name and type with a project. If the type is omitted, the 'user' type will be used as a default. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.RepoPicker.RepoName": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "description": "type is optional. If omitted, the default type is 'user'."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Name"
+        }
+    }
+}
