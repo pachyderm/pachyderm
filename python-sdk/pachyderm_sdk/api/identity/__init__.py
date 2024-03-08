@@ -215,6 +215,7 @@ class DeleteAllResponse(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_set_identity_server_config = channel.unary_unary(
             "/identity_v2.API/SetIdentityServerConfig",
@@ -285,6 +286,7 @@ class ApiStub:
     def set_identity_server_config(
         self, *, config: "IdentityServerConfig" = None
     ) -> "SetIdentityServerConfigResponse":
+
         request = SetIdentityServerConfigRequest()
         if config is not None:
             request.config = config
@@ -292,6 +294,7 @@ class ApiStub:
         return self.__rpc_set_identity_server_config(request)
 
     def get_identity_server_config(self) -> "GetIdentityServerConfigResponse":
+
         request = GetIdentityServerConfigRequest()
 
         return self.__rpc_get_identity_server_config(request)
@@ -299,6 +302,7 @@ class ApiStub:
     def create_idp_connector(
         self, *, connector: "IdpConnector" = None
     ) -> "CreateIdpConnectorResponse":
+
         request = CreateIdpConnectorRequest()
         if connector is not None:
             request.connector = connector
@@ -308,6 +312,7 @@ class ApiStub:
     def update_idp_connector(
         self, *, connector: "IdpConnector" = None
     ) -> "UpdateIdpConnectorResponse":
+
         request = UpdateIdpConnectorRequest()
         if connector is not None:
             request.connector = connector
@@ -315,17 +320,20 @@ class ApiStub:
         return self.__rpc_update_idp_connector(request)
 
     def list_idp_connectors(self) -> "ListIdpConnectorsResponse":
+
         request = ListIdpConnectorsRequest()
 
         return self.__rpc_list_idp_connectors(request)
 
     def get_idp_connector(self, *, id: str = "") -> "GetIdpConnectorResponse":
+
         request = GetIdpConnectorRequest()
         request.id = id
 
         return self.__rpc_get_idp_connector(request)
 
     def delete_idp_connector(self, *, id: str = "") -> "DeleteIdpConnectorResponse":
+
         request = DeleteIdpConnectorRequest()
         request.id = id
 
@@ -334,6 +342,7 @@ class ApiStub:
     def create_oidc_client(
         self, *, client: "OidcClient" = None
     ) -> "CreateOidcClientResponse":
+
         request = CreateOidcClientRequest()
         if client is not None:
             request.client = client
@@ -343,6 +352,7 @@ class ApiStub:
     def update_oidc_client(
         self, *, client: "OidcClient" = None
     ) -> "UpdateOidcClientResponse":
+
         request = UpdateOidcClientRequest()
         if client is not None:
             request.client = client
@@ -350,29 +360,34 @@ class ApiStub:
         return self.__rpc_update_oidc_client(request)
 
     def get_oidc_client(self, *, id: str = "") -> "GetOidcClientResponse":
+
         request = GetOidcClientRequest()
         request.id = id
 
         return self.__rpc_get_oidc_client(request)
 
     def list_oidc_clients(self) -> "ListOidcClientsResponse":
+
         request = ListOidcClientsRequest()
 
         return self.__rpc_list_oidc_clients(request)
 
     def delete_oidc_client(self, *, id: str = "") -> "DeleteOidcClientResponse":
+
         request = DeleteOidcClientRequest()
         request.id = id
 
         return self.__rpc_delete_oidc_client(request)
 
     def delete_all(self) -> "DeleteAllResponse":
+
         request = DeleteAllRequest()
 
         return self.__rpc_delete_all(request)
 
 
 class ApiBase:
+
     def set_identity_server_config(
         self, config: "IdentityServerConfig", context: "grpc.ServicerContext"
     ) -> "SetIdentityServerConfigResponse":

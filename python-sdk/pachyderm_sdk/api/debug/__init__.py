@@ -157,6 +157,7 @@ class DumpChunk(betterproto.Message):
 
 
 class DebugStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_profile = channel.unary_stream(
             "/debug_v2.Debug/Profile",
@@ -192,6 +193,7 @@ class DebugStub:
     def profile(
         self, *, profile: "Profile" = None, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = ProfileRequest()
         if profile is not None:
             request.profile = profile
@@ -204,6 +206,7 @@ class DebugStub:
     def binary(
         self, *, filter: "Filter" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = BinaryRequest()
         if filter is not None:
             request.filter = filter
@@ -214,6 +217,7 @@ class DebugStub:
     def dump(
         self, *, filter: "Filter" = None, limit: int = 0
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = DumpRequest()
         if filter is not None:
             request.filter = filter
@@ -230,6 +234,7 @@ class DebugStub:
         duration: timedelta = None,
         recurse: bool = False
     ) -> "SetLogLevelResponse":
+
         request = SetLogLevelRequest()
         request.pachyderm = pachyderm
         request.grpc = grpc
@@ -273,6 +278,7 @@ class DebugStub:
 
 
 class DebugBase:
+
     def profile(
         self, profile: "Profile", filter: "Filter", context: "grpc.ServicerContext"
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
