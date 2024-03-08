@@ -35,9 +35,15 @@ func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, i
 	case input.Group != nil:
 		errChan <- errors.New("group input type unimplemented")
 	case input.Cron != nil:
-		errChan <- errors.New("can't create datums for cron input type")
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.New("can't create datums for cron input type"):
+		}
 	default:
-		errChan <- errors.Errorf("unrecognized input type: %v", input)
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Errorf("unrecognized input type: %v", input):
+		}
 	}
 }
 
@@ -95,7 +101,10 @@ func streamingCreatePFS(
 		}
 		return nil
 	}); err != nil {
-		errChan <- errors.Wrap(err, "streamingCreatePFS")
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreatePFS"):
+		}
 	}
 }
 
@@ -112,13 +121,16 @@ func streamingCreateUnion(
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		childrenChans := initChildrenChans(len(inputs))
 		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
-		err := consumeChildrenChans(childrenChans, func(_ int, fsid string) error {
+		err := consumeChildrenChans(ctx, childrenChans, func(_ int, fsid string) error {
 			fsidChan <- fsid
 			return nil
 		})
 		return errors.Wrap(err, "consuming children channels")
 	}); err != nil {
-		errChan <- errors.Wrap(err, "createUnion")
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreateUnion"):
+		}
 	}
 }
 
@@ -130,14 +142,18 @@ func initChildrenChans(num int) []chan string {
 	return childrenFsidChans
 }
 
-func consumeChildrenChans(childrenChans []chan string, cb func(int, string) error) error {
-	cases := make([]reflect.SelectCase, len(childrenChans))
+func consumeChildrenChans(ctx context.Context, childrenChans []chan string, cb func(int, string) error) error {
+	cases := make([]reflect.SelectCase, len(childrenChans)+1)
 	for i, childChan := range childrenChans {
 		cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(childChan)}
 	}
+	cases[len(cases)-1] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
 	finished := make(map[int]bool)
-	for len(finished) < len(cases) {
+	for len(finished) < len(cases)-1 {
 		i, value, ok := reflect.Select(cases)
+		if i == len(cases)-1 {
+			return errors.Wrap(context.Cause(ctx), "consumeChildrenChans")
+		}
 		if ok {
 			fsid := value.Interface().(string)
 			if err := cb(i, fsid); err != nil {
@@ -160,13 +176,11 @@ func streamingCreateInputs(
 	requestDatumsChan <-chan struct{},
 	childrenChans []chan string,
 ) {
-	eg, ctx := errgroup.WithContext(ctx)
-	for i, input := range inputs { // TODO: go 1.22
-		i := i
-		input := input
+	eg, egCtx := errgroup.WithContext(ctx)
+	for i, input := range inputs {
 		eg.Go(func() error {
 			fsidChan := make(chan string)
-			go streamingCreate(ctx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
+			go streamingCreate(egCtx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
 			for fsid := range fsidChan {
 				if err := renewer.Add(ctx, fsid); err != nil {
 					return errors.Wrap(err, "renew file set")
@@ -178,7 +192,10 @@ func streamingCreateInputs(
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		errChan <- errors.Wrap(err, "createInputs")
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreateInputs"):
+		}
 	}
 }
 
@@ -228,7 +245,10 @@ func streamingCreateCross(
 		})
 		return errors.Wrap(err, "consuming children channels")
 	}); err != nil {
-		errChan <- errors.Wrap(err, "createCross")
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreateCross"):
+		}
 	}
 }
 
