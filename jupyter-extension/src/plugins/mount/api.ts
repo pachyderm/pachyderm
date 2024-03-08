@@ -78,7 +78,6 @@ export const getMountedStatus = (
   }
   projectRepos.sort();
 
-  // TODO: Test projectRepoToBranches
   return {
     projectRepos,
     selectedProjectRepo,
@@ -88,7 +87,6 @@ export const getMountedStatus = (
   };
 };
 
-// TODO: test
 export const getDefaultBranch = (branches: string[]): string => {
   if (branches.includes('master')) {
     return 'master';

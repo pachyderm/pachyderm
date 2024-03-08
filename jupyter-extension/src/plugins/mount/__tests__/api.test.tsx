@@ -1,8 +1,8 @@
-import {getMountedStatus} from '../api';
+import {getMountedStatus, getDefaultBranch} from '../api';
 
 describe('getMountedStatus', () => {
   it('return status for a mounted branch in a repo with multiple branches', () => {
-    const {projectRepos, selectedProjectRepo, branches, selectedBranch} =
+    const {projectRepos, selectedProjectRepo, branches, selectedBranch, projectRepoToBranches} =
       getMountedStatus(
         [
           {
@@ -29,13 +29,17 @@ describe('getMountedStatus', () => {
       );
 
     expect(projectRepos).toEqual(['project/repo', 'project/zzz']);
-    expect(selectedProjectRepo).toBe('project/repo');
+    expect(selectedProjectRepo).toEqual('project/repo');
     expect(branches).toEqual(['branch1', 'branch2', 'zzz']);
-    expect(selectedBranch).toBe('branch1');
+    expect(selectedBranch).toEqual('branch1');
+    expect(projectRepoToBranches).toEqual({
+      'project/zzz': ['ignoredBranch1', 'ignoredBranch2'],
+      'project/repo': ['branch1', 'branch2', 'zzz']
+    });
   });
 
   it('return status for a mounted branch in a repo with one branch', () => {
-    const {projectRepos, selectedProjectRepo, branches, selectedBranch} =
+    const {projectRepos, selectedProjectRepo, branches, selectedBranch, projectRepoToBranches} =
       getMountedStatus(
         [
           {
@@ -56,13 +60,17 @@ describe('getMountedStatus', () => {
       );
 
     expect(projectRepos).toEqual(['project/repo', 'project/repo2']);
-    expect(selectedProjectRepo).toBe('project/repo');
+    expect(selectedProjectRepo).toEqual('project/repo');
     expect(branches).toEqual(['branch1']);
-    expect(selectedBranch).toBe('branch1');
+    expect(selectedBranch).toEqual('branch1');
+    expect(projectRepoToBranches).toEqual({
+      'project/repo': ['branch1'],
+      'project/repo2': ['ignoredBranch1', 'ignoredBranch2']
+    });
   });
 
   it('return status with no mounted branch', () => {
-    const {projectRepos, selectedProjectRepo, branches, selectedBranch} =
+    const {projectRepos, selectedProjectRepo, branches, selectedBranch, projectRepoToBranches} =
       getMountedStatus(
         [],
         [
@@ -85,5 +93,19 @@ describe('getMountedStatus', () => {
     expect(selectedProjectRepo).toBeNull();
     expect(branches).toBeNull();
     expect(selectedBranch).toBeNull();
+    expect(projectRepoToBranches).toEqual({
+      'project/repo': ['branch1', 'branch2'],
+      'project/repo2': ['ignoredBranch1', 'ignoredBranch2']
+    });
+  });
+});
+
+describe('getDefaultBranch', () => {
+  it('return master if master is included in the branches', () => {
+    expect(getDefaultBranch(['branchzz', 'master', 'branchaa'])).toEqual('master')
+  });
+
+  it('return choose the first branch after sorting', () => {
+    expect(getDefaultBranch(['branchzz', 'branchaa'])).toEqual('branchaa')
   });
 });
