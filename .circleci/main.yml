@@ -271,31 +271,17 @@ jobs:
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   helm-tests:
-    executor: docker-go
-    working_directory: ~/project/etc/helm
+    resource_class: large
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
-      - checkout:
-          path: ~/project
-      - run: mkdir -p /home/circleci/bin
-      - restore_cache:
-          keys:
-            - go-mod-helm-v4-{{ checksum "go.sum" }}
+      - checkout
+      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //etc/helm/...
       - run:
-          name: install helm
-          command: |
-            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
-      - run:
-          name: install kubeval
-          command: |
-            wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
-      - run: make lint
-      - run: make test
-      - run: make kubeval-gcp
-      - run: make kubeval-aws
-      - save_cache:
-          key: go-mod-helm-v4-{{ checksum "go.sum" }}
-          paths:
-            - "/home/circleci/go/pkg/mod"
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
   helm-build:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
