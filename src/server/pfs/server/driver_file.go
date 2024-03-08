@@ -196,8 +196,10 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		WithPrefix(globLiteralPrefix(glob)),
 		WithDatum(file.Datum),
 	}
+	var upper string
 	if pathRange != nil {
 		opts = append(opts, WithPathRange(pathRange))
+		upper = pathRange.Upper
 	}
 	mf, err := globMatchFunction(glob)
 	if err != nil {
@@ -207,7 +209,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 		fs = fileset.NewIndexFilter(fs, func(idx *index.Index) bool {
 			return mf(idx.Path)
 		}, true)
-		return fileset.NewPrefetcher(d.storage.Filesets, fs)
+		return fileset.NewPrefetcher(d.storage.Filesets, fs, upper)
 	}))
 	s := NewSource(commitInfo, fs, opts...)
 	return NewErrOnEmpty(s, &pfsserver.ErrFileNotFound{File: file}), nil
