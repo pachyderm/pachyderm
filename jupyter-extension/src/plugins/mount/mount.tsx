@@ -138,7 +138,7 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
     );
 
-    this._exploreScreen = new Panel();
+    this._exploreScreen = new SplitPanel({orientation: "vertical"});
     this._exploreScreen.addWidget(
       ReactWidget.create(
         <UseSignal signal={this._poller.mountedSignal}>
@@ -162,7 +162,7 @@ export class MountPlugin implements IMountPlugin {
     this._exploreScreen.addWidget(this._pfsBrowser);
     this._exploreScreen.title.label = 'Explore';
     this._exploreScreen.title.className = 'pachyderm-explore-tab';
-
+    this._exploreScreen.widgets[0].addClass('pachyderm-explore-widget');
     this._datumBrowser = createCustomFileBrowser(
       app,
       manager,

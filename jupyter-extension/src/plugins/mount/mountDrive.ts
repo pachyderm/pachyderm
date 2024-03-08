@@ -266,7 +266,8 @@ export class MountDrive implements Contents.IDrive {
       url,
       getOptions,
     ).catch((e) => {
-      showErrorMessage('Failed Fetching Next Results', e);
+      // TODO: Figure out a way to gracefully terminate requests changing mounts throws this error
+      // showErrorMessage('Failed Fetching Next Results', e);
     });
   }
 

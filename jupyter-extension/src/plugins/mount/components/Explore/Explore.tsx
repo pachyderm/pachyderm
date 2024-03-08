@@ -58,6 +58,7 @@ const Explore: React.FC<ExploreProps> = ({
           (async () => {
             if (!projectRepo) {
               updateData(await unmountAll());
+              await changeDirectory(`/`);
               return;
             }
 
@@ -65,8 +66,8 @@ const Explore: React.FC<ExploreProps> = ({
               projectRepo,
               getDefaultBranch(projectRepoToBranches[projectRepo]),
             );
-            await changeDirectory(`/${response.mounted[0].name}`);
             updateData(response);
+            await changeDirectory(`/${response.mounted[0].name}`);
           })();
         }}
       />
@@ -85,8 +86,8 @@ const Explore: React.FC<ExploreProps> = ({
               }
 
               const response = await mount(selectedProjectRepo, selectedBranch);
-              await changeDirectory(`/${response.mounted[0].name}`);
               updateData(response);
+              await changeDirectory(`/${response.mounted[0].name}`);
             })();
           }}
         />

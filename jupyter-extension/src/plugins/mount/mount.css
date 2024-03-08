@@ -335,6 +335,7 @@ textarea {
   margin-top: 0;
 }
 
+/* TODO Change this to em and remove !important */
 .jp-LabShell {
   min-height: 1000px !important;
 }
