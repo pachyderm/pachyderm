@@ -19,7 +19,6 @@ import tornado
 import tornado.concurrent
 import tornado.web
 
-from .env import PACHD_ADDRESS, DEX_TOKEN
 from .log import get_logger
 from .pfs_manager import PFSManager, DatumManager
 from .pps_client import PPSClient
@@ -648,7 +647,9 @@ def write_config(
     config.write(config_file)
 
 
-def setup_handlers(web_app, config_file: Path):
+def setup_handlers(
+    web_app, config_file: Path, pachd_address: str = None, dex_token: str = None
+):
     """
     Sets up the Pachyderm client and the HTTP request handler.
 
@@ -664,15 +665,20 @@ def setup_handlers(web_app, config_file: Path):
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        if PACHD_ADDRESS:
-            client = Client().from_pachd_address(pachd_address=PACHD_ADDRESS)
-            if DEX_TOKEN:
+        if pachd_address:
+            client = Client().from_pachd_address(pachd_address=pachd_address)
+            if dex_token:
                 client.auth_token = client.auth.authenticate(
-                    id_token=DEX_TOKEN
+                    id_token=dex_token
                 ).pach_token
             get_logger().debug(
                 f"Created Pachyderm client for {client.address} from env var"
             )
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(config_file, client.address, client.root_certs, None)
+            except RuntimeError as e:
+                get_logger().error(f"Error writing local config: {e}.", exc_info=True)
         else:
             get_logger().debug(
                 "Could not find config file -- no pachyderm client instantiated"
