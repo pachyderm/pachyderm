@@ -29,6 +29,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/fileset"
@@ -86,7 +87,7 @@ type driver struct {
 func newDriver(env Env) (*driver, error) {
 	// test object storage.
 	if err := func() error {
-		ctx, cf := context.WithTimeout(context.Background(), 30*time.Second)
+		ctx, cf := context.WithTimeout(pctx.Background("newDriver"), 30*time.Second)
 		defer cf()
 		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
 	}(); err != nil {
