@@ -15,7 +15,7 @@ export const unmountAll = async (
 export const mount = async (
   updateData: (response: ListMountsResponse) => void,
   projectRepo: string,
-  branch = 'master',
+  branch: string,
 ): Promise<void> => {
   const [project, repo] = projectRepo.split('/');
 
@@ -23,10 +23,7 @@ export const mount = async (
   const response = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
     mounts: [
       {
-        name:
-          branch === 'master'
-            ? `${project}_${repo}`
-            : `${project}_${repo}_${branch}`,
+        name: `${project}_${repo}_${branch}`,
         repo: repo,
         branch: branch,
         project: project,
@@ -43,6 +40,9 @@ type MountedStatus = {
   selectedProjectRepo: string | null;
   branches: string[] | null;
   selectedBranch: string | null;
+  projectRepoToBranches: {
+    [projectRepo: string]: string[];
+  };
 };
 
 export const getMountedStatus = (
@@ -78,5 +78,23 @@ export const getMountedStatus = (
   }
   projectRepos.sort();
 
-  return {projectRepos, selectedProjectRepo, branches, selectedBranch};
+  // TODO: Test projectRepoToBranches
+  return {
+    projectRepos,
+    selectedProjectRepo,
+    branches,
+    selectedBranch,
+    projectRepoToBranches,
+  };
+};
+
+// TODO: test
+export const getDefaultBranch = (branches: string[]): string => {
+  if (branches.includes('master')) {
+    return 'master';
+  }
+
+  branches.sort();
+
+  return branches[0];
 };

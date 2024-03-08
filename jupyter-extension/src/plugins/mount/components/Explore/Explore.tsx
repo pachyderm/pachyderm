@@ -3,7 +3,7 @@ import {showErrorMessage} from '@jupyterlab/apputils';
 
 import {Repo, Mount, ListMountsResponse} from '../../types';
 import {DropdownCombobox} from '../../../../components/DropdownCombobox/DropdownCombobox';
-import {unmountAll, mount, getMountedStatus} from '../../api';
+import {unmountAll, mount, getMountedStatus, getDefaultBranch} from '../../api';
 
 type ExploreProps = {
   mounted: Mount[];
@@ -27,8 +27,13 @@ const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
     return <></>;
   }
 
-  const {projectRepos, selectedProjectRepo, branches, selectedBranch} =
-    getMountedStatus(mounted, unmounted);
+  const {
+    projectRepos,
+    selectedProjectRepo,
+    branches,
+    selectedBranch,
+    projectRepoToBranches,
+  } = getMountedStatus(mounted, unmounted);
 
   return (
     <div className="pachyderm-explore-view">
@@ -43,7 +48,11 @@ const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
             return;
           }
 
-          mount(updateData, projectRepo);
+          mount(
+            updateData,
+            projectRepo,
+            getDefaultBranch(projectRepoToBranches[projectRepo]),
+          );
         }}
       />
       {!branches || !selectedProjectRepo ? (
