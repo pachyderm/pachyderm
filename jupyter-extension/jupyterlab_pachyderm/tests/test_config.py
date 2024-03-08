@@ -34,12 +34,14 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
 
 
 @pytest.mark.no_config
-@pytest.mark.env_var
+@pytest.mark.env_var_addr
 async def test_config_env_var(app: Application, http_client: AsyncClient):
     """Test that when the PACHD_ADDRESS env var is set and there is no config
     file, that the client is configured using the env var"""
-    config_file = app.settings.get("pachyderm_config_file")
-    assert config_file is not None and not config_file.exists()
+    config_file: Path = app.settings.get("pachyderm_config_file")
+    assert config_file is not None and config_file.exists()
+    config = ConfigFile.from_path(config_file)
+    assert config.active_context.pachd_address == ENV_VAR_TEST_ADDR
 
     config_response = await http_client.get("/config")
     health_response = await http_client.get("/health")
@@ -52,7 +54,7 @@ async def test_config_env_var(app: Application, http_client: AsyncClient):
     assert config_payload["pachd_address"] == ENV_VAR_TEST_ADDR
 
 
-@pytest.mark.env_var
+@pytest.mark.env_var_addr
 async def test_config_env_var_overridden(app: Application, http_client: AsyncClient):
     """Test that when the PACHD_ADDRESS env var is set and there is a config file,
     that the client uses the config file and not the env var"""

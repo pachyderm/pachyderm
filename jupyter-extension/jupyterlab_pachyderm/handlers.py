@@ -674,6 +674,11 @@ def setup_handlers(
             get_logger().debug(
                 f"Created Pachyderm client for {client.address} from env var"
             )
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(config_file, client.address, client.root_certs, None)
+            except RuntimeError as e:
+                get_logger().error(f"Error writing local config: {e}.", exc_info=True)
         else:
             get_logger().debug(
                 "Could not find config file -- no pachyderm client instantiated"

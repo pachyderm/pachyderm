@@ -30,18 +30,18 @@ def pach_config(request, tmp_path) -> Path:
 
 
 @pytest.fixture
-def pach_config_env_var(request) -> str:
+def pach_address_env_var(request) -> str:
     """Set the env var to configure the pachd address to a test value.
 
     Only works if the test is marked with @pytest.mark.env_var.
     """
-    if request.node.get_closest_marker("env_var"):
+    if request.node.get_closest_marker("env_var_addr"):
         return ENV_VAR_TEST_ADDR
     return None
 
 
 @pytest.fixture
-def app(pach_config, pach_config_env_var) -> tornado.web.Application:
+def app(pach_config, pach_address_env_var) -> tornado.web.Application:
     """Create a instance of our application.
     This fixture is used by the http_server fixture.
     """
@@ -56,7 +56,7 @@ def app(pach_config, pach_config_env_var) -> tornado.web.Application:
             return User("test-user")
 
     app = tornado.web.Application(base_url="/")
-    setup_handlers(app, pach_config, pach_config_env_var)
+    setup_handlers(app, pach_config, pach_address_env_var)
     app.settings["identity_provider"] = TestIdentityProvider()
     app.settings["disable_check_xsrf"] = True
     return app
