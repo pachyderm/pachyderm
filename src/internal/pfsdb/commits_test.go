@@ -3,6 +3,9 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 	"testing"
 	"time"
 
@@ -595,6 +598,56 @@ func TestListCommitRevision(t *testing.T) {
 	})
 }
 
+func TestGetCommitAncestry(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		for trees := 0; trees < 5; trees++ {
+			makeCommitTree(ctx, t, 5, db)
+		}
+		startId := pfsdb.CommitID(12)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 0)
+			require.NoError(t, err, "should be able to get ancestry")
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{8: 7, 9: 8, 10: 9, 11: 10, 12: 11}
+			if diff := cmp.Diff(expected, ancestry,
+				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
+			}
+		})
+	})
+}
+
+func TestGetCommitAncestryMaxDepth(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		makeCommitTree(ctx, t, 10, db)
+		startId := pfsdb.CommitID(10)
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			ancestry, err := pfsdb.GetCommitAncestry(ctx, tx, startId, 4) // includes startId
+			require.NoError(t, err, "should be able to get ancestry")
+			expected := map[pfsdb.CommitID]pfsdb.CommitID{10: 9, 9: 8, 8: 7, 7: 6}
+			if diff := cmp.Diff(expected, ancestry,
+				cmpopts.SortMaps(func(a, b string) bool { return a < b })); diff != "" {
+				t.Errorf("commits ancestries differ: (-want +got)\n%s", diff)
+			}
+		})
+	})
+}
+
+func makeCommitTree(ctx context.Context, t *testing.T, depth int, db *pachsql.DB) {
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		rootCommit := testCommit(ctx, t, tx, testRepoName)
+		_, err := pfsdb.CreateCommit(ctx, tx, rootCommit)
+		require.NoError(t, err, "should be able to create root commit")
+		parent := rootCommit
+		for i := 0; i < depth; i++ {
+			child := testCommit(ctx, t, tx, testRepoName)
+			child.ParentCommit = parent.Commit
+			_, err := pfsdb.CreateCommit(ctx, tx, child)
+			require.NoError(t, err, "should be able to create commit")
+			parent = child
+		}
+	})
+}
+
 type commitTestCase func(context.Context, *testing.T, *pachsql.DB)
 
 func withDB(t *testing.T, testCase commitTestCase) {
@@ -654,4 +707,168 @@ func createBranch(ctx context.Context, t *testing.T, tx *pachsql.Tx, commit *pfs
 	branchInfo := &pfs.BranchInfo{Branch: commit.Branch, Head: commit}
 	_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
 	require.NoError(t, err, "should be able to create branch")
+}
+
+func TestPickCommit(suite *testing.T) {
+	suite.Run("ID", func(t *testing.T) {
+		testPickCommitByID(t)
+	})
+	suite.Run("BranchHead", func(t *testing.T) {
+		testPickCommitByBranchHead(t)
+	})
+	suite.Run("BranchRoot", func(t *testing.T) {
+		testPickCommitByBranchRoot(t)
+	})
+	suite.Run("Ancestor", func(t *testing.T) {
+		testPickCommitByAncestor(t)
+	})
+}
+
+func testPickCommitByID(t *testing.T) {
+	t.Parallel()
+	globalIDPicker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Id{
+			Id: &pfs.CommitPicker_CommitByGlobalId{
+				Repo: testRepoPicker(),
+			},
+		},
+	}
+	badCommitPicker := deepcopy.Copy(globalIDPicker).(*pfs.CommitPicker)
+	badCommitPicker.Picker.(*pfs.CommitPicker_Id).Id.Id = "does not exist"
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
+		commitWithId := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		globalIDPicker.Picker.(*pfs.CommitPicker_Id).Id.Id = commitWithId.Commit.Id
+		got, err := pfsdb.PickCommit(ctx, globalIDPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, commitWithId.ID, got.ID)
+		_, err = pfsdb.PickCommit(ctx, nil, tx)
+		require.YesError(t, err, "pick commit should error with a nil picker")
+		_, err = pfsdb.PickCommit(ctx, badCommitPicker, tx)
+		require.YesError(t, err, "pick commit should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.CommitNotFoundError{}))
+	})
+}
+
+func testPickCommitByBranchHead(t *testing.T) {
+	t.Parallel()
+	branchHeadPicker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_BranchHead{
+			BranchHead: testBranchPicker(),
+		},
+	}
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		repoInfo := newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType)
+		commit := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), nil))
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: repoInfo.Repo,
+				Name: "test-branch",
+			},
+			Head: commit.CommitInfo.Commit,
+		}
+		_, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickCommit(ctx, branchHeadPicker, tx)
+		require.NoError(t, err, "should be able to pick branch")
+		require.Equal(t, commit.ID, got.ID)
+	})
+}
+
+func testPickCommitByBranchRoot(t *testing.T) {
+	t.Parallel()
+	offset := uint32(1002)
+	branchRootPicker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_BranchRoot_{
+			BranchRoot: &pfs.CommitPicker_BranchRoot{
+				Branch: testBranchPicker(),
+				Offset: offset,
+			},
+		},
+	}
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	depth := 1200
+	expected := &pfsdb.CommitWithID{ID: pfsdb.CommitID(offset + 1)} // ID starts at 1.
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		makeCommitTree(ctx, t, depth, db)
+		commitInfo, err := pfsdb.GetCommit(ctx, tx, pfsdb.CommitID(depth+1))
+		require.NoError(t, err, "should be able to get commit")
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType).Repo,
+				Name: "test-branch",
+			},
+			Head: commitInfo.Commit,
+		}
+		_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickCommit(ctx, branchRootPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, expected.ID, got.ID)
+		// test 0 offset.
+		branchRootPicker.GetBranchRoot().Offset = 0
+		expected.ID = 1
+		got, err = pfsdb.PickCommit(ctx, branchRootPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, expected.ID, got.ID)
+		// test offset > depth.
+		branchRootPicker.GetBranchRoot().Offset = uint32(depth + 1)
+		_, err = pfsdb.PickCommit(ctx, branchRootPicker, tx)
+		require.YesError(t, err, "should not be able to pick commit in invalid range")
+	})
+}
+
+func testPickCommitByAncestor(t *testing.T) {
+	t.Parallel()
+	offset := 10
+	branchHeadPicker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_BranchHead{
+			BranchHead: testBranchPicker(),
+		},
+	}
+	ancestorPicker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_Ancestor{
+			Ancestor: &pfs.CommitPicker_AncestorOf{
+				Start:  branchHeadPicker,
+				Offset: uint32(offset),
+			},
+		},
+	}
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	depth := 20
+	headId := pfsdb.CommitID(depth + 1)
+	expected := &pfsdb.CommitWithID{ID: headId - pfsdb.CommitID(offset)}
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		makeCommitTree(ctx, t, depth, db)
+		commitInfo, err := pfsdb.GetCommit(ctx, tx, headId)
+		require.NoError(t, err, "should be able to get commit")
+		branchInfo := &pfs.BranchInfo{
+			Branch: &pfs.Branch{
+				Repo: newRepoInfo(&pfs.Project{Name: pfs.DefaultProjectName}, testRepoName, testRepoType).Repo,
+				Name: "test-branch",
+			},
+			Head: commitInfo.Commit,
+		}
+		_, err = pfsdb.UpsertBranch(ctx, tx, branchInfo)
+		require.NoError(t, err, "should be able to upsert branch")
+		got, err := pfsdb.PickCommit(ctx, ancestorPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, expected.ID, got.ID)
+		// test 0 offset.
+		ancestorPicker.GetAncestor().Offset = 0
+		expected.ID = headId
+		got, err = pfsdb.PickCommit(ctx, ancestorPicker, tx)
+		require.NoError(t, err, "should be able to pick commit")
+		require.Equal(t, expected.ID, got.ID)
+		// test offset > depth.
+		ancestorPicker.GetAncestor().Offset = uint32(depth + 5)
+		_, err = pfsdb.PickCommit(ctx, ancestorPicker, tx)
+		require.YesError(t, err, "should not be able to pick commit with invalid offset")
+	})
 }

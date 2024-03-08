@@ -112,6 +112,23 @@ go_deps.gazelle_override(
     path = "sourcegraph.com/sourcegraph/appdash",
 )
 
+# These next two directives are necessary if google.golang.org/protobuf in go.mod is different from
+# what rules_go bundles (see go/private/repositories.bzl for the version they use).
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "google.golang.org/protobuf",
+)
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
+        # -go_naming_convention import_alias -proto disable_global` in a checkout of
+        # google.golang.org/protobuf corresponding to the version we use in go.mod.
+        "//private:google-golang-org-protobuf.patch",
+    ],
+    path = "google.golang.org/protobuf",
+)
+
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.
 go_deps.module(
