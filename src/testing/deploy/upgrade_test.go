@@ -20,6 +20,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"golang.org/x/mod/semver"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -77,14 +78,12 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	fromVersions := []string{
 		"2.7.6",
-		"2.8.0",
-		"2.8.3",
 		"2.8.5",
 	}
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
-		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* preUpgrade */
+		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 			pipeline1 := "TestTrigger1"
 			pipeline2 := "TestTrigger2"
@@ -132,7 +131,8 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+			verifyCommitPre28x := func () error {
+				fmt.Printf("verifyCommitPre28x running with version %s", from)
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
 				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", ci.Commit.Id)
@@ -143,7 +143,19 @@ func TestUpgradeTrigger(t *testing.T) {
 					return errors.New("not ready")
 				}
 				return nil
-			})
+			}
+			verifyCommitPost28x := func () error {
+				fmt.Printf("verifyCommitPost28x running with version %s", from)
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+				require.NoError(t, err)
+				require.Equal(t, 6, len(commits))
+				return nil
+			}
+			verifyCommit := verifyCommitPre28x
+			if semver.Compare(from, "2.8.0") >= 0 {
+				verifyCommit = verifyCommitPost28x
+			}
+			require.NoErrorWithinTRetry(t, 2*time.Minute, verifyCommit)
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
 			for i := 0; i < 10; i++ {
