@@ -64,12 +64,12 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
 		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_PagingHint{PagingHint: hint}}); err != nil {
-			return fmt.Errorf("%w paging hint: %w", ErrPublish, err)
+			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
 		}
 	}
 	// TODO(CORE-2189): return all the actual logs
 	if err := publisher.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_PpsLogMessage{PpsLogMessage: &pps.LogMessage{Message: "GetLogs dummy response"}}}}}); err != nil {
-		return fmt.Errorf("%w dummy: %w", ErrPublish, err)
+		return errors.WithStack(fmt.Errorf("%w dummy: %w", ErrPublish, err))
 	}
 	return nil
 }

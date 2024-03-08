@@ -19,6 +19,7 @@ go_test(
     srcs = ["logs_test.go"],
     deps = [
         ":logs",
+        "//src/internal/errors",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/logs",
