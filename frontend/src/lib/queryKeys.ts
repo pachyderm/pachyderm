@@ -175,6 +175,28 @@ const repoQueryKeys = {
     path,
     args,
   ],
+  filesNextPrevious: ({
+    projectId,
+    repoId,
+    branchName,
+    commitId,
+    path,
+  }: {
+    projectId?: string;
+    repoId?: string;
+    branchName?: string;
+    commitId?: string;
+    path?: string;
+  }) => [
+    ...queryKeys.repo({projectId, repoId}),
+    'branch',
+    branchName,
+    'commit',
+    commitId,
+    'path',
+    path,
+    'filesNextPrevious',
+  ],
 };
 
 const logQueryKeys = {

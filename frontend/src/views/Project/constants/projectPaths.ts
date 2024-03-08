@@ -11,6 +11,8 @@ export const PROJECT_FILE_BROWSER_PATH =
   '/project/:projectId/repos/:repoId/commit/:commitId/:filePath?/';
 export const PROJECT_FILE_BROWSER_PATH_LATEST =
   '/project/:projectId/repos/:repoId/latest';
+export const PROJECT_FILE_PREVIEW_PATH =
+  '/project/:projectId/repos/:repoId/commit/:commitId/:filePath?';
 
 export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/project/:projectId/logs/pipelines/:pipelineId/logs`;
 export const PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH = `/project/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
@@ -30,6 +32,8 @@ export const LINEAGE_FILE_BROWSER_PATH =
   '/lineage/:projectId/repos/:repoId/commit/:commitId/:filePath?/';
 export const LINEAGE_FILE_BROWSER_PATH_LATEST =
   '/lineage/:projectId/repos/:repoId/latest';
+export const LINEAGE_FILE_PREVIEW_PATH =
+'/lineage/:projectId/repos/:repoId/commit/:commitId/:filePath?';
 
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST = `/lineage/:projectId/pipelines/:pipelineId/logs`;
 export const LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH = `/lineage/:projectId/pipelines/:pipelineId/jobs/:jobId/logs`;
@@ -50,6 +54,7 @@ export const PROJECT_SIDENAV_PATHS = [
   LINEAGE_FILE_UPLOAD_PATH,
   LINEAGE_FILE_BROWSER_PATH,
   LINEAGE_FILE_BROWSER_PATH_LATEST,
+  LINEAGE_FILE_PREVIEW_PATH,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH,
   PROJECT_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   PROJECT_PIPELINE_LOGS_VIEWER_DATUM_PATH,
@@ -63,6 +68,7 @@ export const PROJECT_SIDENAV_PATHS = [
   PROJECT_FILE_UPLOAD_PATH,
   PROJECT_FILE_BROWSER_PATH,
   PROJECT_FILE_BROWSER_PATH_LATEST,
+  PROJECT_FILE_PREVIEW_PATH,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH,
   LINEAGE_PIPELINE_LOGS_VIEWER_JOB_PATH_LATEST,
   LINEAGE_PIPELINE_LOGS_VIEWER_DATUM_PATH,

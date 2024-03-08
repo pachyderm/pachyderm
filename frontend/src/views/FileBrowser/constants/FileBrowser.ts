@@ -6,3 +6,9 @@ export const PADDING_SIZE = 32;
 export const COMMIT_PAGE_SIZE = 50;
 
 export const FILE_DEFAULT_PAGE_SIZE = 50;
+
+export const NAVIGATION_KEYS = {
+  NEXT: 'ArrowDown',
+  PREVIOUS: 'ArrowUp',
+  PARENT: 'ArrowLeft',
+};
