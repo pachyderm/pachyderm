@@ -1,4 +1,4 @@
-import React from 'react';
+import React, {useEffect} from 'react';
 import {showErrorMessage} from '@jupyterlab/apputils';
 
 import {Repo, Mount, ListMountsResponse} from '../../types';
@@ -9,9 +9,21 @@ type ExploreProps = {
   mounted: Mount[];
   unmounted: Repo[];
   updateData: (response: ListMountsResponse) => void;
+  changeDirectory: (directory: string) => Promise<void>;
 };
 
-const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
+const Explore: React.FC<ExploreProps> = ({
+  mounted,
+  unmounted,
+  updateData,
+  changeDirectory,
+}) => {
+  useEffect(() => {
+    if (mounted.length === 1) {
+      changeDirectory(`/${mounted[0].name}`);
+    }
+  }, [mounted.length]);
+
   // Avoids rendering the dropdowns until mount information is loaded.
   if (mounted.length === 0 && unmounted.length === 0) {
     return <></>;
@@ -19,7 +31,7 @@ const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
 
   // In the event of some how multiple repos being mounted we should unmount all to reset to the default state.
   if (mounted.length > 1) {
-    unmountAll(updateData);
+    unmountAll().then((response) => updateData(response));
     showErrorMessage(
       'Unexpected Error',
       'Multiple repos have been mounted somehow so all repos have been unmounted.',
@@ -43,16 +55,19 @@ const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
         items={projectRepos}
         placeholder="project/repo"
         onSelectedItemChange={(projectRepo) => {
-          if (!projectRepo) {
-            unmountAll(updateData);
-            return;
-          }
+          (async () => {
+            if (!projectRepo) {
+              updateData(await unmountAll());
+              return;
+            }
 
-          mount(
-            updateData,
-            projectRepo,
-            getDefaultBranch(projectRepoToBranches[projectRepo]),
-          );
+            const response = await mount(
+              projectRepo,
+              getDefaultBranch(projectRepoToBranches[projectRepo]),
+            );
+            await changeDirectory(`/${response.mounted[0].name}`);
+            updateData(response);
+          })();
         }}
       />
       {!branches || !selectedProjectRepo ? (
@@ -64,11 +79,15 @@ const Explore: React.FC<ExploreProps> = ({mounted, unmounted, updateData}) => {
           items={branches}
           placeholder="branch"
           onSelectedItemChange={(selectedBranch) => {
-            if (!selectedBranch) {
-              return;
-            }
+            (async () => {
+              if (!selectedBranch) {
+                return;
+              }
 
-            mount(updateData, selectedProjectRepo, selectedBranch);
+              const response = await mount(selectedProjectRepo, selectedBranch);
+              await changeDirectory(`/${response.mounted[0].name}`);
+              updateData(response);
+            })();
           }}
         />
       )}

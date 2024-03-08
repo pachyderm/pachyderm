@@ -149,6 +149,9 @@ export class MountPlugin implements IMountPlugin {
                   mounted={mounted || this._poller.mounted}
                   unmounted={unmounted || this._poller.unmounted}
                   updateData={this._poller.updateData}
+                  changeDirectory={async (directory: string) => {
+                    return this._pfsBrowser.model.cd(directory);
+                  }}
                 />
               )}
             </UseSignal>

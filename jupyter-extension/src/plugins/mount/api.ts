@@ -1,29 +1,24 @@
 import {Repo, Mount, ListMountsResponse} from './types';
 import {requestAPI} from '../../handler';
 
-export const unmountAll = async (
-  updateData?: (response: ListMountsResponse) => void,
-): Promise<void> => {
-  const response = await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-  if (updateData) {
-    return updateData(response);
-  }
-
-  return;
+export const unmountAll = async (): Promise<ListMountsResponse> => {
+  return requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
 };
 
 export const mount = async (
-  updateData: (response: ListMountsResponse) => void,
   projectRepo: string,
   branch: string,
-): Promise<void> => {
+): Promise<ListMountsResponse> => {
   const [project, repo] = projectRepo.split('/');
 
   await unmountAll();
   const response = await requestAPI<ListMountsResponse>('_mount', 'PUT', {
     mounts: [
       {
-        name: `${project}_${repo}_${branch}`,
+        name:
+          branch === 'master'
+            ? `${project}_${repo}`
+            : `${project}_${repo}_${branch}`,
         repo: repo,
         branch: branch,
         project: project,
@@ -32,7 +27,7 @@ export const mount = async (
     ],
   });
 
-  return updateData(response);
+  return response;
 };
 
 type MountedStatus = {
