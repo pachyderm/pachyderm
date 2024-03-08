@@ -2,6 +2,7 @@ load("@rules_go//go:def.bzl", "go_test")
 
 go_test(
     name = "test_test",
+    size = "small",
     srcs = [
         "affinity_test.go",
         "aws_test.go",
