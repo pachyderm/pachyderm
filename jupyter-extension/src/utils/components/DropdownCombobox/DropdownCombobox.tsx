@@ -1,5 +1,6 @@
 import React from 'react';
 import {useCombobox} from 'downshift';
+import {matchSorter} from 'match-sorter';
 
 export type DropdownComboboxProps = {
   initialSelectedItem?: string | null;
@@ -32,13 +33,7 @@ export const DropdownCombobox: React.FC<DropdownComboboxProps> = ({
     initialIsOpen: initialSelectedItem ? false : true,
     initialSelectedItem: initialSelectedItem,
     onInputValueChange: ({inputValue}) => {
-      setInputItems(
-        inputValue
-          ? items.filter((item) =>
-              item.toLowerCase().startsWith(inputValue.toLowerCase()),
-            )
-          : items,
-      );
+      setInputItems(inputValue ? matchSorter(items, inputValue) : items);
     },
     onIsOpenChange: ({isOpen, selectedItem}) => {
       // Clear selectedItem on opening if there is a selected item
