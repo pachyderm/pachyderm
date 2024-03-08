@@ -25,13 +25,3 @@
   margin-left: 0.85em;
   margin-right: 0.85em;
 }
-
-/* TODO move this to explore.css */
-/* TODO: Remove split panel dragging feature instead of min and max height */
-.pachyderm-explore-widget {
-  overflow: visible;
-  position: relative;
-  min-height: 85px;
-  max-height: 85px;
-  z-index: initial;
-}

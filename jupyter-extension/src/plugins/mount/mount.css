@@ -339,3 +339,17 @@ textarea {
 .jp-LabShell {
   min-height: 1000px !important;
 }
+
+/* TODO: Fix this so that it selects properly. if I manually apply the style it does work as expected */
+.pachyderm-explore-widget > .p-SplitPanel-handle {
+  display: none;
+}
+
+/* TODO: Remove split panel dragging feature instead of min and max height */
+.pachyderm-explore-widget {
+  overflow: visible;
+  position: relative;
+  min-height: 85px;
+  max-height: 85px;
+  z-index: initial;
+}
