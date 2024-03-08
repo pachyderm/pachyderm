@@ -1633,10 +1633,6 @@ workflows:
       - govulncheck
       - static-go-checks
       - test-envoy
-  helm-tests:
-    when: << pipeline.parameters.run-core-jobs >>
-    jobs:
-      - helm-tests
   nightly_load_tests:
     when: << pipeline.parameters.run_load_tests >>
     jobs:
@@ -1838,8 +1834,6 @@ workflows:
 
   release:
     jobs:
-      - helm-tests:
-          filters: *only-release-tags
       - static-go-checks:
           filters: *only-release-tags
       - integration-tests:
@@ -1847,7 +1841,8 @@ workflows:
       - helm-build:
           filters: *only-release-tags
           requires:
-            - helm-tests
+            - bazel-style-tests
+            - bazel-tests
             - integration-tests
       - build-docker-images:
           appVersion: ${CIRCLE_TAG:1}
@@ -1856,8 +1851,9 @@ workflows:
           version: ${CIRCLE_TAG:1}
           filters: *only-release-tags
           requires:
-            - helm-tests
             - static-go-checks
+            - bazel-style-tests
+            - bazel-tests
             - integration-tests
       - helm-publish:
           name: publish-chart-preview
@@ -2055,8 +2051,6 @@ workflows:
           filters: *only-release-tags
   nightly-release:
     jobs:
-      - helm-tests:
-          filters: *only-nightly-tags
       - static-go-checks:
           filters: *only-nightly-tags
       - integration-tests:
@@ -2064,7 +2058,6 @@ workflows:
       - helm-build:
           filters: *only-nightly-tags
           requires:
-            - helm-tests
             - static-go-checks
             - integration-tests
       - build-docker-images:
@@ -2074,7 +2067,6 @@ workflows:
           version: ${CIRCLE_TAG:1}
           filters: *only-nightly-tags
           requires:
-            - helm-tests
             - static-go-checks
             - integration-tests
       - helm-publish:
