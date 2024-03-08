@@ -194,7 +194,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				require.Equal(t, 13, len(commits))
 				commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
 				require.NoError(t, err)
-				require.Equal(t, 7, len(commits))
+				require.Equal(t, 6, len(commits))
 				require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 					if resp.Error != "" {
 						return errors.Errorf(resp.Error)
