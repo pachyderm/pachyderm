@@ -176,19 +176,32 @@ func TestUpgradeTrigger(t *testing.T) {
 					}
 					return nil
 				}, 10*time.Second)
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
+				require.NoError(t, err)
+				require.Equal(t, 33, len(commits))
+				commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+				require.NoError(t, err)
+				require.Equal(t, 17, len(commits))
+				require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+					if resp.Error != "" {
+						return errors.Errorf(resp.Error)
+					}
+					return nil
+				}))
+			} else {
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
+				require.NoError(t, err)
+				require.Equal(t, 13, len(commits))
+				commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+				require.NoError(t, err)
+				require.Equal(t, 7, len(commits))
+				require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+					if resp.Error != "" {
+						return errors.Errorf(resp.Error)
+					}
+					return nil
+				}))				
 			}
-			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
-			require.NoError(t, err)
-			require.Equal(t, 33, len(commits))
-			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
-			require.NoError(t, err)
-			require.Equal(t, 17, len(commits))
-			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
-				if resp.Error != "" {
-					return errors.Errorf(resp.Error)
-				}
-				return nil
-			}))
 		},
 	)
 }
