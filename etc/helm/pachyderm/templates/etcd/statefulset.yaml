@@ -53,8 +53,8 @@ spec:
         - "--quota-backend-bytes=8589934592"
         - "--listen-peer-urls=http://0.0.0.0:2380"
         - "--initial-cluster-token=pach-cluster"
-        - "--initial-advertise-peer-urls=http://etcd.etcd-headless:2380"
-        - "--initial-cluster={{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless:2380,{{ end }}"
+        - "--initial-advertise-peer-urls=http://etcd.etcd-headless.{{ .Release.Namespace }}.svc.cluster.local.:2380"
+        - "--initial-cluster={{ $ns := .Release.Namespace }}{{ range $i, $e := until (.Values.etcd.dynamicNodes | int) }}etcd-{{$e}}=http://etcd-{{$e}}.etcd-headless.{{$ns}}.svc.cluster.local.:2380,{{ end }}"
         env:
         - name: ETCD_NAME
           valueFrom:
