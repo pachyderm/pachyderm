@@ -2,7 +2,7 @@ module github.com/pachyderm/pachyderm/v2
 
 go 1.21
 
-toolchain go1.21.5
+toolchain go1.21.8
 
 require (
 	cloud.google.com/go/profiler v0.3.0
@@ -33,7 +33,7 @@ require (
 	github.com/ghodss/yaml v1.0.0
 	github.com/go-logr/zapr v1.2.3
 	github.com/go-sql-driver/mysql v1.7.0
-	github.com/golang/protobuf v1.5.3
+	github.com/golang/protobuf v1.5.4
 	github.com/google/btree v1.1.2
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-jsonnet v0.17.0
@@ -99,7 +99,7 @@ require (
 	google.golang.org/api v0.134.0
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231030173426-d783a09b4405
 	google.golang.org/grpc v1.58.3
-	google.golang.org/protobuf v1.32.0
+	google.golang.org/protobuf v1.33.0
 	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/api v0.26.0
 	k8s.io/apimachinery v0.26.0
