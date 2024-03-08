@@ -26,9 +26,13 @@ examples = [
 
 [
     sh_test(
-        name = "test-" + x + "-manifest",
+        name = "test-" + x + "-manifest@k8s-" + k8s,
+        size = "small",
         srcs = ["kubeconform.sh"],
-        args = [x + "-manifest.yaml"],
+        args = [
+            x + "-manifest.yaml",
+            k8s,
+        ],
         data = [
             "//tools/kubeconform",
             "//etc/helm:" + x + "-manifest.yaml",
@@ -36,4 +40,10 @@ examples = [
         deps = ["@bazel_tools//tools/bash/runfiles"],
     )
     for x in examples
+    for k8s in [
+        "1.27.11",
+        "1.28.7",
+        "1.29.2",
+        "master",
+    ]
 ]
