@@ -8,7 +8,9 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/logs",
-        "//src/pps",
+        "//src/server/logs",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
