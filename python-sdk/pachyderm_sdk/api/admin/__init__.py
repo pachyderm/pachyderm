@@ -45,6 +45,7 @@ class InspectClusterRequest(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_inspect_cluster = channel.unary_unary(
             "/admin_v2.API/InspectCluster",
@@ -58,6 +59,7 @@ class ApiStub:
         client_version: "_version__.Version" = None,
         current_project: "_pfs__.Project" = None
     ) -> "ClusterInfo":
+
         request = InspectClusterRequest()
         if client_version is not None:
             request.client_version = client_version
@@ -68,6 +70,7 @@ class ApiStub:
 
 
 class ApiBase:
+
     def inspect_cluster(
         self,
         client_version: "_version__.Version",

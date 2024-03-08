@@ -782,6 +782,7 @@ class EgressResponseSqlDatabaseResult(betterproto.Message):
 
 
 class ApiStub:
+
     def __init__(self, channel: "grpc.Channel"):
         self.__rpc_create_repo = channel.unary_unary(
             "/pfs_v2.API/CreateRepo",
@@ -1032,6 +1033,7 @@ class ApiStub:
     def create_repo(
         self, *, repo: "Repo" = None, description: str = "", update: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1041,6 +1043,7 @@ class ApiStub:
         return self.__rpc_create_repo(request)
 
     def inspect_repo(self, *, repo: "Repo" = None) -> "RepoInfo":
+
         request = InspectRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1063,6 +1066,7 @@ class ApiStub:
     def delete_repo(
         self, *, repo: "Repo" = None, force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteRepoRequest()
         if repo is not None:
             request.repo = repo
@@ -1090,6 +1094,7 @@ class ApiStub:
     def start_commit(
         self, *, parent: "Commit" = None, description: str = "", branch: "Branch" = None
     ) -> "Commit":
+
         request = StartCommitRequest()
         if parent is not None:
             request.parent = parent
@@ -1107,6 +1112,7 @@ class ApiStub:
         error: str = "",
         force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = FinishCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1119,6 +1125,7 @@ class ApiStub:
     def clear_commit(
         self, *, commit: "Commit" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = ClearCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1128,6 +1135,7 @@ class ApiStub:
     def inspect_commit(
         self, *, commit: "Commit" = None, wait: "CommitState" = None
     ) -> "CommitInfo":
+
         request = InspectCommitRequest()
         if commit is not None:
             request.commit = commit
@@ -1147,6 +1155,7 @@ class ApiStub:
         origin_kind: "OriginKind" = None,
         started_time: datetime = None
     ) -> Iterator["CommitInfo"]:
+
         request = ListCommitRequest()
         if repo is not None:
             request.repo = repo
@@ -1174,6 +1183,7 @@ class ApiStub:
         all: bool = False,
         origin_kind: "OriginKind" = None
     ) -> Iterator["CommitInfo"]:
+
         request = SubscribeCommitRequest()
         if repo is not None:
             request.repo = repo
@@ -1190,6 +1200,7 @@ class ApiStub:
     def inspect_commit_set(
         self, *, commit_set: "CommitSet" = None, wait: bool = False
     ) -> Iterator["CommitInfo"]:
+
         request = InspectCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1201,6 +1212,7 @@ class ApiStub:
     def list_commit_set(
         self, *, project: "Project" = None
     ) -> Iterator["CommitSetInfo"]:
+
         request = ListCommitSetRequest()
         if project is not None:
             request.project = project
@@ -1211,6 +1223,7 @@ class ApiStub:
     def squash_commit_set(
         self, *, commit_set: "CommitSet" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = SquashCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1220,6 +1233,7 @@ class ApiStub:
     def drop_commit_set(
         self, *, commit_set: "CommitSet" = None
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DropCommitSetRequest()
         if commit_set is not None:
             request.commit_set = commit_set
@@ -1229,6 +1243,7 @@ class ApiStub:
     def find_commits(
         self, *, start: "Commit" = None, file_path: str = "", limit: int = 0
     ) -> Iterator["FindCommitsResponse"]:
+
         request = FindCommitsRequest()
         if start is not None:
             request.start = start
@@ -1263,6 +1278,7 @@ class ApiStub:
         return self.__rpc_create_branch(request)
 
     def inspect_branch(self, *, branch: "Branch" = None) -> "BranchInfo":
+
         request = InspectBranchRequest()
         if branch is not None:
             request.branch = branch
@@ -1272,6 +1288,7 @@ class ApiStub:
     def list_branch(
         self, *, repo: "Repo" = None, reverse: bool = False
     ) -> Iterator["BranchInfo"]:
+
         request = ListBranchRequest()
         if repo is not None:
             request.repo = repo
@@ -1283,6 +1300,7 @@ class ApiStub:
     def delete_branch(
         self, *, branch: "Branch" = None, force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteBranchRequest()
         if branch is not None:
             request.branch = branch
@@ -1296,6 +1314,7 @@ class ApiStub:
             AsyncIterable["ModifyFileRequest"], Iterable["ModifyFileRequest"]
         ],
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         return self.__rpc_modify_file(request_iterator)
 
     def get_file(
@@ -1306,6 +1325,7 @@ class ApiStub:
         offset: int = 0,
         path_range: "PathRange" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = GetFileRequest()
         if file is not None:
             request.file = file
@@ -1325,6 +1345,7 @@ class ApiStub:
         offset: int = 0,
         path_range: "PathRange" = None
     ) -> Iterator["betterproto_lib_google_protobuf.BytesValue"]:
+
         request = GetFileRequest()
         if file is not None:
             request.file = file
@@ -1337,6 +1358,7 @@ class ApiStub:
             yield response
 
     def inspect_file(self, *, file: "File" = None) -> "FileInfo":
+
         request = InspectFileRequest()
         if file is not None:
             request.file = file
@@ -1351,6 +1373,7 @@ class ApiStub:
         number: int = 0,
         reverse: bool = False
     ) -> Iterator["FileInfo"]:
+
         request = ListFileRequest()
         if file is not None:
             request.file = file
@@ -1370,6 +1393,7 @@ class ApiStub:
         number: int = 0,
         reverse: bool = False
     ) -> Iterator["FileInfo"]:
+
         request = WalkFileRequest()
         if file is not None:
             request.file = file
@@ -1388,6 +1412,7 @@ class ApiStub:
         pattern: str = "",
         path_range: "PathRange" = None
     ) -> Iterator["FileInfo"]:
+
         request = GlobFileRequest()
         if commit is not None:
             request.commit = commit
@@ -1401,6 +1426,7 @@ class ApiStub:
     def diff_file(
         self, *, new_file: "File" = None, old_file: "File" = None, shallow: bool = False
     ) -> Iterator["DiffFileResponse"]:
+
         request = DiffFileRequest()
         if new_file is not None:
             request.new_file = new_file
@@ -1412,11 +1438,13 @@ class ApiStub:
             yield response
 
     def activate_auth(self) -> "ActivateAuthResponse":
+
         request = ActivateAuthRequest()
 
         return self.__rpc_activate_auth(request)
 
     def delete_all(self) -> "betterproto_lib_google_protobuf.Empty":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_delete_all(request)
@@ -1428,6 +1456,7 @@ class ApiStub:
         zombie_target: "Commit" = None,
         zombie_all: bool = False
     ) -> Iterator["FsckResponse"]:
+
         request = FsckRequest()
         request.fix = fix
         if zombie_target is not None:
@@ -1443,9 +1472,11 @@ class ApiStub:
             AsyncIterable["ModifyFileRequest"], Iterable["ModifyFileRequest"]
         ],
     ) -> "CreateFileSetResponse":
+
         return self.__rpc_create_file_set(request_iterator)
 
     def get_file_set(self, *, commit: "Commit" = None) -> "CreateFileSetResponse":
+
         request = GetFileSetRequest()
         if commit is not None:
             request.commit = commit
@@ -1455,6 +1486,7 @@ class ApiStub:
     def add_file_set(
         self, *, commit: "Commit" = None, file_set_id: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = AddFileSetRequest()
         if commit is not None:
             request.commit = commit
@@ -1465,6 +1497,7 @@ class ApiStub:
     def renew_file_set(
         self, *, file_set_id: str = "", ttl_seconds: int = 0
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = RenewFileSetRequest()
         request.file_set_id = file_set_id
         request.ttl_seconds = ttl_seconds
@@ -1488,6 +1521,7 @@ class ApiStub:
         return self.__rpc_compose_file_set(request)
 
     def shard_file_set(self, *, file_set_id: str = "") -> "ShardFileSetResponse":
+
         request = ShardFileSetRequest()
         request.file_set_id = file_set_id
 
@@ -1500,6 +1534,7 @@ class ApiStub:
         chunk_begin: bytes = b"",
         chunk_end: bytes = b""
     ) -> "CheckStorageResponse":
+
         request = CheckStorageRequest()
         request.read_chunk_data = read_chunk_data
         request.chunk_begin = chunk_begin
@@ -1527,6 +1562,7 @@ class ApiStub:
         return self.__rpc_put_cache(request)
 
     def get_cache(self, *, key: str = "") -> "GetCacheResponse":
+
         request = GetCacheRequest()
         request.key = key
 
@@ -1535,6 +1571,7 @@ class ApiStub:
     def clear_cache(
         self, *, tag_prefix: str = ""
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = ClearCacheRequest()
         request.tag_prefix = tag_prefix
 
@@ -1548,6 +1585,7 @@ class ApiStub:
         seed: int = 0,
         state_id: str = ""
     ) -> "RunLoadTestResponse":
+
         request = RunLoadTestRequest()
         request.spec = spec
         if branch is not None:
@@ -1558,11 +1596,13 @@ class ApiStub:
         return self.__rpc_run_load_test(request)
 
     def run_load_test_default(self) -> "RunLoadTestResponse":
+
         request = betterproto_lib_google_protobuf.Empty()
 
         return self.__rpc_run_load_test_default(request)
 
     def list_task(self, *, group: "Group" = None) -> Iterator["_taskapi__.TaskInfo"]:
+
         request = _taskapi__.ListTaskRequest()
         if group is not None:
             request.group = group
@@ -1577,6 +1617,7 @@ class ApiStub:
         object_storage: "ObjectStorageEgress" = None,
         sql_database: "SqlDatabaseEgress" = None
     ) -> "EgressResponse":
+
         request = EgressRequest()
         if commit is not None:
             request.commit = commit
@@ -1590,6 +1631,7 @@ class ApiStub:
     def create_project(
         self, *, project: "Project" = None, description: str = "", update: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = CreateProjectRequest()
         if project is not None:
             request.project = project
@@ -1599,6 +1641,7 @@ class ApiStub:
         return self.__rpc_create_project(request)
 
     def inspect_project(self, *, project: "Project" = None) -> "ProjectInfo":
+
         request = InspectProjectRequest()
         if project is not None:
             request.project = project
@@ -1606,6 +1649,7 @@ class ApiStub:
         return self.__rpc_inspect_project(request)
 
     def list_project(self) -> Iterator["ProjectInfo"]:
+
         request = ListProjectRequest()
 
         for response in self.__rpc_list_project(request):
@@ -1614,6 +1658,7 @@ class ApiStub:
     def delete_project(
         self, *, project: "Project" = None, force: bool = False
     ) -> "betterproto_lib_google_protobuf.Empty":
+
         request = DeleteProjectRequest()
         if project is not None:
             request.project = project
@@ -1623,6 +1668,7 @@ class ApiStub:
 
 
 class ApiBase:
+
     def create_repo(
         self,
         repo: "Repo",
