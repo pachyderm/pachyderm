@@ -22,6 +22,7 @@ type PagerProps = {
   pageSize: number;
   elementName?: string;
   hasTopBorder?: boolean;
+  highlightFirstPageNavigation?: boolean;
 };
 
 interface SimplePagerProps
@@ -39,7 +40,10 @@ export const Pager: React.FC<PagerProps> = ({
   pageSize,
   elementName,
   hasTopBorder,
+  highlightFirstPageNavigation,
 }) => {
+  const secondPageAvailable =
+    highlightFirstPageNavigation && !nextPageDisabled && page === 1;
   return (
     <div
       className={classnames(styles.base, {[styles.hasTopBorder]: hasTopBorder})}
@@ -85,12 +89,14 @@ export const Pager: React.FC<PagerProps> = ({
           <Button
             IconSVG={ChevronRightSVG}
             data-testid="Pager__forward"
-            buttonType="ghost"
+            buttonType={secondPageAvailable ? 'secondary' : 'ghost'}
             onClick={() => updatePage(page + 1)}
             disabled={
               nextPageDisabled || (pageCount ? page >= pageCount : false)
             }
-          />
+          >
+            {secondPageAvailable ? 'Next Page' : ''}
+          </Button>
         </ButtonGroup>
       </div>
     </div>
@@ -106,7 +112,10 @@ export const SimplePager: React.FC<SimplePagerProps> = ({
   elementName,
   contentLength,
   hasTopBorder,
+  highlightFirstPageNavigation,
 }) => {
+  const secondPageAvailable =
+    highlightFirstPageNavigation && !nextPageDisabled && page === 1;
   return (
     <div
       className={classnames(styles.base, {[styles.hasTopBorder]: hasTopBorder})}
@@ -132,10 +141,12 @@ export const SimplePager: React.FC<SimplePagerProps> = ({
         <Button
           IconSVG={ChevronRightSVG}
           data-testid="Pager__forward"
-          buttonType="ghost"
+          buttonType={secondPageAvailable ? 'secondary' : 'ghost'}
           onClick={() => updatePage(page + 1)}
           disabled={nextPageDisabled || (pageCount ? page >= pageCount : false)}
-        />
+        >
+          {secondPageAvailable ? 'Next Page' : ''}
+        </Button>
       </ButtonGroup>
     </div>
   );

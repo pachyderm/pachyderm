@@ -128,6 +128,7 @@ const CommitsList: React.FC<CommitsListProps> = ({
               nextPageDisabled={!hasNextPage}
               updatePageSize={setPageSize}
               pageSize={pageSize}
+              highlightFirstPageNavigation
             />
           </TableViewPaginationWrapper>
         )}

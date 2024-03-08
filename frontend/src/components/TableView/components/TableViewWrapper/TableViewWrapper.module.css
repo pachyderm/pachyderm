@@ -6,7 +6,7 @@
 }
 
 .hasPager {
-  --header-with-pager-offset: 19.5rem;
+  --header-with-pager-offset: 16.5rem;
   max-height: calc(100vh - var(--header-with-pager-offset));
 }
 

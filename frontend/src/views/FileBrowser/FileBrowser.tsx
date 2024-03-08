@@ -138,6 +138,7 @@ const FileBrowser: React.FC = () => {
                               updatePageSize={setPageSize}
                               pageSize={pageSize}
                               hasTopBorder
+                              highlightFirstPageNavigation
                             />
                           )}
                       </>

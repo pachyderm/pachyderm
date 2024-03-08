@@ -68,6 +68,7 @@ const LogsFooter: React.FC<LogsFooterProps> = ({
           nextPageDisabled={!hasNextPage}
           pageSize={LOGS_PAGE_SIZE}
           contentLength={0}
+          highlightFirstPageNavigation
         />
       </div>
     </div>
