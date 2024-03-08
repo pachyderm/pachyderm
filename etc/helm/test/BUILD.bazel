@@ -27,6 +27,7 @@ go_test(
         "@com_github_gruntwork_io_terratest//modules/k8s",
         "@com_github_gruntwork_io_terratest//modules/logger",
         "@com_github_instrumenta_kubeval//kubeval",
+        "@com_github_pkg_errors//:errors",
         "@in_gopkg_yaml_v3//:yaml_v3",
         "@io_k8s_api//apps/v1:apps",
         "@io_k8s_api//core/v1:core",
