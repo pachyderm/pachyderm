@@ -9,6 +9,7 @@ import (
 	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
@@ -20,6 +21,12 @@ type testPublisher struct {
 func (tp *testPublisher) Publish(ctx context.Context, response *logs.GetLogsResponse) error {
 	tp.responses = append(tp.responses, response)
 	return nil
+}
+
+type errPublisher struct{}
+
+func (ep errPublisher) Publish(context.Context, *logs.GetLogsResponse) error {
+	return errors.New("errPublisher cannot publish")
 }
 
 func TestGetLogsHint(t *testing.T) {
@@ -73,4 +80,6 @@ func TestGetLogsHint(t *testing.T) {
 	//
 	// TODO(CORE-2189): Update with support once logs are actually implemented.
 	require.ErrorIs(t, ls.GetLogs(ctx, &logs.GetLogsRequest{WantPagingHint: true, Filter: &logs.LogFilter{Limit: 100}}, publisher), logservice.ErrUnimplemented, "GetLogs with both a limit and a hint request must error")
+
+	require.ErrorIs(t, ls.GetLogs(ctx, &logs.GetLogsRequest{}, errPublisher{}), logservice.ErrPublish, "GetLogs with a broken publisher returns an appropriate error")
 }

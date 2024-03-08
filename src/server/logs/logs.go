@@ -2,6 +2,7 @@ package logs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -18,11 +19,19 @@ type ResponsePublisher interface {
 	Publish(context.Context, *logs.GetLogsResponse) error
 }
 
+// LogService implements the core logs functionality.
 type LogService struct{}
 
-var ErrUnimplemented = errors.New("unimplemented")
+var (
+	// ErrUnimplemented is returned whenever requested functionality is planned but unimplemented.
+	ErrUnimplemented = errors.New("unimplemented")
+	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
+	ErrPublish = errors.New("error publishing")
+)
 
-func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, responseWriter ResponsePublisher) error {
+// GetLogs gets logs according its request and publishes them.  The pattern is
+// similar to that used when handling an HTTP request.
+func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
 	if err := validateGetLogsRequest(request); err != nil {
 		return errors.Wrap(err, "invalid GetLogs request")
 	}
@@ -54,13 +63,13 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		hint.Older.Filter.TimeRange.Until = timestamppb.New(from)
 		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
 		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
-		if err := responseWriter.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_PagingHint{PagingHint: hint}}); err != nil {
-			return errors.Wrap(err, "error publishing paging hint")
+		if err := publisher.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_PagingHint{PagingHint: hint}}); err != nil {
+			return fmt.Errorf("%w paging hint: %w", ErrPublish, err)
 		}
 	}
 	// TODO(CORE-2189): return all the actual logs
-	if err := responseWriter.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_PpsLogMessage{PpsLogMessage: &pps.LogMessage{Message: "GetLogs dummy response"}}}}}); err != nil {
-		return errors.Wrap(err, "error publishing dummy log")
+	if err := publisher.Publish(ctx, &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_PpsLogMessage{PpsLogMessage: &pps.LogMessage{Message: "GetLogs dummy response"}}}}}); err != nil {
+		return fmt.Errorf("%w dummy: %w", ErrPublish, err)
 	}
 	return nil
 }
