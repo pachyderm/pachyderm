@@ -157,24 +157,26 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			require.NoErrorWithinTRetry(t, 2*time.Minute, verifyCommit)
 		},
-		func(t *testing.T, ctx context.Context, c *client.APIClient, _ string) { /* postUpgrade */
+		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* postUpgrade */
 			for i := 0; i < 10; i++ {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
-				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
-				require.NoError(t, err)
-				aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
-				if err != nil {
-					return err
-				}
-				if aliasCI.Commit.Id != latestDataCI.Commit.Id {
-					return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
-				}
-				return nil
-			}, 10*time.Second)
+			if semver.Compare("v"+from, "v2.8.0") < 0 {
+				require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
+					ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+					require.NoError(t, err)
+					aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
+					if err != nil {
+						return err
+					}
+					if aliasCI.Commit.Id != latestDataCI.Commit.Id {
+						return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
+					}
+					return nil
+				}, 10*time.Second)
+			}
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, 33, len(commits))
