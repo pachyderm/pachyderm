@@ -2,7 +2,7 @@ import React from 'react';
 import {showErrorMessage} from '@jupyterlab/apputils';
 
 import {Repo, Mount, ListMountsResponse} from '../../types';
-import {DropdownCombobox} from '../../../../components/DropdownCombobox/DropdownCombobox';
+import {DropdownCombobox} from '../../../../utils/components/DropdownCombobox/DropdownCombobox';
 import {unmountAll, mount, getMountedStatus, getDefaultBranch} from '../../api';
 
 type ExploreProps = {
