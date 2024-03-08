@@ -397,3 +397,31 @@ def pachdev_deps():
         sha256 = "e7cba5a2d7e2b0949b3ea1aa48fc3780b71eba17e1edccc8273f5da67048164b",
         downloaded_file_path = "metrics-server.tgz",
     )
+
+def kubeconform_deps():
+    """https://github.com/yannh/kubeconform"""
+    build_file_content = """exports_files(["kubeconform"])"""
+    http_archive(
+        name = "com_github_yannh_kubeconform_x86_64_linux",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-amd64.tar.gz",
+        sha256 = "2b4ebeaa4d5ac4843cf8f7b7e66a8874252b6b71bc7cbfc4ef1cbf85acec7c07",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_aarch64_linux",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-linux-arm64.tar.gz",
+        sha256 = "582a8a3eb3c33feb065928728ddac6e544c4f0b1234fd78fc1e4c4175a422b22",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_x86_64_macos",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-darwin-amd64.tar.gz",
+        sha256 = "805bbc2ab900925be01b8e72039d3689c0a6d4f8aa4b2fad24dd1243387a2b18",
+        build_file_content = build_file_content,
+    )
+    http_archive(
+        name = "com_github_yannh_kubeconform_aarch64_macos",
+        url = "https://github.com/yannh/kubeconform/releases/download/v0.6.4/kubeconform-darwin-arm64.tar.gz",
+        sha256 = "95f9097e54c2c1abe9099d0fedc57a2d5c674b2e32231b901a6e60411899afdd",
+        build_file_content = build_file_content,
+    )

@@ -17,7 +17,10 @@ go_test(
         "rbac_test.go",
         "tls_test.go",
     ],
-    data = ["//etc/helm/examples", "//etc/helm/pachyderm"] + glob(["*.yaml"]),
+    data = [
+        "//etc/helm/examples",
+        "//etc/helm/pachyderm",
+    ] + glob(["*.yaml"]),
     deps = [
         "@com_github_gruntwork_io_terratest//modules/helm",
         "@com_github_gruntwork_io_terratest//modules/k8s",
