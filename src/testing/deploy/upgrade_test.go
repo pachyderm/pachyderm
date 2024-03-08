@@ -148,11 +148,11 @@ func TestUpgradeTrigger(t *testing.T) {
 				fmt.Printf("verifyCommitPost28x running with version %s", from)
 				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
 				require.NoError(t, err)
-				require.Equal(t, 6, len(commits))
+				require.Equal(t, 1, len(commits))
 				return nil
 			}
 			verifyCommit := verifyCommitPre28x
-			if semver.Compare(from, "2.8.0") >= 0 {
+			if semver.Compare("v"+from, "v2.8.0") >= 0 {
 				verifyCommit = verifyCommitPost28x
 			}
 			require.NoErrorWithinTRetry(t, 2*time.Minute, verifyCommit)
