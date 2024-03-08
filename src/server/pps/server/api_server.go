@@ -1280,7 +1280,7 @@ func (a *apiServer) CreateDatum(server pps.API_CreateDatumServer) (retErr error)
 			number--
 			return nil
 		})); err == nil {
-			return nil 
+			return nil
 		} else if !errors.Is(err, errutil.ErrBreak) {
 			return errors.Wrap(err, "streaming iterate")
 		}

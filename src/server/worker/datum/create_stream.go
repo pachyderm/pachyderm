@@ -57,7 +57,6 @@ func streamingCreatePFS(
 	requestDatumsChan <-chan struct{},
 ) {
 	defer close(fsidChan)
-	authToken := getAuthToken(ctx)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		fileSetID, err := client.GetFileSet(ctx, c, input.Project, input.Repo, input.Branch, input.Commit)
 		if err != nil {
@@ -77,7 +76,7 @@ func streamingCreatePFS(
 				Input:     input,
 				PathRange: shard,
 				BaseIndex: createBaseIndex(int64(i)),
-				AuthToken: authToken,
+				AuthToken: getAuthToken(ctx),
 			})
 			if err != nil {
 				return errors.Wrap(err, "serialize pfs task")
@@ -121,11 +120,13 @@ func streamingCreateUnion(
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
 		childrenChans := initChildrenChans(len(inputs))
 		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
-		err := consumeChildrenChans(ctx, childrenChans, func(_ int, fsid string) error {
+		if err := consumeChildrenChans(ctx, childrenChans, func(_ int, fsid string) error {
 			fsidChan <- fsid
 			return nil
-		})
-		return errors.Wrap(err, "consuming children channels")
+		}); err != nil {
+			return errors.Wrap(err, "consuming children channels")
+		}
+		return nil
 	}); err != nil {
 		select {
 		case <-ctx.Done():
@@ -136,7 +137,7 @@ func streamingCreateUnion(
 
 func initChildrenChans(num int) []chan string {
 	childrenFsidChans := make([]chan string, num)
-	for i := 0; i < num; i++ { // TODO: go 1.22
+	for i := range num {
 		childrenFsidChans[i] = make(chan string)
 	}
 	return childrenFsidChans
@@ -213,16 +214,28 @@ func streamingCreateCross(
 		childrenChans := initChildrenChans(len(inputs))
 		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
 		inputsShards := make([][]string, len(inputs))
-		err := consumeChildrenChans(childrenChans, func(i int, fsid string) error {
-			inputsShards[i] = append(inputsShards[i], fsid)
-			taskInputs, err := crossShards(ctx, c, inputsShards, i)
+		if err := consumeChildrenChans(ctx, childrenChans, func(idx int, fsid string) error {
+			inputsShards[idx] = append(inputsShards[idx], fsid)
+			taskInputs, err := getTasksForNewShard(ctx, c, inputsShards, idx, func(ctx context.Context, shards []string, baseShardIndex int, baseShard *pfs.PathRange) (*anypb.Any, error) {
+				input, err := serializeCrossTask(&CrossTask{
+					FileSetIds:           shards,
+					BaseFileSetIndex:     int64(idx),
+					BaseFileSetPathRange: baseShard,
+					BaseIndex:            createBaseIndex(int64(baseShardIndex)),
+					AuthToken:            getAuthToken(ctx),
+				})
+				if err != nil {
+					return nil, errors.Wrap(err, "serialize cross task")
+				}
+				return input, nil
+			})
 			if err != nil {
-				return errors.Wrap(err, "cross shards")
+				return errors.Wrap(err, "cartesian product")
 			}
 			if taskInputs != nil {
-				if err := task.DoBatch(ctx, taskDoer, taskInputs, func(i int64, output *anypb.Any, err error) error {
+				if err := task.DoBatch(ctx, taskDoer, taskInputs, func(_ int64, output *anypb.Any, err error) error {
 					if err != nil {
-						return err
+						return errors.Wrap(err, "task do batch")
 					}
 					result, err := deserializeCrossTaskResult(output)
 					if err != nil {
@@ -242,8 +255,10 @@ func streamingCreateCross(
 				}
 			}
 			return nil
-		})
-		return errors.Wrap(err, "consuming children channels")
+		}); err != nil {
+			return errors.Wrap(err, "consuming children channels")
+		}
+		return nil
 	}); err != nil {
 		select {
 		case <-ctx.Done():
@@ -252,33 +267,30 @@ func streamingCreateCross(
 	}
 }
 
-// crossShards returns a slice of task inputs, each of which represents a cross task. Each
-// cross task is a permutation of shards from each input. For the input that just received
-// a shard (addedInput), cross that with shards from all other inputs.
-func crossShards(ctx context.Context, c pfs.APIClient, inputsShards [][]string, addedInput int) ([]*anypb.Any, error) {
-	// If any input has no shards, we can't cross it with the other inputs
-	for _, inputShards := range inputsShards {
-		if len(inputShards) == 0 {
-			return nil, nil
-		}
+// Returns a slice of task inputs. Each task is a permutation of one shard from every input.
+// For the input that just received a shard (addedInput), use only the most recently added
+// shard. For the other inputs, use all shards.
+func getTasksForNewShard(
+	ctx context.Context,
+	c pfs.APIClient,
+	inputsShards [][]string,
+	addedInput int,
+	serializeCb func(context.Context, []string, int, *pfs.PathRange) (*anypb.Any, error),
+) ([]*anypb.Any, error) {
+	shardPermutations := cartesianProduct(inputsShards, addedInput)
+	if shardPermutations == nil {
+		return nil, nil
 	}
-	baseFileSetShards, err := client.ShardFileSetWithConfig(ctx, c, inputsShards[addedInput][len(inputsShards[addedInput])-1], ShardNumFiles, 0)
+	baseShards, err := client.ShardFileSetWithConfig(ctx, c, inputsShards[addedInput][len(inputsShards[addedInput])-1], ShardNumFiles, 0)
 	if err != nil {
 		return nil, errors.Wrap(err, "shard file set")
 	}
-	shardsCrosses := generateShardPermutations(inputsShards, addedInput)
 	var taskInputs []*anypb.Any
-	for _, shardsCross := range shardsCrosses {
-		for i, shard := range baseFileSetShards {
-			input, err := serializeCrossTask(&CrossTask{
-				FileSetIds:           shardsCross,
-				BaseFileSetIndex:     int64(addedInput),
-				BaseFileSetPathRange: shard,
-				BaseIndex:            createBaseIndex(int64(i)),
-				AuthToken:            getAuthToken(ctx),
-			})
+	for _, shardPermutation := range shardPermutations {
+		for i, baseShard := range baseShards {
+			input, err := serializeCb(ctx, shardPermutation, i, baseShard)
 			if err != nil {
-				return nil, errors.Wrap(err, "serialize cross task")
+				return nil, errors.Wrap(err, "serialize callback")
 			}
 			taskInputs = append(taskInputs, input)
 		}
@@ -317,7 +329,13 @@ func shardPermute(input [][]string, addedInput int, index int, result []string, 
 // Used for crossing shards. inputsShards[i] refers to a slice of shards for the ith input.
 // addedInput is the index of the input that most recently received a shard. This function
 // returns a slice of slices, each of which represents a permutation of shards from each input.
-func generateShardPermutations(inputsShards [][]string, addedInput int) [][]string {
+func cartesianProduct(inputsShards [][]string, addedInput int) [][]string {
+	// If any input has no shards, we can't cross it with the other inputs
+	for _, inputShards := range inputsShards {
+		if len(inputShards) == 0 {
+			return nil
+		}
+	}
 	output := make([][]string, 0)
 	result := make([]string, len(inputsShards))
 	shardPermute(inputsShards, addedInput, 0, result, &output)
