@@ -157,6 +157,9 @@
                         "hostPath": {
                             "type": "string"
                         },
+                        "mountToServer": {
+                            "type": "boolean"
+                        },
                         "saveExperimentBest": {
                             "type": "integer"
                         },
@@ -455,6 +458,9 @@
                             "type": "string"
                         }
                     }
+                },
+                "inMemory": {
+                    "type": "boolean"
                 },
                 "maxTxnOps": {
                     "type": "integer"
@@ -1120,6 +1126,9 @@
                 },
                 "ppsWorkerGRPCPort": {
                     "type": "integer"
+                },
+                "ppsWorkerPreprocessing": {
+                    "type": "boolean"
                 },
                 "preflightChecks": {
                     "type": "object",
