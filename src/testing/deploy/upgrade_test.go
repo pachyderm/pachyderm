@@ -131,7 +131,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
-			verifyCommitPre28x := func () error {
+			verifyCommitPre28x := func() error {
 				fmt.Printf("verifyCommitPre28x running with version %s", from)
 				ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 				require.NoError(t, err)
@@ -144,7 +144,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				return nil
 			}
-			verifyCommitPost28x := func () error {
+			verifyCommitPost28x := func() error {
 				fmt.Printf("verifyCommitPost28x running with version %s", from)
 				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
 				require.NoError(t, err)
@@ -200,7 +200,7 @@ func TestUpgradeTrigger(t *testing.T) {
 						return errors.Errorf(resp.Error)
 					}
 					return nil
-				}))				
+				}))
 			}
 		},
 	)
