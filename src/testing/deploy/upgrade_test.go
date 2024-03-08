@@ -77,6 +77,8 @@ func TestUpgradeTrigger(t *testing.T) {
 	}
 	fromVersions := []string{
 		"2.7.6",
+		"2.8.0",
+		"2.8.3",
 		"2.8.5",
 	}
 	dataRepo := "TestTrigger_data"
