@@ -270,8 +270,8 @@ class DatumDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.datum_manager.download()
-            self.finish()
+            path = self.datum_manager.download()
+            self.finish(json.dumps({"path": path}))
         except ValueError as e:
             get_logger().error(f"Invalid datum download: {e}")
             raise tornado.web.HTTPError(
