@@ -144,7 +144,6 @@ export const useDatum = (
       setInputSpec(inputSpecObjToText(spec));
       setErrorMessage('');
     } catch (e) {
-      console.log(e);
       if (e instanceof YAML.YAMLParseError) {
         setErrorMessage(
           'Poorly formatted input spec- must be either YAML or JSON',
@@ -203,9 +202,7 @@ export const useDatum = (
     setErrorMessage('');
 
     try {
-      // TODO: receiving a 500 response shows success message
       const res = await requestAPI<DownloadPath>('datums/_download', 'PUT');
-      console.log('setting message');
       setErrorMessage('Datum downloaded to ' + res.path);
     } catch (e) {
       setErrorMessage('Error downloading datum: ' + e);

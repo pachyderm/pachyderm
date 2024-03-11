@@ -1,6 +1,6 @@
 import {Contents} from '@jupyterlab/services';
 import {TabPanel} from '@lumino/widgets';
-import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
+import {JSONObject} from '@lumino/coreutils';
 
 export type HealthCheckStatus =
   | 'UNHEALTHY'

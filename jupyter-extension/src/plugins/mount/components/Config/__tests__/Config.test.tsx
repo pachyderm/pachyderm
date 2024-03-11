@@ -1,5 +1,5 @@
 import React from 'react';
-import {findByTestId, render, waitFor} from '@testing-library/react';
+import {render, waitFor} from '@testing-library/react';
 
 import * as requestAPI from '../../../../../handler';
 import {mockedRequestAPI} from 'utils/testUtils';
@@ -122,7 +122,7 @@ describe('config screen', () => {
         status: 'HEALTHY_LOGGED_IN',
       };
 
-      const {getByTestId, queryByTestId} = render(
+      const {getByTestId} = render(
         <Config
           updateConfig={updateConfig}
           healthCheck={healthCheck}
@@ -203,7 +203,7 @@ describe('config screen', () => {
         status: 'HEALTHY_NO_AUTH',
       };
 
-      const {getByTestId, queryByTestId} = render(
+      const {getByTestId} = render(
         <Config
           updateConfig={updateConfig}
           healthCheck={healthCheck}
