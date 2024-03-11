@@ -226,6 +226,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			}))
 		},
 	)
+	t.Errorf("force fail to see logs")
 }
 
 // pre-upgrade:
