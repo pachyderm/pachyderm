@@ -286,7 +286,7 @@ export class MountDrive implements Contents.IDrive {
         contentsNode.scrollHeight -
           contentsNode.scrollTop -
           contentsNode.clientHeight,
-      ) < 1;
+      ) <= 1;
     if (!scrolledToBottom) {
       return;
     }

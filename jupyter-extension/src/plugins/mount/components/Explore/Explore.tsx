@@ -58,7 +58,7 @@ const Explore: React.FC<ExploreProps> = ({
           (async () => {
             if (!projectRepo) {
               updateData(await unmountAll());
-              await changeDirectory(`/`);
+              await changeDirectory('/');
               return;
             }
 

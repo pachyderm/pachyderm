@@ -138,7 +138,7 @@ export class MountPlugin implements IMountPlugin {
       'pfs',
     );
 
-    this._exploreScreen = new SplitPanel({orientation: "vertical"});
+    this._exploreScreen = new SplitPanel({orientation: 'vertical'});
     this._exploreScreen.addWidget(
       ReactWidget.create(
         <UseSignal signal={this._poller.mountedSignal}>
