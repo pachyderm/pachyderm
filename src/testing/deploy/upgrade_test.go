@@ -80,9 +80,18 @@ func TestUpgradeTrigger(t *testing.T) {
 		"2.7.6",
 		"2.8.5",
 	}
-	expectedCommitCountTrigger1, expectedCommitCountTrigger2 := 33, 17
-	if semver.Compare("v"+from, "v2.8.0") >= 0 {
-		expectedCommitCountTrigger1, expectedCommitCountTrigger2 = 13, 6
+
+	getExpectedCommitCountFromVersion := func (version string) (int, int) {
+		expectedCommitMapTestTrigger1 := map[string]int{
+			"v2.7": 33,
+			"v2.8": 13,
+		}
+		expectedCommitMapTestTrigger2 := map[string]int{
+			"v2.7": 17,
+			"v2.8": 6,
+		}
+		lookup := semver.MajorMinor("v"+version)
+		return expectedCommitMapTestTrigger1[lookup], expectedCommitMapTestTrigger2[lookup]
 	}
 
 	dataRepo := "TestTrigger_data"
@@ -135,14 +144,27 @@ func TestUpgradeTrigger(t *testing.T) {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
 			require.NoError(t, err)
+			expectedCommitCountTrigger1, expectedCommitCountTrigger2 = getExpectedCommitCountFromVersion(from)
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 				require.NoError(t, err)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("comparing commit sizes %s/%s", len(commits), expectedCommitCountTrigger1)
+				fmt.Printf("comparing commit trigger1 sizes %s/%s", len(commits), expectedCommitCountTrigger1)
 				if len(commits) < expectedCommitCountTrigger1 {
+					return errors.New("not ready")
+				}
+				return nil
+			})
+			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+				require.NoError(t, err)
+				if err != nil {
+					return err
+				}
+				fmt.Printf("comparing commit trigger2 sizes %s/%s", len(commits), expectedCommitCountTrigger2)
+				if len(commits) < expectedCommitCountTrigger2 {
 					return errors.New("not ready")
 				}
 				return nil
@@ -169,6 +191,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					return nil
 				}, 10*time.Second)
 			}
+			expectedCommitCountTrigger1, expectedCommitCountTrigger2 = getExpectedCommitCountFromVersion(from)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, expectedCommitCountTrigger1, len(commits))
