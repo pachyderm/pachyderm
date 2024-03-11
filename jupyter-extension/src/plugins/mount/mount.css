@@ -335,21 +335,21 @@ textarea {
   margin-top: 0;
 }
 
-/* TODO Change this to em and remove !important */
-.jp-LabShell {
-  min-height: 1000px !important;
-}
-
-/* TODO: Fix this so that it selects properly. if I manually apply the style it does work as expected */
 .pachyderm-explore-widget > .p-SplitPanel-handle {
+  /* Hides unnecessary split panel adjuster since height is static */
   display: none;
 }
 
-/* TODO: Remove split panel dragging feature instead of min and max height */
 .pachyderm-explore-widget {
+  /* Locks the top part of the explore SplitPanel to be exactly 6.1em even if adjusted by JS */
+  min-height: 6.1em;
+  max-height: 6.1em;
+  height: 6.1em;
+
+  /* Resets the z-index from JuypterLab to allow Dropdowns to appear over content */
+  z-index: initial;
+
+  /* Necessary for absolute positioning Dropdowns on a z-index above the explore widget */
   overflow: visible;
   position: relative;
-  min-height: 85px;
-  max-height: 85px;
-  z-index: initial;
 }
