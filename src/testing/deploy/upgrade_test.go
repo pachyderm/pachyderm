@@ -144,7 +144,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
 			}
 			require.NoError(t, err)
-			expectedCommitCountTrigger1, expectedCommitCountTrigger2 = getExpectedCommitCountFromVersion(from)
+			expectedCommitCountTrigger1, expectedCommitCountTrigger2 := getExpectedCommitCountFromVersion(from)
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 				require.NoError(t, err)
@@ -191,7 +191,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					return nil
 				}, 10*time.Second)
 			}
-			expectedCommitCountTrigger1, expectedCommitCountTrigger2 = getExpectedCommitCountFromVersion(from)
+			expectedCommitCountTrigger1, expectedCommitCountTrigger2 := getExpectedCommitCountFromVersion(from)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, expectedCommitCountTrigger1, len(commits))
