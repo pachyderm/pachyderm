@@ -151,7 +151,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				fmt.Printf("comparing commit trigger1 sizes %s/%s", len(commits), expectedCommitCountTrigger1)
+				fmt.Printf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCountTrigger1)
 				if len(commits) < expectedCommitCountTrigger1 {
 					return errors.New("not ready")
 				}
@@ -163,7 +163,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				fmt.Printf("comparing commit trigger2 sizes %s/%s", len(commits), expectedCommitCountTrigger2)
+				fmt.Printf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCountTrigger2)
 				if len(commits) < expectedCommitCountTrigger2 {
 					return errors.New("not ready")
 				}
