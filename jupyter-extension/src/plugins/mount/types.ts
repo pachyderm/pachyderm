@@ -1,6 +1,6 @@
 import {Contents} from '@jupyterlab/services';
 import {TabPanel} from '@lumino/widgets';
-import {JSONObject, ReadonlyJSONObject} from '@lumino/coreutils';
+import {JSONObject} from '@lumino/coreutils';
 
 export type HealthCheckStatus =
   | 'UNHEALTHY'
@@ -52,6 +52,10 @@ export type CurrentDatumResponse = {
   input: {[key: string]: any};
   idx: number;
   all_datums_received: boolean;
+};
+
+export type DownloadPath = {
+  path: string;
 };
 
 export type MountDatumResponse = {

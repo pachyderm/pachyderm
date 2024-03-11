@@ -11,7 +11,7 @@ type useSortProps<T> = {
   initialSort?: SortableItem<T>;
   initialDirection?: number;
 };
-export const stringComparator = (a: string, b: string) => {
+export const stringComparator = (a: string, b: string): number => {
   if (a > b) {
     return 1;
   } else if (a < b) {
@@ -20,7 +20,7 @@ export const stringComparator = (a: string, b: string) => {
   return 0;
 };
 
-export const numberComparator = (a: number, b: number) => a - b;
+export const numberComparator = (a: number, b: number): number => a - b;
 
 export const useSort = <T>({
   data,
@@ -30,7 +30,14 @@ export const useSort = <T>({
     accessor: (a: T) => a,
   },
   initialDirection = 1,
-}: useSortProps<T>) => {
+}: useSortProps<T>): {
+  sortedData: T[];
+  reversed: boolean;
+  setComparator: (newComparator: SortableItem<T>) => void;
+  comparatorName: string;
+  numberComparator: (a: number, b: number) => number;
+  stringComparator: (a: string, b: string) => number;
+} => {
   const [direction, setDirection] = useState(initialDirection);
   const [comparator, setComparator] = useState(initialSort);
 

@@ -541,6 +541,70 @@ func (x *DropCommitRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
+func (x *WalkCommitProvenanceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	startArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Start {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("start", zapcore.ArrayMarshalerFunc(startArrMarshaller))
+	enc.AddUint64("max_commits", x.MaxCommits)
+	enc.AddUint64("max_depth", x.MaxDepth)
+	return nil
+}
+
+func (x *WalkCommitSubvenanceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	startArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Start {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("start", zapcore.ArrayMarshalerFunc(startArrMarshaller))
+	enc.AddUint64("max_commits", x.MaxCommits)
+	enc.AddUint64("max_depth", x.MaxDepth)
+	return nil
+}
+
+func (x *WalkBranchProvenanceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	startArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Start {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("start", zapcore.ArrayMarshalerFunc(startArrMarshaller))
+	enc.AddUint64("max_branches", x.MaxBranches)
+	enc.AddUint64("max_depth", x.MaxDepth)
+	return nil
+}
+
+func (x *WalkBranchSubvenanceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	startArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Start {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("start", zapcore.ArrayMarshalerFunc(startArrMarshaller))
+	enc.AddUint64("max_branches", x.MaxBranches)
+	enc.AddUint64("max_depth", x.MaxDepth)
+	return nil
+}
+
 func (x *DropCommitResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

@@ -401,6 +401,34 @@ message DropCommitRequest {
   bool recursive = 2;
 }
 
+message WalkCommitProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkCommitSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
 message DropCommitResponse {}
 
 message CreateBranchRequest {
@@ -769,6 +797,10 @@ service API {
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
   // FindCommits searches for commits that reference a supplied file being modified in a branch.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {}
+  // WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+  rpc WalkCommitProvenance(WalkCommitProvenanceRequest) returns (stream CommitInfo) {}
+  // WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+  rpc WalkCommitSubvenance(WalkCommitSubvenanceRequest) returns (stream CommitInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -778,6 +810,10 @@ service API {
   rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
+  // WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+  rpc WalkBranchProvenance(WalkBranchProvenanceRequest) returns (stream BranchInfo) {}
+  // WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+  rpc WalkBranchSubvenance(WalkBranchSubvenanceRequest) returns (stream BranchInfo) {}
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}

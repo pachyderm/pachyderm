@@ -22,8 +22,7 @@ import {CommandRegistry} from '@lumino/commands';
 import {SplitPanel, Widget} from '@lumino/widgets';
 import {MountPlugin} from '../mount';
 import * as handler from '../../../handler';
-import {HealthCheckStatus, MountSettings} from '../types';
-import {findByTestId, getByTestId} from '@testing-library/react';
+import {MountSettings} from '../types';
 
 jest.mock('../../../handler');
 
