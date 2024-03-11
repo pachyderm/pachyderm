@@ -1,0 +1,28 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "logs",
+    srcs = ["logs.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/logs",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/errors",
+        "//src/logs",
+        "//src/pps",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)
+
+go_test(
+    name = "logs_test",
+    srcs = ["logs_test.go"],
+    deps = [
+        ":logs",
+        "//src/internal/errors",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/logs",
+        "@org_golang_google_protobuf//types/known/timestamppb",
+    ],
+)

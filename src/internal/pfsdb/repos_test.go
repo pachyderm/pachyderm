@@ -3,6 +3,7 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -298,4 +299,40 @@ func assertRepoSequence(t *testing.T, names []string, repos []pfsdb.RepoInfoWith
 	for i, n := range names {
 		require.Equal(t, n, repos[i].RepoInfo.Repo.Name)
 	}
+}
+
+func testRepoPicker() *pfs.RepoPicker {
+	return &pfs.RepoPicker{
+		Picker: &pfs.RepoPicker_Name{
+			Name: &pfs.RepoPicker_RepoName{
+				Project: testProjectPicker(),
+				Name:    testRepoName,
+				Type:    testRepoType,
+			},
+		},
+	}
+}
+
+func TestPickRepo(t *testing.T) {
+	t.Parallel()
+	namePicker := testRepoPicker()
+	badRepoPicker := deepcopy.Copy(namePicker).(*pfs.RepoPicker)
+	badRepoPicker.GetName().Name = "does not exist"
+	repo := testRepo(testRepoName, testRepoType)
+	ctx := pctx.TestContext(t)
+	db := newTestDB(t, ctx)
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		_, err := pfsdb.UpsertRepo(ctx, tx, repo)
+		require.NoError(t, err, "should be able to create repo")
+		expected, err := pfsdb.GetRepoInfoWithID(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
+		require.NoError(t, err, "should be able to get a repo")
+		got, err := pfsdb.PickRepo(ctx, namePicker, tx)
+		require.NoError(t, err, "should be able to pick repo")
+		require.Equal(t, expected.ID, got.ID)
+		_, err = pfsdb.PickRepo(ctx, nil, tx)
+		require.YesError(t, err, "pick repo should error with a nil picker")
+		_, err = pfsdb.PickRepo(ctx, badRepoPicker, tx)
+		require.YesError(t, err, "pick repo should error with bad picker")
+		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
+	})
 }

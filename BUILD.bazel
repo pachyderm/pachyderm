@@ -148,6 +148,7 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
+        "//etc/helm/pachyderm:helm_lint",
         "//src/proto:check_generated_protos",
     ],
 )

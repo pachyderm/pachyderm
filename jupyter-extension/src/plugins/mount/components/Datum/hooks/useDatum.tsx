@@ -8,6 +8,7 @@ import {requestAPI} from '../../../../../handler';
 import {
   CrossInputSpec,
   CurrentDatumResponse,
+  DownloadPath,
   ListMountsResponse,
   MountDatumResponse,
   PfsInput,
@@ -201,13 +202,12 @@ export const useDatum = (
     setErrorMessage('');
 
     try {
-      // TODO: receiving a 500 response shows success message
-      await requestAPI<any>('datums/_download', 'PUT');
+      const res = await requestAPI<DownloadPath>('datums/_download', 'PUT');
+      setErrorMessage('Datum downloaded to ' + res.path);
     } catch (e) {
       setErrorMessage('Error downloading datum: ' + e);
       console.log(e);
     }
-    setErrorMessage('Datum downloaded to /pfs');
     setLoading(false);
   };
 

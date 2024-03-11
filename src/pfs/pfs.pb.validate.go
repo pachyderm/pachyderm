@@ -6116,6 +6116,570 @@ var _ interface {
 	ErrorName() string
 } = DropCommitRequestValidationError{}
 
+// Validate checks the field values on WalkCommitProvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *WalkCommitProvenanceRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WalkCommitProvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// WalkCommitProvenanceRequestMultiError, or nil if none found.
+func (m *WalkCommitProvenanceRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WalkCommitProvenanceRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetStart() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, WalkCommitProvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, WalkCommitProvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return WalkCommitProvenanceRequestValidationError{
+					field:  fmt.Sprintf("Start[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for MaxCommits
+
+	// no validation rules for MaxDepth
+
+	if len(errors) > 0 {
+		return WalkCommitProvenanceRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// WalkCommitProvenanceRequestMultiError is an error wrapping multiple
+// validation errors returned by WalkCommitProvenanceRequest.ValidateAll() if
+// the designated constraints aren't met.
+type WalkCommitProvenanceRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WalkCommitProvenanceRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WalkCommitProvenanceRequestMultiError) AllErrors() []error { return m }
+
+// WalkCommitProvenanceRequestValidationError is the validation error returned
+// by WalkCommitProvenanceRequest.Validate if the designated constraints
+// aren't met.
+type WalkCommitProvenanceRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e WalkCommitProvenanceRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e WalkCommitProvenanceRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e WalkCommitProvenanceRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e WalkCommitProvenanceRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e WalkCommitProvenanceRequestValidationError) ErrorName() string {
+	return "WalkCommitProvenanceRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e WalkCommitProvenanceRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWalkCommitProvenanceRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = WalkCommitProvenanceRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = WalkCommitProvenanceRequestValidationError{}
+
+// Validate checks the field values on WalkCommitSubvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *WalkCommitSubvenanceRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WalkCommitSubvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// WalkCommitSubvenanceRequestMultiError, or nil if none found.
+func (m *WalkCommitSubvenanceRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WalkCommitSubvenanceRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetStart() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, WalkCommitSubvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, WalkCommitSubvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return WalkCommitSubvenanceRequestValidationError{
+					field:  fmt.Sprintf("Start[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for MaxCommits
+
+	// no validation rules for MaxDepth
+
+	if len(errors) > 0 {
+		return WalkCommitSubvenanceRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// WalkCommitSubvenanceRequestMultiError is an error wrapping multiple
+// validation errors returned by WalkCommitSubvenanceRequest.ValidateAll() if
+// the designated constraints aren't met.
+type WalkCommitSubvenanceRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WalkCommitSubvenanceRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WalkCommitSubvenanceRequestMultiError) AllErrors() []error { return m }
+
+// WalkCommitSubvenanceRequestValidationError is the validation error returned
+// by WalkCommitSubvenanceRequest.Validate if the designated constraints
+// aren't met.
+type WalkCommitSubvenanceRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e WalkCommitSubvenanceRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e WalkCommitSubvenanceRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e WalkCommitSubvenanceRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e WalkCommitSubvenanceRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e WalkCommitSubvenanceRequestValidationError) ErrorName() string {
+	return "WalkCommitSubvenanceRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e WalkCommitSubvenanceRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWalkCommitSubvenanceRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = WalkCommitSubvenanceRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = WalkCommitSubvenanceRequestValidationError{}
+
+// Validate checks the field values on WalkBranchProvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *WalkBranchProvenanceRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WalkBranchProvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// WalkBranchProvenanceRequestMultiError, or nil if none found.
+func (m *WalkBranchProvenanceRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WalkBranchProvenanceRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetStart() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, WalkBranchProvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, WalkBranchProvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return WalkBranchProvenanceRequestValidationError{
+					field:  fmt.Sprintf("Start[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for MaxBranches
+
+	// no validation rules for MaxDepth
+
+	if len(errors) > 0 {
+		return WalkBranchProvenanceRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// WalkBranchProvenanceRequestMultiError is an error wrapping multiple
+// validation errors returned by WalkBranchProvenanceRequest.ValidateAll() if
+// the designated constraints aren't met.
+type WalkBranchProvenanceRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WalkBranchProvenanceRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WalkBranchProvenanceRequestMultiError) AllErrors() []error { return m }
+
+// WalkBranchProvenanceRequestValidationError is the validation error returned
+// by WalkBranchProvenanceRequest.Validate if the designated constraints
+// aren't met.
+type WalkBranchProvenanceRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e WalkBranchProvenanceRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e WalkBranchProvenanceRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e WalkBranchProvenanceRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e WalkBranchProvenanceRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e WalkBranchProvenanceRequestValidationError) ErrorName() string {
+	return "WalkBranchProvenanceRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e WalkBranchProvenanceRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWalkBranchProvenanceRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = WalkBranchProvenanceRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = WalkBranchProvenanceRequestValidationError{}
+
+// Validate checks the field values on WalkBranchSubvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *WalkBranchSubvenanceRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on WalkBranchSubvenanceRequest with the
+// rules defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// WalkBranchSubvenanceRequestMultiError, or nil if none found.
+func (m *WalkBranchSubvenanceRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *WalkBranchSubvenanceRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetStart() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, WalkBranchSubvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, WalkBranchSubvenanceRequestValidationError{
+						field:  fmt.Sprintf("Start[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return WalkBranchSubvenanceRequestValidationError{
+					field:  fmt.Sprintf("Start[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for MaxBranches
+
+	// no validation rules for MaxDepth
+
+	if len(errors) > 0 {
+		return WalkBranchSubvenanceRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// WalkBranchSubvenanceRequestMultiError is an error wrapping multiple
+// validation errors returned by WalkBranchSubvenanceRequest.ValidateAll() if
+// the designated constraints aren't met.
+type WalkBranchSubvenanceRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m WalkBranchSubvenanceRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m WalkBranchSubvenanceRequestMultiError) AllErrors() []error { return m }
+
+// WalkBranchSubvenanceRequestValidationError is the validation error returned
+// by WalkBranchSubvenanceRequest.Validate if the designated constraints
+// aren't met.
+type WalkBranchSubvenanceRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e WalkBranchSubvenanceRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e WalkBranchSubvenanceRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e WalkBranchSubvenanceRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e WalkBranchSubvenanceRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e WalkBranchSubvenanceRequestValidationError) ErrorName() string {
+	return "WalkBranchSubvenanceRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e WalkBranchSubvenanceRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sWalkBranchSubvenanceRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = WalkBranchSubvenanceRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = WalkBranchSubvenanceRequestValidationError{}
+
 // Validate checks the field values on DropCommitResponse with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.

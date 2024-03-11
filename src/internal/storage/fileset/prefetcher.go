@@ -21,16 +21,19 @@ import (
 // concurrent tasks to prefetch the chunks and emit the files associated with
 // the chunks. The prefetching of files with more chunks than the prefetch
 // limit will not be handled by this abstraction. In this case, the prefetching
-// will be handled when the content of the file is needed.
+// will be handled when the content of the file is needed. Files after the
+// configured upper bound will not be prefetched.
 type prefetcher struct {
 	FileSet
 	storage *Storage
+	upper   string
 }
 
-func NewPrefetcher(storage *Storage, fileSet FileSet) FileSet {
+func NewPrefetcher(storage *Storage, fileSet FileSet, upper string) FileSet {
 	return &prefetcher{
 		FileSet: fileSet,
 		storage: storage,
+		upper:   upper,
 	}
 }
 
@@ -74,8 +77,27 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	}
 	var ref *chunk.DataRef
 	var files []File
+	var finished bool
+	finish := func() error {
+		if finished {
+			return nil
+		}
+		finished = true
+		// Emit the last buffered files.
+		if err := fetchChunk(ref, files); err != nil {
+			return err
+		}
+		return taskChain.Wait()
+	}
 	maxFilesBuf := p.storage.shardConfig.NumFiles / int64(p.storage.prefetchLimit)
 	if err := p.FileSet.Iterate(ctx, func(f File) error {
+		// Emit the files without prefetching if we are past the upper bound.
+		if p.upper != "" && f.Index().Path >= p.upper {
+			if err := finish(); err != nil {
+				return err
+			}
+			return cb(f)
+		}
 		// Emit the files if a large number are buffered.
 		if int64(len(files)) >= maxFilesBuf {
 			if err := fetchChunk(ref, files); err != nil {
@@ -131,9 +153,5 @@ func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...i
 	}, opts...); err != nil {
 		return err
 	}
-	// Emit the last buffered files.
-	if err := fetchChunk(ref, files); err != nil {
-		return err
-	}
-	return taskChain.Wait()
+	return finish()
 }

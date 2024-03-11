@@ -391,6 +391,26 @@ func (a *apiServer) FindCommits(request *pfs.FindCommitsRequest, srv pfs.API_Fin
 	return a.driver.findCommits(ctx, request, srv.Send)
 }
 
+type WalkCommitProvenanceRequest struct {
+	StartWithID []*pfsdb.CommitWithID
+	*pfs.WalkCommitProvenanceRequest
+}
+
+type WalkCommitSubvenanceRequest struct {
+	StartWithID []*pfsdb.CommitWithID
+	*pfs.WalkCommitSubvenanceRequest
+}
+
+// WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
+func (a *apiServer) WalkCommitProvenance(request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
+	return errors.New("not implemented")
+}
+
+// WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
+func (a *apiServer) WalkCommitSubvenance(request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
+	return errors.New("not implemented")
+}
+
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
 // inside an existing postgres transaction.  This is not an RPC.
 func (a *apiServer) CreateBranchInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pfs.CreateBranchRequest) error {
@@ -448,6 +468,26 @@ func (a *apiServer) DeleteBranch(ctx context.Context, request *pfs.DeleteBranchR
 		return nil, err
 	}
 	return &emptypb.Empty{}, nil
+}
+
+type WalkBranchProvenanceRequest struct {
+	StartWithID []*pfsdb.BranchInfoWithID
+	*pfs.WalkBranchProvenanceRequest
+}
+
+type WalkBranchSubvenanceRequest struct {
+	StartWithID []*pfsdb.BranchInfoWithID
+	*pfs.WalkBranchSubvenanceRequest
+}
+
+// WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
+func (a *apiServer) WalkBranchProvenance(request *WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) (retErr error) {
+	return errors.New("not implemented")
+}
+
+// WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
+func (a *apiServer) WalkBranchSubvenance(request *WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) (retErr error) {
+	return errors.New("not implemented")
 }
 
 // CreateProject implements the protobuf pfs.CreateProject RPC

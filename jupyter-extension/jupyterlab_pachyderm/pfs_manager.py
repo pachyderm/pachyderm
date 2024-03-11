@@ -650,6 +650,7 @@ class DatumManager(FileContentsManager):
 
             shutil.rmtree(self._download_dir, ignore_errors=True)
             self._download_dir = download_dir
+            return PFS_MOUNT_DIR
         except Exception as e:
             shutil.rmtree(download_dir, ignore_errors=True)
             raise e

@@ -106,9 +106,6 @@ docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
-docker-build-kafka:
-	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t kafka-demo etc/testing/kafka
-
 docker-build-spout-test:
 	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
 
@@ -318,13 +315,6 @@ test-worker-helper:
 
 clean: clean-launch clean-launch-kube
 
-clean-launch-kafka:
-	kubectl delete -f etc/kubernetes-kafka -R
-
-launch-kafka:
-	kubectl apply -f etc/kubernetes-kafka -R
-	kubectl wait --for=condition=ready pod -l app=kafka --timeout=5m
-
 clean-launch-stats:
 	kubectl delete --filename etc/kubernetes-prometheus -R
 
@@ -419,7 +409,6 @@ check-bazel:
 	docker-build \
 	docker-build-coverage \
 	docker-build-gpu \
-	docker-build-kafka \
 	docker-build-spout-test \
 	docker-build-netcat \
 	docker-push-gpu \
@@ -457,8 +446,6 @@ check-bazel:
 	test-worker \
 	test-worker-helper \
 	clean \
-	clean-launch-kafka \
-	launch-kafka \
 	clean-launch-stats \
 	launch-stats \
 	launch-loki \

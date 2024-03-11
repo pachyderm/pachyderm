@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 	"strings"
@@ -24,7 +25,7 @@ import (
 )
 
 const (
-	DefaultMaxSearchDepth = 1000
+	MaxSearchDepth = 1000
 
 	// CommitsChannelName is used to watch events for the commits table.
 	CommitsChannelName     = "pfs_commits"
@@ -490,6 +491,7 @@ func getCommitChildren(ctx context.Context, extCtx sqlx.ExtContext, parentCommit
 }
 
 // GetCommitAncestry returns a map of child CommitID values to parent CommitIDs including the startId up to maxDepth.
+// maxDepth cannot exceed MaxSearchDepth.
 func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint) (map[CommitID]CommitID, error) {
 	ancestry := make(map[CommitID]CommitID)
 	if err := ForEachCommitAncestor(ctx, extCtx, startId, maxDepth, func(parentId, childId CommitID) error {
@@ -502,10 +504,11 @@ func GetCommitAncestry(ctx context.Context, extCtx sqlx.ExtContext, startId Comm
 }
 
 // ForEachCommitAncestor queries postgres for ancestors of startId up to the maxDepth. cb() is called for each ancestor.
-// maxDepth is optional.
+// maxDepth is optional, but cannot exceed MaxSearchDepth. The caller may gracefully terminate iteration early by
+// returning errutil.ErrBreak in cb().
 func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId CommitID, maxDepth uint, cb func(parentId, childId CommitID) error) error {
-	if maxDepth == 0 {
-		maxDepth = DefaultMaxSearchDepth
+	if maxDepth == 0 || maxDepth > MaxSearchDepth {
+		maxDepth = MaxSearchDepth
 	}
 	query := `
 	WITH RECURSIVE ancestry AS (
@@ -540,6 +543,30 @@ func ForEachCommitAncestor(ctx context.Context, extCtx sqlx.ExtContext, startId 
 		return errors.Wrap(err, "iterating over commit ancestry")
 	}
 	return nil
+}
+
+// forEachCommitAncestorUntilRoot calls ForEachCommitAncestor continuously until the root is encountered.
+func forEachCommitAncestorUntilRoot(ctx context.Context, tx *pachsql.Tx, startId CommitID, cb func(parentId, childId CommitID) error) error {
+	commitPtr := startId
+	earliest := commitPtr
+	for {
+		if err := ForEachCommitAncestor(ctx, tx, commitPtr, MaxSearchDepth, func(parentId, childId CommitID) error {
+			earliest = parentId
+			if err := cb(parentId, childId); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+			if errors.Is(err, errutil.ErrBreak) {
+				return nil
+			}
+			return errors.Wrap(err, "for each commit ancestor in batches")
+		}
+		if earliest == commitPtr { // root was found.
+			return nil
+		}
+		commitPtr = earliest
+	}
 }
 
 func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
@@ -1036,4 +1063,119 @@ func watchCommits(ctx context.Context, db *pachsql.DB, snapshot stream.Iterator[
 			return errors.Wrap(ctx.Err(), "watcher cancelled")
 		}
 	}
+}
+
+func PickCommit(ctx context.Context, commitPicker *pfs.CommitPicker, tx *pachsql.Tx) (*CommitWithID, error) {
+	if commitPicker == nil || commitPicker.Picker == nil {
+		return nil, errors.New("commit picker cannot be nil")
+	}
+	switch commitPicker.Picker.(type) {
+	case *pfs.CommitPicker_Id:
+		return pickCommitGlobalID(ctx, commitPicker.GetId(), tx)
+	case *pfs.CommitPicker_BranchHead:
+		return pickCommitBranchHead(ctx, commitPicker.GetBranchHead(), tx)
+	case *pfs.CommitPicker_Ancestor:
+		return pickCommitAncestorOf(ctx, commitPicker.GetAncestor(), tx)
+	case *pfs.CommitPicker_BranchRoot_:
+		return pickCommitBranchRoot(ctx, commitPicker.GetBranchRoot(), tx)
+	default:
+		return nil, errors.Errorf("commit picker is of an unknown type: %T", commitPicker.Picker)
+	}
+}
+
+func pickCommitGlobalID(ctx context.Context, picker *pfs.CommitPicker_CommitByGlobalId, tx *pachsql.Tx) (*CommitWithID, error) {
+	repo, err := PickRepo(ctx, picker.Repo, tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	commitWithID, err := GetCommitWithIDByKey(ctx, tx, &pfs.Commit{
+		Repo: repo.RepoInfo.Repo,
+		Id:   picker.Id,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	return commitWithID, nil
+}
+
+func pickCommitBranchHead(ctx context.Context, branchHead *pfs.BranchPicker, tx *pachsql.Tx) (*CommitWithID, error) {
+	branchInfoWithID, err := PickBranch(ctx, branchHead, tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	commitWithID, err := GetCommitWithIDByKey(ctx, tx, branchInfoWithID.Head)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	return commitWithID, nil
+}
+
+func pickCommitAncestorOf(ctx context.Context, ancestorOf *pfs.CommitPicker_AncestorOf, tx *pachsql.Tx) (*CommitWithID, error) {
+	startCommit, err := PickCommit(ctx, ancestorOf.Start, tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	if ancestorOf.Offset == 0 {
+		return startCommit, nil
+	}
+	offset := 0
+	commitPtr := startCommit.ID
+	if err := forEachCommitAncestorUntilRoot(ctx, tx, startCommit.ID, func(parentId, _ CommitID) error {
+		commitPtr = parentId
+		offset++
+		if uint32(offset) == ancestorOf.Offset {
+			return errutil.ErrBreak
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	if uint32(offset) != ancestorOf.Offset {
+		return nil, errors.Errorf("picking commit: invalid offset for ancestor of commit: %s, offset requested: %d, offset traversable: %d",
+			CommitKey(startCommit.Commit), ancestorOf.Offset, offset)
+	}
+	commitInfo, err := GetCommit(ctx, tx, commitPtr)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	commitWithID := &CommitWithID{
+		ID:         commitPtr,
+		CommitInfo: commitInfo,
+	}
+	return commitWithID, nil
+}
+
+func pickCommitBranchRoot(ctx context.Context, branchRoot *pfs.CommitPicker_BranchRoot, tx *pachsql.Tx) (*CommitWithID, error) {
+	headCommit, err := pickCommitBranchHead(ctx, branchRoot.Branch, tx)
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	ancestry := make([]CommitID, 0)
+	depthToRoot := 0
+	if err := forEachCommitAncestorUntilRoot(ctx, tx, headCommit.ID, func(parentId, _ CommitID) error {
+		depthToRoot++
+		ancestry = append(ancestry, parentId)
+		if uint32(len(ancestry)) > branchRoot.Offset+1 { //+1 here handles case where offset is 0.
+			ancestry = ancestry[1:]
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	if uint32(depthToRoot) < branchRoot.Offset {
+		return nil, errors.Errorf("picking commit: invalid offset from branch root for head commit: %s, offset: %d, maximum depth: %d",
+			CommitKey(headCommit.Commit), branchRoot.Offset, depthToRoot)
+	}
+	if len(ancestry) == 0 {
+		return nil, errors.Errorf("picking commit: branch root not found for head commit: %s", CommitKey(headCommit.Commit))
+	}
+	commitInfo, err := GetCommit(ctx, tx, ancestry[0])
+	if err != nil {
+		return nil, errors.Wrap(err, "picking commit")
+	}
+	commitWithID := &CommitWithID{
+		ID:         ancestry[0],
+		CommitInfo: commitInfo,
+	}
+	return commitWithID, nil
 }
