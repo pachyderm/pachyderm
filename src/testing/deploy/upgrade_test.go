@@ -109,11 +109,12 @@ func TestUpgradeTrigger(t *testing.T) {
 
 	dataRepo := "TestTrigger_data"
 	dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
+	pipeline1 := "TestTrigger1"
+	pipeline2 := "TestTrigger2"
+
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* preUpgrade */
 			require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
-			pipeline1 := "TestTrigger1"
-			pipeline2 := "TestTrigger2"
 			// after 2.7.x pachyderm doesn't come with a "master" branch anymore, so we create it in this test
 			_, err := c.PfsAPIClient.CreateBranch(c.Ctx(), &pfs.CreateBranchRequest{
 				Branch: &pfs.Branch{Repo: &pfs.Repo{Name: dataRepo, Type: pfs.UserRepoType, Project: &pfs.Project{Name: pfs.DefaultProjectName}}, Name: "master"},
@@ -154,31 +155,37 @@ func TestUpgradeTrigger(t *testing.T) {
 				false,
 			))
 			for i := 0; i < 11; i++ {
-				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader(fmt.Sprintf("hello world %v", i))))
 			}
 			require.NoError(t, err)
 			expectedCommitCount := getExpectedCommitCountFromVersion(from)
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
 				require.NoError(t, err)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
-				if len(commits) < expectedCommitCount.preTrigger1 {
-					return errors.New("not ready")
+				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
+				for i, commit := range commits {
+					t.Logf("	%d: %s", i, commit.Description)
+				}
+				if got, want := len(commits), expectedCommitCount.preTrigger1; got < want {
+					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
 				}
 				return nil
 			})
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
-				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
 				require.NoError(t, err)
 				if err != nil {
 					return err
 				}
-				fmt.Printf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
-				if len(commits) < expectedCommitCount.preTrigger2 {
-					return errors.New("not ready")
+				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
+				for i, commit := range commits {
+					t.Logf("	%d: %s", i, commit.Description)
+				}
+				if got, want := len(commits), expectedCommitCount.preTrigger2; got < want {
+					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
 				}
 				return nil
 			})
@@ -192,23 +199,23 @@ func TestUpgradeTrigger(t *testing.T) {
 			if semver.Compare("v"+from, "v2.8.0") < 0 {
 				// these alias commits only exist before v2.8.x
 				require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
-					ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
+					ci, err := c.InspectCommit(pfs.DefaultProjectName, pipeline2, "master", "")
 					require.NoError(t, err)
 					aliasCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", ci.Commit.Id)
 					if err != nil {
 						return err
 					}
-					if aliasCI.Commit.Id != latestDataCI.Commit.Id {
+					if got, want := latestDataCI.Commit.Id, aliasCI.Commit.Id; got != want {
 						return errors.Errorf("not ready alias commit: %v latest data commit: %v", aliasCI.Commit.Id, latestDataCI.Commit.Id)
 					}
 					return nil
 				}, 10*time.Second)
 			}
 			expectedCommitCount := getExpectedCommitCountFromVersion(from)
-			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger1"), nil, nil, 0)
+			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, expectedCommitCount.postTrigger1, len(commits))
-			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, "TestTrigger2"), nil, nil, 0)
+			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
 			require.NoError(t, err)
 			require.Equal(t, expectedCommitCount.postTrigger2, len(commits))
 			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
