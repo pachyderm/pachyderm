@@ -1,7 +1,7 @@
 import React from 'react';
 import {render, fireEvent} from '@testing-library/react';
 
-import DropdownCombobox, {DropdownComboboxProps} from '../DropdownCombobox';
+import DropdownCombobox from '../DropdownCombobox';
 
 describe('DropdownCombobox', () => {
   it('should render placeholder', async () => {
