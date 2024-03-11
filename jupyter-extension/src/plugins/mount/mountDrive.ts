@@ -118,6 +118,16 @@ export class MountDrive implements Contents.IDrive {
       return this._getCachedContent();
     }
 
+    // Reset cache
+    const now = Date.now();
+    this._cache = {
+      key: localPath,
+      now,
+      contents: [],
+      filteredContents: [],
+      shallowResponse: DEFAULT_CONTENT_MODEL,
+    };
+
     // Make a no-content request to determine the type of content being requested.
     // If the content type is not a directory, then we want to preserve our cache
     //   and not paginate the results.
@@ -128,6 +138,9 @@ export class MountDrive implements Contents.IDrive {
       showErrorMessage('Get Error', url + ' not found');
       return DEFAULT_CONTENT_MODEL;
     }
+
+    this._cache.shallowResponse = shallowResponse;
+
     const content = options?.content ? '1' : '0';
     if (content === '0') {
       this._loading.emit(false);
@@ -142,14 +155,6 @@ export class MountDrive implements Contents.IDrive {
     // If we don't have contents cached, then we fetch them and cache the results.
     this.resetContentsNode();
     this._loading.emit(false);
-    const now = Date.now();
-    this._cache = {
-      key: localPath,
-      now,
-      contents: [],
-      filteredContents: [],
-      shallowResponse,
-    };
     const getOptions = {
       ...options,
       number: PAGINATION_NUMBER,
@@ -266,8 +271,14 @@ export class MountDrive implements Contents.IDrive {
       url,
       getOptions,
     ).catch((e) => {
-      // TODO: Figure out a way to gracefully terminate requests changing mounts throws this error
-      // showErrorMessage('Failed Fetching Next Results', e);
+      // This can happen if a user unmounts the current repository in the middle of loading results.
+      if (this._cache.now !== timeOfLastDirectoryChange) {
+        this._loading.emit(false);
+        return;
+      }
+
+      // This should never happen and means some critical backend error has occured.
+      showErrorMessage('Failed Fetching Next Results', e);
     });
   }
 
