@@ -4,7 +4,7 @@ import {
   ILayoutRestorer,
   JupyterFrontEnd,
 } from '@jupyterlab/application';
-import {ReactWidget, showErrorMessage, UseSignal} from '@jupyterlab/apputils';
+import {ReactWidget, UseSignal} from '@jupyterlab/apputils';
 import {IDocumentManager} from '@jupyterlab/docmanager';
 import {DocumentRegistry} from '@jupyterlab/docregistry';
 import {FileBrowser, IFileBrowserFactory} from '@jupyterlab/filebrowser';
@@ -35,7 +35,6 @@ import Explore from './components/Explore/Explore';
 import Pipeline from './components/Pipeline/Pipeline';
 import LoadingDots from '../../utils/components/LoadingDots/LoadingDots';
 import FullPageError from './components/FullPageError/FullPageError';
-import {requestAPI} from '../../handler';
 
 export const MOUNT_BROWSER_PREFIX = 'mount-browser-';
 export const PFS_MOUNT_BROWSER_NAME = 'mount-browser-pfs:';
@@ -463,7 +462,7 @@ export class MountPlugin implements IMountPlugin {
     return this._readyPromise;
   }
 
-  setCurrentView(widget: Widget) {
+  setCurrentView(widget: Widget): void {
     this._panel.currentWidget = widget;
   }
 }

@@ -1,7 +1,6 @@
 import {ISignal, Signal} from '@lumino/signaling';
 import {Poll} from '@lumino/polling';
 import {requestAPI} from '../../handler';
-import {isEqual} from 'lodash';
 import {
   AuthConfig,
   HealthCheck,

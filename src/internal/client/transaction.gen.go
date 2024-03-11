@@ -501,6 +501,22 @@ func (c *unsupportedPfsBuilderClient) SubscribeCommit(_ context.Context, _ *pfs_
 	return nil, unsupportedError("SubscribeCommit")
 }
 
+func (c *unsupportedPfsBuilderClient) WalkBranchProvenance(_ context.Context, _ *pfs_v2.WalkBranchProvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkBranchProvenanceClient, error) {
+	return nil, unsupportedError("WalkBranchProvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkBranchSubvenance(_ context.Context, _ *pfs_v2.WalkBranchSubvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkBranchSubvenanceClient, error) {
+	return nil, unsupportedError("WalkBranchSubvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkCommitProvenance(_ context.Context, _ *pfs_v2.WalkCommitProvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkCommitProvenanceClient, error) {
+	return nil, unsupportedError("WalkCommitProvenance")
+}
+
+func (c *unsupportedPfsBuilderClient) WalkCommitSubvenance(_ context.Context, _ *pfs_v2.WalkCommitSubvenanceRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkCommitSubvenanceClient, error) {
+	return nil, unsupportedError("WalkCommitSubvenance")
+}
+
 func (c *unsupportedPfsBuilderClient) WalkFile(_ context.Context, _ *pfs_v2.WalkFileRequest, opts ...grpc.CallOption) (pfs_v2.API_WalkFileClient, error) {
 	return nil, unsupportedError("WalkFile")
 }
