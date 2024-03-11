@@ -2,6 +2,9 @@ package server
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -234,6 +237,84 @@ func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pf
 		}
 	}
 	return a.apiServer.FindCommits(request, srv)
+}
+
+func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
+	commits, err := a.pickCommits(srv.Context(), request.Start)
+	if err != nil {
+		return errors.Wrap(err, "walk commit provenance")
+	}
+	return a.apiServer.WalkCommitProvenance(&WalkCommitProvenanceRequest{
+		StartWithID:                 commits,
+		WalkCommitProvenanceRequest: request,
+	}, srv)
+}
+
+func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
+	commits, err := a.pickCommits(srv.Context(), request.Start)
+	if err != nil {
+		return errors.Wrap(err, "walk commit subvenance")
+	}
+	return a.apiServer.WalkCommitSubvenance(&WalkCommitSubvenanceRequest{
+		StartWithID:                 commits,
+		WalkCommitSubvenanceRequest: request,
+	}, srv)
+}
+
+func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
+	branches, err := a.pickBranches(srv.Context(), request.Start)
+	if err != nil {
+		return errors.Wrap(err, "walk branch provenance")
+	}
+	return a.apiServer.WalkBranchProvenance(&WalkBranchProvenanceRequest{
+		StartWithID:                 branches,
+		WalkBranchProvenanceRequest: request,
+	}, srv)
+}
+
+func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
+	branches, err := a.pickBranches(srv.Context(), request.Start)
+	if err != nil {
+		return errors.Wrap(err, "walk branch subvenance")
+	}
+	return a.apiServer.WalkBranchSubvenance(&WalkBranchSubvenanceRequest{
+		StartWithID:                 branches,
+		WalkBranchSubvenanceRequest: request,
+	}, srv)
+}
+
+func (a *validatedAPIServer) pickCommits(ctx context.Context, pickers []*pfs.CommitPicker) ([]*pfsdb.CommitWithID, error) {
+	commits := make([]*pfsdb.CommitWithID, 0)
+	if err := dbutil.WithTx(ctx, a.driver.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		for _, picker := range pickers {
+			commit, err := pfsdb.PickCommit(ctx, picker, tx)
+			if err != nil {
+				return errors.Wrap(err, "pick commits")
+			}
+			commits = append(commits, commit)
+		}
+		return nil
+	}, dbutil.WithReadOnly()); err != nil {
+		return nil, err
+	}
+	return commits, nil
+}
+
+func (a *validatedAPIServer) pickBranches(ctx context.Context, pickers []*pfs.BranchPicker) ([]*pfsdb.BranchInfoWithID, error) {
+	branches := make([]*pfsdb.BranchInfoWithID, 0)
+	if err := dbutil.WithTx(ctx, a.driver.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		for _, picker := range pickers {
+			branch, err := pfsdb.PickBranch(ctx, picker, tx)
+			if err != nil {
+				return errors.Wrap(err, "pick branches")
+			}
+			branches = append(branches, branch)
+		}
+		return nil
+	}, dbutil.WithReadOnly()); err != nil {
+		return nil, err
+	}
+	return branches, nil
 }
 
 func validateFile(file *pfs.File) error {

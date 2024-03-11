@@ -575,6 +575,54 @@ class DropCommitRequest(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class WalkCommitProvenanceRequest(betterproto.Message):
+    start: List["CommitPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_commits: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkCommitSubvenanceRequest(betterproto.Message):
+    start: List["CommitPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_commits: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkBranchProvenanceRequest(betterproto.Message):
+    start: List["BranchPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_branches: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class WalkBranchSubvenanceRequest(betterproto.Message):
+    start: List["BranchPicker"] = betterproto.message_field(1)
+    """
+    if more than one picker is specified, the result stream is the
+    concatenation of the streams of each picker.
+    """
+
+    max_branches: int = betterproto.uint64_field(2)
+    max_depth: int = betterproto.uint64_field(3)
+
+
+@dataclass(eq=False, repr=False)
 class DropCommitResponse(betterproto.Message):
     pass
 
@@ -1030,6 +1078,16 @@ class ApiStub:
             request_serializer=FindCommitsRequest.SerializeToString,
             response_deserializer=FindCommitsResponse.FromString,
         )
+        self.__rpc_walk_commit_provenance = channel.unary_stream(
+            "/pfs_v2.API/WalkCommitProvenance",
+            request_serializer=WalkCommitProvenanceRequest.SerializeToString,
+            response_deserializer=CommitInfo.FromString,
+        )
+        self.__rpc_walk_commit_subvenance = channel.unary_stream(
+            "/pfs_v2.API/WalkCommitSubvenance",
+            request_serializer=WalkCommitSubvenanceRequest.SerializeToString,
+            response_deserializer=CommitInfo.FromString,
+        )
         self.__rpc_create_branch = channel.unary_unary(
             "/pfs_v2.API/CreateBranch",
             request_serializer=CreateBranchRequest.SerializeToString,
@@ -1049,6 +1107,16 @@ class ApiStub:
             "/pfs_v2.API/DeleteBranch",
             request_serializer=DeleteBranchRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_walk_branch_provenance = channel.unary_stream(
+            "/pfs_v2.API/WalkBranchProvenance",
+            request_serializer=WalkBranchProvenanceRequest.SerializeToString,
+            response_deserializer=BranchInfo.FromString,
+        )
+        self.__rpc_walk_branch_subvenance = channel.unary_stream(
+            "/pfs_v2.API/WalkBranchSubvenance",
+            request_serializer=WalkBranchSubvenanceRequest.SerializeToString,
+            response_deserializer=BranchInfo.FromString,
         )
         self.__rpc_modify_file = channel.stream_unary(
             "/pfs_v2.API/ModifyFile",
@@ -1442,6 +1510,42 @@ class ApiStub:
         for response in self.__rpc_find_commits(request):
             yield response
 
+    def walk_commit_provenance(
+        self,
+        *,
+        start: Optional[List["CommitPicker"]] = None,
+        max_commits: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["CommitInfo"]:
+        start = start or []
+
+        request = WalkCommitProvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_commits = max_commits
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_commit_provenance(request):
+            yield response
+
+    def walk_commit_subvenance(
+        self,
+        *,
+        start: Optional[List["CommitPicker"]] = None,
+        max_commits: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["CommitInfo"]:
+        start = start or []
+
+        request = WalkCommitSubvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_commits = max_commits
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_commit_subvenance(request):
+            yield response
+
     def create_branch(
         self,
         *,
@@ -1496,6 +1600,42 @@ class ApiStub:
         request.force = force
 
         return self.__rpc_delete_branch(request)
+
+    def walk_branch_provenance(
+        self,
+        *,
+        start: Optional[List["BranchPicker"]] = None,
+        max_branches: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["BranchInfo"]:
+        start = start or []
+
+        request = WalkBranchProvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_branches = max_branches
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_branch_provenance(request):
+            yield response
+
+    def walk_branch_subvenance(
+        self,
+        *,
+        start: Optional[List["BranchPicker"]] = None,
+        max_branches: int = 0,
+        max_depth: int = 0
+    ) -> Iterator["BranchInfo"]:
+        start = start or []
+
+        request = WalkBranchSubvenanceRequest()
+        if start is not None:
+            request.start = start
+        request.max_branches = max_branches
+        request.max_depth = max_depth
+
+        for response in self.__rpc_walk_branch_subvenance(request):
+            yield response
 
     def modify_file(
         self,
