@@ -386,6 +386,10 @@
     - [StartCommitRequest](#pfs_v2-StartCommitRequest)
     - [SubscribeCommitRequest](#pfs_v2-SubscribeCommitRequest)
     - [Trigger](#pfs_v2-Trigger)
+    - [WalkBranchProvenanceRequest](#pfs_v2-WalkBranchProvenanceRequest)
+    - [WalkBranchSubvenanceRequest](#pfs_v2-WalkBranchSubvenanceRequest)
+    - [WalkCommitProvenanceRequest](#pfs_v2-WalkCommitProvenanceRequest)
+    - [WalkCommitSubvenanceRequest](#pfs_v2-WalkCommitSubvenanceRequest)
     - [WalkFileRequest](#pfs_v2-WalkFileRequest)
   
     - [CommitState](#pfs_v2-CommitState)
@@ -6237,6 +6241,74 @@ branch it is moved.
 
 
 
+<a name="pfs_v2-WalkBranchProvenanceRequest"></a>
+
+### WalkBranchProvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [BranchPicker](#pfs_v2-BranchPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_branches | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkBranchSubvenanceRequest"></a>
+
+### WalkBranchSubvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [BranchPicker](#pfs_v2-BranchPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_branches | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkCommitProvenanceRequest"></a>
+
+### WalkCommitProvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [CommitPicker](#pfs_v2-CommitPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_commits | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
+<a name="pfs_v2-WalkCommitSubvenanceRequest"></a>
+
+### WalkCommitSubvenanceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| start | [CommitPicker](#pfs_v2-CommitPicker) | repeated | if more than one picker is specified, the result stream is the concatenation of the streams of each picker. |
+| max_commits | [uint64](#uint64) |  | defaults to 10,000 if unspecified |
+| max_depth | [uint64](#uint64) |  | defaults to 1000 if unspecified |
+
+
+
+
+
+
 <a name="pfs_v2-WalkFileRequest"></a>
 
 ### WalkFileRequest
@@ -6381,10 +6453,14 @@ These are the different places where a commit may be originated from
 | SquashCommitSet | [SquashCommitSetRequest](#pfs_v2-SquashCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | SquashCommitSet squashes the commits of a CommitSet into their children. Deprecated: Use SquashCommit instead. |
 | DropCommitSet | [DropCommitSetRequest](#pfs_v2-DropCommitSetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DropCommitSet drops the commits of a CommitSet and all data included in the commits. Deprecated: Use DropCommit instead. |
 | FindCommits | [FindCommitsRequest](#pfs_v2-FindCommitsRequest) | [FindCommitsResponse](#pfs_v2-FindCommitsResponse) stream | FindCommits searches for commits that reference a supplied file being modified in a branch. |
+| WalkCommitProvenance | [WalkCommitProvenanceRequest](#pfs_v2-WalkCommitProvenanceRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | WalkCommitProvenance traverses a commit&#39;s provenance graph and streams back each commit encountered. |
+| WalkCommitSubvenance | [WalkCommitSubvenanceRequest](#pfs_v2-WalkCommitSubvenanceRequest) | [CommitInfo](#pfs_v2-CommitInfo) stream | WalkCommitSubvenance traverses a commit&#39;s subvenance graph and streams back each commit encountered. |
 | CreateBranch | [CreateBranchRequest](#pfs_v2-CreateBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | CreateBranch creates a new branch. |
 | InspectBranch | [InspectBranchRequest](#pfs_v2-InspectBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) | InspectBranch returns info about a branch. |
 | ListBranch | [ListBranchRequest](#pfs_v2-ListBranchRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | ListBranch returns info about the heads of branches. |
 | DeleteBranch | [DeleteBranchRequest](#pfs_v2-DeleteBranchRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteBranch deletes a branch; note that the commits still exist. |
+| WalkBranchProvenance | [WalkBranchProvenanceRequest](#pfs_v2-WalkBranchProvenanceRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | WalkBranchProvenance traverses a branch&#39;s provenance graph and streams back each branch encountered. |
+| WalkBranchSubvenance | [WalkBranchSubvenanceRequest](#pfs_v2-WalkBranchSubvenanceRequest) | [BranchInfo](#pfs_v2-BranchInfo) stream | WalkBranchSubvenance traverses a branch&#39;s subvenance graph and streams back each branch encountered. |
 | ModifyFile | [ModifyFileRequest](#pfs_v2-ModifyFileRequest) stream | [.google.protobuf.Empty](#google-protobuf-Empty) | ModifyFile performs modifications on a set of files. |
 | GetFile | [GetFileRequest](#pfs_v2-GetFileRequest) | [.google.protobuf.BytesValue](#google-protobuf-BytesValue) stream | GetFile returns the contents of a single file |
 | GetFileTAR | [GetFileRequest](#pfs_v2-GetFileRequest) | [.google.protobuf.BytesValue](#google-protobuf-BytesValue) stream | GetFileTAR returns a TAR stream of the contents matched by the request |
