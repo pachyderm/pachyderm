@@ -269,8 +269,8 @@ class DatumDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self):
         try:
-            self.datum_manager.download()
-            self.finish()
+            path = self.datum_manager.download()
+            self.finish(json.dumps({"path": path}))
         except ValueError as e:
             get_logger().error(f"Invalid datum download: {e}")
             raise tornado.web.HTTPError(
@@ -647,17 +647,44 @@ def write_config(
     config.write(config_file)
 
 
-def setup_handlers(web_app, config_file: Path):
+def setup_handlers(
+    web_app, config_file: Path, pachd_address: str = None, dex_token: str = None
+):
+    """
+    Sets up the Pachyderm client and the HTTP request handler.
+
+    Config for the Pachyderm client will first be attempted by reading
+    the local config file. This falls back to the PACHD_ADDRESS and
+    DEX_TOKEN env vars, and finally defaulting to a localhost client
+    on the default port 30650 failing that.
+    """
+    client = None
     try:
         client = Client().from_config(config_file)
         get_logger().debug(
             f"Created Pachyderm client for {client.address} from local config"
         )
     except FileNotFoundError:
-        get_logger().debug(
-            "Could not find config file -- no pachyderm client instantiated"
-        )
-    else:
+        if pachd_address:
+            client = Client().from_pachd_address(pachd_address=pachd_address)
+            if dex_token:
+                client.auth_token = client.auth.authenticate(
+                    id_token=dex_token
+                ).pach_token
+            get_logger().debug(
+                f"Created Pachyderm client for {client.address} from env var"
+            )
+            # Attempt to write new pachyderm context to config.
+            try:
+                write_config(config_file, client.address, client.root_certs, None)
+            except RuntimeError as e:
+                get_logger().error(f"Error writing local config: {e}.", exc_info=True)
+        else:
+            get_logger().debug(
+                "Could not find config file -- no pachyderm client instantiated"
+            )
+
+    if client:
         web_app.settings["pachyderm_client"] = client
         web_app.settings["pachyderm_pps_client"] = PPSClient(client=client)
         web_app.settings["pfs_contents_manager"] = PFSManager(client=client)

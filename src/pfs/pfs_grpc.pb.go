@@ -22,56 +22,60 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	API_CreateRepo_FullMethodName       = "/pfs_v2.API/CreateRepo"
-	API_InspectRepo_FullMethodName      = "/pfs_v2.API/InspectRepo"
-	API_ListRepo_FullMethodName         = "/pfs_v2.API/ListRepo"
-	API_DeleteRepo_FullMethodName       = "/pfs_v2.API/DeleteRepo"
-	API_DeleteRepos_FullMethodName      = "/pfs_v2.API/DeleteRepos"
-	API_StartCommit_FullMethodName      = "/pfs_v2.API/StartCommit"
-	API_FinishCommit_FullMethodName     = "/pfs_v2.API/FinishCommit"
-	API_ClearCommit_FullMethodName      = "/pfs_v2.API/ClearCommit"
-	API_InspectCommit_FullMethodName    = "/pfs_v2.API/InspectCommit"
-	API_ListCommit_FullMethodName       = "/pfs_v2.API/ListCommit"
-	API_SubscribeCommit_FullMethodName  = "/pfs_v2.API/SubscribeCommit"
-	API_SquashCommit_FullMethodName     = "/pfs_v2.API/SquashCommit"
-	API_DropCommit_FullMethodName       = "/pfs_v2.API/DropCommit"
-	API_InspectCommitSet_FullMethodName = "/pfs_v2.API/InspectCommitSet"
-	API_ListCommitSet_FullMethodName    = "/pfs_v2.API/ListCommitSet"
-	API_SquashCommitSet_FullMethodName  = "/pfs_v2.API/SquashCommitSet"
-	API_DropCommitSet_FullMethodName    = "/pfs_v2.API/DropCommitSet"
-	API_FindCommits_FullMethodName      = "/pfs_v2.API/FindCommits"
-	API_CreateBranch_FullMethodName     = "/pfs_v2.API/CreateBranch"
-	API_InspectBranch_FullMethodName    = "/pfs_v2.API/InspectBranch"
-	API_ListBranch_FullMethodName       = "/pfs_v2.API/ListBranch"
-	API_DeleteBranch_FullMethodName     = "/pfs_v2.API/DeleteBranch"
-	API_ModifyFile_FullMethodName       = "/pfs_v2.API/ModifyFile"
-	API_GetFile_FullMethodName          = "/pfs_v2.API/GetFile"
-	API_GetFileTAR_FullMethodName       = "/pfs_v2.API/GetFileTAR"
-	API_InspectFile_FullMethodName      = "/pfs_v2.API/InspectFile"
-	API_ListFile_FullMethodName         = "/pfs_v2.API/ListFile"
-	API_WalkFile_FullMethodName         = "/pfs_v2.API/WalkFile"
-	API_GlobFile_FullMethodName         = "/pfs_v2.API/GlobFile"
-	API_DiffFile_FullMethodName         = "/pfs_v2.API/DiffFile"
-	API_ActivateAuth_FullMethodName     = "/pfs_v2.API/ActivateAuth"
-	API_DeleteAll_FullMethodName        = "/pfs_v2.API/DeleteAll"
-	API_Fsck_FullMethodName             = "/pfs_v2.API/Fsck"
-	API_CreateFileSet_FullMethodName    = "/pfs_v2.API/CreateFileSet"
-	API_GetFileSet_FullMethodName       = "/pfs_v2.API/GetFileSet"
-	API_AddFileSet_FullMethodName       = "/pfs_v2.API/AddFileSet"
-	API_RenewFileSet_FullMethodName     = "/pfs_v2.API/RenewFileSet"
-	API_ComposeFileSet_FullMethodName   = "/pfs_v2.API/ComposeFileSet"
-	API_ShardFileSet_FullMethodName     = "/pfs_v2.API/ShardFileSet"
-	API_CheckStorage_FullMethodName     = "/pfs_v2.API/CheckStorage"
-	API_PutCache_FullMethodName         = "/pfs_v2.API/PutCache"
-	API_GetCache_FullMethodName         = "/pfs_v2.API/GetCache"
-	API_ClearCache_FullMethodName       = "/pfs_v2.API/ClearCache"
-	API_ListTask_FullMethodName         = "/pfs_v2.API/ListTask"
-	API_Egress_FullMethodName           = "/pfs_v2.API/Egress"
-	API_CreateProject_FullMethodName    = "/pfs_v2.API/CreateProject"
-	API_InspectProject_FullMethodName   = "/pfs_v2.API/InspectProject"
-	API_InspectProjectV2_FullMethodName = "/pfs_v2.API/InspectProjectV2"
-	API_ListProject_FullMethodName      = "/pfs_v2.API/ListProject"
-	API_DeleteProject_FullMethodName    = "/pfs_v2.API/DeleteProject"
+	API_CreateRepo_FullMethodName           = "/pfs_v2.API/CreateRepo"
+	API_InspectRepo_FullMethodName          = "/pfs_v2.API/InspectRepo"
+	API_ListRepo_FullMethodName             = "/pfs_v2.API/ListRepo"
+	API_DeleteRepo_FullMethodName           = "/pfs_v2.API/DeleteRepo"
+	API_DeleteRepos_FullMethodName          = "/pfs_v2.API/DeleteRepos"
+	API_StartCommit_FullMethodName          = "/pfs_v2.API/StartCommit"
+	API_FinishCommit_FullMethodName         = "/pfs_v2.API/FinishCommit"
+	API_ClearCommit_FullMethodName          = "/pfs_v2.API/ClearCommit"
+	API_InspectCommit_FullMethodName        = "/pfs_v2.API/InspectCommit"
+	API_ListCommit_FullMethodName           = "/pfs_v2.API/ListCommit"
+	API_SubscribeCommit_FullMethodName      = "/pfs_v2.API/SubscribeCommit"
+	API_SquashCommit_FullMethodName         = "/pfs_v2.API/SquashCommit"
+	API_DropCommit_FullMethodName           = "/pfs_v2.API/DropCommit"
+	API_InspectCommitSet_FullMethodName     = "/pfs_v2.API/InspectCommitSet"
+	API_ListCommitSet_FullMethodName        = "/pfs_v2.API/ListCommitSet"
+	API_SquashCommitSet_FullMethodName      = "/pfs_v2.API/SquashCommitSet"
+	API_DropCommitSet_FullMethodName        = "/pfs_v2.API/DropCommitSet"
+	API_FindCommits_FullMethodName          = "/pfs_v2.API/FindCommits"
+	API_WalkCommitProvenance_FullMethodName = "/pfs_v2.API/WalkCommitProvenance"
+	API_WalkCommitSubvenance_FullMethodName = "/pfs_v2.API/WalkCommitSubvenance"
+	API_CreateBranch_FullMethodName         = "/pfs_v2.API/CreateBranch"
+	API_InspectBranch_FullMethodName        = "/pfs_v2.API/InspectBranch"
+	API_ListBranch_FullMethodName           = "/pfs_v2.API/ListBranch"
+	API_DeleteBranch_FullMethodName         = "/pfs_v2.API/DeleteBranch"
+	API_WalkBranchProvenance_FullMethodName = "/pfs_v2.API/WalkBranchProvenance"
+	API_WalkBranchSubvenance_FullMethodName = "/pfs_v2.API/WalkBranchSubvenance"
+	API_ModifyFile_FullMethodName           = "/pfs_v2.API/ModifyFile"
+	API_GetFile_FullMethodName              = "/pfs_v2.API/GetFile"
+	API_GetFileTAR_FullMethodName           = "/pfs_v2.API/GetFileTAR"
+	API_InspectFile_FullMethodName          = "/pfs_v2.API/InspectFile"
+	API_ListFile_FullMethodName             = "/pfs_v2.API/ListFile"
+	API_WalkFile_FullMethodName             = "/pfs_v2.API/WalkFile"
+	API_GlobFile_FullMethodName             = "/pfs_v2.API/GlobFile"
+	API_DiffFile_FullMethodName             = "/pfs_v2.API/DiffFile"
+	API_ActivateAuth_FullMethodName         = "/pfs_v2.API/ActivateAuth"
+	API_DeleteAll_FullMethodName            = "/pfs_v2.API/DeleteAll"
+	API_Fsck_FullMethodName                 = "/pfs_v2.API/Fsck"
+	API_CreateFileSet_FullMethodName        = "/pfs_v2.API/CreateFileSet"
+	API_GetFileSet_FullMethodName           = "/pfs_v2.API/GetFileSet"
+	API_AddFileSet_FullMethodName           = "/pfs_v2.API/AddFileSet"
+	API_RenewFileSet_FullMethodName         = "/pfs_v2.API/RenewFileSet"
+	API_ComposeFileSet_FullMethodName       = "/pfs_v2.API/ComposeFileSet"
+	API_ShardFileSet_FullMethodName         = "/pfs_v2.API/ShardFileSet"
+	API_CheckStorage_FullMethodName         = "/pfs_v2.API/CheckStorage"
+	API_PutCache_FullMethodName             = "/pfs_v2.API/PutCache"
+	API_GetCache_FullMethodName             = "/pfs_v2.API/GetCache"
+	API_ClearCache_FullMethodName           = "/pfs_v2.API/ClearCache"
+	API_ListTask_FullMethodName             = "/pfs_v2.API/ListTask"
+	API_Egress_FullMethodName               = "/pfs_v2.API/Egress"
+	API_CreateProject_FullMethodName        = "/pfs_v2.API/CreateProject"
+	API_InspectProject_FullMethodName       = "/pfs_v2.API/InspectProject"
+	API_InspectProjectV2_FullMethodName     = "/pfs_v2.API/InspectProjectV2"
+	API_ListProject_FullMethodName          = "/pfs_v2.API/ListProject"
+	API_DeleteProject_FullMethodName        = "/pfs_v2.API/DeleteProject"
 )
 
 // APIClient is the client API for API service.
@@ -121,6 +125,10 @@ type APIClient interface {
 	DropCommitSet(ctx context.Context, in *DropCommitSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// FindCommits searches for commits that reference a supplied file being modified in a branch.
 	FindCommits(ctx context.Context, in *FindCommitsRequest, opts ...grpc.CallOption) (API_FindCommitsClient, error)
+	// WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+	WalkCommitProvenance(ctx context.Context, in *WalkCommitProvenanceRequest, opts ...grpc.CallOption) (API_WalkCommitProvenanceClient, error)
+	// WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+	WalkCommitSubvenance(ctx context.Context, in *WalkCommitSubvenanceRequest, opts ...grpc.CallOption) (API_WalkCommitSubvenanceClient, error)
 	// CreateBranch creates a new branch.
 	CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// InspectBranch returns info about a branch.
@@ -129,6 +137,10 @@ type APIClient interface {
 	ListBranch(ctx context.Context, in *ListBranchRequest, opts ...grpc.CallOption) (API_ListBranchClient, error)
 	// DeleteBranch deletes a branch; note that the commits still exist.
 	DeleteBranch(ctx context.Context, in *DeleteBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+	WalkBranchProvenance(ctx context.Context, in *WalkBranchProvenanceRequest, opts ...grpc.CallOption) (API_WalkBranchProvenanceClient, error)
+	// WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+	WalkBranchSubvenance(ctx context.Context, in *WalkBranchSubvenanceRequest, opts ...grpc.CallOption) (API_WalkBranchSubvenanceClient, error)
 	// ModifyFile performs modifications on a set of files.
 	ModifyFile(ctx context.Context, opts ...grpc.CallOption) (API_ModifyFileClient, error)
 	// GetFile returns the contents of a single file
@@ -493,6 +505,70 @@ func (x *aPIFindCommitsClient) Recv() (*FindCommitsResponse, error) {
 	return m, nil
 }
 
+func (c *aPIClient) WalkCommitProvenance(ctx context.Context, in *WalkCommitProvenanceRequest, opts ...grpc.CallOption) (API_WalkCommitProvenanceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_WalkCommitProvenance_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIWalkCommitProvenanceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_WalkCommitProvenanceClient interface {
+	Recv() (*CommitInfo, error)
+	grpc.ClientStream
+}
+
+type aPIWalkCommitProvenanceClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIWalkCommitProvenanceClient) Recv() (*CommitInfo, error) {
+	m := new(CommitInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *aPIClient) WalkCommitSubvenance(ctx context.Context, in *WalkCommitSubvenanceRequest, opts ...grpc.CallOption) (API_WalkCommitSubvenanceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_WalkCommitSubvenance_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIWalkCommitSubvenanceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_WalkCommitSubvenanceClient interface {
+	Recv() (*CommitInfo, error)
+	grpc.ClientStream
+}
+
+type aPIWalkCommitSubvenanceClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIWalkCommitSubvenanceClient) Recv() (*CommitInfo, error) {
+	m := new(CommitInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) CreateBranch(ctx context.Context, in *CreateBranchRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, API_CreateBranch_FullMethodName, in, out, opts...)
@@ -512,7 +588,7 @@ func (c *aPIClient) InspectBranch(ctx context.Context, in *InspectBranchRequest,
 }
 
 func (c *aPIClient) ListBranch(ctx context.Context, in *ListBranchRequest, opts ...grpc.CallOption) (API_ListBranchClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[6], API_ListBranch_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_ListBranch_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -552,8 +628,72 @@ func (c *aPIClient) DeleteBranch(ctx context.Context, in *DeleteBranchRequest, o
 	return out, nil
 }
 
+func (c *aPIClient) WalkBranchProvenance(ctx context.Context, in *WalkBranchProvenanceRequest, opts ...grpc.CallOption) (API_WalkBranchProvenanceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_WalkBranchProvenance_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIWalkBranchProvenanceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_WalkBranchProvenanceClient interface {
+	Recv() (*BranchInfo, error)
+	grpc.ClientStream
+}
+
+type aPIWalkBranchProvenanceClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIWalkBranchProvenanceClient) Recv() (*BranchInfo, error) {
+	m := new(BranchInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *aPIClient) WalkBranchSubvenance(ctx context.Context, in *WalkBranchSubvenanceRequest, opts ...grpc.CallOption) (API_WalkBranchSubvenanceClient, error) {
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_WalkBranchSubvenance_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &aPIWalkBranchSubvenanceClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type API_WalkBranchSubvenanceClient interface {
+	Recv() (*BranchInfo, error)
+	grpc.ClientStream
+}
+
+type aPIWalkBranchSubvenanceClient struct {
+	grpc.ClientStream
+}
+
+func (x *aPIWalkBranchSubvenanceClient) Recv() (*BranchInfo, error) {
+	m := new(BranchInfo)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *aPIClient) ModifyFile(ctx context.Context, opts ...grpc.CallOption) (API_ModifyFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[7], API_ModifyFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[11], API_ModifyFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -587,7 +727,7 @@ func (x *aPIModifyFileClient) CloseAndRecv() (*emptypb.Empty, error) {
 }
 
 func (c *aPIClient) GetFile(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[8], API_GetFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[12], API_GetFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -619,7 +759,7 @@ func (x *aPIGetFileClient) Recv() (*wrapperspb.BytesValue, error) {
 }
 
 func (c *aPIClient) GetFileTAR(ctx context.Context, in *GetFileRequest, opts ...grpc.CallOption) (API_GetFileTARClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[9], API_GetFileTAR_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[13], API_GetFileTAR_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -660,7 +800,7 @@ func (c *aPIClient) InspectFile(ctx context.Context, in *InspectFileRequest, opt
 }
 
 func (c *aPIClient) ListFile(ctx context.Context, in *ListFileRequest, opts ...grpc.CallOption) (API_ListFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[10], API_ListFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[14], API_ListFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -692,7 +832,7 @@ func (x *aPIListFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) WalkFile(ctx context.Context, in *WalkFileRequest, opts ...grpc.CallOption) (API_WalkFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[11], API_WalkFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[15], API_WalkFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -724,7 +864,7 @@ func (x *aPIWalkFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) GlobFile(ctx context.Context, in *GlobFileRequest, opts ...grpc.CallOption) (API_GlobFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[12], API_GlobFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[16], API_GlobFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -756,7 +896,7 @@ func (x *aPIGlobFileClient) Recv() (*FileInfo, error) {
 }
 
 func (c *aPIClient) DiffFile(ctx context.Context, in *DiffFileRequest, opts ...grpc.CallOption) (API_DiffFileClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[13], API_DiffFile_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[17], API_DiffFile_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -806,7 +946,7 @@ func (c *aPIClient) DeleteAll(ctx context.Context, in *emptypb.Empty, opts ...gr
 }
 
 func (c *aPIClient) Fsck(ctx context.Context, in *FsckRequest, opts ...grpc.CallOption) (API_FsckClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[14], API_Fsck_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[18], API_Fsck_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -838,7 +978,7 @@ func (x *aPIFsckClient) Recv() (*FsckResponse, error) {
 }
 
 func (c *aPIClient) CreateFileSet(ctx context.Context, opts ...grpc.CallOption) (API_CreateFileSetClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[15], API_CreateFileSet_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[19], API_CreateFileSet_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -953,7 +1093,7 @@ func (c *aPIClient) ClearCache(ctx context.Context, in *ClearCacheRequest, opts 
 }
 
 func (c *aPIClient) ListTask(ctx context.Context, in *task.ListTaskRequest, opts ...grpc.CallOption) (API_ListTaskClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[16], API_ListTask_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[20], API_ListTask_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1021,7 +1161,7 @@ func (c *aPIClient) InspectProjectV2(ctx context.Context, in *InspectProjectV2Re
 }
 
 func (c *aPIClient) ListProject(ctx context.Context, in *ListProjectRequest, opts ...grpc.CallOption) (API_ListProjectClient, error) {
-	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[17], API_ListProject_FullMethodName, opts...)
+	stream, err := c.cc.NewStream(ctx, &API_ServiceDesc.Streams[21], API_ListProject_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1108,6 +1248,10 @@ type APIServer interface {
 	DropCommitSet(context.Context, *DropCommitSetRequest) (*emptypb.Empty, error)
 	// FindCommits searches for commits that reference a supplied file being modified in a branch.
 	FindCommits(*FindCommitsRequest, API_FindCommitsServer) error
+	// WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+	WalkCommitProvenance(*WalkCommitProvenanceRequest, API_WalkCommitProvenanceServer) error
+	// WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+	WalkCommitSubvenance(*WalkCommitSubvenanceRequest, API_WalkCommitSubvenanceServer) error
 	// CreateBranch creates a new branch.
 	CreateBranch(context.Context, *CreateBranchRequest) (*emptypb.Empty, error)
 	// InspectBranch returns info about a branch.
@@ -1116,6 +1260,10 @@ type APIServer interface {
 	ListBranch(*ListBranchRequest, API_ListBranchServer) error
 	// DeleteBranch deletes a branch; note that the commits still exist.
 	DeleteBranch(context.Context, *DeleteBranchRequest) (*emptypb.Empty, error)
+	// WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+	WalkBranchProvenance(*WalkBranchProvenanceRequest, API_WalkBranchProvenanceServer) error
+	// WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+	WalkBranchSubvenance(*WalkBranchSubvenanceRequest, API_WalkBranchSubvenanceServer) error
 	// ModifyFile performs modifications on a set of files.
 	ModifyFile(API_ModifyFileServer) error
 	// GetFile returns the contents of a single file
@@ -1231,6 +1379,12 @@ func (UnimplementedAPIServer) DropCommitSet(context.Context, *DropCommitSetReque
 func (UnimplementedAPIServer) FindCommits(*FindCommitsRequest, API_FindCommitsServer) error {
 	return status.Errorf(codes.Unimplemented, "method FindCommits not implemented")
 }
+func (UnimplementedAPIServer) WalkCommitProvenance(*WalkCommitProvenanceRequest, API_WalkCommitProvenanceServer) error {
+	return status.Errorf(codes.Unimplemented, "method WalkCommitProvenance not implemented")
+}
+func (UnimplementedAPIServer) WalkCommitSubvenance(*WalkCommitSubvenanceRequest, API_WalkCommitSubvenanceServer) error {
+	return status.Errorf(codes.Unimplemented, "method WalkCommitSubvenance not implemented")
+}
 func (UnimplementedAPIServer) CreateBranch(context.Context, *CreateBranchRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CreateBranch not implemented")
 }
@@ -1242,6 +1396,12 @@ func (UnimplementedAPIServer) ListBranch(*ListBranchRequest, API_ListBranchServe
 }
 func (UnimplementedAPIServer) DeleteBranch(context.Context, *DeleteBranchRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteBranch not implemented")
+}
+func (UnimplementedAPIServer) WalkBranchProvenance(*WalkBranchProvenanceRequest, API_WalkBranchProvenanceServer) error {
+	return status.Errorf(codes.Unimplemented, "method WalkBranchProvenance not implemented")
+}
+func (UnimplementedAPIServer) WalkBranchSubvenance(*WalkBranchSubvenanceRequest, API_WalkBranchSubvenanceServer) error {
+	return status.Errorf(codes.Unimplemented, "method WalkBranchSubvenance not implemented")
 }
 func (UnimplementedAPIServer) ModifyFile(API_ModifyFileServer) error {
 	return status.Errorf(codes.Unimplemented, "method ModifyFile not implemented")
@@ -1682,6 +1842,48 @@ func (x *aPIFindCommitsServer) Send(m *FindCommitsResponse) error {
 	return x.ServerStream.SendMsg(m)
 }
 
+func _API_WalkCommitProvenance_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WalkCommitProvenanceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).WalkCommitProvenance(m, &aPIWalkCommitProvenanceServer{stream})
+}
+
+type API_WalkCommitProvenanceServer interface {
+	Send(*CommitInfo) error
+	grpc.ServerStream
+}
+
+type aPIWalkCommitProvenanceServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIWalkCommitProvenanceServer) Send(m *CommitInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _API_WalkCommitSubvenance_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WalkCommitSubvenanceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).WalkCommitSubvenance(m, &aPIWalkCommitSubvenanceServer{stream})
+}
+
+type API_WalkCommitSubvenanceServer interface {
+	Send(*CommitInfo) error
+	grpc.ServerStream
+}
+
+type aPIWalkCommitSubvenanceServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIWalkCommitSubvenanceServer) Send(m *CommitInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
 func _API_CreateBranch_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(CreateBranchRequest)
 	if err := dec(in); err != nil {
@@ -1755,6 +1957,48 @@ func _API_DeleteBranch_Handler(srv interface{}, ctx context.Context, dec func(in
 		return srv.(APIServer).DeleteBranch(ctx, req.(*DeleteBranchRequest))
 	}
 	return interceptor(ctx, in, info, handler)
+}
+
+func _API_WalkBranchProvenance_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WalkBranchProvenanceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).WalkBranchProvenance(m, &aPIWalkBranchProvenanceServer{stream})
+}
+
+type API_WalkBranchProvenanceServer interface {
+	Send(*BranchInfo) error
+	grpc.ServerStream
+}
+
+type aPIWalkBranchProvenanceServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIWalkBranchProvenanceServer) Send(m *BranchInfo) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _API_WalkBranchSubvenance_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(WalkBranchSubvenanceRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(APIServer).WalkBranchSubvenance(m, &aPIWalkBranchSubvenanceServer{stream})
+}
+
+type API_WalkBranchSubvenanceServer interface {
+	Send(*BranchInfo) error
+	grpc.ServerStream
+}
+
+type aPIWalkBranchSubvenanceServer struct {
+	grpc.ServerStream
+}
+
+func (x *aPIWalkBranchSubvenanceServer) Send(m *BranchInfo) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _API_ModifyFile_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -2472,8 +2716,28 @@ var API_ServiceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 		{
+			StreamName:    "WalkCommitProvenance",
+			Handler:       _API_WalkCommitProvenance_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "WalkCommitSubvenance",
+			Handler:       _API_WalkCommitSubvenance_Handler,
+			ServerStreams: true,
+		},
+		{
 			StreamName:    "ListBranch",
 			Handler:       _API_ListBranch_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "WalkBranchProvenance",
+			Handler:       _API_WalkBranchProvenance_Handler,
+			ServerStreams: true,
+		},
+		{
+			StreamName:    "WalkBranchSubvenance",
+			Handler:       _API_WalkBranchSubvenance_Handler,
 			ServerStreams: true,
 		},
 		{

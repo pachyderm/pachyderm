@@ -17,7 +17,7 @@ go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
 go_sdk.nogo(nogo = "//:nogo")
 go_sdk.download(
     name = "go_sdk",
-    version = "1.22.0",
+    version = "1.22.1",
 )
 use_repo(go_sdk, "go_sdk")
 
@@ -112,6 +112,23 @@ go_deps.gazelle_override(
     path = "sourcegraph.com/sourcegraph/appdash",
 )
 
+# These next two directives are necessary if google.golang.org/protobuf in go.mod is different from
+# what rules_go bundles (see go/private/repositories.bzl for the version they use).
+go_deps.gazelle_override(
+    build_file_generation = "off",
+    path = "google.golang.org/protobuf",
+)
+go_deps.module_override(
+    patch_strip = 1,
+    patches = [
+        # This patch is from running: `gazelle -repo_root . -go_prefix google.golang.org/protobuf
+        # -go_naming_convention import_alias -proto disable_global` in a checkout of
+        # google.golang.org/protobuf corresponding to the version we use in go.mod.
+        "//private:google-golang-org-protobuf.patch",
+    ],
+    path = "google.golang.org/protobuf",
+)
+
 # This is a program and not a module, but we depend on it since there aren't prebuilt binaries
 # available.
 go_deps.module(
@@ -140,21 +157,6 @@ go_deps.module(
     path = "github.com/iancoleman/strcase",
     sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
     version = "v0.2.0",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonpointer",
-    sum = "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
-    version = "v0.0.0-20190809123943-df4f5c81cb3b",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonreference",
-    sum = "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
-    version = "v0.0.0-20180127040603-bd5ef7bd5415",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonschema",
-    sum = "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
-    version = "v1.2.0",
 )
 use_repo(
     go_deps,
@@ -203,6 +205,7 @@ use_repo(
     "com_github_hashicorp_golang_lru_v2",
     "com_github_iancoleman_orderedmap",
     "com_github_iancoleman_strcase",
+    "com_github_instrumenta_kubeval",
     "com_github_itchyny_gojq",
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
@@ -244,9 +247,6 @@ use_repo(
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
     "com_github_wcharczuk_go_chart",
-    "com_github_xeipuuv_gojsonpointer",
-    "com_github_xeipuuv_gojsonreference",
-    "com_github_xeipuuv_gojsonschema",
     "com_github_zeebo_xxh3",
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",
@@ -321,6 +321,10 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "com_github_yannh_kubeconform_aarch64_linux",
+    "com_github_yannh_kubeconform_aarch64_macos",
+    "com_github_yannh_kubeconform_x86_64_linux",
+    "com_github_yannh_kubeconform_x86_64_macos",
     "com_github_yelp_dumb_init_aarch64_linux",
     "com_github_yelp_dumb_init_x86_64_linux",
     "io_k8s_dl_kubectl_aarch64_linux",

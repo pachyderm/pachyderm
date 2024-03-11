@@ -40,10 +40,13 @@ parameters:
     default: docker.io/pachyderm/ci-runner:20240205-3f2b2bba3c4cda4e990a413cd27d6cb21862fa5a@sha256:69778c8ae8e2189a6a6539bb70aaea7a2cf4d321f42256ab691daa613b1da10d
   go-version:
     type: string
-    default: "1.22.0"
+    default: "1.22.1"
   go-releaser-version:
     type: string
     default: "1.17.1"
+  kubernetes-version:
+    type: string
+    default: "v1.29.2"
   run_load_tests:
     type: boolean
     default: false
@@ -268,31 +271,17 @@ jobs:
       - codecov/upload:
           file: /tmp/test-results/coverage.txt
   helm-tests:
-    executor: docker-go
-    working_directory: ~/project/etc/helm
+    resource_class: large
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
     steps:
-      - checkout:
-          path: ~/project
-      - run: mkdir -p /home/circleci/bin
-      - restore_cache:
-          keys:
-            - go-mod-helm-v4-{{ checksum "go.sum" }}
+      - checkout
+      - run: bazel test --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //etc/helm/...
       - run:
-          name: install helm
-          command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /home/circleci/bin/helm && chmod +x /home/circleci/bin/helm
-      - run:
-          name: install kubeval
-          command: |
-            wget -q https://github.com/instrumenta/kubeval/releases/latest/download/kubeval-linux-amd64.tar.gz -O - | tar -xzO kubeval > /home/circleci/bin/kubeval && chmod +x /home/circleci/bin/kubeval
-      - run: make lint
-      - run: make test
-      - run: make kubeval-gcp
-      - run: make kubeval-aws
-      - save_cache:
-          key: go-mod-helm-v4-{{ checksum "go.sum" }}
-          paths:
-            - "/home/circleci/go/pkg/mod"
+          command: cp -a bazel-testlogs/ /tmp/bazel-testlogs # store_test_results can't handle bazel-testlogs being a symlink
+          when: always
+      - store_test_results:
+          path: /tmp/bazel-testlogs/
   helm-build:
     docker:
       - image: gcr.io/public-builds/chart-releaser:v1.2.1
@@ -307,7 +296,7 @@ jobs:
       - run:
           name: install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       - run:
           name: make cr release dirs
           command: |
@@ -358,7 +347,7 @@ jobs:
       - run:
           name: download and install helm
           command: |
-            wget -q https://get.helm.sh/helm-v3.5.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
+            wget -q https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz -O - | tar -xzO linux-amd64/helm > /usr/local/bin/helm && chmod +x /usr/local/bin/helm
       # Set CR_Token to GH Personal Access Token (Found in pachydermbuildbot GH Acount)
       # The cr index step below will commit back to the repo (via https + GH Token) need to configure git for the commit
       - run:
@@ -700,7 +689,7 @@ jobs:
             - /home/circleci/.cache # Note, this is different from the cache location for the machine executors
   check-prettier:
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     steps:
       - checkout
       - run: sudo npm install -g prettier
@@ -721,7 +710,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.27.1
+      - image: envoyproxy/envoy:v1.29.1
         entrypoint: /bin/sh
     steps:
       - run: apt update
@@ -799,7 +788,7 @@ jobs:
   jupyter-extension-integration-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -836,7 +825,7 @@ jobs:
   jupyter-extension-e2e-test:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202111-01
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -885,7 +874,7 @@ jobs:
   jupyter-extension-frontend-test:
     resource_class: xlarge
     docker:
-      - image: cimg/node:16.11.0
+      - image: cimg/node:20.11.0
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -1012,8 +1001,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1030,8 +1018,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1323,7 +1310,6 @@ jobs:
       - checkout
       - setup_remote_docker:
           docker_layer_caching: true
-          version: "20.10.12"
       - run:
           name: pachydermbuildbot docker login
           command: |
@@ -1358,8 +1344,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker:
-          version: 19.03.13
+      - setup_remote_docker
       - install-poetry
       - run:
           name: build
@@ -1376,8 +1361,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
-      - setup_remote_docker:
-          version: 20.10.18
+      - setup_remote_docker
       - run:
           name: docker login
           command: echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
@@ -1390,7 +1374,7 @@ jobs:
   test-python-sdk:
     resource_class: xlarge
     machine:
-      image: ubuntu-2004:202107-02
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
@@ -1499,7 +1483,6 @@ jobs:
     executor: python
     steps:
       - setup_remote_docker:
-          version: 20.10.18
           docker_layer_caching: true
       - run:
           name: docker login
@@ -2181,8 +2164,8 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            wget https://get.helm.sh/helm-v3.7.1-linux-${ARCH}.tar.gz && \
-            tar -zxvf helm-v3.7.1-linux-${ARCH}.tar.gz && \
+            wget https://get.helm.sh/helm-v3.14.2-linux-${ARCH}.tar.gz && \
+            tar -zxvf helm-v3.14.2-linux-${ARCH}.tar.gz && \
             chmod +x linux-amd64/helm && \
             sudo mv linux-amd64/helm /usr/local/bin/helm
   install-kubectl:
@@ -2202,7 +2185,7 @@ commands:
           command: |
             ARCH=amd64
             if [ "$(uname -m)" = "aarch64" ]; then ARCH=arm64; fi
-            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.30.1/minikube-linux-${ARCH} && \
+            curl -L -o minikube https://storage.googleapis.com/minikube/releases/v1.32.0/minikube-linux-${ARCH} && \
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
@@ -2214,7 +2197,7 @@ commands:
       - run:
           name: Install kind
           command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.11.1/kind-linux-amd64" \
+            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64" \
             && chmod +x ./kind-linux-amd64 \
             && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
       - install-helm
@@ -2292,13 +2275,13 @@ commands:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=15 --memory=24g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   start-minikube-large:
     steps:
       - run:
           name: Start minikube
-          command: minikube start --vm-driver=docker --kubernetes-version=v1.27.4 --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
+          command: minikube start --vm-driver=docker --kubernetes-version=<< pipeline.parameters.kubernetes-version>> --cpus=7 --memory=8g --extra-config=kubelet.max-pods=200 --wait=all
           background: true
   wait-for-minikube:
     steps:

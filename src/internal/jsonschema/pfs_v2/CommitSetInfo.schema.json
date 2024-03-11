@@ -112,7 +112,7 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Commit Info",
-            "description": "CommitInfo is the main data structure representing a commit in etcd"
+            "description": "CommitInfo is the main data structure representing a commit in postgres"
         },
         "pfs_v2.CommitInfo.Details": {
             "properties": {

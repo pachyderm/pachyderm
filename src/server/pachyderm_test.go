@@ -43,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
 	ppspretty "github.com/pachyderm/pachyderm/v2/src/server/pps/pretty"
+	"github.com/pachyderm/pachyderm/v2/src/server/worker/datum"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/ancestry"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
@@ -3614,6 +3615,73 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 	fileInfos, err := c.ListFileAll(client.NewCommit(pfs.DefaultProjectName, pipelineName, "master", ""), "")
 	require.NoError(t, err)
 	require.Equal(t, numFiles, len(fileInfos))
+}
+
+// Checks that "time to first datum" for CreateDatum is faster than ListDatum
+func TestCreateDatum(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+
+	repo := tu.UniqueString("TestCreateDatum")
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+
+	// Need multiple shards worth of files to see benefit of CreateDatum
+	// compared to ListDatum
+	numFiles := 5 * datum.ShardNumFiles
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+		for i := 0; i < numFiles; i++ {
+			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+		}
+		return nil
+	}))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+
+	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
+	var eg errgroup.Group
+	var listDatumTimeToFirstDatum, createDatumTimeToFirstDatum float64
+	eg.Go(func() error {
+		ctx, cf := context.WithCancel(c.Ctx())
+		defer cf()
+		req := &pps.ListDatumRequest{Input: input}
+		start := time.Now()
+		client, err := c.PpsAPIClient.ListDatum(ctx, req)
+		if err != nil {
+			return err
+		}
+		_, err = client.Recv()
+		if err != nil {
+			return err
+		}
+		listDatumTimeToFirstDatum = time.Since(start).Seconds()
+		return nil
+	})
+	eg.Go(func() error {
+		ctx, cf := context.WithCancel(c.Ctx())
+		defer cf()
+		client, err := c.PpsAPIClient.CreateDatum(ctx)
+		if err != nil {
+			return err
+		}
+		req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
+		start := time.Now()
+		if err := client.Send(req); err != nil {
+			return err
+		}
+		_, err = client.Recv()
+		if err != nil {
+			return err
+		}
+		createDatumTimeToFirstDatum = time.Since(start).Seconds()
+		return nil
+	})
+	require.NoError(t, eg.Wait())
+	// The choice of 0.75 provides a conservative buffer for the test to pass
+	require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
 }
 
 func TestStopPipeline(t *testing.T) {

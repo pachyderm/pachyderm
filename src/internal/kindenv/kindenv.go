@@ -34,7 +34,7 @@ const (
 	// nodeImage is the kind node image to use.  If you change this, also change the version
 	// above.  Always include the sha256 checksum (due to quirks in Kind's release process,
 	// according to their docs).
-	nodeImage = "kindest/node:v1.29.0@sha256:eaa1450915475849a73a9227b8f201df25e55e268e5d619312131292e324d570"
+	nodeImage = "kindest/node:v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245"
 
 	// Annotations on the default namespace that configure the cluster.
 	clusterRegistryPushKey = "dev.pachyderm.io/registry-push-path"

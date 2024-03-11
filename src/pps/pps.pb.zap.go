@@ -775,12 +775,29 @@ func (x *ListDatumRequest_Filter) MarshalLogObject(enc zapcore.ObjectEncoder) er
 	return nil
 }
 
-func (x *CreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *StartCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
 	enc.AddObject("input", x.Input)
-	enc.AddInt64("number", x.Number)
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *ContinueCreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddInt32("number", x.Number)
+	return nil
+}
+
+func (x *CreateDatumRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("start", x.GetStart())
+	enc.AddObject("continue", x.GetContinue())
 	return nil
 }
 

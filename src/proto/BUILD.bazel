@@ -113,7 +113,9 @@ sh_test(
         "//src/proto/prototar",
     ],
     tags = [
+        "external",
         "manual",
+        "no-cache",
         "no-sandbox",
         "style",
     ],

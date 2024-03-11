@@ -23,9 +23,37 @@ message Repo {
   Project project = 3;
 }
 
+// Repo defines mutually exclusive pickers that resolve to a single repository.
+// Currently, the only way to pick a repo is by composing a repo name and type with a project.
+// If the type is omitted, the 'user' type will be used as a default.
+// Picker messages should only be used as request parameters.
+message RepoPicker {
+  message RepoName {
+    ProjectPicker project = 1;
+    string name = 2;
+    string type = 3; // type is optional. If omitted, the default type is 'user'.
+  }
+  oneof picker {
+    RepoName name = 1;
+  }
+}
+
 message Branch {
   Repo repo = 1;
   string name = 2;
+}
+
+// BranchPicker defines mutually exclusive pickers that resolve to a single branch.
+// Currently, the only way to pick a branch is by composing a branch name with a repo.
+// Picker messages should only be used as request parameters.
+message BranchPicker {
+  message BranchName {
+    RepoPicker repo = 1;
+    string name = 2;
+  }
+  oneof picker {
+    BranchName name = 1;
+  }
 }
 
 message File {
@@ -123,7 +151,37 @@ message Commit {
   Branch branch = 1;
 }
 
-// CommitInfo is the main data structure representing a commit in etcd
+// CommitPicker defines mutually exclusive pickers that resolve to a single commit.
+// Commits can be picked relatively from some other commit like a parent or start of branch.
+// Alternatively, they can be picked via their global Id, which is composed of a repo picker and an id.
+// Picker messages should only be used as request parameters.
+message CommitPicker {
+  message CommitByGlobalId {
+    RepoPicker repo = 1;
+    string id = 2;
+  }
+
+  // This models .N syntax.
+  message BranchRoot {
+    uint32 offset = 1;
+    BranchPicker branch = 2;
+  }
+
+  // This models ^ syntax recursively.
+  message AncestorOf {
+    uint32 offset = 1;
+    CommitPicker start = 2;
+  }
+
+  oneof picker {
+    BranchPicker branch_head = 1;
+    CommitByGlobalId id = 2;
+    AncestorOf ancestor = 3;
+    BranchRoot branch_root = 4;
+  }
+}
+
+// CommitInfo is the main data structure representing a commit in postgres
 message CommitInfo {
   reserved 9;
   Commit commit = 1;
@@ -180,6 +238,15 @@ message ProjectInfo {
   string description = 2;
   AuthInfo auth_info = 3;
   google.protobuf.Timestamp created_at = 4;
+}
+
+// ProjectPicker defines mutually exclusive pickers that resolve to a single project.
+// Currently, the only way to pick a project is by using a project name.
+// Picker messages should only be used as request parameters.
+message ProjectPicker {
+  oneof picker {
+    string name = 1;
+  }
 }
 
 // PFS API
@@ -332,6 +399,34 @@ message DropCommitRequest {
   // Setting recursive to true indicates that the drop should be applied recursively to subvenant commits.
   // If recursive is set to false and the provided commit has subvenant commits, the drop will fail.
   bool recursive = 2;
+}
+
+message WalkCommitProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkCommitSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated CommitPicker start = 1;
+  uint64 max_commits = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchProvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
+}
+
+message WalkBranchSubvenanceRequest {
+  // if more than one picker is specified, the result stream is the concatenation of the streams of each picker.
+  repeated BranchPicker start = 1;
+  uint64 max_branches = 2; // defaults to 10,000 if unspecified
+  uint64 max_depth = 3; // defaults to 1000 if unspecified
 }
 
 message DropCommitResponse {}
@@ -702,6 +797,10 @@ service API {
   rpc DropCommitSet(DropCommitSetRequest) returns (google.protobuf.Empty) {}
   // FindCommits searches for commits that reference a supplied file being modified in a branch.
   rpc FindCommits(FindCommitsRequest) returns (stream FindCommitsResponse) {}
+  // WalkCommitProvenance traverses a commit's provenance graph and streams back each commit encountered.
+  rpc WalkCommitProvenance(WalkCommitProvenanceRequest) returns (stream CommitInfo) {}
+  // WalkCommitSubvenance traverses a commit's subvenance graph and streams back each commit encountered.
+  rpc WalkCommitSubvenance(WalkCommitSubvenanceRequest) returns (stream CommitInfo) {}
 
   // CreateBranch creates a new branch.
   rpc CreateBranch(CreateBranchRequest) returns (google.protobuf.Empty) {}
@@ -711,6 +810,10 @@ service API {
   rpc ListBranch(ListBranchRequest) returns (stream BranchInfo) {}
   // DeleteBranch deletes a branch; note that the commits still exist.
   rpc DeleteBranch(DeleteBranchRequest) returns (google.protobuf.Empty) {}
+  // WalkBranchProvenance traverses a branch's provenance graph and streams back each branch encountered.
+  rpc WalkBranchProvenance(WalkBranchProvenanceRequest) returns (stream BranchInfo) {}
+  // WalkBranchSubvenance traverses a branch's subvenance graph and streams back each branch encountered.
+  rpc WalkBranchSubvenance(WalkBranchSubvenanceRequest) returns (stream BranchInfo) {}
 
   // ModifyFile performs modifications on a set of files.
   rpc ModifyFile(stream ModifyFileRequest) returns (google.protobuf.Empty) {}

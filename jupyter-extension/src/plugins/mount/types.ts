@@ -54,6 +54,10 @@ export type CurrentDatumResponse = {
   all_datums_received: boolean;
 };
 
+export type DownloadPath = {
+  path: string;
+};
+
 export type MountDatumResponse = {
   id: string;
   idx: number;
