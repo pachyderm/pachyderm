@@ -158,21 +158,6 @@ go_deps.module(
     sum = "h1:05I4QRnGpI0m37iZQRuskXh+w77mr6Z41lwQzuHLwW0=",
     version = "v0.2.0",
 )
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonpointer",
-    sum = "h1:6cLsL+2FW6dRAdl5iMtHgRogVCff0QpRi9653YmdcJA=",
-    version = "v0.0.0-20190809123943-df4f5c81cb3b",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonreference",
-    sum = "h1:EzJWgHovont7NscjpAxXsDA8S8BMYve8Y5+7cuRE7R0=",
-    version = "v0.0.0-20180127040603-bd5ef7bd5415",
-)
-go_deps.module(
-    path = "github.com/xeipuuv/gojsonschema",
-    sum = "h1:LhYJRs+L4fBtjZUfuSZIKGeVu0QRy8e5Xi7D17UxZ74=",
-    version = "v1.2.0",
-)
 use_repo(
     go_deps,
     "com_github_adrg_xdg",
@@ -220,6 +205,7 @@ use_repo(
     "com_github_hashicorp_golang_lru_v2",
     "com_github_iancoleman_orderedmap",
     "com_github_iancoleman_strcase",
+    "com_github_instrumenta_kubeval",
     "com_github_itchyny_gojq",
     "com_github_jackc_pgconn",
     "com_github_jackc_pgerrcode",
@@ -261,9 +247,6 @@ use_repo(
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
     "com_github_wcharczuk_go_chart",
-    "com_github_xeipuuv_gojsonpointer",
-    "com_github_xeipuuv_gojsonreference",
-    "com_github_xeipuuv_gojsonschema",
     "com_github_zeebo_xxh3",
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",
@@ -338,6 +321,10 @@ use_repo(
     "com_github_pseudomuto_protoc_gen_doc_aarch64_macos",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_linux",
     "com_github_pseudomuto_protoc_gen_doc_x86_64_macos",
+    "com_github_yannh_kubeconform_aarch64_linux",
+    "com_github_yannh_kubeconform_aarch64_macos",
+    "com_github_yannh_kubeconform_x86_64_linux",
+    "com_github_yannh_kubeconform_x86_64_macos",
     "com_github_yelp_dumb_init_aarch64_linux",
     "com_github_yelp_dumb_init_x86_64_linux",
     "io_k8s_dl_kubectl_aarch64_linux",

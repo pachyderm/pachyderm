@@ -1,0 +1,49 @@
+examples = [
+    "aws-gp2",
+    "aws-gp3",
+    "enterprise",
+    "gcp",
+    "gcp-tls",
+    "hub",
+    "local-dev",
+    "microsoft",
+    "minio",
+]
+
+[
+    genrule(
+        name = "gen-" + x + "-manifest.yaml",
+        srcs = [
+            "//etc/helm/pachyderm",
+            "//etc/helm/examples:" + x + "-values.yaml",
+        ],
+        outs = [x + "-manifest.yaml"],
+        cmd = "$(location //tools/helm) template etc/helm/pachyderm -f $(location //etc/helm/examples:" + x + "-values.yaml) > $@ 2>/dev/null",
+        tools = ["//tools/helm"],
+    )
+    for x in examples
+]
+
+[
+    sh_test(
+        name = "test-" + x + "-manifest@k8s-" + k8s,
+        size = "small",
+        srcs = ["kubeconform.sh"],
+        args = [
+            x + "-manifest.yaml",
+            k8s,
+        ],
+        data = [
+            "//tools/kubeconform",
+            "//etc/helm:" + x + "-manifest.yaml",
+        ],
+        deps = ["@bazel_tools//tools/bash/runfiles"],
+    )
+    for x in examples
+    for k8s in [
+        "1.27.11",
+        "1.28.7",
+        "1.29.2",
+        "master",
+    ]
+]

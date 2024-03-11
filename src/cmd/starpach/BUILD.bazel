@@ -11,6 +11,7 @@ go_library(
         "//src/internal/log",
         "//src/internal/pctx",
         "//src/internal/starlark",
+        "//src/internal/starlark/lib/template",
         "//src/server/debug/server/debugstar",
         "@com_github_spf13_cobra//:cobra",
         "@net_starlark_go//starlark",
