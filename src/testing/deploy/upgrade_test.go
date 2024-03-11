@@ -155,6 +155,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
 			if semver.Compare("v"+from, "v2.8.0") < 0 {
+				// these alias commits only exist before v2.8.x
 				require.NoErrorWithinTRetryConstant(t, 5*time.Minute, func() error {
 					ci, err := c.InspectCommit(pfs.DefaultProjectName, "TestTrigger2", "master", "")
 					require.NoError(t, err)
@@ -179,7 +180,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					return errors.Errorf(resp.Error)
 				}
 				return nil
-			}
+			}))
 		},
 	)
 }
