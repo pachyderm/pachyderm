@@ -174,7 +174,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					if commitFile == "" {
 						commitFile = "no file"
 					}
-					t.Logf("	%d: %s, %s", i, commitFile, commit.String())
+					t.Logf("	%d: id:%s, file:%s", i, commit.Commit.Id, commitFile)
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger1; got != want {
 					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
@@ -195,7 +195,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					if commitFile == "" {
 						commitFile = "no file"
 					}
-					t.Logf("	%d: %s, %s", i, commitFile, commit.String())
+					t.Logf("	%d: id:%s, file:%s", i, commit.Commit.Id, commitFile)
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger2; got != want {
 					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
@@ -237,9 +237,9 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				return nil
 			}))
+			t.Errorf("force fail to see logs")
 		},
 	)
-	t.Errorf("force fail to see logs")
 }
 
 // pre-upgrade:
