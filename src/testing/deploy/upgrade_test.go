@@ -169,10 +169,14 @@ func TestUpgradeTrigger(t *testing.T) {
 				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
 				for i, commit := range commits {
 					c.GetFile(commit.Commit, "/hello", &buf)
-					t.Logf("	%d: %s", i, buf.String())
+					commitFile := buf.String()
 					buf.Reset()
+					if commitFile == "" {
+						commitFile = "no file"
+					}
+					t.Logf("	%d: %s, %s", i, commitFile, commit.String())
 				}
-				if got, want := len(commits), expectedCommitCount.preTrigger1; got < want {
+				if got, want := len(commits), expectedCommitCount.preTrigger1; got != want {
 					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
 				}
 				return nil
@@ -186,10 +190,14 @@ func TestUpgradeTrigger(t *testing.T) {
 				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
 				for i, commit := range commits {
 					c.GetFile(commit.Commit, "/hello", &buf)
-					t.Logf("	%d: %s", i, buf.String())
+					commitFile := buf.String()
 					buf.Reset()
+					if commitFile == "" {
+						commitFile = "no file"
+					}
+					t.Logf("	%d: %s, %s", i, commitFile, commit.String())
 				}
-				if got, want := len(commits), expectedCommitCount.preTrigger2; got < want {
+				if got, want := len(commits), expectedCommitCount.preTrigger2; got != want {
 					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
 				}
 				return nil
