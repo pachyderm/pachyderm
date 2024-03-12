@@ -167,7 +167,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
 				for i, commit := range commits {
-					t.Logf("	%d: %s", i, commit.Description)
+					t.Logf("	%d: %s", i, commit.String())
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger1; got < want {
 					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
@@ -182,7 +182,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
 				for i, commit := range commits {
-					t.Logf("	%d: %s", i, commit.Description)
+					t.Logf("	%d: %s", i, commit.String())
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger2; got < want {
 					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
