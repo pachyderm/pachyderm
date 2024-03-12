@@ -159,6 +159,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			require.NoError(t, err)
 			expectedCommitCount := getExpectedCommitCountFromVersion(from)
+			var buf bytes.Buffer
 			require.NoErrorWithinTRetry(t, 2*time.Minute, func() error {
 				commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
 				require.NoError(t, err)
@@ -167,7 +168,9 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
 				for i, commit := range commits {
-					t.Logf("	%d: %s", i, commit.String())
+					c.GetFile(commit.Commit, "/hello", &buf)
+					t.Logf("	%d: %s", i, buf.String())
+					buf.Reset()
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger1; got < want {
 					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
@@ -182,7 +185,9 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
 				for i, commit := range commits {
-					t.Logf("	%d: %s", i, commit.String())
+					c.GetFile(commit.Commit, "/hello", &buf)
+					t.Logf("	%d: %s", i, buf.String())
+					buf.Reset()
 				}
 				if got, want := len(commits), expectedCommitCount.preTrigger2; got < want {
 					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
@@ -192,7 +197,7 @@ func TestUpgradeTrigger(t *testing.T) {
 		},
 		func(t *testing.T, ctx context.Context, c *client.APIClient, from string) { /* postUpgrade */
 			for i := 0; i < 10; i++ {
-				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader("hello world")))
+				require.NoError(t, c.PutFile(dataCommit, "/hello", strings.NewReader(fmt.Sprintf("hello world post %v", i))))
 			}
 			latestDataCI, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", "")
 			require.NoError(t, err)
