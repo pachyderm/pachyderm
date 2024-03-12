@@ -106,9 +106,6 @@ docker-build-gpu:
 	docker build $(DOCKER_BUILD_FLAGS) -t pachyderm_nvidia_driver_install etc/deploy/gpu
 	docker tag pachyderm_nvidia_driver_install pachyderm/nvidia_driver_install
 
-docker-build-spout-test:
-	docker build --build-arg GOVERSION=golang:$(GOVERSION) -t spout-test etc/testing/spout
-
 docker-push-gpu:
 	$(SKIP) docker push pachyderm/nvidia_driver_install
 
@@ -234,7 +231,7 @@ enterprise-code-checkin-test:
 	  false; \
 	fi
 
-test-pps: launch-stats docker-build-spout-test
+test-pps: launch-stats
 	@# Use the count flag to disable test caching for this test suite.
 	PROM_PORT=$$(kubectl --namespace=monitoring get svc/prometheus -o json | jq -r .spec.ports[0].nodePort) \
 	  go test -v -count=1 -tags=k8s ./src/server -parallel $(PARALLELISM) -timeout $(TIMEOUT) $(RUN) $(TESTFLAGS)
@@ -409,7 +406,6 @@ check-bazel:
 	docker-build \
 	docker-build-coverage \
 	docker-build-gpu \
-	docker-build-spout-test \
 	docker-build-netcat \
 	docker-push-gpu \
 	docker-push-gpu-dev \
