@@ -366,6 +366,7 @@
     - [PathRange](#pfs_v2-PathRange)
     - [Project](#pfs_v2-Project)
     - [ProjectInfo](#pfs_v2-ProjectInfo)
+    - [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry)
     - [ProjectPicker](#pfs_v2-ProjectPicker)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
@@ -5898,6 +5899,23 @@ DeleteReposRequest is used to delete more than one repo at once.
 | description | [string](#string) |  |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-ProjectInfo-MetadataEntry"></a>
+
+### ProjectInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 

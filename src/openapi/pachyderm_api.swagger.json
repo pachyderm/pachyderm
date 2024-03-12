@@ -8842,6 +8842,12 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

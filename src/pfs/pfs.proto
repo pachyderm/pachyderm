@@ -238,6 +238,7 @@ message ProjectInfo {
   string description = 2;
   AuthInfo auth_info = 3;
   google.protobuf.Timestamp created_at = 4;
+  map<string, string> metadata = 5;
 }
 
 // ProjectPicker defines mutually exclusive pickers that resolve to a single project.
@@ -780,7 +781,7 @@ service API {
   rpc ListCommit(ListCommitRequest) returns (stream CommitInfo) {}
   // SubscribeCommit subscribes for new commits on a given branch.
   rpc SubscribeCommit(SubscribeCommitRequest) returns (stream CommitInfo) {}
-  // SquashCommit squashes the provided commit into its children. 
+  // SquashCommit squashes the provided commit into its children.
   rpc SquashCommit(SquashCommitRequest) returns (SquashCommitResponse) {}
   // DropCommit drops the provided commit.
   rpc DropCommit(DropCommitRequest) returns (DropCommitResponse) {}
@@ -857,7 +858,7 @@ service API {
   rpc PutCache(PutCacheRequest) returns (google.protobuf.Empty) {}
   rpc GetCache(GetCacheRequest) returns (GetCacheResponse) {}
   rpc ClearCache(ClearCacheRequest) returns (google.protobuf.Empty) {}
- 
+
   // ListTask lists PFS tasks
   rpc ListTask(taskapi.ListTaskRequest) returns (stream taskapi.TaskInfo) {}
 
