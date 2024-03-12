@@ -6,12 +6,15 @@ import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {NodeType, Node} from '@dash-frontend/lib/types';
 import useDAGRouteController from '@dash-frontend/views/Project/components/DAGView/hooks/useDAGRouteController';
+import useHoveredNode from '@dash-frontend/views/Project/components/DAGView/providers/HoveredNodeProvider/hooks/useHoveredNode';
 import {NODE_WIDTH} from '@dash-frontend/views/Project/constants/nodeSizes';
 import {
+  fileUploadRoute,
   lineageRoute,
   pipelineRoute,
   repoRoute,
 } from '@dash-frontend/views/Project/utils/routes';
+import {useClipboardCopy} from '@pachyderm/components';
 
 const LABEL_WIDTH = NODE_WIDTH - 44;
 
@@ -58,6 +61,8 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const {projectId} = useUrlState();
   const {getPathToLatestJobLogs} = useLogsNavigation();
   const browserHistory = useHistory();
+  const {setHoveredNode} = useHoveredNode();
+  const {copy, copied, reset} = useClipboardCopy(node.name);
 
   const noAccess = !node.access;
 
@@ -71,7 +76,9 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
         | 'logs'
         | 'status'
         | 'connected_repo'
-        | 'connected_project',
+        | 'connected_project'
+        | 'upload'
+        | 'egress',
     ) => {
       if (
         ('pipeline' === destination || 'repo' === destination) &&
@@ -112,17 +119,40 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
           }),
         );
       }
+      if (destination === 'upload') {
+        return browserHistory.push(
+          fileUploadRoute({
+            projectId: node.project,
+            repoId: node.name,
+          }),
+        );
+      }
+      if (destination === 'egress') {
+        copy();
+        setTimeout(reset, 1000);
+      }
     },
     [
-      noAccess,
       isInteractive,
       navigateToNode,
       node,
+      noAccess,
       browserHistory,
       getPathToLatestJobLogs,
       projectId,
+      copy,
+      reset,
     ],
   );
+
+  const onMouseOver = useCallback(() => {
+    select(`#${groupName}`).raise();
+    setHoveredNode(node.id);
+  }, [setHoveredNode, node, groupName]);
+
+  const onMouseOut = useCallback(() => {
+    setHoveredNode('');
+  }, [setHoveredNode]);
 
   useEffect(() => {
     select<SVGGElement, Node>(`#${groupName}`).data([node]);
@@ -148,7 +178,10 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     onClick,
     repoSelected,
     pipelineSelected,
+    onMouseOut,
+    onMouseOver,
     groupName,
+    copied,
   };
 };
 

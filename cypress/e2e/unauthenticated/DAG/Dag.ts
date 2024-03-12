@@ -169,4 +169,12 @@ describe('Dag', () => {
 
     cy.url().should('not.include', 'montage');
   });
+
+  it('should update the url correctly when selecting a to upload a file', () => {
+    cy.findByRole('button', {
+      name: 'GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65 file upload',
+      timeout: 10000,
+    }).click();
+    cy.url().should('contain', '/lineage/default/repos/images/upload');
+  });
 });

@@ -22,6 +22,7 @@ const RELEVANT_STYLES: Record<string, string[]> = {
     'border-radius',
     'paint-order',
     'filter',
+    'marker-end',
   ],
   path: ['fill', 'stroke', 'stroke-width', 'marker-end', 'stroke-linejoin'],
   circle: ['fill', 'stroke', 'stroke-width'],

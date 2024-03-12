@@ -9,6 +9,11 @@
   transform-origin: center;
 }
 
+.speed {
+  shape-rendering: optimizeSpeed;
+  text-rendering: optimizeSpeed;
+}
+
 :global(.borderRect) {
   fill: transparent;
 }

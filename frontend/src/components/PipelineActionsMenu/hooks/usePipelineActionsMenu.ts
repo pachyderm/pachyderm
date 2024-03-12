@@ -1,7 +1,7 @@
 import {useMemo, useCallback} from 'react';
 import {useRouteMatch, useHistory} from 'react-router';
 
-import {PipelineState, Input} from '@dash-frontend/api/pps';
+import {PipelineState} from '@dash-frontend/api/pps';
 import {
   Permission,
   ResourceType,
@@ -12,6 +12,7 @@ import {useRunCron} from '@dash-frontend/hooks/useRunCron';
 import {useStartPipeline} from '@dash-frontend/hooks/useStartPipeline';
 import {useStopPipeline} from '@dash-frontend/hooks/useStopPipeline';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
+import {checkCronInputs} from '@dash-frontend/lib/checkCronInputs';
 import {PROJECT_PATH} from '@dash-frontend/views/Project/constants/projectPaths';
 import {
   pipelineRoute,
@@ -32,26 +33,6 @@ import {
 
 import useDeletePipelineButton from './useDeletePipelineButton';
 import useRerunPipelineButton from './useRerunPipelineButton';
-
-const checkCronInputs = (input?: Input) => {
-  if (!input) return false;
-  if (input.cron) return true;
-
-  input.join?.forEach((input) => {
-    checkCronInputs(input);
-  });
-  input.group?.forEach((input) => {
-    checkCronInputs(input);
-  });
-  input.cross?.forEach((input) => {
-    checkCronInputs(input);
-  });
-  input.union?.forEach((input) => {
-    checkCronInputs(input);
-  });
-
-  return false;
-};
 
 const usePipelineMenu = (pipelineId: string) => {
   const {projectId} = useUrlState();

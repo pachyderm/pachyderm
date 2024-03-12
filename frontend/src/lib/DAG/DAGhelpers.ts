@@ -2,18 +2,41 @@ import flattenDeep from 'lodash/flattenDeep';
 import sortBy from 'lodash/sortBy';
 import objectHash from 'object-hash';
 
-import {JobInfo, Egress, Input} from '@dash-frontend/api/pps';
+import {
+  JobInfo,
+  Egress,
+  Input,
+  PipelineInfoDetails,
+} from '@dash-frontend/api/pps';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
+
+import {EgressType} from '../types';
 
 type EgressInput = Egress & {URL?: string};
 
-export const egressNodeName = (egress: EgressInput) => {
-  return (
-    egress.URL ||
-    egress.uRL ||
-    egress.sqlDatabase?.url ||
-    egress.objectStorage?.url
-  );
+export const egressNodeName = (egress?: EgressInput) => {
+  if (egress) {
+    return (
+      egress.URL ||
+      egress.uRL ||
+      egress.sqlDatabase?.url ||
+      egress.objectStorage?.url
+    );
+  }
+};
+
+export const egressType = (details?: PipelineInfoDetails) => {
+  if (details) {
+    if (details.s3Out) {
+      return EgressType.S3;
+    } else if (details.egress) {
+      if (details.egress.objectStorage) {
+        return EgressType.STORAGE;
+      } else if (details.egress.sqlDatabase) {
+        return EgressType.DB;
+      }
+    }
+  }
 };
 
 export const generateVertexId = (project: string, name: string) => {
@@ -31,10 +54,17 @@ export const sortJobInfos = (jobInfos: JobInfo[]) => {
     (jobInfo) => jobInfo.job?.pipeline?.name || '',
   ]);
 };
+
+export enum VertexIdentifierType {
+  DEFAULT = 'DEFAULT',
+  CRON = 'CRON',
+}
+
 export type VertexIdentifier = {
   id: string;
   name: string;
   project: string;
+  type: VertexIdentifierType;
 };
 
 export const flattenPipelineInput = (input: Input): VertexIdentifier[] => {
@@ -47,6 +77,7 @@ export const flattenPipelineInput = (input: Input): VertexIdentifier[] => {
       name: name || '',
       project: project || '',
       id: objectHash({project, name}),
+      type: VertexIdentifierType.DEFAULT,
     });
   }
 
@@ -57,6 +88,7 @@ export const flattenPipelineInput = (input: Input): VertexIdentifier[] => {
       name: name || '',
       project: project || '',
       id: objectHash({project, name}),
+      type: VertexIdentifierType.CRON,
     });
   }
 

@@ -1,4 +1,5 @@
 /* eslint-disable import/no-named-as-default */
+import {Graph} from '@dagrejs/graphlib';
 import ELK from 'elkjs/lib/elk.bundled.js';
 import keyBy from 'lodash/keyBy';
 import objectHash from 'object-hash';
@@ -12,17 +13,36 @@ import {
   NodeState,
   NodeType,
 } from '@dash-frontend/lib/types';
-import {NODE_INPUT_REPO} from '@dash-frontend/views/Project/constants/nodeSizes';
+import {
+  CONNECTED_EGRESS_NODE_HEIGHT,
+  NODE_HEIGHT,
+  NODE_INPUT_REPO,
+  NODE_WIDTH,
+} from '@dash-frontend/views/Project/constants/nodeSizes';
 
 import {Vertex} from './convertPipelinesAndReposToVertices';
 
+const getNodeHeight = (type: NodeType) => {
+  switch (type) {
+    case NodeType.REPO:
+    case NodeType.CRON_REPO:
+      return NODE_INPUT_REPO;
+    case NodeType.CROSS_PROJECT_REPO:
+    case NodeType.EGRESS:
+      return CONNECTED_EGRESS_NODE_HEIGHT;
+    default:
+      return NODE_HEIGHT;
+  }
+};
+
 const normalizeData = async (
   vertices: Vertex[],
-  nodeWidth: number,
-  nodeHeight: number,
   direction: DagDirection = DagDirection.DOWN,
 ) => {
   const elk = new ELK();
+  // generate @dagrejs/graphlib for highlighting links based on sub-dags
+  const graph = new Graph();
+  const reverseGraph = new Graph();
 
   // Calculate the indicies of the nodes in the DAG, as
   // the "link" object requires the source & target attributes
@@ -39,6 +59,8 @@ const normalizeData = async (
   // create elk edges
   const elkEdges: LinkInputData[] = [];
   for (const vertex of vertices) {
+    graph.setNode(vertex.id, vertex);
+    reverseGraph.setNode(vertex.id, vertex);
     const parentStrings = vertex.parents.map(({id}) => {
       return id;
     });
@@ -55,7 +77,8 @@ const normalizeData = async (
       ) {
         return;
       }
-
+      graph.setEdge(vertexParentName, vertex.id);
+      reverseGraph.setEdge(vertex.id, vertexParentName);
       elkEdges.push({
         // hashing here for consistency
         id: objectHash({node: vertex, vertexParentName}),
@@ -81,10 +104,13 @@ const normalizeData = async (
     nodeState: node.nodeState || undefined,
     jobNodeState: node.jobNodeState || undefined,
     access: node.access,
+    hasCronInput: node.hasCronInput,
+    parallelism: node.parallelism,
+    egressType: node.egressType,
     x: 0,
     y: 0,
-    width: nodeWidth,
-    height: node.type === NodeType.REPO ? NODE_INPUT_REPO : nodeHeight,
+    width: NODE_WIDTH,
+    height: getNodeHeight(node.type),
   }));
 
   const horizontal = direction === DagDirection.RIGHT;
@@ -134,9 +160,19 @@ const normalizeData = async (
         ...rest,
         source: {id: sourceId, name: vertMap[sourceId].name},
         target: {id: targetId, name: vertMap[targetId].name},
-        startPoint: selection.startPoint,
-        endPoint: selection.endPoint,
-        bendPoints: selection.bendPoints || [],
+        startPoint: {
+          x: Math.round(selection.startPoint.x),
+          y: Math.round(selection.startPoint.y),
+        },
+        endPoint: {
+          x: Math.round(selection.endPoint.x),
+          y: Math.round(selection.endPoint.y),
+        },
+        bendPoints: selection.bendPoints
+          ? selection.bendPoints?.map((point) => {
+              return {x: Math.round(point.x), y: Math.round(point.y)};
+            })
+          : [],
         isCrossProject: vertMap[sourceId].type === NodeType.CROSS_PROJECT_REPO,
       };
     },
@@ -147,17 +183,21 @@ const normalizeData = async (
     id: node.id,
     project: node.project,
     name: node.name,
-    x: node.x || 0,
-    y: node.y || 0,
+    x: Math.round(node.x || 0),
+    y: Math.round(node.y || 0),
     type: node.type,
     state: node.state,
     jobState: node.jobState,
     nodeState: node.nodeState,
     jobNodeState: node.jobNodeState,
     access: node.access,
+    hasCronInput: node.hasCronInput,
+    parallelism: node.parallelism,
+    egressType: node.egressType,
   }));
-
   return {
+    graph,
+    reverseGraph,
     nodes,
     links,
   };
@@ -165,13 +205,11 @@ const normalizeData = async (
 
 const buildELKDags = async (
   vertices: Vertex[],
-  nodeWidth: number,
-  nodeHeight: number,
   direction = DagDirection.DOWN,
   setDagError: React.Dispatch<React.SetStateAction<string | undefined>>,
 ) => {
   try {
-    return await normalizeData(vertices, nodeWidth, nodeHeight, direction);
+    return await normalizeData(vertices, direction);
   } catch (e) {
     console.error(e);
     setDagError(`Unable to construct DAG from repos and pipelines.`);

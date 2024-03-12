@@ -42,6 +42,7 @@
     "@codemirror/lint": "^6.4.0",
     "@codemirror/state": "6.2.1",
     "@codemirror/view": "^6.16.0",
+    "@dagrejs/graphlib": "^2.1.13",
     "@floating-ui/dom": "^1.5.3",
     "@floating-ui/react": "^0.26.3",
     "@lezer/common": "^1.0.4",

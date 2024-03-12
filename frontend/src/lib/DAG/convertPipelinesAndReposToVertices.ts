@@ -2,20 +2,29 @@ import flatMap from 'lodash/flatMap';
 import keyBy from 'lodash/keyBy';
 
 import {RepoInfo} from '@dash-frontend/api/pfs';
-import {PipelineInfo, PipelineState, JobState} from '@dash-frontend/api/pps';
+import {
+  PipelineInfo,
+  PipelineState,
+  JobState,
+  PipelineInfoPipelineType,
+} from '@dash-frontend/api/pps';
 import {
   restJobStateToNodeState,
   restPipelineStateToNodeState,
 } from '@dash-frontend/api/utils/nodeStateMappers';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 import hasRepoReadPermissions from '@dash-frontend/lib/hasRepoReadPermissions';
-import {NodeType, NodeState} from '@dash-frontend/lib/types';
+import {NodeType, NodeState, EgressType} from '@dash-frontend/lib/types';
+
+import {checkCronInputs} from '../checkCronInputs';
 
 import {
   egressNodeName,
   generateVertexId,
   flattenPipelineInput,
   VertexIdentifier,
+  VertexIdentifierType,
+  egressType,
 } from './DAGhelpers';
 
 export type Vertex = {
@@ -31,16 +40,29 @@ export type Vertex = {
   project: string;
   state?: PipelineState;
   type: NodeType;
+  hasCronInput?: boolean;
+  parallelism?: string;
+  egressType?: EgressType;
 };
 
-const convertPachydermRepoToVertex = ({repo: r}: {repo: RepoInfo}): Vertex => {
+const convertPachydermRepoToVertex = ({
+  repo: r,
+  cronInputs,
+}: {
+  repo: RepoInfo;
+  cronInputs: string[];
+}): Vertex => {
   const project = r.repo?.project?.name || '';
   const name = r.repo?.name || '';
+  const id = generateVertexId(project, name);
   return {
-    id: generateVertexId(project, name),
+    id,
     project,
     name,
-    type: NodeType.REPO,
+    type:
+      cronInputs.length !== 0 && cronInputs.find((cron_id) => cron_id === id)
+        ? NodeType.CRON_REPO
+        : NodeType.REPO,
     state: undefined,
     jobState: undefined,
     nodeState: undefined,
@@ -49,6 +71,17 @@ const convertPachydermRepoToVertex = ({repo: r}: {repo: RepoInfo}): Vertex => {
     createdAt: getUnixSecondsFromISOString(r.created),
     parents: [],
   };
+};
+
+const derivePipelineType = (pipeline: PipelineInfo) => {
+  if (pipeline.type === PipelineInfoPipelineType.PIPELINE_TYPE_SPOUT) {
+    return pipeline.details?.spout?.service
+      ? NodeType.SPOUT_SERVICE_PIPELINE
+      : NodeType.SPOUT_PIPELINE;
+  } else if (pipeline.type === PipelineInfoPipelineType.PIPELINE_TYPE_SERVICE) {
+    return NodeType.SERVICE_PIPELINE;
+  }
+  return NodeType.PIPELINE;
 };
 
 const convertPachydermPipelineToVertex = ({
@@ -60,12 +93,11 @@ const convertPachydermPipelineToVertex = ({
 }): Vertex[] => {
   const project = p.pipeline?.project?.name || '';
   const name = p.pipeline?.name || '';
-
   const pipelineNode = {
     id: generateVertexId(project, name),
     project,
     name,
-    type: NodeType.PIPELINE,
+    type: derivePipelineType(p),
     state: p.state,
     nodeState: restPipelineStateToNodeState(p.state),
     access: p.pipeline
@@ -78,26 +110,33 @@ const convertPachydermPipelineToVertex = ({
     createdAt: getUnixSecondsFromISOString(p.details?.createdAt),
     // our parents are any repos found in our input spec
     parents: p.details?.input ? flattenPipelineInput(p.details?.input) : [],
+    hasCronInput: checkCronInputs(p.details?.input),
+    parallelism: p.parallelism,
   };
   const vertices: Vertex[] = [pipelineNode];
 
-  const egress = p.details?.egress;
-  if (!egress || !egressNodeName(egress)) return vertices;
+  if (!egressNodeName(p.details?.egress) && !p.details?.s3Out) return vertices;
   // Egress nodes are a visual representation of a pipeline setting that is
   // unique to our DAG, so we want to append a identifier to the name to have it
   // differ from the pipeline name.
-  const egressName = `${name}.egress`;
+
+  const egressName = p.details?.s3Out
+    ? `s3://${name}`
+    : egressNodeName(p.details?.egress);
+
   const egressNode = {
-    id: generateVertexId(project, egressName),
+    id: generateVertexId(project, `${name}.egress`),
     project,
-    name: egressNodeName(egress) || '',
+    name: egressName || '',
     type: NodeType.EGRESS,
+    egressType: egressType(p.details),
     access: true,
     parents: [
       {
         id: generateVertexId(project, name),
         project,
         name,
+        type: VertexIdentifierType.DEFAULT,
       },
     ],
     state: undefined,
@@ -141,6 +180,18 @@ export const findCrossProjectProvenanceRepos = (
   return crossProjectProvenanceRepos;
 };
 
+const findCronInputs = (vertices: Vertex[]): string[] => {
+  const cronInputs: string[] = [];
+  vertices.forEach((vertex) => {
+    vertex.parents.forEach((parent) => {
+      if (parent.type === VertexIdentifierType.CRON) {
+        cronInputs.push(parent.id);
+      }
+    });
+  });
+  return cronInputs;
+};
+
 export const convertPachydermTypesToVertex = async (
   projectId: string,
   repos?: RepoInfo[],
@@ -161,11 +212,14 @@ export const convertPachydermTypesToVertex = async (
       (r) => !(r && pipelineMap[`${r.repo?.project?.name}.${r.repo?.name}`]),
     ) || [];
 
-  const repoVertices = filteredRepos.map<Vertex>((repo) =>
-    convertPachydermRepoToVertex({repo}),
-  );
   const pipelineVertices = flatMap(pipelines, (pipeline) =>
     convertPachydermPipelineToVertex({pipeline, repoMap}),
+  );
+
+  const cronInputs = findCronInputs(pipelineVertices);
+
+  const repoVertices = filteredRepos.map<Vertex>((repo) =>
+    convertPachydermRepoToVertex({repo, cronInputs}),
   );
 
   const crossProjectProvenanceRepos = findCrossProjectProvenanceRepos(

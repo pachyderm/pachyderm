@@ -1,3 +1,4 @@
+import {Graph} from '@dagrejs/graphlib';
 import {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 import {CSSProperties} from 'react';
 
@@ -53,9 +54,19 @@ export enum NodeState {
 
 export enum NodeType {
   CROSS_PROJECT_REPO = 'CROSS_PROJECT_REPO',
+  CRON_REPO = 'CRON_REPO',
   EGRESS = 'EGRESS',
   PIPELINE = 'PIPELINE',
+  SPOUT_PIPELINE = 'SPOUT_PIPELINE',
+  SERVICE_PIPELINE = 'SERVICE_PIPELINE',
+  SPOUT_SERVICE_PIPELINE = 'SPOUT_SERVICE_PIPELINE',
   REPO = 'REPO',
+}
+
+export enum EgressType {
+  S3 = 'S3',
+  STORAGE = 'storage',
+  DB = 'DB',
 }
 
 export type Node = {
@@ -70,6 +81,9 @@ export type Node = {
   nodeState?: NodeState;
   jobNodeState?: NodeState;
   access: boolean;
+  hasCronInput?: boolean;
+  parallelism?: string;
+  egressType?: EgressType;
 };
 
 export type NodeWithId = {id: string; name: string};
@@ -97,6 +111,8 @@ export type PointCoordinates = {
 export type Dags = {
   nodes: Node[];
   links: Link[];
+  graph: Graph;
+  reverseGraph: Graph;
 };
 
 export interface LinkInputData

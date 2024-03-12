@@ -1,35 +1,42 @@
-/* This breaks the DAG at scale */
-/* @keyframes scaleDown {
-  0% {
-    transform: scale(0.5);
-  }
-  50% {
-    transform: scale(1);
-  }
-  100% {
-    transform: scale(0.5);
-  }
-} */
-
 .link {
-  stroke: var(--grey-7);
-  stroke-width: 1px;
+  stroke: var(--grey-4);
+  stroke-width: 2px;
   marker-end: url(#end-arrow);
   stroke-linejoin: bevel;
+}
+
+.group:hover {
+  cursor: pointer;
+}
+
+.group:hover .link {
+  stroke: var(--background-black);
+  marker-end: url(#end-arrow-active);
 }
 
 .crossProject {
   stroke-dasharray: 0.25rem;
 }
 
+.transferring {
+  stroke: var(--cyan-30);
+  stroke-width: 2px;
+  stroke-linejoin: bevel;
+  marker-end: url(#end-arrow-transferring);
+}
+
+.highlightLink {
+  stroke: var(--focus-state);
+  marker-end: url(#end-arrow-highlighted);
+}
+
 .circle {
-  fill: var(--success-green);
-  /* this animation does not work in firefox */
-  animation: scaleDown linear 0.8s infinite;
+  filter: blur(2px);
+  fill: #007304;
 }
 
 @-moz-document url-prefix() {
   .circle {
-    animation: none;
+    filter: none;
   }
 }

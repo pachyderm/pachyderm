@@ -1,6 +1,6 @@
 {
   "pipeline": {
-    "name": "spout"
+    "name": "spout-service"
   },
   "spout": {
     "service": {

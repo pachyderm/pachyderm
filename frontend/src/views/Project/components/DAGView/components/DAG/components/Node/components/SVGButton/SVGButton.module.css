@@ -1,0 +1,25 @@
+.buttonGroup * {
+  user-select: none;
+}
+
+.buttonGroup .roundedButton {
+  fill: var(--white);
+}
+
+.buttonGroup.selected .roundedButton {
+  fill: var(--cyan-10);
+  stroke: var(--cyan);
+  stroke-width: 1px;
+}
+
+.buttonGroup.interactive:hover .roundedButton {
+  fill: var(--cyan-10);
+}
+
+.buttonGroup.interactive:hover {
+  cursor: pointer;
+}
+
+.buttonGroup.interactive text tspan {
+  fill: var(--pachyderm-black);
+}

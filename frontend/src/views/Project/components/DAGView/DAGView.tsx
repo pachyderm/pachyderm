@@ -29,7 +29,15 @@ import {
 } from '@pachyderm/components';
 import useCurrentWidthAndHeight from '@pachyderm/components/hooks/useCurrentWidthAndHeight';
 
-import {NODE_HEIGHT, NODE_WIDTH} from '../../constants/nodeSizes';
+import {
+  BOTTOM_ROUNDED_BUTTON_PATH,
+  CONNECTED_EGRESS_GRADIENT_MASK,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+  PIPELINE_GRADIENT_MASK,
+  REPO_GRADIENT_MASK,
+  TOP_ROUNDED_BUTTON_PATH,
+} from '../../constants/nodeSizes';
 import CreateRepoModal from '../CreateRepoModal';
 import DAGError from '../DAGError';
 
@@ -38,15 +46,17 @@ import RangeSlider from './components/RangeSlider';
 import styles from './DAGView.module.css';
 import {useCanvasDownload} from './hooks/useCanvasDownload';
 import {MAX_SCALE_VALUE, useDAGView} from './hooks/useDAGView';
+import HoveredNodeProvider from './providers/HoveredNodeProvider';
 
 const CANVAS_CONTROLS_MIN_WIDTH = 950;
 
 const LARGE_DAG_MIN = 50;
 
 const MARKERS = [
-  {id: 'end-arrow', color: '#747475'},
-  {id: 'end-arrow-active', color: '#6FB3C3'},
-  {id: 'end-arrow-error', color: '#E02020'},
+  {id: 'end-arrow', color: '#A4A8AE'},
+  {id: 'end-arrow-active', color: '#272728'},
+  {id: 'end-arrow-highlighted', color: '#007BFF'},
+  {id: 'end-arrow-transferring', color: '#BDD4E0'},
 ];
 
 type DAGViewProps = {
@@ -275,41 +285,89 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
           }}
         />
       )}
-      <svg
-        id="Svg"
-        className={styles.base}
-        preserveAspectRatio="xMinYMid meet"
-        viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
-      >
-        <defs>
-          {MARKERS.map((marker) => (
-            <marker
-              key={marker.id}
-              viewBox="0 -5 10 10"
-              refX={0}
-              refY={0}
-              markerWidth={5}
-              markerHeight={5}
-              orient="auto"
-              id={marker.id}
+      <HoveredNodeProvider>
+        <svg
+          id="Svg"
+          className={styles.base}
+          preserveAspectRatio="xMinYMid meet"
+          viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
+        >
+          <defs>
+            {MARKERS.map((marker) => (
+              <marker
+                key={marker.id}
+                viewBox="0 -5 10 10"
+                refX={0}
+                refY={0}
+                markerWidth={5}
+                markerHeight={5}
+                orient="auto"
+                id={marker.id}
+              >
+                <path d="M0,-5L10,0L0,5" fill={marker.color} />
+              </marker>
+            ))}
+            <filter id="node-dropshadow">
+              <feDropShadow
+                dx="2"
+                dy="2"
+                stdDeviation="4"
+                floodColor="#d6d6d7"
+              />
+            </filter>
+            <linearGradient
+              id="green-gradient"
+              x1="0%"
+              y1="0%"
+              x2="0%"
+              y2="100%"
             >
-              <path d="M0,-5L10,0L0,5" fill={marker.color} />
-            </marker>
-          ))}
-          <filter id="node-dropshadow">
-            <feDropShadow dx="2" dy="2" stdDeviation="4" floodColor="#d6d6d7" />
-          </filter>
-        </defs>
-        <g id="Dags">
-          <DAG
-            data={dags}
-            dagDirection={dagDirection}
-            rotateDag={rotateDag}
-            largeDagMode={totalNodes > LARGE_DAG_MIN}
-            forceFullRender={renderAndDownloadCanvas}
-          />
-        </g>
-      </svg>
+              <stop offset="0%" stopColor="#D9E7E7" />
+              <stop offset="100%" stopColor="#005D5D" />
+            </linearGradient>
+            <linearGradient
+              id="grey-gradient"
+              x1="0%"
+              y1="0%"
+              x2="0%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#EBEBEB26" />
+              <stop offset="100%" stopColor="#EBEBEB" />
+            </linearGradient>
+            <linearGradient
+              id="purple-gradient"
+              x1="0%"
+              y1="0%"
+              x2="0%"
+              y2="100%"
+            >
+              <stop offset="0%" stopColor="#6929C4" />
+              <stop offset="100%" stopColor="#6929c426" />
+            </linearGradient>
+            <path id="topRoundedButton" d={TOP_ROUNDED_BUTTON_PATH} />
+            <path id="bottomRoundedButton" d={BOTTOM_ROUNDED_BUTTON_PATH} />
+            <clipPath id="topRoundedButtonOnly">
+              <use xlinkHref="#topRoundedButton" />
+            </clipPath>
+            <clipPath id="bottomRoundedButtonOnly">
+              <use xlinkHref="#bottomRoundedButton" />
+            </clipPath>
+            <path id="repoMask" d={REPO_GRADIENT_MASK} />
+            <path id="connectedEgressMask" d={CONNECTED_EGRESS_GRADIENT_MASK} />
+            <path id="pipelineMask" d={PIPELINE_GRADIENT_MASK} />
+          </defs>
+          <g id="Dags">
+            <DAG
+              dagDirection={dagDirection}
+              data={dags}
+              rotateDag={rotateDag}
+              largeDagMode={totalNodes > LARGE_DAG_MIN}
+              forceFullRender={renderAndDownloadCanvas}
+            />
+          </g>
+        </svg>
+      </HoveredNodeProvider>
       {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
     </View>
   );

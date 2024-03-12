@@ -32,14 +32,10 @@ import {deriveProjectStatus} from './useProjectStatus';
 import useUrlState from './useUrlState';
 
 interface useProjectDagsDataProps {
-  nodeWidth: number;
-  nodeHeight: number;
   direction?: DagDirection;
 }
 
 export const useDAGData = ({
-  nodeWidth,
-  nodeHeight,
   direction = DagDirection.DOWN,
 }: useProjectDagsDataProps) => {
   const {searchParams} = useUrlQueryState();
@@ -118,27 +114,11 @@ export const useDAGData = ({
           pipelines,
         );
       }
-      const dags = await buildELKDags(
-        vertices,
-        nodeWidth,
-        nodeHeight,
-        direction,
-        setDagError,
-      );
+      const dags = await buildELKDags(vertices, direction, setDagError);
       setDags(dags);
       setIsBuilding(false);
     }
-  }, [
-    direction,
-    globalId,
-    jobSet,
-    loading,
-    nodeHeight,
-    nodeWidth,
-    pipelines,
-    projectId,
-    repos,
-  ]);
+  }, [direction, globalId, jobSet, loading, pipelines, projectId, repos]);
 
   useEffect(() => {
     buildAndSetDags();

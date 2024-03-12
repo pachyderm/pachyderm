@@ -1,15 +1,6 @@
-.node .label.egress {
-  border: none;
-  box-shadow: none;
-  fill: none;
-  opacity: 0;
-}
-
-rect.node,
-.buttonGroup rect.node {
+rect.node {
   fill: var(--white);
   stroke-width: 2px;
-  stroke: var(--border-grey);
   paint-order: stroke;
   filter: url('#node-dropshadow');
 }
@@ -24,47 +15,56 @@ rect.node.detailedError {
 
 .connectedBorder {
   fill: transparent;
-  stroke-width: 1px;
+  stroke-width: 2px;
   stroke: var(--border-grey);
   stroke-dasharray: 0.25rem;
   paint-order: stroke;
 }
 
-/* REPO & PIPELINE BUTTONS */
+.greenGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#green-gradient);
+}
 
-.repoPipelineButtonsBorder {
-  stroke: var(--border-grey);
+.greyGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#grey-gradient);
+}
+
+.purpleGradient {
+  /* this value is defiend in DAGView.tsx */
+  fill: url(#purple-gradient);
+}
+
+.hideDetails {
+  opacity: 0.3;
+}
+
+.pipelineInternalBorder {
+  fill: transparent;
   stroke-width: 1px;
-  fill: transparent;
+  stroke: var(--border-grey);
+  paint-order: stroke;
 }
 
-.buttonGroup * {
-  user-select: none;
+.pipelineInternalBorder.simplified {
+  stroke: none;
 }
 
-.buttonGroup .roundedButton {
-  fill: transparent;
+.pipelineButtonsBackground {
+  fill: var(--white);
 }
 
-.buttonGroup.selected .roundedButton {
-  fill: var(--cyan-10);
-  stroke: var(--cyan);
-  stroke-width: 4px;
+.tooltipWrapper {
+  cursor: default;
 }
 
-.buttonGroup.interactive:hover .roundedButton {
-  fill: var(--cyan-10);
+.pipelineCronIcon {
+  fill: var(--default-purple);
 }
 
-.buttonGroup.interactive:hover {
-  cursor: pointer;
-}
-
-.buttonGroup.interactive text {
-  fill: var(--pachyderm-plum);
-}
-.buttonGroup.interactive text tspan {
-  fill: var(--pachyderm-black);
+.checkmarkSvg {
+  fill: var(--success-green);
 }
 
 /* STATUS BUTTONS */
@@ -121,27 +121,13 @@ rect.node.detailedError {
   opacity: 0.3;
 }
 
-.buttonGroup rect.node.repoSimplifiedBox.node,
-.buttonGroup rect.node.repoSimplifiedBox.node:hover {
-  fill: var(--pachyderm-green);
-  stroke-width: 0;
-  opacity: 0.3;
-  cursor: grab;
-}
-
 .egressSimplifiedBox {
   fill: var(--green);
   stroke-width: 0;
   opacity: 0.3;
 }
 
-.crossProjectRepoSimplifiedBox.node {
-  fill: var(--pachyderm-green);
-  stroke-width: 0;
+.simplifiedInput.node {
+  fill: url(#green-gradient);
   opacity: 0.3;
-}
-
-.crossProjectRepoSimplifiedButton {
-  fill: var(--white);
-  stroke-width: 0;
 }

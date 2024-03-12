@@ -51,12 +51,14 @@ describe('Download Canvas', () => {
 
         expect(svgTextArray).to.deep.equal([
           'images',
+          'Upload Files',
           'edges',
           'Output',
           'Pipeline',
           'Running',
           'Subjob',
           'Success',
+          '1',
         ]);
       },
     );

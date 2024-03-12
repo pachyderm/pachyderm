@@ -1,6 +1,7 @@
+import classnames from 'classnames';
 import React from 'react';
 
-import {Dags, DagDirection} from '@dash-frontend/lib/types';
+import {DagDirection, Dags} from '@dash-frontend/lib/types';
 
 import {NODE_HEIGHT, NODE_WIDTH} from '../../../../constants/nodeSizes';
 import {SIDENAV_PADDING} from '../../hooks/useDAGView';
@@ -17,24 +18,35 @@ const SIMPLE_DAG_THRESHOLD = 0.3;
 
 type DagProps = {
   data: Dags | undefined;
-  isInteractive?: boolean;
   rotateDag: () => void;
-  dagDirection: DagDirection;
   largeDagMode?: boolean;
   forceFullRender?: boolean;
+  dagDirection: DagDirection;
 };
 
 const DAG: React.FC<DagProps> = ({
   data,
-  isInteractive = true,
-  dagDirection,
   largeDagMode = false,
   forceFullRender = false,
+  dagDirection,
 }) => {
-  const {translateX, translateY, scale, svgWidth, svgHeight} = useDag();
+  const {
+    translateX,
+    translateY,
+    scale,
+    svgWidth,
+    svgHeight,
+    selectedNodePreorder,
+    selectedNodeReversePreorder,
+  } = useDag(data);
 
   return (
-    <g className={styles.graph}>
+    <g
+      className={classnames(styles.graph, {
+        [styles.speed]:
+          !forceFullRender && largeDagMode && scale < HIDE_DETAILS_THRESHOLD,
+      })}
+    >
       {/* Ordering of links and nodes in DOM is important so nodes are on top layer */}
       {data?.links.length !== 0 &&
         (!largeDagMode || forceFullRender || scale >= SIMPLE_DAG_THRESHOLD) &&
@@ -54,7 +66,14 @@ const DAG: React.FC<DagProps> = ({
               linkMinY < svgHeight)
           ) {
             return (
-              <Link key={link.id} link={link} dagDirection={dagDirection} />
+              <Link
+                key={link.id}
+                link={link}
+                dagDirection={dagDirection}
+                preorder={selectedNodePreorder}
+                reversePreorder={selectedNodeReversePreorder}
+                hideDetails={largeDagMode && scale < HIDE_DETAILS_THRESHOLD}
+              />
             );
           }
           return null;
@@ -75,10 +94,7 @@ const DAG: React.FC<DagProps> = ({
               <Node
                 key={node.id}
                 node={node}
-                isInteractive={
-                  (!largeDagMode || scale >= HIDE_DETAILS_THRESHOLD) &&
-                  isInteractive
-                }
+                isInteractive={!largeDagMode || scale >= HIDE_DETAILS_THRESHOLD}
                 hideDetails={largeDagMode && scale < HIDE_DETAILS_THRESHOLD}
                 showSimple={largeDagMode && scale < SIMPLE_DAG_THRESHOLD}
               />
