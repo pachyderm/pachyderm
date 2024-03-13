@@ -33,6 +33,7 @@ type Project struct {
 	ID          ProjectID `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
+	Metadata    jsonMap   `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
@@ -49,6 +50,7 @@ func (project *Project) PbInfo() *pfs.ProjectInfo {
 		},
 		Description: project.Description,
 		CreatedAt:   timestamppb.New(project.CreatedAt),
+		Metadata:    project.Metadata.Data,
 	}
 }
 
