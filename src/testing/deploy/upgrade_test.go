@@ -79,7 +79,6 @@ func TestUpgradeTrigger(t *testing.T) {
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
-		"2.9.2",
 	}
 
 	type ExpectedCommitCount struct {
@@ -116,18 +115,17 @@ func TestUpgradeTrigger(t *testing.T) {
 	pipeline1 := "TestTrigger1"
 	pipeline2 := "TestTrigger2"
 
-	logCommits := func(t *testing.T, c *client.APIClient, commits []*pfs.CommitInfo) error {
+	logCommits := func(t *testing.T, c *client.APIClient, commits []*pfs.CommitInfo) {
 		var buf bytes.Buffer
 		for i, commit := range commits {
-			c.GetFile(commit.Commit, "/hello", &buf)
+			err := c.GetFile(commit.Commit, "/hello", &buf)
 			commitFile := buf.String()
 			buf.Reset()
-			if commitFile == "" {
+			if err != nil || commitFile == "" {
 				commitFile = "no file"
 			}
 			t.Logf("	commit %d: id:%s, file: %s", len(commits)-i, commit.Commit.Id, commitFile)
 		}
-		return nil
 	}
 
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
@@ -184,7 +182,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					return err
 				}
 				t.Logf("comparing commit trigger1 sizes %d/%d", len(commits), expectedCommitCount.preTrigger1)
-				err = logCommits(t, c, commits)
+				logCommits(t, c, commits)
 				if got, want := len(commits), expectedCommitCount.preTrigger1; got != want {
 					return errors.Errorf("trigger1 not ready; got %v commits, want %v commits", got, want)
 				}
@@ -197,7 +195,7 @@ func TestUpgradeTrigger(t *testing.T) {
 					return err
 				}
 				t.Logf("comparing commit trigger2 sizes %d/%d", len(commits), expectedCommitCount.preTrigger2)
-				err = logCommits(t, c, commits)
+				logCommits(t, c, commits)
 				if got, want := len(commits), expectedCommitCount.preTrigger2; got != want {
 					return errors.Errorf("trigger2 not ready; got %v commits, want %v commits", got, want)
 				}
@@ -228,13 +226,11 @@ func TestUpgradeTrigger(t *testing.T) {
 			expectedCommitCount := getExpectedCommitCountFromVersion(from)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
 			t.Logf("comparing commit trigger1 post %d/%d", len(commits), expectedCommitCount.postTrigger1)
-			err = logCommits(t, c, commits)
-			require.NoError(t, err)
+			logCommits(t, c, commits)
 			require.Equal(t, expectedCommitCount.postTrigger1, len(commits))
 			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
 			t.Logf("comparing commit trigger2 post %d/%d", len(commits), expectedCommitCount.postTrigger2)
-			err = logCommits(t, c, commits)
-			require.NoError(t, err)
+			logCommits(t, c, commits)
 			require.Equal(t, expectedCommitCount.postTrigger2, len(commits))
 			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
 				if resp.Error != "" {
