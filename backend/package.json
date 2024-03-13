@@ -68,7 +68,7 @@
     "node-jq": "2.3.5",
     "node-mocks-http": "^1.13.0",
     "nodemon": "2.0.20",
-    "ts-jest": "^29.1.1",
+    "ts-jest": "^29.1.2",
     "tsconfig-paths": "4.1.1",
     "typescript": "4.9.3"
   },
