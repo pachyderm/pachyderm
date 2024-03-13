@@ -80,7 +80,7 @@
     "react-router": "5.3.4",
     "react-router-dom": "5.3.4",
     "react-transition-group": "4.4.5",
-    "react-virtualized-auto-sizer": "1.0.20",
+    "react-virtualized-auto-sizer": "1.0.24",
     "react-window": "1.8.8",
     "remark-gfm": "3.0.1",
     "rudder-sdk-js": "2.20.0"
@@ -114,7 +114,7 @@
     "@types/react-helmet": "6.1.6",
     "@types/react-router-dom": "^5.3.3",
     "@types/react-transition-group": "^4.4.6",
-    "@types/react-virtualized-auto-sizer": "1.0.1",
+    "@types/react-virtualized-auto-sizer": "1.0.4",
     "@types/react-window": "1.8.5",
     "@types/wicg-entries-api": "2020.8.2",
     "@types/wicg-file-system-access": "^2020.9.5",
