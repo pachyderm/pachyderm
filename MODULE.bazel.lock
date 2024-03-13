@@ -3822,10 +3822,10 @@
       "general": {
         "bzlTransitiveDigest": "zP01muRk4s4xWGK3gNPXOyDMQkOPsIhu99akeKWFFQ0=",
         "accumulatedFileDigests": {
-          "@@//:go.mod": "0348924f2102273f263668eafdbd929b6f30978d34fdde5ea0c454428e3bb225",
+          "@@//:go.mod": "9055b6ab3db69b26f71fcd791f207d6434659318b9b2418f29ad6fc14f6e6f86",
           "@@jsonnet_go~0.20.0//:go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4",
           "@@rules_go~0.46.0//:go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
-          "@@//:go.sum": "9c774dcb739a98eec62b964e23aaeb42edbbbc7fa00e93c5c1cfbe4b4f55b103",
+          "@@//:go.sum": "0c528e9eb92277c828138e22803291b5be47689a6402894988e58914c2232994",
           "@@gazelle~0.35.0//:go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@gazelle~0.35.0//:go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@rules_go~0.46.0//:go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
@@ -4212,9 +4212,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:brH0pCGBDkBW07HWlN/oSBXrmo3WB0UvZd1pIuDcL8Y=",
+              "sum": "h1:1HLSx5H+tXR9pW3in3zaztoEwQYRC9SQaYUHjTSUOag=",
               "replace": "",
-              "version": "v2.3.0"
+              "version": "v2.3.3"
             }
           },
           "com_github_segmentio_analytics_go": {
@@ -5372,9 +5372,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:u4uiGPz/1hryuXzyaBhSk6dnIyyG2683olG2OV+UUgs=",
+              "sum": "h1:y+xUdabmyMkJLyApYuPj38mW+aAIqCe5uuBB51rH3Vw=",
               "replace": "",
-              "version": "v1.11.0"
+              "version": "v1.14.0"
             }
           },
           "com_github_aws_aws_sdk_go_v2_internal_v4a": {
@@ -5894,9 +5894,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:r8bRNjWL3GshPW3gkd+RpvzWrZAwPS49OmTGZ/uhM4k=",
+              "sum": "h1:jmAMJJZXr5KiCw05dfYK9QnqaqKLYXijU23lsEdcQqg=",
               "replace": "",
-              "version": "v0.17.0"
+              "version": "v0.20.0"
             }
           },
           "com_github_aws_aws_sdk_go_v2_internal_configsources": {
@@ -6872,9 +6872,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:JzTglcal01DrghUqt+PmzWsZx/Yh7SC/CTQmSBMTd0Y=",
+              "sum": "h1:xVpYkNR5pk5bMCZGfClbO962UIqVABcAGt7ha1s/FeU=",
               "replace": "",
-              "version": "v4.16.1"
+              "version": "v4.18.2"
             }
           },
           "bazel_gazelle_go_repository_config": {
@@ -7353,9 +7353,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:h48lPFYpsTvQJZF4EKyI4aLHaev3CxivZmv7yZig9pc=",
+              "sum": "h1:25cE3gD+tdBA7lp7QfhuV+rJiE9YXTcS3VG1SqssI/Y=",
               "replace": "",
-              "version": "v0.15.0"
+              "version": "v0.17.0"
             }
           },
           "com_github_docker_go_units": {
@@ -8770,9 +8770,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:rsDFzIpRk7xT4B8FufgpCCeyjdNpKyghZeSefViE5W8=",
+              "sum": "h1:bVoTr12EGANZz66nZPkMInAV/KHD2TxH9npjXXgiB3w=",
               "replace": "",
-              "version": "v1.12.1"
+              "version": "v1.14.3"
             }
           },
           "com_github_agext_levenshtein": {
@@ -8866,9 +8866,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=",
+              "sum": "h1:AQyQV4dYCvJ7vGmJyKki9+PBdyvhkSd8EIx/qb0AYv4=",
               "replace": "",
-              "version": "v0.19.0"
+              "version": "v0.21.0"
             }
           },
           "io_k8s_api": {
@@ -9172,9 +9172,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:y/Oo/a/q3IXu26lQgl04j/gjuBDOBlx7X6Om1j2CPW4=",
+              "sum": "h1:mkTF7LCd6WGJNL3K1Ad7kwxNfYAW6a8a8QqtMblp/4U=",
               "replace": "",
-              "version": "v0.15.0"
+              "version": "v0.17.0"
             }
           },
           "com_github_dexidp_dex_api_v2": {
