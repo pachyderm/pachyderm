@@ -91,7 +91,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 		return nil, errors.Wrap(err, "activate auth in transaction")
 	}
 	// Create role bindings for repos created before auth activation
-	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
+	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, nil, nil, nil, func(repoInfoWithID pfsdb.RepoInfoWithID) error {
 		err := a.env.Auth.CreateRoleBindingInTransaction(txnCtx, "", nil, repoInfoWithID.RepoInfo.Repo.AuthResource())
 		if err != nil && !col.IsErrExists(err) {
 			return errors.EnsureStack(err)
