@@ -479,7 +479,6 @@ func ListPipelineInfo(ctx context.Context,
 	pipelines col.PostgresCollection,
 	filter *pps.Pipeline,
 	history int64,
-	offset int64,
 	f func(*pps.PipelineInfo) error) error {
 	p := &pps.PipelineInfo{}
 	versionMap := make(map[string]uint64)
@@ -506,8 +505,7 @@ func ListPipelineInfo(ctx context.Context,
 
 		return f(p)
 	}
-	// TODO: is int(offset) correct casting?
-	opts := &col.Options{Target: col.SortByKey, Order: col.SortAscend, Offset: int(offset)}
+	opts := &col.Options{Target: col.SortByKey, Order: col.SortAscend}
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,

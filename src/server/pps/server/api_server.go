@@ -795,7 +795,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 	}
 	// pipelineVersions holds the versions of pipelines that we're interested in
 	pipelineVersions := make(map[string]bool)
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(), 0,
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, pipeline, request.GetHistory(),
 		func(ptr *pps.PipelineInfo) error {
 			pipelineVersions[ppsdb.VersionKey(ptr.Pipeline, ptr.Version)] = true
 			return nil
@@ -1380,7 +1380,7 @@ func (a *apiServer) CheckStatus(request *pps.CheckStatusRequest, apiCheckStatusS
 		return errors.Wrap(err, "error creating message filter function")
 	}
 
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, 0, func(pipelineInfo *pps.PipelineInfo) error {
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pipelineInfo *pps.PipelineInfo) error {
 		if ok, err := filterPipeline(ctx, pipelineInfo); err != nil {
 			return errors.Wrap(err, "error filtering pipeline")
 		} else if !ok {
@@ -3016,14 +3016,15 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	if request.Page != nil {
 		offset = request.Page.PageIndex * request.Page.PageSize
 	}
-	var count int64
-	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, offset, func(pi *pps.PipelineInfo) error {
+	var seen int64
+	var emmitted int64
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
 		if ok, err := filterPipeline(ctx, pi); err != nil {
 			return errors.Wrap(err, "error filtering pipeline")
 		} else if !ok {
 			return nil
 		}
-		if request.Page != nil && request.Page.PageSize > 0 && count >= request.Page.PageSize {
+		if request.Page != nil && request.Page.PageSize > 0 && emmitted >= request.Page.PageSize {
 			return errutil.ErrBreak
 		}
 		if err := checkAccess(ctx, pi.Pipeline); err != nil {
@@ -3045,7 +3046,11 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				return err
 			}
 		}
-		count++
+		defer func() { seen++ }()
+		if offset > seen {
+			return nil
+		}
+		emmitted++
 		return f(pi)
 	}); err != nil && err != errutil.ErrBreak {
 		if errors.Is(err, context.DeadlineExceeded) {

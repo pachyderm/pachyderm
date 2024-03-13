@@ -34,14 +34,12 @@ type Options struct {
 	Order  SortOrder
 	// Limit is only implemented for postgres collections
 	Limit int
-	// Offset is only implemented for postgres collections
-	Offset int
 }
 
 // DefaultOptions are the default sort options when iterating through etcd
 // key/values.
 func DefaultOptions() *Options {
-	return &Options{SortByCreateRevision, SortDescend, 0, 0}
+	return &Options{SortByCreateRevision, SortDescend, 0}
 }
 
 func listFuncs(opts *Options) (func(*mvccpb.KeyValue) etcd.OpOption, func(kv1 *mvccpb.KeyValue, kv2 *mvccpb.KeyValue) int) {
