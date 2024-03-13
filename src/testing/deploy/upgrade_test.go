@@ -79,6 +79,7 @@ func TestUpgradeTrigger(t *testing.T) {
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
+		"2.9.2",
 	}
 
 	type ExpectedCommitCount struct {
@@ -91,12 +92,21 @@ func TestUpgradeTrigger(t *testing.T) {
 	getExpectedCommitCountFromVersion := func(version string) ExpectedCommitCount {
 		expectedCommitMap := map[string]ExpectedCommitCount{
 			"v2.7": {
+				// 2.7 is a special case where the commit structure changes after the upgrade
 				preTrigger1:  23,
 				preTrigger2:  12,
 				postTrigger1: 33,
 				postTrigger2: 17,
 			},
 			"v2.8": {
+				// trigger 1 is two empty commits and 11 data commits 
+				// trigger 2 is one inital commit and "every other" data commit, so 6 total
+				preTrigger1:  13,
+				preTrigger2:  6,
+				postTrigger1: 13,
+				postTrigger2: 6,
+			},
+			"v2.9": {
 				preTrigger1:  13,
 				preTrigger2:  6,
 				postTrigger1: 13,
@@ -121,7 +131,7 @@ func TestUpgradeTrigger(t *testing.T) {
 			if commitFile == "" {
 				commitFile = "no file"
 			}
-			t.Logf("	commit %d: id:%s, file: %s", i, commit.Commit.Id, commitFile)
+			t.Logf("	commit %d: id:%s, file: %s", len(commits)-i, commit.Commit.Id, commitFile)
 		}
 		return nil
 	}
@@ -238,7 +248,6 @@ func TestUpgradeTrigger(t *testing.T) {
 				}
 				return nil
 			}))
-			t.Errorf("force fail to see logs")
 		},
 	)
 }
