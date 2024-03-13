@@ -80,6 +80,10 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 			}
 
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
+			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(1)
+			}
 			for {
 				resp, err := resp.Recv()
 				if err != nil {
