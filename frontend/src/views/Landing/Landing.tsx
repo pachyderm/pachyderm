@@ -4,6 +4,7 @@ import {useHistory} from 'react-router';
 import {Route, Switch} from 'react-router-dom';
 
 import BrandedTitle from '@dash-frontend/components/BrandedTitle';
+import ClusterRolesModal from '@dash-frontend/components/ClusterRolesModal';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import Sidebar from '@dash-frontend/components/Sidebar';
 import {TabView} from '@dash-frontend/components/TabView';
@@ -79,16 +80,27 @@ export const Landing: React.FC = () => {
     viewDropdown,
   } = useLandingView();
   const browserHistory = useHistory();
-  const {openModal, closeModal, isOpen} = useModal(false);
+  const {
+    openModal: openCreateModal,
+    closeModal: closeCreateModal,
+    isOpen: createIsOpen,
+  } = useModal(false);
+  const {
+    openModal: openRolesModal,
+    closeModal: closeRolesModal,
+    isOpen: rolesIsOpen,
+  } = useModal(false);
 
   const {
     isAuthActive,
     hasProjectCreate,
     hasClusterAuthSetConfig: hasClusterConfig,
+    hasClusterModifyBindings,
   } = useAuthorize({
     permissions: [
       Permission.PROJECT_CREATE,
       Permission.CLUSTER_AUTH_SET_CONFIG,
+      Permission.CLUSTER_MODIFY_BINDINGS,
     ],
     resource: {type: ResourceType.CLUSTER, name: ''},
   });
@@ -106,8 +118,13 @@ export const Landing: React.FC = () => {
                 Cluster Defaults
               </Button>
             )}
+            {isAuthActive && (
+              <Button onClick={openRolesModal} buttonType="secondary">
+                Cluster Roles
+              </Button>
+            )}
             {hasProjectCreate && (
-              <Button onClick={openModal}>Create Project</Button>
+              <Button onClick={openCreateModal}>Create Project</Button>
             )}
           </TabView.Header>
           <TabView.Body initialActiveTabId={'Projects'} showSkeleton={false}>
@@ -197,7 +214,16 @@ export const Landing: React.FC = () => {
       <Sidebar>
         {selectedProject && <ProjectPreview project={selectedProject} />}
       </Sidebar>
-      {isOpen && <CreateProjectModal show={isOpen} onHide={closeModal} />}
+      {createIsOpen && (
+        <CreateProjectModal show={createIsOpen} onHide={closeCreateModal} />
+      )}
+      {rolesIsOpen && (
+        <ClusterRolesModal
+          show={rolesIsOpen}
+          onHide={closeRolesModal}
+          readOnly={!hasClusterModifyBindings}
+        />
+      )}
     </div>
   );
 };

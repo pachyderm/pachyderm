@@ -35,7 +35,7 @@ export type UserTableRoles = Record<
 >;
 
 type useRolesModalProps = {
-  projectName: string;
+  projectName?: string;
   repoName?: string;
   resourceType: ResourceType;
 };
@@ -71,10 +71,12 @@ const useRolesModal = ({
     setPrincipalFilterOpen(false);
   }, [setPrincipalFilter, setPrincipalFilterOpen, principalFilterRef]);
 
-  const resourceName =
-    resourceType === ResourceType.REPO && repoName
-      ? `${projectName}/${repoName}`
-      : projectName;
+  let resourceName = '';
+  if (resourceType === ResourceType.REPO) {
+    resourceName = `${projectName}/${repoName}`;
+  } else if (resourceType === ResourceType.PROJECT) {
+    resourceName = projectName || '';
+  }
 
   const {
     roleBinding: clusterRolesResponse,
@@ -185,25 +187,34 @@ const useRolesModal = ({
   );
 
   const userTableRoles = useMemo(() => {
-    return resourceType === ResourceType.REPO
-      ? mapTableRoles({
-          unlockedRoles: repoRoles || {},
-          lockedRoles: projectRepoRoles || {},
-          higherRoles:
-            mergeWith(
-              {},
-              clusterRoles || {},
-              projectNotRepoRoles || {},
-              mergeConcat,
-            ) || {},
-          deletedPrincipals: Object.keys(deletedRoles) || [],
-        })
-      : mapTableRoles({
-          unlockedRoles: projectRoles || {},
-          lockedRoles: clusterProjectRoles || {},
-          higherRoles: clusterNotProjectRoles || {},
-          deletedPrincipals: Object.keys(deletedRoles) || [],
-        });
+    if (resourceType === ResourceType.REPO) {
+      return mapTableRoles({
+        unlockedRoles: repoRoles || {},
+        lockedRoles: projectRepoRoles || {},
+        higherRoles:
+          mergeWith(
+            {},
+            clusterRoles || {},
+            projectNotRepoRoles || {},
+            mergeConcat,
+          ) || {},
+        deletedPrincipals: Object.keys(deletedRoles) || [],
+      });
+    } else if (resourceType === ResourceType.PROJECT) {
+      return mapTableRoles({
+        unlockedRoles: projectRoles || {},
+        lockedRoles: clusterProjectRoles || {},
+        higherRoles: clusterNotProjectRoles || {},
+        deletedPrincipals: Object.keys(deletedRoles) || [],
+      });
+    } else {
+      return mapTableRoles({
+        unlockedRoles: clusterRoles || {},
+        lockedRoles: {},
+        higherRoles: {},
+        deletedPrincipals: Object.keys(deletedRoles) || [],
+      });
+    }
   }, [
     clusterNotProjectRoles,
     clusterProjectRoles,

@@ -3,7 +3,11 @@ import React from 'react';
 
 import {ResourceType} from '@dash-frontend/api/auth';
 import BrandedDocLink from '@dash-frontend/components/BrandedDocLink';
-import {REPO_ROLES, ALL_ROLES} from '@dash-frontend/constants/rbac';
+import {
+  REPO_ROLES,
+  ALL_PROJECT_ROLES,
+  ALL_CLUSTER_ROLES,
+} from '@dash-frontend/constants/rbac';
 import {
   Icon,
   InfoSVG,
@@ -28,8 +32,8 @@ import useRolesModal from './hooks/useRolesModal';
 import styles from './RolesModal.module.css';
 
 type RolesModalProps = {
-  resourceType: ResourceType.PROJECT | ResourceType.REPO;
-  projectName: string;
+  resourceType: ResourceType.CLUSTER | ResourceType.PROJECT | ResourceType.REPO;
+  projectName?: string;
   repoName?: string;
   disclaimerText?: string;
   show: boolean;
@@ -67,8 +71,11 @@ export const RolesModal: React.FC<RolesModalProps> = ({
     modifyRolesError,
   } = useRolesModal({projectName, repoName, resourceType});
 
-  const mainResourceRoles =
-    resourceType === ResourceType.REPO ? REPO_ROLES : ALL_ROLES;
+  let mainResourceRoles = REPO_ROLES;
+  if (resourceType === ResourceType.PROJECT)
+    mainResourceRoles = ALL_PROJECT_ROLES;
+  if (resourceType === ResourceType.CLUSTER)
+    mainResourceRoles = ALL_CLUSTER_ROLES;
 
   return (
     <BasicModal
@@ -77,7 +84,7 @@ export const RolesModal: React.FC<RolesModalProps> = ({
       onHide={onHide}
       headerContent={`${!readOnly ? 'Set ' : ''}${capitalize(
         resourceType,
-      )} Level Roles: ${resourceName}`}
+      )} Level Roles${resourceName ? `: ${resourceName}` : ''}`}
       loading={loading}
       errorMessage={error || modifyRolesError}
       actionable

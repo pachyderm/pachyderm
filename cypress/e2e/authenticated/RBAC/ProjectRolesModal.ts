@@ -176,7 +176,7 @@ describe('Project roles modal', () => {
 
     // filter down to a specific user
     cy.findByRole('dialog').within(() => {
-      cy.findAllByRole('row').should('have.length', 4);
+      cy.findAllByRole('row').should('have.length', 5);
       cy.findByRole('button', {name: /open users search/i}).click();
       cy.findByRole('searchbox').type('inherit');
       cy.findAllByRole('row').should('have.length', 2);

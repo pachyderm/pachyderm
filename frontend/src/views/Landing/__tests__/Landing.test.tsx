@@ -22,6 +22,7 @@ import {
   buildPipeline,
   mockGetEnterpriseInfo,
   mockFalseGetAuthorize,
+  mockEmptyGetRoles,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click, type} from '@dash-frontend/testHelpers';
 
@@ -128,6 +129,23 @@ describe('Landing', () => {
         screen.queryByRole('button', {name: /cluster defaults/i}),
       ).not.toBeInTheDocument();
     });
+  });
+
+  it('should allow a user to open the cluster roles modal', async () => {
+    server.use(mockTrueGetAuthorize());
+    server.use(mockEmptyGetRoles());
+    render(<Landing />);
+
+    await click(await screen.findByRole('button', {name: /cluster roles/i}));
+
+    const modal = await screen.findByRole('dialog');
+    expect(modal).toBeInTheDocument();
+
+    expect(
+      within(modal).getByRole('heading', {
+        name: 'Cluster Level Roles',
+      }),
+    ).toBeInTheDocument();
   });
 
   it('should display all project names and status', async () => {

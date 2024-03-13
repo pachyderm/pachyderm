@@ -21,7 +21,7 @@ import useAssignRolesForm from './hooks/useAssignRolesForm';
 
 type AssignRolesFormProps = {
   roles: string[];
-  resourceType: ResourceType.PROJECT | ResourceType.REPO;
+  resourceType: ResourceType.CLUSTER | ResourceType.PROJECT | ResourceType.REPO;
   resourceName: string;
   userTableRoles: UserTableRoles;
   deletedRoles: Record<string, ModifyRoleBindingRequest>;

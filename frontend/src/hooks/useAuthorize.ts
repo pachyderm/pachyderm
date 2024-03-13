@@ -31,6 +31,7 @@ const useAuthorizeCommon = (
     !isAuthActive || satisfied.includes(permission);
 
   const lookups = {
+    hasClusterModifyBindings: hasPermission(Permission.CLUSTER_MODIFY_BINDINGS),
     hasClusterAuthSetConfig: hasPermission(Permission.CLUSTER_AUTH_SET_CONFIG),
     hasProjectCreate: hasPermission(Permission.PROJECT_CREATE),
     hasProjectCreateRepo: hasPermission(Permission.PROJECT_CREATE_REPO),
