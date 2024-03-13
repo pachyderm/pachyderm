@@ -98,7 +98,7 @@ func TestUpgradeTrigger(t *testing.T) {
 				postTrigger2: 17,
 			},
 			"v2.8": {
-				// trigger 1 is two empty commits and 11 data commits 
+				// trigger 1 is two empty commits and 11 data commits
 				// trigger 2 is one inital commit and "every other" data commit, so 6 total
 				preTrigger1:  13,
 				preTrigger2:  6,
@@ -225,19 +225,24 @@ func TestUpgradeTrigger(t *testing.T) {
 			}
 			expectedCommitCount := getExpectedCommitCountFromVersion(from)
 			commits, err := c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline1), nil, nil, 0)
+			require.NoError(t, err)
 			t.Logf("comparing commit trigger1 post %d/%d", len(commits), expectedCommitCount.postTrigger1)
 			logCommits(t, c, commits)
 			require.Equal(t, expectedCommitCount.postTrigger1, len(commits))
 			commits, err = c.ListCommit(client.NewRepo(pfs.DefaultProjectName, pipeline2), nil, nil, 0)
+			require.NoError(t, err)
 			t.Logf("comparing commit trigger2 post %d/%d", len(commits), expectedCommitCount.postTrigger2)
 			logCommits(t, c, commits)
 			require.Equal(t, expectedCommitCount.postTrigger2, len(commits))
-			require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
-				if resp.Error != "" {
-					return errors.Errorf(resp.Error)
-				}
-				return nil
-			}))
+			if semver.Compare("v"+from, "v2.8.0") < 0 {
+				// parent branch default/TestTrigger_data@trigger commit is not in direct provenance of head of branch default/TestTrigger1@master
+				require.NoError(t, c.Fsck(false, func(resp *pfs.FsckResponse) error {
+					if resp.Error != "" {
+						return errors.Errorf(resp.Error)
+					}
+					return nil
+				}))
+			}
 		},
 	)
 }
