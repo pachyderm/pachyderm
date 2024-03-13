@@ -106,12 +106,6 @@ func TestUpgradeTrigger(t *testing.T) {
 				postTrigger1: 13,
 				postTrigger2: 6,
 			},
-			"v2.9": {
-				preTrigger1:  13,
-				preTrigger2:  6,
-				postTrigger1: 13,
-				postTrigger2: 6,
-			},
 		}
 		lookup := semver.MajorMinor("v" + version)
 		return expectedCommitMap[lookup]
