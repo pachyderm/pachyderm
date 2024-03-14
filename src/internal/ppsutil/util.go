@@ -505,12 +505,13 @@ func ListPipelineInfo(ctx context.Context,
 
 		return f(p)
 	}
+	opts := col.DefaultOptions()
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,
 			ppsdb.PipelinesNameKey(filter),
 			p,
-			col.DefaultOptions(),
+			opts,
 			checkPipelineVersion); err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -520,7 +521,7 @@ func ListPipelineInfo(ctx context.Context,
 		}
 		return nil
 	}
-	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, col.DefaultOptions(), checkPipelineVersion))
+	return errors.EnsureStack(pipelines.ReadOnly(ctx).List(p, opts, checkPipelineVersion))
 }
 
 func FilterLogLines(request *pps.GetLogsRequest, r io.Reader, plainText bool, send func(*pps.LogMessage) error) error {

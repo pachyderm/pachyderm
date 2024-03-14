@@ -871,3 +871,88 @@ func TestCreatePipelineDryRun(t *testing.T) {
 		t.Error("InspectPipeline should fail if pipeline was not created")
 	}
 }
+
+func TestListPipelinePagination(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	collectPipelinePage := func(page *pps.PipelinePage, projects []string) []*pps.PipelineInfo {
+		var prjs []*pfs.Project
+		for _, p := range projects {
+			prjs = append(prjs, client.NewProject(p))
+		}
+		piClient, err := env.PachClient.PpsAPIClient.ListPipeline(ctx, &pps.ListPipelineRequest{
+			Page:     page,
+			Projects: prjs,
+		})
+		require.NoError(t, err)
+		pis, err := grpcutil.Collect[*pps.PipelineInfo](piClient, 1000)
+		require.NoError(t, err)
+		return pis
+	}
+	repo := "input"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	createPipeline := func(project, name string) {
+		require.NoError(t, env.PachClient.CreatePipeline(
+			project,
+			name,
+			"", /* default image*/
+			[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+			nil, /* stdin */
+			nil, /* spec */
+			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+			"",   /* output */
+			true, /* update */
+		))
+	}
+	projects := []string{"a", "b"}
+	for _, prj := range projects {
+		require.NoError(t, env.PachClient.CreateProject(prj))
+	}
+	for i, p := range []string{"A", "B", "C", "D", "E"} {
+		proj := projects[0]
+		if i%2 == 1 {
+			proj = projects[1]
+		}
+		createPipeline(proj, p)
+	}
+	// page larger than number of repos
+	ps := collectPipelinePage(&pps.PipelinePage{
+		PageSize:  20,
+		PageIndex: 0,
+	}, nil)
+	require.Equal(t, 5, len(ps))
+	ps = collectPipelinePage(&pps.PipelinePage{
+		PageSize:  3,
+		PageIndex: 0,
+	}, nil)
+	assertPipelineSequence(t, []string{"E", "D", "C"}, ps)
+	ps = collectPipelinePage(&pps.PipelinePage{
+		PageSize:  3,
+		PageIndex: 1,
+	}, nil)
+	assertPipelineSequence(t, []string{"B", "A"}, ps)
+	// page overbounds
+	ps = collectPipelinePage(&pps.PipelinePage{
+		PageSize:  3,
+		PageIndex: 2,
+	}, nil)
+	assertPipelineSequence(t, []string{}, ps)
+	ps = collectPipelinePage(&pps.PipelinePage{
+		PageSize:  2,
+		PageIndex: 1,
+	}, nil)
+	assertPipelineSequence(t, []string{"C", "B"}, ps)
+	// filter by project & pagination
+	ps = collectPipelinePage(&pps.PipelinePage{
+		PageSize:  1,
+		PageIndex: 1,
+	}, []string{"b"})
+	assertPipelineSequence(t, []string{"B"}, ps)
+}
+
+func assertPipelineSequence(t *testing.T, names []string, pipelines []*pps.PipelineInfo) {
+	require.Equal(t, len(names), len(pipelines))
+	for i, n := range names {
+		require.Equal(t, n, pipelines[i].Pipeline.Name)
+	}
+}
