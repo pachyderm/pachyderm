@@ -49,7 +49,7 @@ export const getMountedStatus = (
   for (const repo of unmounted) {
     // We should skip over repos without branches.
     if (repo.branches.length === 0) {
-      continue
+      continue;
     }
 
     const projectRepoKey = `${repo.project}/${repo.repo}`;
@@ -78,7 +78,7 @@ export const getMountedStatus = (
   }
   projectRepos.sort();
 
-  console.log(projectRepoToBranches)
+  console.log(projectRepoToBranches);
 
   return {
     projectRepos,
