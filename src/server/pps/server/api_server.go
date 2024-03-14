@@ -3012,10 +3012,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			})
 		})
 	}
-	var offset int64
-	if request.Page != nil {
-		offset = request.Page.PageIndex * request.Page.PageSize
-	}
+	offset := request.GetPage().GetPageIndex() * request.GetPage().GetPageSize()
 	var seen int64
 	var emitted int64
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
