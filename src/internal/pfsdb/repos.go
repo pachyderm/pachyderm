@@ -217,7 +217,7 @@ const (
 
 type OrderByRepoColumn OrderByColumn[repoColumn]
 
-func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize, maxPages uint64, filter *pfs.Repo, projectsFilter []*pfs.Project, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize, maxPages uint64, filter *pfs.Repo, projects []*pfs.Project, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
 	var conditions []string
 	var values []any
 	if filter != nil {
@@ -234,12 +234,12 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 			values = append(values, filter.Type)
 		}
 	}
-	if len(projectsFilter) > 0 {
-		var projects []string
-		for _, p := range projectsFilter {
-			projects = append(projects, fmt.Sprintf("'%s'", p.Name))
+	if len(projects) > 0 {
+		var projs []string
+		for _, p := range projects {
+			projs = append(projs, fmt.Sprintf("'%s'", p.Name))
 		}
-		cond := fmt.Sprintf("project.name IN (%s)", strings.Join(projects, ","))
+		cond := fmt.Sprintf("project.name IN (%s)", strings.Join(projs, ","))
 		conditions = append(conditions, cond)
 	}
 	query := getRepoAndBranches
