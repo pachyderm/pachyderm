@@ -118,7 +118,9 @@ export class MountDrive implements Contents.IDrive {
       return this._getCachedContent();
     }
 
-    // Reset cache
+    // Reset cache. It is important to reset this on any change in directory immediately. Otherwise the loading of files
+    // that happens in the background for folders with a large amount of files might attempt to continue which could fail if the user
+    // mounts a new repository.
     const now = Date.now();
     this._cache = {
       key: localPath,
