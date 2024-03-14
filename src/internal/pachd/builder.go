@@ -325,8 +325,10 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 	return nil
 }
 
-func (b *builder) registerLogsServer(ctx context.Context) error {
-	apiServer, err := logsserver.NewAPIServer()
+func (b *builder) initLogsServer(ctx context.Context) error {
+	apiServer, err := logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: b.env.GetLokiClient,
+	})
 	if err != nil {
 		return err
 	}
