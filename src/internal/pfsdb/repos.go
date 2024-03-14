@@ -263,7 +263,7 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 	}, nil
 }
 
-func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, projectsFilter []*pfs.Project, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
+func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, projects []*pfs.Project, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
 	var maxPages uint64
 	if page == nil {
 		page = &pfs.RepoPage{
@@ -280,7 +280,7 @@ func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, projects
 			return err
 		}
 	}
-	iter, err := NewRepoIterator(ctx, tx, uint64(page.PageIndex), uint64(page.PageSize), maxPages, filter, projectsFilter, orderBys...)
+	iter, err := NewRepoIterator(ctx, tx, uint64(page.PageIndex), uint64(page.PageSize), maxPages, filter, projects, orderBys...)
 	if err != nil {
 		return errors.Wrap(err, "for each repo")
 	}
