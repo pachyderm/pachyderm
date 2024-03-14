@@ -925,12 +925,12 @@ func TestListPipelinePagination(t *testing.T) {
 		PageSize:  3,
 		PageIndex: 0,
 	}, nil)
-	assertPipelineSequence(t, []string{"A", "C", "E"}, ps)
+	assertPipelineSequence(t, []string{"E", "D", "C"}, ps)
 	ps = collectPipelinePage(&pps.PipelinePage{
 		PageSize:  3,
 		PageIndex: 1,
 	}, nil)
-	assertPipelineSequence(t, []string{"B", "D"}, ps)
+	assertPipelineSequence(t, []string{"B", "A"}, ps)
 	// page overbounds
 	ps = collectPipelinePage(&pps.PipelinePage{
 		PageSize:  3,
@@ -941,13 +941,13 @@ func TestListPipelinePagination(t *testing.T) {
 		PageSize:  2,
 		PageIndex: 1,
 	}, nil)
-	assertPipelineSequence(t, []string{"E", "B"}, ps)
+	assertPipelineSequence(t, []string{"C", "B"}, ps)
 	// filter by project & pagination
 	ps = collectPipelinePage(&pps.PipelinePage{
 		PageSize:  1,
 		PageIndex: 1,
 	}, []string{"b"})
-	assertPipelineSequence(t, []string{"D"}, ps)
+	assertPipelineSequence(t, []string{"B"}, ps)
 }
 
 func assertPipelineSequence(t *testing.T, names []string, pipelines []*pps.PipelineInfo) {

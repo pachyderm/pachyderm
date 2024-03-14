@@ -10909,9 +10909,9 @@
     "pps_v2PipelinePageOrdering": {
       "type": "string",
       "enum": [
-        "PROJECT_PIPELINE"
+        "RECENT"
       ],
-      "default": "PROJECT_PIPELINE"
+      "default": "RECENT"
     },
     "pps_v2PipelineState": {
       "type": "string",

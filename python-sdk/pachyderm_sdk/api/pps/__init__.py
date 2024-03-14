@@ -139,7 +139,7 @@ class PipelineInfoPipelineType(betterproto.Enum):
 
 
 class PipelinePageOrdering(betterproto.Enum):
-    PROJECT_PIPELINE = 0
+    RECENT = 0
 
 
 @dataclass(eq=False, repr=False)

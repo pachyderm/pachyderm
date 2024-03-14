@@ -8793,7 +8793,7 @@ the pipeline without loading the spec from PFS.
 
 | Name | Number | Description |
 | ---- | ------ | ----------- |
-| PROJECT_PIPELINE | 0 |  |
+| RECENT | 0 |  |
 
 
 

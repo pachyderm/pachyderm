@@ -6,7 +6,7 @@
             "properties": {
                 "order": {
                     "enum": [
-                        "PROJECT_PIPELINE"
+                        "RECENT"
                     ],
                     "type": "string",
                     "title": "Ordering"

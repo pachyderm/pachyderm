@@ -505,7 +505,7 @@ func ListPipelineInfo(ctx context.Context,
 
 		return f(p)
 	}
-	opts := &col.Options{Target: col.SortByKey, Order: col.SortAscend}
+	opts := col.DefaultOptions()
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
 			ppsdb.PipelinesNameIndex,

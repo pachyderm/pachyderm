@@ -82,7 +82,7 @@ export enum PipelineInfoPipelineType {
 }
 
 export enum PipelinePageOrdering {
-  PROJECT_PIPELINE = "PROJECT_PIPELINE",
+  RECENT = "RECENT",
 }
 
 export type SecretMount = {

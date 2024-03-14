@@ -823,7 +823,7 @@ message ListPipelineRequest {
 
 message PipelinePage {
   enum Ordering {
-    PROJECT_PIPELINE = 0;
+    RECENT = 0;
   }
   Ordering order = 1;
   int64 page_size = 2;
