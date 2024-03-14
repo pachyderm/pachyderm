@@ -6,6 +6,7 @@ go_library(
         "current.go",
         "v2.0.0.go",
         "v2.1.0.go",
+        "v2.10.0.go",
         "v2.3.0.go",
         "v2.5.0.go",
         "v2.5.4.go",
@@ -17,6 +18,7 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/authdb",
+        "//src/internal/clusterstate/v2.10.0:v2_10_0",
         "//src/internal/clusterstate/v2.5.0:v2_5_0",
         "//src/internal/clusterstate/v2.6.0:v2_6_0",
         "//src/internal/clusterstate/v2.7.0:v2_7_0",

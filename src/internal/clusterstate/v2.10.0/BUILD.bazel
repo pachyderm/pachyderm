@@ -1,0 +1,15 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "v2_10_0",
+    srcs = [
+        "clusterstate.go",
+        "metadata.go",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/clusterstate/v2.10.0",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/migrations",
+    ],
+)

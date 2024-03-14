@@ -536,9 +536,18 @@ func (d *driver) createProjectInTransaction(ctx context.Context, txnCtx *txncont
 		return errors.Wrapf(err, "invalid project name")
 	}
 	if req.Update {
-		return errors.Wrapf(pfsdb.UpsertProject(ctx, txnCtx.SqlTx,
-			&pfs.ProjectInfo{Project: req.Project, Description: req.Description}),
-			"failed to update project %s", req.Project.Name)
+		src, err := pfsdb.GetProjectByName(ctx, txnCtx.SqlTx, req.GetProject().GetName())
+		if err != nil {
+			return errors.Wrapf(err, "get project %v", req.GetProject().GetName())
+		}
+		dst := &pfs.ProjectInfo{
+			Project:     req.Project,
+			Description: req.Description,
+			Metadata:    src.Metadata,
+		}
+		return errors.Wrapf(
+			pfsdb.UpsertProject(ctx, txnCtx.SqlTx, dst),
+			"update project %s", req.GetProject().GetName())
 	}
 	// If auth is active, make caller the owner of this new project.
 	if whoAmI, err := txnCtx.WhoAmI(); err == nil {
