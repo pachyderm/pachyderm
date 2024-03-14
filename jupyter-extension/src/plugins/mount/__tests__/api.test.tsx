@@ -113,6 +113,47 @@ describe('getMountedStatus', () => {
       'project/repo2': ['ignoredBranch1', 'ignoredBranch2'],
     });
   });
+
+  it('return should filter out repos without any branches', () => {
+    const {
+      projectRepos,
+      selectedProjectRepo,
+      branches,
+      selectedBranch,
+      projectRepoToBranches,
+    } = getMountedStatus(
+      [],
+      [
+        {
+          repo: 'repo',
+          project: 'project',
+          authorization: 'read',
+          branches: ['branch1', 'branch2'],
+        },
+        {
+          repo: 'repo2',
+          project: 'project',
+          authorization: 'read',
+          branches: ['ignoredBranch1', 'ignoredBranch2'],
+        },
+        {
+          repo: 'repo3',
+          project: 'project',
+          authorization: 'read',
+          branches: [],
+        },
+      ],
+    );
+
+    expect(projectRepos).toEqual(['project/repo', 'project/repo2']);
+    expect(selectedProjectRepo).toBeNull();
+    expect(branches).toBeNull();
+    expect(selectedBranch).toBeNull();
+    expect(projectRepoToBranches).toEqual({
+      'project/repo': ['branch1', 'branch2'],
+      'project/repo2': ['ignoredBranch1', 'ignoredBranch2'],
+    });
+  });
 });
 
 describe('getDefaultBranch', () => {
