@@ -11,5 +11,6 @@ go_library(
         "//src/internal/pachctl",
         "//src/logs",
         "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//encoding/protojson",
     ],
 )
