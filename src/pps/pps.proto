@@ -815,6 +815,19 @@ message ListPipelineRequest {
 
   // Projects to filter on. Empty list means no filter, so return all pipelines.
   repeated pfs_v2.Project projects = 6;
+
+  // Page indicates which page of a certain size to return. If page is left empty,
+  // all of the selected pipelines will be returned.
+  PipelinePage page = 7; 
+}
+
+message PipelinePage {
+  enum Ordering {
+    RECENT = 0;
+  }
+  Ordering order = 1;
+  int64 page_size = 2;
+  int64 page_index = 3;
 }
 
 // Delete a pipeline.  If the deprecated all member is true, then delete all

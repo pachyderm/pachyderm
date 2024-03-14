@@ -21,12 +21,14 @@ import (
 	"time"
 
 	units "github.com/docker/go-units"
+	"github.com/google/go-cmp/cmp"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -49,6 +51,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -403,6 +406,51 @@ func TestInvalidProject(t *testing.T) {
 				require.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestUpdateProject_PreservesMetadata(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	dbcfg := dockertestenv.NewTestDBConfig(t)
+	env := realenv.NewRealEnv(ctx, t, dbcfg.PachConfigOption)
+
+	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		if err := pfsdb.CreateProject(cbCtx, tx, &pfs.ProjectInfo{
+			Project:     &pfs.Project{Name: "update"},
+			Description: "this is a description",
+			Metadata:    map[string]string{"key": "value"},
+		}); err != nil {
+			return errors.Wrap(err, "CreateProject")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("create test project: %v", err)
+	}
+
+	if err := env.PachClient.UpdateProject("update", "changed description"); err != nil {
+		t.Fatalf("update project description: %v", err)
+	}
+
+	want := &pfs.ProjectInfo{
+		Project:     &pfs.Project{Name: "update"},
+		Description: "changed description",
+		Metadata:    map[string]string{"key": "value"},
+	}
+	var got *pfs.ProjectInfo
+	if err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		var err error
+		got, err = pfsdb.GetProjectByName(cbCtx, tx, "update")
+		if err != nil {
+			return errors.Wrap(err, "GetProjectByName")
+		}
+		return nil
+	}); err != nil {
+		t.Fatalf("get test project: %v", err)
+	}
+	got.CreatedAt = nil
+	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
+		t.Errorf("after UpdateProject (-want got):\n%s", diff)
 	}
 }
 

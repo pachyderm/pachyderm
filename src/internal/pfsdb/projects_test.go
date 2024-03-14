@@ -3,14 +3,17 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
+	"testing"
+
+	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
-	"testing"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -25,6 +28,10 @@ import (
 const (
 	testProj     = "testproj"
 	testProjDesc = "this is a test project"
+)
+
+var (
+	testMetadata = map[string]string{"metadata": "is here"}
 )
 
 func TestCreateProject(t *testing.T) {
@@ -46,7 +53,6 @@ func TestCreateProject(t *testing.T) {
 		err := pfsdb.CreateProject(cbCtx, tx, createInfo)
 		require.YesError(t, err, "should not be able to create project again with same name")
 		require.True(t, (&pfsdb.ProjectAlreadyExistsError{testProj}).Is(err))
-		fmt.Println("hello")
 		return nil
 	}), "double create should fail and result in rollback")
 }
@@ -58,7 +64,7 @@ func TestDeleteProject(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, Metadata: testMetadata}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		require.NoError(t, pfsdb.DeleteProject(cbCtx, tx, createInfo.Project.Name), "should be able to delete project")
 		_, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
@@ -79,18 +85,20 @@ func TestGetProject(t *testing.T) {
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
+		createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, Metadata: testMetadata, CreatedAt: timestamppb.Now()}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, createInfo), "should be able to create project")
 		// the 'default' project already exists with an ID 1.
 		getInfo, err := pfsdb.GetProject(cbCtx, tx, 2)
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfo.Description)
+		require.Equal(t, createInfo.Metadata, getInfo.Metadata)
 		// validate GetProjectWithID.
 		getInfoWithID, err := pfsdb.GetProjectWithID(cbCtx, tx, testProj)
 		require.NoError(t, err, "should be able to get a project")
 		require.Equal(t, createInfo.Project.Name, getInfoWithID.ProjectInfo.Project.Name)
 		require.Equal(t, createInfo.Description, getInfoWithID.ProjectInfo.Description)
+		require.Equal(t, createInfo.Metadata, getInfoWithID.ProjectInfo.Metadata)
 		// validate error for attempting to get non-existent project.
 		_, err = pfsdb.GetProject(cbCtx, tx, 3)
 		require.YesError(t, err, "should not be able to get non-existent project")
@@ -111,7 +119,14 @@ func TestForEachProject(t *testing.T) {
 		size := 210
 		expectedInfos := make([]*pfs.ProjectInfo, size)
 		for i := 0; i < size; i++ {
-			createInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: fmt.Sprintf("%s%d", testProj, i)}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
+			createInfo := &pfs.ProjectInfo{
+				Project: &pfs.Project{
+					Name: fmt.Sprintf("%s%d", testProj, i),
+				},
+				Description: testProjDesc,
+				Metadata:    testMetadata,
+				CreatedAt:   timestamppb.Now(),
+			}
 			expectedInfos[i] = createInfo
 			require.NoError(t, pfsdb.CreateProject(ctx, tx, createInfo), "should be able to create project")
 		}
@@ -119,6 +134,7 @@ func TestForEachProject(t *testing.T) {
 		require.NoError(t, pfsdb.ForEachProject(cbCtx, tx, func(proj pfsdb.ProjectWithID) error {
 			require.Equal(t, expectedInfos[i].Project.Name, proj.ProjectInfo.Project.Name)
 			require.Equal(t, expectedInfos[i].Description, proj.ProjectInfo.Description)
+			require.Equal(t, expectedInfos[i].Metadata, proj.ProjectInfo.Metadata)
 			i++
 			return nil
 		}))
@@ -132,13 +148,25 @@ func TestUpdateProject(t *testing.T) {
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
 		// test upsert correctness
-		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.YesError(t, pfsdb.UpdateProject(cbCtx, tx, 99, projInfo), "should not be able to create project when id is out of bounds")
 		require.NoError(t, pfsdb.UpsertProject(cbCtx, tx, projInfo), "should be able to create project via upsert")
 		projInfo.Description = "new desc"
 		require.NoError(t, pfsdb.UpsertProject(cbCtx, tx, projInfo), "should be able to update project via upsert")
+		projInfo.Metadata = testMetadata
+		require.NoError(t, pfsdb.UpsertProject(cbCtx, tx, projInfo))
+		return nil
+	}))
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		// test that after upserting the value actually changed in the database
+		got, err := pfsdb.GetProjectByName(cbCtx, tx, testProj)
+		require.NoError(t, err, "should be able to get project %s", testProj)
+		got.CreatedAt = nil
+		if diff := cmp.Diff(projInfo, got, protocmp.Transform()); diff != "" {
+			return errors.Errorf("GetProjectByName(%s) (-want +got):\n%s", testProj, diff)
+		}
 		return nil
 	}))
 }
@@ -149,11 +177,22 @@ func TestUpdateProjectByID(t *testing.T) {
 	db := dockertestenv.NewTestDB(t)
 	migrationEnv := migrations.Env{EtcdClient: testetcd.NewEnv(ctx, t).EtcdClient}
 	require.NoError(t, migrations.ApplyMigrations(ctx, db, migrationEnv, clusterstate.DesiredClusterState), "should be able to set up tables")
+	projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc}
 	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		projInfo := &pfs.ProjectInfo{Project: &pfs.Project{Name: testProj}, Description: testProjDesc, CreatedAt: timestamppb.Now()}
 		require.NoError(t, pfsdb.CreateProject(cbCtx, tx, projInfo), "should be able to create project")
 		// the 'default' project ID is 1
+		projInfo.Metadata = testMetadata
 		require.NoError(t, pfsdb.UpdateProject(cbCtx, tx, 2, projInfo), "should be able to update project")
+		return nil
+	}))
+	require.NoError(t, dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
+		// test that after upserting the value actually changed in the database
+		got, err := pfsdb.GetProject(cbCtx, tx, 2)
+		require.NoError(t, err, "should be able to get project 2")
+		got.CreatedAt = nil
+		if diff := cmp.Diff(projInfo, got, protocmp.Transform()); diff != "" {
+			return errors.Errorf("GetProject(2) (-want +got):\n%s", diff)
+		}
 		return nil
 	}))
 }

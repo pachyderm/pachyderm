@@ -1,0 +1,26 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelinePage",
+    "definitions": {
+        "PipelinePage": {
+            "properties": {
+                "order": {
+                    "enum": [
+                        "RECENT"
+                    ],
+                    "type": "string",
+                    "title": "Ordering"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "pageIndex": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Page"
+        }
+    }
+}

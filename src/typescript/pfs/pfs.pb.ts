@@ -225,6 +225,7 @@ export type ProjectInfo = {
   description?: string
   authInfo?: AuthInfo
   createdAt?: GoogleProtobufTimestamp.Timestamp
+  metadata?: {[key: string]: string}
 }
 
 
