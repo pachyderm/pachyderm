@@ -3017,14 +3017,14 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 		offset = request.Page.PageIndex * request.Page.PageSize
 	}
 	var seen int64
-	var emmitted int64
+	var emitted int64
 	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, request.Pipeline, request.History, func(pi *pps.PipelineInfo) error {
 		if ok, err := filterPipeline(ctx, pi); err != nil {
 			return errors.Wrap(err, "error filtering pipeline")
 		} else if !ok {
 			return nil
 		}
-		if request.Page != nil && request.Page.PageSize > 0 && emmitted >= request.Page.PageSize {
+		if pageSize := request.GetPage().GetPageSize(); pageSize > 0 && emitted >= pageSize {
 			return errutil.ErrBreak
 		}
 		if err := checkAccess(ctx, pi.Pipeline); err != nil {
@@ -3046,11 +3046,11 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				return err
 			}
 		}
-		defer func() { seen++ }()
-		if offset > seen {
+		seen++
+		if offset >= seen {
 			return nil
 		}
-		emmitted++
+		emitted++
 		return f(pi)
 	}); err != nil && err != errutil.ErrBreak {
 		if errors.Is(err, context.DeadlineExceeded) {
