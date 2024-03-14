@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
@@ -16,9 +15,9 @@ import (
 )
 
 var (
-	target = flag.String("target", "", "bazel target of binary to install")
-	binary = flag.String("binary", "", "name of binary runfile")
-	name   = flag.String("name", "", "what the binary will be called after installation")
+	src  = flag.String("src", "", "bazel target of binary to install")
+	dst  = flag.String("dst", "", "if set, install to this directory instead of a good candidate from $PATH")
+	name = flag.String("name", "", "what the binary will be called after installation")
 )
 
 func find(home string, path []string, binary string) (paths []string) {
@@ -31,7 +30,7 @@ func find(home string, path []string, binary string) (paths []string) {
 		}
 	}
 
-	// Look for the best possible locations first, before we choose locations in $PATH order.
+	// Look for the best possible locations next, before we choose locations in $PATH order.
 	// When running with Bazelisk, ~/.cache/bazelisk appears in $PATH first.  When using things
 	// like NVM, common on the console team, node appears first.  When using Homebrew, it
 	// usually appears before user-set paths.  We would like to avoid those because while they
@@ -113,25 +112,24 @@ func main() {
 	ctx, c := pctx.Interactive()
 	defer c()
 
-	bin, ok := bazel.FindBinary(*target, *binary)
-	if !ok {
-		log.Exit(ctx, "cannot find binary in runfiles", zap.Stringp("target", target), zap.Stringp("binary", binary))
-	}
-
 	home, err := os.UserHomeDir()
 	if err != nil {
 		log.Info(ctx, "cannot determine homedir; not treating it specially", zap.Error(err))
 	}
 
-	paths := find(home, strings.Split(os.Getenv("PATH"), ":"), *name)
+	paths := []string{*dst}
+	if paths[0] == "" {
+		paths = find(home, strings.Split(os.Getenv("PATH"), ":"), *name)
+	}
+
 	for i, p := range paths {
 		dst := filepath.Join(p, *name)
-		if err := install(ctx, dst, bin); err != nil {
+		if err := install(ctx, dst, *src); err != nil {
 			log.Info(ctx, "failed install; trying next candidate", zap.String("path", dst), zap.Error(err))
 			paths[i] = ""
 			continue
 		}
 		return
 	}
-	log.Exit(ctx, "no suitable installation destinations found; add a writable directory to your $PATH")
+	log.Exit(ctx, "no suitable installation destinations found; add a writable directory to your $PATH or supply -dst")
 }

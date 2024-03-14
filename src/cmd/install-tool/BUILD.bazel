@@ -10,7 +10,6 @@ go_library(
         "//src/internal/log",
         "//src/internal/pctx",
         "@org_uber_go_zap//:zap",
-        "@rules_go//go/tools/bazel:go_default_library",
     ],
 )
 

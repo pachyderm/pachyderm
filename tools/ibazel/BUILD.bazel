@@ -1,4 +1,4 @@
-load("//private/rules:rules.bzl", "host_native_binary")
+load("//private/rules:rules.bzl", "host_native_binary", "installable_binary")
 
 host_native_binary(
     name = "_ibazel",
@@ -10,4 +10,11 @@ alias(
     name = "ibazel",
     actual = ":_ibazel_bin",
     visibility = ["//visibility:public"],
+)
+
+installable_binary(
+    name = "install",
+    binary = "_ibazel",
+    installed_name = "ibazel",
+    target = "_ibazel_bin",
 )
