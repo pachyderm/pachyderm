@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
@@ -95,7 +96,11 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				}
 				switch log := resp.GetLog().GetLogType().(type) {
 				case *logs.LogMessage_PpsLogMessage:
-					fmt.Println(resp.GetLog().GetPpsLogMessage())
+					b, err := protojson.Marshal(resp.GetLog().GetPpsLogMessage())
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "ERROR: cannot marshal %v\n", resp.GetLog().GetPpsLogMessage())
+					}
+					fmt.Println(string(b))
 				case *logs.LogMessage_Json:
 					fmt.Println(resp.GetLog().GetJson().GetVerbatim().GetLine())
 				case *logs.LogMessage_Verbatim:
