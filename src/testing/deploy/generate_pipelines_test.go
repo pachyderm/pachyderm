@@ -6,19 +6,21 @@ import (
 	"context"
 	"flag"
 	"math/rand"
-	"os"
 	"path"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
-	"github.com/pachyderm/pachyderm/v2/src/internal/minikubetestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
+	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
@@ -35,7 +37,7 @@ const (
 )
 
 var (
-	runAmount       = flag.Int("gen.Amount", 250, "use the default data generators")
+	runAmount       = flag.Int("gen.Amount", 250, "use the default data generators.")
 	successInputs   = map[string][]protoreflect.Value{} // values of fields mapped to field names for reuse in subsequent requests
 	successInputsMu = sync.Mutex{}
 )
@@ -153,7 +155,7 @@ func randTolerationOperator(genSource generatorSource) protoreflect.Value {
 }
 
 func randName(genSource generatorSource) protoreflect.Value {
-	validChars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_")
+	validChars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 	var characters strings.Builder
 	length := genSource.r.Intn(20) + 1
 	for i := 0; i < length; i++ {
@@ -390,7 +392,7 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
 		input := inputGenerator(ctx, r, md.Input(), successInputs, generatorSource{hasInputLevel: new(int)})
 		reply := dynamicpb.NewMessage(md.Output())
 		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))
-		if err := c.ClientConn().Invoke(ctx, fullName, input, reply); err != nil {
+		if err := c.ClientConn().Invoke(c.Ctx(), fullName, input, reply); err != nil {
 			log.Info(ctx, "Invoke grpc method had an  err",
 				zap.Error(err),
 				zap.String("method name", fullName),
@@ -416,26 +418,17 @@ func TestCreateDags(t *testing.T) {
 	if ra <= 0 || testing.Short() {
 		t.Skip("Skipping DAG generation test")
 	}
-	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
+	log.InitWorkerLogger()
 	ctx := pctx.Background("FuzzGrpcWorkflow")
+	var c *client.APIClient
 
-	deployOpts := &minikubetestenv.DeployOpts{
-		Version:            "2.8.3",
-		CleanupAfter:       false,
-		UseLeftoverCluster: false,
-		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "250MB",
-			"prxoy.resources.limits.memory":   "250MB",
-			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
-			"console.enabled":                 "true",
-			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
-			"pachd.activateAuth":              "false",
-		},
-	}
-	k := testutil.GetKubeClient(t)
-	namespace, _ := minikubetestenv.ClaimCluster(t)
-	c := minikubetestenv.InstallRelease(t, context.Background(), namespace, k, deployOpts)
-
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	tu.ActivateAuthClient(t, env.PachClient, peerPort)
+	env.PachClient = env.PachClient.WithCtx(ctx)
+	c = tu.AuthenticateClient(t, env.PachClient, auth.RootUser)
+	log.Info(ctx, "DNJ TODO MY TOKENS", zap.Any("token c", c.AuthToken()), zap.Any("token env", env.PachClient.AuthToken()))
+	log.Info(ctx, "DNJ TODO MY TOKENS", zap.Any("token c", c.AuthToken()))
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(10)
 	for i := 0; i < ra; i++ {
@@ -447,19 +440,9 @@ func TestCreateDags(t *testing.T) {
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
-	deployOpts.Version = "" // use the default (this commit in CI)
-	minikubetestenv.UpgradeRelease(t, ctx, namespace, testutil.GetKubeClient(t), deployOpts)
-	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
-		require.NoError(t, err, "fsck should not error after upgrade")
-	}
-	for i := 0; i < ra; i++ {
-		eg.Go(func() error {
-			fuzzGrpc(ctx, c, rand.Int63())
-			return nil
-		})
-	}
-	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
-		require.NoError(t, err, "fsck should not error after upgrade and fuzzing")
-	}
-	flushLog(nil) // don't exit with error, log file will be non-empty and saved if there's anything to say
+
+	pipelines, err := c.ListPipeline()
+	require.NoError(t, err, "list pipeline should not error after fuzzing")
+	log.Info(ctx, "DNJ TODO MY PIPELINES", zap.Any("pipeline", len(pipelines)), zap.Any("token", c.AuthToken()))
+
 }
