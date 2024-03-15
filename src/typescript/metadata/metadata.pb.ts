@@ -19,13 +19,27 @@ export type EditReplace = {
   replacement?: {[key: string]: string}
 }
 
+export type EditAddKey = {
+  key?: string
+  value?: string
+}
+
+export type EditEditKey = {
+  key?: string
+  value?: string
+}
+
+export type EditDeleteKey = {
+  key?: string
+}
+
 
 type BaseEdit = {
 }
 
 export type Edit = BaseEdit
   & OneOf<{ project: Pfs_v2Pfs.ProjectPicker }>
-  & OneOf<{ replace: EditReplace }>
+  & OneOf<{ replace: EditReplace; addKey: EditAddKey; editKey: EditEditKey; deleteKey: EditDeleteKey }>
 
 export type EditMetadataRequest = {
   edits?: Edit[]

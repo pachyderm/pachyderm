@@ -5,7 +5,8 @@
         "EditMetadataResponse": {
             "additionalProperties": false,
             "type": "object",
-            "title": "Edit Metadata Response"
+            "title": "Edit Metadata Response",
+            "description": "EditMetadataResponse is the result of editing metadata."
         }
     }
 }

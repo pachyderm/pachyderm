@@ -1997,6 +1997,7 @@
     },
     "/metadata.API/EditMetadata": {
       "post": {
+        "summary": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
         "operationId": "API_EditMetadata",
         "responses": {
           "200": {
@@ -2015,6 +2016,7 @@
         "parameters": [
           {
             "name": "body",
+            "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
             "in": "body",
             "required": true,
             "schema": {
@@ -5919,6 +5921,44 @@
         }
       }
     },
+    "EditAddKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "AddKey is an operation that adds a new metadata key."
+    },
+    "EditDeleteKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to remove.  It may not be the empty string."
+        }
+      },
+      "description": "DeleteKey is an operation that removes a metadata key."
+    },
+    "EditEditKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to change or add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "EditKey is an operation that changes or adds a metadata key."
+    },
     "EditReplace": {
       "type": "object",
       "properties": {
@@ -5926,9 +5966,11 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
-          }
+          },
+          "description": "replacement is the map to replace the object's metadata with."
         }
-      }
+      },
+      "description": "Replace is an operation that replaces metadata."
     },
     "EgressResponseObjectStorageResult": {
       "type": "object",
@@ -7958,12 +8000,27 @@
       "type": "object",
       "properties": {
         "project": {
-          "$ref": "#/definitions/pfs_v2ProjectPicker"
+          "$ref": "#/definitions/pfs_v2ProjectPicker",
+          "description": "project targets a named project's metadata."
         },
         "replace": {
-          "$ref": "#/definitions/EditReplace"
+          "$ref": "#/definitions/EditReplace",
+          "description": "replace replaces a target's metadata with a new metadata mapping."
+        },
+        "addKey": {
+          "$ref": "#/definitions/EditAddKey",
+          "description": "add_key adds a new key to the target object's metadata."
+        },
+        "editKey": {
+          "$ref": "#/definitions/EditEditKey",
+          "description": "edit_key adds or changes a key in the target object's metadata."
+        },
+        "deleteKey": {
+          "$ref": "#/definitions/EditDeleteKey",
+          "description": "delete_key removes a key from the target object's metadata."
         }
-      }
+      },
+      "description": "Edit represents editing one piece of metadata."
     },
     "metadataEditMetadataRequest": {
       "type": "object",
@@ -7973,12 +8030,15 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/metadataEdit"
-          }
+          },
+          "description": "edits is the ordered list of metadata edits to perform."
         }
-      }
+      },
+      "description": "EditMetadataRequest is a sequence of edits to apply to metadata."
     },
     "metadataEditMetadataResponse": {
-      "type": "object"
+      "type": "object",
+      "description": "EditMetadataResponse is the result of editing metadata."
     },
     "pfs_v2ActivateAuthRequest": {
       "type": "object"

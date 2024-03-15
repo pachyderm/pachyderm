@@ -143,6 +143,129 @@ func (m *Edit) validate(all bool) error {
 			}
 		}
 
+	case *Edit_AddKey_:
+		if v == nil {
+			err := EditValidationError{
+				field:  "Op",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetAddKey()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "AddKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "AddKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetAddKey()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EditValidationError{
+					field:  "AddKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *Edit_EditKey_:
+		if v == nil {
+			err := EditValidationError{
+				field:  "Op",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetEditKey()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "EditKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "EditKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetEditKey()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EditValidationError{
+					field:  "EditKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *Edit_DeleteKey_:
+		if v == nil {
+			err := EditValidationError{
+				field:  "Op",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetDeleteKey()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "DeleteKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "DeleteKey",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetDeleteKey()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EditValidationError{
+					field:  "DeleteKey",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}
@@ -484,7 +607,32 @@ func (m *Edit_Replace) validate(all bool) error {
 
 	var errors []error
 
-	// no validation rules for Replacement
+	{
+		sorted_keys := make([]string, len(m.GetReplacement()))
+		i := 0
+		for key := range m.GetReplacement() {
+			sorted_keys[i] = key
+			i++
+		}
+		sort.Slice(sorted_keys, func(i, j int) bool { return sorted_keys[i] < sorted_keys[j] })
+		for _, key := range sorted_keys {
+			val := m.GetReplacement()[key]
+			_ = val
+
+			if utf8.RuneCountInString(key) < 1 {
+				err := Edit_ReplaceValidationError{
+					field:  fmt.Sprintf("Replacement[%v]", key),
+					reason: "value length must be at least 1 runes",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+			// no validation rules for Replacement[key]
+		}
+	}
 
 	if len(errors) > 0 {
 		return Edit_ReplaceMultiError(errors)
@@ -562,3 +710,338 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = Edit_ReplaceValidationError{}
+
+// Validate checks the field values on Edit_AddKey with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Edit_AddKey) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Edit_AddKey with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Edit_AddKeyMultiError, or
+// nil if none found.
+func (m *Edit_AddKey) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Edit_AddKey) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetKey()) < 1 {
+		err := Edit_AddKeyValidationError{
+			field:  "Key",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for Value
+
+	if len(errors) > 0 {
+		return Edit_AddKeyMultiError(errors)
+	}
+
+	return nil
+}
+
+// Edit_AddKeyMultiError is an error wrapping multiple validation errors
+// returned by Edit_AddKey.ValidateAll() if the designated constraints aren't met.
+type Edit_AddKeyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Edit_AddKeyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Edit_AddKeyMultiError) AllErrors() []error { return m }
+
+// Edit_AddKeyValidationError is the validation error returned by
+// Edit_AddKey.Validate if the designated constraints aren't met.
+type Edit_AddKeyValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Edit_AddKeyValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Edit_AddKeyValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Edit_AddKeyValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Edit_AddKeyValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Edit_AddKeyValidationError) ErrorName() string { return "Edit_AddKeyValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Edit_AddKeyValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEdit_AddKey.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Edit_AddKeyValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Edit_AddKeyValidationError{}
+
+// Validate checks the field values on Edit_EditKey with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Edit_EditKey) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Edit_EditKey with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Edit_EditKeyMultiError, or
+// nil if none found.
+func (m *Edit_EditKey) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Edit_EditKey) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetKey()) < 1 {
+		err := Edit_EditKeyValidationError{
+			field:  "Key",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	// no validation rules for Value
+
+	if len(errors) > 0 {
+		return Edit_EditKeyMultiError(errors)
+	}
+
+	return nil
+}
+
+// Edit_EditKeyMultiError is an error wrapping multiple validation errors
+// returned by Edit_EditKey.ValidateAll() if the designated constraints aren't met.
+type Edit_EditKeyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Edit_EditKeyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Edit_EditKeyMultiError) AllErrors() []error { return m }
+
+// Edit_EditKeyValidationError is the validation error returned by
+// Edit_EditKey.Validate if the designated constraints aren't met.
+type Edit_EditKeyValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Edit_EditKeyValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Edit_EditKeyValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Edit_EditKeyValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Edit_EditKeyValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Edit_EditKeyValidationError) ErrorName() string { return "Edit_EditKeyValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Edit_EditKeyValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEdit_EditKey.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Edit_EditKeyValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Edit_EditKeyValidationError{}
+
+// Validate checks the field values on Edit_DeleteKey with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *Edit_DeleteKey) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on Edit_DeleteKey with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in Edit_DeleteKeyMultiError,
+// or nil if none found.
+func (m *Edit_DeleteKey) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *Edit_DeleteKey) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if utf8.RuneCountInString(m.GetKey()) < 1 {
+		err := Edit_DeleteKeyValidationError{
+			field:  "Key",
+			reason: "value length must be at least 1 runes",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if len(errors) > 0 {
+		return Edit_DeleteKeyMultiError(errors)
+	}
+
+	return nil
+}
+
+// Edit_DeleteKeyMultiError is an error wrapping multiple validation errors
+// returned by Edit_DeleteKey.ValidateAll() if the designated constraints
+// aren't met.
+type Edit_DeleteKeyMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m Edit_DeleteKeyMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m Edit_DeleteKeyMultiError) AllErrors() []error { return m }
+
+// Edit_DeleteKeyValidationError is the validation error returned by
+// Edit_DeleteKey.Validate if the designated constraints aren't met.
+type Edit_DeleteKeyValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e Edit_DeleteKeyValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e Edit_DeleteKeyValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e Edit_DeleteKeyValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e Edit_DeleteKeyValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e Edit_DeleteKeyValidationError) ErrorName() string { return "Edit_DeleteKeyValidationError" }
+
+// Error satisfies the builtin error interface
+func (e Edit_DeleteKeyValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sEdit_DeleteKey.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = Edit_DeleteKeyValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = Edit_DeleteKeyValidationError{}
