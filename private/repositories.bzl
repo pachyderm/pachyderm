@@ -425,3 +425,34 @@ def kubeconform_deps():
         sha256 = "95f9097e54c2c1abe9099d0fedc57a2d5c674b2e32231b901a6e60411899afdd",
         build_file_content = build_file_content,
     )
+
+def ibazel_deps():
+    """https://github.com/bazelbuild/bazel-watcher"""
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_amd64",
+        sha256 = "32979dfb172e4695ed92e240ec4374d73e01efac140e74ec054aa08c1a10235b",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_arm64",
+        sha256 = "90aa01f1473650d2587c8c353ecb65c1bc748e5e9bf7bb45716ec213bc0987e6",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_amd64",
+        sha256 = "354bab8a58e81d7c8ba0df50799d14d40f56e57323129c94a983b39b755a9d40",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )
+    http_file(
+        name = "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos",
+        url = "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_arm64",
+        sha256 = "3af24483cd7afd6155711acc3e97b36dd408710c8773ebab45729c139cfa2bc4",
+        downloaded_file_path = "ibazel",
+        executable = True,
+    )

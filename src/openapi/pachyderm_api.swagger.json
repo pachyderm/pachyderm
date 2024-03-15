@@ -5901,13 +5901,6 @@
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
     },
-    "RepoPageOrdering": {
-      "type": "string",
-      "enum": [
-        "PROJECT_REPO"
-      ],
-      "default": "PROJECT_REPO"
-    },
     "RepoPickerRepoName": {
       "type": "object",
       "properties": {
@@ -8849,6 +8842,12 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -8955,7 +8954,7 @@
       "type": "object",
       "properties": {
         "order": {
-          "$ref": "#/definitions/RepoPageOrdering"
+          "$ref": "#/definitions/pfs_v2RepoPageOrdering"
         },
         "pageSize": {
           "type": "string",
@@ -8966,6 +8965,13 @@
           "format": "int64"
         }
       }
+    },
+    "pfs_v2RepoPageOrdering": {
+      "type": "string",
+      "enum": [
+        "PROJECT_REPO"
+      ],
+      "default": "PROJECT_REPO"
     },
     "pfs_v2RepoPicker": {
       "type": "object",
@@ -10553,6 +10559,10 @@
             "$ref": "#/definitions/pfs_v2Project"
           },
           "description": "Projects to filter on. Empty list means no filter, so return all pipelines."
+        },
+        "page": {
+          "$ref": "#/definitions/pps_v2PipelinePage",
+          "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned."
         }
       }
     },
@@ -10885,6 +10895,29 @@
           "format": "date-time"
         }
       }
+    },
+    "pps_v2PipelinePage": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/pps_v2PipelinePageOrdering"
+        },
+        "pageSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pageIndex": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "pps_v2PipelinePageOrdering": {
+      "type": "string",
+      "enum": [
+        "RECENT"
+      ],
+      "default": "RECENT"
     },
     "pps_v2PipelineState": {
       "type": "string",

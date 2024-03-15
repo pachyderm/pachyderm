@@ -18,6 +18,12 @@
                 "createdAt": {
                     "type": "string",
                     "format": "date-time"
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object"
                 }
             },
             "additionalProperties": false,

@@ -365,6 +365,9 @@ class ProjectInfo(betterproto.Message):
     description: str = betterproto.string_field(2)
     auth_info: "AuthInfo" = betterproto.message_field(3)
     created_at: datetime = betterproto.message_field(4)
+    metadata: Dict[str, str] = betterproto.map_field(
+        5, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)

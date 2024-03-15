@@ -197,6 +197,42 @@ from `//some:target` to `@@some_library//:whatever`. `allpaths` will show all th
 
 `bazel query --output=build ...` will show a BUILD file representing the matched rules.
 
+### ibazel
+
+Bazel can restart a program or rerun a test whenever its dependencies change on disk. It can also
+run `gazelle` for you automatically.
+
+Start by installing the bundled ibazel. `bazel run //tools/ibazel` won't work, because ibazel runs
+bazel, and bazel is already running.
+
+    $ bazel run //tools/ibazel:install
+
+This will install it to a "good" location on your $PATH. If you don't like its choice, you can pass
+the desired location to the :install target:
+
+    $ bazel run //tools/ibazel:install /home/you/go/bin
+
+That would install ibazel to `/home/you/go/bin/ibazel`.
+
+Once you have it installed, you can run `ibazel` like `bazel`, except that the target will be rerun
+when its dependencies change.
+
+To run the PFS tests while you're working on PFS:
+
+    $ ibazel test //src/server/pfs/... --test_output=streamed
+
+To rerun pachctl while you're working on it:
+
+    $ ibazel run //:pachctl -- list repo -v
+
+To push Pachyderm to Kubernetes whenever you change its code:
+
+    $ ibazel run //src/testing/pachdev push
+
+`ibazel` works best if you edit the code less quickly than it takes to run the tests. That means
+it's ideal for things in `//src/internal`. Less ideal for pushing Pachyderm on every change. But it
+does work, if you really want that.
+
 ### protoc
 
 Gazelle likes to regenerate the protos included with go modules. We have a lot of entries in
