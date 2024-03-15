@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -23,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
@@ -166,6 +168,7 @@ type Full struct {
 	pfsSrv      pfs.APIServer
 	ppsSrv      pps.APIServer
 	metadataSrv metadata.APIServer
+	adminSrv    admin.APIServer
 	// TODO
 	// debugSrv debug.DebugServer
 
@@ -265,6 +268,21 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				return nil
 			},
 		},
+		setupStep{
+			Name: "initAdminServer",
+			Fn: func(ctx context.Context) error {
+				pd.adminSrv = admin_server.NewAPIServer(admin_server.Env{
+					ClusterID: "mockPachd",
+					Config: &pachconfig.Configuration{
+						GlobalConfiguration:        &config.GlobalConfiguration,
+						PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+					},
+					PFSServer: pd.pfsSrv,
+					Paused:    false,
+				})
+				return nil
+			},
+		},
 
 		// Workers
 		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
@@ -292,6 +310,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		auth.RegisterAPIServer(gs, pd.authSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
+		admin.RegisterAPIServer(gs, pd.adminSrv)
 	}))
 	return pd
 }
