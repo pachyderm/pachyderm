@@ -22,6 +22,7 @@ go_test(
     name = "cmds_test",
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
+    pure = "on",
     deps = [
         "//src/admin",
         "//src/auth",
