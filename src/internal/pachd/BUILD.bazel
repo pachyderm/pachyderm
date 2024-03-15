@@ -99,7 +99,10 @@ go_library(
 go_test(
     name = "pachd_test",
     size = "small",
-    srcs = ["pachd_test.go"],
+    srcs = [
+        "pachd_test.go",
+        "testpachd_test.go",
+    ],
     embed = [":pachd"],
     deps = [
         "//src/internal/pctx",
