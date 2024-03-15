@@ -51,6 +51,7 @@ func testBucketName(t testing.TB) string {
 	tname := t.Name()
 	tname = strings.ToLower(tname)
 	tname = strings.ReplaceAll(tname, "/", "-")
+	tname = strings.ReplaceAll(tname, "_", "-")
 	return fmt.Sprintf("%s-%x", tname, buf[:])
 }
 
