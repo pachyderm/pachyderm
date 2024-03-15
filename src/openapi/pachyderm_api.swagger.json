@@ -1957,6 +1957,35 @@
         ]
       }
     },
+    "/metadata.API/EditMetadata": {
+      "post": {
+        "operationId": "API_EditMetadata",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pfs_v2.API/CreateRepo": {
       "post": {
         "summary": "CreateRepo creates a new repo.",
@@ -7858,6 +7887,12 @@
           "format": "date-time"
         }
       }
+    },
+    "metadataEditMetadataRequest": {
+      "type": "object"
+    },
+    "metadataEditMetadataResponse": {
+      "type": "object"
     },
     "pfs_v2ActivateAuthRequest": {
       "type": "object"

@@ -287,6 +287,12 @@
   
     - [API](#logs-API)
   
+- [metadata/metadata.proto](#metadata_metadata-proto)
+    - [EditMetadataRequest](#metadata-EditMetadataRequest)
+    - [EditMetadataResponse](#metadata-EditMetadataResponse)
+  
+    - [API](#metadata-API)
+  
 - [pfs/pfs.proto](#pfs_pfs-proto)
     - [ActivateAuthRequest](#pfs_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pfs_v2-ActivateAuthResponse)
@@ -4623,6 +4629,52 @@ Only returns &#34;user&#34; logs
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | GetLogs | [GetLogsRequest](#logs-GetLogsRequest) | [GetLogsResponse](#logs-GetLogsResponse) stream |  |
+
+ 
+
+
+
+<a name="metadata_metadata-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## metadata/metadata.proto
+
+
+
+<a name="metadata-EditMetadataRequest"></a>
+
+### EditMetadataRequest
+
+
+
+
+
+
+
+<a name="metadata-EditMetadataResponse"></a>
+
+### EditMetadataResponse
+
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="metadata-API"></a>
+
+### API
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) |  |
 
  
 
