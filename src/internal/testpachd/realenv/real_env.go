@@ -275,7 +275,9 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
 	// METADATA
-	realEnv.MetadataServer = metadata_server.NewMetadataServer(metadata_server.Env{})
+	realEnv.MetadataServer = metadata_server.NewMetadataServer(metadata_server.Env{
+		DB: realEnv.ServiceEnv.GetDBClient(),
+	})
 
 	// PPS
 	if mockPPSTransactionServer {

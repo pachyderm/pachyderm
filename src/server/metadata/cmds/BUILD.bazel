@@ -10,12 +10,14 @@ go_library(
         "//src/internal/errors",
         "//src/internal/pachctl",
         "//src/metadata",
+        "//src/pfs",
         "@com_github_spf13_cobra//:cobra",
     ],
 )
 
 go_test(
     name = "cmds_test",
+    size = "small",
     srcs = ["cmds_test.go"],
     embed = [":cmds"],
     deps = [
@@ -23,5 +25,10 @@ go_test(
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testutil",
+        "//src/metadata",
+        "//src/pfs",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@org_golang_google_protobuf//testing/protocmp",
     ],
 )

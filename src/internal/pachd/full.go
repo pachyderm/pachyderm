@@ -31,6 +31,7 @@ import (
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -241,6 +242,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPipelineInspector: func() pfs_server.PipelineInspector {
 					panic("GetPipelineInspector")
 				},
+				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
 		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {
