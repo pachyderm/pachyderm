@@ -1,0 +1,19 @@
+load("//private/rules:rules.bzl", "host_native_binary", "installable_binary")
+
+host_native_binary(
+    name = "_ibazel",
+    repo = "@com_github_bazelbuild_bazel_watcher_ibazel",
+    target = "file:ibazel",
+)
+
+alias(
+    name = "ibazel",
+    actual = ":_ibazel_bin",
+    visibility = ["//visibility:public"],
+)
+
+installable_binary(
+    name = "install",
+    installed_name = "ibazel",
+    target = "_ibazel_bin",
+)
