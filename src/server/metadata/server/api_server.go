@@ -8,7 +8,9 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type Env struct{}
+type Env struct {
+	DB *pachsql.DB
+}
 
 type APIServer struct {
 	metadata.UnsafeAPIServer
