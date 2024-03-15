@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import (
     TYPE_CHECKING,
     Dict,
+    List,
     Optional,
 )
 
@@ -13,14 +14,29 @@ import betterproto
 import betterproto.lib.google.protobuf as betterproto_lib_google_protobuf
 import grpc
 
+from .. import pfs as _pfs__
+
 
 if TYPE_CHECKING:
     import grpc
 
 
 @dataclass(eq=False, repr=False)
+class Edit(betterproto.Message):
+    project: "_pfs__.ProjectPicker" = betterproto.message_field(1, group="target")
+    replace: "EditReplace" = betterproto.message_field(10, group="op")
+
+
+@dataclass(eq=False, repr=False)
+class EditReplace(betterproto.Message):
+    replacement: Dict[str, str] = betterproto.map_field(
+        1, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+
+
+@dataclass(eq=False, repr=False)
 class EditMetadataRequest(betterproto.Message):
-    pass
+    edits: List["Edit"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -37,8 +53,13 @@ class ApiStub:
             response_deserializer=EditMetadataResponse.FromString,
         )
 
-    def edit_metadata(self) -> "EditMetadataResponse":
+    def edit_metadata(
+        self, *, edits: Optional[List["Edit"]] = None
+    ) -> "EditMetadataResponse":
+        edits = edits or []
 
         request = EditMetadataRequest()
+        if edits is not None:
+            request.edits = edits
 
         return self.__rpc_edit_metadata(request)

@@ -3,7 +3,24 @@ syntax = "proto3";
 package metadata;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/metadata";
 
-message EditMetadataRequest {}
+import "pfs/pfs.proto";
+
+message Edit {
+  oneof target {
+    pfs_v2.ProjectPicker project = 1;
+  }
+
+  message Replace {
+    map <string, string> replacement = 1;
+  }
+  oneof op {
+    Replace replace = 10;
+  }
+}
+
+message EditMetadataRequest {
+  repeated Edit edits = 1;
+}
 message EditMetadataResponse {}
 
 service API {
