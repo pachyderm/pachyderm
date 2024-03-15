@@ -372,6 +372,17 @@ func (m *EditMetadataRequest) validate(all bool) error {
 	for idx, item := range m.GetEdits() {
 		_, _ = idx, item
 
+		if item == nil {
+			err := EditMetadataRequestValidationError{
+				field:  fmt.Sprintf("Edits[%v]", idx),
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(item).(type) {
 			case interface{ ValidateAll() error }:
