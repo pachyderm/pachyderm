@@ -27,6 +27,7 @@ go_library(
         "//src/internal/transactionenv/txncontext",
         "//src/license",
         "//src/logs",
+        "//src/metadata",
         "//src/pfs",
         "//src/pps",
         "//src/proxy",

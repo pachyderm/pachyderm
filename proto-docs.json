@@ -9892,6 +9892,63 @@
       ]
     },
     {
+      "name": "metadata/metadata.proto",
+      "description": "",
+      "package": "metadata",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "EditMetadataRequest",
+          "longName": "EditMetadataRequest",
+          "fullName": "metadata.EditMetadataRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
+          "name": "EditMetadataResponse",
+          "longName": "EditMetadataResponse",
+          "fullName": "metadata.EditMetadataResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "metadata.API",
+          "description": "",
+          "methods": [
+            {
+              "name": "EditMetadata",
+              "description": "",
+              "requestType": "EditMetadataRequest",
+              "requestLongType": "EditMetadataRequest",
+              "requestFullType": "metadata.EditMetadataRequest",
+              "requestStreaming": false,
+              "responseType": "EditMetadataResponse",
+              "responseLongType": "EditMetadataResponse",
+              "responseFullType": "metadata.EditMetadataResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "pfs/pfs.proto",
       "description": "",
       "package": "pfs_v2",

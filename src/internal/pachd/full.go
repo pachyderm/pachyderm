@@ -20,12 +20,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
@@ -112,6 +114,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerDebugServer,
 		fb.registerProxyServer,
 		fb.registerLogsServer,
+		fb.registerMetadataServer,
 		fb.initS3Server,
 		fb.initPrometheusServer,
 		fb.initPachwController,
@@ -156,12 +159,13 @@ type Full struct {
 	authInterceptor *auth_interceptor.Interceptor
 	txnEnv          *transactionenv.TransactionEnv
 
-	healthSrv grpc_health_v1.HealthServer
-	version   version.APIServer
-	txnSrv    transaction.APIServer
-	authSrv   auth.APIServer
-	pfsSrv    pfs.APIServer
-	ppsSrv    pps.APIServer
+	healthSrv   grpc_health_v1.HealthServer
+	version     version.APIServer
+	txnSrv      transaction.APIServer
+	authSrv     auth.APIServer
+	pfsSrv      pfs.APIServer
+	ppsSrv      pps.APIServer
+	metadataSrv metadata.APIServer
 	// TODO
 	// debugSrv debug.DebugServer
 
@@ -248,6 +252,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
 			}
 		}),
+		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) { return }),
 		setupStep{
 			Name: "initTransactionEnv",
 			Fn: func(ctx context.Context) error {
@@ -286,6 +291,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		version.RegisterAPIServer(gs, pd.version)
 		auth.RegisterAPIServer(gs, pd.authSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 	}))
 	return pd
 }
