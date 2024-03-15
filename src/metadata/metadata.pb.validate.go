@@ -56,6 +56,7 @@ func (m *Edit) validate(all bool) error {
 
 	var errors []error
 
+	oneofTargetPresent := false
 	switch v := m.Target.(type) {
 	case *Edit_Project:
 		if v == nil {
@@ -68,6 +69,7 @@ func (m *Edit) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
+		oneofTargetPresent = true
 
 		if m.GetProject() == nil {
 			err := EditValidationError{
@@ -112,6 +114,17 @@ func (m *Edit) validate(all bool) error {
 	default:
 		_ = v // ensures v is used
 	}
+	if !oneofTargetPresent {
+		err := EditValidationError{
+			field:  "Target",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+	oneofOpPresent := false
 	switch v := m.Op.(type) {
 	case *Edit_Replace_:
 		if v == nil {
@@ -124,6 +137,7 @@ func (m *Edit) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
+		oneofOpPresent = true
 
 		if m.GetReplace() == nil {
 			err := EditValidationError{
@@ -176,6 +190,7 @@ func (m *Edit) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
+		oneofOpPresent = true
 
 		if m.GetAddKey() == nil {
 			err := EditValidationError{
@@ -228,6 +243,7 @@ func (m *Edit) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
+		oneofOpPresent = true
 
 		if m.GetEditKey() == nil {
 			err := EditValidationError{
@@ -280,6 +296,7 @@ func (m *Edit) validate(all bool) error {
 			}
 			errors = append(errors, err)
 		}
+		oneofOpPresent = true
 
 		if m.GetDeleteKey() == nil {
 			err := EditValidationError{
@@ -323,6 +340,16 @@ func (m *Edit) validate(all bool) error {
 
 	default:
 		_ = v // ensures v is used
+	}
+	if !oneofOpPresent {
+		err := EditValidationError{
+			field:  "Op",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
 	}
 
 	if len(errors) > 0 {
