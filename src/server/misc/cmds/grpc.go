@@ -24,6 +24,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -35,7 +36,7 @@ import (
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/keepalive"
-	"google.golang.org/grpc/metadata"
+	md "google.golang.org/grpc/metadata"
 )
 
 type gRPCParams struct {
@@ -53,6 +54,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		identity.File_identity_identity_proto,
 		license.File_license_license_proto,
 		logs.File_logs_logs_proto,
+		metadata.File_metadata_metadata_proto,
 		pfs.File_pfs_pfs_proto,
 		pps.File_pps_pps_proto,
 		proxy.File_proxy_proxy_proto,
@@ -146,7 +148,7 @@ func (p gRPCParams) Run(ctx context.Context, pachctlCfg *pachctl.Config, w io.Wr
 		if len(parts) != 2 {
 			return errors.Errorf("malformed --header %q; use Key=Value", h)
 		}
-		authCtx = metadata.AppendToOutgoingContext(authCtx, parts[0], parts[1])
+		authCtx = md.AppendToOutgoingContext(authCtx, parts[0], parts[1])
 	}
 
 	// Add a note during "long" RPCs.

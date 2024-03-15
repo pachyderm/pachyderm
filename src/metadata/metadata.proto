@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package metadata;
+option go_package = "github.com/pachyderm/pachyderm/v2/src/metadata";
+
+message EditMetadataRequest {}
+message EditMetadataResponse {}
+
+service API {
+  rpc EditMetadata(EditMetadataRequest) returns (EditMetadataResponse) {}
+}

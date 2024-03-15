@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
 	logs "github.com/pachyderm/pachyderm/v2/src/logs"
+	metadata "github.com/pachyderm/pachyderm/v2/src/metadata"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -301,6 +302,12 @@ type unsupportedLogsBuilderClient struct{}
 
 func (c *unsupportedLogsBuilderClient) GetLogs(_ context.Context, _ *logs.GetLogsRequest, opts ...grpc.CallOption) (logs.API_GetLogsClient, error) {
 	return nil, unsupportedError("GetLogs")
+}
+
+type unsupportedMetadataBuilderClient struct{}
+
+func (c *unsupportedMetadataBuilderClient) EditMetadata(_ context.Context, _ *metadata.EditMetadataRequest, opts ...grpc.CallOption) (*metadata.EditMetadataResponse, error) {
+	return nil, unsupportedError("EditMetadata")
 }
 
 type unsupportedPfsBuilderClient struct{}

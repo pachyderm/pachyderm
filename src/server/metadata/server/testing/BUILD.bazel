@@ -1,0 +1,13 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "testing_test",
+    srcs = ["metadata_test.go"],
+    deps = [
+        "//src/internal/dockertestenv",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/testpachd/realenv",
+        "//src/metadata",
+    ],
+)
