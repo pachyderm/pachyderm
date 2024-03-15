@@ -1,7 +1,7 @@
 """Module rules provides pachyderm-specific build rules."""
 
+load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION")
 load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
-load("@aspect_bazel_lib//lib:paths.bzl", "BASH_RLOCATION_FUNCTION", "to_rlocation_path")
 
 def host_native_binary(name, repo, target, **kwargs):
     """
