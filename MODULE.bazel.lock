@@ -2434,7 +2434,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "oqyvjJBg7NxuTkLjrf3lR+1BSEWxQ4a44IEhffBb9MU=",
+        "bzlTransitiveDigest": "UpwP+KQ+UfeONM9jIs21GfWZEFkR4RL9R/R/F2vuFgc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2444,7 +2444,7 @@
             "ruleClassName": "http_file",
             "attributes": {
               "url": "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_amd64",
-              "integrity": "sha256-Mped+xcuRpXtkuJA7EN01z4B76wUDnTsBUqgjBoQI1s=",
+              "sha256": "32979dfb172e4695ed92e240ec4374d73e01efac140e74ec054aa08c1a10235b",
               "downloaded_file_path": "ibazel",
               "executable": true
             }
@@ -2575,6 +2575,7 @@
             "ruleClassName": "http_file",
             "attributes": {
               "url": "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_amd64",
+              "sha256": "354bab8a58e81d7c8ba0df50799d14d40f56e57323129c94a983b39b755a9d40",
               "downloaded_file_path": "ibazel",
               "executable": true
             }
@@ -2777,6 +2778,7 @@
             "ruleClassName": "http_file",
             "attributes": {
               "url": "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_darwin_arm64",
+              "sha256": "3af24483cd7afd6155711acc3e97b36dd408710c8773ebab45729c139cfa2bc4",
               "downloaded_file_path": "ibazel",
               "executable": true
             }
@@ -2862,8 +2864,9 @@
             "ruleClassName": "http_file",
             "attributes": {
               "url": "https://github.com/bazelbuild/bazel-watcher/releases/download/v0.24.0/ibazel_linux_arm64",
-              "executable": true,
-              "downloaded_file_path": "ibazel"
+              "sha256": "90aa01f1473650d2587c8c353ecb65c1bc748e5e9bf7bb45716ec213bc0987e6",
+              "downloaded_file_path": "ibazel",
+              "executable": true
             }
           },
           "com_github_containers_skopeo_aarch64_linux": {
