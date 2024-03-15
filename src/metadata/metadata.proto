@@ -59,7 +59,7 @@ message Edit {
 // EditMetadataRequest is a sequence of edits to apply to metadata.
 message EditMetadataRequest {
   // edits is the ordered list of metadata edits to perform.
-  repeated Edit edits = 1;
+  repeated Edit edits = 1 [(validate.rules).repeated.items.message.required = true];
 }
 
 // EditMetadataResponse is the result of editing metadata.

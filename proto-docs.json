@@ -10182,7 +10182,15 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "repeated.items.message.required",
+                    "value": true
+                  }
+                ]
+              }
             }
           ]
         },
