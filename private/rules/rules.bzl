@@ -62,9 +62,6 @@ installable_binary = rule(
         "target": attr.label(
             doc = "Binary target to install.",
         ),
-        "binary": attr.string(
-            doc = "Name of the binary that the target creates.",
-        ),
         "installed_name": attr.string(
             doc = "Name of the binary when it's installed.",
         ),

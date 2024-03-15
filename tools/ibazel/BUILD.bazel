@@ -14,7 +14,6 @@ alias(
 
 installable_binary(
     name = "install",
-    binary = "_ibazel",
     installed_name = "ibazel",
     target = "_ibazel_bin",
 )
