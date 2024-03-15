@@ -1,0 +1,19 @@
+{
+  "name": "pachyderm-console-load-tests",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "load": "ts-node ./load.ts"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "@playwright/test": "^1.35.1",
+    "humanize-duration": "^3.31.0",
+    "playwright": "^1.35.1",
+    "simple-statistics": "^7.8.3",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/humanize-duration": "^3.27.4"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "pachyderm-console-cluster-setup",
+  "version": "0.0.1",
+  "scripts": {
+    "cluster:setup": "ts-node ./src/manageCluster.ts --mode=setup",
+    "cluster:teardown": "ts-node ./src/manageCluster --mode=teardown",
+    "cluster:small": "npm run cluster:setup -- --numPipelines=10 --numRepos=10 --numCommits=10 --sizeFileLarge=1e7 --sizeLogsLarge=1e6 --sizePipelineWorkersSmall=1",
+    "cluster:medium": "npm run cluster:setup -- --numPipelines=100 --numRepos=100 --numCommits=100 --sizeFileLarge=1e8 --sizeLogsLarge=1e7 --sizePipelineWorkersSmall=2",
+    "cluster:large": "npm run cluster:setup -- --numPipelines=1000 --numRepos=1000 --numCommits=1000 --sizeFileLarge=1e9 --sizeLogsLarge=1e7 --sizePipelineWorkersSmall=4",
+    "cluster:small:distributed": "npm run cluster:small -- --distributed",
+    "cluster:medium:distributed": "npm run cluster:medium -- --distributed",
+    "cluster:large:distributed": "npm run cluster:large -- --distributed"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.21",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/lodash": "^4.14.202"
+  }
+}
