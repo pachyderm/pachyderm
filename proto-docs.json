@@ -9979,15 +9979,124 @@
       "extensions": [],
       "messages": [
         {
+          "name": "Edit",
+          "longName": "Edit",
+          "fullName": "metadata.Edit",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": ""
+            },
+            {
+              "name": "replace",
+              "description": "",
+              "label": "",
+              "type": "Replace",
+              "longType": "Edit.Replace",
+              "fullType": "metadata.Edit.Replace",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Replace",
+          "longName": "Edit.Replace",
+          "fullName": "metadata.Edit.Replace",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "replacement",
+              "description": "",
+              "label": "repeated",
+              "type": "ReplacementEntry",
+              "longType": "Edit.Replace.ReplacementEntry",
+              "fullType": "metadata.Edit.Replace.ReplacementEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReplacementEntry",
+          "longName": "Edit.Replace.ReplacementEntry",
+          "fullName": "metadata.Edit.Replace.ReplacementEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "EditMetadataRequest",
           "longName": "EditMetadataRequest",
           "fullName": "metadata.EditMetadataRequest",
           "description": "",
           "hasExtensions": false,
-          "hasFields": false,
+          "hasFields": true,
           "hasOneofs": false,
           "extensions": [],
-          "fields": []
+          "fields": [
+            {
+              "name": "edits",
+              "description": "",
+              "label": "repeated",
+              "type": "Edit",
+              "longType": "Edit",
+              "fullType": "metadata.Edit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
         },
         {
           "name": "EditMetadataResponse",

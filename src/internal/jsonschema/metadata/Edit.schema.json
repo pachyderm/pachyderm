@@ -1,22 +1,8 @@
 {
     "$schema": "http://json-schema.org/draft-04/schema#",
-    "$ref": "#/definitions/EditMetadataRequest",
+    "$ref": "#/definitions/Edit",
     "definitions": {
-        "EditMetadataRequest": {
-            "properties": {
-                "edits": {
-                    "items": {
-                        "$ref": "#/definitions/metadata.Edit"
-                    },
-                    "additionalProperties": false,
-                    "type": "array"
-                }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "title": "Edit Metadata Request"
-        },
-        "metadata.Edit": {
+        "Edit": {
             "properties": {
                 "project": {
                     "$ref": "#/definitions/pfs_v2.ProjectPicker",

@@ -290,6 +290,9 @@
     - [API](#logs-API)
   
 - [metadata/metadata.proto](#metadata_metadata-proto)
+    - [Edit](#metadata-Edit)
+    - [Edit.Replace](#metadata-Edit-Replace)
+    - [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry)
     - [EditMetadataRequest](#metadata-EditMetadataRequest)
     - [EditMetadataResponse](#metadata-EditMetadataResponse)
   
@@ -4674,10 +4677,62 @@ Only returns &#34;user&#34; logs
 
 
 
+<a name="metadata-Edit"></a>
+
+### Edit
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
+| replace | [Edit.Replace](#metadata-Edit-Replace) |  |  |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace"></a>
+
+### Edit.Replace
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| replacement | [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry) | repeated |  |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace-ReplacementEntry"></a>
+
+### Edit.Replace.ReplacementEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
 <a name="metadata-EditMetadataRequest"></a>
 
 ### EditMetadataRequest
 
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| edits | [Edit](#metadata-Edit) | repeated |  |
 
 
 

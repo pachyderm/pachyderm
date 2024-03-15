@@ -5919,6 +5919,17 @@
         }
       }
     },
+    "EditReplace": {
+      "type": "object",
+      "properties": {
+        "replacement": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
     "EgressResponseObjectStorageResult": {
       "type": "object",
       "properties": {
@@ -7943,8 +7954,28 @@
         }
       }
     },
+    "metadataEdit": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker"
+        },
+        "replace": {
+          "$ref": "#/definitions/EditReplace"
+        }
+      }
+    },
     "metadataEditMetadataRequest": {
-      "type": "object"
+      "type": "object",
+      "properties": {
+        "edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/metadataEdit"
+          }
+        }
+      }
     },
     "metadataEditMetadataResponse": {
       "type": "object"
