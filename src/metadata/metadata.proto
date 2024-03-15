@@ -12,7 +12,7 @@ message Edit {
   // target is the object whose metadata will be edited.
   oneof target {
     // project targets a named project's metadata.
-    pfs_v2.ProjectPicker project = 1;
+    pfs_v2.ProjectPicker project = 1 [(validate.rules).message.required = true];
   }
 
   // Replace is an operation that replaces metadata.
@@ -46,13 +46,13 @@ message Edit {
   // op is the operation to perform on the target object's metadata.
   oneof op {
     // replace replaces a target's metadata with a new metadata mapping.
-    Replace replace = 10;
+    Replace replace = 10 [(validate.rules).message.required = true];
     // add_key adds a new key to the target object's metadata.
-    AddKey add_key = 11;
+    AddKey add_key = 11 [(validate.rules).message.required = true];
     // edit_key adds or changes a key in the target object's metadata.
-    EditKey edit_key = 12;
+    EditKey edit_key = 12 [(validate.rules).message.required = true];
     // delete_key removes a key from the target object's metadata.
-    DeleteKey delete_key = 13;
+    DeleteKey delete_key = 13 [(validate.rules).message.required = true];
   }
 }
 
