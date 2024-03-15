@@ -9998,7 +9998,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "target",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "replace",
@@ -10010,7 +10018,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "op",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "add_key",
@@ -10022,7 +10038,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "op",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "edit_key",
@@ -10034,7 +10058,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "op",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             },
             {
               "name": "delete_key",
@@ -10046,7 +10078,15 @@
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "op",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
             }
           ]
         },

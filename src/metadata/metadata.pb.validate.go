@@ -69,6 +69,17 @@ func (m *Edit) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetProject() == nil {
+			err := EditValidationError{
+				field:  "Project",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetProject()).(type) {
 			case interface{ ValidateAll() error }:
@@ -107,6 +118,17 @@ func (m *Edit) validate(all bool) error {
 			err := EditValidationError{
 				field:  "Op",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetReplace() == nil {
+			err := EditValidationError{
+				field:  "Replace",
+				reason: "value is required",
 			}
 			if !all {
 				return err
@@ -155,6 +177,17 @@ func (m *Edit) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetAddKey() == nil {
+			err := EditValidationError{
+				field:  "AddKey",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetAddKey()).(type) {
 			case interface{ ValidateAll() error }:
@@ -196,6 +229,17 @@ func (m *Edit) validate(all bool) error {
 			errors = append(errors, err)
 		}
 
+		if m.GetEditKey() == nil {
+			err := EditValidationError{
+				field:  "EditKey",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
 		if all {
 			switch v := interface{}(m.GetEditKey()).(type) {
 			case interface{ ValidateAll() error }:
@@ -230,6 +274,17 @@ func (m *Edit) validate(all bool) error {
 			err := EditValidationError{
 				field:  "Op",
 				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if m.GetDeleteKey() == nil {
+			err := EditValidationError{
+				field:  "DeleteKey",
+				reason: "value is required",
 			}
 			if !all {
 				return err
