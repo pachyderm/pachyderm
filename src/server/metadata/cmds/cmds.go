@@ -53,10 +53,8 @@ func parseKV(data string) (k, v string) {
 }
 
 func parseData(data string) (result map[string]string, _ error) {
-	if len(data) > 0 && data[0] == '{' {
-		if err := json.Unmarshal([]byte(data), &result); err != nil {
-			return nil, errors.Wrap(err, "parse json data")
-		}
+	if err := json.Unmarshal([]byte(data), &result); err != nil {
+		return nil, errors.Wrap(err, "parse json data")
 	}
 	return
 }
