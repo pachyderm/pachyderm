@@ -337,7 +337,9 @@ func (b *builder) registerLogsServer(ctx context.Context) error {
 }
 
 func (b *builder) registerMetadataServer(_ context.Context) error {
-	apiServer := metadata_server.NewMetadataServer(metadata_server.Env{})
+	apiServer := metadata_server.NewMetadataServer(metadata_server.Env{
+		DB: b.env.GetDBClient(),
+	})
 	b.forGRPCServer(func(s *grpc.Server) { metadata.RegisterAPIServer(s, apiServer) })
 	return nil
 }

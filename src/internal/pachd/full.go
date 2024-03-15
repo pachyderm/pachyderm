@@ -255,7 +255,10 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
 			}
 		}),
-		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) { return }),
+		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) {
+			env.DB = pd.env.DB
+			return
+		}),
 		setupStep{
 			Name: "initTransactionEnv",
 			Fn: func(ctx context.Context) error {
