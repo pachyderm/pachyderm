@@ -7,13 +7,32 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 )
+
+func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
+	authResp, err := client.AuthAPIClient.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
+	if err != nil {
+		if status.Code(err) != codes.Unimplemented {
+			return false, err
+		}
+		return true, nil
+	}
+	for _, role := range authResp.Roles {
+		if role == auth.ClusterAdminRole {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
@@ -31,15 +50,10 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 			}
 			defer client.Close()
 
-			authResp, err := client.AuthAPIClient.GetPermissions(client.Ctx(), &auth.GetPermissionsRequest{Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER}})
+			isAdmin, err := isAdmin(client.Ctx(), client)
 			if err != nil {
+				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
-			}
-			var isAdmin bool
-			for _, role := range authResp.Roles {
-				if role == auth.ClusterAdminRole {
-					isAdmin = true
-				}
 			}
 
 			var req = new(logs.GetLogsRequest)
@@ -85,6 +99,7 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
+			fmt.Println("starting")
 			for {
 				resp, err := resp.Recv()
 				if err != nil {
@@ -110,6 +125,7 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				}
 
 			}
+			fmt.Println("emdo")
 		},
 		Use: "logs2",
 	}
