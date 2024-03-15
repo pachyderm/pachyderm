@@ -19,6 +19,21 @@ func (x *Edit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	} else {
 		enc.AddReflected("replace", x.GetReplace())
 	}
+	if obj, ok := interface{}(x.GetAddKey()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("add_key", obj)
+	} else {
+		enc.AddReflected("add_key", x.GetAddKey())
+	}
+	if obj, ok := interface{}(x.GetEditKey()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("edit_key", obj)
+	} else {
+		enc.AddReflected("edit_key", x.GetEditKey())
+	}
+	if obj, ok := interface{}(x.GetDeleteKey()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("delete_key", obj)
+	} else {
+		enc.AddReflected("delete_key", x.GetDeleteKey())
+	}
 	return nil
 }
 
@@ -32,6 +47,32 @@ func (x *Edit_Replace) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		}
 		return nil
 	}))
+	return nil
+}
+
+func (x *Edit_AddKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("key", x.Key)
+	enc.AddString("value", x.Value)
+	return nil
+}
+
+func (x *Edit_EditKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("key", x.Key)
+	enc.AddString("value", x.Value)
+	return nil
+}
+
+func (x *Edit_DeleteKey) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("key", x.Key)
 	return nil
 }
 

@@ -289,6 +289,9 @@
   
 - [metadata/metadata.proto](#metadata_metadata-proto)
     - [Edit](#metadata-Edit)
+    - [Edit.AddKey](#metadata-Edit-AddKey)
+    - [Edit.DeleteKey](#metadata-Edit-DeleteKey)
+    - [Edit.EditKey](#metadata-Edit-EditKey)
     - [Edit.Replace](#metadata-Edit-Replace)
     - [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry)
     - [EditMetadataRequest](#metadata-EditMetadataRequest)
@@ -4647,13 +4650,63 @@ Only returns &#34;user&#34; logs
 <a name="metadata-Edit"></a>
 
 ### Edit
-
+Edit represents editing one piece of metadata.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
-| replace | [Edit.Replace](#metadata-Edit-Replace) |  |  |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
+| replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
+| add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
+| edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
+| delete_key | [Edit.DeleteKey](#metadata-Edit-DeleteKey) |  | delete_key removes a key from the target object&#39;s metadata. |
+
+
+
+
+
+
+<a name="metadata-Edit-AddKey"></a>
+
+### Edit.AddKey
+AddKey is an operation that adds a new metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
+
+
+
+
+
+
+<a name="metadata-Edit-DeleteKey"></a>
+
+### Edit.DeleteKey
+DeleteKey is an operation that removes a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to remove. It may not be the empty string. |
+
+
+
+
+
+
+<a name="metadata-Edit-EditKey"></a>
+
+### Edit.EditKey
+EditKey is an operation that changes or adds a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to change or add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
 
 
 
@@ -4663,12 +4716,12 @@ Only returns &#34;user&#34; logs
 <a name="metadata-Edit-Replace"></a>
 
 ### Edit.Replace
-
+Replace is an operation that replaces metadata.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| replacement | [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry) | repeated |  |
+| replacement | [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry) | repeated | replacement is the map to replace the object&#39;s metadata with. |
 
 
 
@@ -4694,12 +4747,12 @@ Only returns &#34;user&#34; logs
 <a name="metadata-EditMetadataRequest"></a>
 
 ### EditMetadataRequest
-
+EditMetadataRequest is a sequence of edits to apply to metadata.
 
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| edits | [Edit](#metadata-Edit) | repeated |  |
+| edits | [Edit](#metadata-Edit) | repeated | edits is the ordered list of metadata edits to perform. |
 
 
 
@@ -4709,7 +4762,7 @@ Only returns &#34;user&#34; logs
 <a name="metadata-EditMetadataResponse"></a>
 
 ### EditMetadataResponse
-
+EditMetadataResponse is the result of editing metadata.
 
 
 
@@ -4725,11 +4778,11 @@ Only returns &#34;user&#34; logs
 <a name="metadata-API"></a>
 
 ### API
-
+API is the public API of the metadata service.
 
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
-| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) |  |
+| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) | EditMetadata edits metadata according to the request. All edits are applied atomically at once. All edits are attempted, but any failing edit fails the entire request. |
 
  
 

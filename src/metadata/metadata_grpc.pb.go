@@ -26,6 +26,8 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type APIClient interface {
+	// EditMetadata edits metadata according to the request.  All edits are applied atomically at
+	// once.  All edits are attempted, but any failing edit fails the entire request.
 	EditMetadata(ctx context.Context, in *EditMetadataRequest, opts ...grpc.CallOption) (*EditMetadataResponse, error)
 }
 
@@ -50,6 +52,8 @@ func (c *aPIClient) EditMetadata(ctx context.Context, in *EditMetadataRequest, o
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
 type APIServer interface {
+	// EditMetadata edits metadata according to the request.  All edits are applied atomically at
+	// once.  All edits are attempted, but any failing edit fails the entire request.
 	EditMetadata(context.Context, *EditMetadataRequest) (*EditMetadataResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }

@@ -9,22 +9,41 @@
                         "$ref": "#/definitions/metadata.Edit"
                     },
                     "additionalProperties": false,
-                    "type": "array"
+                    "type": "array",
+                    "description": "edits is the ordered list of metadata edits to perform."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Edit Metadata Request"
+            "title": "Edit Metadata Request",
+            "description": "EditMetadataRequest is a sequence of edits to apply to metadata."
         },
         "metadata.Edit": {
             "properties": {
                 "project": {
                     "$ref": "#/definitions/pfs_v2.ProjectPicker",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "project targets a named project's metadata."
                 },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "replace replaces a target's metadata with a new metadata mapping."
+                },
+                "addKey": {
+                    "$ref": "#/definitions/metadata.Edit.AddKey",
+                    "additionalProperties": false,
+                    "description": "add_key adds a new key to the target object's metadata."
+                },
+                "editKey": {
+                    "$ref": "#/definitions/metadata.Edit.EditKey",
+                    "additionalProperties": false,
+                    "description": "edit_key adds or changes a key in the target object's metadata."
+                },
+                "deleteKey": {
+                    "$ref": "#/definitions/metadata.Edit.DeleteKey",
+                    "additionalProperties": false,
+                    "description": "delete_key removes a key from the target object's metadata."
                 }
             },
             "additionalProperties": false,
@@ -39,9 +58,72 @@
                     "required": [
                         "replace"
                     ]
+                },
+                {
+                    "required": [
+                        "add_key"
+                    ]
+                },
+                {
+                    "required": [
+                        "edit_key"
+                    ]
+                },
+                {
+                    "required": [
+                        "delete_key"
+                    ]
                 }
             ],
-            "title": "Edit"
+            "title": "Edit",
+            "description": "Edit represents editing one piece of metadata."
+        },
+        "metadata.Edit.AddKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to add.  It may not be the empty string."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "value is the value to assign to the metadata key."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Add Key",
+            "description": "AddKey is an operation that adds a new metadata key."
+        },
+        "metadata.Edit.DeleteKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to remove.  It may not be the empty string."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Key",
+            "description": "DeleteKey is an operation that removes a metadata key."
+        },
+        "metadata.Edit.EditKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to change or add.  It may not be the empty string."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "value is the value to assign to the metadata key."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Edit Key",
+            "description": "EditKey is an operation that changes or adds a metadata key."
         },
         "metadata.Edit.Replace": {
             "properties": {
@@ -49,12 +131,14 @@
                     "additionalProperties": {
                         "type": "string"
                     },
-                    "type": "object"
+                    "type": "object",
+                    "description": "replacement is the map to replace the object's metadata with."
                 }
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Replace"
+            "title": "Replace",
+            "description": "Replace is an operation that replaces metadata."
         },
         "pfs_v2.ProjectPicker": {
             "properties": {
