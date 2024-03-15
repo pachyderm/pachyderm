@@ -197,6 +197,11 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:    "wrong syntax for set",
+			args:    []string{"project", "default", "set", "key=value"},
+			wantErr: true,
+		},
 	}
 
 	for _, test := range testData {
