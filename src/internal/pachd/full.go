@@ -111,7 +111,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerVersionServer,
 		fb.registerDebugServer,
 		fb.registerProxyServer,
-		fb.registerLogsServer,
+		fb.initLogsServer,
 		fb.initS3Server,
 		fb.initPrometheusServer,
 		fb.initPachwController,
