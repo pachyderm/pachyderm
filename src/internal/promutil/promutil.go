@@ -4,6 +4,7 @@ package promutil
 import (
 	"io"
 	"net/http"
+	"runtime/trace"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -45,6 +46,8 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 		zap.String("method", req.Method),
 		zap.String("uri", req.URL.String()),
 	}...))
+	ctx, task := trace.NewTask(ctx, "http outgoing "+req.Method+" "+req.URL.Host)
+	defer task.End()
 
 	// Log the start of long HTTP requests.
 	timer := time.AfterFunc(10*time.Second, func() {
