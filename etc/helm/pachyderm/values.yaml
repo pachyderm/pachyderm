@@ -548,6 +548,9 @@ ingress:
 # loki-stack contains values that will be passed to the loki-stack subchart
 loki-stack:
   loki:
+    rbac:
+      # disable podsecuritypolicy creation by default
+      pspEnabled: false
     serviceAccount:
       automountServiceAccountToken: false
     persistence:
