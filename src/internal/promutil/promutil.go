@@ -46,7 +46,7 @@ func (rt *loggingRT) RoundTrip(req *http.Request) (*http.Response, error) {
 		zap.String("method", req.Method),
 		zap.String("uri", req.URL.String()),
 	}...))
-	ctx, task := trace.NewTask(ctx, "http outgoing "+req.Method+" "+req.URL.Host)
+	ctx, task := trace.NewTask(ctx, "http client "+req.Method+" "+req.URL.Host)
 	defer task.End()
 
 	// Log the start of long HTTP requests.

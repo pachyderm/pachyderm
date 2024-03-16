@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"runtime/trace"
-	"strconv"
 	"strings"
 
 	"github.com/felixge/httpsnoop"
@@ -27,7 +26,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 	if s.Handler != nil {
 		orig := s.Handler
 		s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ctx, task := trace.NewTask(r.Context(), "http incoming "+r.Method+" "+name)
+			ctx, task := trace.NewTask(r.Context(), "http server "+r.Method+" "+name)
 			defer task.End()
 
 			requestID := r.Header.Values("x-request-id")
@@ -65,7 +64,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 			sw := httpsnoop.Wrap(w, httpsnoop.Hooks{
 				WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
 					return func(code int) {
-						trace.Log(ctx, "http", "write headers status="+strconv.Itoa(code))
+						trace.Logf(ctx, "http", "write headers status=%d", code)
 						respStatusCode = code
 						next(code)
 					}
@@ -83,7 +82,7 @@ func AddLoggerToHTTPServer(rctx context.Context, name string, s *http.Server) {
 							copy(bodyBuf[l:], b[:m])
 						}
 						bodySize += n
-						trace.Log(ctx, "http", fmt.Sprintf("write response %d bytes", len(b)))
+						trace.Logf(ctx, "http", "write response %d bytes", len(b))
 						return n, err
 					}
 				},

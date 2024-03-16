@@ -206,7 +206,7 @@ func (li *LoggingInterceptor) UnaryServerInterceptor(ctx context.Context, req in
 		li.logUnaryAfter(getResponseLogger(ctx, logResp, 1, 1, retErr), lvl, service, method, start, retErr)
 	}()
 
-	ctx, task := trace.NewTask(ctx, "grpc incoming "+info.FullMethod)
+	ctx, task := trace.NewTask(ctx, "grpc server "+info.FullMethod)
 	defer task.End()
 	return handler(ctx, req)
 }
@@ -226,7 +226,7 @@ func (li *LoggingInterceptor) StreamServerInterceptor(srv interface{}, stream gr
 	// a first message.
 	dolog(reqCtx, lvl, "stream started for "+service+"/"+method)
 
-	ctx, task := trace.NewTask(ctx, "grpc incoming stream "+info.FullMethod)
+	ctx, task := trace.NewTask(ctx, "grpc server stream "+info.FullMethod)
 	defer task.End()
 	wrapper := &streamWrapper{
 		stream: stream,
@@ -318,7 +318,7 @@ func (sw *streamWrapper) Context() context.Context {
 }
 
 func (sw *streamWrapper) SendMsg(m interface{}) error {
-	trace.Log(sw.ctx, "grpc incoming", "grpc incoming send "+reflect.TypeOf(m).Name())
+	trace.Logf(sw.ctx, "grpc server", "grpc server send %T", m)
 	err := sw.stream.SendMsg(m)
 	if err == nil {
 		if sw.sent == 0 && sw.onFirstSend != nil {
@@ -330,7 +330,7 @@ func (sw *streamWrapper) SendMsg(m interface{}) error {
 }
 
 func (sw *streamWrapper) RecvMsg(m interface{}) error {
-	trace.Log(sw.ctx, "grpc incoming", "grpc incoming recv "+reflect.TypeOf(m).Name())
+	trace.Logf(sw.ctx, "grpc server", "grpc server recv %T", m)
 	err := sw.stream.RecvMsg(m)
 	if err != io.EOF {
 		if sw.received == 0 && sw.onFirstRecv != nil {
