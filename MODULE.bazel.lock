@@ -3796,7 +3796,7 @@
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
-          "@@//go.sum": "deb09282da32eeebd70dc5ee2b0b9b372fa9685a05370b90d9129cbef920a2b6",
+          "@@//go.sum": "d9f16ad4c608cc806943359b218d6cff13729843f5c59f3c7a4e847d7e4eac59",
           "@@rules_go~//go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~//go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@jsonnet_go~//go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4"
