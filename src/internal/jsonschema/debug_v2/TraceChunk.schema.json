@@ -1,0 +1,32 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/TraceChunk",
+    "definitions": {
+        "TraceChunk": {
+            "properties": {
+                "text": {
+                    "type": "string"
+                },
+                "bytes": {
+                    "additionalProperties": false,
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "text"
+                    ]
+                },
+                {
+                    "required": [
+                        "bytes"
+                    ]
+                }
+            ],
+            "title": "Trace Chunk"
+        }
+    }
+}
