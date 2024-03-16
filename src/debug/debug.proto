@@ -183,8 +183,7 @@ message TraceRequest {
 
 message TraceChunk {
   oneof reply {
-    string text = 1;
-    google.protobuf.BytesValue bytes = 2;
+    google.protobuf.BytesValue bytes = 1;
   }
 }
 

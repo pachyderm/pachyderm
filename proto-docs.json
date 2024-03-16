@@ -3761,18 +3761,6 @@
           "extensions": [],
           "fields": [
             {
-              "name": "text",
-              "description": "",
-              "label": "",
-              "type": "string",
-              "longType": "string",
-              "fullType": "string",
-              "ismap": false,
-              "isoneof": true,
-              "oneofdecl": "reply",
-              "defaultValue": ""
-            },
-            {
               "name": "bytes",
               "description": "",
               "label": "",

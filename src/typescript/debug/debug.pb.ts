@@ -178,7 +178,7 @@ type BaseTraceChunk = {
 }
 
 export type TraceChunk = BaseTraceChunk
-  & OneOf<{ text: string; bytes: GoogleProtobufWrappers.BytesValue }>
+  & OneOf<{ bytes: GoogleProtobufWrappers.BytesValue }>
 
 export class Debug {
   static Profile(req: ProfileRequest, entityNotifier?: fm.NotifyStreamEntityArrival<GoogleProtobufWrappers.BytesValue>, initReq?: fm.InitReq): Promise<void> {

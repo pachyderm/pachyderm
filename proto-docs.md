@@ -2196,7 +2196,6 @@ StarlarkLiteral is a custom Starlark script.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| text | [string](#string) |  |  |
 | bytes | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
 
 

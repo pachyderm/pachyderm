@@ -3467,18 +3467,6 @@ func (m *TraceChunk) validate(all bool) error {
 	var errors []error
 
 	switch v := m.Reply.(type) {
-	case *TraceChunk_Text:
-		if v == nil {
-			err := TraceChunkValidationError{
-				field:  "Reply",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-		// no validation rules for Text
 	case *TraceChunk_Bytes:
 		if v == nil {
 			err := TraceChunkValidationError{

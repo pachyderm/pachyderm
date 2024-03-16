@@ -235,9 +235,8 @@ class TraceRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class TraceChunk(betterproto.Message):
-    text: str = betterproto.string_field(1, group="reply")
     bytes: Optional[bytes] = betterproto.message_field(
-        2, wraps=betterproto.TYPE_BYTES, group="reply"
+        1, wraps=betterproto.TYPE_BYTES, group="reply"
     )
 
 

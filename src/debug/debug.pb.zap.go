@@ -320,7 +320,6 @@ func (x *TraceChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	enc.AddString("text", x.GetText())
 	protoextensions.AddBytesValue(enc, "bytes", x.GetBytes())
 	return nil
 }
