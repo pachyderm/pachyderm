@@ -375,6 +375,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			if len(args) == 0 {
 				fmt.Printf("%s\n", output.Name())
 				cmd := exec.CommandContext(mainCtx, "go", "tool", "trace", output.Name())
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
 				cmd.Run() //nolint:errcheck
 			}
 			return nil
