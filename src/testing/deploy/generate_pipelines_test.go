@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"math/rand"
 	"path"
@@ -24,7 +25,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"go.uber.org/zap"
-	"golang.org/x/sync/errgroup"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/dynamicpb"
 )
@@ -48,10 +48,24 @@ var protosUnderTest = map[protoreflect.FileDescriptor][]string{
 		pfs.API_CreateProject_FullMethodName,
 		pfs.API_ListProject_FullMethodName,
 		pfs.API_ListRepo_FullMethodName,
+		pfs.API_CreateRepo_FullMethodName, // It would be nice to include DeleteRepo but we need to weight it less so we create more than we delete.
+		pfs.API_CreateProject_FullMethodName,
+		pfs.API_ListProject_FullMethodName,
+		pfs.API_ListRepo_FullMethodName,
+		pfs.API_CreateRepo_FullMethodName, // It would be nice to include DeleteRepo but we need to weight it less so we create more than we delete.
+		pfs.API_CreateProject_FullMethodName,
+		pfs.API_ListProject_FullMethodName,
+		pfs.API_ListRepo_FullMethodName,
 	},
 	pps.File_pps_pps_proto: {
+		pps.API_ListPipeline_FullMethodName,
 		pps.API_CreatePipeline_FullMethodName,
 		pps.API_ListPipeline_FullMethodName,
+		pps.API_CreatePipeline_FullMethodName,
+		pps.API_ListPipeline_FullMethodName,
+		pps.API_CreatePipeline_FullMethodName,
+		pps.API_ListPipeline_FullMethodName,
+		pps.API_CreatePipeline_FullMethodName,
 	},
 }
 
@@ -413,36 +427,46 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
 // Test generating random dags and verifying they get through the upgrade and pass fsck.
 // We aren't using Fuzz* because that works better with stateless fuzzing. Here, the whole point
 // is to add interesting state tot the DB.
-func TestCreateDags(t *testing.T) {
+func FuzzCreateDags(f *testing.F) {
 	ra := *runAmount
 	if ra <= 0 || testing.Short() {
-		t.Skip("Skipping DAG generation test")
+		f.Skip("Skipping DAG generation test")
 	}
-	log.InitWorkerLogger()
+	flushLog := log.InitBatchLogger("/tmp/fuzz.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
 	var c *client.APIClient
+	db := dockertestenv.NewTestDBConfig(f).PachConfigOption
 
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	f.Fuzz(func(t *testing.T, seed int64) {
+		env := realenv.NewRealEnvWithIdentity(ctx, t, db)
+		peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+		tu.ActivateAuthClient(t, env.PachClient, peerPort)
+		env.PachClient = env.PachClient.WithCtx(ctx)
+		c = tu.AuthenticateClient(t, env.PachClient, auth.RootUser)
+		for i := int64(0); i < 10; i++ {
+			fuzzGrpc(ctx, c, seed+i)
+		}
+	})
+	// eg, ctx := errgroup.WithContext(ctx)
+	// eg.SetLimit(10)
+	// for i := 0; i < ra; i++ {
+	// 	eg.Go(func() error {
+	// 		fuzzGrpc(ctx, c, rand.Int63())
+	// 		return nil
+	// 	})
+	// }
+	// if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
+	// 	require.NoError(f, err, "fsck should not error after fuzzing")
+	// }
+	// DNJ TODO factor out
+	env := realenv.NewRealEnvWithIdentity(ctx, f, db)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
-	tu.ActivateAuthClient(t, env.PachClient, peerPort)
+	tu.ActivateAuthClient(f, env.PachClient, peerPort)
 	env.PachClient = env.PachClient.WithCtx(ctx)
-	c = tu.AuthenticateClient(t, env.PachClient, auth.RootUser)
-	log.Info(ctx, "DNJ TODO MY TOKENS", zap.Any("token c", c.AuthToken()), zap.Any("token env", env.PachClient.AuthToken()))
-	log.Info(ctx, "DNJ TODO MY TOKENS", zap.Any("token c", c.AuthToken()))
-	eg, ctx := errgroup.WithContext(ctx)
-	eg.SetLimit(10)
-	for i := 0; i < ra; i++ {
-		eg.Go(func() error {
-			fuzzGrpc(ctx, c, rand.Int63())
-			return nil
-		})
-	}
-	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
-		require.NoError(t, err, "fsck should not error after fuzzing")
-	}
+	c = tu.AuthenticateClient(f, env.PachClient, auth.RootUser)
 
 	pipelines, err := c.ListPipeline()
-	require.NoError(t, err, "list pipeline should not error after fuzzing")
+	require.NoError(f, err, "list pipeline should not error after fuzzing")
 	log.Info(ctx, "DNJ TODO MY PIPELINES", zap.Any("pipeline", len(pipelines)), zap.Any("token", c.AuthToken()))
-
+	flushLog(errors.New("close with error"))
 }
