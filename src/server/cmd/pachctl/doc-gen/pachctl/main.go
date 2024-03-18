@@ -31,7 +31,7 @@ func do(ctx context.Context, _ *pachconfig.EmptyConfig) error {
 		return errors.Wrap(err, "make output directory")
 	}
 
-	rootCmd, err := cmd.PachctlCmd(ctx)
+	rootCmd, err := cmd.PachctlCmd()
 	if err != nil {
 		return errors.Wrap(err, "generate pachctl command")
 	}
