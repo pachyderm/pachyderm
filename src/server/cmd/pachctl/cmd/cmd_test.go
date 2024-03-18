@@ -10,7 +10,6 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	tu "github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -36,8 +35,7 @@ func TestPortForwardError(t *testing.T) {
 // 'CreateAlias' was not used properly (or the command just needs to specify
 // its name).
 func TestCommandAliases(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	pachctlCmd, err := PachctlCmd(ctx)
+	pachctlCmd, err := PachctlCmd()
 	if err != nil {
 		t.Fatal(err)
 	}
