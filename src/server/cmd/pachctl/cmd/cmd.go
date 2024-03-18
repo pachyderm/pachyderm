@@ -871,7 +871,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, identitycmds.Cmds(pachctlCfg)...)
-	subcommands = append(subcommands, admincmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, admincmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, debugcmds.Cmds(ctx, pachctlCfg)...)
 	subcommands = append(subcommands, txncmds.Cmds(ctx, pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.Cmds(ctx, pachctlCfg)...)
