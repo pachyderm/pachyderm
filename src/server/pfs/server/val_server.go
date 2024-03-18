@@ -239,80 +239,86 @@ func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pf
 	return a.apiServer.FindCommits(request, srv)
 }
 
+// WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
 func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
-	commits, err := a.pickCommits(srv.Context(), request.Start)
-	if err != nil {
-		return errors.Wrap(err, "walk commit provenance")
-	}
-	return a.apiServer.WalkCommitProvenance(&WalkCommitProvenanceRequest{
-		StartWithID:                 commits,
-		WalkCommitProvenanceRequest: request,
-	}, srv)
-}
-
-func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
-	commits, err := a.pickCommits(srv.Context(), request.Start)
-	if err != nil {
-		return errors.Wrap(err, "walk commit subvenance")
-	}
-	return a.apiServer.WalkCommitSubvenance(&WalkCommitSubvenanceRequest{
-		StartWithID:                 commits,
-		WalkCommitSubvenanceRequest: request,
-	}, srv)
-}
-
-func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
-	branches, err := a.pickBranches(srv.Context(), request.Start)
-	if err != nil {
-		return errors.Wrap(err, "walk branch provenance")
-	}
-	return a.apiServer.WalkBranchProvenance(&WalkBranchProvenanceRequest{
-		StartWithID:                 branches,
-		WalkBranchProvenanceRequest: request,
-	}, srv)
-}
-
-func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
-	branches, err := a.pickBranches(srv.Context(), request.Start)
-	if err != nil {
-		return errors.Wrap(err, "walk branch subvenance")
-	}
-	return a.apiServer.WalkBranchSubvenance(&WalkBranchSubvenanceRequest{
-		StartWithID:                 branches,
-		WalkBranchSubvenanceRequest: request,
-	}, srv)
-}
-
-func (a *validatedAPIServer) pickCommits(ctx context.Context, pickers []*pfs.CommitPicker) ([]*pfsdb.CommitWithID, error) {
-	commits := make([]*pfsdb.CommitWithID, 0)
-	if err := dbutil.WithTx(ctx, a.driver.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		for _, picker := range pickers {
-			commit, err := pfsdb.PickCommit(ctx, picker, tx)
-			if err != nil {
-				return errors.Wrap(err, "pick commits")
-			}
-			commits = append(commits, commit)
+	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		commits, err := a.pickCommits(ctx, tx, request.Start)
+		if err != nil {
+			return errors.Wrap(err, "walk commit provenance")
 		}
-		return nil
-	}, dbutil.WithReadOnly()); err != nil {
-		return nil, err
+		return a.apiServer.WalkCommitProvenanceTx(ctx,
+			&WalkCommitProvenanceRequest{
+				StartWithID:                 commits,
+				WalkCommitProvenanceRequest: request,
+			}, tx, srv)
+	}), "walk commit subvenance")
+}
+
+// WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
+func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
+	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		commits, err := a.pickCommits(ctx, tx, request.Start)
+		if err != nil {
+			return errors.Wrap(err, "walk commit subvenance")
+		}
+		return a.apiServer.WalkCommitSubvenanceTx(ctx,
+			&WalkCommitSubvenanceRequest{
+				StartWithID:                 commits,
+				WalkCommitSubvenanceRequest: request,
+			}, tx, srv)
+	}), "walk commit subvenance")
+}
+
+// WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
+func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
+	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		branches, err := a.pickBranches(ctx, tx, request.Start)
+		if err != nil {
+			return err
+		}
+		return a.apiServer.WalkBranchProvenanceTx(ctx,
+			&WalkBranchProvenanceRequest{
+				StartWithID:                 branches,
+				WalkBranchProvenanceRequest: request,
+			}, tx, srv)
+	}), "walk branch provenance")
+}
+
+// WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
+func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
+	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		branches, err := a.pickBranches(ctx, tx, request.Start)
+		if err != nil {
+			return err
+		}
+		return a.apiServer.WalkBranchSubvenanceTx(ctx,
+			&WalkBranchSubvenanceRequest{
+				StartWithID:                 branches,
+				WalkBranchSubvenanceRequest: request,
+			}, tx, srv)
+	}), "walk branch subvenance")
+}
+
+func (a *validatedAPIServer) pickCommits(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.CommitPicker) ([]*pfsdb.CommitWithID, error) {
+	commits := make([]*pfsdb.CommitWithID, 0)
+	for _, picker := range pickers {
+		commit, err := pfsdb.PickCommit(ctx, picker, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "pick commits")
+		}
+		commits = append(commits, commit)
 	}
 	return commits, nil
 }
 
-func (a *validatedAPIServer) pickBranches(ctx context.Context, pickers []*pfs.BranchPicker) ([]*pfsdb.BranchInfoWithID, error) {
+func (a *validatedAPIServer) pickBranches(ctx context.Context, tx *pachsql.Tx, pickers []*pfs.BranchPicker) ([]*pfsdb.BranchInfoWithID, error) {
 	branches := make([]*pfsdb.BranchInfoWithID, 0)
-	if err := dbutil.WithTx(ctx, a.driver.env.DB, func(cbCtx context.Context, tx *pachsql.Tx) error {
-		for _, picker := range pickers {
-			branch, err := pfsdb.PickBranch(ctx, picker, tx)
-			if err != nil {
-				return errors.Wrap(err, "pick branches")
-			}
-			branches = append(branches, branch)
+	for _, picker := range pickers {
+		branch, err := pfsdb.PickBranch(ctx, picker, tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "pick branches")
 		}
-		return nil
-	}, dbutil.WithReadOnly()); err != nil {
-		return nil, err
+		branches = append(branches, branch)
 	}
 	return branches, nil
 }
