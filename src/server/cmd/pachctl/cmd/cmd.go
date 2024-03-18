@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -308,7 +307,7 @@ __custom_func() {
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
-func PachctlCmd() (*cobra.Command, error) {
+func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 	pachctlCfg := new(pachctl.Config)
 
 	var raw bool
@@ -323,8 +322,6 @@ func PachctlCmd() (*cobra.Command, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	mainCtx := pctx.Background("")
 
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
@@ -403,15 +400,15 @@ func PachctlCmd() (*cobra.Command, error) {
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise, client.WithDialTimeout(timeout))
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise, client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise)
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			}
 			if err != nil {
 				return err
 			}
 			defer pachClient.Close()
-			ctx, cancel := context.WithTimeout(mainCtx, time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			serverVersion, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
@@ -497,7 +494,7 @@ func PachctlCmd() (*cobra.Command, error) {
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
 		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return err
 			}
@@ -868,20 +865,20 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(rerunDocs, "rerun"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, licensecmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, identitycmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, admincmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, debugcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, txncmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, configcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, misccmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, metadatacmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, pfscmds.Cmds(ctx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, ppscmds.Cmds(ctx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, authcmds.Cmds(ctx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, identitycmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, admincmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, debugcmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, txncmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.ConnectCmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, taskcmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, misccmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, metadatacmds.Cmds(ctx, pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
