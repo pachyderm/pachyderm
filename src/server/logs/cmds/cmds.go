@@ -70,7 +70,7 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				os.Exit(1)
 			}
 
-			var req = new(logs.GetLogsRequest)
+			var req *logs.GetLogsRequest
 			switch {
 			case logQL != "":
 				req = newLogQLRequest(logQL)
