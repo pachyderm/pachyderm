@@ -14,9 +14,9 @@ import (
 )
 
 func main() {
-	ctx := pctx.Background("pachctl")
 	log.InitPachctlLogger()
 	log.SetLevel(log.InfoLevel)
+	ctx := pctx.Background("pachctl")
 
 	// Remove kubernetes client flags from the spf13 flag set
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
