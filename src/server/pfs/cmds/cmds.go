@@ -58,7 +58,7 @@ const (
 )
 
 // Cmds returns a slice containing pfs commands.
-func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -100,8 +100,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} bar --description 'my new repo' ➔ /<active-project>/bar \n" +
 			"\t- {{alias}} baz --project myproject ➔ /myproject/baz \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -136,8 +136,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo --description 'my updated repo description'\n" +
 			"\t- {{alias}} foo --project bar --description 'my updated repo description'\n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -170,8 +170,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- To specify the project containing the repo you want to inspect, use the `--project` flag \n",
 		Example: "\t- {{alias}} foo  \n" +
 			"\t- {{alias}} foo --project myproject",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -221,8 +221,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --type user --all \n" +
 			"\t- {{alias}} --type user --all --project default \n" +
 			"\t- {{alias}} --type user --all --project default --raw",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -291,8 +291,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --all --type user \n" +
 			"\t- {{alias}} --all --type user --project default",
 
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -382,12 +382,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --description 'my commit description' \n" +
 			"\t- {{alias}} foo@master --project bar",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := newClient(mainCtx, pachctlCfg)
+			c, err := newClient(cmd.Context(), pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -444,12 +444,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --message 'my commit message' \n" +
 			"\t- {{alias}} foo@master --description 'my commit description' --project bar \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := newClient(mainCtx, pachctlCfg)
+			c, err := newClient(cmd.Context(), pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -488,14 +488,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --raw \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list commit <id>" to see commits with a given ID across different repos`)
 			} else if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -553,8 +553,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i ➔ returns all commits with ID <commit-id> \n" +
 			"\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i --expand ➔ returns all sub-commits on new lines, along with columns of more information \n" +
 			"\t- {{alias}} foo@master --raw -o yaml ➔ returns all commits in repo foo on branch master in YAML format \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -752,13 +752,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i --project bar --raw -o yaml \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			commit, err := cmdutil.ParseCommit(project, args[0])
 			if err != nil {
 				return err
 			}
 
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -800,12 +800,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t {{alias}} foo@master ➔ subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --from 0001a0100b1c10d01111e001fg00h00i ➔ starting at <commit-id>, subscribe to commits in the foo repo on the master branch \n" +
 			"\t- {{alias}} foo@bar --new ➔ subscribe to commits in the foo repo on the master branch, but only for new commits created from now on \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -880,8 +880,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:    "This command squashes the sub-commits of a commit.  The data in the sub-commits will remain in their child commits. The squash will fail if it includes a commit with no children",
 		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -900,8 +900,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Squash a commit.",
 		Long:  `Squashes the provided commit into its children. The recursive flag must be used if the squashed commit has subvenance.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(mainCtx, "user")
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := client.NewOnUserMachine(cmd.Context(), "user")
 			if err != nil {
 				return err
 			}
@@ -927,8 +927,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long: "This command deletes the sub-commits of a commit; data in sub-commits will be lost, so use with caution. " +
 			"This operation is only supported if none of the sub-commits have children. ",
 		Example: "\t- {{alias}} 0001a0100b1c10d01111e001fg00h00i",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -946,8 +946,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Use:   "{{alias}} <repo>@<branch-or-commit>",
 		Short: "Delete a commit.",
 		Long:  `Deletes the provided commit. The recursive flag must be used if the deleted commit has subvenance.`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := client.NewOnUserMachine(mainCtx, "user")
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := client.NewOnUserMachine(cmd.Context(), "user")
 			if err != nil {
 				return err
 			}
@@ -1002,7 +1002,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --trigger staging --trigger-cron='@every 1h' \n" +
 			"\t- {{alias}} foo@master --trigger staging --trigger-commits=10' \n" +
 			"\t- {{alias}} foo@master --trigger staging --trigger-size=100M --trigger-cron='@every 1h --trigger-commits=10 --trigger-all \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
@@ -1033,7 +1033,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}
 
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1074,8 +1074,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo@master  \n" +
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1118,8 +1118,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --raw \n" +
 			"\t- {{alias}} foo@master --raw -o yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1165,12 +1165,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master --project bar \n" +
 			"\t- {{alias}} foo@master --force \n" +
 			"\t- {{alias}} foo@master --project bar --force \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			branch, err := cmdutil.ParseBranch(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1205,13 +1205,13 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master:file --json \n" +
 			"\t- {{alias}} foo@master:file --project bar --json --limit 100 --timeout 20s \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
 			commit := file.Commit
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1271,8 +1271,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1295,8 +1295,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "Update a project.",
 		Long:    "This command updates a project's description.",
 		Example: "\t- {{alias}} foo-project --description 'This is a project for foo.' \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1327,8 +1327,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo-project --raw \n" +
 			"\t- {{alias}} foo-project --output=yaml \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1359,8 +1359,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command returns all projects.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --raw \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1400,8 +1400,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command deletes a project.",
 		Example: "\t- {{alias}} foo-project \n" +
 			"\t- {{alias}} foo-project --force \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1530,7 +1530,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --untar repo@branch -f dir.tar \n" +
 			"\t- {{alias}} -c repo@branch -f image.png \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			if !enableProgress {
 				progress.Disable()
 			}
@@ -1542,7 +1542,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if compress {
 				opts = append(opts, client.WithGZIPCompression())
 			}
-			c, err := newClient(mainCtx, pachctlCfg, opts...)
+			c, err := newClient(cmd.Context(), pachctlCfg, opts...)
 			if err != nil {
 				return err
 			}
@@ -1674,7 +1674,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master:/file bar@master:/file --dest-project ProjectContainingBar \n" +
 			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo \n" +
 			"\t- {{alias}} foo@master:/file bar@master:/file --src-project ProjectContainingFoo --dest-project ProjectContainingBar",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgsCmd(2, func(cmd *cobra.Command, args []string) (retErr error) {
 			if srcProject == "" {
 				srcProject = project
 			}
@@ -1689,7 +1689,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false, client.WithMaxConcurrentStreams(parallelism))
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false, client.WithMaxConcurrentStreams(parallelism))
 			if err != nil {
 				return err
 			}
@@ -1739,7 +1739,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master.1:chart.png  \n" +
 			"\t- {{alias}} foo@master.-1:chart.png  \n" +
 			"\t- " + `{{alias}} 'foo@master:/test\[\].txt'` + "\n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			if !enableProgress {
 				progress.Disable()
 			}
@@ -1747,7 +1747,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			if err != nil {
 				return err
 			}
-			c, err := newClient(mainCtx, pachctlCfg)
+			c, err := newClient(cmd.Context(), pachctlCfg)
 			if err != nil {
 				return err
 			}
@@ -1833,12 +1833,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} repo@master:/logs/log.txt^2 \n" +
 			"\t- {{alias}} repo@master:/logs/log.txt.-1 \n" +
 			"\t- {{alias}} repo@master:/logs/log.txt^2  --project foo \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1875,12 +1875,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@master^2 \n" +
 			"\t- {{alias}} repo@master.-2  --project foo \n" +
 			"\t- " + `{{alias}} 'foo@master:dir\[1\]'` + "\n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1919,12 +1919,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- " + `{{alias}} "foo@master:A*"` + "\n" +
 			"\t- " + `{{alias}} "foo@0001a0100b1c10d01111e001fg00h00i:data/*"` + "\n" +
 			"\t- " + `{{alias}} "foo@master:data/*"`,
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1975,7 +1975,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo@master:/logs/log.txt \n" +
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:log.txt \n" +
 			"\t- {{alias}} foo@master:path1 bar@master:path2",
-		Run: cmdutil.RunBoundedArgs(1, 2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(1, 2, func(cmd *cobra.Command, args []string) error {
 			newFile, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
@@ -1990,7 +1990,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 					return err
 				}
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -2077,12 +2077,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@0001a0100b1c10d01111e001fg00h00i:/images/image.png \n" +
 			"\t- {{alias}} -r foo@master:/images \n" +
 			"\t- {{alias}} -r foo@master:/images --project projectContainingFoo \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			file, err := cmdutil.ParseFile(project, args[0])
 			if err != nil {
 				return err
 			}
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -2122,8 +2122,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --zombie-all \n" +
 			"\t- {{alias}} --zombie foo@bar \n" +
 			"\t- {{alias}} --zombie foo@bar --project projectContainingFoo \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -2177,8 +2177,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "Run a PFS load test.",
 		Long:    "This command runs a PFS load test.",
 		Example: pfsload.LoadSpecification,
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -2244,7 +2244,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 
 	// Add the mount commands (which aren't available on Windows, so they're in
 	// their own file)
-	commands = append(commands, mountCmds(mainCtx, pachctlCfg)...)
+	commands = append(commands, mountCmds(pachctlCfg)...)
 
 	return commands
 }

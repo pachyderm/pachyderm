@@ -6,7 +6,6 @@ package cmds
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"strings"
@@ -57,7 +56,7 @@ func parseRepoOpts(project string, args []string) (map[string]*fuse.RepoOptions,
 	return result, nil
 }
 
-func mountCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func mountCmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var write bool
@@ -68,8 +67,8 @@ func mountCmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Com
 		Use:   "{{alias}} <path/to/mount/point>",
 		Short: "Mount pfs locally. This command blocks.",
 		Long:  "Mount pfs locally. This command blocks.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
