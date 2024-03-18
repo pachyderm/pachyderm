@@ -65,6 +65,20 @@ func newPipelineRequest(project, pipeline string) *logs.GetLogsRequest {
 	}
 }
 
+func newProjectRequest(project string) *logs.GetLogsRequest {
+	return &logs.GetLogsRequest{
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_User{
+				User: &logs.UserLogQuery{
+					UserType: &logs.UserLogQuery_Project{
+						Project: project,
+					},
+				},
+			},
+		},
+	}
+}
+
 func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
@@ -90,14 +104,16 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 
 			var req *logs.GetLogsRequest
 			switch {
-			case logQL != "":
-				if !(project == pachCtx.Project && pipeline == "") {
+			case cmd.Flag("logql").Changed:
+				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
 					os.Exit(1)
 				}
 				req = newLogQLRequest(logQL)
-			case pipeline != "":
+			case cmd.Flag("pipeline").Changed:
 				req = newPipelineRequest(project, pipeline)
+			case cmd.Flag("project").Changed:
+				req = newProjectRequest(project)
 			case isAdmin:
 				req = newLogQLRequest(`{suite="pachyderm"}`)
 			default:
