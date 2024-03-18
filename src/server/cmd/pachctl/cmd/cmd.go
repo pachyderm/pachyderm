@@ -876,8 +876,8 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, txncmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, configcmds.ConnectCmds(pachctlCfg)...)
-	subcommands = append(subcommands, taskcmds.Cmds(ctx, pachctlCfg)...)
 	subcommands = append(subcommands, misccmds.Cmds(ctx, pachctlCfg)...)
+	subcommands = append(subcommands, taskcmds.Cmds(pachctlCfg)...)
 	subcommands = append(subcommands, metadatacmds.Cmds(ctx, pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
