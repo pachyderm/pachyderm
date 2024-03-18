@@ -59,7 +59,7 @@ const (
 )
 
 // Cmds returns a slice containing pps commands.
-func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -92,14 +92,14 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
 			} else if err != nil {
 				return err
 			}
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -156,8 +156,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -219,7 +219,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --input foo-repo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@staging \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@5f93d03b65fa421996185e53f7f8b1e4 \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -236,7 +236,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}
 
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -376,12 +376,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command deletes a job.",
 		Example: "\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 --project foo",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -401,8 +401,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Stop a job.",
 		Long: "This command stops a job immediately." +
 			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -458,12 +458,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt --project bar ",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(2, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -495,8 +495,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 --project bar \n" +
 			"\t- {{alias}} --file pipeline.json",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -575,8 +575,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} --raw \n" +
 			"\t- {{alias}} --since 100s \n" +
 			"\t- {{alias}} --raw --since 1h \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -616,9 +616,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command queries the loki logs.",
 		Example: "\t- {{alias}} <query> --since 100s \n" +
 			"\t- {{alias}} <query> --since 1h",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
 			query := args[0]
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -653,12 +653,12 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command displays detailed info about a single datum; requires the pipeline to have stats enabled.",
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 --project foo",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
+		Run: cmdutil.RunFixedArgsCmd(2, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
 			}
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -737,7 +737,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master --tail 10  \n" +
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker --follow \n",
 		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
@@ -852,8 +852,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun, output, raw)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			return pipelineHelper(cmd.Context(), pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun, output, raw)
 		}),
 	}
 	createPipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -880,8 +880,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			return pipelineHelper(mainCtx, pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun, output, raw)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			return pipelineHelper(cmd.Context(), pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun, output, raw)
 		}),
 	}
 	updatePipeline.Flags().StringVarP(&pipelinePath, "file", "f", "", "Provide a JSON/YAML file (url or filepath) for one or more pipelines. \"-\" reads from stdin (the default behavior). Exactly one of --file and --jsonnet must be set.")
@@ -902,8 +902,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command runs an existing Pachyderm cron pipeline immediately.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo  --project bar \n",
-		Run: cmdutil.RunMinimumArgs(1, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunMinimumArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -924,8 +924,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "Check the status of pipelines within a project.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --project bar \n",
-		Run: cmdutil.RunMinimumArgs(0, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunMinimumArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -981,8 +981,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n" +
 			"\t- {{alias}} foo --project bar --raw -o yaml \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1020,8 +1020,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo --project bar --editor vim --output yaml \n" +
 			"\t- {{alias}} foo --project bar --editor vim --reprocess \n",
 
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1158,7 +1158,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --state crashing \n" +
 			"\t- {{alias}} --project foo \n" +
 			"\t- {{alias}} --project foo --state restarting \n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
 			// validate flags
 			if raw && spec {
 				return errors.Errorf("cannot set both --raw and --spec")
@@ -1177,7 +1177,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 				}
 			}
 			// init client & get pipeline info
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
@@ -1259,8 +1259,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --edge-height 8" +
 			"\t- {{alias}} --project foo" +
 			"\t- {{alias}} --box-width 20 --edge-height 8 --commit 5f93d03b65fa421996185e53f7f8b1e4",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
 			}
@@ -1307,8 +1307,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} foo --force" +
 			"\t- {{alias}} foo --keep-repo" +
 			"\t- {{alias}} foo --project bar --keep-repo",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1358,8 +1358,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command restarts a stopped pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1379,8 +1379,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Long:  "This command stops a running pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1405,8 +1405,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "Create a secret on the cluster.",
 		Long:    "This command creates a secret on the cluster.",
 		Example: "\t- {{alias}} --file my-secret.json",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1435,8 +1435,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "Delete a secret from the cluster.",
 		Long:    "This command deletes a secret from the cluster.",
 		Example: "\t- {{alias}} my-secret \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1462,8 +1462,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "Inspect a secret from the cluster.",
 		Long:    "This command inspects a secret from the cluster.",
 		Example: "\t- {{alias}} my-secret \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1491,8 +1491,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short:   "List all secrets from a namespace in the cluster.",
 		Long:    "This command lists all secrets from a namespace in the cluster.",
 		Example: "\t- {{alias}} \n",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1532,8 +1532,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			"\t- {{alias}} --dag myspec.json  --parallelism 3 \n" +
 			"\t- {{alias}} --dag myspec.json  --pod-patch patch.json \n" +
 			"\t- {{alias}} --dag myspec.json --state-id xyz\n",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) (retErr error) {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1659,8 +1659,8 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --reprocess\n" +
 			"\t- {{alias}} foo --project bar\n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1691,7 +1691,7 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 		Short: "Return defaults.",
 		Long:  "Return cluster or project defaults.",
 		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -1735,9 +1735,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+				return setClusterDefaults(cmd.Context(), pachctlCfg, rc, regenerate, reprocess, dryRun)
 			case flagSet.Changed("project"):
-				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+				return setProjectDefaults(cmd.Context(), pachctlCfg, project, rc, regenerate, reprocess, dryRun)
 			default:
 				return errors.New("must pass either --cluster or --project PROJECT")
 			}
@@ -1760,9 +1760,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
-				return setClusterDefaults(mainCtx, pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+				return setClusterDefaults(cmd.Context(), pachctlCfg, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
 			case flagSet.Changed("project"):
-				return setProjectDefaults(mainCtx, pachctlCfg, project, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
+				return setProjectDefaults(cmd.Context(), pachctlCfg, project, io.NopCloser(strings.NewReader(`{}`)), regenerate, reprocess, dryRun)
 			default:
 				return errors.New("must pass either --cluster or --project PROJECT")
 			}
@@ -1787,9 +1787,9 @@ func Cmds(mainCtx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
-				return setClusterDefaults(mainCtx, pachctlCfg, rc, regenerate, reprocess, dryRun)
+				return setClusterDefaults(cmd.Context(), pachctlCfg, rc, regenerate, reprocess, dryRun)
 			case flagSet.Changed("project"):
-				return setProjectDefaults(mainCtx, pachctlCfg, project, rc, regenerate, reprocess, dryRun)
+				return setProjectDefaults(cmd.Context(), pachctlCfg, project, rc, regenerate, reprocess, dryRun)
 			default:
 				return errors.New("must pass either --cluster or --project PROJECT")
 			}
