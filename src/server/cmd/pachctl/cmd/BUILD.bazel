@@ -51,6 +51,7 @@ go_test(
         "//src/internal/config",
         "//src/internal/grpcutil",
         "//src/internal/log",
+        "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testutil",
         "//src/internal/uuid",
