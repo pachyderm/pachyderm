@@ -2114,12 +2114,12 @@ func TestWalkCommitProvenanceAndSubvenance(suite *testing.T) {
 					Start: []*pfs.CommitPicker{
 						{
 							Picker: &pfs.CommitPicker_BranchHead{
-								branchPicker("master", repoPicker("E", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+								BranchHead: branchPicker("master", repoPicker("E", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
 							},
 						},
 						{
 							Picker: &pfs.CommitPicker_BranchHead{
-								branchPicker("master", repoPicker("A", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+								BranchHead: branchPicker("master", repoPicker("A", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
 							},
 						},
 					},
