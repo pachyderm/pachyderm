@@ -866,8 +866,8 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, cmdutil.CreateAlias(rerunDocs, "rerun"))
 
 	subcommands = append(subcommands, pfscmds.Cmds(pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, ppscmds.Cmds(ctx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, authcmds.Cmds(ctx, pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, ppscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, authcmds.Cmds(pachCtx, pachctlCfg)...)
 	subcommands = append(subcommands, enterprisecmds.Cmds(ctx, pachctlCfg)...)
 	subcommands = append(subcommands, licensecmds.Cmds(ctx, pachctlCfg)...)
 	subcommands = append(subcommands, identitycmds.Cmds(ctx, pachctlCfg)...)
