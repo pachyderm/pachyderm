@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -14,14 +13,14 @@ import (
 )
 
 // Cmds returns a slice containing metadata commands.
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	editMetadata := &cobra.Command{
 		Short: "Edits an object's metadata",
 		Long:  "Edits an object's metadata",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
