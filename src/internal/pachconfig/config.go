@@ -131,7 +131,7 @@ func (PachdFullConfiguration) isPachConfig() {}
 type PachdSpecificConfiguration struct {
 	StorageConfiguration
 	StorageBackend             string `env:"STORAGE_BACKEND,required"`
-	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=false"`
+	GoCDKEnabled               bool   `env:"GOCDK_ENABLED,default=true"`
 	StorageURL                 string `env:"STORAGE_URL,default="`
 	StorageHostPath            string `env:"STORAGE_HOST_PATH,default="`
 	PFSEtcdPrefix              string `env:"PFS_ETCD_PREFIX,default=pachyderm_pfs"`
