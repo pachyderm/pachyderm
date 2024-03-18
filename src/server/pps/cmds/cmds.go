@@ -92,7 +92,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil && uuid.IsUUIDWithoutDashes(args[0]) {
 				return errors.New(`Use "list job <id>" to see jobs with a given ID across different pipelines`)
@@ -156,7 +156,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar \n" +
 			"\t- {{alias}} foo@e0f68a2fcda7458880c9e2e2dae9e678 --project bar --raw --output yaml \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -219,7 +219,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --input foo-repo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@staging \n" +
 			"\t- {{alias}} --pipeline foo --input bar-repo@5f93d03b65fa421996185e53f7f8b1e4 \n",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
 			commits, err := cmdutil.ParseCommits(project, inputCommitStrs)
 			if err != nil {
 				return err
@@ -376,7 +376,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command deletes a job.",
 		Example: "\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} 5f93d03b65fa421996185e53f7f8b1e4 --project foo",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -401,7 +401,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short: "Stop a job.",
 		Long: "This command stops a job immediately." +
 			"\t- To specify the project where the parent pipeline lives, use the `--project` flag \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -458,7 +458,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 /logs/logs-a.txt, /logs/logs-b.txt --project bar ",
-		Run: cmdutil.RunFixedArgsCmd(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -495,7 +495,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 --project bar \n" +
 			"\t- {{alias}} --file pipeline.json",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -575,7 +575,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} --raw \n" +
 			"\t- {{alias}} --since 100s \n" +
 			"\t- {{alias}} --raw --since 1h \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -616,7 +616,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command queries the loki logs.",
 		Example: "\t- {{alias}} <query> --since 100s \n" +
 			"\t- {{alias}} <query> --since 1h",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			query := args[0]
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
@@ -653,7 +653,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command displays detailed info about a single datum; requires the pipeline to have stats enabled.",
 		Example: "\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 \n" +
 			"\t- {{alias}} foo@5f93d03b65fa421996185e53f7f8b1e4 7f3cd988429894000bdad549dfe2d09b5ca7bfc5083b79fec0e6bda3db8cc705 --project foo",
-		Run: cmdutil.RunFixedArgsCmd(2, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
 			job, err := cmdutil.ParseJob(project, args[0])
 			if err != nil {
 				return err
@@ -736,7 +736,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker  \n" +
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --master --tail 10  \n" +
 			"\t- {{alias}} --pipeline foo --datum 7f3c[...] --worker --follow \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
@@ -852,7 +852,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return pipelineHelper(cmd.Context(), pachctlCfg, false, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, false, dryRun, output, raw)
 		}),
 	}
@@ -880,7 +880,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t {{alias}} -file foo.json --project bar \n" +
 			"\t {{alias}} -file foo.json --push-images --username lbliii \n" +
 			"\t {{alias}} --jsonnet /templates/foo.jsonnet --arg myimage=bar --arg src=image \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return pipelineHelper(cmd.Context(), pachctlCfg, reprocess, pushImages, registry, username, project, pipelinePath, jsonnetPath, jsonnetArgs, true, dryRun, output, raw)
 		}),
 	}
@@ -902,7 +902,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command runs an existing Pachyderm cron pipeline immediately.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo  --project bar \n",
-		Run: cmdutil.RunMinimumArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunMinimumArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -924,7 +924,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "Check the status of pipelines within a project.",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} --project bar \n",
-		Run: cmdutil.RunMinimumArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunMinimumArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -981,7 +981,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n" +
 			"\t- {{alias}} foo --project bar --raw -o yaml \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1020,7 +1020,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo --project bar --editor vim --output yaml \n" +
 			"\t- {{alias}} foo --project bar --editor vim --reprocess \n",
 
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1158,7 +1158,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --state crashing \n" +
 			"\t- {{alias}} --project foo \n" +
 			"\t- {{alias}} --project foo --state restarting \n",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
 			// validate flags
 			if raw && spec {
 				return errors.Errorf("cannot set both --raw and --spec")
@@ -1259,7 +1259,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --edge-height 8" +
 			"\t- {{alias}} --project foo" +
 			"\t- {{alias}} --box-width 20 --edge-height 8 --commit 5f93d03b65fa421996185e53f7f8b1e4",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return errors.Wrapf(err, "error connecting to pachd")
@@ -1307,7 +1307,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} foo --force" +
 			"\t- {{alias}} foo --keep-repo" +
 			"\t- {{alias}} foo --project bar --keep-repo",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1358,7 +1358,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command restarts a stopped pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1379,7 +1379,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command stops a running pipeline.",
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --project bar \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1405,7 +1405,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Create a secret on the cluster.",
 		Long:    "This command creates a secret on the cluster.",
 		Example: "\t- {{alias}} --file my-secret.json",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1435,7 +1435,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Delete a secret from the cluster.",
 		Long:    "This command deletes a secret from the cluster.",
 		Example: "\t- {{alias}} my-secret \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1462,7 +1462,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Inspect a secret from the cluster.",
 		Long:    "This command inspects a secret from the cluster.",
 		Example: "\t- {{alias}} my-secret \n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1491,7 +1491,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "List all secrets from a namespace in the cluster.",
 		Long:    "This command lists all secrets from a namespace in the cluster.",
 		Example: "\t- {{alias}} \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1532,7 +1532,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --dag myspec.json  --parallelism 3 \n" +
 			"\t- {{alias}} --dag myspec.json  --pod-patch patch.json \n" +
 			"\t- {{alias}} --dag myspec.json --state-id xyz\n",
-		Run: cmdutil.RunBoundedArgsCmd(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) (retErr error) {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1612,7 +1612,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Used internally for datum batching",
 		Long:    "This command is used internally for datum batching",
 		Example: "\t- {{alias}}",
-		Run: cmdutil.Run(func(_ []string) error {
+		Run: cmdutil.Run(func(_ *cobra.Command, _ []string) error {
 			c, err := workerserver.NewClient("127.0.0.1")
 			if err != nil {
 				return err
@@ -1632,7 +1632,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Short:   "Validate pipeline spec.",
 		Long:    "This command validates a pipeline spec.  Client-side only; does not check that repos, images, etc exist on the server.",
 		Example: "\t- {{alias}} --file spec.json",
-		Run: cmdutil.RunFixedArgs(0, func(_ []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(_ *cobra.Command, _ []string) error {
 			r, err := fileIndicatorToReadCloser(pipelinePath)
 			if err != nil {
 				return err
@@ -1659,7 +1659,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Example: "\t- {{alias}} foo \n" +
 			"\t- {{alias}} foo --reprocess\n" +
 			"\t- {{alias}} foo --project bar\n",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1690,7 +1690,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Return defaults.",
 		Long:  "Return cluster or project defaults.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
@@ -1727,7 +1727,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Set cluster defaults.",
 		Long:  "Set cluster or project defaults.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			rc, err := fileIndicatorToReadCloser(pathname)
 			if err != nil {
 				return errors.Wrapf(err, "could not open path %q for reading", pathname)
@@ -1756,7 +1756,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Delete defaults.",
 		Long:  "Delete cluster or project defaults.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			flagSet := cmd.Flags()
 			switch {
 			case flagSet.Changed("cluster"):
@@ -1779,7 +1779,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:   "{{alias}} [--cluster | --project PROJECT]",
 		Short: "Update defaults.",
 		Long:  "Update cluster or project defaults.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			rc, err := fileIndicatorToReadCloser(pathname)
 			if err != nil {
 				return errors.Wrapf(err, "could not open path %q for reading", pathname)

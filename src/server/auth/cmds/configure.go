@@ -25,7 +25,7 @@ func GetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	getConfig := &cobra.Command{
 		Short: "Retrieve Pachyderm's current auth configuration",
 		Long:  "Retrieve Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")
@@ -77,7 +77,7 @@ func SetConfigCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	setConfig := &cobra.Command{
 		Short: "Set Pachyderm's current auth configuration",
 		Long:  "Set Pachyderm's current auth configuration",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), enterprise)
 			if err != nil {
 				return errors.Wrapf(err, "could not connect")

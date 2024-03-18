@@ -32,7 +32,7 @@ func DeactivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Deactivate the enterprise service",
 		Long:  "This command deactivates the enterprise service.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
@@ -64,7 +64,7 @@ func RegisterCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 			"\t- {{alias}} --id my-cluster-id \n" +
 			"\t- {{alias}} --id my-cluster-id --pachd-address <pachd-ip>:650 \n" +
 			"\t- {{alias}} --id my-cluster-id --pachd-enterprise-server-address <pach-enterprise-IP>:650 \n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
@@ -158,7 +158,7 @@ func GetStateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Check whether the Pachyderm cluster has an active enterprise license.",
 		Long:  "This command checks whether the Pachyderm cluster has an active enterprise license; If so, it also returns the expiration date of the license.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
@@ -187,7 +187,7 @@ func SyncContextsCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	syncContexts := &cobra.Command{
 		Short: "Pull all available Pachyderm Cluster contexts into your pachctl config",
 		Long:  "This command pulls all available Pachyderm Cluster contexts into your pachctl config.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			cfg, err := config.Read(false, false)
 			if err != nil {
@@ -242,7 +242,7 @@ func HeartbeatCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Short: "Sync the enterprise state with the license server immediately.",
 		Long: "This command syncs the enterprise state with the license server immediately. \n\n" +
 			"This means that if there is an active enterprise license associated with the enterprise server, the cluster will also have access to enterprise features.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, isEnterprise)
 			if err != nil {
@@ -265,7 +265,7 @@ func PauseCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	pause := &cobra.Command{
 		Short: "Pause the cluster.",
 		Long:  "This command pauses the cluster.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -287,7 +287,7 @@ func UnpauseCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	unpause := &cobra.Command{
 		Short: "Unpause the cluster.",
 		Long:  "This command unpauses the cluster.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -310,7 +310,7 @@ func PauseStatusCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	pauseStatus := &cobra.Command{
 		Short: "Get the pause status of the cluster.",
 		Long:  "This command returns the pause state of the cluster: `normal`, `partially-paused` or `paused`.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {

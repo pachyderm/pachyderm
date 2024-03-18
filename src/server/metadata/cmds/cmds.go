@@ -19,7 +19,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	editMetadata := &cobra.Command{
 		Short: "Edits an object's metadata",
 		Long:  "Edits an object's metadata",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err

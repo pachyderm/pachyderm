@@ -24,7 +24,7 @@ func main() {
 	tracing.InstallJaegerTracerFromEnv()
 	err := func() error {
 		defer tracing.CloseAndReportTraces()
-		pachctl, err := cmd.PachctlCmd(ctx)
+		pachctl, err := cmd.PachctlCmd()
 		if err != nil {
 			return errors.Wrap(err, "could not create pachctl command")
 		}

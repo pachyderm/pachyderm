@@ -17,7 +17,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {

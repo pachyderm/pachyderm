@@ -25,7 +25,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:    "{{alias}} <service>",
 		Short:  "Return info about tasks from a service.",
 		Long:   "Return info about tasks from a service.",
-		Run: cmdutil.RunFixedArgsCmd(1, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			if namespace == "" && group != "" {
 				return errors.Errorf("must set a task namespace to list a group")
 			}

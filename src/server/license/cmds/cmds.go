@@ -25,7 +25,7 @@ func ActivateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Long:  "This command activates Enterprise Server with an activation code.",
 		Example: "\t- {{alias}}\n" +
 			"\t- {{alias}} --no-register\n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			key, err := cmdutil.ReadPassword("Enterprise key: ")
 			if err != nil {
@@ -93,7 +93,7 @@ func AddClusterCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Short:   "Register a new cluster with the license server.",
 		Long:    "This command registers a new cluster with Enterprise Server.",
 		Example: "\t- {{alias}} --id=my-cluster --address=grpc://my-cluster:1653 --secret=secret\n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -130,7 +130,7 @@ func UpdateClusterCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Example: "\t- {{alias}} --id=my-cluster --address=grpc://my-cluster:1653 \n" +
 			"\t- {{alias}} --id=my-cluster --user-address=grpc://my-cluster:1653\n" +
 			"\t- {{alias}} --id=my-cluster --cluster-deployment-id=1234\n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -161,7 +161,7 @@ func DeleteClusterCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Short:   "Delete a cluster registered with the license server.",
 		Long:    "This command deletes a cluster registered with Enterprise Server.",
 		Example: "\t- {{alias}} --id=my-cluster\n",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -184,7 +184,7 @@ func ListClustersCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	listClusters := &cobra.Command{
 		Short: "List clusters registered with the license server.",
 		Long:  "This command lists clusters registered with Enterprise Server.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -214,7 +214,7 @@ func DeleteAllCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 		Use:   "{{alias}}",
 		Short: "Delete all data from the license server",
 		Long:  "This command deletes all data from Enterprise Server.",
-		Run: cmdutil.RunFixedArgsCmd(0, func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {
@@ -238,7 +238,7 @@ func GetStateCmd(pachctlCfg *pachctl.Config) *cobra.Command {
 	getState := &cobra.Command{
 		Short: "Get the configuration of the license service.",
 		Long:  "This command returns the configuration of the Enterprise Server.",
-		Run: cmdutil.RunCmd(func(cmd *cobra.Command, args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c, err := pachctlCfg.NewOnUserMachine(ctx, true)
 			if err != nil {

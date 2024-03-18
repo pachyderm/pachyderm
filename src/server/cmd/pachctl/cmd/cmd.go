@@ -307,7 +307,7 @@ __custom_func() {
 
 // PachctlCmd creates a cobra.Command which can deploy pachyderm clusters and
 // interact with them (it implements the pachctl binary).
-func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
+func PachctlCmd() (*cobra.Command, error) {
 	pachctlCfg := new(pachctl.Config)
 
 	var raw bool
@@ -356,7 +356,8 @@ func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -455,7 +456,7 @@ func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 	buildInfo := &cobra.Command{
 		Short: "Print go buildinfo.",
 		Long:  "Print information about the build environment.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			info, _ := debug.ReadBuildInfo()
 			fmt.Println(info)
 			return nil
@@ -466,7 +467,7 @@ func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error { return nil }),
+		Run:   cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error { return nil }),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(exitCmd, "exit"))
 
@@ -474,7 +475,7 @@ func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 	shellCmd := &cobra.Command{
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
@@ -493,8 +494,8 @@ func PachctlCmd(ctx context.Context) (*cobra.Command, error) {
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(ctx, false)
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -553,7 +554,7 @@ This resets the cluster to its initial state.`,
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
@@ -688,7 +689,7 @@ This resets the cluster to its initial state.`,
 	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
@@ -700,7 +701,7 @@ This resets the cluster to its initial state.`,
 	completionZsh := &cobra.Command{
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}
