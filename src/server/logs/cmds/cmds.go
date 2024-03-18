@@ -34,12 +34,26 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 	return false, nil
 }
 
+func newLogQLRequest(logQL string) *logs.GetLogsRequest {
+	return &logs.GetLogsRequest{
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_Admin{
+				Admin: &logs.AdminLogQuery{
+					AdminType: &logs.AdminLogQuery_Logql{
+						Logql: logQL,
+					},
+				},
+			},
+		},
+	}
+}
+
 func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var logQL string
 	logsCmd := &cobra.Command{
-		// TODO(QQQ): remove references to “new.”
+		// TODO(CORE-2200): remove references to “new.”
 		Short: "New logs functionality",
 		Long:  "Query Pachyderm using new log service.",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -59,39 +73,11 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 			var req = new(logs.GetLogsRequest)
 			switch {
 			case logQL != "":
-				if isAdmin {
-					req.Query = &logs.LogQuery{
-						QueryType: &logs.LogQuery_Admin{
-							Admin: &logs.AdminLogQuery{
-								AdminType: &logs.AdminLogQuery_Logql{
-									Logql: logQL,
-								},
-							},
-						},
-					}
-				}
+				req = newLogQLRequest(logQL)
+			case isAdmin:
+				req = newLogQLRequest(`{suite="pachyderm"}`)
 			default:
-				if isAdmin {
-					req.Query = &logs.LogQuery{
-						QueryType: &logs.LogQuery_Admin{
-							Admin: &logs.AdminLogQuery{
-								AdminType: &logs.AdminLogQuery_Logql{
-									Logql: `{suite="pachyderm"}`,
-								},
-							},
-						},
-					}
-				} else {
-					req.Query = &logs.LogQuery{
-						QueryType: &logs.LogQuery_Admin{
-							Admin: &logs.AdminLogQuery{
-								AdminType: &logs.AdminLogQuery_Logql{
-									Logql: `{}`,
-								},
-							},
-						},
-					}
-				}
+				req = newLogQLRequest(`{}`)
 			}
 
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
@@ -99,7 +85,6 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
 			}
-			fmt.Println("starting")
 			for {
 				resp, err := resp.Recv()
 				if err != nil {
@@ -125,7 +110,6 @@ func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Conf
 				}
 
 			}
-			fmt.Println("emdo")
 		},
 		Use: "logs2",
 	}
