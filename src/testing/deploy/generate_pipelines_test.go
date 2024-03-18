@@ -28,34 +28,42 @@ import (
 )
 
 const (
-	useSucccessValWeight = .75 // Likelyhood of using a pre-existing, known valid, value.
-	maxRepeatedCount     = 5   // The maximum number of random list values to generate.
-	nilInputWeight       = .35 // The likelyhood of using nil as a value in an Input field
-	maxInputDepth        = 15  // The maximum depth we should traverse the cyclical Input graph.
+	useSucccessValueWeight = .75 // Likelyhood of using a pre-existing, known valid, value.
+	maxRepeatedCount       = 5   // The maximum number of random list values to generate.
+	nilInputWeight         = .35 // The likelyhood of using nil as a value in an Input field
+	maxInputDepth          = 15  // The maximum depth we should traverse the Input graph.
 )
 
 var (
-	runAmount       = flag.Int("gen.Amount", 250, "use the default data generators")
+	runAmount       = flag.Int("gen.Amount", 500, "use the default data generators")
 	successInputs   = map[string][]protoreflect.Value{} // values of fields mapped to field names for reuse in subsequent requests
 	successInputsMu = sync.Mutex{}
 )
 
-var protosUnderTest = map[protoreflect.FileDescriptor][]string{
+type apiUnderTest struct {
+	name   string
+	weight float32
+}
+
+var protosUnderTest = map[protoreflect.FileDescriptor][]apiUnderTest{
 	pfs.File_pfs_pfs_proto: {
-		pfs.API_CreateRepo_FullMethodName, // It would be nice to include DeleteRepo but we need to weight it less so we create more than we delete.
-		pfs.API_CreateProject_FullMethodName,
-		pfs.API_ListProject_FullMethodName,
-		pfs.API_ListRepo_FullMethodName,
+		{pfs.API_CreateRepo_FullMethodName, 1},
+		{pfs.API_CreateProject_FullMethodName, 1},
+		{pfs.API_ListProject_FullMethodName, 1},
+		{pfs.API_ListRepo_FullMethodName, 1},
+		{pfs.API_DeleteProject_FullMethodName, .3},
+		{pfs.API_DeleteRepo_FullMethodName, .3},
 	},
 	pps.File_pps_pps_proto: {
-		pps.API_CreatePipeline_FullMethodName,
-		pps.API_ListPipeline_FullMethodName,
+		{pps.API_CreatePipeline_FullMethodName, 1},
+		{pps.API_ListPipeline_FullMethodName, 1},
+		{pps.API_ListPipeline_FullMethodName, .3},
 	},
 }
 
 type GeneratorIndex struct {
 	KindGenerators map[protoreflect.Kind]Generator
-	NameGenerators map[string]Generator
+	NameGenerators map[protoreflect.FullName]Generator
 }
 
 type generatorSource struct {
@@ -162,17 +170,20 @@ func randName(genSource generatorSource) protoreflect.Value {
 	return protoreflect.ValueOf(characters.String())
 }
 
-func rangeRPCsList(protos map[protoreflect.FileDescriptor][]string, f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
+func rangeRPCsList(protos map[protoreflect.FileDescriptor][]apiUnderTest, r *rand.Rand, f func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor)) {
 	for fd, protoDescriptors := range protos {
 		svcMethods := map[string][]string{}
-		for _, name := range protoDescriptors {
-			split := strings.Split(name, "/")
-			svcName := split[1] // 0 is empty
-			methodName := split[2]
-			if arr, ok := svcMethods[svcName]; !ok {
-				svcMethods[svcName] = []string{methodName}
-			} else {
-				svcMethods[svcName] = append(arr, methodName)
+		for _, weightedAPI := range protoDescriptors {
+			if weightedAPI.weight >= 1 || r.Float32() < weightedAPI.weight {
+				name := weightedAPI.name
+				split := strings.Split(name, "/")
+				svcName := split[1] // 0 is empty
+				methodName := split[2]
+				if arr, ok := svcMethods[svcName]; !ok {
+					svcMethods[svcName] = []string{methodName}
+				} else {
+					svcMethods[svcName] = append(arr, methodName)
+				}
 			}
 		}
 		svcs := fd.Services()
@@ -231,7 +242,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 				return protoreflect.ValueOf(inputGenerator(ctx, gen.r, gen.field.Message(), potentialInputs, gen))
 			},
 		},
-		NameGenerators: map[string]Generator{
+		NameGenerators: map[protoreflect.FullName]Generator{
 			"pps_v2.Input.join":                           subinput,
 			"pps_v2.Input.cross":                          subinput,
 			"pps_v2.Input.union":                          subinput,
@@ -277,7 +288,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 		var fieldVal protoreflect.Value
 		successInputsMu.Lock()
 		if successVals, ok := potentialInputs[string(field.FullName())]; ok &&
-			r.Float32() < useSucccessValWeight {
+			r.Float32() < useSucccessValueWeight {
 			fieldVal = successVals[r.Intn(len(successVals))]
 			successInputsMu.Unlock()
 		} else {
@@ -322,7 +333,7 @@ func inputGenerator(ctx context.Context, r *rand.Rand, msgDesc protoreflect.Mess
 }
 
 func getValueForField(ctx context.Context, genSource generatorSource) protoreflect.Value {
-	if nameGenFunc, ok := genSource.index.NameGenerators[string(genSource.field.FullName())]; ok {
+	if nameGenFunc, ok := genSource.index.NameGenerators[genSource.field.FullName()]; ok {
 		return nameGenFunc(genSource)
 	} else if kindGenFunc, ok := genSource.index.KindGenerators[genSource.field.Kind()]; ok {
 		return kindGenFunc(genSource)
@@ -384,9 +395,9 @@ func cacheSuccessVals(ctx context.Context, msg *dynamicpb.Message) {
 }
 
 // generate and send requests for each API in the proto list once.
-func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
+func fuzzGRPC(ctx context.Context, c *client.APIClient, seed int64) {
 	r := rand.New(rand.NewSource(seed))
-	rangeRPCsList(protosUnderTest, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
+	rangeRPCsList(protosUnderTest, r, func(fd protoreflect.FileDescriptor, sd protoreflect.ServiceDescriptor, md protoreflect.MethodDescriptor) {
 		input := inputGenerator(ctx, r, md.Input(), successInputs, generatorSource{hasInputLevel: new(int)})
 		reply := dynamicpb.NewMessage(md.Output())
 		fullName := "/" + path.Join(string(sd.FullName()), string(md.Name()))
@@ -410,13 +421,14 @@ func fuzzGrpc(ctx context.Context, c *client.APIClient, seed int64) {
 
 // Test generating random dags and verifying they get through the upgrade and pass fsck.
 // We aren't using Fuzz* because that works better with stateless fuzzing. Here, the whole point
-// is to add interesting state tot the DB.
-func TestCreateDags(t *testing.T) {
+// is to add interesting state tot the DB that we can push through upgrades and other difficult
+// DB related changes.
+func TestCreateDAGS(t *testing.T) {
 	ra := *runAmount
 	if ra <= 0 || testing.Short() {
 		t.Skip("Skipping DAG generation test")
 	}
-	flushLog := log.InitBatchLogger("/tmp/FuzzGrpc.log")
+	flushLog := log.InitBatchLogger("/tmp/fuzzdb.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
 
 	deployOpts := &minikubetestenv.DeployOpts{
@@ -440,7 +452,7 @@ func TestCreateDags(t *testing.T) {
 	eg.SetLimit(10)
 	for i := 0; i < ra; i++ {
 		eg.Go(func() error {
-			fuzzGrpc(ctx, c, rand.Int63())
+			fuzzGRPC(ctx, c, rand.Int63())
 			return nil
 		})
 	}
@@ -454,7 +466,7 @@ func TestCreateDags(t *testing.T) {
 	}
 	for i := 0; i < ra; i++ {
 		eg.Go(func() error {
-			fuzzGrpc(ctx, c, rand.Int63())
+			fuzzGRPC(ctx, c, rand.Int63())
 			return nil
 		})
 	}
