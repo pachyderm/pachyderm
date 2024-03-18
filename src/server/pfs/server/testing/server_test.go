@@ -1923,9 +1923,7 @@ func TestAncestrySyntax(t *testing.T) {
 //            ▲
 //  E ────────╯
 
-func TestProvenance(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+func createProvenantRepos(t *testing.T, env *realenv.RealEnv) {
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "B"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "C"))
@@ -1934,7 +1932,12 @@ func TestProvenance(t *testing.T) {
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "C", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "B", "master"), client.NewBranch(pfs.DefaultProjectName, "E", "master")}))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "D", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "C", "master")}))
+}
 
+func TestProvenance(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	createProvenantRepos(t, env)
 	branchInfo, err := env.PachClient.InspectBranch(pfs.DefaultProjectName, "B", "master")
 	require.NoError(t, err)
 	require.Equal(t, 1, len(branchInfo.Provenance))
@@ -1982,6 +1985,163 @@ func TestProvenance(t *testing.T) {
 	_, err = env.PachClient.InspectCommit(pfs.DefaultProjectName, "D", "", ECommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, ECommit.Id, commitInfo.Commit.Id)
+}
+
+type testCaseDetails struct {
+	testName      string
+	expectedCount uint
+	expectedError error
+}
+
+func projectPicker(name string) *pfs.ProjectPicker {
+	return &pfs.ProjectPicker{
+		Picker: &pfs.ProjectPicker_Name{
+			Name: name,
+		},
+	}
+}
+
+func repoPicker(name, repoType string, projectPicker *pfs.ProjectPicker) *pfs.RepoPicker {
+	return &pfs.RepoPicker{
+		Picker: &pfs.RepoPicker_Name{
+			Name: &pfs.RepoPicker_RepoName{
+				Name:    name,
+				Type:    repoType,
+				Project: projectPicker,
+			},
+		},
+	}
+}
+
+func branchPicker(name string, repoPicker *pfs.RepoPicker) *pfs.BranchPicker {
+	return &pfs.BranchPicker{
+		Picker: &pfs.BranchPicker_Name{
+			Name: &pfs.BranchPicker_BranchName{
+				Name: name,
+				Repo: repoPicker,
+			},
+		},
+	}
+}
+
+func TestWalkBranchProvenanceAndSubvenance(suite *testing.T) {
+	ctx := pctx.TestContext(suite)
+	env := realenv.NewRealEnv(ctx, suite, dockertestenv.NewTestDBConfig(suite).PachConfigOption)
+	createProvenantRepos(suite, env)
+	tests := []struct {
+		clientFunc func() (grpcutil.ClientStream[*pfs.BranchInfo], error)
+		testCaseDetails
+	}{
+		{
+			clientFunc: func() (grpcutil.ClientStream[*pfs.BranchInfo], error) {
+				return env.PachClient.WalkBranchProvenance(ctx, &pfs.WalkBranchProvenanceRequest{
+					Start: []*pfs.BranchPicker{
+						branchPicker("master", repoPicker("D", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+					},
+				})
+			},
+			testCaseDetails: testCaseDetails{
+				testName:      "walk branch provenance on D@master",
+				expectedCount: 4,
+				expectedError: nil,
+			},
+		},
+		{
+			clientFunc: func() (grpcutil.ClientStream[*pfs.BranchInfo], error) {
+				return env.PachClient.WalkBranchSubvenance(ctx, &pfs.WalkBranchSubvenanceRequest{
+					Start: []*pfs.BranchPicker{
+						branchPicker("master", repoPicker("E", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+						branchPicker("master", repoPicker("A", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+					},
+				})
+			},
+			testCaseDetails: testCaseDetails{
+				testName:      "walk branch subvenance on A@master and E@master",
+				expectedCount: 5,
+				expectedError: nil,
+			},
+		},
+	}
+	for _, test := range tests {
+		suite.Run(test.testName, func(t *testing.T) {
+			c, err := test.clientFunc()
+			require.NoError(suite, err, "should be able to create client")
+			infos, err := grpcutil.Collect[*pfs.BranchInfo](c, 10_000)
+			require.NoError(suite, err, "should be able to get infos")
+			require.Equal(suite, test.expectedCount, uint(len(infos)))
+		})
+	}
+}
+
+func TestWalkCommitProvenanceAndSubvenance(suite *testing.T) {
+	ctx := pctx.TestContext(suite)
+	env := realenv.NewRealEnv(ctx, suite, dockertestenv.NewTestDBConfig(suite).PachConfigOption)
+	createProvenantRepos(suite, env)
+
+	ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
+	require.NoError(suite, err)
+	require.NoError(suite, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.Id))
+
+	ECommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "E", "master")
+	require.NoError(suite, err)
+	require.NoError(suite, finishCommit(env.PachClient, "E", ECommit.Branch.Name, ECommit.Id))
+
+	tests := []struct {
+		clientFunc func() (grpcutil.ClientStream[*pfs.CommitInfo], error)
+		testCaseDetails
+	}{
+		{
+			clientFunc: func() (grpcutil.ClientStream[*pfs.CommitInfo], error) {
+				return env.PachClient.WalkCommitProvenance(ctx, &pfs.WalkCommitProvenanceRequest{
+					Start: []*pfs.CommitPicker{
+						{
+							Picker: &pfs.CommitPicker_BranchHead{
+								BranchHead: branchPicker("master", repoPicker("D", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+							},
+						},
+					},
+				})
+			},
+			testCaseDetails: testCaseDetails{
+				testName:      "walk commit provenance on D@master",
+				expectedCount: 4,
+				expectedError: nil,
+			},
+		},
+		{
+			clientFunc: func() (grpcutil.ClientStream[*pfs.CommitInfo], error) {
+				return env.PachClient.WalkCommitSubvenance(ctx, &pfs.WalkCommitSubvenanceRequest{
+					Start: []*pfs.CommitPicker{
+						{
+							Picker: &pfs.CommitPicker_BranchHead{
+								branchPicker("master", repoPicker("E", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+							},
+						},
+						{
+							Picker: &pfs.CommitPicker_BranchHead{
+								branchPicker("master", repoPicker("A", pfs.UserRepoType, projectPicker(pfs.DefaultProjectName))),
+							},
+						},
+					},
+				})
+			},
+			testCaseDetails: testCaseDetails{
+				testName:      "walk commit subvenance on A@master and E@master",
+				expectedCount: 7,
+				expectedError: nil,
+			},
+		},
+	}
+	for _, test := range tests {
+		suite.Run(test.testName, func(t *testing.T) {
+			c, err := test.clientFunc()
+			require.NoError(t, err, "should be able to create client")
+			infos, err := grpcutil.Collect[*pfs.CommitInfo](c, 10_000)
+			require.NoError(t, err, "should be able to get infos")
+			require.Equal(t, test.expectedCount, uint(len(infos)))
+		})
+	}
+
 }
 
 func TestCommitBranch(t *testing.T) {
@@ -2114,7 +2274,6 @@ func TestResolveAlias(t *testing.T) {
 // So conversely, we can conclude that whenever we have a sequence of commit sets that are originated from the
 // same branch, all but the last commit set in the sequence can be considered safe to delete.
 
-// todo(fahad): fix
 func TestSquashComplex(t *testing.T) {
 	ctx := pctx.TestContext(t)
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
