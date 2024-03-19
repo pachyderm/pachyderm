@@ -7,17 +7,25 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 // GarbageCollector removes unused chunks from object storage
 type GarbageCollector struct {
-	s      *Storage
-	period time.Duration
+	s            *Storage
+	period       time.Duration
+	isConcurrent bool
 }
 
 // NewGC returns a new garbage collector operating on s
-func NewGC(s *Storage, d time.Duration) *GarbageCollector {
-	return &GarbageCollector{s: s, period: d}
+func NewGC(s *Storage, d time.Duration, opts ...GCOption) *GarbageCollector {
+	gc := &GarbageCollector{s: s, period: d}
+
+	for _, opt := range opts {
+		opt(gc)
+	}
+
+	return gc
 }
 
 // RunForever calls RunOnce until the context is cancelled, logging any errors.
@@ -53,21 +61,38 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 		return errors.EnsureStack(err)
 	}
 	defer errors.Close(&retErr, rows, "close rows")
+	eg, ctx := errgroup.WithContext(ctx)
+	if !gc.isConcurrent {
+		eg.SetLimit(1)
+	}
 	for rows.Next() {
 		var ent Entry
 		if err := rows.StructScan(&ent); err != nil {
 			return errors.EnsureStack(err)
 		}
-		fields := []log.Field{zap.Stringer("chunkID", ent.ChunkID), zap.Uint64("gen", ent.Gen)}
-		if !ent.Uploaded {
-			log.Info(ctx, "possibility for untracked chunk", fields...)
-		}
-		if err := gc.deleteOne(ctx, ent); err != nil {
-			return err
-		}
-		log.Info(ctx, "deleting object for chunk entry", fields...)
+		eg.Go(func() error {
+			return gc.deleteHelper(ctx, ent)
+		})
 	}
+
+	if err := eg.Wait(); err != nil {
+		return errors.EnsureStack(err)
+	}
+
 	return errors.EnsureStack(rows.Err())
+}
+
+func (gc *GarbageCollector) deleteHelper(ctx context.Context, ent Entry) error {
+	fields := []log.Field{zap.Stringer("chunkID", ent.ChunkID), zap.Uint64("gen", ent.Gen)}
+	if !ent.Uploaded {
+		log.Info(ctx, "possibility for untracked chunk", fields...)
+	}
+	if err := gc.deleteOne(ctx, ent); err != nil {
+		return err
+	}
+	log.Info(ctx, "deleting object for chunk entry", fields...)
+
+	return nil
 }
 
 func (gc *GarbageCollector) deleteOne(ctx context.Context, ent Entry) error {
