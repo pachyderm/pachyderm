@@ -95,7 +95,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
 				return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
 			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-				resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{&logs.VerbatimLogMessage{Line: []byte(e.Line)}}}}}
+				resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{Verbatim: &logs.VerbatimLogMessage{Line: []byte(e.Line)}}}}}
 			default:
 				return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
 			}
