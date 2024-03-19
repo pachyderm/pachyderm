@@ -1,0 +1,26 @@
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_python//python/pip_install:repositories.bzl", "requirement")
+
+# To create lock files: bazel run //requirements.update
+compile_pip_requirements(
+    name = "requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements-lock.txt",
+)
+
+# To create lock files: bazel run //requirements-dev.update
+compile_pip_requirements(
+    name = "requirements-dev",
+    src = "requirements-dev.txt",
+    requirements_txt = "requirements-dev-lock.txt",
+)
+
+# Create a virtual environment at ./venv: bazel run //:venv
+load("@rules_pyvenv//:venv.bzl", "py_venv")
+load("@pip-requirements//:requirements.bzl", "all_requirements")
+load("@pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements")
+py_venv(
+    name = "venv",
+    deps = all_requirements + all_requirements_dev,
+    venv_location = "venv",
+)
