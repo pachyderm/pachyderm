@@ -77,46 +77,34 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 
-	outChannel := make(chan []byte)
+	c, err := ls.GetLokiClient()
+	if err != nil {
+		panic(fmt.Sprintf("loki client error: %v", err))
+	}
+	resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
+	if err != nil {
+		panic(fmt.Sprintf("error: %v", err))
+	}
+	streams, ok := resp.Data.Result.(loki.Streams)
+	if !ok {
+		panic("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
+	}
+	for _, s := range streams {
+		for _, e := range s.Entries {
+			var resp *logs.GetLogsResponse
+			switch request.LogFormat {
+			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
+				return errors.New("unknown log format not support") // TODO: return unimplemented
+			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
+				resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{&logs.VerbatimLogMessage{Line: []byte(e.Line)}}}}}
+			default:
+				return errors.Errorf("%v not supported", request.LogFormat)
+			}
 
-	go func() {
-		c, err := ls.GetLokiClient()
-		if err != nil {
-			panic(fmt.Sprintf("loki client error: %v", err))
-		}
-		resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
-		if err != nil {
-			panic(fmt.Sprintf("error: %v", err))
-		}
-		streams, ok := resp.Data.Result.(loki.Streams)
-		if !ok {
-			panic("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
-		}
-
-		for _, s := range streams {
-			for _, e := range s.Entries {
-				outChannel <- []byte(e.Line)
+			if err := publisher.Publish(ctx, resp); err != nil {
+				return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 			}
 		}
-
-		close(outChannel)
-	}()
-
-	for line := range outChannel {
-		var resp *logs.GetLogsResponse
-		switch request.LogFormat {
-		case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-			return errors.New("unknown log format not support") // TODO: return unimplemented
-		case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-			resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{&logs.VerbatimLogMessage{Line: line}}}}}
-		default:
-			return errors.Errorf("%v not supported", request.LogFormat)
-		}
-
-		if err := publisher.Publish(ctx, resp); err != nil {
-			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-		}
-
 	}
 
 	return nil
