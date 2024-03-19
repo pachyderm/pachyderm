@@ -74,6 +74,7 @@ go_library(
         "//src/server/pachw/server",
         "//src/server/pfs/s3",
         "//src/server/pfs/server",
+        "//src/server/pps",
         "//src/server/pps/server",
         "//src/server/proxy/server",
         "//src/server/transaction/server",

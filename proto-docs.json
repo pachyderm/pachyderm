@@ -9903,21 +9903,342 @@
       "extensions": [],
       "messages": [
         {
+          "name": "Edit",
+          "longName": "Edit",
+          "fullName": "metadata.Edit",
+          "description": "Edit represents editing one piece of metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "project targets a named project's metadata.",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "replace",
+              "description": "replace replaces a target's metadata with a new metadata mapping.",
+              "label": "",
+              "type": "Replace",
+              "longType": "Edit.Replace",
+              "fullType": "metadata.Edit.Replace",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "add_key",
+              "description": "add_key adds a new key to the target object's metadata.",
+              "label": "",
+              "type": "AddKey",
+              "longType": "Edit.AddKey",
+              "fullType": "metadata.Edit.AddKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "edit_key",
+              "description": "edit_key adds or changes a key in the target object's metadata.",
+              "label": "",
+              "type": "EditKey",
+              "longType": "Edit.EditKey",
+              "fullType": "metadata.Edit.EditKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "delete_key",
+              "description": "delete_key removes a key from the target object's metadata.",
+              "label": "",
+              "type": "DeleteKey",
+              "longType": "Edit.DeleteKey",
+              "fullType": "metadata.Edit.DeleteKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AddKey",
+          "longName": "Edit.AddKey",
+          "fullName": "metadata.Edit.AddKey",
+          "description": "AddKey is an operation that adds a new metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteKey",
+          "longName": "Edit.DeleteKey",
+          "fullName": "metadata.Edit.DeleteKey",
+          "description": "DeleteKey is an operation that removes a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to remove.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EditKey",
+          "longName": "Edit.EditKey",
+          "fullName": "metadata.Edit.EditKey",
+          "description": "EditKey is an operation that changes or adds a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to change or add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Replace",
+          "longName": "Edit.Replace",
+          "fullName": "metadata.Edit.Replace",
+          "description": "Replace is an operation that replaces metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "replacement",
+              "description": "replacement is the map to replace the object's metadata with.",
+              "label": "repeated",
+              "type": "ReplacementEntry",
+              "longType": "Edit.Replace.ReplacementEntry",
+              "fullType": "metadata.Edit.Replace.ReplacementEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "map.keys.string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReplacementEntry",
+          "longName": "Edit.Replace.ReplacementEntry",
+          "fullName": "metadata.Edit.Replace.ReplacementEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "EditMetadataRequest",
           "longName": "EditMetadataRequest",
           "fullName": "metadata.EditMetadataRequest",
-          "description": "",
+          "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
           "hasExtensions": false,
-          "hasFields": false,
+          "hasFields": true,
           "hasOneofs": false,
           "extensions": [],
-          "fields": []
+          "fields": [
+            {
+              "name": "edits",
+              "description": "edits is the ordered list of metadata edits to perform.",
+              "label": "repeated",
+              "type": "Edit",
+              "longType": "Edit",
+              "fullType": "metadata.Edit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "repeated.items.message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "EditMetadataResponse",
           "longName": "EditMetadataResponse",
           "fullName": "metadata.EditMetadataResponse",
-          "description": "",
+          "description": "EditMetadataResponse is the result of editing metadata.",
           "hasExtensions": false,
           "hasFields": false,
           "hasOneofs": false,
@@ -9930,11 +10251,11 @@
           "name": "API",
           "longName": "API",
           "fullName": "metadata.API",
-          "description": "",
+          "description": "API is the public API of the metadata service.",
           "methods": [
             {
               "name": "EditMetadata",
-              "description": "",
+              "description": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
               "requestType": "EditMetadataRequest",
               "requestLongType": "EditMetadataRequest",
               "requestFullType": "metadata.EditMetadataRequest",
