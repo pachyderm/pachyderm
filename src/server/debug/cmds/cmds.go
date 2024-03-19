@@ -23,7 +23,7 @@ import (
 )
 
 // Cmds returns a slice containing debug commands.
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var duration time.Duration
@@ -45,8 +45,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} cpu --pachd -d 30s cpu.tgz \n" +
 			"\t- {{alias}} cpu --pipeline foo -d 30s foo-pipeline.tgz \n" +
 			"\t- {{alias}} cpu --worker foo-v1-r6pdq -d 30s worker.tgz \n",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -82,8 +82,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --pachd pachd-binary.tgz \n" +
 			"\t- {{alias}} --worker foo-v1-r6pdq foo-pod-binary.tgz \n" +
 			"\t- {{alias}} --pipeline foo foo-binary.tgz \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -109,8 +109,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"Use the modified template with the `debug dump` command (e.g., `pachctl debug dump --template debug-template.yaml out.tgz`) \n",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} > debug-template.yaml\n",
-		Run: cmdutil.Run(func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -136,8 +136,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"You can customize this output by passing in a customized template (made from `pachctl debug template` via the `--template` flag.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} -t template.yaml out.tgz\n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -226,7 +226,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					name = s.GetLiteral().GetName()
 					program = s.GetLiteral().GetProgramText()
 				}
-				if err := env.RunStarlark(mainCtx, name, program); err != nil {
+				if err := env.RunStarlark(cmd.Context(), name, program); err != nil {
 					errors.JoinInto(&errs, errors.Wrapf(err, "run script %q", name))
 				}
 			}
@@ -252,7 +252,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command starts a local pachd server to analyze a debug dump.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} dump.tgz --port 1650 \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			dump := shell.NewDumpServer(args[0], uint16(serverPort))
 			fmt.Println("listening on", dump.Address())
 			select {}
@@ -270,8 +270,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} info --duration 5m \n" +
 			"\t- {{alias}} info --grpc --duration 5m \n" +
 			"\t- {{alias}} info --recursive false --duration 5m \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
