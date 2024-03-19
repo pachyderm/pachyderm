@@ -726,39 +726,39 @@ func (c *APIClient) Close() error {
 // DeleteAll deletes everything in the cluster.
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
-func (c APIClient) DeleteAll() error {
+func (c APIClient) DeleteAll(ctx context.Context) error {
 	if _, err := c.IdentityAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
-		c.Ctx(),
+		ctx,
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.License.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PpsAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.PfsAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&emptypb.Empty{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.TransactionAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&transaction.DeleteAllRequest{},
 	); err != nil {
 		return grpcutil.ScrubGRPC(err)

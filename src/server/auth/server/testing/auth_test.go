@@ -2470,7 +2470,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, adminClient.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// alice calls DeleteAll, but it fails
-	err := aliceClient.DeleteAll()
+	err := aliceClient.DeleteAll(aliceClient.Ctx())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
@@ -2483,12 +2483,12 @@ func TestDeleteAll(t *testing.T) {
 	require.Equal(t, tu.BuildClusterBindings(alice, auth.RepoOwnerRole), resp)
 
 	// alice calls DeleteAll but it fails because she's only an fs admin
-	err = aliceClient.DeleteAll()
+	err = aliceClient.DeleteAll(aliceClient.Ctx())
 	require.YesError(t, err)
 	require.Matches(t, "not authorized", err.Error())
 
 	// admin calls DeleteAll and succeeds
-	require.NoError(t, adminClient.DeleteAll())
+	require.NoError(t, adminClient.DeleteAll(adminClient.Ctx()))
 }
 
 func TestCreateProject(t *testing.T) {
