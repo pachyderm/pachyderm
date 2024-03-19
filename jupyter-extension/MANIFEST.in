@@ -19,6 +19,8 @@ exclude WORKSPACE
 exclude requirements-dev-lock.txt
 exclude requirements-dev.txt
 exclude requirements-lock.txt
+exclude requirements-dev-lock-darwin.txt
+exclude requirements-dev-lock-linux.txt
 
 include package.json
 include install.json
