@@ -13,7 +13,7 @@ const {values} = parseArgs({
   },
 });
 
-export const BASE_URL = String(values.baseURL || 'http://localhost:4000');
+export const BASE_URL = String(values.baseURL || 'http://localhost:4000/');
 export const TEST_RUNTIME = Number(values.testRuntime || 5 * 60 * 1000); // 5 minutes
 export const BROWSER_COUNT = Number(values.browserCount || 10);
 

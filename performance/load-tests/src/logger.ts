@@ -32,7 +32,7 @@ type Timing = {
   requestStart: number;
   responseStart: number;
   responseEnd: number;
-}
+};
 
 type TimingLog = {
   [url: string]: Timing[];
@@ -55,7 +55,7 @@ class MemoryLogger implements Logger {
   }
   playback(): void {
     console.log('Logging successes:');
-    this.successLog.map((el) => console.log(el));
+    console.table(this.successLog.map((el) => el));
     console.log('Logging failures:');
     this.errorLog.map((el) => console.dir(el, {depth: null}));
 
@@ -73,31 +73,36 @@ class MemoryLogger implements Logger {
     console.log('Timings:');
 
     const timings = Object.keys(this.timingLog).map((url) => {
-      const urlTimings = this.timingLog[url].map((timing) => timing.responseEnd);
+      const urlTimings = this.timingLog[url].map(
+        (timing) => timing.responseEnd,
+      );
 
       return {
         url,
         numRequests: urlTimings.length,
         mean: mean(urlTimings),
         median: median(urlTimings),
-        percentile90th: quantile(urlTimings, 0.90),
+        percentile90th: quantile(urlTimings, 0.9),
         max: max(urlTimings),
       };
     });
-    const humanizeOpts: Options = {maxDecimalPoints: 3, round: true, units: ['s', 'ms']};
+    const humanizeOpts: Options = {
+      maxDecimalPoints: 3,
+      round: true,
+      units: ['s', 'ms'],
+    };
 
-    // Sort by best to worst average performance
-    timings.sort((a, b) => a.mean - b.mean);
-
-    timings.forEach((timing) => {
-      console.log(`URL: ${timing.url}`);
-      console.log(`Num requests: ${timing.numRequests}`);
-      console.log(`Mean: ${humanizeDuration(timing.mean, humanizeOpts)}`);
-      console.log(`Median: ${humanizeDuration(timing.median, humanizeOpts)}`);
-      console.log(`90th Percentile: ${humanizeDuration(timing.percentile90th, humanizeOpts)}`);
-      console.log(`Worst: ${humanizeDuration(timing.max, humanizeOpts)}`);
-      console.log('---');
-    });
+    const formattedTimings = timings
+      .sort((a, b) => (b.url > a.url ? -1 : 1))
+      .map((timing) => ({
+        url: timing.url,
+        numRequests: timing.numRequests,
+        mean: humanizeDuration(timing.mean, humanizeOpts),
+        median: humanizeDuration(timing.median, humanizeOpts),
+        percentile90th: humanizeDuration(timing.percentile90th, humanizeOpts),
+        worst: humanizeDuration(timing.max, humanizeOpts),
+      }));
+    console.table(formattedTimings);
   }
 }
 

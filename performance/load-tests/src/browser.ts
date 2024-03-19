@@ -21,7 +21,7 @@ const startBrowser = async () =>
   chromium.launch({slowMo: ADDED_SLOWMOTION, headless: HEADLESS});
 
 export const startBrowsers = async (count: number) => {
-  console.log('Initalizing', count, 'browsers...');
+  console.log('Initializing', count, 'browsers...');
   const browsers = await Promise.all<Browser>(
     Array.from({length: count}, () => startBrowser()),
   );
@@ -31,7 +31,7 @@ export const startBrowsers = async (count: number) => {
     ),
   );
 
-  console.log(count, 'browsers initalized!');
+  console.log(count, 'browsers initialized!');
   return browsers;
 };
 
@@ -80,7 +80,7 @@ export const runJourney = async (context: BrowserContext, index: number) => {
   while (true) {
     const page = await context.newPage();
 
-    page.route(/\/api\//, (route) => {
+    page.route(new RegExp(BASE_URL + 'api'), (route) => {
       const request = route.request();
       const timings = request.timing();
       const url = request.url();
