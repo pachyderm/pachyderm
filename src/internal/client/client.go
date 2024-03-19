@@ -410,7 +410,6 @@ func getUserMachineAddrAndOpts(context *config.Context) (*grpcutil.PachdAddress,
 
 	// 1) PACHD_ADDRESS environment variable (shell-local) overrides global config
 	if envAddrStr, ok := os.LookupEnv("PACHD_ADDRESS"); ok {
-		fmt.Fprintln(os.Stderr, "WARNING: 'PACHD_ADDRESS' is deprecated and will be removed in a future release, use Pachyderm contexts instead.")
 
 		envAddr, err := grpcutil.ParsePachdAddress(envAddrStr)
 		if err != nil {
