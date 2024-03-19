@@ -44,7 +44,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 
 	filter := request.Filter
-
 	if filter == nil {
 		filter = new(logs.LogFilter)
 		request.Filter = filter
