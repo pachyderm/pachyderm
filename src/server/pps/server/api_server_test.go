@@ -546,7 +546,7 @@ func TestSetClusterDefaults(t *testing.T) {
 	})
 
 	t.Run("ValidDetails", func(t *testing.T) {
-		err := env.PachClient.DeleteAll()
+		err := env.PachClient.DeleteAll(env.PachClient.Ctx())
 		require.NoError(t, err)
 		repo := tu.UniqueString("input")
 		pipeline := tu.UniqueString("pipeline")
