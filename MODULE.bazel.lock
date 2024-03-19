@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "8394d0ec5264cd02ad008bdf8c6e2b94f51e94f82bc5fc3dfd38ec074c109779",
+  "moduleFileHash": "a6ffbbc4cc48d68a0b6611dc767b950eddd37a2bfdfc0dc3b2f4af31e59b7261",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -526,6 +526,10 @@
             "column": 32
           },
           "imports": {
+            "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux": "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
+            "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos": "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos",
+            "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux": "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
+            "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos": "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
             "com_github_bufbuild_protoc_gen_validate_aarch64_linux": "com_github_bufbuild_protoc_gen_validate_aarch64_linux",
             "com_github_bufbuild_protoc_gen_validate_aarch64_macos": "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
             "com_github_bufbuild_protoc_gen_validate_x86_64_linux": "com_github_bufbuild_protoc_gen_validate_x86_64_linux",
@@ -534,6 +538,14 @@
             "com_github_containers_skopeo_aarch64_macos": "com_github_containers_skopeo_aarch64_macos",
             "com_github_containers_skopeo_x86_64_linux": "com_github_containers_skopeo_x86_64_linux",
             "com_github_containers_skopeo_x86_64_macos": "com_github_containers_skopeo_x86_64_macos",
+            "com_github_grafana_loki_loki_aarch64_linux": "com_github_grafana_loki_loki_aarch64_linux",
+            "com_github_grafana_loki_loki_aarch64_macos": "com_github_grafana_loki_loki_aarch64_macos",
+            "com_github_grafana_loki_loki_x86_64_linux": "com_github_grafana_loki_loki_x86_64_linux",
+            "com_github_grafana_loki_loki_x86_64_macos": "com_github_grafana_loki_loki_x86_64_macos",
+            "com_github_grafana_loki_logcli_aarch64_linux": "com_github_grafana_loki_logcli_aarch64_linux",
+            "com_github_grafana_loki_logcli_aarch64_macos": "com_github_grafana_loki_logcli_aarch64_macos",
+            "com_github_grafana_loki_logcli_x86_64_linux": "com_github_grafana_loki_logcli_x86_64_linux",
+            "com_github_grafana_loki_logcli_x86_64_macos": "com_github_grafana_loki_logcli_x86_64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_linux",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_aarch64_macos",
             "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux": "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_ts_aarch64_linux",
@@ -580,11 +592,7 @@
             "sh_helm_aarch64_linux": "sh_helm_aarch64_linux",
             "sh_helm_aarch64_macos": "sh_helm_aarch64_macos",
             "sh_helm_x86_64_linux": "sh_helm_x86_64_linux",
-            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos",
-            "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux": "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
-            "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux": "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
-            "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos": "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
-            "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos": "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos"
+            "sh_helm_x86_64_macos": "sh_helm_x86_64_macos"
           },
           "devImports": [],
           "tags": [],
@@ -597,7 +605,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 352,
+            "line": 360,
             "column": 20
           },
           "imports": {
@@ -622,7 +630,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 355,
+                "line": 363,
                 "column": 9
               }
             },
@@ -640,7 +648,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 366,
+                "line": 374,
                 "column": 9
               }
             },
@@ -654,7 +662,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 377,
+                "line": 385,
                 "column": 9
               }
             },
@@ -668,7 +676,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 382,
+                "line": 390,
                 "column": 9
               }
             }
@@ -682,7 +690,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 389,
+            "line": 397,
             "column": 23
           },
           "imports": {},
@@ -697,7 +705,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 390,
+                "line": 398,
                 "column": 17
               }
             }
@@ -2434,7 +2442,7 @@
   "moduleExtensions": {
     "//private:extensions.bzl%non_module_deps": {
       "general": {
-        "bzlTransitiveDigest": "UpwP+KQ+UfeONM9jIs21GfWZEFkR4RL9R/R/F2vuFgc=",
+        "bzlTransitiveDigest": "v3E/tKriyymPjzrlJM6sNFU63PoLDrFzM3Mri+dYXqU=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -2551,6 +2559,15 @@
               "build_file_content": "exports_files([\"kubeconform\"])"
             }
           },
+          "com_github_grafana_loki_loki_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-arm64.zip",
+              "sha256": "dd63acd073ef5305f0f90651d75d6fe2810d5f2811ec366bf05e7545eb8aa6ff",
+              "build_file_content": "exports_files([\"loki-darwin-arm64\"])"
+            }
+          },
           "org_uber_go_gopatch_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2639,6 +2656,15 @@
               "downloaded_file_path": "skopeo"
             }
           },
+          "com_github_grafana_loki_loki_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-amd64.zip",
+              "sha256": "f9c577d54e35e5f46b1a9d0e0788299a0c1e69975ee999d27c3dc711942cc973",
+              "build_file_content": "exports_files([\"loki-linux-amd64\"])"
+            }
+          },
           "com_github_grpc_ecosystem_grpc_gateway_protoc_gen_grpc_gateway_x86_64_linux": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2647,6 +2673,15 @@
               "integrity": "sha256-PCEXHYgPROUCI6NBXYHMPjWaxANgpYqrw6bXMl1168k=",
               "executable": true,
               "downloaded_file_path": "protoc-gen-grpc-gateway"
+            }
+          },
+          "com_github_grafana_loki_logcli_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-amd64.zip",
+              "sha256": "f2c8583460e86fd8ba07cd055340b9f7432cf8df05d5afd333f6277dc420b009",
+              "build_file_content": "exports_files([\"logcli-darwin-amd64\"])"
             }
           },
           "com_github_yannh_kubeconform_aarch64_linux": {
@@ -2677,6 +2712,15 @@
               "downloaded_file_path": "kind"
             }
           },
+          "com_github_grafana_loki_logcli_x86_64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-amd64.zip",
+              "sha256": "8fe59a3b2f83c02920f29251a97ad1f6d4a83a8bbbc20097b73fb839d946cb75",
+              "build_file_content": "exports_files([\"logcli-linux-amd64\"])"
+            }
+          },
           "com_github_yannh_kubeconform_aarch64_macos": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_archive",
@@ -2704,6 +2748,15 @@
               "sha256": "ce030f86625df96560402573d86d4e6f4b8b956ca3e3b9df57cb8ccf2b9a540c",
               "executable": true,
               "downloaded_file_path": "kubectl"
+            }
+          },
+          "com_github_grafana_loki_logcli_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-arm64.zip",
+              "sha256": "e2c3cb728402087cadc120e190d617db8e0b39eb21bbff73f0d040e535822ca8",
+              "build_file_content": "exports_files([\"logcli-linux-arm64\"])"
             }
           },
           "com_github_protocolbuffers_protobuf_go_protoc_gen_go_aarch64_macos": {
@@ -2763,6 +2816,15 @@
               "downloaded_file_path": "skopeo"
             }
           },
+          "com_github_grafana_loki_logcli_aarch64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-arm64.zip",
+              "sha256": "81dafec9d6357fa3303bc3d913df45e11a364dbc2577fa6b948f2bd0620ab565",
+              "build_file_content": "exports_files([\"logcli-darwin-arm64\"])"
+            }
+          },
           "com_github_yelp_dumb_init_aarch64_linux": {
             "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
             "ruleClassName": "http_file",
@@ -2771,6 +2833,15 @@
               "integrity": "sha256-t9ZI+XFUqZxTm2PFWXnNKfAF+IQw+zgwB/40WDQLeV4=",
               "executable": true,
               "downloaded_file_path": "dumb-init"
+            }
+          },
+          "com_github_grafana_loki_loki_x86_64_macos": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-amd64.zip",
+              "sha256": "ab18da94a900edcda0bee6b59d10f385fd47486282ebf08accc7adb012edd93e",
+              "build_file_content": "exports_files([\"loki-darwin-amd64\"])"
             }
           },
           "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos": {
@@ -2848,6 +2919,15 @@
               "build_file_content": "exports_files([\"helm\"])",
               "sha256": "c65d6a9557bb359abc2c0d26670de850b52327dc3976ad6f9e14c298ea3e1b61",
               "strip_prefix": "linux-arm64"
+            }
+          },
+          "com_github_grafana_loki_loki_aarch64_linux": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-arm64.zip",
+              "sha256": "8679a7a6260ae67bdc50d50ba51cfa2817b6aba9ededf63b62dc8670552507a1",
+              "build_file_content": "exports_files([\"loki-linux-arm64\"])"
             }
           },
           "com_github_bufbuild_protoc_gen_validate_x86_64_macos": {

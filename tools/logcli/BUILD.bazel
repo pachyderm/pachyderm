@@ -1,0 +1,17 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+native_binary(
+    name = "logcli_bin",
+    src = select({
+        "//:is_x86_64_linux": "@com_github_grafana_loki_logcli_x86_64_linux//:logcli-linux-amd64",
+        "//:is_aarch64_linux": "@com_github_grafana_loki_logcli_aarch64_linux//:logcli-linux-arm64",
+        "//:is_x86_64_macos": "@com_github_grafana_loki_logcli_x86_64_macos//:logcli-darwin-amd64",
+        "//:is_aarch64_macos": "@com_github_grafana_loki_logcli_aarch64_macos//:logcli-darwin-arm64",
+    }),
+    out = "logcli",
+)
+
+alias(
+    name = "logcli",
+    actual = "logcli_bin",
+)
