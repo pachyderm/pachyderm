@@ -243,12 +243,12 @@ func withPachd(image string) *helm.Options {
 func withMinio() *helm.Options {
 	return &helm.Options{
 		SetValues: map[string]string{
-			"deployTarget":                 "custom",
-			"pachd.storage.backend":        "MINIO",
-			"pachd.storage.minio.bucket":   MinioBucket,
-			"pachd.storage.minio.endpoint": MinioEndpoint,
-			"pachd.storage.minio.id":       "minioadmin",
-			"pachd.storage.minio.secret":   "minioadmin",
+			"deployTarget":                "custom",
+			"pachd.storage.backend":       "AMAZON",
+			"pachd.storage.gocdkEnabled":  "true",
+			"pachd.storage.storageURL":    fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", MinioBucket, MinioEndpoint),
+			"pachd.storage.amazon.id":     "minioadmin",
+			"pachd.storage.amazon.secret": "minioadmin",
 		},
 		SetStrValues: map[string]string{
 			"pachd.storage.minio.signature": "",
