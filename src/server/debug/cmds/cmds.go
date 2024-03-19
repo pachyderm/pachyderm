@@ -64,7 +64,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 				return err
 			}
 			return withFile(args[1], func(f *os.File) error {
-				return client.Profile(p, filter, f)
+				return client.Profile(client.Ctx(), p, filter, f)
 			})
 		}),
 	}
