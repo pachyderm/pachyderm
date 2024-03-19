@@ -36,6 +36,7 @@ import (
 	enterprisecmds "github.com/pachyderm/pachyderm/v2/src/server/enterprise/cmds"
 	identitycmds "github.com/pachyderm/pachyderm/v2/src/server/identity/cmds"
 	licensecmds "github.com/pachyderm/pachyderm/v2/src/server/license/cmds"
+	metadatacmds "github.com/pachyderm/pachyderm/v2/src/server/metadata/cmds"
 	misccmds "github.com/pachyderm/pachyderm/v2/src/server/misc/cmds"
 	pfscmds "github.com/pachyderm/pachyderm/v2/src/server/pfs/cmds"
 	ppscmds "github.com/pachyderm/pachyderm/v2/src/server/pps/cmds"
@@ -533,7 +534,7 @@ This resets the cluster to its initial state.`,
 				return nil
 			}
 
-			if err := client.DeleteAll(); err != nil {
+			if err := client.DeleteAll(client.Ctx()); err != nil {
 				return err
 			}
 			return txncmds.ClearActiveTransaction()
@@ -880,6 +881,7 @@ This resets the cluster to its initial state.`,
 	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
 	subcommands = append(subcommands, misccmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, metadatacmds.Cmds(mainCtx, pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 

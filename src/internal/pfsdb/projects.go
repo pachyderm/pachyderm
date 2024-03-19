@@ -116,7 +116,7 @@ func NewProjectIterator(ctx context.Context, extCtx sqlx.ExtContext, startPage, 
 			values = append(values, filter.Name)
 		}
 	}
-	query := "SELECT id,name,description,created_at FROM core.projects project"
+	query := "SELECT id,name,description,metadata,created_at,updated_at FROM core.projects project"
 	if len(conditions) > 0 {
 		query += "\n" + fmt.Sprintf("WHERE %s", strings.Join(conditions, " AND "))
 	}
@@ -161,7 +161,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]ProjectWithID, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description) VALUES ($1, $2);", project.Project.Name, project.Description)
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &jsonMap{Data: project.Metadata})
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
@@ -211,11 +211,12 @@ func GetProjectWithID(ctx context.Context, tx *pachsql.Tx, projectName string) (
 }
 
 func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal interface{}) (*ProjectWithID, error) {
-	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, id FROM core.projects WHERE %s = $1", where), whereVal)
+	row := tx.QueryRowxContext(ctx, fmt.Sprintf("SELECT name, description, created_at, metadata, id FROM core.projects WHERE %s = $1", where), whereVal)
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
-	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &id)
+	metadata := &jsonMap{Data: make(map[string]string)}
+	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			if name, ok := whereVal.(string); ok {
@@ -226,6 +227,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 		return nil, errors.Wrap(err, "scanning project row")
 	}
 	project.CreatedAt = timestamppb.New(createdAt)
+	project.Metadata = metadata.Data
 	return &ProjectWithID{
 		ID:          ProjectID(id),
 		ProjectInfo: project,
@@ -244,8 +246,8 @@ func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ProjectID, project *p
 }
 
 func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo, where string, whereVal interface{}, upsert bool) error {
-	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2 WHERE %s = $3;", where),
-		project.Project.Name, project.Description, whereVal)
+	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2, metadata = $3 WHERE %s = $4;", where),
+		project.Project.Name, project.Description, &jsonMap{Data: project.Metadata}, whereVal)
 	if err != nil {
 		return errors.Wrap(err, "update project")
 	}

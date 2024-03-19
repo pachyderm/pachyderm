@@ -288,6 +288,10 @@ use_repo(
     non_module_deps,
     # *args is disallowed by the starlark compiler in MODULE.bazel files, so we have to name each
     # dependency twice; once here, and once in //private:repositories.bzl.
+    "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_linux",
+    "com_github_bazelbuild_bazel_watcher_ibazel_aarch64_macos",
+    "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_linux",
+    "com_github_bazelbuild_bazel_watcher_ibazel_x86_64_macos",
     "com_github_bufbuild_protoc_gen_validate_aarch64_linux",
     "com_github_bufbuild_protoc_gen_validate_aarch64_macos",
     "com_github_bufbuild_protoc_gen_validate_x86_64_linux",

@@ -8,7 +8,6 @@
 .pachyderm-mount-base {
   color: var(--jp-ui-font-color0);
   background-color: var(--jp-layout-color1);
-  height: 100%;
 }
 
 .pachyderm-mount-base-title {

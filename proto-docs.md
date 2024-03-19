@@ -287,6 +287,12 @@
   
     - [API](#logs-API)
   
+- [metadata/metadata.proto](#metadata_metadata-proto)
+    - [EditMetadataRequest](#metadata-EditMetadataRequest)
+    - [EditMetadataResponse](#metadata-EditMetadataResponse)
+  
+    - [API](#metadata-API)
+  
 - [pfs/pfs.proto](#pfs_pfs-proto)
     - [ActivateAuthRequest](#pfs_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pfs_v2-ActivateAuthResponse)
@@ -366,6 +372,7 @@
     - [PathRange](#pfs_v2-PathRange)
     - [Project](#pfs_v2-Project)
     - [ProjectInfo](#pfs_v2-ProjectInfo)
+    - [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry)
     - [ProjectPicker](#pfs_v2-ProjectPicker)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
@@ -496,6 +503,7 @@
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
+    - [PipelinePage](#pps_v2-PipelinePage)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -536,6 +544,7 @@
     - [DatumState](#pps_v2-DatumState)
     - [JobState](#pps_v2-JobState)
     - [PipelineInfo.PipelineType](#pps_v2-PipelineInfo-PipelineType)
+    - [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering)
     - [PipelineState](#pps_v2-PipelineState)
     - [TaintEffect](#pps_v2-TaintEffect)
     - [TolerationOperator](#pps_v2-TolerationOperator)
@@ -4625,6 +4634,52 @@ Only returns &#34;user&#34; logs
 
 
 
+<a name="metadata_metadata-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## metadata/metadata.proto
+
+
+
+<a name="metadata-EditMetadataRequest"></a>
+
+### EditMetadataRequest
+
+
+
+
+
+
+
+<a name="metadata-EditMetadataResponse"></a>
+
+### EditMetadataResponse
+
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="metadata-API"></a>
+
+### API
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) |  |
+
+ 
+
+
+
 <a name="pfs_pfs-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
@@ -5896,6 +5951,23 @@ DeleteReposRequest is used to delete more than one repo at once.
 | description | [string](#string) |  |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-ProjectInfo-MetadataEntry"></a>
+
+### ProjectInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -7834,6 +7906,7 @@ all of the filtered attributes.
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |
+| page | [PipelinePage](#pps_v2-PipelinePage) |  | Page indicates which page of a certain size to return. If page is left empty, all of the selected pipelines will be returned. |
 
 
 
@@ -8094,6 +8167,23 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | pipeline_info | [PipelineInfo](#pps_v2-PipelineInfo) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePage"></a>
+
+### PipelinePage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
+| page_size | [int64](#int64) |  |  |
+| page_index | [int64](#int64) |  |  |
 
 
 
@@ -8763,6 +8853,17 @@ the pipeline without loading the spec from PFS.
 | PIPELINE_TYPE_TRANSFORM | 1 |  |
 | PIPELINE_TYPE_SPOUT | 2 |  |
 | PIPELINE_TYPE_SERVICE | 3 |  |
+
+
+
+<a name="pps_v2-PipelinePage-Ordering"></a>
+
+### PipelinePage.Ordering
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| RECENT | 0 |  |
 
 
 

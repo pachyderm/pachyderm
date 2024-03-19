@@ -57,6 +57,7 @@ go_library(
         "//src/internal/transactionenv",
         "//src/license",
         "//src/logs",
+        "//src/metadata",
         "//src/pfs",
         "//src/pps",
         "//src/proxy",
@@ -69,6 +70,7 @@ go_library(
         "//src/server/identity/server",
         "//src/server/license/server",
         "//src/server/logs/server",
+        "//src/server/metadata/server",
         "//src/server/pachw/server",
         "//src/server/pfs/s3",
         "//src/server/pfs/server",
@@ -97,7 +99,10 @@ go_library(
 go_test(
     name = "pachd_test",
     size = "small",
-    srcs = ["pachd_test.go"],
+    srcs = [
+        "pachd_test.go",
+        "testpachd_test.go",
+    ],
     embed = [":pachd"],
     deps = [
         "//src/internal/pctx",

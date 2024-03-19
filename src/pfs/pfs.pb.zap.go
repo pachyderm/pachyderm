@@ -315,6 +315,12 @@ func (x *ProjectInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("description", x.Description)
 	enc.AddObject("auth_info", x.AuthInfo)
 	protoextensions.AddTimestamp(enc, "created_at", x.CreatedAt)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 
