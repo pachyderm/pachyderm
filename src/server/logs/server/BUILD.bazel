@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/lokiutil/client",
         "//src/logs",
         "//src/server/logs",
         "@org_golang_google_grpc//codes",
