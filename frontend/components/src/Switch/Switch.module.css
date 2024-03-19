@@ -27,7 +27,9 @@
   position: absolute;
   top: 0.125rem;
   width: 1rem;
-  transition: background-color 0.25s ease, transform 0.25s ease;
+  transition:
+    background-color 0.25s ease,
+    transform 0.25s ease;
 }
 
 .checked .track {

@@ -9,7 +9,9 @@
   border-radius: 0 3px 0 0;
 
   transform-origin: right;
-  transition: min-width 0.1s ease-out, min-width 0.1s ease-out;
+  transition:
+    min-width 0.1s ease-out,
+    min-width 0.1s ease-out;
 }
 
 .base.open {

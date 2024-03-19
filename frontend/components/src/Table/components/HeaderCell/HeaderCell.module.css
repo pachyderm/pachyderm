@@ -1,6 +1,7 @@
 .base {
   background-color: var(--background-grey);
-  box-shadow: inset 0 1px 0 0 var(--border-grey),
+  box-shadow:
+    inset 0 1px 0 0 var(--border-grey),
     inset 0 -1px 0 0 var(--border-grey);
   text-transform: capitalize;
   padding: 0 1rem;

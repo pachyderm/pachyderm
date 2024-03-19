@@ -21,7 +21,8 @@
   max-width: 25rem;
 }
 
-.backLink, .backLink:hover {
+.backLink,
+.backLink:hover {
   text-decoration: none;
   color: var(--white);
 }

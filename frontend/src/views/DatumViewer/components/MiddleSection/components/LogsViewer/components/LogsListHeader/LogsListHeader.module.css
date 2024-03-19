@@ -4,7 +4,8 @@
   align-items: center;
   width: 100%;
   background-color: var(--background-grey);
-  box-shadow: inset 0 1px 0 0 var(--border-grey),
+  box-shadow:
+    inset 0 1px 0 0 var(--border-grey),
     inset 0 -1px 0 0 var(--border-grey);
 
   height: 2.5rem;

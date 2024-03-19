@@ -6,7 +6,9 @@
   border: 1px solid var(--border-grey);
   border-bottom: none;
   box-shadow: 2px 2px 8px var(--dropshadow-grey);
-  transition: margin-left 0.1s ease-out, margin-left 0.1s ease-out;
+  transition:
+    margin-left 0.1s ease-out,
+    margin-left 0.1s ease-out;
   overflow-y: hidden;
 }
 

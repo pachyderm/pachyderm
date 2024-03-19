@@ -26,7 +26,9 @@
   max-width: none;
   transform: scaleX(0);
   transform-origin: right;
-  transition: width 0.1s ease-out, transform 0.1s ease-out;
+  transition:
+    width 0.1s ease-out,
+    transform 0.1s ease-out;
 }
 
 .fixed.open {

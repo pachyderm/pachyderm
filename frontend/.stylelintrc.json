@@ -9,7 +9,9 @@
       {
         "ignorePseudoClasses": ["global"]
       }
-    ]
+    ],
+    "no-descending-specificity": null,
+    "property-no-unknown": [true, {"ignoreProperties": ["composes"]}]
   },
-  "extends": ["stylelint-config-recommended", "stylelint-config-prettier"]
+  "extends": ["stylelint-config-recommended", "stylelint-prettier/recommended"]
 }

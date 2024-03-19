@@ -1,3 +1,5 @@
+/* stylelint-disable selector-class-pattern */
+
 .base {
   display: inline-block;
   width: 20px;

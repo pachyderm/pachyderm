@@ -30,7 +30,9 @@
 .errorText,
 .helpText,
 .placeholderText {
-  font-family: Public Sans, sans-serif;
+  font-family:
+    Public Sans,
+    sans-serif;
   font-weight: 300;
   font-size: 0.875rem;
   line-height: 1.437rem;

@@ -52,7 +52,8 @@
 
 .failedBox {
   --patternSize: 4px;
-  background: linear-gradient(135deg, var(--black) 25%, transparent 25%) -4px 0,
+  background:
+    linear-gradient(135deg, var(--black) 25%, transparent 25%) -4px 0,
     linear-gradient(-135deg, var(--black) 25%, transparent 25%) -4px 0,
     linear-gradient(45deg, var(--black) 25%, transparent 25%),
     linear-gradient(-45deg, var(--black) 25%, transparent 25%);

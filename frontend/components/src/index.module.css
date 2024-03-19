@@ -2,19 +2,23 @@
 
 @font-face {
   font-family: 'Montserrat';
-  src: local('Montserrat'),
+  src:
+    local('Montserrat'),
     url('../../fonts/Montserrat-VariableFont_wght.ttf') format('truetype');
 }
 
 @font-face {
   font-family: 'Public Sans';
-  src: local('Public Sans'),
+  src:
+    local('Public Sans'),
     url('../../fonts/PublicSans-VariableFont_wght.ttf') format('truetype');
 }
 
 @font-face {
   font-family: 'Menlo';
-  src: local('Menlo'), url('../../fonts/Menlo-Regular.ttf') format('truetype');
+  src:
+    local('Menlo'),
+    url('../../fonts/Menlo-Regular.ttf') format('truetype');
 }
 
 :root {
@@ -156,7 +160,9 @@
 @custom-media --large-viewport (width >= 1024px);
 
 * {
-  font-family: Public Sans, sans-serif;
+  font-family:
+    Public Sans,
+    sans-serif;
   font-weight: 300;
   font-size: 0.875rem;
   line-height: 1.437rem;
