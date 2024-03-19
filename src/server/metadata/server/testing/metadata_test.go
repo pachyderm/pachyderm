@@ -22,9 +22,8 @@ func TestRealEnv(t *testing.T) {
 }
 
 func TestEditProjectMetadata(t *testing.T) {
-	ctx := pctx.TestContext(t)
 	c := pachd.NewTestPachd(t)
-	ctx = c.Ctx()
+	ctx := c.Ctx()
 	if _, err := c.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{
 		Project: &pfs.Project{
 			Name: "foo",
