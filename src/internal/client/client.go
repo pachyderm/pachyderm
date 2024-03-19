@@ -769,21 +769,21 @@ func (c APIClient) DeleteAll() error {
 // DeleteAllEnterprise deletes everything in the enterprise server.
 // Use with caution, there is no undo.
 // TODO: rewrite this to use transactions
-func (c APIClient) DeleteAllEnterprise() error {
+func (c APIClient) DeleteAllEnterprise(ctx context.Context) error {
 	if _, err := c.IdentityAPIClient.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&identity.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.AuthAPIClient.Deactivate(
-		c.Ctx(),
+		ctx,
 		&auth.DeactivateRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
 	}
 	if _, err := c.License.DeleteAll(
-		c.Ctx(),
+		ctx,
 		&license.DeleteAllRequest{},
 	); err != nil && !auth.IsErrNotActivated(err) {
 		return grpcutil.ScrubGRPC(err)
