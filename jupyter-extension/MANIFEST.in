@@ -12,6 +12,13 @@ exclude Dockerfile
 exclude scripts/*
 exclude infra/*
 exclude svg-images/*
+exclude BUILD.bazel
+exclude MODULE.bazel
+exclude MODULE.bazel.lock
+exclude WORKSPACE
+exclude requirements-dev-lock.txt
+exclude requirements-dev.txt
+exclude requirements-lock.txt
 
 include package.json
 include install.json
