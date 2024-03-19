@@ -914,7 +914,7 @@ func TestDeleteAllAfterDeactivate(t *testing.T) {
 	}, backoff.NewTestingBackOff()))
 
 	// Make sure DeleteAll() succeeds
-	require.NoError(t, aliceClient.DeleteAll())
+	require.NoError(t, aliceClient.DeleteAll(aliceClient.Ctx()))
 }
 
 func TestListFileNils(t *testing.T) {
