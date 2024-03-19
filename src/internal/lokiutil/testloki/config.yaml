@@ -1,0 +1,45 @@
+auth_enabled: false
+analytics:
+    reporting_enabled: false
+
+common:
+    instance_addr: 127.0.0.1
+    path_prefix: /tmp/loki # replaced in go
+    storage: # replaced in go
+        filesystem:
+            chunks_directory: /tmp/loki/chunks
+            rules_directory: /tmp/loki/rules
+    replication_factor: 1
+    ring:
+        kvstore:
+            store: inmemory
+
+schema_config:
+    configs:
+        - from: 2020-10-24
+          store: tsdb
+          object_store: filesystem
+          schema: v12
+          index:
+              prefix: index_
+              period: 24h
+
+limits_config:
+    enforce_metric_name: false
+    max_entries_limit_per_query: 5000
+    reject_old_samples: true
+    reject_old_samples_max_age: 168h
+    retention_period: 24h
+    retention_stream:
+        - period: 168h
+          priority: 1
+          selector: '{suite="pachyderm"}'
+
+query_scheduler:
+    grpc_client_config:
+        max_send_msg_size: 67108864
+
+server:
+    grpc_listen_port: 9095 # replaced in go
+    http_listen_port: 3100 # replaced in go
+    grpc_server_max_recv_msg_size: 67108864
