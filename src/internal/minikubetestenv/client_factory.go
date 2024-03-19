@@ -111,7 +111,7 @@ func deleteAll(t testing.TB, c *client.APIClient) {
 	}
 	tok := c.AuthToken()
 	c.SetAuthToken(testutil.RootToken)
-	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll(c.Ctx()))
 	c.SetAuthToken(tok)
 }
 
