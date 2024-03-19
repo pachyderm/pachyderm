@@ -6,15 +6,12 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 
-	ilogs "github.com/pachyderm/pachyderm/v2/src/internal/logs"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
 
@@ -25,10 +22,7 @@ type ResponsePublisher interface {
 
 // LogService implements the core logs functionality.
 type LogService struct {
-	getLogs       *ilogs.GetLogs
 	GetLokiClient func() (*loki.Client, error)
-	lineMatchers  *ilogs.MatchLines
-	maxLines      uint64
 }
 
 var (
@@ -49,24 +43,23 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		request = &logs.GetLogsRequest{}
 	}
 
-	ls.lineMatchers = new(ilogs.MatchLines)
-
-	ls.getLogs = &ilogs.GetLogs{
-		Matchers:      ls.lineMatchers,
-		GetLokiClient: ls.GetLokiClient,
-	}
-
 	filter := request.Filter
+
 	if filter == nil {
 		filter = new(logs.LogFilter)
 		request.Filter = filter
 	}
-	if filter.TimeRange == nil {
+	switch {
+	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
 		now := time.Now()
 		filter.TimeRange = &logs.TimeRangeLogFilter{
 			From:  timestamppb.New(now.Add(-700 * time.Hour)),
 			Until: timestamppb.New(now),
 		}
+	case filter.TimeRange.From == nil:
+		filter.TimeRange.From = timestamppb.New(filter.TimeRange.Until.AsTime().Add(-700 * time.Hour))
+	case filter.TimeRange.Until == nil:
+		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
 	}
 
 	if request.WantPagingHint {
@@ -84,44 +77,41 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 
-	matcher, err := ilogs.TrueMatcher()
-	if err != nil {
-		return err
-	}
-	ls.lineMatchers.Matchers = append(ls.lineMatchers.Matchers, matcher)
-
 	outChannel := make(chan []byte)
 
-	maxLines := ls.maxLines
-	var numLines uint64
-
-	ls.getLogs.StartMatching(ctx, func(line []byte) error {
-
-		select {
-		case outChannel <- line:
-			numLines++
-			if numLines == maxLines {
-				return errutil.ErrBreak
-			}
-			return nil
-		case <-ctx.Done():
-			return errutil.ErrBreak
+	go func() {
+		c, err := ls.GetLokiClient()
+		if err != nil {
+			panic(fmt.Sprintf("loki client error: %v", err))
 		}
-	})
+		resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
+		if err != nil {
+			panic(fmt.Sprintf("error: %v", err))
+		}
+		streams, ok := resp.Data.Result.(loki.Streams)
+		if !ok {
+			panic("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
+		}
+
+		for _, s := range streams {
+			for _, e := range s.Entries {
+				outChannel <- []byte(e.Line)
+			}
+		}
+
+		close(outChannel)
+	}()
 
 	for line := range outChannel {
-
-		numLines++
-		if numLines == maxLines {
-			break
+		var resp *logs.GetLogsResponse
+		switch request.LogFormat {
+		case logs.LogFormat_LOG_FORMAT_UNKNOWN:
+			return errors.New("unknown log format not support") // TODO: return unimplemented
+		case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
+			resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{&logs.VerbatimLogMessage{Line: line}}}}}
+		default:
+			return errors.Errorf("%v not supported", request.LogFormat)
 		}
-		jsonStruct := new(structpb.Struct)
-		err := jsonStruct.UnmarshalJSON([]byte(line))
-		if err != nil {
-			return errors.WithStack(fmt.Errorf("%w convert json log to struct: %w", ErrPublish, err))
-		}
-
-		resp := &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Json{&logs.ParsedJSONLogMessage{Object: jsonStruct}}}}}
 
 		if err := publisher.Publish(ctx, resp); err != nil {
 			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
@@ -129,7 +119,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 
 	}
 
-	close(outChannel)
 	return nil
 
 }
