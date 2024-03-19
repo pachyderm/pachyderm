@@ -5,7 +5,10 @@ import {matchSorter} from 'match-sorter';
 export type DropdownComboboxProps = {
   initialSelectedItem?: string | null;
   items: string[];
-  onSelectedItemChange: (selectedItem: string | null) => void;
+  onSelectedItemChange: (
+    selectedItem: string | null,
+    selectItem: (item: string | null) => void,
+  ) => void;
   placeholder?: string;
   testIdPrefix?: string;
 };
@@ -42,7 +45,7 @@ export const DropdownCombobox: React.FC<DropdownComboboxProps> = ({
       }
     },
     onSelectedItemChange: ({selectedItem}) => {
-      onSelectedItemChange(selectedItem || null);
+      onSelectedItemChange(selectedItem || null, selectItem);
     },
   });
 

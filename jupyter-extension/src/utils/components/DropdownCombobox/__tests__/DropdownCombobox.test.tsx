@@ -127,4 +127,24 @@ describe('DropdownCombobox', () => {
     fireEvent.mouseOver(liBar);
     expect(liBar).toHaveStyle('background-color: bde4ff');
   });
+
+  it('should set selected item to selectItem parameter in onSelectedItemChange', async () => {
+    let selectedItem: string | null = null;
+    const {getByTestId} = render(
+      <DropdownCombobox
+        items={['foo', 'bar']}
+        onSelectedItemChange={(newSelectedItem, selectItem) => {
+          selectedItem = newSelectedItem;
+          if (newSelectedItem) {
+            selectItem(null);
+          }
+        }}
+      />,
+    );
+
+    const input = getByTestId('DropdownCombobox-input');
+    fireEvent.change(input, {target: {value: 'ba'}});
+    fireEvent.click(getByTestId('DropdownCombobox-li-bar'));
+    expect(selectedItem).toBeNull();
+  });
 });

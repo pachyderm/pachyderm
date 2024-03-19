@@ -47,11 +47,6 @@ export const getMountedStatus = (
   const projectRepos: string[] = [];
   const projectRepoToBranches: {[projectRepo: string]: string[]} = {};
   for (const repo of unmounted) {
-    // We should skip over repos without branches.
-    if (repo.branches.length === 0) {
-      continue;
-    }
-
     const projectRepoKey = `${repo.project}/${repo.repo}`;
     projectRepoToBranches[projectRepoKey] = repo.branches;
     projectRepos.push(projectRepoKey);
@@ -78,8 +73,6 @@ export const getMountedStatus = (
   }
   projectRepos.sort();
 
-  console.log(projectRepoToBranches);
-
   return {
     projectRepos,
     selectedProjectRepo,
@@ -89,7 +82,11 @@ export const getMountedStatus = (
   };
 };
 
-export const getDefaultBranch = (branches: string[]): string => {
+export const getDefaultBranch = (branches: string[]): string | null => {
+  if (branches.length === 0) {
+    return null;
+  }
+
   if (branches.includes('master')) {
     return 'master';
   }

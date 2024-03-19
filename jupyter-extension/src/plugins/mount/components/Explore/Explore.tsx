@@ -54,7 +54,7 @@ const Explore: React.FC<ExploreProps> = ({
         initialSelectedItem={selectedProjectRepo}
         items={projectRepos}
         placeholder="project/repo"
-        onSelectedItemChange={(projectRepo) => {
+        onSelectedItemChange={(projectRepo, selectItem) => {
           (async () => {
             if (!projectRepo) {
               updateData(await unmountAll());
@@ -62,10 +62,19 @@ const Explore: React.FC<ExploreProps> = ({
               return;
             }
 
-            const response = await mount(
-              projectRepo,
-              getDefaultBranch(projectRepoToBranches[projectRepo]),
+            const defaultBranch = getDefaultBranch(
+              projectRepoToBranches[projectRepo],
             );
+            if (!defaultBranch) {
+              showErrorMessage(
+                'No Branches',
+                `${projectRepo} has no branches to mount`,
+              );
+              selectItem(null);
+              return;
+            }
+
+            const response = await mount(projectRepo, defaultBranch);
             updateData(response);
             await changeDirectory(`/${response.mounted[0].name}`);
           })();
