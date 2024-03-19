@@ -10,8 +10,8 @@ import (
 )
 
 // InspectCluster retrieves cluster state
-func (c APIClient) InspectCluster() (*admin.ClusterInfo, error) {
-	clusterInfo, err := c.AdminAPIClient.InspectCluster(c.Ctx(), &admin.InspectClusterRequest{})
+func (c APIClient) InspectCluster(ctx context.Context) (*admin.ClusterInfo, error) {
+	clusterInfo, err := c.AdminAPIClient.InspectCluster(ctx, &admin.InspectClusterRequest{})
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to inspect cluster")
 	}
