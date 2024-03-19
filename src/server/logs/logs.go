@@ -79,26 +79,26 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 
 	c, err := ls.GetLokiClient()
 	if err != nil {
-		panic(fmt.Sprintf("loki client error: %v", err))
+		return errors.Wrap(err, "loki client error")
 	}
 	resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
 	if err != nil {
-		panic(fmt.Sprintf("error: %v", err))
+		return errors.Wrap(err, "Loki QueryRange")
 	}
 	streams, ok := resp.Data.Result.(loki.Streams)
 	if !ok {
-		panic("resp.Data.Result must be of type loghttp.Streams to call ForEachStream on it")
+		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T, to call ForEachStream on it", resp.Data.Result)
 	}
 	for _, s := range streams {
 		for _, e := range s.Entries {
 			var resp *logs.GetLogsResponse
 			switch request.LogFormat {
 			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-				return errors.New("unknown log format not support") // TODO: return unimplemented
+				return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
 			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
 				resp = &logs.GetLogsResponse{ResponseType: &logs.GetLogsResponse_Log{Log: &logs.LogMessage{LogType: &logs.LogMessage_Verbatim{&logs.VerbatimLogMessage{Line: []byte(e.Line)}}}}}
 			default:
-				return errors.Errorf("%v not supported", request.LogFormat)
+				return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
 			}
 
 			if err := publisher.Publish(ctx, resp); err != nil {
@@ -108,7 +108,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 
 	return nil
-
 }
 
 func validateGetLogsRequest(request *logs.GetLogsRequest) error {

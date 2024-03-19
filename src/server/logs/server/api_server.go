@@ -7,7 +7,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
@@ -39,7 +38,6 @@ type getLogsServerPublisher struct {
 }
 
 func (glsp getLogsServerPublisher) Publish(ctx context.Context, response *logs.GetLogsResponse) error {
-	log.Info(ctx, "QQQ publishing")
 	return glsp.server.Send(response)
 }
 
@@ -52,5 +50,4 @@ func (l *apiServer) GetLogs(request *logs.GetLogsRequest, apiGetLogsServer logs.
 	}
 
 	return nil
-
 }
