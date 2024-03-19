@@ -48,7 +48,7 @@ func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 	}
 }
 
-func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var logQL string
