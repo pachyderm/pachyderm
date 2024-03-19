@@ -288,7 +288,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutOverwrite", func(t *testing.T) {
@@ -344,7 +344,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutProvenance", func(t *testing.T) {
@@ -416,7 +416,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 	t.Run("SpoutService", func(t *testing.T) {
 		annotations := map[string]string{"foo": "bar"}
@@ -525,7 +525,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutInputValidation", func(t *testing.T) {
@@ -558,7 +558,7 @@ func testSpout(t *testing.T, usePachctl bool) {
 			}
 			return nil
 		}))
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 	})
 
 	t.Run("SpoutRestart", func(t *testing.T) {

@@ -535,7 +535,7 @@ This resets the cluster to its initial state.`,
 				return nil
 			}
 
-			if err := client.DeleteAll(); err != nil {
+			if err := client.DeleteAll(client.Ctx()); err != nil {
 				return err
 			}
 			return txncmds.ClearActiveTransaction()
