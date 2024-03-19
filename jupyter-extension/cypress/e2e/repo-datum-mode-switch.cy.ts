@@ -2,10 +2,7 @@ describe('switching between repo and datum mode', () => {
   beforeEach(() => {
     cy.resetApp();
     cy.isAppReady();
-    cy.unmountAllRepos();
     cy.openMountPlugin();
-    cy.findAllByText('Load');
-    cy.wait(3000);
   });
 
   it('should open datum mode', () => {
@@ -17,34 +14,26 @@ describe('switching between repo and datum mode', () => {
   });
 
   it('mounted repos appear in datum input spec and again when switching back', () => {
-    cy.findAllByText('Load').first().click();
-    cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 2);
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
 
     cy.findAllByRole('tab').filter('.pachyderm-test-tab').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
-      .should('contain', 'cross:');
+      .should('contain', 'pfs:');
     cy.findAllByRole('tab').filter('.pachyderm-explore-tab').click();
 
-    cy.findAllByText('Unload').should('have.length', 2);
     cy.wait(3000);
     cy.get('#jupyterlab-pachyderm-browser-pfs')
       .findByText('default_images')
       .dblclick();
     cy.findAllByText('liberty.png').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('/ pfs').click();
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images_branch')
-      .dblclick();
-    cy.findAllByText('branch.png').should('have.length', 1);
   });
 
   it('modifying input spec saves and restores it when back in datum mode', () => {
-    cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
+    cy.wait(1000);
+    cy.findByTestId('Branch-DropdownCombobox-input').click();
+    cy.findByTestId('Branch-DropdownCombobox-li-branch').click();
 
     cy.findAllByRole('tab').filter('.pachyderm-test-tab').click();
     cy.findByTestId('Datum__inputSpecInput')
@@ -56,8 +45,6 @@ describe('switching between repo and datum mode', () => {
       .should('contain', 'a');
     cy.findAllByRole('tab').filter('.pachyderm-explore-tab').click();
 
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.findAllByText('Unload').first().click();
     cy.findAllByRole('tab').filter('.pachyderm-test-tab').click();
     cy.findByTestId('Datum__inputSpecInput')
       .invoke('prop', 'value')
