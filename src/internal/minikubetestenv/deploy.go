@@ -250,10 +250,6 @@ func withMinio() *helm.Options {
 			"pachd.storage.amazon.id":     "minioadmin",
 			"pachd.storage.amazon.secret": "minioadmin",
 		},
-		SetStrValues: map[string]string{
-			"pachd.storage.minio.signature": "",
-			"pachd.storage.minio.secure":    "false",
-		},
 	}
 }
 
