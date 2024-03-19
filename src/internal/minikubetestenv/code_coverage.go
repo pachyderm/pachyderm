@@ -25,7 +25,7 @@ func getCoverageFolder() string {
 }
 
 func saveCoverProfile(pachClient *client.APIClient, covFile *os.File) error {
-	return pachClient.Profile(&debug.Profile{
+	return pachClient.Profile(pachClient.Ctx(), &debug.Profile{
 		Name:     "cover",
 		Duration: durationpb.New(30 * time.Minute), // no test should be longer than 30 minutes
 	}, &debug.Filter{}, covFile)
