@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/errors",
-        "//src/internal/logs",
         "//src/internal/lokiutil/client",
         "//src/logs",
         "@org_golang_google_protobuf//proto",
