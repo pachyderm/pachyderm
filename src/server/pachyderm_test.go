@@ -2818,7 +2818,7 @@ func TestDeleteAll(t *testing.T) {
 	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
 	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
-	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll(c.Ctx()))
 	repoInfos, err := c.ListRepo()
 	require.NoError(t, err)
 	require.Equal(t, 0, len(repoInfos))
@@ -3752,7 +3752,7 @@ func TestAutoscalingStandby(t *testing.T) {
 	t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 	t.Run("ChainOf10", func(t *testing.T) {
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 
 		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
@@ -3830,7 +3830,7 @@ func TestAutoscalingStandby(t *testing.T) {
 		require.NoError(t, eg.Wait())
 	})
 	t.Run("ManyCommits", func(t *testing.T) {
-		require.NoError(t, c.DeleteAll())
+		require.NoError(t, c.DeleteAll(c.Ctx()))
 
 		dataRepo := tu.UniqueString("TestAutoscalingStandby_data")
 		dataCommit := client.NewCommit(pfs.DefaultProjectName, dataRepo, "master", "")
@@ -6807,7 +6807,7 @@ func TestCronPipeline(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	t.Run("SimpleCron", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline1 := tu.UniqueString("cron1-")
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -6858,7 +6858,7 @@ func TestCronPipeline(t *testing.T) {
 	// Test a CronInput with the overwrite flag set to true
 	t.Run("CronOverwrite", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline3 := tu.UniqueString("cron3-")
 		overwriteInput := client.NewCronInput("time", "@every 10s")
@@ -6901,7 +6901,7 @@ func TestCronPipeline(t *testing.T) {
 	// non-cron inputs
 	t.Run("CronPFSCross", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		dataRepo := tu.UniqueString("TestCronPipeline_data")
 		require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
@@ -6943,7 +6943,7 @@ func TestCronPipeline(t *testing.T) {
 	})
 	t.Run("RunCron", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline5 := tu.UniqueString("cron5-")
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -6991,7 +6991,7 @@ func TestCronPipeline(t *testing.T) {
 	})
 	t.Run("RunCronOverwrite", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline7 := tu.UniqueString("cron7-")
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -7056,7 +7056,7 @@ func TestCronPipeline(t *testing.T) {
 	})
 	t.Run("RunCronCross", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline9 := tu.UniqueString("cron9-")
 		// schedule cron ticks so they definitely won't occur
@@ -7092,7 +7092,7 @@ func TestCronPipeline(t *testing.T) {
 	// Ensure that the deletion of the previous cron tick file completes before the new cron tick file is created.
 	t.Run("CronOverwriteStartCatchup", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline := tu.UniqueString("testCron-")
 		start := timestamppb.New(time.Now().Add(-10 * time.Hour))
@@ -7136,7 +7136,7 @@ func TestCronPipeline(t *testing.T) {
 	// confirm pipeline did not run till the start time after pipeline was updated
 	t.Run("CronUpdateStart", func(t *testing.T) {
 		defer func() {
-			require.NoError(t, c.DeleteAll())
+			require.NoError(t, c.DeleteAll(c.Ctx()))
 		}()
 		pipeline := tu.UniqueString("cron-upd1-")
 
@@ -8944,7 +8944,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
-	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll(c.Ctx()))
 
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
@@ -8967,7 +8967,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
 	require.Equal(t, pps.JobState_JOB_SUCCESS.String(), jis[0].State.String())
-	require.NoError(t, c.DeleteAll())
+	require.NoError(t, c.DeleteAll(c.Ctx()))
 }
 
 func TestRapidUpdatePipelines(t *testing.T) {

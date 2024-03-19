@@ -8,6 +8,7 @@ go_library(
     deps = [
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/pctx",
         "//src/internal/tracing",
         "//src/server/cmd/pachctl/cmd",
         "@com_github_spf13_pflag//:pflag",

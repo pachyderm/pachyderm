@@ -7,6 +7,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/server/cmd/pachctl/cmd"
 	"github.com/spf13/pflag"
@@ -15,6 +16,7 @@ import (
 func main() {
 	log.InitPachctlLogger()
 	log.SetLevel(log.InfoLevel)
+	ctx := pctx.Background("pachctl")
 
 	// Remove kubernetes client flags from the spf13 flag set
 	// (we link the kubernetes client, so otherwise they're in 'pachctl --help')
@@ -26,7 +28,7 @@ func main() {
 		if err != nil {
 			return errors.Wrap(err, "could not create pachctl command")
 		}
-		return errors.EnsureStack(pachctl.Execute())
+		return errors.EnsureStack(pachctl.ExecuteContext(ctx))
 	}()
 	if err != nil {
 		if errString := strings.TrimSpace(err.Error()); errString != "" {

@@ -14,7 +14,6 @@ go_library(
         "//src/internal/log",
         "//src/internal/metrics",
         "//src/internal/pachctl",
-        "//src/internal/pctx",
         "//src/internal/signals",
         "//src/internal/task/cmds",
         "//src/pps",
@@ -51,7 +50,6 @@ go_test(
     deps = [
         "//src/internal/config",
         "//src/internal/grpcutil",
-        "//src/internal/log",
         "//src/internal/require",
         "//src/internal/testutil",
         "//src/internal/uuid",
