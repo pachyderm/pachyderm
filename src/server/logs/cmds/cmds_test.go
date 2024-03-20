@@ -33,6 +33,21 @@ func mockInspectCluster(env *realenv.RealEnv) {
 	})
 }
 
+func realEnvWithLoki(ctx context.Context, t testing.TB, entries []loki.Entry) *realenv.RealEnv {
+	srv := httptest.NewServer(&lokiutil.FakeServer{
+		Entries: entries,
+	})
+	t.Cleanup(func() { srv.Close() })
+	return realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+		func(c *pachconfig.Configuration) {
+			u, err := url.Parse(srv.URL)
+			if err != nil {
+				panic(err)
+			}
+			c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+		})
+}
+
 func TestGetLogs_noauth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
@@ -49,18 +64,8 @@ func TestGetLogs_noauth(t *testing.T) {
 			}
 			return entries
 		}
-		srv = httptest.NewServer(&lokiutil.FakeServer{
-			Entries: buildEntries(),
-		})
-		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
-			func(c *pachconfig.Configuration) {
-				u, err := url.Parse(srv.URL)
-				if err != nil {
-					panic(err)
-				}
-				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
-			})
-		c = env.PachClient
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
 	)
 	mockInspectCluster(env)
 
@@ -86,18 +91,8 @@ func TestGetLogs_nonadmin(t *testing.T) {
 			}
 			return entries
 		}
-		srv = httptest.NewServer(&lokiutil.FakeServer{
-			Entries: buildEntries(),
-		})
-		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
-			func(c *pachconfig.Configuration) {
-				u, err := url.Parse(srv.URL)
-				if err != nil {
-					panic(err)
-				}
-				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
-			})
-		c = env.PachClient
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
 	)
 	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
@@ -126,18 +121,8 @@ func TestGetLogs_admin(t *testing.T) {
 			}
 			return entries
 		}
-		srv = httptest.NewServer(&lokiutil.FakeServer{
-			Entries: buildEntries(),
-		})
-		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
-			func(c *pachconfig.Configuration) {
-				u, err := url.Parse(srv.URL)
-				if err != nil {
-					panic(err)
-				}
-				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
-			})
-		c = env.PachClient
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
 	)
 	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
