@@ -126,9 +126,9 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 			return nil, errors.Wrap(context.Cause(ctx), "context done")
 		default:
 		}
-		// Loki, with our config, starts up in ~300 milliseconds.  If it isn't ready after
-		// 1s, then start logging every 10th attempt.
-		doLog := i > 10 && i%10 == 0
+		// Loki, with our config, starts up in about 3 seconds.  If it isn't ready after 5s,
+		// then start logging every 10th attempt.
+		doLog := i > 50 && i%10 == 0
 		err := pingLoki(ctx, addr, doLog)
 		if err == nil {
 			return &TestLoki{
