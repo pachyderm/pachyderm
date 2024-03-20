@@ -822,6 +822,7 @@ func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 		Finished:    pbutil.TimeToTimestamppb(row.FinishedTime),
 		Description: row.Description,
 		Error:       row.Error,
+		Metadata:    row.Metadata.Data,
 		Details: &pfs.CommitInfo_Details{
 			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
 			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),
