@@ -69,6 +69,7 @@ func newPipelineRequest(project, pipeline string) *logs.GetLogsRequest {
 
 func newProjectRequest(project string) *logs.GetLogsRequest {
 	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_User{
 				User: &logs.UserLogQuery{
