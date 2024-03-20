@@ -47,12 +47,15 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 }
 
 func parseKV(data string) (k, v string) {
-	// TODO(jrockway): Allow keys and values with = in them.
+	// TODO(jrockway, CORE-2228): Allow keys and values with = in them.
 	parts := strings.SplitN(data, "=", 2)
 	return parts[0], parts[1]
 }
 
 func parseData(data string) (result map[string]string, _ error) {
+	if len(data) == 0 || data[0] != '{' {
+		return nil, errors.New("data must be a JSON object")
+	}
 	if err := json.Unmarshal([]byte(data), &result); err != nil {
 		return nil, errors.Wrap(err, "parse json data")
 	}
