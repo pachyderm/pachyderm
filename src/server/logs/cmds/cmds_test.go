@@ -138,9 +138,21 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v quux", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
 	mockInspectCluster(env)
 
 	// TODO(CORE-2123): check for real logs
@@ -172,7 +184,7 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --pipeline {{.PipelineName}} | match "GetLogs dummy response"`,
+		pachctl logs2 --pipeline {{.PipelineName}} | match "24 quux"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
@@ -184,9 +196,21 @@ func TestGetLogs_pipeline_user(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v foo", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
 	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	alice := testutil.UniqueString("robot:alice")
@@ -221,7 +245,7 @@ func TestGetLogs_pipeline_user(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --pipeline {{.PipelineName}} | match "GetLogs dummy response"`,
+		pachctl logs2 --pipeline {{.PipelineName}} | match "64 foo"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
