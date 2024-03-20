@@ -6,10 +6,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
 
 type APIServer = *apiServer
