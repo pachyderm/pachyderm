@@ -72,3 +72,46 @@ installable_binary = rule(
     ],
     executable = True,
 )
+
+_COPIER_TMPL = """#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+{BASH_RLOCATION_FUNCTION}
+
+cd "$BUILD_WORKSPACE_DIRECTORY"
+exec "$(rlocation _main/src/proto/prototar/prototar_/prototar)" --delete-jsonschemas=false --failure-message='Regenerate the envoy configuration; bazel run //etc/generate-envoy-config:update' apply {SRC}
+"""
+
+def _copy_to_workspace_impl(ctx):
+    copier = ctx.actions.declare_file("%s_extract.sh" % (ctx.label.name))
+    ctx.actions.write(
+        output = copier,
+        content = _COPIER_TMPL.format(
+            SRC = ctx.attr.src.files.to_list()[0].path,
+            BASH_RLOCATION_FUNCTION = BASH_RLOCATION_FUNCTION,
+        ),
+        is_executable = True,
+    )
+    runfiles = ctx.runfiles(ctx.files.src + [copier])
+    for r in ctx.attr._runfiles:
+        runfiles = runfiles.merge(r.default_runfiles)
+    return DefaultInfo(
+        executable = copier,
+        runfiles = runfiles,
+    )
+
+copy_to_workspace = rule(
+    implementation = _copy_to_workspace_impl,
+    attrs = {
+        "src": attr.label(
+            doc = "Tar to extract into the workspace.",
+        ),
+        "_runfiles": attr.label_list(default = ["@bazel_tools//tools/bash/runfiles", "//src/proto/prototar"]),
+    },
+    toolchains = [
+        "@bazel_tools//tools/sh:toolchain_type",
+    ],
+    executable = True,
+)
