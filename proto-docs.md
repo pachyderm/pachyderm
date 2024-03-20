@@ -101,6 +101,8 @@
     - [Starlark](#debug_v2-Starlark)
     - [StarlarkLiteral](#debug_v2-StarlarkLiteral)
     - [System](#debug_v2-System)
+    - [TraceChunk](#debug_v2-TraceChunk)
+    - [TraceRequest](#debug_v2-TraceRequest)
     - [Worker](#debug_v2-Worker)
   
     - [SetLogLevelRequest.LogLevel](#debug_v2-SetLogLevelRequest-LogLevel)
@@ -2186,6 +2188,36 @@ StarlarkLiteral is a custom Starlark script.
 
 
 
+<a name="debug_v2-TraceChunk"></a>
+
+### TraceChunk
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| bytes | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="debug_v2-TraceRequest"></a>
+
+### TraceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| duration | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Worker"></a>
 
 ### Worker
@@ -2236,6 +2268,7 @@ StarlarkLiteral is a custom Starlark script.
 | SetLogLevel | [SetLogLevelRequest](#debug_v2-SetLogLevelRequest) | [SetLogLevelResponse](#debug_v2-SetLogLevelResponse) |  |
 | GetDumpV2Template | [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest) | [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse) |  |
 | DumpV2 | [DumpV2Request](#debug_v2-DumpV2Request) | [DumpChunk](#debug_v2-DumpChunk) stream |  |
+| Trace | [TraceRequest](#debug_v2-TraceRequest) | [TraceChunk](#debug_v2-TraceChunk) stream |  |
 | RunPFSLoadTest | [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTest runs a load test. |
 | RunPFSLoadTestDefault | [.google.protobuf.Empty](#google-protobuf-Empty) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTestDefault runs the default load tests. |
 

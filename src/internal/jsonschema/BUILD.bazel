@@ -500,6 +500,8 @@ go_library(
         "versionpb_v2/Version.schema.json",
         "metadata/EditMetadataRequest.schema.json",
         "metadata/EditMetadataResponse.schema.json",
+        "debug_v2/TraceChunk.schema.json",
+        "debug_v2/TraceRequest.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],
