@@ -149,8 +149,6 @@ test_suite(
     tests = [
         ":buildifier_test",
         "//etc/helm/pachyderm:helm_lint",
-        "//jupyter-extension:requirements-dev_test",
-        "//jupyter-extension:requirements_test",
         "//src/proto:check_generated_protos",
     ],
 )

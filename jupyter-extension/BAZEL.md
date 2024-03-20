@@ -26,3 +26,8 @@ also create a virtual environment which contains these locked dependencies:
 ```
 bazel run :venv
 ```
+
+Note that Python requires different versions of dependencies depending on the host platform, i.e.
+Linux and Mac require different versions of modules. When you run `:requirements.update`, it only
+updates for your current platform. So if you run this on a Mac, CI will fail because it's Linux, and
+you should also run it on your Linux VM and check in those generated changes.
