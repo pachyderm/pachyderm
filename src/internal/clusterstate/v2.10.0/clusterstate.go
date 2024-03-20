@@ -6,5 +6,6 @@ import (
 
 func Migrate(state migrations.State) migrations.State {
 	return state.
-		Apply("Add metadata to projects", addMetadataToProjects, migrations.Squash)
+		Apply("Add metadata to projects", addMetadataToProjects, migrations.Squash).
+		Apply("Add metadata to commits", addMetadataToCommits, migrations.Squash)
 }
