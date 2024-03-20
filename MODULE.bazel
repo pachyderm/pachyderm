@@ -403,13 +403,13 @@ python.toolchain(
 # Load in both the strict and dev requirements for the jupyter extension.
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
 pip.parse(
-    hub_name = "pip-requirements",
+    hub_name = "jupyter-pip-requirements",
     python_version = "3.9",
     requirements_lock = "//jupyter-extension:requirements-lock.txt",
 )
 pip.parse(
-    hub_name = "pip-requirements-dev",
+    hub_name = "jupyter-pip-requirements-dev",
     python_version = "3.9",
     requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
-use_repo(pip, "pip-requirements", "pip-requirements-dev")
+use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")

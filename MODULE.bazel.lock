@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "74d0307ed42e8aaac331c17a8821b2ec8dcd3748b42715e35ff927a9b22d86da",
+  "moduleFileHash": "251d0d6acae53df5be91822ca719dd85927088e1604f6a237631e084b59b7377",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -722,16 +722,16 @@
             "column": 20
           },
           "imports": {
-            "pip-requirements": "pip-requirements",
-            "pip-requirements-dev": "pip-requirements-dev"
+            "jupyter-pip-requirements": "jupyter-pip-requirements",
+            "jupyter-pip-requirements-dev": "jupyter-pip-requirements-dev"
           },
           "devImports": [],
           "tags": [
             {
               "tagName": "parse",
               "attributeValues": {
+                "hub_name": "jupyter-pip-requirements",
                 "python_version": "3.9",
-                "hub_name": "pip-requirements",
                 "requirements_lock": "//jupyter-extension:requirements-lock.txt"
               },
               "devDependency": false,
@@ -744,8 +744,8 @@
             {
               "tagName": "parse",
               "attributeValues": {
+                "hub_name": "jupyter-pip-requirements-dev",
                 "python_version": "3.9",
-                "hub_name": "pip-requirements-dev",
                 "requirements_lock": "//jupyter-extension:requirements-dev-lock.txt"
               },
               "devDependency": false,
