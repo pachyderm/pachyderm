@@ -999,6 +999,23 @@ class EgressResponseSqlDatabaseResult(betterproto.Message):
     )
 
 
+@dataclass(eq=False, repr=False)
+class ReposSummaryRequest(betterproto.Message):
+    projects: List["Project"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class ReposSummary(betterproto.Message):
+    project: "Project" = betterproto.message_field(1)
+    user_repo_count: int = betterproto.int64_field(2)
+    size_bytes: int = betterproto.int64_field(3)
+
+
+@dataclass(eq=False, repr=False)
+class ReposSummaryResponse(betterproto.Message):
+    summaries: List["ReposSummary"] = betterproto.message_field(1)
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -1271,6 +1288,11 @@ class ApiStub:
             "/pfs_v2.API/DeleteProject",
             request_serializer=DeleteProjectRequest.SerializeToString,
             response_deserializer=betterproto_lib_google_protobuf.Empty.FromString,
+        )
+        self.__rpc_repos_summary = channel.unary_unary(
+            "/pfs_v2.API/ReposSummary",
+            request_serializer=ReposSummaryRequest.SerializeToString,
+            response_deserializer=ReposSummaryResponse.FromString,
         )
 
     def create_repo(
@@ -2001,3 +2023,14 @@ class ApiStub:
         request.force = force
 
         return self.__rpc_delete_project(request)
+
+    def repos_summary(
+        self, *, projects: Optional[List["Project"]] = None
+    ) -> "ReposSummaryResponse":
+        projects = projects or []
+
+        request = ReposSummaryRequest()
+        if projects is not None:
+            request.projects = projects
+
+        return self.__rpc_repos_summary(request)

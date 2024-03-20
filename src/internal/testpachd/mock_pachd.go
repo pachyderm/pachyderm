@@ -1015,6 +1015,7 @@ type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResp
 type clearCacheFunc func(context.Context, *pfs.ClearCacheRequest) (*emptypb.Empty, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 type egressFunc func(context.Context, *pfs.EgressRequest) (*pfs.EgressResponse, error)
+type reposSummaryFunc func(context.Context, *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -1070,6 +1071,7 @@ type mockGetCache struct{ handler getCacheFunc }
 type mockClearCache struct{ handler clearCacheFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
 type mockEgress struct{ handler egressFunc }
+type mockReposSummary struct{ handler reposSummaryFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)           { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                     { mock.handler = cb }
@@ -1125,6 +1127,7 @@ func (mock *mockGetCache) Use(cb getCacheFunc)                         { mock.ha
 func (mock *mockClearCache) Use(cb clearCacheFunc)                     { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)                   { mock.handler = cb }
 func (mock *mockEgress) Use(cb egressFunc)                             { mock.handler = cb }
+func (mock *mockReposSummary) Use(cb reposSummaryFunc)                 { mock.handler = cb }
 
 type pfsServerAPI struct {
 	pfs.UnsafeAPIServer
@@ -1187,6 +1190,7 @@ type mockPFSServer struct {
 	ClearCache           mockClearCache
 	ListTask             mockListTaskPFS
 	Egress               mockEgress
+	ReposSummary         mockReposSummary
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -1515,6 +1519,13 @@ func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_List
 		return api.mock.ListTask.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListTask")
+}
+
+func (api *pfsServerAPI) ReposSummary(ctx context.Context, req *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error) {
+	if api.mock.Egress.handler != nil {
+		return api.mock.ReposSummary.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ReposSummary")
 }
 
 /* PPS Server Mocks */

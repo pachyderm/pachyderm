@@ -990,8 +990,8 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 	var repos []*pfs.RepoInfo
 	var err error
 	if err := errors.Wrap(dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, true, "user", request.Projects, nil)
+		return a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", request.Projects, nil)
 			if err != nil {
 				return err
 			}
@@ -1005,7 +1005,7 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 				summary.UserRepoCount++
 				size, err := a.driver.repoSize(ctx, txnCtx, r)
 				if err != nil {
-					return errors.Wrapf(err, "get size of repo %q", r.Repo.String()
+					return errors.Wrapf(err, "get size of repo %q", r.Repo.String())
 				}
 				summary.SizeBytes += size
 			}
