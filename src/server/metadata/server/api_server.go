@@ -3,19 +3,23 @@ package server
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/metadata"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
+	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type Env struct{}
+type Env struct {
+	DB *pachsql.DB
+}
 
 type APIServer struct {
-	metadata.UnsafeAPIServer
+	metadatapb.UnsafeAPIServer
 	env Env
 }
 
-var _ metadata.APIServer = (*APIServer)(nil)
+var _ metadatapb.APIServer = (*APIServer)(nil)
 
 func NewMetadataServer(env Env) *APIServer {
 	return &APIServer{
@@ -23,6 +27,12 @@ func NewMetadataServer(env Env) *APIServer {
 	}
 }
 
-func (s *APIServer) EditMetadata(ctx context.Context, req *metadata.EditMetadataRequest) (*metadata.EditMetadataResponse, error) {
-	return nil, status.Error(codes.Unimplemented, "not implemented")
+// EditMetadata transactionally mutates metadata.  All operations are attempted, in order, but if
+// any fail, the entire operation fails.
+func (s *APIServer) EditMetadata(ctx context.Context, req *metadatapb.EditMetadataRequest) (*metadatapb.EditMetadataResponse, error) {
+	res := &metadatapb.EditMetadataResponse{}
+	if err := metadata.EditMetadata(ctx, s.env.DB, req); err != nil {
+		return res, status.Errorf(codes.FailedPrecondition, "apply edits: %v", err)
+	}
+	return res, nil
 }

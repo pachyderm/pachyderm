@@ -1,6 +1,10 @@
 package pachd
 
 import (
+	"fmt"
+	"net/url"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -23,7 +27,7 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	ctx := pctx.TestContext(t)
 	cfg := zap.NewProductionConfig()
 	cfg.Sampling = nil
-	// cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
 	cfg.Level.SetLevel(zapcore.DebugLevel)
 	logger, err := cfg.Build()
 	require.NoError(t, err, "should be able to make a realenv logger")

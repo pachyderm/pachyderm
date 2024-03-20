@@ -18,6 +18,8 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/metadata",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/pfs",
+        "@com_github_envoyproxy_protoc_gen_validate//validate",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//runtime",
         "@com_github_grpc_ecosystem_grpc_gateway_v2//utilities",
         "@org_golang_google_grpc//:grpc",
