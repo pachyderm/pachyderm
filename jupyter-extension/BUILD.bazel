@@ -1,3 +1,5 @@
+exports_files(["requirements.txt", "requirements-dev.txt"])
+
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_python//python/pip_install:repositories.bzl", "requirement")
 
@@ -19,6 +21,7 @@ compile_pip_requirements(
 load("@rules_pyvenv//:venv.bzl", "py_venv")
 load("@pip-requirements//:requirements.bzl", "all_requirements")
 load("@pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements")
+
 py_venv(
     name = "venv",
     deps = all_requirements + all_requirements_dev,
