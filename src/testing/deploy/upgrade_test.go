@@ -65,10 +65,27 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 				&minikubetestenv.DeployOpts{
 					PortOffset:     portOffset,
 					CleanupAfter:   true,
-					ValueOverrides: map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					ValueOverrides: helmValuesPreGoCDK(),
 				}), from)
 			t.Logf("postUpgrade done")
 		})
+	}
+}
+
+func helmValuesPreGoCDK() map[string]string {
+	return map[string]string{
+		"pachw.minReplicas": "1",
+		"pachw.maxReplicas": "5",
+		"pachd.replicas":    strconv.Itoa(numPachds),
+		// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
+		// so to make UpgradeTest work, we overried configuration with these "old" minio values.
+		"pachd.storage.backend":         "MINIO",
+		"pachd.storage.minio.bucket":    "pachyderm-test",
+		"pachd.storage.minio.endpoint":  "minio.default.svc.cluster.local:9000",
+		"pachd.storage.minio.id":        "minioadmin",
+		"pachd.storage.minio.secret":    "minioadmin",
+		"pachd.storage.minio.signature": "",
+		"pachd.storage.minio.secure":    "false",
 	}
 }
 
