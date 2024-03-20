@@ -7342,3 +7342,43 @@ func TestInspectProjectV2(t *testing.T) {
 	require.NoError(t, err, "InspectProjectV2 must succeed with a real project")
 	require.Equal(t, `{"createPipelineRequest": {"datumTries": 2}}`, resp.DefaultsJson)
 }
+
+func TestReposSummary(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+	projectNames := []string{"A", "B", "C"}
+	data := strings.Repeat("a", 50)
+	for _, p := range projectNames {
+		require.NoError(t, c.CreateProject(p))
+		for i := 0; i < 5; i++ {
+			r := fmt.Sprintf("%s-%d", p, i)
+			require.NoError(t, c.CreateRepo(p, r))
+		}
+	}
+	summaryResp, err := c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
+		Projects: []*pfs.Project{client.NewProject("B"), client.NewProject("A")},
+	})
+	require.NoError(t, err)
+	require.Len(t, summaryResp.Summaries, 2)
+	idx := 0
+	require.Equal(t, "B", summaryResp.Summaries[idx].Project.Name)
+	require.Equal(t, 5, int(summaryResp.Summaries[idx].UserRepoCount))
+	require.Equal(t, int64(0), summaryResp.Summaries[idx].SizeBytes)
+	idx = 1
+	require.Equal(t, "A", summaryResp.Summaries[idx].Project.Name)
+	require.Equal(t, 5, int(summaryResp.Summaries[idx].UserRepoCount))
+	require.Equal(t, int64(0), summaryResp.Summaries[idx].SizeBytes)
+	commit := client.NewCommit("B", "B-2", "master", "")
+	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
+	commit = client.NewCommit("B", "B-3", "master", "")
+	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
+	summaryResp, err = c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
+		Projects: []*pfs.Project{client.NewProject("B")},
+	})
+	require.NoError(t, err)
+	require.Len(t, summaryResp.Summaries, 1)
+	require.Equal(t, "B", summaryResp.Summaries[0].Project.Name)
+	// FIX THIS
+	// require.Equal(t, 2*len([]byte(data)), summaryResp.Summaries[0].SizeBytes)
+}
