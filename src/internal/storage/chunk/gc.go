@@ -71,7 +71,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 			return errors.EnsureStack(err)
 		}
 		eg.Go(func() error {
-			return gc.deleteHelper(ctx, ent)
+			return gc.deleteOneWithLogs(ctx, ent)
 		})
 	}
 
@@ -91,7 +91,6 @@ func (gc *GarbageCollector) deleteOneWithLogs(ctx context.Context, ent Entry) er
 		return err
 	}
 	log.Info(ctx, "deleting object for chunk entry", fields...)
-
 	return nil
 }
 
