@@ -202,6 +202,79 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			args:    []string{"project", "default", "set", "key=value"},
 			wantErr: true,
 		},
+		{
+			name: "edit a commit",
+			args: []string{"commit", "images@master", "edit", "key=value",
+				"commit", "images@44444444444444444444444444444444", "edit", "key=value"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Commit{
+							Commit: &pfs.CommitPicker{
+								Picker: &pfs.CommitPicker_BranchHead{
+									BranchHead: &pfs.BranchPicker{
+										Picker: &pfs.BranchPicker_Name{
+											Name: &pfs.BranchPicker_BranchName{
+												Repo: &pfs.RepoPicker{
+													Picker: &pfs.RepoPicker_Name{
+														Name: &pfs.RepoPicker_RepoName{
+															Project: &pfs.ProjectPicker{
+																Picker: &pfs.ProjectPicker_Name{
+																	Name: "the_default_project",
+																},
+															},
+															Name: "images",
+															Type: "user",
+														},
+													},
+												},
+												Name: "master",
+											},
+										},
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_EditKey_{
+							EditKey: &metadata.Edit_EditKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+					{
+						Target: &metadata.Edit_Commit{
+							Commit: &pfs.CommitPicker{
+								Picker: &pfs.CommitPicker_Id{
+									Id: &pfs.CommitPicker_CommitByGlobalId{
+										Repo: &pfs.RepoPicker{
+											Picker: &pfs.RepoPicker_Name{
+												Name: &pfs.RepoPicker_RepoName{
+													Project: &pfs.ProjectPicker{
+														Picker: &pfs.ProjectPicker_Name{
+															Name: "the_default_project",
+														},
+													},
+													Name: "images",
+													Type: "user",
+												},
+											},
+										},
+										Id: "44444444444444444444444444444444",
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_EditKey_{
+							EditKey: &metadata.Edit_EditKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testData {
