@@ -82,7 +82,7 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 	return errors.EnsureStack(rows.Err())
 }
 
-func (gc *GarbageCollector) deleteHelper(ctx context.Context, ent Entry) error {
+func (gc *GarbageCollector) deleteOneWithLogs(ctx context.Context, ent Entry) error {
 	fields := []log.Field{zap.Stringer("chunkID", ent.ChunkID), zap.Uint64("gen", ent.Gen)}
 	if !ent.Uploaded {
 		log.Info(ctx, "possibility for untracked chunk", fields...)
