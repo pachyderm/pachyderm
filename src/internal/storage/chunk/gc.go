@@ -20,11 +20,9 @@ type GarbageCollector struct {
 // NewGC returns a new garbage collector operating on s
 func NewGC(s *Storage, d time.Duration, opts ...GCOption) *GarbageCollector {
 	gc := &GarbageCollector{s: s, period: d}
-
 	for _, opt := range opts {
 		opt(gc)
 	}
-
 	return gc
 }
 
@@ -74,11 +72,9 @@ func (gc *GarbageCollector) RunOnce(ctx context.Context) (retErr error) {
 			return gc.deleteOneWithLogs(ctx, ent)
 		})
 	}
-
 	if err := eg.Wait(); err != nil {
 		return errors.EnsureStack(err)
 	}
-
 	return errors.EnsureStack(rows.Err())
 }
 
