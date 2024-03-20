@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -12,14 +11,15 @@ import (
 )
 
 // Cmds returns a slice containing admin commands.
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	inspectCluster := &cobra.Command{
 		Short: "Returns info about the pachyderm cluster",
 		Long:  "Returns info about the pachyderm cluster",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			c, err := pachctlCfg.NewOnUserMachine(ctx, false)
 			if err != nil {
 				return err
 			}

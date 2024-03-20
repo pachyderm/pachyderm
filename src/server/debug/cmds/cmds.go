@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -23,7 +24,7 @@ import (
 )
 
 // Cmds returns a slice containing debug commands.
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var duration time.Duration
@@ -32,7 +33,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	var pipeline string
 	var worker string
 	var setGRPCLevel bool
-	var levelChangeDuration time.Duration
+	var levelChangeDuration, traceDuration time.Duration
 	var recursivelySetLogLevel bool
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
@@ -45,8 +46,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} cpu --pachd -d 30s cpu.tgz \n" +
 			"\t- {{alias}} cpu --pipeline foo -d 30s foo-pipeline.tgz \n" +
 			"\t- {{alias}} cpu --worker foo-v1-r6pdq -d 30s worker.tgz \n",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -64,7 +65,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				return err
 			}
 			return withFile(args[1], func(f *os.File) error {
-				return client.Profile(p, filter, f)
+				return client.Profile(client.Ctx(), p, filter, f)
 			})
 		}),
 	}
@@ -82,8 +83,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} --pachd pachd-binary.tgz \n" +
 			"\t- {{alias}} --worker foo-v1-r6pdq foo-pod-binary.tgz \n" +
 			"\t- {{alias}} --pipeline foo foo-binary.tgz \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -109,8 +110,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"Use the modified template with the `debug dump` command (e.g., `pachctl debug dump --template debug-template.yaml out.tgz`) \n",
 		Example: "\t- {{alias}} \n" +
 			"\t- {{alias}} > debug-template.yaml\n",
-		Run: cmdutil.Run(func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -136,8 +137,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"You can customize this output by passing in a customized template (made from `pachctl debug template` via the `--template` flag.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} -t template.yaml out.tgz\n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -226,7 +227,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					name = s.GetLiteral().GetName()
 					program = s.GetLiteral().GetProgramText()
 				}
-				if err := env.RunStarlark(mainCtx, name, program); err != nil {
+				if err := env.RunStarlark(cmd.Context(), name, program); err != nil {
 					errors.JoinInto(&errs, errors.Wrapf(err, "run script %q", name))
 				}
 			}
@@ -252,7 +253,7 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Long:  "This command starts a local pachd server to analyze a debug dump.",
 		Example: "\t- {{alias}} dump.tgz \n" +
 			"\t- {{alias}} dump.tgz --port 1650 \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			dump := shell.NewDumpServer(args[0], uint16(serverPort))
 			fmt.Println("listening on", dump.Address())
 			select {}
@@ -270,8 +271,8 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			"\t- {{alias}} info --duration 5m \n" +
 			"\t- {{alias}} info --grpc --duration 5m \n" +
 			"\t- {{alias}} info --recursive false --duration 5m \n",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -312,6 +313,77 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "Set the grpc log level instead of the Pachyderm log level.")
 	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "Set the log level on all Pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
+
+	trace := &cobra.Command{
+		Use:   "{{alias}} [output file]",
+		Short: "Collect a Go trace.",
+		Long:  "Collect a Go trace.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
+			var output *os.File
+			if len(args) == 0 {
+				var err error
+				output, err = os.CreateTemp("", "pachyderm-go-trace-")
+				if err != nil {
+					return errors.Wrap(err, "create temporary output file")
+				}
+			} else {
+				var err error
+				output, err = os.OpenFile(args[0], os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o666)
+				if err != nil {
+					return errors.Wrapf(err, "create output file %v", args[0])
+				}
+			}
+			var outputOK bool
+			defer func() {
+				if !outputOK {
+					if err := os.Remove(output.Name()); err != nil {
+						fmt.Fprintf(os.Stderr, "can't remove corrupt output file: %v", err)
+					}
+				}
+			}()
+
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			tc, err := c.DebugClient.Trace(c.Ctx(), &debug.TraceRequest{
+				Duration: durationpb.New(traceDuration),
+			})
+			if err != nil {
+				return errors.Wrap(err, "start trace")
+			}
+			for {
+				chunk, err := tc.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+				}
+				switch x := chunk.GetReply().(type) {
+				case *debug.TraceChunk_Bytes:
+					if _, err := output.Write(x.Bytes.GetValue()); err != nil {
+						return errors.Wrap(err, "write trace data")
+					}
+				}
+			}
+			outputOK = true
+			if err := output.Close(); err != nil {
+				return errors.Wrap(err, "close output")
+			}
+			if len(args) == 0 {
+				fmt.Printf("%s\n", output.Name())
+				cmd := exec.CommandContext(cmd.Context(), "go", "tool", "trace", output.Name())
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Run() //nolint:errcheck
+			}
+			return nil
+		}),
+	}
+	trace.Flags().DurationVarP(&traceDuration, "duration", "d", 30*time.Second, "how long to trace for")
+	commands = append(commands, cmdutil.CreateAlias(trace, "debug trace"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",

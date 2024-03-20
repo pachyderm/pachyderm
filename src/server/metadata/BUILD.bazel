@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "metadata",
+    srcs = ["metadata.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/dbutil",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pfsdb",
+        "//src/metadata",
+    ],
+)
+
+go_test(
+    name = "metadata_test",
+    srcs = ["metadata_test.go"],
+    embed = [":metadata"],
+    deps = [
+        "//src/metadata",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+    ],
+)

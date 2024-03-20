@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/errors",
+        "//src/internal/lokiutil/client",
         "//src/logs",
         "//src/server/logs",
         "@org_golang_google_grpc//codes",
@@ -19,6 +20,9 @@ go_test(
     srcs = ["api_server_test.go"],
     deps = [
         "//src/internal/dockertestenv",
+        "//src/internal/lokiutil",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pachconfig",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testpachd/realenv",

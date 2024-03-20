@@ -11,6 +11,7 @@ import (
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
@@ -23,12 +24,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -113,8 +116,8 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerVersionServer,
 		fb.registerDebugServer,
 		fb.registerProxyServer,
-		fb.registerLogsServer,
 		fb.registerMetadataServer,
+		fb.registerLogsServer,
 		fb.initS3Server,
 		fb.initPrometheusServer,
 		fb.initPachwController,
@@ -166,6 +169,7 @@ type Full struct {
 	pfsSrv      pfs.APIServer
 	ppsSrv      pps.APIServer
 	metadataSrv metadata.APIServer
+	adminSrv    admin.APIServer
 	// TODO
 	// debugSrv debug.DebugServer
 
@@ -238,6 +242,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPipelineInspector: func() pfs_server.PipelineInspector {
 					panic("GetPipelineInspector")
 				},
+				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
 		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {
@@ -252,7 +257,10 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
 			}
 		}),
-		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) { return }),
+		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) {
+			env.DB = pd.env.DB
+			return
+		}),
 		setupStep{
 			Name: "initTransactionEnv",
 			Fn: func(ctx context.Context) error {
@@ -262,6 +270,21 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					func() transactionenv.PPSBackend { return pd.ppsSrv.(pps_server.APIServer) },
 					pd.txnSrv.(txn_server.APIServer),
 				)
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initAdminServer",
+			Fn: func(ctx context.Context) error {
+				pd.adminSrv = admin_server.NewAPIServer(admin_server.Env{
+					ClusterID: "mockPachd",
+					Config: &pachconfig.Configuration{
+						GlobalConfiguration:        &config.GlobalConfiguration,
+						PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+					},
+					PFSServer: pd.pfsSrv,
+					Paused:    false,
+				})
 				return nil
 			},
 		},
@@ -292,6 +315,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		auth.RegisterAPIServer(gs, pd.authSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
+		admin.RegisterAPIServer(gs, pd.adminSrv)
 	}))
 	return pd
 }
