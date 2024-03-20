@@ -1,5 +1,5 @@
-load("//private/rules:rules.bzl", "installable_binary")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("//private/rules:rules.bzl", "installable_binary")
 
 go_library(
     name = "pachctl_lib",
