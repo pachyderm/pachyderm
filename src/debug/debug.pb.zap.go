@@ -307,3 +307,19 @@ func (x *RunPFSLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddString("state_id", x.StateId)
 	return nil
 }
+
+func (x *TraceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	return nil
+}
+
+func (x *TraceChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytesValue(enc, "bytes", x.GetBytes())
+	return nil
+}

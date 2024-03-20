@@ -228,6 +228,18 @@ class RunPfsLoadTestResponse(betterproto.Message):
     state_id: str = betterproto.string_field(6)
 
 
+@dataclass(eq=False, repr=False)
+class TraceRequest(betterproto.Message):
+    duration: timedelta = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class TraceChunk(betterproto.Message):
+    bytes: Optional[bytes] = betterproto.message_field(
+        1, wraps=betterproto.TYPE_BYTES, group="reply"
+    )
+
+
 class DebugStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -260,6 +272,11 @@ class DebugStub:
             "/debug_v2.Debug/DumpV2",
             request_serializer=DumpV2Request.SerializeToString,
             response_deserializer=DumpChunk.FromString,
+        )
+        self.__rpc_trace = channel.unary_stream(
+            "/debug_v2.Debug/Trace",
+            request_serializer=TraceRequest.SerializeToString,
+            response_deserializer=TraceChunk.FromString,
         )
         self.__rpc_run_pfs_load_test = channel.unary_unary(
             "/debug_v2.Debug/RunPFSLoadTest",
@@ -363,6 +380,15 @@ class DebugStub:
             request.starlark_scripts = starlark_scripts
 
         for response in self.__rpc_dump_v2(request):
+            yield response
+
+    def trace(self, *, duration: timedelta = None) -> Iterator["TraceChunk"]:
+
+        request = TraceRequest()
+        if duration is not None:
+            request.duration = duration
+
+        for response in self.__rpc_trace(request):
             yield response
 
     def run_pfs_load_test(

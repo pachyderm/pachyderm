@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -32,7 +33,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var pipeline string
 	var worker string
 	var setGRPCLevel bool
-	var levelChangeDuration time.Duration
+	var levelChangeDuration, traceDuration time.Duration
 	var recursivelySetLogLevel bool
 	profile := &cobra.Command{
 		Use:   "{{alias}} <profile> <file>",
@@ -312,6 +313,77 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	log.Flags().BoolVarP(&setGRPCLevel, "grpc", "g", false, "Set the grpc log level instead of the Pachyderm log level.")
 	log.Flags().BoolVarP(&recursivelySetLogLevel, "recursive", "r", true, "Set the log level on all Pachyderm pods; if false, only the pachd that handles this RPC")
 	commands = append(commands, cmdutil.CreateAlias(log, "debug log-level"))
+
+	trace := &cobra.Command{
+		Use:   "{{alias}} [output file]",
+		Short: "Collect a Go trace.",
+		Long:  "Collect a Go trace.",
+		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+			var output *os.File
+			if len(args) == 0 {
+				var err error
+				output, err = os.CreateTemp("", "pachyderm-go-trace-")
+				if err != nil {
+					return errors.Wrap(err, "create temporary output file")
+				}
+			} else {
+				var err error
+				output, err = os.OpenFile(args[0], os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o666)
+				if err != nil {
+					return errors.Wrapf(err, "create output file %v", args[0])
+				}
+			}
+			var outputOK bool
+			defer func() {
+				if !outputOK {
+					if err := os.Remove(output.Name()); err != nil {
+						fmt.Fprintf(os.Stderr, "can't remove corrupt output file: %v", err)
+					}
+				}
+			}()
+
+			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			if err != nil {
+				return err
+			}
+			defer c.Close()
+
+			tc, err := c.DebugClient.Trace(c.Ctx(), &debug.TraceRequest{
+				Duration: durationpb.New(traceDuration),
+			})
+			if err != nil {
+				return errors.Wrap(err, "start trace")
+			}
+			for {
+				chunk, err := tc.Recv()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+				}
+				switch x := chunk.GetReply().(type) {
+				case *debug.TraceChunk_Bytes:
+					if _, err := output.Write(x.Bytes.GetValue()); err != nil {
+						return errors.Wrap(err, "write trace data")
+					}
+				}
+			}
+			outputOK = true
+			if err := output.Close(); err != nil {
+				return errors.Wrap(err, "close output")
+			}
+			if len(args) == 0 {
+				fmt.Printf("%s\n", output.Name())
+				cmd := exec.CommandContext(mainCtx, "go", "tool", "trace", output.Name())
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Run() //nolint:errcheck
+			}
+			return nil
+		}),
+	}
+	trace.Flags().DurationVarP(&traceDuration, "duration", "d", 30*time.Second, "how long to trace for")
+	commands = append(commands, cmdutil.CreateAlias(trace, "debug trace"))
 
 	debug := &cobra.Command{
 		Short: "Debug commands for analyzing a running cluster.",
