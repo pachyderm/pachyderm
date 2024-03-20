@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "server",
@@ -11,17 +11,5 @@ go_library(
         "//src/server/metadata",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
-    ],
-)
-
-go_test(
-    name = "server_test",
-    size = "small",
-    srcs = ["server_test.go"],
-    embed = [":server"],
-    deps = [
-        "//src/metadata",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_google_go_cmp//cmp/cmpopts",
     ],
 )

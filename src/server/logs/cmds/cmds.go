@@ -36,6 +36,7 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 
 func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_Admin{
 				Admin: &logs.AdminLogQuery{

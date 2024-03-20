@@ -2,13 +2,20 @@ package cmds
 
 import (
 	"context"
+	"fmt"
+	"net/http/httptest"
+	"net/url"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testpachd/realenv"
@@ -30,14 +37,36 @@ func TestGetLogs_noauth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v foo", i),
+				})
+			}
+			return entries
+		}
+		srv = httptest.NewServer(&lokiutil.FakeServer{
+			Entries: buildEntries(),
+		})
+		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+			func(c *pachconfig.Configuration) {
+				u, err := url.Parse(srv.URL)
+				if err != nil {
+					panic(err)
+				}
+				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+			})
+		c = env.PachClient
+	)
 	mockInspectCluster(env)
 
 	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
-		pachctl logs2 | match "GetLogs dummy response"`,
+		pachctl logs2 | match "99 foo"`,
 	).Run())
 }
 
@@ -46,9 +75,31 @@ func TestGetLogs_nonadmin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v bar", i),
+				})
+			}
+			return entries
+		}
+		srv = httptest.NewServer(&lokiutil.FakeServer{
+			Entries: buildEntries(),
+		})
+		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+			func(c *pachconfig.Configuration) {
+				u, err := url.Parse(srv.URL)
+				if err != nil {
+					panic(err)
+				}
+				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+			})
+		c = env.PachClient
+	)
 	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	alice := testutil.UniqueString("robot:alice")
@@ -56,7 +107,7 @@ func TestGetLogs_nonadmin(t *testing.T) {
 
 	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(aliceClient.Ctx(), t, aliceClient, `
-		pachctl logs2 | match "GetLogs dummy response"`,
+		pachctl logs2 | match "98 bar"`,
 	).Run())
 }
 
@@ -65,15 +116,37 @@ func TestGetLogs_admin(t *testing.T) {
 		t.Skip("Skipping integration tests in short mode")
 	}
 
-	ctx := pctx.TestContext(t)
-	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
-	c := env.PachClient
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v baz", i),
+				})
+			}
+			return entries
+		}
+		srv = httptest.NewServer(&lokiutil.FakeServer{
+			Entries: buildEntries(),
+		})
+		env = realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption,
+			func(c *pachconfig.Configuration) {
+				u, err := url.Parse(srv.URL)
+				if err != nil {
+					panic(err)
+				}
+				c.LokiHost, c.LokiPort = u.Hostname(), u.Port()
+			})
+		c = env.PachClient
+	)
 	mockInspectCluster(env)
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	adminClient := testutil.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
 	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(adminClient.Ctx(), t, adminClient, `
-		pachctl logs2 | match "GetLogs dummy response"`,
+		pachctl logs2 | match "12 baz"`,
 	).Run())
 }
