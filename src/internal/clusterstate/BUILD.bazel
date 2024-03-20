@@ -53,11 +53,11 @@ go_test(
     deps = [
         "//src/internal/clusterstate/v2.7.0:v2_7_0",
         "//src/internal/clusterstate/v2.8.0:v2_8_0",
+        "//src/internal/clusterstate/v2.8.0/pfsdb_28x",
         "//src/internal/dockertestenv",
         "//src/internal/migrations",
         "//src/internal/pbutil",
         "//src/internal/pctx",
-        "//src/internal/pfsdb",
         "//src/internal/require",
         "//src/internal/testetcd",
         "//src/pfs",
