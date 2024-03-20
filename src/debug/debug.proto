@@ -7,6 +7,8 @@ import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
 
+import "protoextensions/validate.proto";
+
 import "pps/pps.proto";
 import "pfs/pfs.proto";
 
@@ -175,6 +177,16 @@ message RunPFSLoadTestResponse {
   string state_id = 6;
 }
 
+message TraceRequest {
+  google.protobuf.Duration duration = 1 [(validate.rules).duration.gt.seconds = 0, (validate.rules).duration.required = true];
+}
+
+message TraceChunk {
+  oneof reply {
+    google.protobuf.BytesValue bytes = 1;
+  }
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
@@ -182,6 +194,7 @@ service Debug {
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
   rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
   rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
+  rpc Trace(TraceRequest) returns (stream TraceChunk) {}
 
   // RunLoadTest runs a load test.
   rpc RunPFSLoadTest(RunPFSLoadTestRequest) returns (RunPFSLoadTestResponse) {}

@@ -976,6 +976,44 @@
         ]
       }
     },
+    "/debug_v2.Debug/Trace": {
+      "post": {
+        "operationId": "Debug_Trace",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/debug_v2TraceChunk"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of debug_v2TraceChunk"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/debug_v2TraceRequest"
+            }
+          }
+        ]
+      }
+    },
     "/debug_v2.Debug/RunPFSLoadTest": {
       "post": {
         "summary": "RunLoadTest runs a load test.",
@@ -7040,6 +7078,23 @@
             "type": "object",
             "$ref": "#/definitions/debug_v2App"
           }
+        }
+      }
+    },
+    "debug_v2TraceChunk": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "debug_v2TraceRequest": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string"
         }
       }
     },

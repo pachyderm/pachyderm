@@ -456,3 +456,54 @@ def ibazel_deps():
         downloaded_file_path = "ibazel",
         executable = True,
     )
+
+def loki_deps():
+    """loki and logcli binaries, for //tools."""
+    http_archive(
+        name = "com_github_grafana_loki_loki_x86_64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-amd64.zip",
+        sha256 = "f9c577d54e35e5f46b1a9d0e0788299a0c1e69975ee999d27c3dc711942cc973",
+        build_file_content = """exports_files(["loki-linux-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_aarch64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-linux-arm64.zip",
+        sha256 = "8679a7a6260ae67bdc50d50ba51cfa2817b6aba9ededf63b62dc8670552507a1",
+        build_file_content = """exports_files(["loki-linux-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_x86_64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-amd64.zip",
+        sha256 = "ab18da94a900edcda0bee6b59d10f385fd47486282ebf08accc7adb012edd93e",
+        build_file_content = """exports_files(["loki-darwin-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_loki_aarch64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/loki-darwin-arm64.zip",
+        sha256 = "dd63acd073ef5305f0f90651d75d6fe2810d5f2811ec366bf05e7545eb8aa6ff",
+        build_file_content = """exports_files(["loki-darwin-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_x86_64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-amd64.zip",
+        sha256 = "8fe59a3b2f83c02920f29251a97ad1f6d4a83a8bbbc20097b73fb839d946cb75",
+        build_file_content = """exports_files(["logcli-linux-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_aarch64_linux",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-linux-arm64.zip",
+        sha256 = "e2c3cb728402087cadc120e190d617db8e0b39eb21bbff73f0d040e535822ca8",
+        build_file_content = """exports_files(["logcli-linux-arm64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_x86_64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-amd64.zip",
+        sha256 = "f2c8583460e86fd8ba07cd055340b9f7432cf8df05d5afd333f6277dc420b009",
+        build_file_content = """exports_files(["logcli-darwin-amd64"])""",
+    )
+    http_archive(
+        name = "com_github_grafana_loki_logcli_aarch64_macos",
+        url = "https://github.com/grafana/loki/releases/download/v2.6.1/logcli-darwin-arm64.zip",
+        sha256 = "81dafec9d6357fa3303bc3d913df45e11a364dbc2577fa6b948f2bd0620ab565",
+        build_file_content = """exports_files(["logcli-darwin-arm64"])""",
+    )
