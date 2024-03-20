@@ -22,7 +22,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	editMetadata := &cobra.Command{
 		Use:   `{{alias}} [<object type: project> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
 		Short: "Edits an object's metadata",
-		Long:  "Edits an object's metadata",
+		Long:  "Edits an object's metadata.",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			req, err := parseEditMetadataCmdline(args)
 			if err != nil {
@@ -47,12 +47,15 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 }
 
 func parseKV(data string) (k, v string) {
-	// TODO(jrockway): Allow keys and values with = in them.
+	// TODO(jrockway, CORE-2228): Allow keys and values with = in them.
 	parts := strings.SplitN(data, "=", 2)
 	return parts[0], parts[1]
 }
 
 func parseData(data string) (result map[string]string, _ error) {
+	if len(data) == 0 || data[0] != '{' {
+		return nil, errors.New("data must be a JSON object")
+	}
 	if err := json.Unmarshal([]byte(data), &result); err != nil {
 		return nil, errors.Wrap(err, "parse json data")
 	}

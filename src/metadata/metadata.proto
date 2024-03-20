@@ -11,6 +11,7 @@ import "protoextensions/validate.proto";
 message Edit {
   // target is the object whose metadata will be edited.
   oneof target {
+    option (validate.required) = true;
     // project targets a named project's metadata.
     pfs_v2.ProjectPicker project = 1 [(validate.rules).message.required = true];
   }
@@ -45,6 +46,7 @@ message Edit {
 
   // op is the operation to perform on the target object's metadata.
   oneof op {
+    option (validate.required) = true;
     // replace replaces a target's metadata with a new metadata mapping.
     Replace replace = 10 [(validate.rules).message.required = true];
     // add_key adds a new key to the target object's metadata.

@@ -181,9 +181,16 @@ in sync. If you forget to run this, nothing will work, so it's unlikely that you
 
 ### pachctl
 
-To run pachctl, `bazel run //:pachctl`. You can also build the binary and copy it to $PATH, if you
-like. After `bazel run //:pachctl` or `bazel build //:pachctl`, it will be in
-`bazel-bin/src/server/cmd/pachctl/pachctl_/pachctl`.
+To run pachctl, `bazel run //:pachctl`.
+
+If you want to install `pachctl` from this source tree, run
+`bazel run //src/server/cmd/pachctl:install` or `bazel run //src/serer/cmd/pachctl:install_nostamp`.
+The `nostamp` variant doesn't have a version number baked into it, much like a normal
+`go install ./src/server/cmd/pachctl`. This avoids it printing a message when it's not the same
+version as pachd. From a release tag, you probably want the stamped version. From a random working
+copy, you probably want the nostamp version. (The warning about version mismatches is annoying, but
+important if you're working on pachd and pachctl at the same time; it probably means you forgot to
+restart pachd after your change, so it potentially reminds you.)
 
 ## Hints
 

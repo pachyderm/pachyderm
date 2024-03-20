@@ -3751,6 +3751,70 @@
           ]
         },
         {
+          "name": "TraceChunk",
+          "longName": "TraceChunk",
+          "fullName": "debug_v2.TraceChunk",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "bytes",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "reply",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TraceRequest",
+          "longName": "TraceRequest",
+          "fullName": "debug_v2.TraceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "duration",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "duration.required",
+                    "value": true
+                  },
+                  {
+                    "name": "duration.gt.seconds",
+                    "value": 0
+                  },
+                  {
+                    "name": "duration.gt.nanos",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Worker",
           "longName": "Worker",
           "fullName": "debug_v2.Worker",
@@ -3864,6 +3928,18 @@
               "responseType": "DumpChunk",
               "responseLongType": "DumpChunk",
               "responseFullType": "debug_v2.DumpChunk",
+              "responseStreaming": true
+            },
+            {
+              "name": "Trace",
+              "description": "",
+              "requestType": "TraceRequest",
+              "requestLongType": "TraceRequest",
+              "requestFullType": "debug_v2.TraceRequest",
+              "requestStreaming": false,
+              "responseType": "TraceChunk",
+              "responseLongType": "TraceChunk",
+              "responseFullType": "debug_v2.TraceChunk",
               "responseStreaming": true
             },
             {
@@ -9299,7 +9375,17 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "enum.not_in",
+                    "value": [
+                      0
+                    ]
+                  }
+                ]
+              }
             }
           ]
         },

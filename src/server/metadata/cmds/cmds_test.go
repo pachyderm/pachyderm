@@ -210,6 +210,12 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 				t.Fatalf("test case 'want' fails validation: %v", err)
 			}
 			got, err := parseEditMetadataCmdline(test.args)
+			if test.want == nil {
+				test.want = &metadata.EditMetadataRequest{}
+			}
+			if got == nil {
+				got = &metadata.EditMetadataRequest{}
+			}
 			if diff := cmp.Diff(test.want, got, protocmp.Transform(), cmpopts.EquateEmpty()); diff != "" {
 				t.Errorf("request (-want +got):\n%s", diff)
 			}
@@ -242,7 +248,7 @@ func TestEditMetadata_Add(t *testing.T) {
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl inspect project default
 		pachctl edit metadata project default add key1=value1
-		pachctl inspect project default --raw | match '"key1": "value1"'
+		pachctl inspect project default --raw | match '"key1":[[:space:]]+"value1"'
 `).Run())
 }
 
@@ -256,6 +262,6 @@ func TestEditMetadata_All(t *testing.T) {
 			project default add key3=value3 \
 			project default delete key \
 			project default edit key2=value2
-		pachctl inspect project default --raw | match '"key2": "value2"'
+		pachctl inspect project default --raw | match '"key2":[[:space:]]+"value2"'
 `).Run())
 }

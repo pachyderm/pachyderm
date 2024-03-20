@@ -73,6 +73,7 @@ var authHandlers = map[string]authHandler{
 	"/debug_v2.Debug/GetDumpV2Template":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/DumpV2":                authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/SetLogLevel":           authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Trace":                 authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/RunPFSLoadTest":        authDisabledOr(authenticated),
 	"/debug_v2.Debug/RunPFSLoadTestDefault": authDisabledOr(authenticated),
 

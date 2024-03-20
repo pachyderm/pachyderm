@@ -325,7 +325,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
-	realEnv.LogsServer, err = logsserver.NewAPIServer()
+	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{GetLokiClient: realEnv.ServiceEnv.GetLokiClient})
 	require.NoError(t, err)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)

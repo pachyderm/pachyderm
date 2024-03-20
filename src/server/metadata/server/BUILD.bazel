@@ -6,11 +6,11 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata/server",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/internal/dbutil",
-        "//src/internal/errors",
         "//src/internal/pachsql",
-        "//src/internal/pfsdb",
         "//src/metadata",
+        "//src/server/metadata",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 
