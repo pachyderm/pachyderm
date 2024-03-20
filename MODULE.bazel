@@ -9,7 +9,7 @@ bazel_dep(name = "gazelle", version = "0.35.0")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_go", version = "0.46.0")
 bazel_dep(name = "rules_oci", version = "1.5.1")
-bazel_dep(name = "rules_python", version = "0.27.1")
+bazel_dep(name = "rules_python", version = "0.31.0")
 
 bazel_dep(name = "buildifier_prebuilt", version = "6.4.0", dev_dependency = True)
 
@@ -394,8 +394,8 @@ oci.pull(
 )
 use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 
-python = use_extension("@rules_python//python:extensions.bzl", "python")
+python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     is_default = True,
-    python_version = "3.12.1",
+    python_version = "3.12",
 )
