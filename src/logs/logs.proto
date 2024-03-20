@@ -5,6 +5,7 @@ option go_package = "github.com/pachyderm/pachyderm/v2/src/logs";
 
 import "google/protobuf/timestamp.proto";
 import "google/protobuf/struct.proto";
+import "protoextensions/validate.proto";
 
 import "pps/pps.proto";
 
@@ -104,7 +105,7 @@ message GetLogsRequest {
   LogFilter filter = 2;
   bool tail = 3;
   bool want_paging_hint = 4;
-  LogFormat log_format = 5;
+  LogFormat log_format = 5 [(validate.rules).enum = {not_in: [0]}];
 }
 
 message GetLogsResponse {
