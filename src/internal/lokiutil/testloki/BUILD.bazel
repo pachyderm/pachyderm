@@ -27,5 +27,9 @@ go_test(
     size = "small",
     srcs = ["testloki_test.go"],
     embed = [":testloki"],
-    deps = ["//src/internal/pctx"],
+    deps = [
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+    ],
 )

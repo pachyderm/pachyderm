@@ -1,7 +1,9 @@
 package testloki
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"net"
 	"net/http"
@@ -156,7 +158,7 @@ func pingLoki(ctx context.Context, addr string, doLog bool) (retErr error) {
 		return errors.Wrap(err, "build /ready request")
 	}
 	client := &http.Client{
-		Transport: promutil.InstrumentRoundTripper("testloki", nil),
+		Transport: promutil.InstrumentRoundTripper("testloki.ping", nil),
 	}
 	if !doLog {
 		client = http.DefaultClient
@@ -178,6 +180,64 @@ func (l *TestLoki) Close() error {
 	l.killLoki(errors.New("killed with TestLoki.Close()"))
 	if err := <-l.lokiErrCh; err != nil {
 		return errors.Wrap(err, "wait for loki to exit")
+	}
+	return nil
+}
+
+// Log is a log entry to add to Loki.
+type Log struct {
+	Time    time.Time
+	Message string
+	Labels  map[string]string
+}
+
+type pushRequest struct {
+	Streams []stream `json:"streams"`
+}
+
+type stream struct {
+	Stream map[string]string `json:"stream"`
+	Values [][]string        `json:"values"`
+}
+
+// AddLog adds a log line to Loki.
+func (l *TestLoki) AddLog(ctx context.Context, lg *Log) (retErr error) {
+	pr := &pushRequest{
+		Streams: []stream{
+			{
+				Stream: lg.Labels,
+				Values: [][]string{
+					{
+						strconv.FormatInt(lg.Time.UnixNano(), 10),
+						lg.Message,
+					},
+				},
+			},
+		},
+	}
+	js, err := json.Marshal(pr)
+	if err != nil {
+		return errors.Wrapf(err, "marshal request %#v", pr)
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", l.Client.Address+"/loki/api/v1/push", bytes.NewReader(js))
+	if err != nil {
+		return errors.Wrap(err, "new request")
+	}
+	req.Header.Set("content-type", "application/json")
+	req.Header.Set("user-agent", "testloki")
+
+	client := &http.Client{
+		Transport: promutil.InstrumentRoundTripper("testloki.ping", nil),
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "do request")
+	}
+	defer errors.Close(&retErr, res.Body, "close body")
+	if res.StatusCode/100 != 2 {
+		body, _ := io.ReadAll(res.Body)
+		return errors.Wrapf(err, "unexpected response status %v: %v", res.StatusCode, body)
 	}
 	return nil
 }
