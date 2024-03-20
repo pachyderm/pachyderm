@@ -11,7 +11,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
 
