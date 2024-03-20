@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,15 +17,17 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"go.uber.org/zap"
 	"gopkg.in/yaml.v3"
 )
 
 // TestLoki is a real Loki instance.
 type TestLoki struct {
-	Port    int
-	Client  *client.Client
-	LokiCmd *exec.Cmd
+	Port      int
+	Client    *client.Client
+	killLoki  func(error)
+	lokiErrCh <-chan error
 }
 
 // New starts a new Loki instance on the local machine.
@@ -54,16 +57,31 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 	}
 	port := l.Addr().(*net.TCPAddr).Port
 
+	chunks, rules := filepath.Join(tmp, "chunks"), filepath.Join(tmp, "rules")
+	if err := os.MkdirAll(chunks, 0o755); err != nil {
+		return nil, errors.Wrap(err, "make chunk dir")
+	}
+	if err := os.MkdirAll(chunks+"-temp", 0o755); err != nil {
+		// loki logs this being missing at level "error", but it's crash recovery code, so
+		// it shouldn't exist.  sigh.
+		return nil, errors.Wrap(err, "make chunk-temp dir")
+	}
+	if err := os.MkdirAll(rules, 0o755); err != nil {
+		return nil, errors.Wrap(err, "make rules dir")
+	}
+	if err := os.MkdirAll(rules+"-temp", 0o755); err != nil {
+		return nil, errors.Wrap(err, "make rules-temp dir")
+	}
+
 	var config map[string]any
 	if err := yaml.Unmarshal(template, &config); err != nil {
 		return nil, errors.Wrapf(err, "unmarshal config.yaml template from %v", template)
 	}
-
 	config["common"].(map[string]any)["path_prefix"] = tmp
 	config["common"].(map[string]any)["storage"] = map[string]any{
 		"filesystem": map[string]any{
-			"chunks_directory": filepath.Join(tmp, "chunks"),
-			"rules_directory":  filepath.Join(tmp, "rules"),
+			"chunks_directory": chunks,
+			"rules_directory":  rules,
 		},
 	}
 	config["server"].(map[string]any)["http_listen_port"] = port
@@ -80,47 +98,86 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 		return nil, errors.Wrap(err, "write config.yaml")
 	}
 
+	ctx, killLoki := context.WithCancelCause(ctx)
+	lokiErrCh := make(chan error)
 	loki := exec.CommandContext(ctx, bin, "-config.file", configFile, "-log.level", "error")
 	loki.Stdout = io.Discard
 	loki.Stderr = log.WriterAt(pctx.Child(ctx, "loki.stderr"), log.DebugLevel)
 	if err := loki.Start(); err != nil {
 		return nil, errors.Wrap(err, "start loki")
 	}
+	go func() {
+		if err := loki.Wait(); err != nil {
+			exitErr := new(exec.ExitError)
+			if !errors.As(err, &exitErr) {
+				lokiErrCh <- errors.Wrap(err, "wait for loki to exit")
+			}
+		}
+		close(lokiErrCh)
+		// Avoid running the polling code below if Loki immediately exits.  This
+		// happens if the config is broken.
+		killLoki(errors.New("loki exited"))
+	}()
 
 	addr := "http://127.0.0.1:" + strconv.Itoa(port)
-	c := &client.Client{
-		Address: addr,
-	}
-	for {
-		ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
-		_, err := c.QueryRange(ctx, `{host=~".+"}`, 1000, time.Now(), time.Time{}, "BACKWARD", time.Second, time.Second, false)
-		cancel()
+	for i := 0; i < 300; i++ {
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(context.Cause(ctx), "context done")
+		default:
+		}
+		// Loki, with our config, starts up in ~300 milliseconds.  If it isn't ready after
+		// 1s, then start logging every 10th attempt.
+		doLog := i > 10 && i%10 == 0
+		err := pingLoki(ctx, addr, doLog)
 		if err == nil {
 			return &TestLoki{
-				Port:    port,
-				Client:  c,
-				LokiCmd: loki,
+				Port: port,
+				Client: &client.Client{
+					Address: addr,
+				},
+				killLoki:  killLoki,
+				lokiErrCh: lokiErrCh,
 			}, nil
 		}
-		log.Debug(ctx, "loki not ready; retrying in 100ms", zap.Error(err))
+		if doLog {
+			log.Debug(ctx, "loki not ready; retrying in 100ms", zap.Error(err))
+		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	return nil, errors.New("loki failed to start up after 30s")
+}
+
+func pingLoki(ctx context.Context, addr string, doLog bool) (retErr error) {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, "GET", addr+"/ready", nil)
+	if err != nil {
+		return errors.Wrap(err, "build /ready request")
+	}
+	client := &http.Client{
+		Transport: promutil.InstrumentRoundTripper("testloki", nil),
+	}
+	if !doLog {
+		client = http.DefaultClient
+	}
+	res, err := client.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "do request")
+	}
+	defer errors.Close(&retErr, res.Body, "close body")
+	if got, want := res.StatusCode, http.StatusOK; got != want {
+		body, _ := io.ReadAll(res.Body) // if this errors, fine, no extra info in error below
+		return errors.Errorf("loki not ready (%v): %s", res.Status, body)
+	}
+	return nil
 }
 
 // Close kills the running Loki.
 func (l *TestLoki) Close() error {
-	if l.LokiCmd == nil {
-		return errors.New("already closed")
+	l.killLoki(errors.New("killed with TestLoki.Close()"))
+	if err := <-l.lokiErrCh; err != nil {
+		return errors.Wrap(err, "wait for loki to exit")
 	}
-	if err := l.LokiCmd.Process.Kill(); err != nil {
-		return errors.Wrap(err, "kill loki")
-	}
-	if err := l.LokiCmd.Wait(); err != nil {
-		exitErr := new(exec.ExitError)
-		if !errors.As(err, &exitErr) {
-			return errors.Wrap(err, "wait for loki to exit")
-		}
-	}
-	l.LokiCmd = nil
 	return nil
 }

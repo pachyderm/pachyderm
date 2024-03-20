@@ -50,7 +50,6 @@ go_test(
     deps = [
         "//src/internal/config",
         "//src/internal/grpcutil",
-        "//src/internal/pctx",
         "//src/internal/require",
         "//src/internal/testutil",
         "//src/internal/uuid",

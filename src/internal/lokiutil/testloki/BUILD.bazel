@@ -14,6 +14,7 @@ go_library(
         "//src/internal/log",
         "//src/internal/lokiutil/client",
         "//src/internal/pctx",
+        "//src/internal/promutil",
         "@in_gopkg_yaml_v3//:yaml_v3",
         "@org_uber_go_zap//:zap",
         "@rules_go//go/runfiles:go_default_library",

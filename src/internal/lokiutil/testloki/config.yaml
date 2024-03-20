@@ -43,3 +43,10 @@ server:
     grpc_listen_port: 9095 # replaced in go
     http_listen_port: 3100 # replaced in go
     grpc_server_max_recv_msg_size: 67108864
+
+ingester:
+    lifecycler:
+        min_ready_duration: 0.001s
+
+frontend:
+    scheduler_dns_lookup_period: 0.001s
