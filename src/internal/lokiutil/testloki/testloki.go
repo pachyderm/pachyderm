@@ -123,11 +123,6 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 
 	addr := "http://127.0.0.1:" + strconv.Itoa(port)
 	for i := 0; i < 300; i++ {
-		select {
-		case <-ctx.Done():
-			return nil, errors.Wrap(context.Cause(ctx), "context done")
-		default:
-		}
 		// Loki, with our config, starts up in about 3 seconds.  If it isn't ready after 5s,
 		// then start logging every 10th attempt.
 		doLog := i > 50 && i%10 == 0
@@ -145,7 +140,11 @@ func New(ctx context.Context, tmp string) (*TestLoki, error) {
 		if doLog {
 			log.Debug(ctx, "loki not ready; retrying in 100ms", zap.Error(err))
 		}
-		time.Sleep(100 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			return nil, errors.Wrap(context.Cause(ctx), "context done")
+		case <-time.After(100 * time.Millisecond):
+		}
 	}
 	return nil, errors.New("loki failed to start up after 30s")
 }
@@ -228,7 +227,7 @@ func (l *TestLoki) AddLog(ctx context.Context, lg *Log) (retErr error) {
 	req.Header.Set("user-agent", "testloki")
 
 	client := &http.Client{
-		Transport: promutil.InstrumentRoundTripper("testloki.ping", nil),
+		Transport: promutil.InstrumentRoundTripper("testloki.push", nil),
 	}
 	res, err := client.Do(req)
 	if err != nil {
