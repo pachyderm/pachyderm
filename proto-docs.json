@@ -9375,7 +9375,17 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "enum.not_in",
+                    "value": [
+                      0
+                    ]
+                  }
+                ]
+              }
             }
           ]
         },

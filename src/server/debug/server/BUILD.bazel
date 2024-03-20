@@ -74,6 +74,7 @@ go_test(
         "//src/debug",
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/lokiutil",
         "//src/internal/lokiutil/client",
         "//src/internal/pachconfig",
         "//src/internal/pctx",

@@ -1597,7 +1597,16 @@ func (m *GetLogsRequest) validate(all bool) error {
 
 	// no validation rules for WantPagingHint
 
-	// no validation rules for LogFormat
+	if _, ok := _GetLogsRequest_LogFormat_NotInLookup[m.GetLogFormat()]; ok {
+		err := GetLogsRequestValidationError{
+			field:  "LogFormat",
+			reason: "value must not be in list [LOG_FORMAT_UNKNOWN]",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
 
 	if len(errors) > 0 {
 		return GetLogsRequestMultiError(errors)
@@ -1676,6 +1685,10 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GetLogsRequestValidationError{}
+
+var _GetLogsRequest_LogFormat_NotInLookup = map[LogFormat]struct{}{
+	0: {},
+}
 
 // Validate checks the field values on GetLogsResponse with the rules defined
 // in the proto definition for this message. If any rules are violated, the
