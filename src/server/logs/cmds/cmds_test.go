@@ -64,7 +64,6 @@ func TestGetLogs_noauth(t *testing.T) {
 	)
 	mockInspectCluster(env)
 
-	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
 		pachctl logs2 | match "99 foo"`,
 	).Run())
@@ -105,7 +104,6 @@ func TestGetLogs_nonadmin(t *testing.T) {
 	alice := testutil.UniqueString("robot:alice")
 	aliceClient := testutil.AuthenticatedPachClient(t, c, alice, peerPort)
 
-	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(aliceClient.Ctx(), t, aliceClient, `
 		pachctl logs2 | match "98 bar"`,
 	).Run())
@@ -145,7 +143,6 @@ func TestGetLogs_admin(t *testing.T) {
 	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
 	adminClient := testutil.AuthenticatedPachClient(t, c, auth.RootUser, peerPort)
 
-	// TODO(CORE-2123): check for real logs
 	require.NoError(t, testutil.PachctlBashCmdCtx(adminClient.Ctx(), t, adminClient, `
 		pachctl logs2 | match "12 baz"`,
 	).Run())
