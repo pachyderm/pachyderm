@@ -1,15 +1,22 @@
 load("@aspect_bazel_lib//lib:tar.bzl", "tar")
 load("//private/rules:rules.bzl", "copy_to_workspace")
 
-files = ["envoy", "envoy-tls"]
+files = [
+    "envoy",
+    "envoy-tls",
+]
 
 [
     genrule(
         name = "gen_" + x,
-        srcs = ["envoy.libsonnet", "pachyderm-services.libsonnet", x + ".jsonnet"],
-        tools = ["@jsonnet_go//cmd/jsonnet"],
+        srcs = [
+            "envoy.libsonnet",
+            "pachyderm-services.libsonnet",
+            x + ".jsonnet",
+        ],
         outs = [x + ".json"],
         cmd = "$(location @jsonnet_go//cmd/jsonnet) $(location :" + x + ".jsonnet) > $@",
+        tools = ["@jsonnet_go//cmd/jsonnet"],
         visibility = ["//etc/helm/pachyderm:__pkg__"],
     )
     for x in files
@@ -27,4 +34,5 @@ tar(
 copy_to_workspace(
     name = "update",
     src = ":envoy_config_bundle",
+    message = "Envoy configs are outdated.  Run 'bazel run //etc/generate-envoy-config:update' to update them.",
 )

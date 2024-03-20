@@ -7,6 +7,7 @@ licenses(["notice"])
 exports_files([
     "LICENSE",
     ".bazelversion",
+    "MODULE.bazel",
 ])
 
 # Conifigure supported architectures.  Note that some architectures are only supported for tooling
@@ -148,6 +149,7 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
+        "//etc/generate-envoy-config:update_test",
         "//etc/helm/pachyderm:helm_lint",
         "//src/proto:check_generated_protos",
     ],
