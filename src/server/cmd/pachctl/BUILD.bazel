@@ -1,3 +1,4 @@
+load("//private/rules:rules.bzl", "installable_binary")
 load("@rules_go//go:def.bzl", "go_binary", "go_library")
 
 go_library(
@@ -36,4 +37,21 @@ go_binary(
     embed = [":pachctl_lib"],
     pure = "on",
     visibility = ["//visibility:public"],
+)
+
+# This installs a pachctl binary into your $PATH.  It has the version built into it, so when you're
+# installing from a commit that's not tagged with a release, it's going to whine at you every time
+# you run it unless your pachd is the same exact version.
+installable_binary(
+    name = "install",
+    installed_name = "pachctl",
+    target = ":pachctl",
+)
+
+# This installs a pachctl binary into your $PATH.  It does not have the version built into it, so
+# the whining about incompatibility is suppressed.  Here be dragons and all that.
+installable_binary(
+    name = "install_nostamp",
+    installed_name = "pachctl",
+    target = ":pachctl_nostamp",
 )
