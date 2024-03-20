@@ -72,6 +72,15 @@ func NotMatch(tb testing.TB, shouldNotMatch string, actual string, msgAndArgs ..
 	}
 }
 
+// NoDiff does a diff, and fails if there are differences.  Use protocmp.Transform() to compare
+// protos.
+func NoDiff(tb testing.TB, expected any, actual any, opts []cmp.Option, msgAndArgs ...any) {
+	diff := cmp.Diff(expected, actual, opts...)
+	if diff != "" {
+		fatal(tb, msgAndArgs, "expected should match actual (-expected +actual):\n%s", diff)
+	}
+}
+
 // Equal checks the equality of two values
 func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs ...interface{}) {
 	tb.Helper()
