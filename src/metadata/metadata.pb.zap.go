@@ -14,6 +14,7 @@ func (x *Edit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddObject("project", x.GetProject())
+	enc.AddObject("commit", x.GetCommit())
 	if obj, ok := interface{}(x.GetReplace()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("replace", obj)
 	} else {
