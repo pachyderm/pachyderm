@@ -13,8 +13,6 @@ load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
 
-load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
 # rules_pyvenv contains functionality for creating a python virtual environment.
 http_archive(
     name = "rules_pyvenv",
