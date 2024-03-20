@@ -205,6 +205,7 @@ var _ encoding.TextUnmarshaler = (*ProjectPicker)(nil)
 
 type repoName Repo // repoName is a repo object used only to store the name and type of a repo.
 
+// UnmarshalText implements encoding.TextUnmarshaler.
 func (n *repoName) UnmarshalText(b []byte) error {
 	parts := bytes.SplitN(b, []byte{'.'}, 2)
 	switch len(parts) {
@@ -225,14 +226,14 @@ var _ encoding.TextUnmarshaler = (*repoName)(nil)
 // UnmarshalText implements encoding.TextUnmarshaler.
 func (p *RepoPicker) UnmarshalText(b []byte) error {
 	parts := bytes.SplitN(b, []byte{'/'}, 2)
-	var repo, project []byte
+	var project, repo []byte
 	switch len(parts) {
 	case 0:
 		return errors.New("invalid repo picker: empty")
 	case 1:
-		repo, project = parts[0], nil
+		project, repo = nil, parts[0]
 	case 2:
-		repo, project = parts[1], parts[0]
+		project, repo = parts[0], parts[1]
 	default:
 		return errors.New("invalid repo picker: too many slashes")
 	}
@@ -270,6 +271,7 @@ func onlyHex(p []byte) bool {
 	return true
 }
 
+// UnmarshalText implements encoding.TextUnmarshaler.
 func (p *CommitPicker) UnmarshalText(b []byte) error {
 	parts := bytes.SplitN(b, []byte{'@'}, 2)
 	var repo, id []byte
@@ -288,16 +290,19 @@ func (p *CommitPicker) UnmarshalText(b []byte) error {
 		return errors.Wrapf(err, "unmarshal repo picker %s", repo)
 	}
 	// TODO(PFS-229): Implement the other parsers.
-	// CommitPicker_AncestorOf
 	if bytes.HasSuffix(id, []byte{'^'}) {
+		// CommitPicker_AncestorOf
 		return errors.New("ancestor of commit syntax is currently unimplemented (id^); specify the exact id instead")
 	}
-	// CommitPicker_BranchRoot
 	if bytes.Contains(id, []byte{'.'}) {
+		// CommitPicker_BranchRoot
 		return errors.New("branch root commit syntax is currently unimplemented (id.N); specify the exact id instead")
 	}
+
+	// To distinguish global IDs and branch names, we look for a valid global ID first.  An ID
+	// is a hex-encoded UUIDv4 without dashes.  UUIDv4s always have the 13th (1 indexed) byte
+	// set to '4'.
 	if len(id) == 32 && id[12] == '4' && onlyHex(id) {
-		// CommitPicker_Id
 		p.Picker = &CommitPicker_Id{
 			Id: &CommitPicker_CommitByGlobalId{
 				Id:   string(bytes.ToLower(id)),
@@ -305,7 +310,7 @@ func (p *CommitPicker) UnmarshalText(b []byte) error {
 			},
 		}
 	} else {
-		// CommitPicker_BranchRoot
+		// Anything that isn't a valid UUIDv4 is a branch name.
 		p.Picker = &CommitPicker_BranchHead{
 			BranchHead: &BranchPicker{
 				Picker: &BranchPicker_Name{
