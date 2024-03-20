@@ -151,6 +151,6 @@ test_suite(
         ":buildifier_test",
         "//etc/generate-envoy-config:update_test",
         "//etc/helm/pachyderm:helm_lint",
-        "//src/proto:check_generated_protos",
+        "//src/proto:run_test",
     ],
 )

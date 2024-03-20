@@ -1,4 +1,4 @@
-load("//private/rules:rules.bzl", "host_native_binary")
+load("//private/rules:rules.bzl", "copy_to_workspace", "host_native_binary")
 
 host_native_binary(
     name = "protoc-gen-go",
@@ -86,38 +86,10 @@ genrule(
     ],
 )
 
-sh_binary(
-    name = "extract_sh",
-    srcs = ["extract.sh"],
-    args = ["$(location go_protos.tar)"],
-    data = [
-        "go_protos.tar",
-        "//src/proto/prototar",
-    ],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
-)
-
 # bazel build //src/proto:run will regenerate the protos in your working copy.
-alias(
+copy_to_workspace(
     name = "run",
-    actual = "extract_sh",
+    src = "gen_go_proto_bundle",
+    message = "Go protos are outdated.  Run 'bazel run //:make_proto' to update them.",
     visibility = ["//visibility:public"],
-)
-
-sh_test(
-    name = "check_generated_protos",
-    size = "small",
-    srcs = ["test.sh"],
-    data = [
-        "go_protos.tar",
-        "//src/proto/prototar",
-    ],
-    tags = [
-        "external",
-        "manual",
-        "no-cache",
-        "no-sandbox",
-        "style",
-    ],
-    deps = ["@bazel_tools//tools/bash/runfiles"],
 )
