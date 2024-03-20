@@ -410,8 +410,8 @@ pip.parse(
 pip.parse(
     hub_name = "jupyter-pip-requirements-dev",
     python_version = "3.9",
-    requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
     requirements_darwin = "//jupyter-extension:requirements-dev-lock-darwin.txt",
     requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
+    requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
 use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
