@@ -318,7 +318,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} [output file]",
 		Short: "Collect a Go trace.",
 		Long:  "Collect a Go trace.",
-		Run: cmdutil.RunBoundedArgs(0, 1, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 1, func(cmd *cobra.Command, args []string) error {
 			var output *os.File
 			if len(args) == 0 {
 				var err error
@@ -342,7 +342,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 				}
 			}()
 
-			c, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			c, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -374,7 +374,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 			}
 			if len(args) == 0 {
 				fmt.Printf("%s\n", output.Name())
-				cmd := exec.CommandContext(mainCtx, "go", "tool", "trace", output.Name())
+				cmd := exec.CommandContext(cmd.Context(), "go", "tool", "trace", output.Name())
 				cmd.Stdout = os.Stdout
 				cmd.Stderr = os.Stderr
 				cmd.Run() //nolint:errcheck
