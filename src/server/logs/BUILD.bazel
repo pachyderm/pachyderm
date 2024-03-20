@@ -20,6 +20,8 @@ go_test(
     deps = [
         ":logs",
         "//src/internal/errors",
+        "//src/internal/lokiutil",
+        "//src/internal/lokiutil/client",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/logs",

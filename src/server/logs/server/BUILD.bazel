@@ -7,7 +7,6 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/errors",
-        "//src/internal/log",
         "//src/internal/lokiutil/client",
         "//src/logs",
         "//src/server/logs",
