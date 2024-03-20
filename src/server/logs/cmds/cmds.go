@@ -36,6 +36,7 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 
 func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_Admin{
 				Admin: &logs.AdminLogQuery{
@@ -50,6 +51,7 @@ func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 
 func newPipelineRequest(project, pipeline string) *logs.GetLogsRequest {
 	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_User{
 				User: &logs.UserLogQuery{
@@ -79,7 +81,7 @@ func newProjectRequest(project string) *logs.GetLogsRequest {
 	}
 }
 
-func Cmds(ctx context.Context, pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var logQL, pipeline string

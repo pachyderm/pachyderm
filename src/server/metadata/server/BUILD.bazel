@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library", "go_test")
+load("@rules_go//go:def.bzl", "go_library")
 
 go_library(
     name = "server",
@@ -6,18 +6,10 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata/server",
     visibility = ["//visibility:public"],
     deps = [
+        "//src/internal/pachsql",
         "//src/metadata",
+        "//src/server/metadata",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
-    ],
-)
-
-go_test(
-    name = "server_test",
-    srcs = ["server_test.go"],
-    embed = [":server"],
-    deps = [
-        "//src/internal/pctx",
-        "//src/metadata",
     ],
 )

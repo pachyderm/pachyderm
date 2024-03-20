@@ -118,6 +118,18 @@ export class MountDrive implements Contents.IDrive {
       return this._getCachedContent();
     }
 
+    // Reset cache. It is important to reset this on any change in directory immediately. Otherwise the loading of files
+    // that happens in the background for folders with a large amount of files might attempt to continue which could fail if the user
+    // mounts a new repository.
+    const now = Date.now();
+    this._cache = {
+      key: localPath,
+      now,
+      contents: [],
+      filteredContents: [],
+      shallowResponse: DEFAULT_CONTENT_MODEL,
+    };
+
     // Make a no-content request to determine the type of content being requested.
     // If the content type is not a directory, then we want to preserve our cache
     //   and not paginate the results.
@@ -128,6 +140,9 @@ export class MountDrive implements Contents.IDrive {
       showErrorMessage('Get Error', url + ' not found');
       return DEFAULT_CONTENT_MODEL;
     }
+
+    this._cache.shallowResponse = shallowResponse;
+
     const content = options?.content ? '1' : '0';
     if (content === '0') {
       this._loading.emit(false);
@@ -142,14 +157,6 @@ export class MountDrive implements Contents.IDrive {
     // If we don't have contents cached, then we fetch them and cache the results.
     this.resetContentsNode();
     this._loading.emit(false);
-    const now = Date.now();
-    this._cache = {
-      key: localPath,
-      now,
-      contents: [],
-      filteredContents: [],
-      shallowResponse,
-    };
     const getOptions = {
       ...options,
       number: PAGINATION_NUMBER,
@@ -266,6 +273,13 @@ export class MountDrive implements Contents.IDrive {
       url,
       getOptions,
     ).catch((e) => {
+      // This can happen if a user unmounts the current repository in the middle of loading results.
+      if (this._cache.now !== timeOfLastDirectoryChange) {
+        this._loading.emit(false);
+        return;
+      }
+
+      // This should never happen and means some critical backend error has occured.
       showErrorMessage('Failed Fetching Next Results', e);
     });
   }
@@ -285,7 +299,7 @@ export class MountDrive implements Contents.IDrive {
         contentsNode.scrollHeight -
           contentsNode.scrollTop -
           contentsNode.clientHeight,
-      ) < 1;
+      ) <= 1;
     if (!scrolledToBottom) {
       return;
     }

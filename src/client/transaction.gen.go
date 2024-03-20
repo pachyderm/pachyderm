@@ -172,6 +172,10 @@ func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_
 	return nil, unsupportedError("SetLogLevel")
 }
 
+func (c *unsupportedDebugBuilderClient) Trace(_ context.Context, _ *debug_v2.TraceRequest, opts ...grpc.CallOption) (debug_v2.Debug_TraceClient, error) {
+	return nil, unsupportedError("Trace")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {

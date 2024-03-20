@@ -1,0 +1,36 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "testloki",
+    testonly = 1,
+    srcs = ["testloki.go"],
+    data = [
+        "config.yaml",
+        "//tools/loki",
+    ],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "//src/internal/promutil",
+        "@in_gopkg_yaml_v3//:yaml_v3",
+        "@org_uber_go_zap//:zap",
+        "@rules_go//go/runfiles:go_default_library",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)
+
+go_test(
+    name = "testloki_test",
+    size = "small",
+    srcs = ["testloki_test.go"],
+    embed = [":testloki"],
+    deps = [
+        "//src/internal/lokiutil/client",
+        "//src/internal/pctx",
+        "@com_github_google_go_cmp//cmp",
+    ],
+)

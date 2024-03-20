@@ -3304,6 +3304,291 @@ var _ interface {
 	ErrorName() string
 } = RunPFSLoadTestResponseValidationError{}
 
+// Validate checks the field values on TraceRequest with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *TraceRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TraceRequest with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TraceRequestMultiError, or
+// nil if none found.
+func (m *TraceRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TraceRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if m.GetDuration() == nil {
+		err := TraceRequestValidationError{
+			field:  "Duration",
+			reason: "value is required",
+		}
+		if !all {
+			return err
+		}
+		errors = append(errors, err)
+	}
+
+	if d := m.GetDuration(); d != nil {
+		dur, err := d.AsDuration(), d.CheckValid()
+		if err != nil {
+			err = TraceRequestValidationError{
+				field:  "Duration",
+				reason: "value is not a valid duration",
+				cause:  err,
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		} else {
+
+			gt := time.Duration(0*time.Second + 0*time.Nanosecond)
+
+			if dur <= gt {
+				err := TraceRequestValidationError{
+					field:  "Duration",
+					reason: "value must be greater than 0s",
+				}
+				if !all {
+					return err
+				}
+				errors = append(errors, err)
+			}
+
+		}
+	}
+
+	if len(errors) > 0 {
+		return TraceRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// TraceRequestMultiError is an error wrapping multiple validation errors
+// returned by TraceRequest.ValidateAll() if the designated constraints aren't met.
+type TraceRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TraceRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TraceRequestMultiError) AllErrors() []error { return m }
+
+// TraceRequestValidationError is the validation error returned by
+// TraceRequest.Validate if the designated constraints aren't met.
+type TraceRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TraceRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TraceRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TraceRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TraceRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TraceRequestValidationError) ErrorName() string { return "TraceRequestValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TraceRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTraceRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TraceRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TraceRequestValidationError{}
+
+// Validate checks the field values on TraceChunk with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *TraceChunk) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on TraceChunk with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in TraceChunkMultiError, or
+// nil if none found.
+func (m *TraceChunk) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *TraceChunk) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Reply.(type) {
+	case *TraceChunk_Bytes:
+		if v == nil {
+			err := TraceChunkValidationError{
+				field:  "Reply",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetBytes()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, TraceChunkValidationError{
+						field:  "Bytes",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, TraceChunkValidationError{
+						field:  "Bytes",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetBytes()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return TraceChunkValidationError{
+					field:  "Bytes",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return TraceChunkMultiError(errors)
+	}
+
+	return nil
+}
+
+// TraceChunkMultiError is an error wrapping multiple validation errors
+// returned by TraceChunk.ValidateAll() if the designated constraints aren't met.
+type TraceChunkMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m TraceChunkMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m TraceChunkMultiError) AllErrors() []error { return m }
+
+// TraceChunkValidationError is the validation error returned by
+// TraceChunk.Validate if the designated constraints aren't met.
+type TraceChunkValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e TraceChunkValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e TraceChunkValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e TraceChunkValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e TraceChunkValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e TraceChunkValidationError) ErrorName() string { return "TraceChunkValidationError" }
+
+// Error satisfies the builtin error interface
+func (e TraceChunkValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sTraceChunk.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = TraceChunkValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = TraceChunkValidationError{}
+
 // Validate checks the field values on DumpV2Request_Defaults with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.

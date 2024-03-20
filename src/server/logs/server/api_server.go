@@ -7,20 +7,31 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
 
 type APIServer = *apiServer
 
+type Env struct {
+	GetLokiClient func() (*loki.Client, error)
+}
+
 type apiServer struct {
 	logs.UnsafeAPIServer
+	env     Env
 	service logservice.LogService
 }
 
-func NewAPIServer() (*apiServer, error) {
-	return &apiServer{}, nil
+func NewAPIServer(env Env) (*apiServer, error) {
+	return &apiServer{
+		env: env,
+		service: logservice.LogService{
+			GetLokiClient: env.GetLokiClient,
+		},
+	}, nil
 }
 
 type getLogsServerPublisher struct {

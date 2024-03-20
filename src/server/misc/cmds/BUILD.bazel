@@ -25,7 +25,6 @@ go_library(
         "//src/internal/log",
         "//src/internal/middleware/logging/client",
         "//src/internal/pachctl",
-        "//src/internal/pctx",
         "//src/internal/preflight",
         "//src/internal/promutil",
         "//src/internal/signals",

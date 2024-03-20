@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/metrics"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
 	taskcmds "github.com/pachyderm/pachyderm/v2/src/internal/task/cmds"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -325,8 +324,6 @@ func PachctlCmd() (*cobra.Command, error) {
 		return nil, err
 	}
 
-	mainCtx := pctx.Background("")
-
 	rootCmd := &cobra.Command{
 		Use: os.Args[0],
 		Long: "Access the Pachyderm API." +
@@ -360,7 +357,8 @@ func PachctlCmd() (*cobra.Command, error) {
 	versionCmd := &cobra.Command{
 		Short: "Print Pachyderm version information.",
 		Long:  "Print Pachyderm version information.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
 			if !raw && output != "" {
 				return errors.New("cannot set --output (-o) without --raw")
 			}
@@ -404,15 +402,15 @@ func PachctlCmd() (*cobra.Command, error) {
 				if err != nil {
 					return errors.Wrapf(err, "could not parse timeout duration %q", timeout)
 				}
-				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise, client.WithDialTimeout(timeout))
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise, client.WithDialTimeout(timeout))
 			} else {
-				pachClient, err = pachctlCfg.NewOnUserMachine(mainCtx, enterprise)
+				pachClient, err = pachctlCfg.NewOnUserMachine(ctx, enterprise)
 			}
 			if err != nil {
 				return err
 			}
 			defer pachClient.Close()
-			ctx, cancel := context.WithTimeout(mainCtx, time.Second)
+			ctx, cancel := context.WithTimeout(ctx, time.Second)
 			defer cancel()
 			serverVersion, err := pachClient.GetVersion(ctx, &emptypb.Empty{})
 
@@ -459,7 +457,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	buildInfo := &cobra.Command{
 		Short: "Print go buildinfo.",
 		Long:  "Print information about the build environment.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			info, _ := debug.ReadBuildInfo()
 			fmt.Println(info)
 			return nil
@@ -470,7 +468,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	exitCmd := &cobra.Command{
 		Short: "Exit the pachctl shell.",
 		Long:  "Exit the pachctl shell.",
-		Run:   cmdutil.RunFixedArgs(0, func(args []string) error { return nil }),
+		Run:   cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error { return nil }),
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(exitCmd, "exit"))
 
@@ -478,7 +476,7 @@ func PachctlCmd() (*cobra.Command, error) {
 	shellCmd := &cobra.Command{
 		Short: "Run the pachyderm shell.",
 		Long:  "Run the pachyderm shell.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			cfg, err := config.Read(true, false)
 			if err != nil {
 				return err
@@ -497,8 +495,8 @@ func PachctlCmd() (*cobra.Command, error) {
 		Short: "Delete everything.",
 		Long: `Delete all repos, commits, files, pipelines and jobs.
 This resets the cluster to its initial state.`,
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}
@@ -557,7 +555,7 @@ This resets the cluster to its initial state.`,
 	portForward := &cobra.Command{
 		Short: "Forward a port on the local machine to pachd. This command blocks.",
 		Long:  "Forward a port on the local machine to pachd. This command blocks.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) error {
 			// TODO(ys): remove the `--namespace` flag here eventually
 			if namespace != "" {
 				fmt.Printf("WARNING: The `--namespace` flag is deprecated and will be removed in a future version. Please set the namespace in the pachyderm context instead: pachctl config update context `pachctl config get active-context` --namespace '%s'\n", namespace)
@@ -692,7 +690,7 @@ This resets the cluster to its initial state.`,
 	completionBash := &cobra.Command{
 		Short: "Print or install the bash completion code.",
 		Long:  "Print or install the bash completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathBash, rootCmd.GenBashCompletion)
 		}),
 	}
@@ -704,7 +702,7 @@ This resets the cluster to its initial state.`,
 	completionZsh := &cobra.Command{
 		Short: "Print or install the zsh completion code.",
 		Long:  "Print or install the zsh completion code.",
-		Run: cmdutil.RunFixedArgs(0, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(0, func(cmd *cobra.Command, args []string) (retErr error) {
 			return createCompletions(rootCmd, install, installPathZsh, rootCmd.GenZshCompletion)
 		}),
 	}
@@ -869,21 +867,21 @@ This resets the cluster to its initial state.`,
 	}
 	subcommands = append(subcommands, cmdutil.CreateAlias(rerunDocs, "rerun"))
 
-	subcommands = append(subcommands, pfscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, ppscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, authcmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, enterprisecmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, licensecmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, identitycmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, admincmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, debugcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, txncmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, configcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, configcmds.ConnectCmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, taskcmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, misccmds.Cmds(mainCtx, pachctlCfg)...)
-	subcommands = append(subcommands, logscmds.Cmds(mainCtx, pachCtx, pachctlCfg)...)
-	subcommands = append(subcommands, metadatacmds.Cmds(mainCtx, pachctlCfg)...)
+	subcommands = append(subcommands, pfscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, ppscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, authcmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, enterprisecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, licensecmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, identitycmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, admincmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, debugcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, txncmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, configcmds.ConnectCmds(pachctlCfg)...)
+	subcommands = append(subcommands, taskcmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, misccmds.Cmds(pachctlCfg)...)
+	subcommands = append(subcommands, logscmds.Cmds(pachCtx, pachctlCfg)...)
+	subcommands = append(subcommands, metadatacmds.Cmds(pachctlCfg)...)
 
 	cmdutil.MergeCommands(rootCmd, subcommands)
 
