@@ -801,7 +801,8 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -e '.[dev]'
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
