@@ -20,6 +20,8 @@ compile_pip_requirements(
     name = "requirements-dev",
     src = "requirements-dev.txt",
     requirements_txt = "requirements-dev-lock.txt",
+    requirements_linux = "requirements-dev-lock-linux.txt",
+    requirements_darwin = "requirements-dev-lock-darwin.txt",
 )
 
 # Create a virtual environment at ./venv: bazel :venv
