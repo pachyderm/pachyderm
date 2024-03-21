@@ -85,7 +85,7 @@ func helmValuesPreGoCDK(numPachds int) map[string]string {
 		"pachd.storage.minio.id":        "minioadmin",
 		"pachd.storage.minio.secret":    "minioadmin",
 		"pachd.storage.minio.signature": "",
-		"pachd.storage.minio.secure":    "false",
+		"pachd.storage.minio.secure":    "\"false\"",
 	}
 }
 
