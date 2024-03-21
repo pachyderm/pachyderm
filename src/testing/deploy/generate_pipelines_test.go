@@ -442,6 +442,15 @@ func TestCreateDAGS(t *testing.T) {
 			"console.enabled":                 "true",
 			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
 			"pachd.activateAuth":              "false",
+			// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
+			// so to make UpgradeTest work, we overried configuration with these "old" minio values.
+			"pachd.storage.backend":         "MINIO",
+			"pachd.storage.minio.bucket":    "pachyderm-test",
+			"pachd.storage.minio.endpoint":  "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.id":        "minioadmin",
+			"pachd.storage.minio.secret":    "minioadmin",
+			"pachd.storage.minio.signature": "",
+			"pachd.storage.minio.secure":    "\"false\"",
 		},
 	}
 	k := testutil.GetKubeClient(t)
