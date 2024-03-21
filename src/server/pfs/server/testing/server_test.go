@@ -7376,9 +7376,9 @@ func TestReposSummary(t *testing.T) {
 	summaryResp, err = c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
 		Projects: []*pfs.Project{client.NewProject("B")},
 	})
+	_, err = c.WaitCommit("B", "B-3", "master", "")
 	require.NoError(t, err)
 	require.Len(t, summaryResp.Summaries, 1)
 	require.Equal(t, "B", summaryResp.Summaries[0].Project.Name)
-	// FIX THIS
-	// require.Equal(t, 2*len([]byte(data)), summaryResp.Summaries[0].SizeBytes)
+	require.Equal(t, 2*len([]byte(data)), summaryResp.Summaries[0].SizeBytes)
 }
