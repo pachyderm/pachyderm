@@ -82,10 +82,27 @@ func newProjectRequest(project string) *logs.GetLogsRequest {
 	}
 }
 
+func newDatumRequest(datum string) *logs.GetLogsRequest {
+	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_User{
+				User: &logs.UserLogQuery{
+					UserType: &logs.UserLogQuery_Datum{
+						Datum: datum,
+					},
+				},
+			},
+		},
+	}
+}
+
+const combinationMessage = "only one of [--logQL | --project PROJECT [--pipeline PIPELINE] | --datum DATUM] may be set"
+
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
-	var logQL, pipeline string
+	var logQL, pipeline, datum string
 	var project = pachCtx.Project
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): remove references to “new.”
@@ -108,15 +125,25 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			var req *logs.GetLogsRequest
 			switch {
 			case cmd.Flag("logql").Changed:
-				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed {
-					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
+				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed || cmd.Flag("datum").Changed {
+					fmt.Fprintln(os.Stderr, combinationMessage)
 					os.Exit(1)
 				}
 				req = newLogQLRequest(logQL)
 			case cmd.Flag("pipeline").Changed:
+				if cmd.Flag("datum").Changed {
+					fmt.Fprintln(os.Stderr, combinationMessage)
+					os.Exit(1)
+				}
 				req = newPipelineRequest(project, pipeline)
 			case cmd.Flag("project").Changed:
+				if cmd.Flag("datum").Changed {
+					fmt.Fprintln(os.Stderr, combinationMessage)
+					os.Exit(1)
+				}
 				req = newProjectRequest(project)
+			case cmd.Flag("datum").Changed:
+				req = newDatumRequest(datum)
 			case isAdmin:
 				req = newLogQLRequest(`{suite="pachyderm"}`)
 			default:
@@ -159,6 +186,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
+	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
 	commands = append(commands, logsCmd)
 	return commands
 }
