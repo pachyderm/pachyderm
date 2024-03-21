@@ -97,9 +97,9 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 }
 
 func TestUpgradeTrigger(t *testing.T) {
-	// if skip {
-	// 	t.Skip("Skipping upgrade test")
-	// }
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
@@ -278,9 +278,9 @@ func TestUpgradeTrigger(t *testing.T) {
 // - create file input@master:/bar
 // - verify output@master:/bar and output@master:/foo still exists
 func TestUpgradeOpenCVWithAuth(t *testing.T) {
-	// if skip {
-	// 	t.Skip("Skipping upgrade test")
-	// }
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
@@ -389,9 +389,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 }
 
 func TestUpgradeMultiProjectJoins(t *testing.T) {
-	// if skip {
-	// 	t.Skip("Skipping upgrade test")
-	// }
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
 	fromVersions := []string{"2.7.4", "2.8.1"}
 	files := []string{"file1", "file2", "file3", "file4"}
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
@@ -477,9 +477,9 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 }
 
 func TestUpgradeLoad(t *testing.T) {
-	// if skip {
-	// 	t.Skip("Skipping upgrade test")
-	// }
+	if skip {
+		t.Skip("Skipping upgrade test")
+	}
 	fromVersions := []string{"2.7.2", "2.8.0"}
 	dagSpec := `
 default-load-test-source-1:
