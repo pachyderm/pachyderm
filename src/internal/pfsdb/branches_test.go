@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -23,28 +24,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func compareHead(expected, got *pfs.Commit) bool {
-	return expected.Id == got.Id &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
-func compareBranch(expected, got *pfs.Branch) bool {
-	return expected.Name == got.Name &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
-		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
-		cmp.Comparer(compareBranch),
-		cmp.Comparer(compareHead),
+		protocmp.Transform(),
+		protocmp.IgnoreEmptyMessages(),
 	}
 }
 
