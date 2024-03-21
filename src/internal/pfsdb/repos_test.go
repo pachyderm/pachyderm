@@ -188,7 +188,7 @@ func TestForEachRepo(t *testing.T) {
 			expectedInfos[i] = createInfo
 		}
 		i := 0
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.NoDiff(t, expectedInfos[i], repoWithID.RepoInfo, []cmp.Option{cmp.Comparer(compareRepos)})
 			i++
 			return nil
@@ -209,14 +209,18 @@ func TestForEachRepoFilter(t *testing.T) {
 				require.NoError(t, err, "should be able to create repo")
 			}
 		}
-		filter := &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}}
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		filter := &pfsdb.RepoFilter{
+			RepoTemplate: &pfs.Repo{Name: "repoA", Type: "meta", Project: &pfs.Project{Name: "default"}},
+		}
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoA", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "meta", repoWithID.RepoInfo.Repo.Type)
 			return nil
 		}), "should be able to call for each repo")
-		filter = &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}}
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		filter = &pfsdb.RepoFilter{
+			RepoTemplate: &pfs.Repo{Name: "repoB", Type: "user", Project: &pfs.Project{Name: "default"}},
+		}
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			require.Equal(t, "repoB", repoWithID.RepoInfo.Repo.Name)
 			require.Equal(t, "user", repoWithID.RepoInfo.Repo.Type)
 			return nil
@@ -230,7 +234,7 @@ func TestForEachRepoPage(t *testing.T) {
 	db := newTestDB(t, ctx)
 	collectRepoPage := func(tx *pachsql.Tx, page *pfs.RepoPage) []pfsdb.RepoInfoWithID {
 		repos := make([]pfsdb.RepoInfoWithID, 0)
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, page, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, page, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repos = append(repos, repoWithID)
 			return nil
 		}), "should be able to call for each repo")
@@ -287,7 +291,7 @@ func TestForEachRepoDefaultOrder(t *testing.T) {
 			require.NoError(t, err, "should be able to create repo")
 		}
 		repos := make([]pfsdb.RepoInfoWithID, 0)
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repos = append(repos, repoWithID)
 			return nil
 		}), "should be able to call for each repo")
@@ -305,7 +309,8 @@ func TestForEachRepoPaginationWithFilter(t *testing.T) {
 			projs = append(projs, &pfs.Project{Name: p})
 		}
 		var repos []pfsdb.RepoInfoWithID
-		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, projs, page, func(repoWithID pfsdb.RepoInfoWithID) error {
+		filter := &pfsdb.RepoFilter{Projects: projs}
+		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, filter, page, func(repoWithID pfsdb.RepoInfoWithID) error {
 			repos = append(repos, repoWithID)
 			return nil
 		}), "should be able to call for each repo")
