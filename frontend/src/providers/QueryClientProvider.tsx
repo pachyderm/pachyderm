@@ -70,8 +70,8 @@ export const getQueryClientConfig = (): QueryClientConfig => {
   return {
     defaultOptions: {
       queries: {
-        refetchInterval: DEFAULT_POLLING_INTERVAL_MS, // TODO: come up with a refetchInterval that makes sense
-        refetchOnWindowFocus: false, // TODO: figure out if we want this enabled, probably yes
+        refetchInterval: DEFAULT_POLLING_INTERVAL_MS,
+        refetchOnWindowFocus: true,
         retry: false,
         throwOnError: true,
       },

@@ -83,7 +83,7 @@ Object.defineProperty(window.Range.prototype, 'getClientRects', {
 window.HTMLElement.prototype.scrollIntoView = jest.fn();
 
 // DISABLE POLLING FOR MSW TESTS
-process.env.REACT_APP_POLLING = '0';
+process.env.REACT_APP_RUNTIME_REFETCH_INTERVAL = 'test';
 process.env.REACT_APP_RELEASE_VERSION = 'test';
 
 interface InitReq extends RequestInit {

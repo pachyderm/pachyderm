@@ -2,7 +2,6 @@ import {useQuery} from '@tanstack/react-query';
 
 import {listCommitsPaged} from '@dash-frontend/api/pfs';
 import {DEFAULT_COMMITS_LIMIT} from '@dash-frontend/constants/limits';
-import {COMMITS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import getErrorMessage from '@dash-frontend/lib/getErrorMessage';
 import queryKeys from '@dash-frontend/lib/queryKeys';
 
@@ -38,7 +37,6 @@ export const useCommits = (
       repoId: repoName,
       args,
     }),
-    refetchInterval: COMMITS_POLL_INTERVAL_MS,
     enabled: !skip,
     queryFn: () => {
       // You can only use one cursor in a query at a time.

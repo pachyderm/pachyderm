@@ -19,9 +19,9 @@ declare namespace NodeJS {
       REACT_APP_RUNTIME_ISSUER_URI: string;
       REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
       REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
+      REACT_APP_RUNTIME_REFETCH_INTERVAL?: string;
     };
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
-    REACT_APP_POLLING?: string;
   }
 }
 
@@ -38,7 +38,7 @@ declare global {
       GRPC_SSL: string;
       REACT_APP_RUNTIME_ISSUER_URI: string;
       REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
-      REACT_APP_POLLING?: string;
+      REACT_APP_RUNTIME_REFETCH_INTERVAL?: string;
     }
   }
 }
@@ -52,6 +52,7 @@ declare interface Window {
     REACT_APP_RUNTIME_SUBSCRIPTIONS_PREFIX?: string;
     REACT_APP_RUNTIME_DISABLE_TELEMETRY?: string;
     REACT_APP_RELEASE_VERSION?: string;
+    REACT_APP_RUNTIME_REFETCH_INTERVAL?: string;
   };
 }
 

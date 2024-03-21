@@ -2,7 +2,7 @@ import {useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 import {LogMessage} from '@dash-frontend/api/pps';
-import {LOGS_POLL_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
+import {DEFAULT_POLLING_INTERVAL_MS} from '@dash-frontend/constants/pollIntervals';
 import {useCurrentPipeline} from '@dash-frontend/hooks/useCurrentPipeline';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
 import {useLogs} from '@dash-frontend/hooks/useLogs';
@@ -96,7 +96,7 @@ const useLogsViewer = (
         cursor: currentCursor,
         enabled:
           !isSkippedDatum && !!pipelineType && !!dropdownValues[selectedTime], // TODO: I think we do only !isSkippedDatum
-        refetchInterval: shouldPoll ? LOGS_POLL_INTERVAL_MS : false,
+        refetchInterval: shouldPoll ? DEFAULT_POLLING_INTERVAL_MS : false,
       },
     );
 

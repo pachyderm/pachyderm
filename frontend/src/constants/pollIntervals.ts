@@ -1,41 +1,35 @@
-const defaultValue = 10000;
+import {getRefetchInterval} from '@dash-frontend/lib/runtimeVariables';
+
+const defaultValue = 3000;
 const minValue = 100;
 
-const getPollingIntervalFromEnv = () => {
-  const envVar = process.env.REACT_APP_POLLING;
+const getRefetchIntervalFromEnv = () => {
+  const envVar = getRefetchInterval();
+
   if (!envVar) {
     return defaultValue;
   }
 
-  const value = +envVar;
-
-  if (value === 0) {
-    return value;
+  if (envVar === 'test') {
+    return false;
   }
 
-  if (!+value) {
+  const value = +envVar;
+
+  if (!value) {
     console.error(
-      `environment variable REACT_APP_POLLING appears to not be a number. Using a default value of ${defaultValue} instead.`,
+      `environment variable REACT_APP_RUNTIME_REFETCH_INTERVAL appears to not be a number. Using a default value of ${defaultValue} instead.`,
     );
     return defaultValue;
   }
 
   if (value <= minValue) {
     console.error(
-      `environment variable REACT_APP_POLLING was set to a number below ${minValue}ms. Using a value of ${minValue}ms instead.`,
+      `environment variable REACT_APP_RUNTIME_REFETCH_INTERVAL was set to a number below ${minValue}ms. Using a value of ${defaultValue}ms instead.`,
     );
-    return minValue;
+    return defaultValue;
   }
   return value;
 };
 
-const pollingInterval = getPollingIntervalFromEnv();
-
-export const JOBS_POLL_INTERVAL_MS: number = pollingInterval;
-export const PROJECTS_POLL_INTERVAL_MS: number = pollingInterval;
-export const REPO_POLL_INTERVAL_MS: number = pollingInterval;
-export const PIPELINES_POLL_INTERVAL_MS: number = pollingInterval;
-export const COMMITS_POLL_INTERVAL_MS: number = pollingInterval;
-export const LOGS_POLL_INTERVAL_MS: number = pollingInterval;
-export const CLUSTER_DEFAULTS_POLL_INTERVAL_MS: number = pollingInterval;
-export const DEFAULT_POLLING_INTERVAL_MS = pollingInterval;
+export const DEFAULT_POLLING_INTERVAL_MS = getRefetchIntervalFromEnv();

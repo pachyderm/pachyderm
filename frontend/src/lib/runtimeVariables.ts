@@ -47,3 +47,15 @@ export const getReleaseVersion = () => {
 
   return releaseVersion;
 };
+
+export const getRefetchInterval = () => {
+  let refetchInterval = '';
+  if (window.pachDashConfig) {
+    refetchInterval =
+      window.pachDashConfig.REACT_APP_RUNTIME_REFETCH_INTERVAL || '';
+  } else {
+    refetchInterval = process.env.REACT_APP_RUNTIME_REFETCH_INTERVAL || '';
+  }
+
+  return refetchInterval;
+};
