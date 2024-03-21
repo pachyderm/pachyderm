@@ -758,8 +758,7 @@ jobs:
             - "node_modules"
       - run:
           name: "Install Python dependencies"
-          command: |
-            bazel run :venv
+          command: bazel run :venv
       - run:
           name: "Build and test the extension"
           command: |
@@ -895,8 +894,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            bazel run :venv
+          command: bazel run :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -934,8 +932,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            bazel run :venv
+          command: bazel run :venv
       - run:
           name: Init .pypirc
           command: |
@@ -959,8 +956,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            bazel run :venv
+          command: bazel run :venv
       - run:
           name: Init .pypirc
           command: |
