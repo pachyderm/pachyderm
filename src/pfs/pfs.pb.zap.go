@@ -251,6 +251,12 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddString("error", x.Error)
 	enc.AddInt64("size_bytes_upper_bound", x.SizeBytesUpperBound)
 	enc.AddObject("details", x.Details)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 

@@ -7,16 +7,20 @@ import (
 	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
-
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protopath"
+	"google.golang.org/protobuf/reflect/protorange"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 // Cmds returns a slice containing metadata commands.
-func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	editMetadata := &cobra.Command{
@@ -24,7 +28,7 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 		Short: "Edits an object's metadata",
 		Long:  "Edits an object's metadata.",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
-			req, err := parseEditMetadataCmdline(args)
+			req, err := parseEditMetadataCmdline(args, pachCtx.Project)
 			if err != nil {
 				return errors.Wrap(err, "parse cmdline")
 			}
@@ -62,7 +66,7 @@ func parseData(data string) (result map[string]string, _ error) {
 	return
 }
 
-func parseEditMetadataCmdline(args []string) (*metadata.EditMetadataRequest, error) {
+func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.EditMetadataRequest, error) {
 	if len(args)%4 != 0 {
 		return nil, errors.New("must supply arguments in multiples of 4")
 	}
@@ -74,12 +78,23 @@ func parseEditMetadataCmdline(args []string) (*metadata.EditMetadataRequest, err
 		args = args[4:]
 		switch strings.ToLower(kind) {
 		case "project":
+			var pp pfs.ProjectPicker
+			if err := pp.UnmarshalText([]byte(picker)); err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: unable to parse project picker %q", i, picker))
+				continue
+			}
 			edit.Target = &metadata.Edit_Project{
-				Project: &pfs.ProjectPicker{
-					Picker: &pfs.ProjectPicker_Name{
-						Name: picker,
-					},
-				},
+				Project: &pp,
+			}
+		case "commit":
+			var cp pfs.CommitPicker
+			if err := cp.UnmarshalText([]byte(picker)); err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: unable to parse commit picker %q", i, picker))
+				continue
+			}
+			fixupProjects(&cp, defaultProject)
+			edit.Target = &metadata.Edit_Commit{
+				Commit: &cp,
 			}
 		default:
 			errors.JoinInto(&errs, errors.Errorf("arg set %d: unknown object type %q", i, kind))
@@ -126,4 +141,29 @@ func parseEditMetadataCmdline(args []string) (*metadata.EditMetadataRequest, err
 		result.Edits = append(result.Edits, edit)
 	}
 	return result, errs
+}
+
+// fixupProjects recursively visits every ProjectPicker and replaces empty (not nil) ones with
+// defaultProject.
+func fixupProjects(msg proto.Message, defaultProject string) {
+	if err := protorange.Range(msg.ProtoReflect(), func(v protopath.Values) error {
+		for i, p := range v.Path {
+			if d := p.FieldDescriptor(); d != nil && d.Kind() == protoreflect.MessageKind && d.Message().FullName() == "pfs_v2.ProjectPicker" {
+				m := v.Index(i - 1).Value.Message()
+				projectName := m.Get(d).Message().Get(
+					(&pfs.ProjectPicker{}).ProtoReflect().Descriptor().Fields().ByName("name"),
+				).String()
+				if projectName == "" {
+					m.Set(d, protoreflect.ValueOf((&pfs.ProjectPicker{
+						Picker: &pfs.ProjectPicker_Name{
+							Name: defaultProject,
+						},
+					}).ProtoReflect()))
+				}
+			}
+		}
+		return nil
+	}); err != nil {
+		panic("reflection-based request edit failed; specify project name explicitly")
+	}
 }

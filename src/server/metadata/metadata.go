@@ -66,6 +66,20 @@ func editInTx(ctx context.Context, tx *pachsql.Tx, edit *metadata.Edit) error {
 		if err := pfsdb.UpdateProject(ctx, tx, p.ID, p.ProjectInfo); err != nil {
 			return errors.Wrapf(err, "update project %q", p.GetProject().GetName())
 		}
+	case *metadata.Edit_Commit:
+		c, err := pfsdb.PickCommit(ctx, x.Commit, tx)
+		if err != nil {
+			return errors.Wrap(err, "pick commit")
+		}
+		if err := editMetadata(edit, &c.CommitInfo.Metadata); err != nil {
+			return errors.Wrapf(err, "edit commit %q", c.GetCommit().Key())
+		}
+		if err := pfsdb.UpdateCommit(ctx, tx, c.ID, c.CommitInfo, pfsdb.AncestryOpt{
+			SkipChildren: true,
+			SkipParent:   true,
+		}); err != nil {
+			return errors.Wrapf(err, "update commit %q", c.GetCommit().Key())
+		}
 	default:
 		return errors.Errorf("unknown target %v", edit.GetTarget())
 	}

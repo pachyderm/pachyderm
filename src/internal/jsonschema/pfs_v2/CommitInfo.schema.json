@@ -55,6 +55,13 @@
                 "details": {
                     "$ref": "#/definitions/pfs_v2.CommitInfo.Details",
                     "additionalProperties": false
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "Metadata is user-applied annotations."
                 }
             },
             "additionalProperties": false,

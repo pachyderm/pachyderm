@@ -323,6 +323,10 @@ class CommitInfo(betterproto.Message):
     error: str = betterproto.string_field(10)
     size_bytes_upper_bound: int = betterproto.int64_field(11)
     details: "CommitInfoDetails" = betterproto.message_field(12)
+    metadata: Dict[str, str] = betterproto.map_field(
+        14, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """Metadata is user-applied annotations."""
 
 
 @dataclass(eq=False, repr=False)

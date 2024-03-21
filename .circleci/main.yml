@@ -748,7 +748,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -801,13 +801,8 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -e '.[dev]'
-
-            nohup pachctl port-forward &
-
-            touch /tmp/mount-server.log # mount-server will truncate on startup
-            tail -F /tmp/mount-server.log &
-            export MOUNT_SERVER_LOG_FILE=/tmp/mount-server.log \
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -909,7 +904,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -951,7 +946,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
       - run:
           name: Init .pypirc
           command: |
@@ -979,7 +974,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
       - run:
           name: Init .pypirc
           command: |
@@ -2169,15 +2164,35 @@ commands:
               --set-string pachd.storage.minio.secure=false \
               --set pachd.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm \
+              --namespace enterprise \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=MINIO \
+              --set pachd.storage.minio.bucket=pachyderm-test \
+              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
+              --set pachd.storage.minio.id=minioadmin \
+              --set pachd.storage.minio.secret=minioadmin \
+              --set-string pachd.storage.minio.signature="" \
+              --set-string pachd.storage.minio.secure=false \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set proxy.service.httpNodePort=30081 \
+              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
+              --set pachd.rootToken=roottoken1234
       - run:
           name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
           command: |
             sleep 20
-            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
+            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
             pachctl version
       - run:
           name: Setup pach # Get Kind node IP and pass that to pachctl
           command: |-
+            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30081'"}' | pachctl config set context local --overwrite
+            pachctl config set active-context local
+            echo 'roottoken1234' | pachctl auth use-auth-token
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
             echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
             pachctl config set active-context local
   install-pulumi-deps:

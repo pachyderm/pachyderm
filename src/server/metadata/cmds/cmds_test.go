@@ -202,6 +202,79 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			args:    []string{"project", "default", "set", "key=value"},
 			wantErr: true,
 		},
+		{
+			name: "edit a commit",
+			args: []string{"commit", "images@master", "edit", "key=value",
+				"commit", "images@44444444444444444444444444444444", "edit", "key=value"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Commit{
+							Commit: &pfs.CommitPicker{
+								Picker: &pfs.CommitPicker_BranchHead{
+									BranchHead: &pfs.BranchPicker{
+										Picker: &pfs.BranchPicker_Name{
+											Name: &pfs.BranchPicker_BranchName{
+												Repo: &pfs.RepoPicker{
+													Picker: &pfs.RepoPicker_Name{
+														Name: &pfs.RepoPicker_RepoName{
+															Project: &pfs.ProjectPicker{
+																Picker: &pfs.ProjectPicker_Name{
+																	Name: "the_default_project",
+																},
+															},
+															Name: "images",
+															Type: "user",
+														},
+													},
+												},
+												Name: "master",
+											},
+										},
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_EditKey_{
+							EditKey: &metadata.Edit_EditKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+					{
+						Target: &metadata.Edit_Commit{
+							Commit: &pfs.CommitPicker{
+								Picker: &pfs.CommitPicker_Id{
+									Id: &pfs.CommitPicker_CommitByGlobalId{
+										Repo: &pfs.RepoPicker{
+											Picker: &pfs.RepoPicker_Name{
+												Name: &pfs.RepoPicker_RepoName{
+													Project: &pfs.ProjectPicker{
+														Picker: &pfs.ProjectPicker_Name{
+															Name: "the_default_project",
+														},
+													},
+													Name: "images",
+													Type: "user",
+												},
+											},
+										},
+										Id: "44444444444444444444444444444444",
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_EditKey_{
+							EditKey: &metadata.Edit_EditKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testData {
@@ -209,7 +282,7 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			if err := test.want.ValidateAll(); err != nil {
 				t.Fatalf("test case 'want' fails validation: %v", err)
 			}
-			got, err := parseEditMetadataCmdline(test.args)
+			got, err := parseEditMetadataCmdline(test.args, "the_default_project")
 			if test.want == nil {
 				test.want = &metadata.EditMetadataRequest{}
 			}
@@ -234,34 +307,71 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 	}
 }
 
-func TestEditMetadata_Empty(t *testing.T) {
-	ctx := pctx.TestContext(t)
+func TestEditMetadata(t *testing.T) {
 	c := pachd.NewTestPachd(t)
-	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
-		pachctl edit metadata
-`).Run())
-}
-
-func TestEditMetadata_Add(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	c := pachd.NewTestPachd(t)
-	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
-		pachctl inspect project default
-		pachctl edit metadata project default add key1=value1
-		pachctl inspect project default --raw | match '"key1":[[:space:]]+"value1"'
-`).Run())
-}
-
-func TestEditMetadata_All(t *testing.T) {
-	ctx := pctx.TestContext(t)
-	c := pachd.NewTestPachd(t)
-	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
-		pachctl inspect project default
-		pachctl edit metadata \
-			project default set '{"key":"value","key2":"value"}' \
-			project default add key3=value3 \
-			project default delete key \
-			project default edit key2=value2
-		pachctl inspect project default --raw | match '"key2":[[:space:]]+"value2"'
-`).Run())
+	testData := []struct {
+		name string
+		code string
+	}{
+		{
+			name: "empty",
+			code: "pachctl edit metadata",
+		},
+		{
+			name: "add",
+			code: `
+				pachctl inspect project default
+				pachctl edit metadata project default add key1=value1
+				pachctl inspect project default --raw | match '"key1":[[:space:]]+"value1"'
+			`,
+		},
+		{
+			name: "all",
+			code: `
+				pachctl inspect project default
+				pachctl edit metadata \
+					project default set '{"key":"value","key2":"value"}' \
+					project default add key3=value3 \
+					project default delete key \
+					project default edit key2=value2
+				pachctl inspect project default --raw | match '"key2":[[:space:]]+"value2"'
+			`,
+		},
+		{
+			name: "commit",
+			code: `
+				pachctl create repo test || true
+				echo 'hi' | pachctl put file test@master:/hi.txt
+				pachctl edit metadata commit test@master set '{"key":"value"}'
+				pachctl inspect commit test@master --raw | match '"key":[[:space:]]+"value"'
+			`,
+		},
+		{
+			name: "non-default project",
+			code: `
+				pachctl create repo test || true
+				echo 'hi' | pachctl put file test@master:/hi.txt
+				
+				pachctl create project project
+				pachctl config update context --project project
+				pachctl create repo test
+				echo 'hi' | pachctl put file test@master:/hi.txt
+				
+				pachctl edit metadata commit project/test@master edit myproject=project \
+						      commit default/test@master edit myproject=default \
+						      commit test@master add implied=true
+				pachctl inspect commit test@master --raw --project=default |
+					match '"myproject":[[:space:]]+"default"'
+				pachctl inspect commit test@master --raw --project=project |
+					match '"implied":[[:space:]]+"true"' |
+					match '"myproject":[[:space:]]+"project"'
+			`,
+		},
+	}
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			ctx := pctx.TestContext(t)
+			require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, test.code).Run())
+		})
+	}
 }

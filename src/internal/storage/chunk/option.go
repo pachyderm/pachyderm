@@ -62,3 +62,11 @@ func WithPrefetchLimit(limit int) ReaderOption {
 		r.prefetchLimit = limit
 	}
 }
+
+type GCOption func(*GarbageCollector)
+
+func WithConcurrency(isConcurrent bool) GCOption {
+	return func(gc *GarbageCollector) {
+		gc.isConcurrent = isConcurrent
+	}
+}

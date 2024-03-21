@@ -204,6 +204,8 @@ message CommitInfo {
     google.protobuf.Duration validating_time = 3;
   }
   Details details = 12;
+  // Metadata is user-applied annotations.
+  map<string, string> metadata = 14;
 }
 
 message CommitSet {

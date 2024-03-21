@@ -123,6 +123,7 @@ type Commit struct {
 	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
 	Error          string        `db:"error"`
 	Size           int64         `db:"size"`
+	Metadata       jsonMap       `db:"metadata"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
