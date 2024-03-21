@@ -743,7 +743,6 @@ jobs:
       - checkout:
           path: ~/project
       - install-bazel
-
       # Install and cache Node dependencies
       - restore_cache:
           keys:
