@@ -340,10 +340,31 @@ func TestEditMetadata(t *testing.T) {
 		{
 			name: "commit",
 			code: `
-				pachctl create repo test
+				pachctl create repo test || true
 				echo 'hi' | pachctl put file test@master:/hi.txt
 				pachctl edit metadata commit test@master set '{"key":"value"}'
 				pachctl inspect commit test@master --raw | match '"key":[[:space:]]+"value"'
+			`,
+		},
+		{
+			name: "non-default project",
+			code: `
+				pachctl create repo test || true
+				echo 'hi' | pachctl put file test@master:/hi.txt
+				
+				pachctl create project project
+				pachctl config update context --project project
+				pachctl create repo test
+				echo 'hi' | pachctl put file test@master:/hi.txt
+				
+				pachctl edit metadata commit project/test@master edit myproject=project \
+						      commit default/test@master edit myproject=default \
+						      commit test@master add implied=true
+				pachctl inspect commit test@master --raw --project=default |
+					match '"myproject":[[:space:]]+"default"'
+				pachctl inspect commit test@master --raw --project=project |
+					match '"implied":[[:space:]]+"true"' |
+					match '"myproject":[[:space:]]+"project"'
 			`,
 		},
 	}

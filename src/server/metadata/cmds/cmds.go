@@ -143,15 +143,23 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 	return result, errs
 }
 
+// fixupProjects recursively visits every ProjectPicker and replaces empty (not nil) ones with
+// defaultProject.
 func fixupProjects(msg proto.Message, defaultProject string) {
 	if err := protorange.Range(msg.ProtoReflect(), func(v protopath.Values) error {
 		for i, p := range v.Path {
 			if d := p.FieldDescriptor(); d != nil && d.Kind() == protoreflect.MessageKind && d.Message().FullName() == "pfs_v2.ProjectPicker" {
-				v.Index(i-1).Value.Message().Set(d, protoreflect.ValueOf((&pfs.ProjectPicker{
-					Picker: &pfs.ProjectPicker_Name{
-						Name: defaultProject,
-					},
-				}).ProtoReflect()))
+				m := v.Index(i - 1).Value.Message()
+				projectName := m.Get(d).Message().Get(
+					(&pfs.ProjectPicker{}).ProtoReflect().Descriptor().Fields().ByName("name"),
+				).String()
+				if projectName == "" {
+					m.Set(d, protoreflect.ValueOf((&pfs.ProjectPicker{
+						Picker: &pfs.ProjectPicker_Name{
+							Name: defaultProject,
+						},
+					}).ProtoReflect()))
+				}
 			}
 		}
 		return nil
