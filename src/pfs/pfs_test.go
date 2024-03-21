@@ -58,8 +58,9 @@ func TestUnmarshalRepoPicker(t *testing.T) {
 			want: &RepoPicker{
 				Picker: &RepoPicker_Name{
 					Name: &RepoPicker_RepoName{
-						Name: "images",
-						Type: "user",
+						Name:    "images",
+						Type:    "user",
+						Project: &ProjectPicker{},
 					},
 				},
 			},
@@ -87,8 +88,9 @@ func TestUnmarshalRepoPicker(t *testing.T) {
 			want: &RepoPicker{
 				Picker: &RepoPicker_Name{
 					Name: &RepoPicker_RepoName{
-						Name: "images",
-						Type: "spec",
+						Name:    "images",
+						Type:    "spec",
+						Project: &ProjectPicker{},
 					},
 				},
 			},
@@ -172,8 +174,9 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 						Repo: &RepoPicker{
 							Picker: &RepoPicker_Name{
 								Name: &RepoPicker_RepoName{
-									Name: "images",
-									Type: "user",
+									Name:    "images",
+									Type:    "user",
+									Project: &ProjectPicker{},
 								},
 							},
 						},

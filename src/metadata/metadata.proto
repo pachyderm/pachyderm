@@ -14,6 +14,7 @@ message Edit {
     option (validate.required) = true;
     // project targets a named project's metadata.
     pfs_v2.ProjectPicker project = 1 [(validate.rules).message.required = true];
+    pfs_v2.CommitPicker commit = 2 [(validate.rules).message.required = true];
   }
 
   // Replace is an operation that replaces metadata.

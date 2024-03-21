@@ -7,11 +7,16 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/cmdutil",
+        "//src/internal/config",
         "//src/internal/errors",
         "//src/internal/pachctl",
         "//src/metadata",
         "//src/pfs",
         "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protopath",
+        "@org_golang_google_protobuf//reflect/protorange",
+        "@org_golang_google_protobuf//reflect/protoreflect",
     ],
 )
 

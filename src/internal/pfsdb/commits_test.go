@@ -3,12 +3,16 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
+	"slices"
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
+
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
@@ -498,6 +502,29 @@ func TestUpsertCommit(t *testing.T) {
 	})
 }
 
+func TestUpsertCommit_WithMetadata(t *testing.T) {
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			commitInfo := testCommit(ctx, t, tx, testRepoName)
+			_, err := pfsdb.UpsertCommit(ctx, tx, commitInfo)
+			require.NoError(t, err, "should be able to create commit via upsert")
+			createBranch(ctx, t, tx, commitInfo.Commit)
+			require.NoError(t, pfsdb.UpdateCommit(ctx, tx, 1, commitInfo)) // do an update to add the branch fields.
+			getInfo, err := pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get a commit by key")
+			commitsMatch(t, commitInfo, getInfo)
+			commitInfo.Started = timestamppb.New(time.Now())
+			commitInfo.Description = "new desc"
+			commitInfo.Metadata = map[string]string{"key": "value"}
+			_, err = pfsdb.UpsertCommit(ctx, tx, commitInfo)
+			require.NoError(t, err, "should be able to update commit via upsert")
+			getInfo, err = pfsdb.GetCommitByCommitKey(ctx, tx, commitInfo.Commit)
+			require.NoError(t, err, "should be able to get a commit by key")
+			commitsMatch(t, commitInfo, getInfo)
+		})
+	})
+}
+
 func checkOutput(ctx context.Context, t *testing.T, iter stream.Iterator[pfsdb.CommitWithID], expectedInfos []*pfs.CommitInfo) {
 	i := 0
 	require.NoError(t, stream.ForEach[pfsdb.CommitWithID](ctx, iter, func(CommitWithID pfsdb.CommitWithID) error {
@@ -659,30 +686,32 @@ func withDB(t *testing.T, testCase commitTestCase) {
 	testCase(ctx, t, db)
 }
 
-func commitsMatch(t *testing.T, a, b *pfs.CommitInfo) {
-	require.Equal(t, a.Commit.Repo.Name, b.Commit.Repo.Name)
-	require.Equal(t, a.Commit.Id, b.Commit.Id)
-	if a.Commit.Branch != nil || b.Commit.Branch != nil {
-		require.Equal(t, a.Commit.Branch.Name, b.Commit.Branch.Name)
-	}
-	require.Equal(t, a.Origin.Kind, b.Origin.Kind)
-	require.Equal(t, a.Description, b.Description)
-	require.Equal(t, a.Started.Seconds, b.Started.Seconds)
-	if a.ParentCommit != nil || b.ParentCommit != nil {
-		require.Equal(t, a.ParentCommit.Id, b.ParentCommit.Id)
-		require.Equal(t, a.ParentCommit.Repo.Name, b.ParentCommit.Repo.Name)
-	}
-	require.Equal(t, len(a.ChildCommits), len(b.ChildCommits))
-	if len(a.ChildCommits) != 0 || len(b.ChildCommits) != 0 {
-		childMap := make(map[string]*pfs.Commit)
-		for _, commit := range a.ChildCommits {
-			childMap[pfsdb.CommitKey(commit)] = commit
+func commitsMatch(t *testing.T, expected, actual *pfs.CommitInfo) {
+	want := proto.Clone(expected).(*pfs.CommitInfo)
+	got := proto.Clone(actual).(*pfs.CommitInfo)
+
+	want.Started.Nanos = 0
+	got.Started.Nanos = 0
+
+	sortCommits := func(a, b *pfs.Commit) int {
+		if a.GetId() == b.GetId() {
+			return 0
 		}
-		for _, commit := range b.ChildCommits {
-			require.Equal(t, commit.Id, childMap[pfsdb.CommitKey(commit)].Id)
-			require.Equal(t, commit.Repo.Name, childMap[pfsdb.CommitKey(commit)].Repo.Name)
+		if a.GetId() < b.GetId() {
+			return -1
 		}
+		return 1
 	}
+	slices.SortFunc(got.ChildCommits, sortCommits)
+	slices.SortFunc(want.ChildCommits, sortCommits)
+	for i := range got.ChildCommits {
+		got.ChildCommits[i].Branch = nil
+	}
+	for i := range want.ChildCommits {
+		want.ChildCommits[i].Branch = nil
+	}
+
+	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 
 func testCommit(ctx context.Context, t *testing.T, tx *pachsql.Tx, repoName string) *pfs.CommitInfo {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
@@ -149,7 +150,7 @@ func PachctlBashCmdCtx(ctx context.Context, t *testing.T, c *client.APIClient, s
 	ctx = pctx.Child(ctx, "bash")
 	data, err := subsToTemplateData(subs...)
 	require.NoError(t, err, "could not convert subs to data")
-	config := fmt.Sprintf("test-pach-config-%s.json", t.Name())
+	config := fmt.Sprintf("test-pach-config-%s.json", url.QueryEscape(t.Name()))
 	p, err := NewPachctl(ctx, c, config)
 	// NOTE: p is not closed in order to retain config file between runs;
 	// for the same reason, it is okay if the config file already exists.

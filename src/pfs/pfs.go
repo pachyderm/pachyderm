@@ -105,6 +105,12 @@ func (c *Commit) String() string {
 }
 
 func (c *Commit) Key() string {
+	if c == nil {
+		return ""
+	}
+	if c.Repo == nil {
+		return "<nil repo>@" + c.Id
+	}
 	return c.Repo.Key() + "@" + c.Id
 }
 
@@ -237,12 +243,13 @@ func (p *RepoPicker) UnmarshalText(b []byte) error {
 	default:
 		return errors.New("invalid repo picker: too many slashes")
 	}
-	rnp := &RepoPicker_RepoName{}
+	rnp := &RepoPicker_RepoName{
+		Project: &ProjectPicker{},
+	}
 	p.Picker = &RepoPicker_Name{
 		Name: rnp,
 	}
 	if project != nil {
-		rnp.Project = &ProjectPicker{}
 		if err := rnp.Project.UnmarshalText(project); err != nil {
 			return errors.Wrapf(err, "unmarshal project %s", project)
 		}
