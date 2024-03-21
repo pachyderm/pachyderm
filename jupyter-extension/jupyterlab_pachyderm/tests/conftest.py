@@ -14,6 +14,7 @@ from jupyterlab_pachyderm.env import PACH_CONFIG
 
 PortType = Tuple[socket.socket, int]
 ENV_VAR_TEST_ADDR = "foo.pachyderm.bar:1234"
+PACH_AUTH_CONFIG = Path.home().joinpath(".pachyderm", "auth_config.json")
 
 
 @pytest.fixture
@@ -22,10 +23,16 @@ def pach_config(request, tmp_path) -> Path:
 
     If the test is marked with @pytest.mark.no_config then the config
       file is not written.
+
+    If the test is marked with @pytest.mark.auth_enabled then the auth
+      enabled config file is used.
     """
     config_path = tmp_path / "config.json"
     if not request.node.get_closest_marker("no_config"):
-        copyfile(PACH_CONFIG, config_path)
+        if request.node.get_closest_marker("auth_enabled"):
+            copyfile(PACH_AUTH_CONFIG, config_path)
+        else:
+            copyfile(PACH_CONFIG, config_path)
     yield Path(config_path)
 
 
