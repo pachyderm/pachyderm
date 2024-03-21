@@ -41,7 +41,9 @@ version = (
     .replace("-alpha.", "a")
     .replace("-beta.", "b")
     .replace("-rc.", "rc")
-) 
+)
+
+requirements = HERE.joinpath("requirements.txt").read_text().splitlines()
 
 setup_args = dict(
     name=name,
@@ -53,6 +55,7 @@ setup_args = dict(
     license=pkg_json["license"],
     license_file="LICENSE",
     keywords=pkg_json["keywords"],
+    install_requires=requirements,
 )
 
 try:

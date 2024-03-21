@@ -90,6 +90,10 @@ Writing Go code works like it always did. Your editor can understand the entire 
 any help. Whenever you add or delete files, or change dependencies, run `bazel run //:gazelle` to
 update the associated BUILD files for Bazel.
 
+## Write Python code
+
+For the Jupyter extension, see [jupyter-extension/BAZEL.md](jupyter-extensions/BAZEL.md).
+
 ## Regenerating protos
 
 Right now, `make proto` calls out to `bazel run //:make_proto` to generate the Go protos. When you

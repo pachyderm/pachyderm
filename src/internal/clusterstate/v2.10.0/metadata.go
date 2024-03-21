@@ -14,3 +14,11 @@ func addMetadataToProjects(ctx context.Context, env migrations.Env) error {
 	}
 	return nil
 }
+
+func addMetadataToCommits(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
+	if _, err := tx.ExecContext(ctx, `ALTER TABLE pfs.commits ADD COLUMN metadata JSONB NOT NULL DEFAULT '{}' CHECK (jsonb_typeof(metadata) = 'object')`); err != nil {
+		return errors.Wrap(err, "add metadata column to pfs.commits")
+	}
+	return nil
+}

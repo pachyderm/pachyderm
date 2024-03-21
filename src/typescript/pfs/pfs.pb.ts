@@ -197,6 +197,7 @@ export type CommitInfo = {
   error?: string
   sizeBytesUpperBound?: string
   details?: CommitInfoDetails
+  metadata?: {[key: string]: string}
 }
 
 export type CommitSet = {

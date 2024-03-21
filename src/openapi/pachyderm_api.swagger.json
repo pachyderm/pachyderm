@@ -8003,6 +8003,9 @@
           "$ref": "#/definitions/pfs_v2ProjectPicker",
           "description": "project targets a named project's metadata."
         },
+        "commit": {
+          "$ref": "#/definitions/pfs_v2CommitPicker"
+        },
         "replace": {
           "$ref": "#/definitions/EditReplace",
           "description": "replace replaces a target's metadata with a new metadata mapping."
@@ -8258,6 +8261,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2CommitInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata is user-applied annotations."
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"
