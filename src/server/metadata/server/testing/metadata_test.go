@@ -1,6 +1,7 @@
 package testing
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -85,5 +86,90 @@ func TestEditProjectMetadata(t *testing.T) {
 	got.CreatedAt = nil
 	if diff := cmp.Diff(want, got, protocmp.Transform()); diff != "" {
 		t.Errorf("project foo (-want +got):\n%s", diff)
+	}
+}
+
+func TestEditCommitMetadata(t *testing.T) {
+	c := pachd.NewTestPachd(t)
+	ctx := c.Ctx()
+	project := &pfs.Project{
+		Name: "foo",
+	}
+	if _, err := c.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{
+		Project:     project,
+		Description: "foo project",
+	}); err != nil {
+		t.Fatalf("create project foo: %v", err)
+	}
+	repo := &pfs.Repo{
+		Name:    "test",
+		Type:    "user",
+		Project: project,
+	}
+	if _, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		Repo: repo,
+	}); err != nil {
+		t.Fatalf("create repo foo/test: %v", err)
+	}
+	target := &pfs.Commit{
+		Repo: repo,
+		Branch: &pfs.Branch{
+			Repo: repo,
+			Name: "master",
+		},
+	}
+	if err := c.PutFile(target, "text.txt", strings.NewReader("hello")); err != nil {
+		t.Fatalf("put file: %v", err)
+	}
+	picker := &pfs.CommitPicker{
+		Picker: &pfs.CommitPicker_BranchHead{
+			BranchHead: &pfs.BranchPicker{
+				Picker: &pfs.BranchPicker_Name{
+					Name: &pfs.BranchPicker_BranchName{
+						Name: "master",
+						Repo: &pfs.RepoPicker{
+							Picker: &pfs.RepoPicker_Name{
+								Name: &pfs.RepoPicker_RepoName{
+									Name: "test",
+									Type: "user",
+									Project: &pfs.ProjectPicker{
+										Picker: &pfs.ProjectPicker_Name{
+											Name: "foo",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := c.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
+		Edits: []*metadata.Edit{
+			{
+				Target: &metadata.Edit_Commit{
+					Commit: picker,
+				},
+				Op: &metadata.Edit_AddKey_{
+					AddKey: &metadata.Edit_AddKey{
+						Key:   "key",
+						Value: "value",
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Errorf("edit metadata: %v", err)
+	}
+	want := map[string]string{"key": "value"}
+	gotCommit, err := c.PfsAPIClient.InspectCommit(ctx, &pfs.InspectCommitRequest{
+		Commit: target,
+	})
+	if err != nil {
+		t.Errorf("inspect project: %v", err)
+	}
+	if diff := cmp.Diff(want, gotCommit.GetMetadata()); diff != "" {
+		t.Errorf("commit default/test@master (-want +got):\n%s", diff)
 	}
 }

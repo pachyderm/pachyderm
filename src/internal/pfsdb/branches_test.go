@@ -3,13 +3,15 @@ package pfsdb_test
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
+
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -22,28 +24,13 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-func compareHead(expected, got *pfs.Commit) bool {
-	return expected.Id == got.Id &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
-func compareBranch(expected, got *pfs.Branch) bool {
-	return expected.Name == got.Name &&
-		expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name
-}
-
 func compareBranchOpts() []cmp.Option {
 	return []cmp.Option{
-		cmpopts.IgnoreUnexported(pfs.BranchInfo{}),
 		cmpopts.SortSlices(func(a, b *pfs.Branch) bool { return a.Key() < b.Key() }), // Note that this is before compareBranch because we need to sort first.
 		cmpopts.SortMaps(func(a, b pfsdb.BranchID) bool { return a < b }),
 		cmpopts.EquateEmpty(),
-		cmp.Comparer(compareBranch),
-		cmp.Comparer(compareHead),
+		protocmp.Transform(),
+		protocmp.IgnoreEmptyMessages(),
 	}
 }
 
@@ -137,10 +124,10 @@ func TestBranchUpsert(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchInfo, err := pfsdb.GetBranchInfo(ctx, tx, id)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo, compareBranchOpts())
 			gotBranchByName, err := pfsdb.GetBranchInfoWithID(ctx, tx, branchInfo.Branch)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchByName.BranchInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchByName.BranchInfo, compareBranchOpts())
 
 			// Update branch to point to second commit
 			commitInfoWithID2 := createCommitInfoWithID(t, ctx, tx, newCommitInfo(repoInfo.Repo, random.String(32), commitInfoWithID1.CommitInfo.Commit))
@@ -150,7 +137,7 @@ func TestBranchUpsert(t *testing.T) {
 			require.Equal(t, id, id2, "UpsertBranch should keep id stable")
 			gotBranchInfo2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchInfo, gotBranchInfo2, compareBranchOpts()...))
+			require.NoDiff(t, branchInfo, gotBranchInfo2, compareBranchOpts())
 		})
 	})
 }
@@ -211,13 +198,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 			// Update provenance DAG to A <- B -> C, to test adding and deleting prov relationships
 			branchAInfo.DirectProvenance = nil
@@ -245,13 +232,13 @@ func TestBranchProvenance(t *testing.T) {
 				branchInfo := branchInfoWithID.BranchInfo
 				gotDirectProv, err := pfsdb.GetDirectBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.DirectProvenance, gotDirectProv, compareBranchOpts())
 				gotProv, err := pfsdb.GetBranchProvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Provenance, gotProv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Provenance, gotProv, compareBranchOpts())
 				gotSubv, err := pfsdb.GetBranchSubvenance(ctx, tx, id)
 				require.NoError(t, err)
-				require.True(t, cmp.Equal(branchInfo.Subvenance, gotSubv, compareBranchOpts()...))
+				require.NoDiff(t, branchInfo.Subvenance, gotSubv, compareBranchOpts())
 			}
 		})
 	})
@@ -450,7 +437,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchAInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchAID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchAInfo, gotBranchAInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchAInfo, gotBranchAInfo, compareBranchOpts())
 			// Verify BranchC no longer has BranchB in its provenance, nor does it have the trigger
 			branchCInfo.DirectProvenance = []*pfs.Branch{branchAInfo.Branch}
 			branchCInfo.Provenance = []*pfs.Branch{branchAInfo.Branch}
@@ -459,7 +446,7 @@ func TestBranchDelete(t *testing.T) {
 			require.NoError(t, err)
 			gotBranchCInfo, err := pfsdb.GetBranchInfo(ctx, tx, branchCID)
 			require.NoError(t, err)
-			require.True(t, cmp.Equal(branchCInfo, gotBranchCInfo, compareBranchOpts()...))
+			require.NoDiff(t, branchCInfo, gotBranchCInfo, compareBranchOpts())
 		})
 	})
 }

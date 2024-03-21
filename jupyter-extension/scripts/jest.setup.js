@@ -18,6 +18,11 @@ const ignoredWarnings = [
 ]
 
 failOnConsole({
+  shouldFailOnAssert: true,
+  shouldFailOnDebug: true,
+  shouldFailOnError: true,
+  shouldFailOnInfo: true,
+  shouldFailOnLog: true,
   shouldFailOnWarn: true,
   silenceMessage: (message, methodName) => {
     if (methodName === 'error') {

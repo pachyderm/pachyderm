@@ -28,6 +28,7 @@ class Edit(betterproto.Message):
     project: "_pfs__.ProjectPicker" = betterproto.message_field(1, group="target")
     """project targets a named project's metadata."""
 
+    commit: "_pfs__.CommitPicker" = betterproto.message_field(2, group="target")
     replace: "EditReplace" = betterproto.message_field(10, group="op")
     """replace replaces a target's metadata with a new metadata mapping."""
 

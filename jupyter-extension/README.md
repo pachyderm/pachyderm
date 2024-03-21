@@ -155,16 +155,14 @@ folder is located. Then you can remove the symlink named `jupyterlab-pachyderm` 
 
 Useful if iterating on the Dockerfile locally.
 
-Create & activate venv:
+Create & activate venv (using bazel):
 ```
-python3 -m venv venv
+bazel run //:venv
 source venv/bin/activate
 ```
 
 Build `dist` directory:
 ```
-python -m pip install --upgrade pip
-python -m pip install -r ci-requirements.txt
 python -m build
 ```
 

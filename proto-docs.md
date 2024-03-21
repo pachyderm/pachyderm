@@ -319,6 +319,7 @@
     - [Commit](#pfs_v2-Commit)
     - [CommitInfo](#pfs_v2-CommitInfo)
     - [CommitInfo.Details](#pfs_v2-CommitInfo-Details)
+    - [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry)
     - [CommitOrigin](#pfs_v2-CommitOrigin)
     - [CommitPicker](#pfs_v2-CommitPicker)
     - [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf)
@@ -4689,6 +4690,7 @@ Edit represents editing one piece of metadata.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
+| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  |  |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -5088,6 +5090,7 @@ CommitInfo is the main data structure representing a commit in postgres
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
+| metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
 
 
 
@@ -5105,6 +5108,22 @@ Details are only provided when explicitly requested
 | size_bytes | [int64](#int64) |  |  |
 | compacting_time | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | validating_time | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitInfo-MetadataEntry"></a>
+
+### CommitInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 

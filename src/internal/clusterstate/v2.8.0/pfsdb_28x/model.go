@@ -1,4 +1,4 @@
-package pfsdb
+package pfsdb_28x
 
 import (
 	"database/sql"
@@ -33,7 +33,6 @@ type Project struct {
 	ID          ProjectID `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
-	Metadata    jsonMap   `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
@@ -50,7 +49,6 @@ func (project *Project) PbInfo() *pfs.ProjectInfo {
 		},
 		Description: project.Description,
 		CreatedAt:   timestamppb.New(project.CreatedAt),
-		Metadata:    project.Metadata.Data,
 	}
 }
 
@@ -123,7 +121,6 @@ type Commit struct {
 	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
 	Error          string        `db:"error"`
 	Size           int64         `db:"size"`
-	Metadata       jsonMap       `db:"metadata"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
