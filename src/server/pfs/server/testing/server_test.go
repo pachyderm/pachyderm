@@ -7373,13 +7373,13 @@ func TestReposSummary(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
 	commit = client.NewCommit("B", "B-3", "master", "")
 	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
+	_, err = c.WaitCommit("B", "B-3", "master", "")
+	require.NoError(t, err)
 	summaryResp, err = c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
 		Projects: []*pfs.Project{client.NewProject("B")},
 	})
 	require.NoError(t, err)
-	_, err = c.WaitCommit("B", "B-3", "master", "")
-	require.NoError(t, err)
 	require.Len(t, summaryResp.Summaries, 1)
 	require.Equal(t, "B", summaryResp.Summaries[0].Project.Name)
-	require.Equal(t, 2*len([]byte(data)), summaryResp.Summaries[0].SizeBytes)
+	require.Equal(t, int64(2*len([]byte(data))), summaryResp.Summaries[0].SizeBytes)
 }
