@@ -40,6 +40,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/tls"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -103,6 +104,7 @@ type APIClient struct {
 	TransactionAPIClient
 	DebugClient
 	ProxyClient
+	LogsClient logs.APIClient
 	MetadataClient
 	Enterprise enterprise.APIClient // not embedded--method name conflicts with AuthAPIClient
 	License    license.APIClient
@@ -850,6 +852,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 	c.TransactionAPIClient = transaction.NewAPIClient(clientConn)
 	c.DebugClient = debug.NewDebugClient(clientConn)
 	c.ProxyClient = proxy.NewAPIClient(clientConn)
+	c.LogsClient = logs.NewAPIClient(clientConn)
 	c.MetadataClient = metadata.NewAPIClient(clientConn)
 	c.clientConn = clientConn
 	c.healthClient = grpc_health_v1.NewHealthClient(clientConn)

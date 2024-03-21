@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
-	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
+	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 )
 
 type Env struct {
