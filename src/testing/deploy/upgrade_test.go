@@ -83,7 +83,7 @@ func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 			"pachd.replicas":    strconv.Itoa(numPachds),
 			// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
 			// so to make UpgradeTest work, we overried configuration with these "old" minio values.
-			"pachd.storage.gocdkEnabled":   "true",
+			"pachd.storage.gocdkEnabled":   "false",
 			"pachd.storage.backend":        "MINIO",
 			"pachd.storage.minio.bucket":   "pachyderm-test",
 			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
