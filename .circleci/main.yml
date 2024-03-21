@@ -748,7 +748,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -801,7 +801,8 @@ jobs:
 
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -e '.[dev]'
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -903,7 +904,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -945,7 +946,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
       - run:
           name: Init .pypirc
           command: |
@@ -973,7 +974,7 @@ jobs:
             python -m venv venv
             . venv/bin/activate
             python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+            python -m pip install -r requirements-dev.txt
       - run:
           name: Init .pypirc
           command: |

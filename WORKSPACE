@@ -12,3 +12,11 @@ http_archive(
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
 
 protobuf_deps()
+
+# rules_pyvenv contains functionality for creating a python virtual environment.
+http_archive(
+    name = "rules_pyvenv",
+    sha256 = "3a3cc6e211850178de02b618d301f3f39d1a9cddb54d499d816ff9ea835a2834",
+    strip_prefix = "rules_pyvenv-1.2",
+    url = "https://github.com/cedarai/rules_pyvenv/archive/refs/tags/v1.2.tar.gz",
+)

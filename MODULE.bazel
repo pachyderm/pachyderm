@@ -394,8 +394,24 @@ oci.pull(
 )
 use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 
+# Python
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
-    is_default = True,
-    python_version = "3.12",
+    python_version = "3.9",
 )
+
+# Load in both the strict and dev requirements for the jupyter extension.
+pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
+pip.parse(
+    hub_name = "jupyter-pip-requirements",
+    python_version = "3.9",
+    requirements_lock = "//jupyter-extension:requirements-lock.txt",
+)
+pip.parse(
+    hub_name = "jupyter-pip-requirements-dev",
+    python_version = "3.9",
+    requirements_darwin = "//jupyter-extension:requirements-dev-lock-darwin.txt",
+    requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
+    requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
+)
+use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
