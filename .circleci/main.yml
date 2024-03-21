@@ -742,13 +742,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+      - install-bazel
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -764,13 +758,15 @@ jobs:
           paths:
             - "node_modules"
       - run:
+        name: "Install Python dependencies"
+        command: bazel run :venv
+      - run:
           name: "Build and test the extension"
           command: |
             set -eux
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install -e '.[dev]'
 
             # Run Python unit tests
             mkdir -p test-results
@@ -793,16 +789,15 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-bazel
       - install-jupyter-test-deps
       - run:
           name: "Integration tests"
           command: |
             set -eux
 
-            python3 -m venv venv
+            bazel run :venv
             . venv/bin/activate
-            python3 -m pip install '.'
-            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -897,14 +892,10 @@ jobs:
             then
                 contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
             fi
-
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -923,7 +914,6 @@ jobs:
       - run:
           name: build
           command: |
-            python -m venv venv
             . venv/bin/activate
             python -m build
 
@@ -940,13 +930,10 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run :venv
       - run:
           name: Init .pypirc
           command: |
@@ -956,7 +943,6 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload --repository testpypi dist/*
 
@@ -968,13 +954,10 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run :venv
       - run:
           name: Init .pypirc
           command: |
@@ -984,7 +967,6 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload dist/*
 
@@ -2269,3 +2251,11 @@ commands:
             $POETRY_HOME/bin/pip install poetry==1.4.1
             $POETRY_HOME/bin/poetry --version
             ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+  install-bazel:
+    steps:
+      - run:
+          name: Install Bazel
+          command: |
+            wget -O ./bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-arm64
+            chmod +x ./bazel
+            sudo mv ./bazel /home/circleci/bin/bazel
