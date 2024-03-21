@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"flag"
+	"maps"
 	"math/rand"
 	"os"
 	"path"
@@ -430,28 +431,22 @@ func TestCreateDAGS(t *testing.T) {
 	}
 	flushLog := log.InitBatchLogger("/tmp/fuzzdb.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
-
+	valuesOverridden, strValuesOverridden := helmValuesPreGoCDK(1)
+	values := map[string]string{
+		"proxy.resources.requests.memory": "250MB",
+		"proxy.resources.limits.memory":   "250MB",
+		"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
+		"console.enabled":                 "true",
+		"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
+		"pachd.activateAuth":              "false",
+	}
+	maps.Copy(valuesOverridden, values)
 	deployOpts := &minikubetestenv.DeployOpts{
 		Version:            "2.8.3",
 		CleanupAfter:       false,
 		UseLeftoverCluster: false,
-		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "250MB",
-			"prxoy.resources.limits.memory":   "250MB",
-			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
-			"console.enabled":                 "true",
-			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
-			"pachd.activateAuth":              "false",
-			// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
-			// so to make UpgradeTest work, we overried configuration with these "old" minio values.
-			"pachd.storage.backend":         "MINIO",
-			"pachd.storage.minio.bucket":    "pachyderm-test",
-			"pachd.storage.minio.endpoint":  "minio.default.svc.cluster.local:9000",
-			"pachd.storage.minio.id":        "minioadmin",
-			"pachd.storage.minio.secret":    "minioadmin",
-			"pachd.storage.minio.signature": "",
-			"pachd.storage.minio.secure":    "false",
-		},
+		ValueOverrides:     valuesOverridden,
+		ValuesStrOverrides: strValuesOverridden,
 	}
 	k := testutil.GetKubeClient(t)
 	namespace, _ := minikubetestenv.ClaimCluster(t)
