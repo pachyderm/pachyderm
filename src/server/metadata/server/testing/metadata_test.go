@@ -167,9 +167,89 @@ func TestEditCommitMetadata(t *testing.T) {
 		Commit: target,
 	})
 	if err != nil {
-		t.Errorf("inspect project: %v", err)
+		t.Errorf("inspect commit: %v", err)
 	}
 	if diff := cmp.Diff(want, gotCommit.GetMetadata()); diff != "" {
 		t.Errorf("commit default/test@master (-want +got):\n%s", diff)
+	}
+}
+
+func TestEditBranchMetadata(t *testing.T) {
+	c := pachd.NewTestPachd(t)
+	ctx := c.Ctx()
+	project := &pfs.Project{
+		Name: "foo",
+	}
+	if _, err := c.PfsAPIClient.CreateProject(ctx, &pfs.CreateProjectRequest{
+		Project:     project,
+		Description: "foo project",
+	}); err != nil {
+		t.Fatalf("create project foo: %v", err)
+	}
+	repo := &pfs.Repo{
+		Name:    "test",
+		Type:    "user",
+		Project: project,
+	}
+	if _, err := c.PfsAPIClient.CreateRepo(ctx, &pfs.CreateRepoRequest{
+		Repo: repo,
+	}); err != nil {
+		t.Fatalf("create repo foo/test: %v", err)
+	}
+	branch := &pfs.Branch{
+		Repo: repo,
+		Name: "master",
+	}
+	if _, err := c.PfsAPIClient.CreateBranch(ctx, &pfs.CreateBranchRequest{
+		Branch: branch,
+	}); err != nil {
+		t.Fatalf("create branch foo/test@master: %v", err)
+	}
+	picker := &pfs.BranchPicker{
+		Picker: &pfs.BranchPicker_Name{
+			Name: &pfs.BranchPicker_BranchName{
+				Name: "master",
+				Repo: &pfs.RepoPicker{
+					Picker: &pfs.RepoPicker_Name{
+						Name: &pfs.RepoPicker_RepoName{
+							Name: "test",
+							Type: "user",
+							Project: &pfs.ProjectPicker{
+								Picker: &pfs.ProjectPicker_Name{
+									Name: "foo",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	if _, err := c.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
+		Edits: []*metadata.Edit{
+			{
+				Target: &metadata.Edit_Branch{
+					Branch: picker,
+				},
+				Op: &metadata.Edit_AddKey_{
+					AddKey: &metadata.Edit_AddKey{
+						Key:   "key",
+						Value: "value",
+					},
+				},
+			},
+		},
+	}); err != nil {
+		t.Errorf("edit metadata: %v", err)
+	}
+	want := map[string]string{"key": "value"}
+	gotBranch, err := c.PfsAPIClient.InspectBranch(ctx, &pfs.InspectBranchRequest{
+		Branch: branch,
+	})
+	if err != nil {
+		t.Errorf("inspect branch: %v", err)
+	}
+	if diff := cmp.Diff(want, gotBranch.GetMetadata()); diff != "" {
+		t.Errorf("branch default/test@master (-want +got):\n%s", diff)
 	}
 }

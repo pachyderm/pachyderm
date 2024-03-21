@@ -367,6 +367,20 @@ func TestEditMetadata(t *testing.T) {
 					match '"myproject":[[:space:]]+"project"'
 			`,
 		},
+		{
+			name: "branch",
+			code: `
+				pachctl create project branchtest
+				pachctl config update context --project branchtest
+				pachctl create repo testbranch
+				pachctl create branch testbranch@foobar
+				pachctl edit metadata branch testbranch@foobar add key=value \
+					branch branchtest/testbranch@foobar add key2=value2
+				pachctl inspect branch testbranch@foobar --raw |
+					match '"key":[[:space:]]"value"' |
+					match '"key2":[[:space:]]"value2"'
+			`,
+		},
 	}
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
