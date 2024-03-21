@@ -873,6 +873,7 @@ jobs:
 
   jupyter-extension-build:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
