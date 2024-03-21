@@ -738,6 +738,7 @@ jobs:
         type: string
     docker:
       - image: cimg/python:<< parameters.python-version >>-node
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -924,6 +925,7 @@ jobs:
 
   jupyter-extension-test-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -948,6 +950,7 @@ jobs:
 
   jupyter-extension-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
