@@ -8144,6 +8144,12 @@
         },
         "trigger": {
           "$ref": "#/definitions/pfs_v2Trigger"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },

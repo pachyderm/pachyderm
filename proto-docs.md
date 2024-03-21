@@ -310,6 +310,7 @@
     - [AuthInfo](#pfs_v2-AuthInfo)
     - [Branch](#pfs_v2-Branch)
     - [BranchInfo](#pfs_v2-BranchInfo)
+    - [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry)
     - [BranchPicker](#pfs_v2-BranchPicker)
     - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
@@ -4951,6 +4952,23 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchInfo-MetadataEntry"></a>
+
+### BranchInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 

@@ -135,6 +135,7 @@ export type BranchInfo = {
   subvenance?: Branch[]
   directProvenance?: Branch[]
   trigger?: Trigger
+  metadata?: {[key: string]: string}
 }
 
 export type Trigger = {

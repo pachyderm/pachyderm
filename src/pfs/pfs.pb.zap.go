@@ -151,6 +151,12 @@ func (x *BranchInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddArray("direct_provenance", zapcore.ArrayMarshalerFunc(direct_provenanceArrMarshaller))
 	enc.AddObject("trigger", x.Trigger)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 
