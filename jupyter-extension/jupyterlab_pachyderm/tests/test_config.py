@@ -33,6 +33,26 @@ async def test_config_no_file(app: Application, http_client: AsyncClient):
     assert config_payload["pachd_address"] == ""
 
 
+@pytest.mark.auth_enabled
+async def test_auth_config(app: Application, http_client: AsyncClient):
+    """Test that the extension correctly loads an auth-enabled config file."""
+    # Arrange
+    config_file = app.settings.get("pachyderm_config_file")
+    assert config_file is not None and config_file.exists()
+
+    # Act
+    config_response = await http_client.get("/config")
+    health_response = await http_client.get("/health")
+
+    # Assert
+    config_response.raise_for_status()
+    health_response.raise_for_status()
+    config_payload = config_response.json()
+    health_payload = health_response.json()
+    assert health_payload["status"] == "HEALTHY_LOGGED_IN"
+    assert config_payload["pachd_address"]
+
+
 @pytest.mark.no_config
 @pytest.mark.env_var_addr
 async def test_config_env_var(app: Application, http_client: AsyncClient):
