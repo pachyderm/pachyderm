@@ -103,7 +103,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			case isAdmin:
 				req = newLogQLRequest(`{suite="pachyderm"}`)
 			default:
-				req = newLogQLRequest(`{}`)
+				req = newLogQLRequest(`{pod=~".+"}`)
 			}
 
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
