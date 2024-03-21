@@ -8006,6 +8006,9 @@
         "commit": {
           "$ref": "#/definitions/pfs_v2CommitPicker"
         },
+        "branch": {
+          "$ref": "#/definitions/pfs_v2BranchPicker"
+        },
         "replace": {
           "$ref": "#/definitions/EditReplace",
           "description": "replace replaces a target's metadata with a new metadata mapping."

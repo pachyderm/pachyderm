@@ -4691,6 +4691,7 @@ Edit represents editing one piece of metadata.
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
 | commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  |  |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  |  |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |

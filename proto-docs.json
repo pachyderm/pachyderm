@@ -10039,6 +10039,26 @@
               }
             },
             {
+              "name": "branch",
+              "description": "",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "pfs_v2.BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
               "name": "replace",
               "description": "replace replaces a target's metadata with a new metadata mapping.",
               "label": "",
