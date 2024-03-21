@@ -757,9 +757,9 @@ jobs:
           paths:
             - "node_modules"
       - run:
-        name: "Install Python dependencies"
-        command: |
-          bazel run :venv
+          name: "Install Python dependencies"
+          command: |
+            bazel run :venv
       - run:
           name: "Build and test the extension"
           command: |
