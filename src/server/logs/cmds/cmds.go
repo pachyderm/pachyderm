@@ -158,7 +158,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	}
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
-	logsCmd.Flags().StringVar(&pipeline, "pipeline", project, "Pipeline for pipeline query.")
+	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
 	commands = append(commands, logsCmd)
 	return commands
 }
