@@ -2255,6 +2255,7 @@ commands:
       - run:
           name: Install Bazel
           command: |
+            mkdir -p /home/circleci/bin
             wget -O ./bazel https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-arm64
             chmod +x ./bazel
             sudo mv ./bazel /home/circleci/bin/bazel
