@@ -450,7 +450,7 @@ func TestCreateDAGS(t *testing.T) {
 			"pachd.storage.minio.id":        "minioadmin",
 			"pachd.storage.minio.secret":    "minioadmin",
 			"pachd.storage.minio.signature": "",
-			"pachd.storage.minio.secure":    "\"false\"",
+			"pachd.storage.minio.secure":    "false",
 		},
 	}
 	k := testutil.GetKubeClient(t)

@@ -46,6 +46,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
 			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
+			valuesOverridden, strValuesOverridden := helmValuesPreGoCDK(numPachds)
 			preUpgrade(t, ctx, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
@@ -55,7 +56,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					DisableLoki:        true,
 					PortOffset:         portOffset,
 					UseLeftoverCluster: false,
-					ValueOverrides:     helmValuesPreGoCDK(numPachds),
+					ValueOverrides:     valuesOverridden,
+					ValuesStrOverrides: strValuesOverridden,
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -72,27 +74,32 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 	}
 }
 
-func helmValuesPreGoCDK(numPachds int) map[string]string {
+// helmValuesPreGoCDK returns two maps. The first is for overriding SetValues, the second is for
+// overriding SetStrValues.
+func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
 	return map[string]string{
-		"pachw.minReplicas": "1",
-		"pachw.maxReplicas": "5",
-		"pachd.replicas":    strconv.Itoa(numPachds),
-		// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
-		// so to make UpgradeTest work, we overried configuration with these "old" minio values.
-		"pachd.storage.backend":         "MINIO",
-		"pachd.storage.minio.bucket":    "pachyderm-test",
-		"pachd.storage.minio.endpoint":  "minio.default.svc.cluster.local:9000",
-		"pachd.storage.minio.id":        "minioadmin",
-		"pachd.storage.minio.secret":    "minioadmin",
-		"pachd.storage.minio.signature": "",
-		"pachd.storage.minio.secure":    "\"false\"",
-	}
+			"pachw.minReplicas": "1",
+			"pachw.maxReplicas": "5",
+			"pachd.replicas":    strconv.Itoa(numPachds),
+			// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
+			// so to make UpgradeTest work, we overried configuration with these "old" minio values.
+			"pachd.storage.gocdkEnabled":   "true",
+			"pachd.storage.backend":        "MINIO",
+			"pachd.storage.minio.bucket":   "pachyderm-test",
+			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.id":       "minioadmin",
+			"pachd.storage.minio.secret":   "minioadmin",
+		},
+		map[string]string{
+			"pachd.storage.minio.signature": "",
+			"pachd.storage.minio.secure":    "false",
+		}
 }
 
 func TestUpgradeTrigger(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
+	// if skip {
+	// 	t.Skip("Skipping upgrade test")
+	// }
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
@@ -271,9 +278,9 @@ func TestUpgradeTrigger(t *testing.T) {
 // - create file input@master:/bar
 // - verify output@master:/bar and output@master:/foo still exists
 func TestUpgradeOpenCVWithAuth(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
+	// if skip {
+	// 	t.Skip("Skipping upgrade test")
+	// }
 	fromVersions := []string{
 		"2.7.6",
 		"2.8.5",
@@ -382,9 +389,9 @@ func TestUpgradeOpenCVWithAuth(t *testing.T) {
 }
 
 func TestUpgradeMultiProjectJoins(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
+	// if skip {
+	// 	t.Skip("Skipping upgrade test")
+	// }
 	fromVersions := []string{"2.7.4", "2.8.1"}
 	files := []string{"file1", "file2", "file3", "file4"}
 	upgradeTest(t, pctx.TestContext(t), true /* parallelOK */, 1, fromVersions,
@@ -470,9 +477,9 @@ func TestUpgradeMultiProjectJoins(t *testing.T) {
 }
 
 func TestUpgradeLoad(t *testing.T) {
-	if skip {
-		t.Skip("Skipping upgrade test")
-	}
+	// if skip {
+	// 	t.Skip("Skipping upgrade test")
+	// }
 	fromVersions := []string{"2.7.2", "2.8.0"}
 	dagSpec := `
 default-load-test-source-1:

@@ -84,16 +84,18 @@ type DeployOpts struct {
 	// Because NodePorts are cluster-wide, we use a PortOffset to
 	// assign separate ports per deployment.
 	// NOTE: it might make more sense to declare port instead of offset
-	PortOffset        uint16
-	DisableLoki       bool
-	EnterpriseMember  bool
-	EnterpriseServer  bool
-	Determined        bool
-	ValueOverrides    map[string]string
-	TLS               bool
-	CertPool          *x509.CertPool
-	ValuesFiles       []string
-	InstallPrometheus bool
+	PortOffset       uint16
+	DisableLoki      bool
+	EnterpriseMember bool
+	EnterpriseServer bool
+	Determined       bool
+	ValueOverrides   map[string]string
+	// ValuesStrOverrides is used to override SetStrValues map.
+	ValuesStrOverrides map[string]string
+	TLS                bool
+	CertPool           *x509.CertPool
+	ValuesFiles        []string
+	InstallPrometheus  bool
 }
 
 func getLocalImage() string {
@@ -246,9 +248,11 @@ func withMinio() *helm.Options {
 			"deployTarget":                "custom",
 			"pachd.storage.backend":       "AMAZON",
 			"pachd.storage.gocdkEnabled":  "true",
-			"pachd.storage.storageURL":    fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", MinioBucket, MinioEndpoint),
 			"pachd.storage.amazon.id":     "minioadmin",
 			"pachd.storage.amazon.secret": "minioadmin",
+		},
+		SetStrValues: map[string]string{
+			"pachd.storage.storageURL": fmt.Sprintf("s3://%s?endpoint=%s&disableSSL=true&region=dummy-region", MinioBucket, MinioEndpoint),
 		},
 	}
 }
@@ -872,6 +876,9 @@ func putRelease(t testing.TB, ctx context.Context, namespace string, kubeClient 
 	}
 	if opts.ValueOverrides != nil {
 		helmOpts = union(helmOpts, &helm.Options{SetValues: opts.ValueOverrides})
+	}
+	if opts.ValuesStrOverrides != nil {
+		helmOpts = union(helmOpts, &helm.Options{SetStrValues: opts.ValuesStrOverrides})
 	}
 	if opts.TLS {
 		pachAddress.Secured = true
