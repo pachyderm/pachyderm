@@ -275,6 +275,44 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "add to a branch",
+			args: []string{"branch", "test@master", "add", "key=value"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Branch{
+							Branch: &pfs.BranchPicker{
+								Picker: &pfs.BranchPicker_Name{
+									Name: &pfs.BranchPicker_BranchName{
+										Repo: &pfs.RepoPicker{
+											Picker: &pfs.RepoPicker_Name{
+												Name: &pfs.RepoPicker_RepoName{
+													Project: &pfs.ProjectPicker{
+														Picker: &pfs.ProjectPicker_Name{
+															Name: "the_default_project",
+														},
+													},
+													Name: "test",
+													Type: "user",
+												},
+											},
+										},
+										Name: "master",
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_AddKey_{
+							AddKey: &metadata.Edit_AddKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testData {
@@ -318,11 +356,24 @@ func TestEditMetadata(t *testing.T) {
 			code: "pachctl edit metadata",
 		},
 		{
-			name: "add",
+			name: "project",
 			code: `
-				pachctl inspect project default
 				pachctl edit metadata project default add key1=value1
 				pachctl inspect project default --raw | match '"key1":[[:space:]]+"value1"'
+			`,
+		},
+		{
+			name: "commit",
+			code: `
+				pachctl edit metadata commit test@master set '{"key":"value"}'
+				pachctl inspect commit test@master --raw | match '"key":[[:space:]]+"value"'
+			`,
+		},
+		{
+			name: "branch",
+			code: `
+				pachctl edit metadata branch test@master set '{"key":"value"}'
+				pachctl inspect branch test@master --raw | match '"key":[[:space:]]+"value"'
 			`,
 		},
 		{
@@ -338,36 +389,38 @@ func TestEditMetadata(t *testing.T) {
 			`,
 		},
 		{
-			name: "commit",
-			code: `
-				pachctl create repo test || true
-				echo 'hi' | pachctl put file test@master:/hi.txt
-				pachctl edit metadata commit test@master set '{"key":"value"}'
-				pachctl inspect commit test@master --raw | match '"key":[[:space:]]+"value"'
-			`,
-		},
-		{
 			name: "non-default project",
 			code: `
-				pachctl create repo test || true
-				echo 'hi' | pachctl put file test@master:/hi.txt
-				
 				pachctl create project project
 				pachctl config update context --project project
 				pachctl create repo test
 				echo 'hi' | pachctl put file test@master:/hi.txt
-				
-				pachctl edit metadata commit project/test@master edit myproject=project \
-						      commit default/test@master edit myproject=default \
-						      commit test@master add implied=true
+
+				pachctl edit metadata commit project/test@master add myproject=project \
+						      commit default/test@master add myproject=default \
+						      commit test@master add implied=true \
+						      branch default/test@master add mybranchproject=default \
+						      branch project/test@master add mybranchproject=project \
+						      branch test@master add branchimplied=true
 				pachctl inspect commit test@master --raw --project=default |
 					match '"myproject":[[:space:]]+"default"'
 				pachctl inspect commit test@master --raw --project=project |
 					match '"implied":[[:space:]]+"true"' |
 					match '"myproject":[[:space:]]+"project"'
+				pachctl inspect branch test@master --raw --project=default |
+					match '"mybranchproject":[[:space:]]+"default"'
+				pachctl inspect branch test@master --raw --project=project |
+					match '"branchimplied":[[:space:]]+"true"' |
+					match '"mybranchproject":[[:space:]]+"project"'
 			`,
 		},
 	}
+	ctx := pctx.TestContext(t)
+	setup := `
+		pachctl create repo test
+		echo 'hi' | pachctl put file test@master:/hi.txt
+	`
+	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, setup).Run())
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := pctx.TestContext(t)
