@@ -1,5 +1,6 @@
-load("@jupyter-pip-requirements//:requirements.bzl", "all_requirements")
-load("@jupyter-pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements")
+load("@jupyter-pip-requirements//:requirements.bzl", "all_requirements", "all_data_requirements")
+load("@jupyter-pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements", all_data_requirements_dev = "all_data_requirements")
+load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_pyvenv//:venv.bzl", "py_venv")
 
@@ -29,4 +30,29 @@ py_venv(
     name = "venv",
     venv_location = "jupyter-extension/venv",
     deps = all_requirements + all_requirements_dev,
+    data = all_data_requirements + all_data_requirements_dev,
+)
+
+py_test(
+    name = "check-manifest",
+    data = glob(
+        ["**"],
+        exclude=[
+            ".git/**",
+            ".ipynb_checkpoints/**",
+            ".jestcache/**",
+            "cypress/**",
+            "dist/**",
+            "*.egg-info/**",
+            "lib/**",
+            "node_modules/**",
+            "scripts/**",
+            "venv/**"
+        ]),
+    srcs = ["scripts/run_check_manifest.py"],
+    main = "scripts/run_check_manifest.py",
+    deps = [
+        "@jupyter-pip-requirements-dev//check_manifest:pkg",
+        "@jupyter-pip-requirements-dev//setuptools:pkg",
+    ]
 )
