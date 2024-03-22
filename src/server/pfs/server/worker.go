@@ -37,7 +37,8 @@ func NewWorker(env WorkerEnv, config WorkerConfig) (*Worker, error) {
 		DB:          env.DB,
 		Bucket:      env.Bucket,
 		ObjectStore: env.ObjClient,
-	}, config.Storage)
+		Config:      config.Storage,
+	})
 	if err != nil {
 		return nil, err
 	}

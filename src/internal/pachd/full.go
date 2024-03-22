@@ -18,6 +18,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -104,6 +105,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
+		fb.registerStorageServer,
 		fb.registerPPSServer,
 		fb.registerTransactionServer,
 		fb.registerAdminServer,
@@ -156,12 +158,13 @@ type Full struct {
 	authInterceptor *auth_interceptor.Interceptor
 	txnEnv          *transactionenv.TransactionEnv
 
-	healthSrv grpc_health_v1.HealthServer
-	version   version.APIServer
-	txnSrv    transaction.APIServer
-	authSrv   auth.APIServer
-	pfsSrv    pfs.APIServer
-	ppsSrv    pps.APIServer
+	healthSrv  grpc_health_v1.HealthServer
+	version    version.APIServer
+	txnSrv     transaction.APIServer
+	authSrv    auth.APIServer
+	pfsSrv     pfs.APIServer
+	storageSrv *storage.Server
+	ppsSrv     pps.APIServer
 	// TODO
 	// debugSrv debug.DebugServer
 
@@ -234,6 +237,13 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPipelineInspector: func() pfs_server.PipelineInspector {
 					panic("GetPipelineInspector")
 				},
+			}
+		}),
+		initStorageServer(&pd.storageSrv, func() storage.Env {
+			return storage.Env{
+				DB:     env.DB,
+				Bucket: env.Bucket,
+				Config: config.StorageConfiguration,
 			}
 		}),
 		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {

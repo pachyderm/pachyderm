@@ -27914,6 +27914,401 @@
       "services": []
     },
     {
+      "name": "storage/fileset.proto",
+      "description": "",
+      "package": "storage",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "AppendFile",
+          "longName": "AppendFile",
+          "fullName": "storage.AppendFile",
+          "description": "AppendFile will append the provided data to the file with the specified path. If\na file with the specified path doesn't exist, it will be created.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ComposeFilesetRequest",
+          "longName": "ComposeFilesetRequest",
+          "fullName": "storage.ComposeFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_ids",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ttl_seconds",
+              "description": "The TTL, in seconds, for the composite fileset that is created.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ComposeFilesetResponse",
+          "longName": "ComposeFilesetResponse",
+          "fullName": "storage.ComposeFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateFilesetRequest",
+          "longName": "CreateFilesetRequest",
+          "fullName": "storage.CreateFilesetRequest",
+          "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "append_file",
+              "description": "",
+              "label": "",
+              "type": "AppendFile",
+              "longType": "AppendFile",
+              "fullType": "storage.AppendFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            },
+            {
+              "name": "delete_file",
+              "description": "",
+              "label": "",
+              "type": "DeleteFile",
+              "longType": "DeleteFile",
+              "fullType": "storage.DeleteFile",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "modification",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "CreateFilesetResponse",
+          "longName": "CreateFilesetResponse",
+          "fullName": "storage.CreateFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteFile",
+          "longName": "DeleteFile",
+          "fullName": "storage.DeleteFile",
+          "description": "DeleteFile will delete the file with the specified path. If a file with the\nspecified path doesn't exist, the delete will be a no-op.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PathRange",
+          "longName": "PathRange",
+          "fullName": "storage.PathRange",
+          "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper).",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "lower",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "upper",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "RenewFilesetRequest",
+          "longName": "RenewFilesetRequest",
+          "fullName": "storage.RenewFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "ttl_seconds",
+              "description": "The TTL, in seconds, for the fileset after renewal.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ShardFilesetRequest",
+          "longName": "ShardFilesetRequest",
+          "fullName": "storage.ShardFilesetRequest",
+          "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "num_files",
+              "description": "Number of files targeted in each shard.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "Size (in bytes) targeted for each shard.",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ShardFilesetResponse",
+          "longName": "ShardFilesetResponse",
+          "fullName": "storage.ShardFilesetResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "shards",
+              "description": "",
+              "label": "repeated",
+              "type": "PathRange",
+              "longType": "PathRange",
+              "fullType": "storage.PathRange",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        }
+      ],
+      "services": [
+        {
+          "name": "Fileset",
+          "longName": "Fileset",
+          "fullName": "storage.Fileset",
+          "description": "",
+          "methods": [
+            {
+              "name": "CreateFileset",
+              "description": "CreateFileset creates a fileset based on a stream of file modifications.\nA string identifier for the created fileset will be returned that can be used for subsequent fileset operations.\nFilesets have a fixed time-to-live (ttl), which is currently 10 minutes.\nFilesets needed longer than the ttl will need to be renewed.",
+              "requestType": "CreateFilesetRequest",
+              "requestLongType": "CreateFilesetRequest",
+              "requestFullType": "storage.CreateFilesetRequest",
+              "requestStreaming": true,
+              "responseType": "CreateFilesetResponse",
+              "responseLongType": "CreateFilesetResponse",
+              "responseFullType": "storage.CreateFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "RenewFileset",
+              "description": "RenewFileset renews a fileset.",
+              "requestType": "RenewFilesetRequest",
+              "requestLongType": "RenewFilesetRequest",
+              "requestFullType": "storage.RenewFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "Empty",
+              "responseLongType": ".google.protobuf.Empty",
+              "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ComposeFileset",
+              "description": "ComposeFileset composes a fileset.\nComposing a fileset involves combining one or more filesets into a single fileset.\nTODO: Explain how the filesets are layered and what that means for the order of file modifications.",
+              "requestType": "ComposeFilesetRequest",
+              "requestLongType": "ComposeFilesetRequest",
+              "requestFullType": "storage.ComposeFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ComposeFilesetResponse",
+              "responseLongType": "ComposeFilesetResponse",
+              "responseFullType": "storage.ComposeFilesetResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "ShardFileset",
+              "description": "ShardFileset shards a fileset.\nThe shards of a fileset are returned as a list of path ranges that are disjoint\nand account for the full set of paths in the fileset.",
+              "requestType": "ShardFilesetRequest",
+              "requestLongType": "ShardFilesetRequest",
+              "requestFullType": "storage.ShardFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ShardFilesetResponse",
+              "responseLongType": "ShardFilesetResponse",
+              "responseFullType": "storage.ShardFilesetResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "task/task.proto",
       "description": "",
       "package": "taskapi",

@@ -1,0 +1,60 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/CreateFilesetRequest",
+    "definitions": {
+        "CreateFilesetRequest": {
+            "properties": {
+                "appendFile": {
+                    "$ref": "#/definitions/storage.AppendFile",
+                    "additionalProperties": false
+                },
+                "deleteFile": {
+                    "$ref": "#/definitions/storage.DeleteFile",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "append_file"
+                    ]
+                },
+                {
+                    "required": [
+                        "delete_file"
+                    ]
+                }
+            ],
+            "title": "Create Fileset Request",
+            "description": "A CreateFilesetRequest corresponds to a single file modification. Supported file modifications are append and delete. A put / overwrite file modification can be performed by a delete followed by an append.  TODO: Decide how to handle datums."
+        },
+        "storage.AppendFile": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "data": {
+                    "additionalProperties": false,
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Append File",
+            "description": "AppendFile will append the provided data to the file with the specified path. If a file with the specified path doesn't exist, it will be created."
+        },
+        "storage.DeleteFile": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete File",
+            "description": "DeleteFile will delete the file with the specified path. If a file with the specified path doesn't exist, the delete will be a no-op."
+        }
+    }
+}

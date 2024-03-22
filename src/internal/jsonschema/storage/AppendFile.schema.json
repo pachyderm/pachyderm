@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/AppendFile",
+    "definitions": {
+        "AppendFile": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "data": {
+                    "additionalProperties": false,
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Append File",
+            "description": "AppendFile will append the provided data to the file with the specified path. If a file with the specified path doesn't exist, it will be created."
+        }
+    }
+}

@@ -643,6 +643,20 @@
     - [DatumSetTask](#pachyderm-worker-pipeline-transform-DatumSetTask)
     - [DatumSetTaskResult](#pachyderm-worker-pipeline-transform-DatumSetTaskResult)
   
+- [storage/fileset.proto](#storage_fileset-proto)
+    - [AppendFile](#storage-AppendFile)
+    - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
+    - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CreateFilesetRequest](#storage-CreateFilesetRequest)
+    - [CreateFilesetResponse](#storage-CreateFilesetResponse)
+    - [DeleteFile](#storage-DeleteFile)
+    - [PathRange](#storage-PathRange)
+    - [RenewFilesetRequest](#storage-RenewFilesetRequest)
+    - [ShardFilesetRequest](#storage-ShardFilesetRequest)
+    - [ShardFilesetResponse](#storage-ShardFilesetResponse)
+  
+    - [Fileset](#storage-Fileset)
+  
 - [task/task.proto](#task_task-proto)
     - [Group](#taskapi-Group)
     - [ListTaskRequest](#taskapi-ListTaskRequest)
@@ -10314,6 +10328,202 @@ WellKnownRegex contain some well-known patterns.
  
 
  
+
+ 
+
+
+
+<a name="storage_fileset-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## storage/fileset.proto
+
+
+
+<a name="storage-AppendFile"></a>
+
+### AppendFile
+AppendFile will append the provided data to the file with the specified path. If
+a file with the specified path doesn&#39;t exist, it will be created.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetRequest"></a>
+
+### ComposeFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_ids | [string](#string) | repeated |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the composite fileset that is created. |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetResponse"></a>
+
+### ComposeFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetRequest"></a>
+
+### CreateFilesetRequest
+A CreateFilesetRequest corresponds to a single file modification.
+Supported file modifications are append and delete.
+A put / overwrite file modification can be performed by a delete followed by an
+append.
+ TODO: Decide how to handle datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| append_file | [AppendFile](#storage-AppendFile) |  |  |
+| delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetResponse"></a>
+
+### CreateFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-DeleteFile"></a>
+
+### DeleteFile
+DeleteFile will delete the file with the specified path. If a file with the
+specified path doesn&#39;t exist, the delete will be a no-op.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-PathRange"></a>
+
+### PathRange
+PathRange is a range of paths.
+The range is inclusive, exclusive: [Lower, Upper).
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| lower | [string](#string) |  |  |
+| upper | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-RenewFilesetRequest"></a>
+
+### RenewFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the fileset after renewal. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetRequest"></a>
+
+### ShardFilesetRequest
+If both num_files and size_bytes are set, shards are created
+based on whichever threshold is surpassed first. If a shard
+configuration field (num_files, size_bytes) is unset, the
+storage&#39;s default value is used.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| num_files | [int64](#int64) |  | Number of files targeted in each shard. |
+| size_bytes | [int64](#int64) |  | Size (in bytes) targeted for each shard. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetResponse"></a>
+
+### ShardFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| shards | [PathRange](#storage-PathRange) | repeated |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="storage-Fileset"></a>
+
+### Fileset
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateFileset | [CreateFilesetRequest](#storage-CreateFilesetRequest) stream | [CreateFilesetResponse](#storage-CreateFilesetResponse) | CreateFileset creates a fileset based on a stream of file modifications. A string identifier for the created fileset will be returned that can be used for subsequent fileset operations. Filesets have a fixed time-to-live (ttl), which is currently 10 minutes. Filesets needed longer than the ttl will need to be renewed. |
+| RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
+| ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
+| ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
 
  
 

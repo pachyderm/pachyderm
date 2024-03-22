@@ -547,7 +547,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb)
 		return err
 	}); err != nil {
 		return nil, err

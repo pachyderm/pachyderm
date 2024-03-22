@@ -7,6 +7,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	txnenv "github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -131,6 +132,20 @@ func PFSEnv(env serviceenv.ServiceEnv, txnEnv *txnenv.TransactionEnv) (*pfs_serv
 		}
 	}
 	return pfsEnv, nil
+}
+
+func StorageEnv(env serviceenv.ServiceEnv) (*storage.Env, error) {
+	storageEnv := &storage.Env{
+		DB:     env.GetDBClient(),
+		Config: env.Config().StorageConfiguration,
+	}
+	cfg := env.Config()
+	var err error
+	storageEnv.Bucket, err = obj.NewBucket(env.Context(), cfg.StorageBackend, cfg.StorageRoot, cfg.StorageURL)
+	if err != nil {
+		return nil, err
+	}
+	return storageEnv, nil
 }
 
 func PFSWorkerEnv(env serviceenv.ServiceEnv) (*pfs_server.WorkerEnv, error) {

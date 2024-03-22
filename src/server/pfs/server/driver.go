@@ -105,13 +105,16 @@ func newDriver(env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 	}
-	storageEnv := storage.Env{DB: env.DB}
+	storageEnv := storage.Env{
+		DB:     env.DB,
+		Config: env.StorageConfig,
+	}
 	if env.Bucket != nil {
 		storageEnv.Bucket = env.Bucket
 	} else {
 		storageEnv.ObjectStore = env.ObjectClient
 	}
-	storageSrv, err := storage.New(storageEnv, env.StorageConfig)
+	storageSrv, err := storage.New(storageEnv)
 	if err != nil {
 		return nil, err
 	}
