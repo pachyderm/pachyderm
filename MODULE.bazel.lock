@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "757be36ed0d7988961ee39f647f2f54d14d90909ca8e52d106513cb7b7686ca6",
+  "moduleFileHash": "f256613e9846057258d5c95a423eaead2ffef30d3ef29c55c61ecf94cceec339",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -197,7 +197,8 @@
             "org_golang_x_text": "org_golang_x_text",
             "org_uber_go_atomic": "org_uber_go_atomic",
             "org_uber_go_automaxprocs": "org_uber_go_automaxprocs",
-            "org_uber_go_zap": "org_uber_go_zap"
+            "org_uber_go_zap": "org_uber_go_zap",
+            "com_github_zeebo_blake3": "com_github_zeebo_blake3"
           },
           "devImports": [],
           "tags": [
@@ -522,7 +523,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 286,
+            "line": 287,
             "column": 32
           },
           "imports": {
@@ -605,7 +606,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 360,
+            "line": 361,
             "column": 20
           },
           "imports": {
@@ -630,7 +631,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 363,
+                "line": 364,
                 "column": 9
               }
             },
@@ -648,7 +649,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 374,
+                "line": 375,
                 "column": 9
               }
             },
@@ -662,7 +663,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 385,
+                "line": 386,
                 "column": 9
               }
             },
@@ -676,7 +677,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 390,
+                "line": 391,
                 "column": 9
               }
             }
@@ -690,7 +691,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 398,
+            "line": 399,
             "column": 23
           },
           "imports": {},
@@ -704,7 +705,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 399,
+                "line": 400,
                 "column": 17
               }
             }
@@ -718,7 +719,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 404,
+            "line": 405,
             "column": 20
           },
           "imports": {
@@ -737,7 +738,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 405,
+                "line": 406,
                 "column": 10
               }
             },
@@ -753,7 +754,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 410,
+                "line": 411,
                 "column": 10
               }
             }
@@ -3899,11 +3900,11 @@
       "general": {
         "bzlTransitiveDigest": "D1+rhhbwX4ufoTmeUVxDpPg+Sknv3QzVXZnyK2zOjj4=",
         "recordedFileInputs": {
-          "@@//go.mod": "2f1570c3d5c12f00e4b5acd86fb289be63c4449a3456d13c62bf1ce2508011e4",
+          "@@//go.mod": "9088f6ecf88542c0e07ddb6a944ca897ca0eaf2012c146ecf83dc5c7ab3b4ee6",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
-          "@@//go.sum": "d9f16ad4c608cc806943359b218d6cff13729843f5c59f3c7a4e847d7e4eac59",
+          "@@//go.sum": "a66e55c4bcb558755ead1697d6aa5914a62b579f57860c1971ae41517c8f1a1e",
           "@@rules_go~//go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~//go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@jsonnet_go~//go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4"
@@ -4164,6 +4165,21 @@
               "sum": "h1:YojYx61/OLFsiv6Rw1Z96LpldJIy31o+UHmwAUMJ6/U=",
               "replace": "",
               "version": "v1.7.0-rc.1"
+            }
+          },
+          "com_github_zeebo_blake3": {
+            "bzlFile": "@@gazelle~//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/zeebo/blake3",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:TFoLXsjeXqRNFxSbk35Dk4YtszE/MQQGK10BH4ptoTg=",
+              "replace": "",
+              "version": "v0.2.3"
             }
           },
           "com_github_opencontainers_runc": {
@@ -6601,6 +6617,21 @@
               "version": "v4.0.0+incompatible"
             }
           },
+          "com_github_jackc_puddle": {
+            "bzlFile": "@@gazelle~//internal:go_repository.bzl",
+            "ruleClassName": "go_repository",
+            "attributes": {
+              "importpath": "github.com/jackc/puddle",
+              "build_directives": [],
+              "build_file_generation": "auto",
+              "build_extra_args": [],
+              "patches": [],
+              "patch_args": [],
+              "sum": "h1:eHK/5clGOatcjX3oWGBO/MpxpbHzSwud5EWTSCI+MX0=",
+              "replace": "",
+              "version": "v1.3.0"
+            }
+          },
           "com_github_jonboulle_clockwork": {
             "bzlFile": "@@gazelle~//internal:go_repository.bzl",
             "ruleClassName": "go_repository",
@@ -6859,6 +6890,7 @@
                 "com_github_vbauerster_mpb_v6": "github.com/vbauerster/mpb/v6",
                 "com_github_wader_readline": "github.com/wader/readline",
                 "com_github_wcharczuk_go_chart": "github.com/wcharczuk/go-chart",
+                "com_github_zeebo_blake3": "github.com/zeebo/blake3",
                 "com_github_zeebo_xxh3": "github.com/zeebo/xxh3",
                 "io_etcd_go_etcd_api_v3": "go.etcd.io/etcd/api/v3",
                 "io_etcd_go_etcd_client_v3": "go.etcd.io/etcd/client/v3",
@@ -6894,6 +6926,7 @@
                 "com_github_evanphx_json_patch_v5": "github.com/evanphx/json-patch/v5",
                 "com_github_google_gnostic_models": "github.com/google/gnostic-models",
                 "com_github_google_safetext": "github.com/google/safetext",
+                "com_github_jackc_puddle": "github.com/jackc/puddle",
                 "com_github_moby_term": "github.com/moby/term",
                 "com_github_mxk_go_flowrate": "github.com/mxk/go-flowrate",
                 "com_github_pelletier_go_toml": "github.com/pelletier/go-toml",
@@ -9940,6 +9973,7 @@
             "com_github_vbauerster_mpb_v6",
             "com_github_wader_readline",
             "com_github_wcharczuk_go_chart",
+            "com_github_zeebo_blake3",
             "com_github_zeebo_xxh3",
             "io_etcd_go_etcd_api_v3",
             "io_etcd_go_etcd_client_v3",
