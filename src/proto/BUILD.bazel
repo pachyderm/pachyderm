@@ -89,7 +89,7 @@ genrule(
 # bazel build //src/proto:run will regenerate the protos in your working copy.
 copy_to_workspace(
     name = "run",
-    src = "gen_go_proto_bundle",
+    src = "go_protos.tar",
     message = "Go protos are outdated.  Run 'bazel run //:make_proto' to update them.",
     visibility = ["//visibility:public"],
 )

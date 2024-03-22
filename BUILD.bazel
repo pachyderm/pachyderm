@@ -141,6 +141,9 @@ test_suite(
     ],
 )
 
+# Style tests are style tests that have to be run manually, because they look at a lot of files in
+# the workspace.  Hermetic style tests (that depend on a few named files, for example) don't need to
+# be added here.  If the original test doesn't have the "manual" tag, you don't need to add it here.
 test_suite(
     name = "style_tests",
     tags = [
@@ -149,7 +152,6 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
-        "//etc/generate-envoy-config:update_test",
         "//src/proto:run_test",
     ],
 )
