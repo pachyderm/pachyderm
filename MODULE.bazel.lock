@@ -17704,6 +17704,7 @@
         "recordedFileInputs": {
           "@@//jupyter-extension/requirements-lock.txt": "ab41f169e4ece1934f836b71dea28f1126dfb44ca5777558337a558887774810",
           "@@//jupyter-extension/requirements-dev-lock-linux.txt": "688de8cea96de3dee5fb47abcac00018d16091917032ff153f42baca29380585"
+          "@@//examples/opencv/requirements-lock.txt": "05bb4c65cf639a4559736ba60cf7e6c540c1624e8c748184073eab4cb083b770"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -18700,6 +18701,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_matplotlib": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "matplotlib==3.8.3     --hash=sha256:04b36ad07eac9740fc76c2aa16edf94e50b297d6eb4c081e3add863de4bb19a7     --hash=sha256:09074f8057917d17ab52c242fdf4916f30e99959c1908958b1fc6032e2d0f6d4     --hash=sha256:1c5c8290074ba31a41db1dc332dc2b62def469ff33766cbe325d32a3ee291aea     --hash=sha256:242489efdb75b690c9c2e70bb5c6550727058c8a614e4c7716f363c27e10bba1     --hash=sha256:40321634e3a05ed02abf7c7b47a50be50b53ef3eaa3a573847431a545585b407     --hash=sha256:4c6e00a65d017d26009bac6808f637b75ceade3e1ff91a138576f6b3065eeeba     --hash=sha256:5184e07c7e1d6d1481862ee361905b7059f7fe065fc837f7c3dc11eeb3f2f900     --hash=sha256:5745f6d0fb5acfabbb2790318db03809a253096e98c91b9a31969df28ee604aa     --hash=sha256:5e431a09e6fab4012b01fc155db0ce6dccacdbabe8198197f523a4ef4805eb26     --hash=sha256:5f557156f7116be3340cdeef7f128fa99b0d5d287d5f41a16e169819dcf22357     --hash=sha256:6728dde0a3997396b053602dbd907a9bd64ec7d5cf99e728b404083698d3ca01     --hash=sha256:7b416239e9ae38be54b028abbf9048aff5054a9aba5416bef0bd17f9162ce161     --hash=sha256:7c42dae72a62f14982f1474f7e5c9959fc4bc70c9de11cc5244c6e766200ba65     --hash=sha256:813925d08fb86aba139f2d31864928d67511f64e5945ca909ad5bc09a96189bb     --hash=sha256:83c0653c64b73926730bd9ea14aa0f50f202ba187c307a881673bad4985967b7     --hash=sha256:83e0f72e2c116ca7e571c57aa29b0fe697d4c6425c4e87c6e994159e0c008635     --hash=sha256:b3c5f96f57b0369c288bf6f9b5274ba45787f7e0589a34d24bdbaf6d3344632f     --hash=sha256:b97653d869a71721b639714b42d87cda4cfee0ee74b47c569e4874c7590c55c5     --hash=sha256:bf5932eee0d428192c40b7eac1399d608f5d995f975cdb9d1e6b48539a5ad8d0     --hash=sha256:c4af3f7317f8a1009bbb2d0bf23dfaba859eb7dd4ccbd604eba146dccaaaf0a4     --hash=sha256:cd3a0c2be76f4e7be03d34a14d49ded6acf22ef61f88da600a18a5cd8b3c5f3c     --hash=sha256:cf60138ccc8004f117ab2a2bad513cc4d122e55864b4fe7adf4db20ca68a078f     --hash=sha256:d7e7e0993d0758933b1a241a432b42c2db22dfa37d4108342ab4afb9557cbe3e     --hash=sha256:e7b49ab49a3bea17802df6872f8d44f664ba8f9be0632a60c99b20b6db2165b7     --hash=sha256:e9764df0e8778f06414b9d281a75235c1e85071f64bb5d71564b97c1306a2afc     --hash=sha256:ef6c1025a570354297d6c15f7d0f296d95f88bd3850066b7f1e7b4f2f4c13a39     --hash=sha256:f386cf162b059809ecfac3bcc491a9ea17da69fa35c8ded8ad154cd4b933d5ec     --hash=sha256:fa93695d5c08544f4a0dfd0965f378e7afc410d8672816aff1e81be1f45dbf2e",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements_39_grpclib": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -19332,6 +19357,58 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements": {
+            "bzlFile": "@@rules_python~//python/private/bzlmod:pip_repository.bzl",
+            "ruleClassName": "pip_repository",
+            "attributes": {
+              "repo_name": "opencv-pip-requirements",
+              "whl_map": {
+                "contourpy": [
+                  "3.9"
+                ],
+                "cycler": [
+                  "3.9"
+                ],
+                "fonttools": [
+                  "3.9"
+                ],
+                "importlib_resources": [
+                  "3.9"
+                ],
+                "kiwisolver": [
+                  "3.9"
+                ],
+                "matplotlib": [
+                  "3.9"
+                ],
+                "numpy": [
+                  "3.9"
+                ],
+                "opencv_python": [
+                  "3.9"
+                ],
+                "packaging": [
+                  "3.9"
+                ],
+                "pillow": [
+                  "3.9"
+                ],
+                "pyparsing": [
+                  "3.9"
+                ],
+                "python_dateutil": [
+                  "3.9"
+                ],
+                "six": [
+                  "3.9"
+                ],
+                "zipp": [
+                  "3.9"
+                ]
+              },
+              "default_version": "3.9"
+            }
+          },
           "jupyter-pip-requirements-dev_39_jupyter_server_fileid": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -19531,6 +19608,30 @@
               "requirement": "exceptiongroup==1.2.0     --hash=sha256:4bfd3996ac73b41e9b9628b04e079f193850720ea5945fc96a08633c66912f14     --hash=sha256:91f5c769735f051a4290d52edd0858999b57e5876e9f85937691bd4c9fa3ed68",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_importlib_resources": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "importlib-resources==6.4.0     --hash=sha256:50d10f043df931902d4194ea07ec57960f66a80449ff867bfe782b4c486ba78c     --hash=sha256:cdb2b453b8046ca4e3798eb1d84f3cce1446a0e8e7b5ef4efb600f19fc398145",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -19939,6 +20040,30 @@
               "requirement": "pyzmq==25.1.2     --hash=sha256:004ff469d21e86f0ef0369717351073e0e577428e514c47c8480770d5e24a565     --hash=sha256:00a06faa7165634f0cac1abb27e54d7a0b3b44eb9994530b8ec73cf52e15353b     --hash=sha256:00c48ae2fd81e2a50c3485de1b9d5c7c57cd85dc8ec55683eac16846e57ac979     --hash=sha256:01171fc48542348cd1a360a4b6c3e7d8f46cdcf53a8d40f84db6707a6768acc1     --hash=sha256:019744b99da30330798bb37df33549d59d380c78e516e3bab9c9b84f87a9592f     --hash=sha256:02bbc1a87b76e04fd780b45e7f695471ae6de747769e540da909173d50ff8e2d     --hash=sha256:02c9087b109070c5ab0b383079fa1b5f797f8d43e9a66c07a4b8b8bdecfd88ee     --hash=sha256:07cd61a20a535524906595e09344505a9bd46f1da7a07e504b315d41cd42eb07     --hash=sha256:0806175f2ae5ad4b835ecd87f5f85583316b69f17e97786f7443baaf54b9bb98     --hash=sha256:09dfe949e83087da88c4a76767df04b22304a682d6154de2c572625c62ad6886     --hash=sha256:0dabfb10ef897f3b7e101cacba1437bd3a5032ee667b7ead32bbcdd1a8422fe7     --hash=sha256:0ddd6d71d4ef17ba5a87becf7ddf01b371eaba553c603477679ae817a8d84d75     --hash=sha256:0f513130c4c361201da9bc69df25a086487250e16b5571ead521b31ff6b02220     --hash=sha256:0f97bc2f1f13cb16905a5f3e1fbdf100e712d841482b2237484360f8bc4cb3d7     --hash=sha256:11e70516688190e9c2db14fcf93c04192b02d457b582a1f6190b154691b4c93a     --hash=sha256:146b9b1f29ead41255387fb07be56dc29639262c0f7344f570eecdcd8d683314     --hash=sha256:16b726c1f6c2e7625706549f9dbe9b06004dfbec30dbed4bf50cbdfc73e5b32a     --hash=sha256:1b3cbba2f47062b85fe0ef9de5b987612140a9ba3a9c6d2543c6dec9f7c2ab27     --hash=sha256:1b9b1f2ad6498445a941d9a4fee096d387fee436e45cc660e72e768d3d8ee611     --hash=sha256:1ec23bd7b3a893ae676d0e54ad47d18064e6c5ae1fadc2f195143fb27373f7f6     --hash=sha256:246747b88917e4867e2367b005fc8eefbb4a54b7db363d6c92f89d69abfff4b6     --hash=sha256:25c2dbb97d38b5ac9fd15586e048ec5eb1e38f3d47fe7d92167b0c77bb3584e9     --hash=sha256:2c6441e0398c2baacfe5ba30c937d274cfc2dc5b55e82e3749e333aabffde561     --hash=sha256:2c9a79f1d2495b167119d02be7448bfba57fad2a4207c4f68abc0bab4b92925b     --hash=sha256:2e2713ef44be5d52dd8b8e2023d706bf66cb22072e97fc71b168e01d25192755     --hash=sha256:313c3794d650d1fccaaab2df942af9f2c01d6217c846177cfcbc693c7410839e     --hash=sha256:3516e0b6224cf6e43e341d56da15fd33bdc37fa0c06af4f029f7d7dfceceabbc     --hash=sha256:359f7f74b5d3c65dae137f33eb2bcfa7ad9ebefd1cab85c935f063f1dbb245cc     --hash=sha256:39b1067f13aba39d794a24761e385e2eddc26295826530a8c7b6c6c341584289     --hash=sha256:3c00c9b7d1ca8165c610437ca0c92e7b5607b2f9076f4eb4b095c85d6e680a1d     --hash=sha256:3c53687dde4d9d473c587ae80cc328e5b102b517447456184b485587ebd18b62     --hash=sha256:3e124e6b1dd3dfbeb695435dff0e383256655bb18082e094a8dd1f6293114642     --hash=sha256:4345c9a27f4310afbb9c01750e9461ff33d6fb74cd2456b107525bbeebcb5be3     --hash=sha256:45999e7f7ed5c390f2e87ece7f6c56bf979fb213550229e711e45ecc7d42ccb8     --hash=sha256:49151b0efece79f6a79d41a461d78535356136ee70084a1c22532fc6383f4ad0     --hash=sha256:4cb8fc1f8d69b411b8ec0b5f1ffbcaf14c1db95b6bccea21d83610987435f1a4     --hash=sha256:4e5837af3e5aaa99a091302df5ee001149baff06ad22b722d34e30df5f0d9097     --hash=sha256:4e6f689880d5ad87918430957297c975203a082d9a036cc426648fcbedae769b     --hash=sha256:5074adeacede5f810b7ef39607ee59d94e948b4fd954495bdb072f8c54558181     --hash=sha256:518efd91c3d8ac9f9b4f7dd0e2b7b8bf1a4fe82a308009016b07eaa48681af82     --hash=sha256:55875492f820d0eb3417b51d96fea549cde77893ae3790fd25491c5754ea2f68     --hash=sha256:5a68d491fc20762b630e5db2191dd07ff89834086740f70e978bb2ef2668be08     --hash=sha256:5dde6751e857910c1339890f3524de74007958557593b9e7e8c5f01cd919f8a7     --hash=sha256:5e319ed7d6b8f5fad9b76daa0a68497bc6f129858ad956331a5835785761e003     --hash=sha256:5edac3f57c7ddaacdb4d40f6ef2f9e299471fc38d112f4bc6d60ab9365445fb0     --hash=sha256:6cc0020b74b2e410287e5942e1e10886ff81ac77789eb20bec13f7ae681f0fdd     --hash=sha256:6dd0d50bbf9dca1d0bdea219ae6b40f713a3fb477c06ca3714f208fd69e16fd8     --hash=sha256:7598d2ba821caa37a0f9d54c25164a4fa351ce019d64d0b44b45540950458840     --hash=sha256:759cfd391a0996345ba94b6a5110fca9c557ad4166d86a6e81ea526c376a01e8     --hash=sha256:7ae8f354b895cbd85212da245f1a5ad8159e7840e37d78b476bb4f4c3f32a9fe     --hash=sha256:7b6d09a8962a91151f0976008eb7b29b433a560fde056ec7a3db9ec8f1075438     --hash=sha256:7c61e346ac34b74028ede1c6b4bcecf649d69b707b3ff9dc0fab453821b04d1e     --hash=sha256:7f51a7b4ead28d3fca8dda53216314a553b0f7a91ee8fc46a72b402a78c3e43d     --hash=sha256:82544e0e2d0c1811482d37eef297020a040c32e0687c1f6fc23a75b75db8062c     --hash=sha256:8807c87fa893527ae8a524c15fc505d9950d5e856f03dae5921b5e9aa3b8783b     --hash=sha256:889370d5174a741a62566c003ee8ddba4b04c3f09a97b8000092b7ca83ec9c49     --hash=sha256:8b14c75979ce932c53b79976a395cb2a8cd3aaf14aef75e8c2cb55a330b9b49d     --hash=sha256:8c5f80e578427d4695adac6fdf4370c14a2feafdc8cb35549c219b90652536ae     --hash=sha256:8e9f3fabc445d0ce320ea2c59a75fe3ea591fdbdeebec5db6de530dd4b09412e     --hash=sha256:93f1aa311e8bb912e34f004cf186407a4e90eec4f0ecc0efd26056bf7eda0226     --hash=sha256:94504ff66f278ab4b7e03e4cba7e7e400cb73bfa9d3d71f58d8972a8dc67e7a6     --hash=sha256:967668420f36878a3c9ecb5ab33c9d0ff8d054f9c0233d995a6d25b0e95e1b6b     --hash=sha256:9880078f683466b7f567b8624bfc16cad65077be046b6e8abb53bed4eeb82dd3     --hash=sha256:99a6b36f95c98839ad98f8c553d8507644c880cf1e0a57fe5e3a3f3969040882     --hash=sha256:9a18fff090441a40ffda8a7f4f18f03dc56ae73f148f1832e109f9bffa85df15     --hash=sha256:9add2e5b33d2cd765ad96d5eb734a5e795a0755f7fc49aa04f76d7ddda73fd70     --hash=sha256:a793ac733e3d895d96f865f1806f160696422554e46d30105807fdc9841b9f7d     --hash=sha256:a86c2dd76ef71a773e70551a07318b8e52379f58dafa7ae1e0a4be78efd1ff16     --hash=sha256:a8c1d566344aee826b74e472e16edae0a02e2a044f14f7c24e123002dcff1c05     --hash=sha256:ac170e9e048b40c605358667aca3d94e98f604a18c44bdb4c102e67070f3ac9b     --hash=sha256:b264bf2cc96b5bc43ce0e852be995e400376bd87ceb363822e2cb1964fcdc737     --hash=sha256:b8c8a419dfb02e91b453615c69568442e897aaf77561ee0064d789705ff37a92     --hash=sha256:bc69c96735ab501419c432110016329bf0dea8898ce16fab97c6d9106dc0b348     --hash=sha256:bef02cfcbded83473bdd86dd8d3729cd82b2e569b75844fb4ea08fee3c26ae41     --hash=sha256:c0b5ca88a8928147b7b1e2dfa09f3b6c256bc1135a1338536cbc9ea13d3b7add     --hash=sha256:cc69949484171cc961e6ecd4a8911b9ce7a0d1f738fcae717177c231bf77437b     --hash=sha256:ced111c2e81506abd1dc142e6cd7b68dd53747b3b7ae5edbea4578c5eeff96b7     --hash=sha256:d1299d7e964c13607efd148ca1f07dcbf27c3ab9e125d1d0ae1d580a1682399d     --hash=sha256:d1b604734bec94f05f81b360a272fc824334267426ae9905ff32dc2be433ab96     --hash=sha256:d9a5f194cf730f2b24d6af1f833c14c10f41023da46a7f736f48b6d35061e76e     --hash=sha256:db36c27baed588a5a8346b971477b718fdc66cf5b80cbfbd914b4d6d355e44e2     --hash=sha256:df0c7a16ebb94452d2909b9a7b3337940e9a87a824c4fc1c7c36bb4404cb0cde     --hash=sha256:e10a4b5a4b1192d74853cc71a5e9fd022594573926c2a3a4802020360aa719d8     --hash=sha256:e624c789359f1a16f83f35e2c705d07663ff2b4d4479bad35621178d8f0f6ea4     --hash=sha256:e690145a8c0c273c28d3b89d6fb32c45e0d9605b2293c10e650265bf5c11cfec     --hash=sha256:ea1608dd169da230a0ad602d5b1ebd39807ac96cae1845c3ceed39af08a5c6df     --hash=sha256:ea253b368eb41116011add00f8d5726762320b1bda892f744c91997b65754d73     --hash=sha256:eb7e49a17fb8c77d3119d41a4523e432eb0c6932187c37deb6fbb00cc3028088     --hash=sha256:ef12e259e7bc317c7597d4f6ef59b97b913e162d83b421dd0db3d6410f17a244     --hash=sha256:f8429b17cbb746c3e043cb986328da023657e79d5ed258b711c06a70c2ea7537     --hash=sha256:fa99973d2ed20417744fca0073390ad65ce225b546febb0580358e36aa90dba6     --hash=sha256:faf79a302f834d9e8304fafdc11d0d042266667ac45209afa57e5efc998e3872     --hash=sha256:fc31baa0c32a2ca660784d5af3b9487e13b61b3032cb01a115fce6588e1bed30",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_numpy": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "numpy==1.26.4     --hash=sha256:03a8c78d01d9781b28a6989f6fa1bb2c4f2d51201cf99d3dd875df6fbd96b23b     --hash=sha256:08beddf13648eb95f8d867350f6a018a4be2e5ad54c8d8caed89ebca558b2818     --hash=sha256:1af303d6b2210eb850fcf03064d364652b7120803a0b872f5211f5234b399f20     --hash=sha256:1dda2e7b4ec9dd512f84935c5f126c8bd8b9f2fc001e9f54af255e8c5f16b0e0     --hash=sha256:2a02aba9ed12e4ac4eb3ea9421c420301a0c6460d9830d74a9df87efa4912010     --hash=sha256:2e4ee3380d6de9c9ec04745830fd9e2eccb3e6cf790d39d7b98ffd19b0dd754a     --hash=sha256:3373d5d70a5fe74a2c1bb6d2cfd9609ecf686d47a2d7b1d37a8f3b6bf6003aea     --hash=sha256:47711010ad8555514b434df65f7d7b076bb8261df1ca9bb78f53d3b2db02e95c     --hash=sha256:4c66707fabe114439db9068ee468c26bbdf909cac0fb58686a42a24de1760c71     --hash=sha256:50193e430acfc1346175fcbdaa28ffec49947a06918b7b92130744e81e640110     --hash=sha256:52b8b60467cd7dd1e9ed082188b4e6bb35aa5cdd01777621a1658910745b90be     --hash=sha256:60dedbb91afcbfdc9bc0b1f3f402804070deed7392c23eb7a7f07fa857868e8a     --hash=sha256:62b8e4b1e28009ef2846b4c7852046736bab361f7aeadeb6a5b89ebec3c7055a     --hash=sha256:666dbfb6ec68962c033a450943ded891bed2d54e6755e35e5835d63f4f6931d5     --hash=sha256:675d61ffbfa78604709862923189bad94014bef562cc35cf61d3a07bba02a7ed     --hash=sha256:679b0076f67ecc0138fd2ede3a8fd196dddc2ad3254069bcb9faf9a79b1cebcd     --hash=sha256:7349ab0fa0c429c82442a27a9673fc802ffdb7c7775fad780226cb234965e53c     --hash=sha256:7ab55401287bfec946ced39700c053796e7cc0e3acbef09993a9ad2adba6ca6e     --hash=sha256:7e50d0a0cc3189f9cb0aeb3a6a6af18c16f59f004b866cd2be1c14b36134a4a0     --hash=sha256:95a7476c59002f2f6c590b9b7b998306fba6a5aa646b1e22ddfeaf8f78c3a29c     --hash=sha256:96ff0b2ad353d8f990b63294c8986f1ec3cb19d749234014f4e7eb0112ceba5a     --hash=sha256:9fad7dcb1aac3c7f0584a5a8133e3a43eeb2fe127f47e3632d43d677c66c102b     --hash=sha256:9ff0f4f29c51e2803569d7a51c2304de5554655a60c5d776e35b4a41413830d0     --hash=sha256:a354325ee03388678242a4d7ebcd08b5c727033fcff3b2f536aea978e15ee9e6     --hash=sha256:a4abb4f9001ad2858e7ac189089c42178fcce737e4169dc61321660f1a96c7d2     --hash=sha256:ab47dbe5cc8210f55aa58e4805fe224dac469cde56b9f731a4c098b91917159a     --hash=sha256:afedb719a9dcfc7eaf2287b839d8198e06dcd4cb5d276a3df279231138e83d30     --hash=sha256:b3ce300f3644fb06443ee2222c2201dd3a89ea6040541412b8fa189341847218     --hash=sha256:b97fe8060236edf3662adfc2c633f56a08ae30560c56310562cb4f95500022d5     --hash=sha256:bfe25acf8b437eb2a8b2d49d443800a5f18508cd811fea3181723922a8a82b07     --hash=sha256:cd25bcecc4974d09257ffcd1f098ee778f7834c3ad767fe5db785be9a4aa9cb2     --hash=sha256:d209d8969599b27ad20994c8e41936ee0964e6da07478d6c35016bc386b66ad4     --hash=sha256:d5241e0a80d808d70546c697135da2c613f30e28251ff8307eb72ba696945764     --hash=sha256:edd8b5fe47dab091176d21bb6de568acdd906d1887a4584a15a9a96a1dca06ef     --hash=sha256:f870204a840a60da0b12273ef34f7051e98c3b5961b61b0c2c1be6dfd64fbcd3     --hash=sha256:ffa75af20b44f8dba823498024771d5ac50620e6915abac414251bd971b4529f",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -20436,6 +20561,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_zipp": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "zipp==3.18.1     --hash=sha256:206f5a15f2af3dbaee80769fb7dc6f249695e940acca08dfb2a4769fe61e538b     --hash=sha256:2884ed22e7d8961de1c9a05142eb69a247f120291bc0206a00a7642f09b5b715",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements": {
             "bzlFile": "@@rules_python~//python/private/bzlmod:pip_repository.bzl",
             "ruleClassName": "pip_repository",
@@ -20909,6 +21058,30 @@
               "requirement": "urllib3==2.2.1     --hash=sha256:450b20ec296a467077128bff42b73080516e71b56ff59a60a02bef2232c4fa9d     --hash=sha256:d0570876c61ab9e520d776c38acbbb5b05a776d3f9ff98a5c8fd5162a444cf19",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_packaging": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "packaging==24.0     --hash=sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5     --hash=sha256:eb82c5e3e56209074766e6885bb04b8c38a0c015d0a30036ebe7ece34c9989e9",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -21914,6 +22087,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_kiwisolver": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "kiwisolver==1.4.5     --hash=sha256:00bd361b903dc4bbf4eb165f24d1acbee754fce22ded24c3d56eec268658a5cf     --hash=sha256:040c1aebeda72197ef477a906782b5ab0d387642e93bda547336b8957c61022e     --hash=sha256:05703cf211d585109fcd72207a31bb170a0f22144d68298dc5e61b3c946518af     --hash=sha256:06f54715b7737c2fecdbf140d1afb11a33d59508a47bf11bb38ecf21dc9ab79f     --hash=sha256:0dc9db8e79f0036e8173c466d21ef18e1befc02de8bf8aa8dc0813a6dc8a7046     --hash=sha256:0f114aa76dc1b8f636d077979c0ac22e7cd8f3493abbab152f20eb8d3cda71f3     --hash=sha256:11863aa14a51fd6ec28688d76f1735f8f69ab1fabf388851a595d0721af042f5     --hash=sha256:11c7de8f692fc99816e8ac50d1d1aef4f75126eefc33ac79aac02c099fd3db71     --hash=sha256:11d011a7574eb3b82bcc9c1a1d35c1d7075677fdd15de527d91b46bd35e935ee     --hash=sha256:146d14bebb7f1dc4d5fbf74f8a6cb15ac42baadee8912eb84ac0b3b2a3dc6ac3     --hash=sha256:15568384086b6df3c65353820a4473575dbad192e35010f622c6ce3eebd57af9     --hash=sha256:19df6e621f6d8b4b9c4d45f40a66839294ff2bb235e64d2178f7522d9170ac5b     --hash=sha256:1b04139c4236a0f3aff534479b58f6f849a8b351e1314826c2d230849ed48985     --hash=sha256:210ef2c3a1f03272649aff1ef992df2e724748918c4bc2d5a90352849eb40bea     --hash=sha256:2270953c0d8cdab5d422bee7d2007f043473f9d2999631c86a223c9db56cbd16     --hash=sha256:2400873bccc260b6ae184b2b8a4fec0e4082d30648eadb7c3d9a13405d861e89     --hash=sha256:2a40773c71d7ccdd3798f6489aaac9eee213d566850a9533f8d26332d626b82c     --hash=sha256:2c5674c4e74d939b9d91dda0fae10597ac7521768fec9e399c70a1f27e2ea2d9     --hash=sha256:3195782b26fc03aa9c6913d5bad5aeb864bdc372924c093b0f1cebad603dd712     --hash=sha256:31a82d498054cac9f6d0b53d02bb85811185bcb477d4b60144f915f3b3126342     --hash=sha256:32d5cf40c4f7c7b3ca500f8985eb3fb3a7dfc023215e876f207956b5ea26632a     --hash=sha256:346f5343b9e3f00b8db8ba359350eb124b98c99efd0b408728ac6ebf38173958     --hash=sha256:378a214a1e3bbf5ac4a8708304318b4f890da88c9e6a07699c4ae7174c09a68d     --hash=sha256:39b42c68602539407884cf70d6a480a469b93b81b7701378ba5e2328660c847a     --hash=sha256:3a2b053a0ab7a3960c98725cfb0bf5b48ba82f64ec95fe06f1d06c99b552e130     --hash=sha256:3aba7311af82e335dd1e36ffff68aaca609ca6290c2cb6d821a39aa075d8e3ff     --hash=sha256:3cd32d6c13807e5c66a7cbb79f90b553642f296ae4518a60d8d76243b0ad2898     --hash=sha256:3edd2fa14e68c9be82c5b16689e8d63d89fe927e56debd6e1dbce7a26a17f81b     --hash=sha256:4c380469bd3f970ef677bf2bcba2b6b0b4d5c75e7a020fb863ef75084efad66f     --hash=sha256:4e66e81a5779b65ac21764c295087de82235597a2293d18d943f8e9e32746265     --hash=sha256:53abb58632235cd154176ced1ae8f0d29a6657aa1aa9decf50b899b755bc2b93     --hash=sha256:5794cf59533bc3f1b1c821f7206a3617999db9fbefc345360aafe2e067514929     --hash=sha256:59415f46a37f7f2efeec758353dd2eae1b07640d8ca0f0c42548ec4125492635     --hash=sha256:59ec7b7c7e1a61061850d53aaf8e93db63dce0c936db1fda2658b70e4a1be709     --hash=sha256:59edc41b24031bc25108e210c0def6f6c2191210492a972d585a06ff246bb79b     --hash=sha256:5a580c91d686376f0f7c295357595c5a026e6cbc3d77b7c36e290201e7c11ecb     --hash=sha256:5b94529f9b2591b7af5f3e0e730a4e0a41ea174af35a4fd067775f9bdfeee01a     --hash=sha256:5c7b3b3a728dc6faf3fc372ef24f21d1e3cee2ac3e9596691d746e5a536de920     --hash=sha256:5c90ae8c8d32e472be041e76f9d2f2dbff4d0b0be8bd4041770eddb18cf49a4e     --hash=sha256:5e7139af55d1688f8b960ee9ad5adafc4ac17c1c473fe07133ac092310d76544     --hash=sha256:5ff5cf3571589b6d13bfbfd6bcd7a3f659e42f96b5fd1c4830c4cf21d4f5ef45     --hash=sha256:620ced262a86244e2be10a676b646f29c34537d0d9cc8eb26c08f53d98013390     --hash=sha256:6512cb89e334e4700febbffaaa52761b65b4f5a3cf33f960213d5656cea36a77     --hash=sha256:6c08e1312a9cf1074d17b17728d3dfce2a5125b2d791527f33ffbe805200a355     --hash=sha256:6c3bd3cde54cafb87d74d8db50b909705c62b17c2099b8f2e25b461882e544ff     --hash=sha256:6ef7afcd2d281494c0a9101d5c571970708ad911d028137cd558f02b851c08b4     --hash=sha256:7269d9e5f1084a653d575c7ec012ff57f0c042258bf5db0954bf551c158466e7     --hash=sha256:72d40b33e834371fd330fb1472ca19d9b8327acb79a5821d4008391db8e29f20     --hash=sha256:74d1b44c6cfc897df648cc9fdaa09bc3e7679926e6f96df05775d4fb3946571c     --hash=sha256:74db36e14a7d1ce0986fa104f7d5637aea5c82ca6326ed0ec5694280942d1162     --hash=sha256:763773d53f07244148ccac5b084da5adb90bfaee39c197554f01b286cf869228     --hash=sha256:76c6a5964640638cdeaa0c359382e5703e9293030fe730018ca06bc2010c4437     --hash=sha256:76d9289ed3f7501012e05abb8358bbb129149dbd173f1f57a1bf1c22d19ab7cc     --hash=sha256:7931d8f1f67c4be9ba1dd9c451fb0eeca1a25b89e4d3f89e828fe12a519b782a     --hash=sha256:7b8b454bac16428b22560d0a1cf0a09875339cab69df61d7805bf48919415901     --hash=sha256:7e5bab140c309cb3a6ce373a9e71eb7e4873c70c2dda01df6820474f9889d6d4     --hash=sha256:83d78376d0d4fd884e2c114d0621624b73d2aba4e2788182d286309ebdeed770     --hash=sha256:852542f9481f4a62dbb5dd99e8ab7aedfeb8fb6342349a181d4036877410f525     --hash=sha256:85267bd1aa8880a9c88a8cb71e18d3d64d2751a790e6ca6c27b8ccc724bcd5ad     --hash=sha256:88a2df29d4724b9237fc0c6eaf2a1adae0cdc0b3e9f4d8e7dc54b16812d2d81a     --hash=sha256:88b9f257ca61b838b6f8094a62418421f87ac2a1069f7e896c36a7d86b5d4c29     --hash=sha256:8ab3919a9997ab7ef2fbbed0cc99bb28d3c13e6d4b1ad36e97e482558a91be90     --hash=sha256:92dea1ffe3714fa8eb6a314d2b3c773208d865a0e0d35e713ec54eea08a66250     --hash=sha256:9407b6a5f0d675e8a827ad8742e1d6b49d9c1a1da5d952a67d50ef5f4170b18d     --hash=sha256:9408acf3270c4b6baad483865191e3e582b638b1654a007c62e3efe96f09a9a3     --hash=sha256:955e8513d07a283056b1396e9a57ceddbd272d9252c14f154d450d227606eb54     --hash=sha256:9db8ea4c388fdb0f780fe91346fd438657ea602d58348753d9fb265ce1bca67f     --hash=sha256:9eaa8b117dc8337728e834b9c6e2611f10c79e38f65157c4c38e9400286f5cb1     --hash=sha256:a51a263952b1429e429ff236d2f5a21c5125437861baeed77f5e1cc2d2c7c6da     --hash=sha256:a6aa6315319a052b4ee378aa171959c898a6183f15c1e541821c5c59beaa0238     --hash=sha256:aa12042de0171fad672b6c59df69106d20d5596e4f87b5e8f76df757a7c399aa     --hash=sha256:aaf7be1207676ac608a50cd08f102f6742dbfc70e8d60c4db1c6897f62f71523     --hash=sha256:b0157420efcb803e71d1b28e2c287518b8808b7cf1ab8af36718fd0a2c453eb0     --hash=sha256:b3f7e75f3015df442238cca659f8baa5f42ce2a8582727981cbfa15fee0ee205     --hash=sha256:b9098e0049e88c6a24ff64545cdfc50807818ba6c1b739cae221bbbcbc58aad3     --hash=sha256:ba55dce0a9b8ff59495ddd050a0225d58bd0983d09f87cfe2b6aec4f2c1234e4     --hash=sha256:bb86433b1cfe686da83ce32a9d3a8dd308e85c76b60896d58f082136f10bffac     --hash=sha256:bbea0db94288e29afcc4c28afbf3a7ccaf2d7e027489c449cf7e8f83c6346eb9     --hash=sha256:bbf1d63eef84b2e8c89011b7f2235b1e0bf7dacc11cac9431fc6468e99ac77fb     --hash=sha256:c7940c1dc63eb37a67721b10d703247552416f719c4188c54e04334321351ced     --hash=sha256:c9bf3325c47b11b2e51bca0824ea217c7cd84491d8ac4eefd1e409705ef092bd     --hash=sha256:cdc8a402aaee9a798b50d8b827d7ecf75edc5fb35ea0f91f213ff927c15f4ff0     --hash=sha256:ceec1a6bc6cab1d6ff5d06592a91a692f90ec7505d6463a88a52cc0eb58545da     --hash=sha256:cfe6ab8da05c01ba6fbea630377b5da2cd9bcbc6338510116b01c1bc939a2c18     --hash=sha256:d099e745a512f7e3bbe7249ca835f4d357c586d78d79ae8f1dcd4d8adeb9bda9     --hash=sha256:d0ef46024e6a3d79c01ff13801cb19d0cad7fd859b15037aec74315540acc276     --hash=sha256:d2e5a98f0ec99beb3c10e13b387f8db39106d53993f498b295f0c914328b1333     --hash=sha256:da4cfb373035def307905d05041c1d06d8936452fe89d464743ae7fb8371078b     --hash=sha256:da802a19d6e15dffe4b0c24b38b3af68e6c1a68e6e1d8f30148c83864f3881db     --hash=sha256:dced8146011d2bc2e883f9bd68618b8247387f4bbec46d7392b3c3b032640126     --hash=sha256:dfdd7c0b105af050eb3d64997809dc21da247cf44e63dc73ff0fd20b96be55a9     --hash=sha256:e368f200bbc2e4f905b8e71eb38b3c04333bddaa6a2464a6355487b02bb7fb09     --hash=sha256:e391b1f0a8a5a10ab3b9bb6afcfd74f2175f24f8975fb87ecae700d1503cdee0     --hash=sha256:e57e563a57fb22a142da34f38acc2fc1a5c864bc29ca1517a88abc963e60d6ec     --hash=sha256:e5d706eba36b4c4d5bc6c6377bb6568098765e990cfc21ee16d13963fab7b3e7     --hash=sha256:ec20916e7b4cbfb1f12380e46486ec4bcbaa91a9c448b97023fde0d5bbf9e4ff     --hash=sha256:f1d072c2eb0ad60d4c183f3fb44ac6f73fb7a8f16a2694a91f988275cbf352f9     --hash=sha256:f846c260f483d1fd217fe5ed7c173fb109efa6b1fc8381c8b7552c5781756192     --hash=sha256:f91de7223d4c7b793867797bacd1ee53bfe7359bd70d27b7b58a04efbb9436c8     --hash=sha256:faae4860798c31530dd184046a900e652c95513796ef51a12bc086710c2eec4d     --hash=sha256:fc579bf0f502e54926519451b920e875f433aceb4624a3646b3252b5caa9e0b6     --hash=sha256:fcc700eadbbccbf6bc1bcb9dbe0786b4b1cb91ca0dcda336eef5c2beed37b797     --hash=sha256:fd32ea360bcbb92d28933fc05ed09bffcb1704ba3fc7942e81db0fd4f81a7892     --hash=sha256:fdb7adb641a0d13bdcd4ef48e062363d8a9ad4a182ac7647ec88f695e719ae9f",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements_39_certifi": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -22010,6 +22207,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_python_dateutil": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "python-dateutil==2.9.0.post0     --hash=sha256:37dd54208da7e1cd875388217d5e00ebd4179249f90fb72437e91a35459a0ad3     --hash=sha256:a8b2bc7bffae282281c8140a97d3aa9c14da0b136dfe83f850eea9a5f7470427",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements-dev_39_jupyter_ydoc": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -22017,6 +22238,30 @@
               "requirement": "jupyter-ydoc==0.2.5     --hash=sha256:5759170f112c70320a84217dd98d287699076ae65a7f88d458d57940a9f2b882     --hash=sha256:5a02ca7449f0d875f73e8cb8efdf695dddef15a8e71378b1f4eda6b7c90f5382",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_contourpy": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "contourpy==1.2.0     --hash=sha256:0274c1cb63625972c0c007ab14dd9ba9e199c36ae1a231ce45d725cbcbfd10a8     --hash=sha256:0d7e03c0f9a4f90dc18d4e77e9ef4ec7b7bbb437f7f675be8e530d65ae6ef956     --hash=sha256:11f8d2554e52f459918f7b8e6aa20ec2a3bce35ce95c1f0ef4ba36fbda306df5     --hash=sha256:139d8d2e1c1dd52d78682f505e980f592ba53c9f73bd6be102233e358b401063     --hash=sha256:16a7380e943a6d52472096cb7ad5264ecee36ed60888e2a3d3814991a0107286     --hash=sha256:171f311cb758de7da13fc53af221ae47a5877be5a0843a9fe150818c51ed276a     --hash=sha256:18fc2b4ed8e4a8fe849d18dce4bd3c7ea637758c6343a1f2bae1e9bd4c9f4686     --hash=sha256:1c203f617abc0dde5792beb586f827021069fb6d403d7f4d5c2b543d87edceb9     --hash=sha256:1c2559d6cffc94890b0529ea7eeecc20d6fadc1539273aa27faf503eb4656d8f     --hash=sha256:1c88dfb9e0c77612febebb6ac69d44a8d81e3dc60f993215425b62c1161353f4     --hash=sha256:1e9dc350fb4c58adc64df3e0703ab076f60aac06e67d48b3848c23647ae4310e     --hash=sha256:247b9d16535acaa766d03037d8e8fb20866d054d3c7fbf6fd1f993f11fc60ca0     --hash=sha256:266270c6f6608340f6c9836a0fb9b367be61dde0c9a9a18d5ece97774105ff3e     --hash=sha256:34b9071c040d6fe45d9826cbbe3727d20d83f1b6110d219b83eb0e2a01d79488     --hash=sha256:3d7d1f8871998cdff5d2ff6a087e5e1780139abe2838e85b0b46b7ae6cc25399     --hash=sha256:461e3ae84cd90b30f8d533f07d87c00379644205b1d33a5ea03381edc4b69431     --hash=sha256:464b423bc2a009088f19bdf1f232299e8b6917963e2b7e1d277da5041f33a779     --hash=sha256:491b1917afdd8638a05b611a56d46587d5a632cabead889a5440f7c638bc6ed9     --hash=sha256:4a1b1208102be6e851f20066bf0e7a96b7d48a07c9b0cfe6d0d4545c2f6cadab     --hash=sha256:575bcaf957a25d1194903a10bc9f316c136c19f24e0985a2b9b5608bdf5dbfe0     --hash=sha256:5c6b28956b7b232ae801406e529ad7b350d3f09a4fde958dfdf3c0520cdde0dd     --hash=sha256:5d16edfc3fc09968e09ddffada434b3bf989bf4911535e04eada58469873e28e     --hash=sha256:5fd1810973a375ca0e097dee059c407913ba35723b111df75671a1976efa04bc     --hash=sha256:67b7f17679fa62ec82b7e3e611c43a016b887bd64fb933b3ae8638583006c6d6     --hash=sha256:68ce4788b7d93e47f84edd3f1f95acdcd142ae60bc0e5493bfd120683d2d4316     --hash=sha256:6d3364b999c62f539cd403f8123ae426da946e142312a514162adb2addd8d808     --hash=sha256:6e739530c662a8d6d42c37c2ed52a6f0932c2d4a3e8c1f90692ad0ce1274abe0     --hash=sha256:6fdd887f17c2f4572ce548461e4f96396681212d858cae7bd52ba3310bc6f00f     --hash=sha256:78e6ad33cf2e2e80c5dfaaa0beec3d61face0fb650557100ee36db808bfa6843     --hash=sha256:884c3f9d42d7218304bc74a8a7693d172685c84bd7ab2bab1ee567b769696df9     --hash=sha256:8d8faf05be5ec8e02a4d86f616fc2a0322ff4a4ce26c0f09d9f7fb5330a35c95     --hash=sha256:999c71939aad2780f003979b25ac5b8f2df651dac7b38fb8ce6c46ba5abe6ae9     --hash=sha256:99ad97258985328b4f207a5e777c1b44a83bfe7cf1f87b99f9c11d4ee477c4de     --hash=sha256:9e6c93b5b2dbcedad20a2f18ec22cae47da0d705d454308063421a3b290d9ea4     --hash=sha256:ab459a1cbbf18e8698399c595a01f6dcc5c138220ca3ea9e7e6126232d102bb4     --hash=sha256:b69303ceb2e4d4f146bf82fda78891ef7bcd80c41bf16bfca3d0d7eb545448aa     --hash=sha256:b7caf9b241464c404613512d5594a6e2ff0cc9cb5615c9475cc1d9b514218ae8     --hash=sha256:b95a225d4948b26a28c08307a60ac00fb8671b14f2047fc5476613252a129776     --hash=sha256:bd2f1ae63998da104f16a8b788f685e55d65760cd1929518fd94cd682bf03e41     --hash=sha256:be16975d94c320432657ad2402f6760990cb640c161ae6da1363051805fa8108     --hash=sha256:ce96dd400486e80ac7d195b2d800b03e3e6a787e2a522bfb83755938465a819e     --hash=sha256:dbd50d0a0539ae2e96e537553aff6d02c10ed165ef40c65b0e27e744a0f10af8     --hash=sha256:dd10c26b4eadae44783c45ad6655220426f971c61d9b239e6f7b16d5cdaaa727     --hash=sha256:ebeac59e9e1eb4b84940d076d9f9a6cec0064e241818bcb6e32124cc5c3e377a",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -22106,6 +22351,14 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39__groups": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "group_library",
+            "attributes": {
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "groups": {}
+            }
+          },
           "jupyter-pip-requirements-dev_39_pyzmq": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -22113,6 +22366,30 @@
               "requirement": "pyzmq==24.0.1     --hash=sha256:0108358dab8c6b27ff6b985c2af4b12665c1bc659648284153ee501000f5c107     --hash=sha256:07bec1a1b22dacf718f2c0e71b49600bb6a31a88f06527dfd0b5aababe3fa3f7     --hash=sha256:0e8f482c44ccb5884bf3f638f29bea0f8dc68c97e38b2061769c4cb697f6140d     --hash=sha256:0ec91f1bad66f3ee8c6deb65fa1fe418e8ad803efedd69c35f3b5502f43bd1dc     --hash=sha256:0f14cffd32e9c4c73da66db97853a6aeceaac34acdc0fae9e5bbc9370281864c     --hash=sha256:15975747462ec49fdc863af906bab87c43b2491403ab37a6d88410635786b0f4     --hash=sha256:1724117bae69e091309ffb8255412c4651d3f6355560d9af312d547f6c5bc8b8     --hash=sha256:1a7c280185c4da99e0cc06c63bdf91f5b0b71deb70d8717f0ab870a43e376db8     --hash=sha256:1b7928bb7580736ffac5baf814097be342ba08d3cfdfb48e52773ec959572287     --hash=sha256:2032d9cb994ce3b4cba2b8dfae08c7e25bc14ba484c770d4d3be33c27de8c45b     --hash=sha256:20e7eeb1166087db636c06cae04a1ef59298627f56fb17da10528ab52a14c87f     --hash=sha256:216f5d7dbb67166759e59b0479bca82b8acf9bed6015b526b8eb10143fb08e77     --hash=sha256:28b119ba97129d3001673a697b7cce47fe6de1f7255d104c2f01108a5179a066     --hash=sha256:3104f4b084ad5d9c0cb87445cc8cfd96bba710bef4a66c2674910127044df209     --hash=sha256:3e6192dbcefaaa52ed81be88525a54a445f4b4fe2fffcae7fe40ebb58bd06bfd     --hash=sha256:42d4f97b9795a7aafa152a36fe2ad44549b83a743fd3e77011136def512e6c2a     --hash=sha256:44e706bac34e9f50779cb8c39f10b53a4d15aebb97235643d3112ac20bd577b4     --hash=sha256:47b11a729d61a47df56346283a4a800fa379ae6a85870d5a2e1e4956c828eedc     --hash=sha256:4854f9edc5208f63f0841c0c667260ae8d6846cfa233c479e29fdc85d42ebd58     --hash=sha256:48f721f070726cd2a6e44f3c33f8ee4b24188e4b816e6dd8ba542c8c3bb5b246     --hash=sha256:52afb0ac962963fff30cf1be775bc51ae083ef4c1e354266ab20e5382057dd62     --hash=sha256:54d8b9c5e288362ec8595c1d98666d36f2070fd0c2f76e2b3c60fbad9bd76227     --hash=sha256:5bd3d7dfd9cd058eb68d9a905dec854f86649f64d4ddf21f3ec289341386c44b     --hash=sha256:613010b5d17906c4367609e6f52e9a2595e35d5cc27d36ff3f1b6fa6e954d944     --hash=sha256:624321120f7e60336be8ec74a172ae7fba5c3ed5bf787cc85f7e9986c9e0ebc2     --hash=sha256:65c94410b5a8355cfcf12fd600a313efee46ce96a09e911ea92cf2acf6708804     --hash=sha256:6640f83df0ae4ae1104d4c62b77e9ef39be85ebe53f636388707d532bee2b7b8     --hash=sha256:687700f8371643916a1d2c61f3fdaa630407dd205c38afff936545d7b7466066     --hash=sha256:77c2713faf25a953c69cf0f723d1b7dd83827b0834e6c41e3fb3bbc6765914a1     --hash=sha256:78068e8678ca023594e4a0ab558905c1033b2d3e806a0ad9e3094e231e115a33     --hash=sha256:7a23ccc1083c260fa9685c93e3b170baba45aeed4b524deb3f426b0c40c11639     --hash=sha256:7abddb2bd5489d30ffeb4b93a428130886c171b4d355ccd226e83254fcb6b9ef     --hash=sha256:80093b595921eed1a2cead546a683b9e2ae7f4a4592bb2ab22f70d30174f003a     --hash=sha256:8242543c522d84d033fe79be04cb559b80d7eb98ad81b137ff7e0a9020f00ace     --hash=sha256:838812c65ed5f7c2bd11f7b098d2e5d01685a3f6d1f82849423b570bae698c00     --hash=sha256:83ea1a398f192957cb986d9206ce229efe0ee75e3c6635baff53ddf39bd718d5     --hash=sha256:8421aa8c9b45ea608c205db9e1c0c855c7e54d0e9c2c2f337ce024f6843cab3b     --hash=sha256:858375573c9225cc8e5b49bfac846a77b696b8d5e815711b8d4ba3141e6e8879     --hash=sha256:86de64468cad9c6d269f32a6390e210ca5ada568c7a55de8e681ca3b897bb340     --hash=sha256:87f7ac99b15270db8d53f28c3c7b968612993a90a5cf359da354efe96f5372b4     --hash=sha256:8bad8210ad4df68c44ff3685cca3cda448ee46e20d13edcff8909eba6ec01ca4     --hash=sha256:8bb4af15f305056e95ca1bd086239b9ebc6ad55e9f49076d27d80027f72752f6     --hash=sha256:8c78bfe20d4c890cb5580a3b9290f700c570e167d4cdcc55feec07030297a5e3     --hash=sha256:8f3f3154fde2b1ff3aa7b4f9326347ebc89c8ef425ca1db8f665175e6d3bd42f     --hash=sha256:94010bd61bc168c103a5b3b0f56ed3b616688192db7cd5b1d626e49f28ff51b3     --hash=sha256:941fab0073f0a54dc33d1a0460cb04e0d85893cb0c5e1476c785000f8b359409     --hash=sha256:9dca7c3956b03b7663fac4d150f5e6d4f6f38b2462c1e9afd83bcf7019f17913     --hash=sha256:a180dbd5ea5d47c2d3b716d5c19cc3fb162d1c8db93b21a1295d69585bfddac1     --hash=sha256:a2712aee7b3834ace51738c15d9ee152cc5a98dc7d57dd93300461b792ab7b43     --hash=sha256:a435ef8a3bd95c8a2d316d6e0ff70d0db524f6037411652803e118871d703333     --hash=sha256:abb756147314430bee5d10919b8493c0ccb109ddb7f5dfd2fcd7441266a25b75     --hash=sha256:abe6eb10122f0d746a0d510c2039ae8edb27bc9af29f6d1b05a66cc2401353ff     --hash=sha256:acbd0a6d61cc954b9f535daaa9ec26b0a60a0d4353c5f7c1438ebc88a359a47e     --hash=sha256:ae08ac90aa8fa14caafc7a6251bd218bf6dac518b7bff09caaa5e781119ba3f2     --hash=sha256:ae61446166983c663cee42c852ed63899e43e484abf080089f771df4b9d272ef     --hash=sha256:afe1f3bc486d0ce40abb0a0c9adb39aed3bbac36ebdc596487b0cceba55c21c1     --hash=sha256:b946da90dc2799bcafa682692c1d2139b2a96ec3c24fa9fc6f5b0da782675330     --hash=sha256:b947e264f0e77d30dcbccbb00f49f900b204b922eb0c3a9f0afd61aaa1cedc3d     --hash=sha256:bb5635c851eef3a7a54becde6da99485eecf7d068bd885ac8e6d173c4ecd68b0     --hash=sha256:bcbebd369493d68162cddb74a9c1fcebd139dfbb7ddb23d8f8e43e6c87bac3a6     --hash=sha256:c31805d2c8ade9b11feca4674eee2b9cce1fec3e8ddb7bbdd961a09dc76a80ea     --hash=sha256:c8840f064b1fb377cffd3efeaad2b190c14d4c8da02316dae07571252d20b31f     --hash=sha256:ccb94342d13e3bf3ffa6e62f95b5e3f0bc6bfa94558cb37f4b3d09d6feb536ff     --hash=sha256:d66689e840e75221b0b290b0befa86f059fb35e1ee6443bce51516d4d61b6b99     --hash=sha256:dabf1a05318d95b1537fd61d9330ef4313ea1216eea128a17615038859da3b3b     --hash=sha256:db03704b3506455d86ec72c3358a779e9b1d07b61220dfb43702b7b668edcd0d     --hash=sha256:de4217b9eb8b541cf2b7fde4401ce9d9a411cc0af85d410f9d6f4333f43640be     --hash=sha256:df0841f94928f8af9c7a1f0aaaffba1fb74607af023a152f59379c01c53aee58     --hash=sha256:dfb992dbcd88d8254471760879d48fb20836d91baa90f181c957122f9592b3dc     --hash=sha256:e7e66b4e403c2836ac74f26c4b65d8ac0ca1eef41dfcac2d013b7482befaad83     --hash=sha256:e8012bce6836d3f20a6c9599f81dfa945f433dab4dbd0c4917a6fb1f998ab33d     --hash=sha256:f01de4ec083daebf210531e2cca3bdb1608dbbbe00a9723e261d92087a1f6ebc     --hash=sha256:f0d945a85b70da97ae86113faf9f1b9294efe66bd4a5d6f82f2676d567338b66     --hash=sha256:fa0ae3275ef706c0309556061185dd0e4c4cd3b7d6f67ae617e4e677c7a41e2e",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_pyparsing": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "pyparsing==3.1.2     --hash=sha256:a1bac0ce561155ecc3ed78ca94d3c9378656ad4c94c1270de543f621420f94ad     --hash=sha256:f9db75911801ed778fe61bb643079ff86601aca99fcae6345aa67292038fb742",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -22682,6 +22959,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_cycler": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "cycler==0.12.1     --hash=sha256:85cef7cff222d8644161529808465972e51340599459b8ac3ccbac5a854e0d30     --hash=sha256:88bb128f02ba341da8ef447245a9e138fae777f6a23943da4540077d3601eb1c",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements-dev_39_certifi": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -22802,6 +23103,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_pillow": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "pillow==10.2.0     --hash=sha256:0304004f8067386b477d20a518b50f3fa658a28d44e4116970abfcd94fac34a8     --hash=sha256:0689b5a8c5288bc0504d9fcee48f61a6a586b9b98514d7d29b840143d6734f39     --hash=sha256:0eae2073305f451d8ecacb5474997c08569fb4eb4ac231ffa4ad7d342fdc25ac     --hash=sha256:0fb3e7fc88a14eacd303e90481ad983fd5b69c761e9e6ef94c983f91025da869     --hash=sha256:11fa2e5984b949b0dd6d7a94d967743d87c577ff0b83392f17cb3990d0d2fd6e     --hash=sha256:127cee571038f252a552760076407f9cff79761c3d436a12af6000cd182a9d04     --hash=sha256:154e939c5f0053a383de4fd3d3da48d9427a7e985f58af8e94d0b3c9fcfcf4f9     --hash=sha256:15587643b9e5eb26c48e49a7b33659790d28f190fc514a322d55da2fb5c2950e     --hash=sha256:170aeb00224ab3dc54230c797f8404507240dd868cf52066f66a41b33169bdbe     --hash=sha256:1b5e1b74d1bd1b78bc3477528919414874748dd363e6272efd5abf7654e68bef     --hash=sha256:1da3b2703afd040cf65ec97efea81cfba59cdbed9c11d8efc5ab09df9509fc56     --hash=sha256:1e23412b5c41e58cec602f1135c57dfcf15482013ce6e5f093a86db69646a5aa     --hash=sha256:2247178effb34a77c11c0e8ac355c7a741ceca0a732b27bf11e747bbc950722f     --hash=sha256:257d8788df5ca62c980314053197f4d46eefedf4e6175bc9412f14412ec4ea2f     --hash=sha256:3031709084b6e7852d00479fd1d310b07d0ba82765f973b543c8af5061cf990e     --hash=sha256:322209c642aabdd6207517e9739c704dc9f9db943015535783239022002f054a     --hash=sha256:322bdf3c9b556e9ffb18f93462e5f749d3444ce081290352c6070d014c93feb2     --hash=sha256:33870dc4653c5017bf4c8873e5488d8f8d5f8935e2f1fb9a2208c47cdd66efd2     --hash=sha256:35bb52c37f256f662abdfa49d2dfa6ce5d93281d323a9af377a120e89a9eafb5     --hash=sha256:3c31822339516fb3c82d03f30e22b1d038da87ef27b6a78c9549888f8ceda39a     --hash=sha256:3eedd52442c0a5ff4f887fab0c1c0bb164d8635b32c894bc1faf4c618dd89df2     --hash=sha256:3ff074fc97dd4e80543a3e91f69d58889baf2002b6be64347ea8cf5533188213     --hash=sha256:47c0995fc4e7f79b5cfcab1fc437ff2890b770440f7696a3ba065ee0fd496563     --hash=sha256:49d9ba1ed0ef3e061088cd1e7538a0759aab559e2e0a80a36f9fd9d8c0c21591     --hash=sha256:51f1a1bffc50e2e9492e87d8e09a17c5eea8409cda8d3f277eb6edc82813c17c     --hash=sha256:52a50aa3fb3acb9cf7213573ef55d31d6eca37f5709c69e6858fe3bc04a5c2a2     --hash=sha256:54f1852cd531aa981bc0965b7d609f5f6cc8ce8c41b1139f6ed6b3c54ab82bfb     --hash=sha256:609448742444d9290fd687940ac0b57fb35e6fd92bdb65386e08e99af60bf757     --hash=sha256:69ffdd6120a4737710a9eee73e1d2e37db89b620f702754b8f6e62594471dee0     --hash=sha256:6fad5ff2f13d69b7e74ce5b4ecd12cc0ec530fcee76356cac6742785ff71c452     --hash=sha256:7049e301399273a0136ff39b84c3678e314f2158f50f517bc50285fb5ec847ad     --hash=sha256:70c61d4c475835a19b3a5aa42492409878bbca7438554a1f89d20d58a7c75c01     --hash=sha256:716d30ed977be8b37d3ef185fecb9e5a1d62d110dfbdcd1e2a122ab46fddb03f     --hash=sha256:753cd8f2086b2b80180d9b3010dd4ed147efc167c90d3bf593fe2af21265e5a5     --hash=sha256:773efe0603db30c281521a7c0214cad7836c03b8ccff897beae9b47c0b657d61     --hash=sha256:7823bdd049099efa16e4246bdf15e5a13dbb18a51b68fa06d6c1d4d8b99a796e     --hash=sha256:7c8f97e8e7a9009bcacbe3766a36175056c12f9a44e6e6f2d5caad06dcfbf03b     --hash=sha256:823ef7a27cf86df6597fa0671066c1b596f69eba53efa3d1e1cb8b30f3533068     --hash=sha256:8373c6c251f7ef8bda6675dd6d2b3a0fcc31edf1201266b5cf608b62a37407f9     --hash=sha256:83b2021f2ade7d1ed556bc50a399127d7fb245e725aa0113ebd05cfe88aaf588     --hash=sha256:870ea1ada0899fd0b79643990809323b389d4d1d46c192f97342eeb6ee0b8483     --hash=sha256:8d12251f02d69d8310b046e82572ed486685c38f02176bd08baf216746eb947f     --hash=sha256:9c23f307202661071d94b5e384e1e1dc7dfb972a28a2310e4ee16103e66ddb67     --hash=sha256:9d189550615b4948f45252d7f005e53c2040cea1af5b60d6f79491a6e147eef7     --hash=sha256:a086c2af425c5f62a65e12fbf385f7c9fcb8f107d0849dba5839461a129cf311     --hash=sha256:a2b56ba36e05f973d450582fb015594aaa78834fefe8dfb8fcd79b93e64ba4c6     --hash=sha256:aebb6044806f2e16ecc07b2a2637ee1ef67a11840a66752751714a0d924adf72     --hash=sha256:b1b3020d90c2d8e1dae29cf3ce54f8094f7938460fb5ce8bc5c01450b01fbaf6     --hash=sha256:b4b6b1e20608493548b1f32bce8cca185bf0480983890403d3b8753e44077129     --hash=sha256:b6f491cdf80ae540738859d9766783e3b3c8e5bd37f5dfa0b76abdecc5081f13     --hash=sha256:b792a349405fbc0163190fde0dc7b3fef3c9268292586cf5645598b48e63dc67     --hash=sha256:b7c2286c23cd350b80d2fc9d424fc797575fb16f854b831d16fd47ceec078f2c     --hash=sha256:babf5acfede515f176833ed6028754cbcd0d206f7f614ea3447d67c33be12516     --hash=sha256:c365fd1703040de1ec284b176d6af5abe21b427cb3a5ff68e0759e1e313a5e7e     --hash=sha256:c4225f5220f46b2fde568c74fca27ae9771536c2e29d7c04f4fb62c83275ac4e     --hash=sha256:c570f24be1e468e3f0ce7ef56a89a60f0e05b30a3669a459e419c6eac2c35364     --hash=sha256:c6dafac9e0f2b3c78df97e79af707cdc5ef8e88208d686a4847bab8266870023     --hash=sha256:c8de2789052ed501dd829e9cae8d3dcce7acb4777ea4a479c14521c942d395b1     --hash=sha256:cb28c753fd5eb3dd859b4ee95de66cc62af91bcff5db5f2571d32a520baf1f04     --hash=sha256:cb4c38abeef13c61d6916f264d4845fab99d7b711be96c326b84df9e3e0ff62d     --hash=sha256:d1b35bcd6c5543b9cb547dee3150c93008f8dd0f1fef78fc0cd2b141c5baf58a     --hash=sha256:d8e6aeb9201e655354b3ad049cb77d19813ad4ece0df1249d3c793de3774f8c7     --hash=sha256:d8ecd059fdaf60c1963c58ceb8997b32e9dc1b911f5da5307aab614f1ce5c2fb     --hash=sha256:da2b52b37dad6d9ec64e653637a096905b258d2fc2b984c41ae7d08b938a67e4     --hash=sha256:e87f0b2c78157e12d7686b27d63c070fd65d994e8ddae6f328e0dcf4a0cd007e     --hash=sha256:edca80cbfb2b68d7b56930b84a0e45ae1694aeba0541f798e908a49d66b837f1     --hash=sha256:f379abd2f1e3dddb2b61bc67977a6b5a0a3f7485538bcc6f39ec76163891ee48     --hash=sha256:fe4c15f6c9285dc54ce6553a3ce908ed37c8f3825b5a51a15c91442bb955b868",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements-dev_39_stack_data": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -22881,6 +23206,30 @@
               "requirement": "importlib-metadata==7.0.2     --hash=sha256:198f568f3230878cb1b44fbd7975f87906c22336dba2e4a7f05278c281fbd792     --hash=sha256:f4bc4c0c070c490abf4ce96d715f68e95923320370efb66143df00199bb6c100",
               "repo": "jupyter-pip-requirements-dev_39",
               "repo_prefix": "jupyter-pip-requirements-dev_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_six": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "six==1.16.0     --hash=sha256:1e61c37477a1626458e36f7b1d82aa5c9b094fa4802892072e49de9c60c4c926     --hash=sha256:8abb2f1d86890a2dfb989f9a77cfcfd3e47c2a354b01111771326f8aa26e0254",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",
@@ -23162,6 +23511,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_fonttools": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "fonttools==4.50.0     --hash=sha256:0743fd2191ad7ab43d78cd747215b12033ddee24fa1e088605a3efe80d6984de     --hash=sha256:074841375e2e3d559aecc86e1224caf78e8b8417bb391e7d2506412538f21adc     --hash=sha256:0ccc85fd96373ab73c59833b824d7a73846670a0cb1f3afbaee2b2c426a8f931     --hash=sha256:2c673ab40d15a442a4e6eb09bf007c1dda47c84ac1e2eecbdf359adacb799c24     --hash=sha256:34692850dfd64ba06af61e5791a441f664cb7d21e7b544e8f385718430e8f8e4     --hash=sha256:3566bfb8c55ed9100afe1ba6f0f12265cd63a1387b9661eb6031a1578a28bad1     --hash=sha256:35e10ddbc129cf61775d58a14f2d44121178d89874d32cae1eac722e687d9019     --hash=sha256:39293ff231b36b035575e81c14626dfc14407a20de5262f9596c2cbb199c3625     --hash=sha256:3d7080cce7be5ed65bee3496f09f79a82865a514863197ff4d4d177389e981b0     --hash=sha256:3dfb102e7f63b78c832e4539969167ffcc0375b013080e6472350965a5fe8048     --hash=sha256:47abd6669195abe87c22750dbcd366dc3a0648f1b7c93c2baa97429c4dc1506e     --hash=sha256:48fa36da06247aa8282766cfd63efff1bb24e55f020f29a335939ed3844d20d3     --hash=sha256:4f2ce7b0b295fe64ac0a85aef46a0f2614995774bd7bc643b85679c0283287f9     --hash=sha256:678dd95f26a67e02c50dcb5bf250f95231d455642afbc65a3b0bcdacd4e4dd38     --hash=sha256:77844e2f1b0889120b6c222fc49b2b75c3d88b930615e98893b899b9352a27ea     --hash=sha256:778c5f43e7e654ef7fe0605e80894930bc3a7772e2f496238e57218610140f54     --hash=sha256:7913992ab836f621d06aabac118fc258b9947a775a607e1a737eb3a91c360335     --hash=sha256:8639be40d583e5d9da67795aa3eeeda0488fb577a1d42ae11a5036f18fb16d93     --hash=sha256:8844e7a2c5f7ecf977e82eb6b3014f025c8b454e046d941ece05b768be5847ae     --hash=sha256:8e0a1c5bd2f63da4043b63888534b52c5a1fd7ae187c8ffc64cbb7ae475b9dab     --hash=sha256:9b3ac35cdcd1a4c90c23a5200212c1bb74fa05833cc7c14291d7043a52ca2aaa     --hash=sha256:9e58fe34cb379ba3d01d5d319d67dd3ce7ca9a47ad044ea2b22635cd2d1247fc     --hash=sha256:9fff65fbb7afe137bac3113827855e0204482727bddd00a806034ab0d3951d0d     --hash=sha256:a0493dd97ac8977e48ffc1476b932b37c847cbb87fd68673dee5182004906828     --hash=sha256:a4062cc7e8de26f1603323ef3ae2171c9d29c8a9f5e067d555a2813cd5c7a7e0     --hash=sha256:a467ba4e2eadc1d5cc1a11d355abb945f680473fbe30d15617e104c81f483045     --hash=sha256:a51eeaf52ba3afd70bf489be20e52fdfafe6c03d652b02477c6ce23c995222f4     --hash=sha256:ac2463de667233372e9e1c7e9de3d914b708437ef52a3199fdbf5a60184f190c     --hash=sha256:b1aeae3dd2ee719074a9372c89ad94f7c581903306d76befdaca2a559f802472     --hash=sha256:b2ca1837bfbe5eafa11313dbc7edada79052709a1fffa10cea691210af4aa1fa     --hash=sha256:b4a886a6dbe60100ba1cd24de962f8cd18139bd32808da80de1fa9f9f27bf1dc     --hash=sha256:b6245eafd553c4e9a0708e93be51392bd2288c773523892fbd616d33fd2fda59     --hash=sha256:c33d5023523b44d3481624f840c8646656a1def7630ca562f222eb3ead16c438     --hash=sha256:cc8140baf9fa8f9b903f2b393a6c413a220fa990264b215bf48484f3d0bf8710     --hash=sha256:d346f4dc2221bfb7ab652d1e37d327578434ce559baf7113b0f55768437fe6a0     --hash=sha256:d40fc98540fa5360e7ecf2c56ddf3c6e7dd04929543618fd7b5cc76e66390562     --hash=sha256:e270a406219af37581d96c810172001ec536e29e5593aa40d4c01cca3e145aa6     --hash=sha256:e9623afa319405da33b43c85cceb0585a6f5d3a1d7c604daf4f7e1dd55c03d1f     --hash=sha256:effd303fb422f8ce06543a36ca69148471144c534cc25f30e5be752bc4f46736     --hash=sha256:f77e048f805e00870659d6318fd89ef28ca4ee16a22b4c5e1905b735495fc422     --hash=sha256:f849bd3c5c2249b49c98eca5aaebb920d2bfd92b3c69e84ca9bddf133e9f83f0     --hash=sha256:fa5cf61058c7dbb104c2ac4e782bf1b2016a8cf2f69de6e4dd6a865d2c969bb5",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements-dev_39_traitlets": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -23217,6 +23590,30 @@
               "requirement": "attrs==23.2.0     --hash=sha256:935dc3b529c262f6cf76e50877d35a4bd3c1de194fd41f47a2b7ae8f19971f30     --hash=sha256:99b87a485a5820b23b879f04c2305b44b951b502fd64be915879d77a7e8fc6f1",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
+          "opencv-pip-requirements_39_opencv_python": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "opencv-python==3.4.18.65     --hash=sha256:0630dfa57dbadd63f62eae6758c743ab7c18358940f34e8b9ee666c00d2e74fb     --hash=sha256:0c2d5ebd08420079d6ebdec7a247f0284d403edd87647e9fbcc474c5adcb310b     --hash=sha256:27cc4a3a4dc2d73c76374c636985ce45a8e40e79d015fb0e69677ff4547edd9c     --hash=sha256:3484618b7cda6b94939f475342ff100455b863d2bb7a81ac8d2b1965c4e983b6     --hash=sha256:447c5d9172713e026d4a742c5d3c167913dff133949ffc62fec5b6d1cb081b0b     --hash=sha256:784acb4c6c1880e0b8fb124f2b79e10838f1c244b0220f812d2852c91bc80ae9     --hash=sha256:9aecb4544d2e863f2fb9acffc47005f9c9733a307cdbca80babbef027c04e207",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",

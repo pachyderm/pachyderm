@@ -1,8 +1,19 @@
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@opencv-pip-requirements//:requirements.bzl", "requirement")
 
 # To create lock files: bazel run :requirements.update
 compile_pip_requirements(
     name = "requirements",
     src = "requirements.txt",
     requirements_txt = "requirements-lock.txt",
+)
+
+py_binary(
+    name = "edges",
+    srcs = ["edges.py"],
+    deps = [
+        requirement("opencv-python"),
+        requirement("matplotlib"),
+    ],
 )
