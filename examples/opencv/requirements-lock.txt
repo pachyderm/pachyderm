@@ -278,15 +278,15 @@ numpy==1.26.4 \
     # via
     #   contourpy
     #   matplotlib
-    #   opencv-python
-opencv-python==3.4.18.65 \
-    --hash=sha256:0630dfa57dbadd63f62eae6758c743ab7c18358940f34e8b9ee666c00d2e74fb \
-    --hash=sha256:0c2d5ebd08420079d6ebdec7a247f0284d403edd87647e9fbcc474c5adcb310b \
-    --hash=sha256:27cc4a3a4dc2d73c76374c636985ce45a8e40e79d015fb0e69677ff4547edd9c \
-    --hash=sha256:3484618b7cda6b94939f475342ff100455b863d2bb7a81ac8d2b1965c4e983b6 \
-    --hash=sha256:447c5d9172713e026d4a742c5d3c167913dff133949ffc62fec5b6d1cb081b0b \
-    --hash=sha256:784acb4c6c1880e0b8fb124f2b79e10838f1c244b0220f812d2852c91bc80ae9 \
-    --hash=sha256:9aecb4544d2e863f2fb9acffc47005f9c9733a307cdbca80babbef027c04e207
+    #   opencv-python-headless
+opencv-python-headless==3.4.18.65 \
+    --hash=sha256:08c5b1e3fbb91786b8a7f3c7ae376e8ac9dffac848df73d41e383cdcb76380be \
+    --hash=sha256:11343fb44fb08f9cb46d5aa764ac1ffdcdc975b92075f7ef167ebca74dffcbf4 \
+    --hash=sha256:1ac2c02efc937e505172acd620e32117dd4cfb9a5237822a6d936e478f904598 \
+    --hash=sha256:33c66aa91296cf977a5d900368e930a9f15d1bbc5f06264d66d893d895f8a765 \
+    --hash=sha256:71f5b6a1b0ad53085cfa51997e6c0edc58b3432b283a70cded18bd52a458a3b5 \
+    --hash=sha256:bde2ef816e85795dd4f745d4cca99ce579b3ce9335a0d5500740a5767eda8579 \
+    --hash=sha256:f7c3e5459296e832e922350a7140b94192d3a0c330882eea45d8f65516434550
     # via -r examples/opencv/requirements.txt
 packaging==24.0 \
     --hash=sha256:2ddfb553fdf02fb784c234c7ba6ccc288296ceabec964ad2eae3777778130bc5 \

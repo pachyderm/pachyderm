@@ -1,2 +1,2 @@
-opencv-python<3.5.0
+opencv-python-headless>=3.4.0,<3.5.0
 matplotlib
