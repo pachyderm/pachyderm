@@ -433,8 +433,8 @@ func TestCreateDAGS(t *testing.T) {
 	ctx := pctx.Background("FuzzGrpcWorkflow")
 	valuesOverridden, strValuesOverridden := helmValuesPreGoCDK(1)
 	values := map[string]string{
-		"proxy.resources.requests.memory": "250MB",
-		"proxy.resources.limits.memory":   "250MB",
+		"proxy.resources.requests.memory": "250M",
+		"proxy.resources.limits.memory":   "250M",
 		"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
 		"console.enabled":                 "true",
 		"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
