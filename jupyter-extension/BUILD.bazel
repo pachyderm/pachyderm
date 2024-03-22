@@ -1,5 +1,5 @@
-load("@jupyter-pip-requirements//:requirements.bzl", "all_requirements", "all_data_requirements")
-load("@jupyter-pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements", all_data_requirements_dev = "all_data_requirements")
+load("@jupyter-pip-requirements//:requirements.bzl", "all_data_requirements", "all_requirements")
+load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements")
 load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_pyvenv//:venv.bzl", "py_venv")
@@ -28,16 +28,17 @@ compile_pip_requirements(
 # Create a virtual environment at ./venv: bazel :venv
 py_venv(
     name = "venv",
+    data = all_data_requirements + all_data_requirements_dev,
     venv_location = "jupyter-extension/venv",
     deps = all_requirements + all_requirements_dev,
-    data = all_data_requirements + all_data_requirements_dev,
 )
 
 py_test(
     name = "check-manifest",
+    srcs = ["scripts/run_check_manifest.py"],
     data = glob(
         ["**"],
-        exclude=[
+        exclude = [
             ".git/**",
             ".ipynb_checkpoints/**",
             ".jestcache/**",
@@ -47,12 +48,12 @@ py_test(
             "lib/**",
             "node_modules/**",
             "scripts/**",
-            "venv/**"
-        ]),
-    srcs = ["scripts/run_check_manifest.py"],
+            "venv/**",
+        ],
+    ),
     main = "scripts/run_check_manifest.py",
     deps = [
         "@jupyter-pip-requirements-dev//check_manifest:pkg",
         "@jupyter-pip-requirements-dev//setuptools:pkg",
-    ]
+    ],
 )
