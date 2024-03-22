@@ -90,7 +90,7 @@ def _copy_to_workspace_impl(ctx):
         output = copier,
         content = _PROTOTAR_APPLY_TMPL.format(
             MSG = repr(""),
-            SRC = ctx.attr.src.files.to_list()[0].path,
+            SRC = "$(rlocation {})".format(repr(ctx.workspace_name + "/" + ctx.file.src.short_path)),
             BASH_RLOCATION_FUNCTION = BASH_RLOCATION_FUNCTION,
         ),
         is_executable = True,
@@ -107,6 +107,7 @@ _copy_to_workspace = rule(
     implementation = _copy_to_workspace_impl,
     attrs = {
         "src": attr.label(
+            allow_single_file = True,
             doc = "Tar to extract into the workspace.",
         ),
         "_runfiles": attr.label_list(default = ["@bazel_tools//tools/bash/runfiles", "//src/proto/prototar"]),
