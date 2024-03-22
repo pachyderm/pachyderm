@@ -199,26 +199,28 @@ func applyOne(ctx context.Context, h *tar.Header, r io.Reader, dryRun bool, appl
 	return nil
 }
 
-func apply(ctx context.Context, r io.Reader, dryRun bool) (*ApplicationReport, error) {
+func apply(ctx context.Context, r io.Reader, dryRun bool, deleteJSON bool) (*ApplicationReport, error) {
 	report := new(ApplicationReport)
 	jsonSchemas := map[string]struct{}{}
 
-	// Find the current set of JSON schemas, so we can delete any files that aren't in the proto
-	// bundle.
-	if err := fs.WalkDir(os.DirFS("src/internal/jsonschema"), ".", func(file string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return errors.Wrap(err, "WalkFn called with error")
-		}
-		if d.IsDir() {
+	if deleteJSON {
+		// Find the current set of JSON schemas, so we can delete any files that aren't in the proto
+		// bundle.
+		if err := fs.WalkDir(os.DirFS("src/internal/jsonschema"), ".", func(file string, d fs.DirEntry, err error) error {
+			if err != nil {
+				return errors.Wrap(err, "WalkFn called with error")
+			}
+			if d.IsDir() {
+				return nil
+			}
+			if strings.HasSuffix(file, ".schema.json") {
+				jsonSchemas[path.Join("src/internal/jsonschema", file)] = struct{}{}
+			}
 			return nil
-		}
-		if strings.HasSuffix(file, ".schema.json") {
-			jsonSchemas[path.Join("src/internal/jsonschema", file)] = struct{}{}
-		}
-		return nil
-	}); err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return nil, errors.Wrap(err, "find json schemas")
+		}); err != nil {
+			if !errors.Is(err, os.ErrNotExist) {
+				return nil, errors.Wrap(err, "find json schemas")
+			}
 		}
 	}
 
@@ -278,6 +280,8 @@ func main() {
 			}
 		},
 	}
+	var deleteJSON bool
+	var failureMessage string
 	root.AddCommand([]*cobra.Command{{
 		Use:   "create <output.tar> <forgotten-files.txt> <input...>",
 		Short: "Archive the given directories.",
@@ -319,7 +323,7 @@ func main() {
 			if err != nil {
 				return errors.Wrap(err, "open input")
 			}
-			if _, err := apply(cmd.Context(), fh, false); err != nil {
+			if _, err := apply(cmd.Context(), fh, false, deleteJSON); err != nil {
 				return errors.Wrap(err, "apply archive")
 			}
 			return nil
@@ -334,7 +338,7 @@ func main() {
 			if err != nil {
 				return errors.Wrap(err, "open input")
 			}
-			report, err := apply(cmd.Context(), fh, true)
+			report, err := apply(cmd.Context(), fh, true, deleteJSON)
 			if err != nil {
 				return errors.Wrap(err, "apply archive")
 			}
@@ -342,10 +346,12 @@ func main() {
 				fmt.Printf("%d file(s) ok\n", len(report.Unchanged))
 				return nil
 			}
-			fmt.Fprintf(os.Stderr, "\n*** It looks like you might need to regenerate the protos in your working copy.\n")
+			fmt.Fprintf(os.Stderr, "\n*** "+failureMessage+"\n")
 			return ErrExit1
 		},
 	}}...)
+	root.PersistentFlags().BoolVar(&deleteJSON, "delete-jsonschemas", true, "If true, clean up any JSON schemas that are in the working copy but not in the input bundle.")
+	root.PersistentFlags().StringVar(&failureMessage, "failure-message", "It looks like you might need to regenerate the protos in your working copy.", "The message to print when the `test` command fails.")
 
 	if err := root.ExecuteContext(ctx); err != nil {
 		if errors.Is(err, ErrExit1) {
