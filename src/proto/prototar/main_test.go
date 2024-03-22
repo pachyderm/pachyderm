@@ -95,7 +95,7 @@ func TestCreateAndApply(t *testing.T) {
 	// Apply the tar we generated above
 	t.Run("apply_1", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false, true)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -116,7 +116,7 @@ func TestCreateAndApply(t *testing.T) {
 		ctx := pctx.TestContext(t)
 		write(t, filepath.Join("src", "internal", "jsonschema", "old_v2", "Old.schema.json"), []byte(`{"old":"schema"}`))
 		write(t, filepath.Join("src", "internal", "jsonschema", "jsonschema.go"), []byte("some go code to not delete"))
-		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false, true)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -132,7 +132,7 @@ func TestCreateAndApply(t *testing.T) {
 	// Finally we should be able to run this again and see only unchanged files.
 	t.Run("apply_3", func(t *testing.T) {
 		ctx := pctx.TestContext(t)
-		gotReport, err := apply(ctx, bytes.NewReader(tar), false)
+		gotReport, err := apply(ctx, bytes.NewReader(tar), false, true)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}
@@ -150,7 +150,7 @@ func TestCreateAndApply(t *testing.T) {
 			t.Fatalf("chdir /: %v", err)
 		}
 		ctx := pctx.TestContext(t)
-		gotReport, err := apply(ctx, bytes.NewReader(tar), true)
+		gotReport, err := apply(ctx, bytes.NewReader(tar), true, true)
 		if err != nil {
 			t.Fatalf("apply: %v", err)
 		}

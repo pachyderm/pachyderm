@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "b8432a6008bc70f1892a1f50f0dd5da02e159e8a1e3a297bfdda8b5a55bcf5c8",
+  "moduleFileHash": "757be36ed0d7988961ee39f647f2f54d14d90909ca8e52d106513cb7b7686ca6",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -746,9 +746,9 @@
               "attributeValues": {
                 "hub_name": "jupyter-pip-requirements-dev",
                 "python_version": "3.9",
-                "requirements_lock": "//jupyter-extension:requirements-dev-lock.txt",
                 "requirements_darwin": "//jupyter-extension:requirements-dev-lock-darwin.txt",
-                "requirements_linux": "//jupyter-extension:requirements-dev-lock-linux.txt"
+                "requirements_linux": "//jupyter-extension:requirements-dev-lock-linux.txt",
+                "requirements_lock": "//jupyter-extension:requirements-dev-lock.txt"
               },
               "devDependency": false,
               "location": {
@@ -763,7 +763,7 @@
         }
       ],
       "deps": {
-        "aspect_bazel_lib": "aspect_bazel_lib@2.5.0",
+        "aspect_bazel_lib": "aspect_bazel_lib@2.5.3",
         "container_structure_test": "container_structure_test@1.16.0",
         "gazelle": "gazelle@0.35.0",
         "jsonnet_go": "jsonnet_go@0.20.0",
@@ -775,10 +775,10 @@
         "local_config_platform": "local_config_platform@_"
       }
     },
-    "aspect_bazel_lib@2.5.0": {
+    "aspect_bazel_lib@2.5.3": {
       "name": "aspect_bazel_lib",
-      "version": "2.5.0",
-      "key": "aspect_bazel_lib@2.5.0",
+      "version": "2.5.3",
+      "key": "aspect_bazel_lib@2.5.3",
       "repoName": "aspect_bazel_lib",
       "executionPlatformsToRegister": [],
       "toolchainsToRegister": [
@@ -798,9 +798,9 @@
         {
           "extensionBzlFile": "@aspect_bazel_lib//lib:extensions.bzl",
           "extensionName": "toolchains",
-          "usingModule": "aspect_bazel_lib@2.5.0",
+          "usingModule": "aspect_bazel_lib@2.5.3",
           "location": {
-            "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+            "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
             "line": 17,
             "column": 37
           },
@@ -821,7 +821,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 18,
                 "column": 36
               }
@@ -831,7 +831,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 19,
                 "column": 39
               }
@@ -841,7 +841,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 20,
                 "column": 24
               }
@@ -851,7 +851,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 21,
                 "column": 24
               }
@@ -861,7 +861,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 22,
                 "column": 31
               }
@@ -871,7 +871,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 23,
                 "column": 25
               }
@@ -881,7 +881,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 24,
                 "column": 37
               }
@@ -891,7 +891,7 @@
               "attributeValues": {},
               "devDependency": false,
               "location": {
-                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/MODULE.bazel",
+                "file": "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/MODULE.bazel",
                 "line": 25,
                 "column": 26
               }
@@ -913,13 +913,13 @@
         "ruleClassName": "http_archive",
         "attributes": {
           "urls": [
-            "https://github.com/aspect-build/bazel-lib/releases/download/v2.5.0/bazel-lib-v2.5.0.tar.gz"
+            "https://github.com/aspect-build/bazel-lib/releases/download/v2.5.3/bazel-lib-v2.5.3.tar.gz"
           ],
-          "integrity": "sha256-9ep2aCsgnMC9kND1o7JtL3pqKIXwxfYV5ykT9IBduw0=",
-          "strip_prefix": "bazel-lib-2.5.0",
+          "integrity": "sha256-bCXFlYEEHt4x4RdpMEf5csxHAMiaz5E2WNyJ0Ewzj40=",
+          "strip_prefix": "bazel-lib-2.5.3",
           "remote_patches": {
-            "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/patches/go_dev_dep.patch": "sha256-KgABwDzOT+DugUHn9tHLOz05osnk2FLsS10d5zqG/M0=",
-            "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.0/patches/module_dot_bazel_version.patch": "sha256-Goo+3Jt++n8fe6jssy24AABw0FjsH0yA592LrOVNDSI="
+            "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/patches/go_dev_dep.patch": "sha256-KgABwDzOT+DugUHn9tHLOz05osnk2FLsS10d5zqG/M0=",
+            "https://bcr.bazel.build/modules/aspect_bazel_lib/2.5.3/patches/module_dot_bazel_version.patch": "sha256-lJcPl3qi//Az5K9CO6WnDIL8gtJVzpOWhyailCiKeVY="
           },
           "remote_patch_strip": 1
         }
@@ -954,7 +954,7 @@
         }
       ],
       "deps": {
-        "aspect_bazel_lib": "aspect_bazel_lib@2.5.0",
+        "aspect_bazel_lib": "aspect_bazel_lib@2.5.3",
         "bazel_skylib": "bazel_skylib@1.5.0",
         "platforms": "platforms@0.0.8",
         "bazel_tools": "bazel_tools@_",
@@ -1312,7 +1312,7 @@
         }
       ],
       "deps": {
-        "aspect_bazel_lib": "aspect_bazel_lib@2.5.0",
+        "aspect_bazel_lib": "aspect_bazel_lib@2.5.3",
         "bazel_skylib": "bazel_skylib@1.5.0",
         "platforms": "platforms@0.0.8",
         "bazel_tools": "bazel_tools@_",
@@ -3167,7 +3167,7 @@
     },
     "@@aspect_bazel_lib~//lib:extensions.bzl%toolchains": {
       "general": {
-        "bzlTransitiveDigest": "g43D7f6o/mI05HhDVGSud1FKK+ux/+zT0pkQYOsjjz4=",
+        "bzlTransitiveDigest": "H6ezdphBae7pq8EW1mSupf+FjMuk8mtYNgMZ8pclWPc=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -11489,7 +11489,7 @@
     },
     "@@rules_oci~//oci:extensions.bzl%oci": {
       "general": {
-        "bzlTransitiveDigest": "DR8HXAtKwBoZokxP8w+hJDknoxxG2cKygm8oQVLnF5w=",
+        "bzlTransitiveDigest": "sc4ImaORwL2F0PHtQ1agdDLeiifN7LChBDSCJkP4K3I=",
         "recordedFileInputs": {},
         "recordedDirentsInputs": {},
         "envVariables": {},
