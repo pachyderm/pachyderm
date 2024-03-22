@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "3609adcd5f0cf651bde388ac88c7633bee55739024b6b237cbfec4078addb36e",
+  "moduleFileHash": "9eb10f04887a2a1a5251d821ed7c288180844f38d72c0c5a4ea97b9f217a932c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -22,7 +22,12 @@
       "key": "<root>",
       "repoName": "com_github_pachyderm_pachyderm",
       "executionPlatformsToRegister": [],
-      "toolchainsToRegister": [],
+      "toolchainsToRegister": [
+        "@zig_sdk//toolchain:linux_amd64_gnu.2.31",
+        "@zig_sdk//toolchain:linux_arm64_gnu.2.31",
+        "@zig_sdk//toolchain:darwin_amd64",
+        "@zig_sdk//toolchain:darwin_arm64"
+      ],
       "extensionUsages": [
         {
           "extensionBzlFile": "@rules_go//go:extensions.bzl",
@@ -30,7 +35,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 16,
+            "line": 17,
             "column": 23
           },
           "imports": {
@@ -46,7 +51,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 17,
+                "line": 18,
                 "column": 12
               }
             },
@@ -59,7 +64,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 18,
+                "line": 19,
                 "column": 16
               }
             }
@@ -73,7 +78,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 24,
+            "line": 25,
             "column": 24
           },
           "imports": {
@@ -210,7 +215,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 25,
+                "line": 26,
                 "column": 18
               }
             },
@@ -225,7 +230,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 26,
+                "line": 27,
                 "column": 25
               }
             },
@@ -240,7 +245,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 32,
+                "line": 33,
                 "column": 25
               }
             },
@@ -255,7 +260,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 38,
+                "line": 39,
                 "column": 25
               }
             },
@@ -275,7 +280,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 44,
+                "line": 45,
                 "column": 25
               }
             },
@@ -290,7 +295,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 55,
+                "line": 56,
                 "column": 25
               }
             },
@@ -306,7 +311,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 61,
+                "line": 62,
                 "column": 24
               }
             },
@@ -319,7 +324,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 68,
+                "line": 69,
                 "column": 25
               }
             },
@@ -334,7 +339,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 72,
+                "line": 73,
                 "column": 25
               }
             },
@@ -349,7 +354,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 78,
+                "line": 79,
                 "column": 25
               }
             },
@@ -364,7 +369,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 84,
+                "line": 85,
                 "column": 25
               }
             },
@@ -379,7 +384,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 90,
+                "line": 91,
                 "column": 25
               }
             },
@@ -394,7 +399,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 96,
+                "line": 97,
                 "column": 25
               }
             },
@@ -409,7 +414,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 102,
+                "line": 103,
                 "column": 25
               }
             },
@@ -424,7 +429,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 108,
+                "line": 109,
                 "column": 25
               }
             },
@@ -437,7 +442,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 117,
+                "line": 118,
                 "column": 25
               }
             },
@@ -453,7 +458,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 121,
+                "line": 122,
                 "column": 24
               }
             },
@@ -467,7 +472,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 134,
+                "line": 135,
                 "column": 15
               }
             },
@@ -481,7 +486,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 146,
+                "line": 147,
                 "column": 15
               }
             },
@@ -495,7 +500,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 151,
+                "line": 152,
                 "column": 15
               }
             },
@@ -509,7 +514,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 156,
+                "line": 157,
                 "column": 15
               }
             }
@@ -523,7 +528,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 287,
+            "line": 288,
             "column": 32
           },
           "imports": {
@@ -606,11 +611,12 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 361,
+            "line": 362,
             "column": 20
           },
           "imports": {
             "distroless": "distroless",
+            "distroless_python3": "distroless_python3",
             "pause": "pause",
             "zot_amd64": "zot_amd64",
             "zot_arm64": "zot_arm64"
@@ -631,7 +637,25 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 364,
+                "line": 365,
+                "column": 9
+              }
+            },
+            {
+              "tagName": "pull",
+              "attributeValues": {
+                "name": "distroless_python3",
+                "digest": "sha256:d306c94efafe2ceee85bb8d2a4ed905d5273bcc2730c1939ad9583a33aa1f898",
+                "image": "gcr.io/distroless/python3",
+                "platforms": [
+                  "linux/amd64",
+                  "linux/arm64/v8"
+                ]
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 376,
                 "column": 9
               }
             },
@@ -649,7 +673,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 375,
+                "line": 387,
                 "column": 9
               }
             },
@@ -663,7 +687,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 386,
+                "line": 398,
                 "column": 9
               }
             },
@@ -677,7 +701,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 391,
+                "line": 403,
                 "column": 9
               }
             }
@@ -691,21 +715,25 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 399,
+            "line": 411,
             "column": 23
           },
-          "imports": {},
+          "imports": {
+            "python_3_9": "python_3_9",
+            "python_versions": "python_versions"
+          },
           "devImports": [],
           "tags": [
             {
               "tagName": "toolchain",
               "attributeValues": {
+                "is_default": true,
                 "python_version": "3.9"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 400,
+                "line": 412,
                 "column": 17
               }
             }
@@ -719,7 +747,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 405,
+            "line": 419,
             "column": 20
           },
           "imports": {
@@ -739,7 +767,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 406,
+                "line": 420,
                 "column": 10
               }
             },
@@ -755,7 +783,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 411,
+                "line": 425,
                 "column": 10
               }
             },
@@ -769,11 +797,28 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 418,
+                "line": 432,
                 "column": 10
               }
             }
           ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@hermetic_cc_toolchain//toolchain:ext.bzl",
+          "extensionName": "toolchains",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 440,
+            "column": 27
+          },
+          "imports": {
+            "zig_sdk": "zig_sdk"
+          },
+          "devImports": [],
+          "tags": [],
           "hasDevUseExtension": false,
           "hasNonDevUseExtension": true
         }
@@ -782,6 +827,7 @@
         "aspect_bazel_lib": "aspect_bazel_lib@2.5.3",
         "container_structure_test": "container_structure_test@1.16.0",
         "gazelle": "gazelle@0.35.0",
+        "hermetic_cc_toolchain": "hermetic_cc_toolchain@3.0.1",
         "jsonnet_go": "jsonnet_go@0.20.0",
         "rules_go": "rules_go@0.46.0",
         "rules_oci": "rules_oci@1.5.1",
@@ -1108,6 +1154,62 @@
             "https://github.com/bazelbuild/bazel-gazelle/releases/download/v0.35.0/bazel-gazelle-v0.35.0.tar.gz"
           ],
           "integrity": "sha256-MpOL2hbmcABjA1R5Bj2dJMYO2o15/Uc5Vj9Q0zHLMgk=",
+          "strip_prefix": "",
+          "remote_patches": {},
+          "remote_patch_strip": 0
+        }
+      }
+    },
+    "hermetic_cc_toolchain@3.0.1": {
+      "name": "hermetic_cc_toolchain",
+      "version": "3.0.1",
+      "key": "hermetic_cc_toolchain@3.0.1",
+      "repoName": "hermetic_cc_toolchain",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [
+        "@zig_sdk//toolchain:linux_amd64_gnu.2.28",
+        "@zig_sdk//toolchain:linux_arm64_gnu.2.28",
+        "@zig_sdk//toolchain:windows_amd64",
+        "@zig_sdk//toolchain:windows_arm64",
+        "@zig_sdk//libc_aware/toolchain:linux_amd64_gnu.2.28",
+        "@zig_sdk//libc_aware/toolchain:linux_amd64_gnu.2.31",
+        "@zig_sdk//libc_aware/toolchain:linux_amd64_musl",
+        "@zig_sdk//libc_aware/toolchain:linux_arm64_gnu.2.28",
+        "@zig_sdk//libc_aware/toolchain:linux_arm64_musl",
+        "@zig_sdk//toolchain:wasip1_wasm"
+      ],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@hermetic_cc_toolchain//toolchain:ext.bzl",
+          "extensionName": "toolchains",
+          "usingModule": "hermetic_cc_toolchain@3.0.1",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/hermetic_cc_toolchain/3.0.1/MODULE.bazel",
+            "line": 32,
+            "column": 27
+          },
+          "imports": {
+            "zig_sdk": "zig_sdk"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
+      "deps": {
+        "platforms": "platforms@0.0.8",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/uber/hermetic_cc_toolchain/releases/download/v3.0.1/hermetic_cc_toolchain-v3.0.1.tar.gz"
+          ],
+          "integrity": "sha256-O8bsEnYi/c60Epywa296sJjE1TkSTd6WpjGOfDKlP3o=",
           "strip_prefix": "",
           "remote_patches": {},
           "remote_patch_strip": 0
@@ -10112,6 +10214,54 @@
         ]
       }
     },
+    "@@hermetic_cc_toolchain~//toolchain:ext.bzl%toolchains": {
+      "general": {
+        "bzlTransitiveDigest": "o/B4pF0Pexhx7gAf2beP0Z1TkEOpKRxVKAXAIdZAYwA=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "zig_sdk": {
+            "bzlFile": "@@hermetic_cc_toolchain~//toolchain:defs.bzl",
+            "ruleClassName": "zig_repository",
+            "attributes": {
+              "version": "0.12.0-dev.2824+0b7af2563",
+              "url_formats": [
+                "https://mirror.bazel.build/ziglang.org/builds/zig-{host_platform}-{version}.{_ext}",
+                "https://ziglang.org/builds/zig-{host_platform}-{version}.{_ext}"
+              ],
+              "host_platform_sha256": {
+                "linux-aarch64": "b142b8a62297c88d38fad10b95c7247606b0c9fe16cf463d75dfe10fb3269c82",
+                "linux-x86_64": "5f9415bd4a6419245be36888b825683f001cdb2d6ad08c60dac85b0a1f39d5aa",
+                "macos-aarch64": "85fef6c6bd4f169a0883b4b39896236d37d1957e7ee65eb8a6849387dcb9febd",
+                "macos-x86_64": "efe930a9b0765655f5dfc9592fea73bc512888734607686bc9bb1ed3a407714d",
+                "windows-aarch64": "2814c31b73fccaf4cfa2d33b56677189bba1e7d450d2bcfa63e9ffbe0d557967",
+                "windows-x86_64": "401b627233d8170ff7e2751c69ac6c45bc74986e7e7f3fabd97a07176b312169"
+              },
+              "host_platform_ext": {
+                "linux-aarch64": "tar.xz",
+                "linux-x86_64": "tar.xz",
+                "macos-aarch64": "tar.xz",
+                "macos-x86_64": "tar.xz",
+                "windows-x86_64": "zip"
+              }
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "hermetic_cc_toolchain~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "hermetic_cc_toolchain~",
+            "hermetic_cc_toolchain",
+            "hermetic_cc_toolchain~"
+          ]
+        ]
+      }
+    },
     "@@rules_go~//go:extensions.bzl%go_sdk": {
       "os:osx,arch:x86_64": {
         "bzlTransitiveDigest": "4RajVzc69nuO7ktmIM+Zz/6Atjb/pSjmcC+boPzHCIQ=",
@@ -11623,6 +11773,19 @@
               "platform": "linux_arm64"
             }
           },
+          "distroless_python3_linux_amd64": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/python3",
+              "identifier": "sha256:d306c94efafe2ceee85bb8d2a4ed905d5273bcc2730c1939ad9583a33aa1f898",
+              "platform": "linux/amd64",
+              "target_name": "distroless_python3_linux_amd64",
+              "config_path": "@@rules_oci~~oci~oci_auth_config//:standard_authorization_config_path"
+            }
+          },
           "oci_crane_linux_amd64": {
             "bzlFile": "@@rules_oci~//oci:repositories.bzl",
             "ruleClassName": "crane_repositories",
@@ -11945,6 +12108,19 @@
               "version": "1.7"
             }
           },
+          "distroless_python3_linux_arm64_v8": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_pull",
+            "attributes": {
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/python3",
+              "identifier": "sha256:d306c94efafe2ceee85bb8d2a4ed905d5273bcc2730c1939ad9583a33aa1f898",
+              "platform": "linux/arm64/v8",
+              "target_name": "distroless_python3_linux_arm64_v8",
+              "config_path": "@@rules_oci~~oci~oci_auth_config//:standard_authorization_config_path"
+            }
+          },
           "yq_linux_ppc64le": {
             "bzlFile": "@@aspect_bazel_lib~//lib/private:yq_toolchain.bzl",
             "ruleClassName": "yq_platform_repo",
@@ -11979,6 +12155,23 @@
             "bzlFile": "@@rules_oci~//oci/private:auth_config_locator.bzl",
             "ruleClassName": "oci_auth_config_locator",
             "attributes": {}
+          },
+          "distroless_python3": {
+            "bzlFile": "@@rules_oci~//oci/private:pull.bzl",
+            "ruleClassName": "oci_alias",
+            "attributes": {
+              "target_name": "distroless_python3",
+              "scheme": "https",
+              "registry": "gcr.io",
+              "repository": "distroless/python3",
+              "identifier": "sha256:d306c94efafe2ceee85bb8d2a4ed905d5273bcc2730c1939ad9583a33aa1f898",
+              "platforms": {
+                "@@platforms//cpu:x86_64": "@distroless_python3_linux_amd64",
+                "@@platforms//cpu:arm64": "@distroless_python3_linux_arm64_v8"
+              },
+              "bzlmod_repository": "distroless_python3",
+              "reproducible": true
+            }
           },
           "coreutils_windows_amd64": {
             "bzlFile": "@@aspect_bazel_lib~//lib/private:coreutils_toolchain.bzl",
@@ -17703,8 +17896,8 @@
         "bzlTransitiveDigest": "NuzV3wuWboY+Xr9ffoTgUWcvM5nanxKCjxkzbUPbeAs=",
         "recordedFileInputs": {
           "@@//jupyter-extension/requirements-lock.txt": "ab41f169e4ece1934f836b71dea28f1126dfb44ca5777558337a558887774810",
-          "@@//jupyter-extension/requirements-dev-lock-linux.txt": "688de8cea96de3dee5fb47abcac00018d16091917032ff153f42baca29380585"
-          "@@//examples/opencv/requirements-lock.txt": "05bb4c65cf639a4559736ba60cf7e6c540c1624e8c748184073eab4cb083b770"
+          "@@//jupyter-extension/requirements-dev-lock-linux.txt": "688de8cea96de3dee5fb47abcac00018d16091917032ff153f42baca29380585",
+          "@@//examples/opencv/requirements-lock.txt": "538f3c1b1c68f9ea615e2bb8509e8f684113bf80b366854fa498a82f10649dae"
         },
         "recordedDirentsInputs": {},
         "envVariables": {},
@@ -18629,6 +18822,30 @@
               "group_deps": []
             }
           },
+          "opencv-pip-requirements_39_opencv_python_headless": {
+            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
+            "ruleClassName": "whl_library",
+            "attributes": {
+              "requirement": "opencv-python-headless==3.4.18.65     --hash=sha256:08c5b1e3fbb91786b8a7f3c7ae376e8ac9dffac848df73d41e383cdcb76380be     --hash=sha256:11343fb44fb08f9cb46d5aa764ac1ffdcdc975b92075f7ef167ebca74dffcbf4     --hash=sha256:1ac2c02efc937e505172acd620e32117dd4cfb9a5237822a6d936e478f904598     --hash=sha256:33c66aa91296cf977a5d900368e930a9f15d1bbc5f06264d66d893d895f8a765     --hash=sha256:71f5b6a1b0ad53085cfa51997e6c0edc58b3432b283a70cded18bd52a458a3b5     --hash=sha256:bde2ef816e85795dd4f745d4cca99ce579b3ce9335a0d5500740a5767eda8579     --hash=sha256:f7c3e5459296e832e922350a7140b94192d3a0c330882eea45d8f65516434550",
+              "repo": "opencv-pip-requirements_39",
+              "repo_prefix": "opencv-pip-requirements_39_",
+              "whl_patches": {},
+              "experimental_target_platforms": [],
+              "python_interpreter": "",
+              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
+              "quiet": true,
+              "timeout": 600,
+              "isolated": true,
+              "extra_pip_args": [],
+              "download_only": false,
+              "pip_data_exclude": [],
+              "enable_implicit_namespace_pkgs": false,
+              "environment": {},
+              "envsubst": [],
+              "group_name": "",
+              "group_deps": []
+            }
+          },
           "jupyter-pip-requirements_39_jinja2": {
             "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
             "ruleClassName": "whl_library",
@@ -19384,7 +19601,7 @@
                 "numpy": [
                   "3.9"
                 ],
-                "opencv_python": [
+                "opencv_python_headless": [
                   "3.9"
                 ],
                 "packaging": [
@@ -23590,30 +23807,6 @@
               "requirement": "attrs==23.2.0     --hash=sha256:935dc3b529c262f6cf76e50877d35a4bd3c1de194fd41f47a2b7ae8f19971f30     --hash=sha256:99b87a485a5820b23b879f04c2305b44b951b502fd64be915879d77a7e8fc6f1",
               "repo": "jupyter-pip-requirements_39",
               "repo_prefix": "jupyter-pip-requirements_39_",
-              "whl_patches": {},
-              "experimental_target_platforms": [],
-              "python_interpreter": "",
-              "python_interpreter_target": "@@rules_python~~python~python_3_9_host//:python",
-              "quiet": true,
-              "timeout": 600,
-              "isolated": true,
-              "extra_pip_args": [],
-              "download_only": false,
-              "pip_data_exclude": [],
-              "enable_implicit_namespace_pkgs": false,
-              "environment": {},
-              "envsubst": [],
-              "group_name": "",
-              "group_deps": []
-            }
-          },
-          "opencv-pip-requirements_39_opencv_python": {
-            "bzlFile": "@@rules_python~//python/pip_install:pip_repository.bzl",
-            "ruleClassName": "whl_library",
-            "attributes": {
-              "requirement": "opencv-python==3.4.18.65     --hash=sha256:0630dfa57dbadd63f62eae6758c743ab7c18358940f34e8b9ee666c00d2e74fb     --hash=sha256:0c2d5ebd08420079d6ebdec7a247f0284d403edd87647e9fbcc474c5adcb310b     --hash=sha256:27cc4a3a4dc2d73c76374c636985ce45a8e40e79d015fb0e69677ff4547edd9c     --hash=sha256:3484618b7cda6b94939f475342ff100455b863d2bb7a81ac8d2b1965c4e983b6     --hash=sha256:447c5d9172713e026d4a742c5d3c167913dff133949ffc62fec5b6d1cb081b0b     --hash=sha256:784acb4c6c1880e0b8fb124f2b79e10838f1c244b0220f812d2852c91bc80ae9     --hash=sha256:9aecb4544d2e863f2fb9acffc47005f9c9733a307cdbca80babbef027c04e207",
-              "repo": "opencv-pip-requirements_39",
-              "repo_prefix": "opencv-pip-requirements_39_",
               "whl_patches": {},
               "experimental_target_platforms": [],
               "python_interpreter": "",

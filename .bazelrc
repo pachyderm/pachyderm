@@ -42,6 +42,11 @@ common --test_env=MICROSOFT_CLIENT_CONTAINER
 common --test_env=GO_TEST_WRAP_TESTV=1 # This makes go tests run in -v mode.
 common --test_env=CI # kindenv behaves differently in CI because of CircleCI quirks
 
+# Needed for C++ cross-compilation.  (Python involves C++.)
+common --enable_platform_specific_config
+build:linux --sandbox_add_mount_pair=/tmp
+build:macos --sandbox_add_mount_pair=/var/tmp
+
 # Cover all packages.
 coverage --instrumentation_filter="^//" --combined_report=lcov
 
