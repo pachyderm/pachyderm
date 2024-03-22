@@ -56,7 +56,10 @@ platform_transition_filegroup(
 
 oci_image_index(
     name = "opencv_image_index",
-    images = ["opencv_image_aarch64", "opencv_image_x86_64"],
+    images = [
+        "opencv_image_aarch64",
+        "opencv_image_x86_64",
+    ],
 )
 
 pachyderm_pipeline(
