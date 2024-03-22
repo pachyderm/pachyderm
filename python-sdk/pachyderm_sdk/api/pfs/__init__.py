@@ -202,6 +202,9 @@ class BranchInfo(betterproto.Message):
     subvenance: List["Branch"] = betterproto.message_field(4)
     direct_provenance: List["Branch"] = betterproto.message_field(5)
     trigger: "Trigger" = betterproto.message_field(6)
+    metadata: Dict[str, str] = betterproto.map_field(
+        7, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
 
 
 @dataclass(eq=False, repr=False)

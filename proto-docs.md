@@ -310,6 +310,7 @@
     - [AuthInfo](#pfs_v2-AuthInfo)
     - [Branch](#pfs_v2-Branch)
     - [BranchInfo](#pfs_v2-BranchInfo)
+    - [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry)
     - [BranchPicker](#pfs_v2-BranchPicker)
     - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
@@ -4691,6 +4692,7 @@ Edit represents editing one piece of metadata.
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
 | commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  |  |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  |  |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -4950,6 +4952,23 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchInfo-MetadataEntry"></a>
+
+### BranchInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 

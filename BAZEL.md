@@ -327,3 +327,19 @@ edit files on your workstation and they are immediately there; it's just a read-
 can run `git` or `bazel` inside this environment as well. While converting to Bazel, I've had a lot
 of weird failures on CI, and this has always solved them without wasting time waiting for CI to
 restart!
+
+### Code coverage
+
+`bazel coverage //some/test:target` will generate a combined coverage report for your tests. To view
+it, install [lcov](https://github.com/linux-test-project/lcov) (often available as an OS package;
+it's written in Perl so we don't vendor it in `//tools`), and then run:
+
+```
+genhtml --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
+```
+
+Then view `genhtml/index.html` in your browser:
+
+```
+chrome genhtml/index.html
+```
