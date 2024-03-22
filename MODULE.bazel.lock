@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "b8432a6008bc70f1892a1f50f0dd5da02e159e8a1e3a297bfdda8b5a55bcf5c8",
+  "moduleFileHash": "757be36ed0d7988961ee39f647f2f54d14d90909ca8e52d106513cb7b7686ca6",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -746,9 +746,9 @@
               "attributeValues": {
                 "hub_name": "jupyter-pip-requirements-dev",
                 "python_version": "3.9",
-                "requirements_lock": "//jupyter-extension:requirements-dev-lock.txt",
                 "requirements_darwin": "//jupyter-extension:requirements-dev-lock-darwin.txt",
-                "requirements_linux": "//jupyter-extension:requirements-dev-lock-linux.txt"
+                "requirements_linux": "//jupyter-extension:requirements-dev-lock-linux.txt",
+                "requirements_lock": "//jupyter-extension:requirements-dev-lock.txt"
               },
               "devDependency": false,
               "location": {
