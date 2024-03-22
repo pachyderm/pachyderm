@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "f256613e9846057258d5c95a423eaead2ffef30d3ef29c55c61ecf94cceec339",
+  "moduleFileHash": "3609adcd5f0cf651bde388ac88c7633bee55739024b6b237cbfec4078addb36e",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -164,6 +164,7 @@
             "com_github_vbauerster_mpb_v6": "com_github_vbauerster_mpb_v6",
             "com_github_wader_readline": "com_github_wader_readline",
             "com_github_wcharczuk_go_chart": "com_github_wcharczuk_go_chart",
+            "com_github_zeebo_blake3": "com_github_zeebo_blake3",
             "com_github_zeebo_xxh3": "com_github_zeebo_xxh3",
             "com_google_cloud_go_profiler": "com_google_cloud_go_profiler",
             "com_google_cloud_go_storage": "com_google_cloud_go_storage",
@@ -197,8 +198,7 @@
             "org_golang_x_text": "org_golang_x_text",
             "org_uber_go_atomic": "org_uber_go_atomic",
             "org_uber_go_automaxprocs": "org_uber_go_automaxprocs",
-            "org_uber_go_zap": "org_uber_go_zap",
-            "com_github_zeebo_blake3": "com_github_zeebo_blake3"
+            "org_uber_go_zap": "org_uber_go_zap"
           },
           "devImports": [],
           "tags": [
@@ -724,7 +724,8 @@
           },
           "imports": {
             "jupyter-pip-requirements": "jupyter-pip-requirements",
-            "jupyter-pip-requirements-dev": "jupyter-pip-requirements-dev"
+            "jupyter-pip-requirements-dev": "jupyter-pip-requirements-dev",
+            "opencv-pip-requirements": "opencv-pip-requirements"
           },
           "devImports": [],
           "tags": [
@@ -755,6 +756,20 @@
               "location": {
                 "file": "@@//:MODULE.bazel",
                 "line": 411,
+                "column": 10
+              }
+            },
+            {
+              "tagName": "parse",
+              "attributeValues": {
+                "hub_name": "opencv-pip-requirements",
+                "python_version": "3.9",
+                "requirements_lock": "//examples/opencv:requirements-lock.txt"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 418,
                 "column": 10
               }
             }

@@ -415,4 +415,9 @@ pip.parse(
     requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
     requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
-use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
+pip.parse(
+    hub_name = "opencv-pip-requirements",
+    python_version = "3.9",
+    requirements_lock = "//examples/opencv:requirements-lock.txt",
+)
+use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev", "opencv-pip-requirements")
