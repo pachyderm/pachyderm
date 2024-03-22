@@ -64,6 +64,7 @@ func newCommitInfo(repo *pfs.Repo, id string, parent *pfs.Commit) *pfs.CommitInf
 		Description:  "test commit",
 		ParentCommit: parent,
 		Origin:       &pfs.CommitOrigin{Kind: pfs.OriginKind_AUTO},
+		Metadata:     map[string]string{"key": "value"},
 		Started:      timestamppb.New(time.Now()),
 	}
 }
@@ -138,6 +139,15 @@ func TestBranchUpsert(t *testing.T) {
 			gotBranchInfo2, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 			require.NoError(t, err)
 			require.NoDiff(t, branchInfo, gotBranchInfo2, compareBranchOpts())
+
+			// Change metadata
+			branchInfo.Metadata = map[string]string{"new key": "new value"}
+			id3, err := pfsdb.UpsertBranch(ctx, tx, branchInfo)
+			require.NoError(t, err)
+			require.Equal(t, id, id3, "UpsertBranch should keep id stable")
+			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id2)
+			require.NoError(t, err)
+			require.NoDiff(t, branchInfo, gotBranchInfo3, compareBranchOpts())
 		})
 	})
 }

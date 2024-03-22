@@ -104,6 +104,7 @@ message BranchInfo {
   repeated Branch subvenance = 4;
   repeated Branch direct_provenance = 5;
   Trigger trigger = 6;
+  map<string, string> metadata = 7;
 }
 
 // Trigger defines the conditions under which a head is moved, and to which

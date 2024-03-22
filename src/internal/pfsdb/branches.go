@@ -33,6 +33,7 @@ const (
 			branch.name,
 			branch.created_at,
 			branch.updated_at,
+			branch.metadata,
 			repo.id as "repo.id",
 			repo.name as "repo.name",
 			repo.type as "repo.type",
@@ -287,13 +288,16 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 	// Instead, construct the commit_id based on existing project, repo, and commit_set_id fields.
 	if err := tx.QueryRowContext(ctx,
 		`
-		INSERT INTO pfs.branches(repo_id, name, head)
+		INSERT INTO pfs.branches(repo_id, name, head, metadata)
 		VALUES (
 			(SELECT repo.id FROM pfs.repos repo JOIN core.projects project ON repo.project_id = project.id WHERE project.name = $1 AND repo.name = $2 AND repo.type = $3),
 			$4,
-			(SELECT int_id FROM pfs.commits WHERE commit_id = $5)
+			(SELECT int_id FROM pfs.commits WHERE commit_id = $5),
+			$6
 		)
-		ON CONFLICT (repo_id, name) DO UPDATE SET head = EXCLUDED.head
+		ON CONFLICT (repo_id, name) DO UPDATE SET
+			head = EXCLUDED.head,
+			metadata = EXCLUDED.metadata
 		RETURNING id
 		`,
 		branchInfo.Branch.Repo.Project.Name,
@@ -301,6 +305,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		branchInfo.Branch.Repo.Type,
 		branchInfo.Branch.Name,
 		CommitKey(branchInfo.Head),
+		jsonMap{Data: branchInfo.Metadata},
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
@@ -644,7 +649,7 @@ func fetchBranchInfoByBranch(ctx context.Context, ext sqlx.ExtContext, branch *B
 	if branch == nil {
 		return nil, errors.Errorf("branch cannot be nil")
 	}
-	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb()}
+	branchInfo := &pfs.BranchInfo{Branch: branch.Pb(), Head: branch.Head.Pb(), Metadata: branch.Metadata.Data}
 	var err error
 	branchInfo.DirectProvenance, err = GetDirectBranchProvenance(ctx, ext, branch.ID)
 	if err != nil {

@@ -166,6 +166,30 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 			},
 		},
 		{
+			name:  "branch name in user repo without project",
+			input: "images@master",
+			want: &CommitPicker{
+				Picker: &CommitPicker_BranchHead{
+					BranchHead: &BranchPicker{
+						Picker: &BranchPicker_Name{
+							Name: &BranchPicker_BranchName{
+								Repo: &RepoPicker{
+									Picker: &RepoPicker_Name{
+										Name: &RepoPicker_RepoName{
+											Name:    "images",
+											Type:    "user",
+											Project: &ProjectPicker{},
+										},
+									},
+								},
+								Name: "master",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:  "global id in user repo without project",
 			input: "images@44444444444444444444444444444444",
 			want: &CommitPicker{
@@ -213,6 +237,112 @@ func TestUnmarshalCommitPicker(t *testing.T) {
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
 			var p CommitPicker
+			if err := p.UnmarshalText([]byte(test.input)); err != nil {
+				t.Fatal(err)
+			}
+			require.NoDiff(t, &p, test.want, []cmp.Option{protocmp.Transform()})
+		})
+	}
+}
+
+func TestUnmarshalBranchPicker(t *testing.T) {
+	testData := []struct {
+		name  string
+		input string
+		want  *BranchPicker
+	}{
+		{
+			name:  "branch in user repo",
+			input: "default/images@master",
+			want: &BranchPicker{
+				Picker: &BranchPicker_Name{
+					Name: &BranchPicker_BranchName{
+						Repo: &RepoPicker{
+							Picker: &RepoPicker_Name{
+								Name: &RepoPicker_RepoName{
+									Project: &ProjectPicker{
+										Picker: &ProjectPicker_Name{
+											Name: "default",
+										},
+									},
+									Name: "images",
+									Type: "user",
+								},
+							},
+						},
+						Name: "master",
+					},
+				},
+			},
+		},
+		{
+			name:  "branch in spec repo",
+			input: "default/images.spec@master",
+			want: &BranchPicker{
+				Picker: &BranchPicker_Name{
+					Name: &BranchPicker_BranchName{
+						Repo: &RepoPicker{
+							Picker: &RepoPicker_Name{
+								Name: &RepoPicker_RepoName{
+									Project: &ProjectPicker{
+										Picker: &ProjectPicker_Name{
+											Name: "default",
+										},
+									},
+									Name: "images",
+									Type: "spec",
+								},
+							},
+						},
+						Name: "master",
+					},
+				},
+			},
+		},
+		{
+			name:  "branch without project",
+			input: "images@master",
+			want: &BranchPicker{
+				Picker: &BranchPicker_Name{
+					Name: &BranchPicker_BranchName{
+						Repo: &RepoPicker{
+							Picker: &RepoPicker_Name{
+								Name: &RepoPicker_RepoName{
+									Project: &ProjectPicker{},
+									Name:    "images",
+									Type:    "user",
+								},
+							},
+						},
+						Name: "master",
+					},
+				},
+			},
+		},
+		{
+			name:  "branch in spec repo without project",
+			input: "images.spec@master",
+			want: &BranchPicker{
+				Picker: &BranchPicker_Name{
+					Name: &BranchPicker_BranchName{
+						Repo: &RepoPicker{
+							Picker: &RepoPicker_Name{
+								Name: &RepoPicker_RepoName{
+									Project: &ProjectPicker{},
+									Name:    "images",
+									Type:    "spec",
+								},
+							},
+						},
+						Name: "master",
+					},
+				},
+			},
+		},
+	}
+	for _, test := range testData {
+		t.Run(test.name, func(t *testing.T) {
+			var p BranchPicker
 			if err := p.UnmarshalText([]byte(test.input)); err != nil {
 				t.Fatal(err)
 			}

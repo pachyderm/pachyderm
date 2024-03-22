@@ -13,6 +13,10 @@
                     "$ref": "#/definitions/pfs_v2.CommitPicker",
                     "additionalProperties": false
                 },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker",
+                    "additionalProperties": false
+                },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
                     "additionalProperties": false,
@@ -45,6 +49,11 @@
                 {
                     "required": [
                         "commit"
+                    ]
+                },
+                {
+                    "required": [
+                        "branch"
                     ]
                 },
                 {
