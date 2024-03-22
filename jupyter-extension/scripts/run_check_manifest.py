@@ -1,7 +1,14 @@
 """Shim for bazel to run check-manifest"""
-import check_manifest
+from pathlib import Path
 import os
 
-assert check_manifest.check_manifest(
-    source_tree=os.environ.get("BUILD_WORKING_DIRECTORY", "."),
-)  # or BUILD_WORKSPACE_DIRECTORY?
+import check_manifest
+
+ROOT = os.environ.get("BUILD_WORKSPACE_DIRECTORY")
+if ROOT:
+    PROJECT = os.path.join(ROOT, "jupyter-extension")
+else:
+    PROJECT = str(Path(__file__).parent)
+
+print(f"checking directory: {PROJECT}")
+assert check_manifest.check_manifest(source_tree=PROJECT)

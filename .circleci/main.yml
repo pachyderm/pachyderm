@@ -791,14 +791,16 @@ jobs:
           path: ~/project
       - install-bazel
       - install-jupyter-test-deps
-      - run:
+      - run:  # Convert to bazel: INT-1201
           name: "Integration tests"
           command: |
             set -eux
 
-            bazel run :venv
+            python3 -m venv venv
             . venv/bin/activate
-
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
+  
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
 
