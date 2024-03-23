@@ -31,11 +31,10 @@ var (
 	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres pool_max_conns=128", "postgres dsn")
 )
 
-var nerr int
-var nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout, ngoro, nconnacq atomic.Int64
+var nerr, nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout, ngoro, nconnacq atomic.Int64
 
-func addFile(rctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn) (retErr error) {
-	ctx, done := log.SpanContext(rctx, "addFile", zap.String("filename", name))
+func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn) (retErr error) {
+	ctx, done := log.SpanContext(ctx, "addFile", zap.String("filename", name))
 	defer done(log.Errorp(&retErr))
 	nfiles.Add(1)
 	ngoro.Add(1)
@@ -85,6 +84,8 @@ func addFile(rctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Con
 		tag, err := db.Exec(ctx, "insert into logs(hash, dumpname, filename, time, line, parsed, parseerror) values ($1, $2, $3, $4, $5, $6, $7) on conflict do nothing", hashBytes, *source, name, ts, line, parsed, parseError)
 		if err != nil {
 			if err := context.Cause(ctx); err != nil {
+				// This is where we exit when C-c is pressed.
+				nerr.Add(1)
 				return err //nolint:wrapcheck
 			}
 			log.Info(ctx, "inserting line failed", zap.Error(err))
@@ -123,7 +124,7 @@ func main() {
 	done := log.InitBatchLogger("")
 	defer func() {
 		var err error
-		if nerr > 0 {
+		if nerr.Load() > 0 {
 			err = errors.New("dump errored")
 		}
 		done(err)
@@ -161,7 +162,7 @@ func main() {
 			}
 			// but wait for everything else to finish
 			log.Error(ctx, "problem reading dump", zap.Error(err))
-			nerr++
+			nerr.Add(1)
 			break
 		}
 
@@ -178,7 +179,7 @@ func main() {
 		nconnacq.Add(-1)
 		if err != nil {
 			log.Error(ctx, "cannot acquire db conn", zap.Error(err))
-			nerr++
+			nerr.Add(1)
 			break
 		}
 
