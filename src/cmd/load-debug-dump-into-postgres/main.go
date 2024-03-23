@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"flag"
 	"io"
@@ -27,19 +28,24 @@ import (
 var (
 	source = flag.String("source", "", "debug dump archive to import")
 	v      = flag.Bool("v", false, "verbose logs")
-	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres", "postgres dsn")
+	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres pool_max_conns=128", "postgres dsn")
 )
 
-var nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout atomic.Int64
+var nerr int
+var nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout, ngoro, nconnacq atomic.Int64
 
 func addFile(rctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn) (retErr error) {
-	nfiles.Add(1)
 	ctx, done := log.SpanContext(rctx, "addFile", zap.String("filename", name))
 	defer done(log.Errorp(&retErr))
-	l := r.Len()
+	nfiles.Add(1)
+	ngoro.Add(1)
+	defer ngoro.Add(-1)
+
+	slop := int64(r.Len())
 	defer func() {
-		nbytesout.Add(int64(l))
+		nbytesout.Add(slop)
 	}()
+
 	s := bufio.NewScanner(r)
 	for s.Scan() {
 		line := s.Bytes()
@@ -48,35 +54,40 @@ func addFile(rctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Con
 			continue
 		}
 		nlines.Add(1)
+		nbytesout.Add(int64(len(line)))
+		slop -= int64(len(line)) // account for unknown number of newlines
+
 		hash := blake3.Sum256(line)
 		hashBytes := make([]byte, 32)
 		copy(hashBytes, hash[:])
+
 		var parsed map[string]any
+		var parseError sql.NullString
 		if err := json.Unmarshal(s.Bytes(), &parsed); err != nil {
-			//log.Debug(ctx, "unmarshal failed", zap.Binary("line", line), zap.Error(err))
+			parseError.Valid = true
+			parseError.String = err.Error()
 		} else {
 			njson.Add(1)
 		}
-		t, err := DefaultTimeParser(parsed["time"])
-		if err != nil {
-			t, err = DefaultTimeParser(parsed["ts"])
+
+		var ts sql.NullTime
+		for _, key := range []string{"time", "ts", "timestamp"} {
+			t, err := DefaultTimeParser(parsed[key])
 			if err != nil {
-				t, err = DefaultTimeParser(parsed["timestamp"])
-				if err == nil {
-					delete(parsed, "timestamp")
-				}
-			} else {
-				delete(parsed, "ts")
+				continue
 			}
-		} else {
-			delete(parsed, "time")
+			delete(parsed, key)
+			ts.Valid = true
+			ts.Time = t
+			break
 		}
-		tag, err := db.Exec(ctx, "insert into logs(hash, dumpname, filename, time, line, parsed) values ($1, $2, $3, $4, $5, $6) on conflict do nothing", hashBytes, *source, name, t, line, parsed)
+
+		tag, err := db.Exec(ctx, "insert into logs(hash, dumpname, filename, time, line, parsed, parseerror) values ($1, $2, $3, $4, $5, $6, $7) on conflict do nothing", hashBytes, *source, name, ts, line, parsed, parseError)
 		if err != nil {
 			if err := context.Cause(ctx); err != nil {
 				return err //nolint:wrapcheck
 			}
-			log.Debug(ctx, "inserting line failed", zap.Error(err))
+			log.Info(ctx, "inserting line failed", zap.Error(err))
 		}
 		switch tag.RowsAffected() {
 		case 0:
@@ -91,9 +102,33 @@ func addFile(rctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Con
 	return nil
 }
 
+func printStats(ctx context.Context) {
+	stats := func(m string) {
+		log.Info(ctx, m, zap.Int64("duplicates", ndups.Load()), zap.Int64("rows", nrows.Load()), zap.Int64("json", njson.Load()), zap.Int64("lines", nlines.Load()), zap.Int64("files", nfiles.Load()), zap.Int64("binary", nbinary.Load()), zap.Int64("bytes_read", nbytesin.Load()), zap.Int64("bytes_processed", nbytesout.Load()), zap.Int64("bytes_in_flight", nbytesin.Load()-nbytesout.Load()), zap.Int64("running", ngoro.Load()), zap.Int64("awaiting_db", nconnacq.Load()))
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			stats("final stats")
+			return
+		case <-time.After(time.Second):
+			stats("stats")
+		}
+
+	}
+}
+
 func main() {
 	flag.Parse()
-	log.InitPachdLogger()
+	done := log.InitBatchLogger("")
+	defer func() {
+		var err error
+		if nerr > 0 {
+			err = errors.New("dump errored")
+		}
+		done(err)
+	}()
+
 	if *v {
 		log.SetLevel(log.DebugLevel)
 	}
@@ -113,21 +148,9 @@ func main() {
 	if err != nil {
 		log.Exit(ctx, "problem creating gzip reader", zap.Error(err))
 	}
-	go func() {
-		stats := func(m string) {
-			log.Info(ctx, m, zap.Int64("duplicates", ndups.Load()), zap.Int64("rows", nrows.Load()), zap.Int64("json", njson.Load()), zap.Int64("lines", nlines.Load()), zap.Int64("files", nfiles.Load()), zap.Int64("binary", nbinary.Load()), zap.Int64("bytes_read", nbytesin.Load()), zap.Int64("bytes_processed", nbytesout.Load()), zap.Int64("bytes_in_flight", nbytesin.Load()-nbytesout.Load()))
-		}
-		for {
-			select {
-			case <-ctx.Done():
-				stats("final stats")
-				return
-			case <-time.After(5 * time.Second):
-				stats("stats")
-			}
 
-		}
-	}()
+	go printStats(ctx)
+
 	wg := new(sync.WaitGroup)
 	tr := tar.NewReader(gr)
 	for {
@@ -136,8 +159,12 @@ func main() {
 			if errors.Is(err, io.EOF) {
 				break
 			}
-			log.Exit(ctx, "problem reading dump", zap.Error(err))
+			// but wait for everything else to finish
+			log.Error(ctx, "problem reading dump", zap.Error(err))
+			nerr++
+			break
 		}
+
 		var buf bytes.Buffer
 		n, err := io.Copy(&buf, tr)
 		if err != nil {
@@ -145,10 +172,16 @@ func main() {
 			continue
 		}
 		nbytesin.Add(n)
+
+		nconnacq.Add(1)
 		c, err := pool.Acquire(ctx)
+		nconnacq.Add(-1)
 		if err != nil {
-			log.Exit(ctx, "cannot acquire db conn", zap.Error(err))
+			log.Error(ctx, "cannot acquire db conn", zap.Error(err))
+			nerr++
+			break
 		}
+
 		wg.Add(1)
 		go func() {
 			addFile(ctx, &buf, h.Name, c) //nolint:errcheck
@@ -156,6 +189,7 @@ func main() {
 			wg.Done()
 		}()
 	}
+	log.Info(ctx, "finishing up processing")
 	wg.Wait()
 	c()
 }
@@ -207,7 +241,7 @@ const (
 	//nolint:unused
 	schema = `
 create extension pg_trgm;
-create table logs (hash bytea not null primary key, dumpname text not null, filename text not null, time timestamptz null, line text not null, parsed jsonb);
+create table logs (hash bytea not null primary key, dumpname text not null, filename text not null, time timestamptz null, line text not null, parsed jsonb null, parseerror text null);
 create index logs_text on logs using gin(line gin_trgm_ops);
 create index logs_json on logs using gin(parsed);
 `
