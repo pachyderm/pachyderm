@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "load-debug-dump-into-postgres_lib",
@@ -19,4 +19,11 @@ go_binary(
     name = "load-debug-dump-into-postgres",
     embed = [":load-debug-dump-into-postgres_lib"],
     visibility = ["//visibility:public"],
+)
+
+go_test(
+    name = "load-debug-dump-into-postgres_test",
+    srcs = ["main_test.go"],
+    embed = [":load-debug-dump-into-postgres_lib"],
+    deps = ["//src/internal/require"],
 )

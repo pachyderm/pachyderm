@@ -12,6 +12,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -28,7 +29,7 @@ import (
 var (
 	source = flag.String("source", "", "debug dump archive to import")
 	v      = flag.Bool("v", false, "verbose logs")
-	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres pool_max_conns=128", "postgres dsn")
+	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres pool_max_conns=50", "postgres dsn")
 )
 
 var nerr, nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout, ngoro, nconnacq atomic.Int64
@@ -79,6 +80,16 @@ func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn
 			ts.Valid = true
 			ts.Time = t
 			break
+		}
+		if !ts.Valid && parseError.Valid {
+			// Perhaps this is a pgbouncer log; we will try to parse it.
+			t, f, ok := parsePgBouncerLine(line)
+			if ok {
+				ts.Valid = true
+				ts.Time = t
+				parsed = f
+				parseError.Valid = false
+			}
 		}
 
 		tag, err := db.Exec(ctx, "insert into logs(hash, dumpname, filename, time, line, parsed, parseerror) values ($1, $2, $3, $4, $5, $6, $7) on conflict do nothing", hashBytes, *source, name, ts, line, parsed, parseError)
@@ -195,6 +206,39 @@ func main() {
 	c()
 }
 
+func parsePgBouncerLine(line []byte) (ts time.Time, fields map[string]any, ok bool) {
+	if len(line) < 27 {
+		return time.Time{}, nil, false
+	}
+	timepart, rest := line[0:27], line[27:]
+	if len(rest) > 0 {
+		rest = rest[1:]
+	}
+	t, err := time.Parse("2006-01-02 15:04:05.000 MST", string(timepart))
+	if err != nil {
+		return time.Time{}, nil, false
+	}
+	result := make(map[string]any)
+	parts := strings.SplitN(string(rest), " ", 4)
+	if len(parts) == 4 {
+		if parts[2] == "stats:" {
+			result["stats"] = parts[3]
+		} else {
+			result["message"] = parts[3]
+		}
+		if parts[1] == "LOG" {
+			if strings.HasPrefix(parts[2], "C-") {
+				result["peer"] = "client"
+			} else if strings.HasPrefix(parts[2], "S-") {
+				result["peer"] = "server"
+			}
+		}
+	} else {
+		result["parts"] = parts
+	}
+	return t, result, true
+}
+
 // copied from jlog:
 // DefaultTimeParser treats numbers as seconds since the Unix epoch and strings as RFC3339 timestamps.
 func DefaultTimeParser(in interface{}) (time.Time, error) {
@@ -241,9 +285,6 @@ func DefaultTimeParser(in interface{}) (time.Time, error) {
 const (
 	//nolint:unused
 	schema = `
-create extension pg_trgm;
 create table logs (hash bytea not null primary key, dumpname text not null, filename text not null, time timestamptz null, line text not null, parsed jsonb null, parseerror text null);
-create index logs_text on logs using gin(line gin_trgm_ops);
-create index logs_json on logs using gin(parsed);
 `
 )
