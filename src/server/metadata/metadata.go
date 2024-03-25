@@ -3,29 +3,29 @@ package metadata
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
-// EditMetadata transactionally mutates metadata.  All operations are attempted, in order, but if
+type Auth interface {
+	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+}
+
+// EditMetadataInTransaction transactionally mutates metadata.  All operations are attempted, in order, but if
 // any fail, the entire operation fails.
-func EditMetadata(ctx context.Context, db *pachsql.DB, req *metadata.EditMetadataRequest) error {
-	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		var errs error
-		for i, edit := range req.GetEdits() {
-			if err := editInTx(ctx, tx, edit); err != nil {
-				errors.JoinInto(&errs, errors.Wrapf(err, "edit #%d", i))
-			}
+func EditMetadataInTransaction(ctx context.Context, tx *txncontext.TransactionContext, auth Auth, req *metadata.EditMetadataRequest) error {
+	var errs error
+	for i, edit := range req.GetEdits() {
+		if err := editInTx(ctx, tx, auth, edit); err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "edit #%d", i))
 		}
-		if errs != nil {
-			return errs
-		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "apply edits")
+	}
+	if errs != nil {
+		return errs
 	}
 	return nil
 }
@@ -53,53 +53,67 @@ func editMetadata(edit *metadata.Edit, md *map[string]string) error {
 	return nil
 }
 
-func editInTx(ctx context.Context, tx *pachsql.Tx, edit *metadata.Edit) error {
+func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer Auth, edit *metadata.Edit) error {
 	switch x := edit.GetTarget().(type) {
 	case *metadata.Edit_Project:
-		p, err := pfsdb.PickProject(ctx, x.Project, tx)
+		p, err := pfsdb.PickProject(ctx, x.Project, tc.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick project")
 		}
+		// Auth rules: any authenticated user can edit project metadata; this is the same as
+		// the rules for editing the description of a project.
 		if err := editMetadata(edit, &p.Metadata); err != nil {
 			return errors.Wrapf(err, "edit project %q", p.GetProject().GetName())
 		}
-		if err := pfsdb.UpdateProject(ctx, tx, p.ID, p.ProjectInfo); err != nil {
+		if err := pfsdb.UpdateProject(ctx, tc.SqlTx, p.ID, p.ProjectInfo); err != nil {
 			return errors.Wrapf(err, "update project %q", p.GetProject().GetName())
 		}
 	case *metadata.Edit_Commit:
-		c, err := pfsdb.PickCommit(ctx, x.Commit, tx)
+		c, err := pfsdb.PickCommit(ctx, x.Commit, tc.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick commit")
 		}
+		// Auth rules: any authenticated user can edit commit metadata; this is the same as
+		// the rules for starting commits, finish commits, etc.
 		if err := editMetadata(edit, &c.CommitInfo.Metadata); err != nil {
 			return errors.Wrapf(err, "edit commit %q", c.GetCommit().Key())
 		}
-		if err := pfsdb.UpdateCommit(ctx, tx, c.ID, c.CommitInfo, pfsdb.AncestryOpt{
+		if err := pfsdb.UpdateCommit(ctx, tc.SqlTx, c.ID, c.CommitInfo, pfsdb.AncestryOpt{
 			SkipChildren: true,
 			SkipParent:   true,
 		}); err != nil {
 			return errors.Wrapf(err, "update commit %q", c.GetCommit().Key())
 		}
 	case *metadata.Edit_Branch:
-		b, err := pfsdb.PickBranch(ctx, x.Branch, tx)
+		b, err := pfsdb.PickBranch(ctx, x.Branch, tc.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick branch")
+		}
+		// Auth rules: users must have REPO_CREATE_BRANCH on the target repo to edit a
+		// branch.  This is the same as updating the HEAD of an existing branch.
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(tc, b.GetBranch().GetRepo(), auth.Permission_REPO_CREATE_BRANCH); err != nil {
+			return errors.Wrapf(err, "check permissions on branch %q of repo %q", b.GetBranch().Key(), b.GetBranch().GetRepo().Key())
 		}
 		if err := editMetadata(edit, &b.BranchInfo.Metadata); err != nil {
 			return errors.Wrapf(err, "edit branch %q", b.GetBranch().Key())
 		}
-		if _, err := pfsdb.UpsertBranch(ctx, tx, b.BranchInfo); err != nil {
+		if _, err := pfsdb.UpsertBranch(ctx, tc.SqlTx, b.BranchInfo); err != nil {
 			return errors.Wrapf(err, "update branch %q", b.GetBranch().Key())
 		}
 	case *metadata.Edit_Repo:
-		r, err := pfsdb.PickRepo(ctx, x.Repo, tx)
+		r, err := pfsdb.PickRepo(ctx, x.Repo, tc.SqlTx)
 		if err != nil {
 			return errors.Wrap(err, "pick repo")
+		}
+		// Auth rules: users must have REPO_WRITE to update metadata.  This is the same rule
+		// as editing the description.
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(tc, r.GetRepo(), auth.Permission_REPO_WRITE); err != nil {
+			return errors.Wrapf(err, "check permissions on repo %q", r.GetRepo().Key())
 		}
 		if err := editMetadata(edit, &r.RepoInfo.Metadata); err != nil {
 			return errors.Wrapf(err, "edit repo %q", r.GetRepo().Key())
 		}
-		if _, err := pfsdb.UpsertRepo(ctx, tx, r.RepoInfo); err != nil {
+		if _, err := pfsdb.UpsertRepo(ctx, tc.SqlTx, r.RepoInfo); err != nil {
 			return errors.Wrapf(err, "update repo %q", r.GetRepo().Key())
 		}
 	default:
