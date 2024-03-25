@@ -21699,6 +21699,126 @@
           ]
         },
         {
+          "name": "PipelinesSummary",
+          "longName": "PipelinesSummary",
+          "fullName": "pps_v2.PipelinesSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the PipelinesSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "active_pipelines",
+              "description": "count of active pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "paused_pipelines",
+              "description": "count of paused pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "failed_pipelines",
+              "description": "count of failed pipelines",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "unhealthy_pipelines",
+              "description": "count of pipelines with a failed latest job",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinesSummaryRequest",
+          "longName": "PipelinesSummaryRequest",
+          "fullName": "pps_v2.PipelinesSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a PipelinesSummary will be returned for every specified project",
+              "label": "repeated",
+              "type": "Project",
+              "longType": "pfs_v2.Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinesSummaryResponse",
+          "longName": "PipelinesSummaryResponse",
+          "fullName": "pps_v2.PipelinesSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "pipeline summaries for the requested projects",
+              "label": "repeated",
+              "type": "PipelinesSummary",
+              "longType": "PipelinesSummary",
+              "fullType": "pps_v2.PipelinesSummary",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "ProcessStats",
           "longName": "ProcessStats",
           "fullName": "pps_v2.ProcessStats",
@@ -23964,6 +24084,18 @@
               "responseType": "SetProjectDefaultsResponse",
               "responseLongType": "SetProjectDefaultsResponse",
               "responseFullType": "pps_v2.SetProjectDefaultsResponse",
+              "responseStreaming": false
+            },
+            {
+              "name": "PipelinesSummary",
+              "description": "PipelinesSummary summarizes the pipelines for each requested project.",
+              "requestType": "PipelinesSummaryRequest",
+              "requestLongType": "PipelinesSummaryRequest",
+              "requestFullType": "pps_v2.PipelinesSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "PipelinesSummaryResponse",
+              "responseLongType": "PipelinesSummaryResponse",
+              "responseFullType": "pps_v2.PipelinesSummaryResponse",
               "responseStreaming": false
             }
           ]

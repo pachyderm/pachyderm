@@ -1320,6 +1320,25 @@ class SetProjectDefaultsResponse(betterproto.Message):
     affected_pipelines: List["Pipeline"] = betterproto.message_field(1)
 
 
+@dataclass(eq=False, repr=False)
+class PipelinesSummaryRequest(betterproto.Message):
+    projects: List["_pfs__.Project"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class PipelinesSummaryResponse(betterproto.Message):
+    summaries: List["PipelinesSummary"] = betterproto.message_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class PipelinesSummary(betterproto.Message):
+    project: "_pfs__.Project" = betterproto.message_field(1)
+    active_pipelines: int = betterproto.int64_field(2)
+    paused_pipelines: int = betterproto.int64_field(3)
+    failed_pipelines: int = betterproto.int64_field(4)
+    unhealthy_pipelines: int = betterproto.int64_field(5)
+
+
 class ApiStub:
 
     def __init__(self, channel: "grpc.Channel"):
@@ -1527,6 +1546,11 @@ class ApiStub:
             "/pps_v2.API/SetProjectDefaults",
             request_serializer=SetProjectDefaultsRequest.SerializeToString,
             response_deserializer=SetProjectDefaultsResponse.FromString,
+        )
+        self.__rpc_pipelines_summary = channel.unary_unary(
+            "/pps_v2.API/PipelinesSummary",
+            request_serializer=PipelinesSummaryRequest.SerializeToString,
+            response_deserializer=PipelinesSummaryResponse.FromString,
         )
 
     def inspect_job(
@@ -2197,3 +2221,14 @@ class ApiStub:
         request.project_defaults_json = project_defaults_json
 
         return self.__rpc_set_project_defaults(request)
+
+    def pipelines_summary(
+        self, *, projects: Optional[List["_pfs__.Project"]] = None
+    ) -> "PipelinesSummaryResponse":
+        projects = projects or []
+
+        request = PipelinesSummaryRequest()
+        if projects is not None:
+            request.projects = projects
+
+        return self.__rpc_pipelines_summary(request)

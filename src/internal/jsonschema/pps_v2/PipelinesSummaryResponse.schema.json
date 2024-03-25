@@ -1,0 +1,59 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelinesSummaryResponse",
+    "definitions": {
+        "PipelinesSummaryResponse": {
+            "properties": {
+                "summaries": {
+                    "items": {
+                        "$ref": "#/definitions/pps_v2.PipelinesSummary"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "pipeline summaries for the requested projects"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipelines Summary Response"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        },
+        "pps_v2.PipelinesSummary": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.Project",
+                    "additionalProperties": false,
+                    "description": "the project the PipelinesSummary corresponds to"
+                },
+                "activePipelines": {
+                    "type": "integer",
+                    "description": "count of active pipelines"
+                },
+                "pausedPipelines": {
+                    "type": "integer",
+                    "description": "count of paused pipelines"
+                },
+                "failedPipelines": {
+                    "type": "integer",
+                    "description": "count of failed pipelines"
+                },
+                "unhealthyPipelines": {
+                    "type": "integer",
+                    "description": "count of pipelines with a failed latest job"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipelines Summary"
+        }
+    }
+}

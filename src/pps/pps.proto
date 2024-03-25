@@ -1027,6 +1027,22 @@ message SetProjectDefaultsResponse {
   repeated Pipeline affected_pipelines = 1;
 }
 
+message PipelinesSummaryRequest {
+  repeated pfs_v2.Project projects = 1; // a PipelinesSummary will be returned for every specified project
+}
+
+message PipelinesSummaryResponse {
+  repeated PipelinesSummary summaries = 1; // pipeline summaries for the requested projects
+}
+
+message PipelinesSummary {
+  pfs_v2.Project project = 1; // the project the PipelinesSummary corresponds to
+  int64 active_pipelines = 2; // count of active pipelines
+  int64 paused_pipelines = 3; // count of paused pipelines
+  int64 failed_pipelines = 4; // count of failed pipelines
+  int64 unhealthy_pipelines = 5; // count of pipelines with a failed latest job
+}
+
 service API {
   rpc InspectJob(InspectJobRequest) returns (JobInfo) {}
   rpc InspectJobSet(InspectJobSetRequest) returns (stream JobInfo) {}
@@ -1102,4 +1118,7 @@ service API {
 
   // SetProjectDefaults sets the defaults for a particular project.
   rpc SetProjectDefaults(SetProjectDefaultsRequest) returns (SetProjectDefaultsResponse) {}
+
+  // PipelinesSummary summarizes the pipelines for each requested project.
+  rpc PipelinesSummary(PipelinesSummaryRequest) returns (PipelinesSummaryResponse) {}
 }

@@ -1,0 +1,31 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/PipelinesSummaryRequest",
+    "definitions": {
+        "PipelinesSummaryRequest": {
+            "properties": {
+                "projects": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Project"
+                    },
+                    "additionalProperties": false,
+                    "type": "array",
+                    "description": "a PipelinesSummary will be returned for every specified project"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipelines Summary Request"
+        },
+        "pfs_v2.Project": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Project"
+        }
+    }
+}

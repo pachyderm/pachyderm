@@ -763,6 +763,22 @@ export type SetProjectDefaultsResponse = {
   affectedPipelines?: Pipeline[]
 }
 
+export type PipelinesSummaryRequest = {
+  projects?: Pfs_v2Pfs.Project[]
+}
+
+export type PipelinesSummaryResponse = {
+  summaries?: PipelinesSummary[]
+}
+
+export type PipelinesSummary = {
+  project?: Pfs_v2Pfs.Project
+  activePipelines?: string
+  pausedPipelines?: string
+  failedPipelines?: string
+  unhealthyPipelines?: string
+}
+
 export class API {
   static InspectJob(req: InspectJobRequest, initReq?: fm.InitReq): Promise<JobInfo> {
     return fm.fetchReq<InspectJobRequest, JobInfo>(`/pps_v2.API/InspectJob`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -883,5 +899,8 @@ export class API {
   }
   static SetProjectDefaults(req: SetProjectDefaultsRequest, initReq?: fm.InitReq): Promise<SetProjectDefaultsResponse> {
     return fm.fetchReq<SetProjectDefaultsRequest, SetProjectDefaultsResponse>(`/pps_v2.API/SetProjectDefaults`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static PipelinesSummary(req: PipelinesSummaryRequest, initReq?: fm.InitReq): Promise<PipelinesSummaryResponse> {
+    return fm.fetchReq<PipelinesSummaryRequest, PipelinesSummaryResponse>(`/pps_v2.API/PipelinesSummary`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

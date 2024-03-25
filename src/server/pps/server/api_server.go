@@ -4139,3 +4139,50 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 	return &resp, nil
 }
+
+func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	projects := make(map[string]struct{})
+	for _, p := range req.Projects {
+		projects[p.String()] = struct{}{}
+	}
+	summaries := make(map[string]*pps.PipelinesSummary)
+	resp := &pps.PipelinesSummaryResponse{}
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pi *pps.PipelineInfo) error {
+		project := pi.Pipeline.Project
+		var summary *pps.PipelinesSummary
+		var ok bool
+		if summary, ok = summaries[project.String()]; !ok {
+			if _, ok := projects[project.String()]; !ok {
+				summary = &pps.PipelinesSummary{}
+				summaries[project.String()] = summary
+			}
+		}
+		// Group BY?
+		// are RESTARTING and CRASHING active?
+		if pi.State == pps.PipelineState_PIPELINE_RUNNING ||
+			pi.State == pps.PipelineState_PIPELINE_STARTING ||
+			pi.State == pps.PipelineState_PIPELINE_STANDBY {
+			summary.ActivePipelines++
+		} else if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+			summary.FailedPipelines++
+		} else if pi.State == pps.PipelineState_PIPELINE_PAUSED {
+			summary.PausedPipelines++
+		} else {
+
+		}
+		if pi.LastJobState == pps.JobState_JOB_KILLED ||
+			pi.LastJobState == pps.JobState_JOB_FAILURE ||
+			pi.LastJobState == pps.JobState_JOB_UNRUNNABLE {
+			summary.UnhealthyPipelines++
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for _, p := range req.Projects {
+		if summary, ok := summaries[p.String()]; ok {
+			resp.Summaries = append(resp.Summaries, summary)
+		}
+	}
+	return resp, nil
+}
