@@ -775,7 +775,7 @@ jobs:
             #   --junitxml=test-results/junit.xml \
             #   jupyterlab_pachyderm
 
-            bazel run :check-manifest
+            check-manifest -v
       - store_test_results:
           path: test-results
       - store_artifacts:

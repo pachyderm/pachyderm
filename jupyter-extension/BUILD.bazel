@@ -31,28 +31,31 @@ py_venv(
     data = all_data_requirements + all_data_requirements_dev,
     venv_location = "jupyter-extension/venv",
     deps = all_requirements + all_requirements_dev,
-)
-
-py_test(
-    name = "check-manifest",
-    srcs = ["scripts/run_check_manifest.py"],
-    data = glob(
-        ["**"],
-        exclude = [
-            ".ipynb_checkpoints/**",
-            ".jestcache/**",
-            "cypress/**",
-            "dist/**",
-            "*.egg-info/**",
-            "lib/**",
-            "node_modules/**",
-            "scripts/**",
-            "venv/**",
-        ],
-    ),
-    main = "scripts/run_check_manifest.py",
-    deps = [
-        "@jupyter-pip-requirements-dev//check_manifest:pkg",
-        "@jupyter-pip-requirements-dev//setuptools:pkg",
+    extra_pip_commands = [
+        "install --ignore-installed setuptools"
     ],
 )
+#
+#py_test(
+#    name = "check-manifest",
+#    srcs = ["scripts/run_check_manifest.py"],
+#    data = glob(
+#        ["**"],
+#        exclude = [
+#            ".ipynb_checkpoints/**",
+#            ".jestcache/**",
+#            "cypress/**",
+#            "dist/**",
+#            "*.egg-info/**",
+#            "lib/**",
+#            "node_modules/**",
+#            "scripts/**",
+#            "venv/**",
+#        ],
+#    ),
+#    main = "scripts/run_check_manifest.py",
+#    deps = [
+#        "@jupyter-pip-requirements-dev//check_manifest:pkg",
+#        "@jupyter-pip-requirements-dev//setuptools:pkg",
+#    ],
+#)
