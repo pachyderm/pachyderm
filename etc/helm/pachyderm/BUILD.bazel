@@ -1,7 +1,19 @@
+load("//private/rules:rules.bzl", "copy_to_workspace")
+
 filegroup(
     name = "pachyderm",
     srcs = glob(["**/*"]),
     visibility = ["//visibility:public"],
+)
+
+copy_to_workspace(
+    name = "update_envoy_config",
+    src = "//etc/generate-envoy-config:envoy_config_bundle",
+    outs = [
+        "//etc/helm/pachyderm:envoy.json",
+        "//etc/helm/pachyderm:envoy-tls.json",
+    ],
+    message = "Envoy configs are outdated.  Run 'bazel run //etc/helm/pachyderm:update_envoy_config' to update them.",
 )
 
 sh_test(
