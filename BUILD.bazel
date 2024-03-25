@@ -7,6 +7,7 @@ licenses(["notice"])
 exports_files([
     "LICENSE",
     ".bazelversion",
+    "MODULE.bazel",
 ])
 
 # Conifigure supported architectures.  Note that some architectures are only supported for tooling
@@ -140,6 +141,9 @@ test_suite(
     ],
 )
 
+# Style tests are style tests that have to be run manually, because they look at a lot of files in
+# the workspace.  Hermetic style tests (that depend on a few named files, for example) don't need to
+# be added here.  If the original test doesn't have the "manual" tag, you don't need to add it here.
 test_suite(
     name = "style_tests",
     tags = [
@@ -148,7 +152,6 @@ test_suite(
     ],
     tests = [
         ":buildifier_test",
-        "//etc/helm/pachyderm:helm_lint",
-        "//src/proto:check_generated_protos",
+        "//src/proto:run_test",
     ],
 )
