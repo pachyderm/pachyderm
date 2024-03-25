@@ -29,6 +29,7 @@ py_venv(
     name = "venv",
     data = all_data_requirements + all_data_requirements_dev,
     extra_pip_commands = [
+        # Important! ref: https://github.com/cedarai/rules_pyvenv/issues/15
         "install --ignore-installed setuptools",
     ],
     venv_location = "jupyter-extension/venv",
