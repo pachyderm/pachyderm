@@ -5,9 +5,11 @@ go_test(
     size = "small",
     srcs = ["metadata_test.go"],
     deps = [
+        "//src/internal/cmputil",
         "//src/internal/dockertestenv",
         "//src/internal/pachd",
         "//src/internal/pctx",
+        "//src/internal/require",
         "//src/internal/testpachd/realenv",
         "//src/metadata",
         "//src/pfs",

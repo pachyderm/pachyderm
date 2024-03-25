@@ -151,10 +151,11 @@ func (commit *Commit) Pb() *pfs.Commit {
 
 // Branch is a row in the pfs.branches table.
 type Branch struct {
-	ID   BranchID `db:"id"`
-	Head Commit   `db:"head"`
-	Repo Repo     `db:"repo"`
-	Name string   `db:"name"`
+	ID       BranchID `db:"id"`
+	Head     Commit   `db:"head"`
+	Repo     Repo     `db:"repo"`
+	Name     string   `db:"name"`
+	Metadata jsonMap  `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
