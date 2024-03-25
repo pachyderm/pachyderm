@@ -34,6 +34,7 @@ const (
 			repo.project_id AS "project.id",
 			project.name AS "project.name",
 			array_agg(branch.name) AS "branches",
+			repo.metadata,
 			repo.created_at,
 			repo.updated_at
 		FROM pfs.repos repo 
@@ -193,12 +194,12 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) (RepoID
 	var repoID RepoID
 	if err := tx.QueryRowContext(ctx,
 		`
-		INSERT INTO pfs.repos (name, type, project_id, description)
-		VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4)
-		ON CONFLICT (name, type, project_id) DO UPDATE SET description= EXCLUDED.description
+		INSERT INTO pfs.repos (name, type, project_id, description, metadata)
+		VALUES ($1, $2, (SELECT id from core.projects where name=$3), $4, $5)
+		ON CONFLICT (name, type, project_id) DO UPDATE SET description=EXCLUDED.description, metadata=EXCLUDED.metadata
 		RETURNING id
 		`,
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description,
+		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, jsonMap{repo.Metadata},
 	).Scan(&repoID); err != nil {
 		return 0, errors.Wrap(err, "upsert repo")
 	}

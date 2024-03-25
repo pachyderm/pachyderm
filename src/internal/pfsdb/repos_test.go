@@ -8,6 +8,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/google/go-cmp/cmp"
@@ -38,12 +40,13 @@ func testRepo(name, repoType string) *pfs.RepoInfo {
 	}
 }
 
-func compareRepos(expected, got *pfs.RepoInfo) bool {
-	return expected.Repo.Name == got.Repo.Name &&
-		expected.Repo.Type == got.Repo.Type &&
-		expected.Repo.Project.Name == got.Repo.Project.Name &&
-		expected.Description == got.Description &&
-		len(expected.Branches) == len(got.Branches)
+func compareRepos(t *testing.T, expected, got *pfs.RepoInfo) {
+	t.Helper()
+	expected = protoutil.Clone(expected)
+	got = protoutil.Clone(got)
+	expected.Created = nil
+	got.Created = nil
+	require.NoDiff(t, expected, got, []cmp.Option{protocmp.Transform()})
 }
 
 func newTestDB(t testing.TB, ctx context.Context) *pachsql.DB {
@@ -65,10 +68,10 @@ func TestUpsertRepo(t *testing.T) {
 		require.NoError(t, err)
 		getByIDInfo, err := pfsdb.GetRepo(ctx, tx, repoID)
 		require.NoError(t, err)
-		require.NoDiff(t, expectedInfo, getByIDInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+		compareRepos(t, expectedInfo, getByIDInfo)
 		getByNameInfo, err := pfsdb.GetRepoByName(ctx, tx, expectedInfo.Repo.Project.Name, expectedInfo.Repo.Name, expectedInfo.Repo.Type)
 		require.NoError(t, err)
-		require.NoDiff(t, expectedInfo, getByNameInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+		compareRepos(t, expectedInfo, getByNameInfo)
 	})
 	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
 		expectedInfo.Description = "new desc"
@@ -77,7 +80,16 @@ func TestUpsertRepo(t *testing.T) {
 		require.Equal(t, repoID, id, "UpsertRepo should keep id stable")
 		getInfo, err := pfsdb.GetRepo(ctx, tx, id)
 		require.NoError(t, err)
-		require.NoDiff(t, expectedInfo, getInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+		compareRepos(t, expectedInfo, getInfo)
+	})
+	withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+		expectedInfo.Metadata = map[string]string{"key": "value"}
+		id, err := pfsdb.UpsertRepo(ctx, tx, expectedInfo)
+		require.NoError(t, err)
+		require.Equal(t, repoID, id, "UpsertRepo should keep id stable")
+		getInfo, err := pfsdb.GetRepo(ctx, tx, id)
+		require.NoError(t, err)
+		compareRepos(t, expectedInfo, getInfo)
 	})
 }
 
@@ -156,11 +168,11 @@ func TestGetRepo(t *testing.T) {
 		// validate GetRepo.
 		getInfo, err := pfsdb.GetRepo(ctx, tx, repoID)
 		require.NoError(t, err, "should be able to get a repo")
-		require.NoDiff(t, createInfo, getInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+		compareRepos(t, createInfo, getInfo)
 		// validate GetRepoInfoWithID.
 		getInfoWithID, err := pfsdb.GetRepoInfoWithID(ctx, tx, pfs.DefaultProjectName, testRepoName, testRepoType)
 		require.NoError(t, err, "should be able to get a repo")
-		require.NoDiff(t, createInfo, getInfoWithID.RepoInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+		compareRepos(t, createInfo, getInfoWithID.RepoInfo)
 		// validate error for attempting to get non-existent repo.
 		_, err = pfsdb.GetRepo(ctx, tx, 3)
 		require.True(t, errors.As(err, &pfsdb.RepoNotFoundError{}))
@@ -189,7 +201,7 @@ func TestForEachRepo(t *testing.T) {
 		}
 		i := 0
 		require.NoError(t, pfsdb.ForEachRepo(ctx, tx, nil, nil, func(repoWithID pfsdb.RepoInfoWithID) error {
-			require.NoDiff(t, expectedInfos[i], repoWithID.RepoInfo, []cmp.Option{cmp.Comparer(compareRepos)})
+			compareRepos(t, expectedInfos[i], repoWithID.RepoInfo)
 			i++
 			return nil
 		}))
