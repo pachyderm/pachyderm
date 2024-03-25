@@ -1,6 +1,5 @@
 load("@jupyter-pip-requirements//:requirements.bzl", "all_data_requirements", "all_requirements")
 load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements")
-load("@rules_python//python:defs.bzl", "py_test")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_pyvenv//:venv.bzl", "py_venv")
 
