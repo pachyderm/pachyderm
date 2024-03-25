@@ -236,7 +236,7 @@ func MonitorProcessGroup(ctx context.Context, pid int) {
 		}
 		stats, err := getProcessStats(fs, pid)
 		if err != nil {
-			log.Info(ctx, "problem getting self stats", zap.Error(err))
+			log.Info(ctx, "problem getting child stats", zap.Error(err))
 			continue
 		}
 		meters.Set(ctx, "open_fd_count", stats.FDCount)
