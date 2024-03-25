@@ -447,6 +447,7 @@ func TestCreateDAGS(t *testing.T) {
 		UseLeftoverCluster: false,
 		ValueOverrides:     valuesOverridden,
 		ValuesStrOverrides: strValuesOverridden,
+		DisableLoki:        true,
 	}
 	k := testutil.GetKubeClient(t)
 	namespace, _ := minikubetestenv.ClaimCluster(t)
@@ -464,6 +465,8 @@ func TestCreateDAGS(t *testing.T) {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
 	deployOpts.Version = "" // use the default (this commit in CI)
+	deployOpts.ValueOverrides = values
+	deployOpts.ValuesStrOverrides = nil
 	minikubetestenv.UpgradeRelease(t, ctx, namespace, testutil.GetKubeClient(t), deployOpts)
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after upgrade")

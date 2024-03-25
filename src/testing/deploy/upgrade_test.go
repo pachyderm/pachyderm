@@ -31,7 +31,7 @@ const (
 	upgradeSubject = "upgrade_client"
 )
 
-skip := true
+var skip bool
 
 type upgradeFunc func(t *testing.T, ctx context.Context, c *client.APIClient, fromVersion string)
 
