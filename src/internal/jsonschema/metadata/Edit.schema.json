@@ -11,11 +11,18 @@
                 },
                 "commit": {
                     "$ref": "#/definitions/pfs_v2.CommitPicker",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "commit targets a commit's metadata."
                 },
                 "branch": {
                     "$ref": "#/definitions/pfs_v2.BranchPicker",
-                    "additionalProperties": false
+                    "additionalProperties": false,
+                    "description": "branch targets a branch's metadata."
+                },
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker",
+                    "additionalProperties": false,
+                    "description": "repo targets a repo's metadata."
                 },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
@@ -54,6 +61,11 @@
                 {
                     "required": [
                         "branch"
+                    ]
+                },
+                {
+                    "required": [
+                        "repo"
                     ]
                 },
                 {

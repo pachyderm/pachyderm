@@ -8004,10 +8004,16 @@
           "description": "project targets a named project's metadata."
         },
         "commit": {
-          "$ref": "#/definitions/pfs_v2CommitPicker"
+          "$ref": "#/definitions/pfs_v2CommitPicker",
+          "description": "commit targets a commit's metadata."
         },
         "branch": {
-          "$ref": "#/definitions/pfs_v2BranchPicker"
+          "$ref": "#/definitions/pfs_v2BranchPicker",
+          "description": "branch targets a branch's metadata."
+        },
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker",
+          "description": "repo targets a repo's metadata."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",
@@ -9136,6 +9142,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2RepoInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata are user-defined key-value pairs."
         }
       },
       "title": "RepoInfo is the main data structure representing a Repo in etcd"
