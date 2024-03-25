@@ -1274,15 +1274,6 @@ jobs:
                   echo "regular release."
                   gh release create --draft ${CIRCLE_TAG:1} --title ${CIRCLE_TAG:1} --target $parentBranch --generate-notes --repo pachyderm/haberdashery
               fi
-            SECONDS=0
-            while :; do
-                docker pull pachyderm/haberdashery:${CIRCLE_TAG:1} 2>/dev/null && break
-                if (( $SECONDS > 600 )); then
-                    printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
-                    exit 1
-                fi
-                sleep 1
-            done
   release-github:
     parameters:
       repo:
@@ -1303,6 +1294,30 @@ jobs:
           name: create github release
           command: |
             gh release edit << parameters.tag >> --draft=false --repo << parameters.repo >>
+      - when:
+          condition:
+            and:
+              - equal: ["pachyderm/haberdashery", << parameters.repo >>]
+          steps:
+            - setup_remote_docker:
+                docker_layer_caching: true
+                version: "20.10.12"
+            - run:
+                name: pachydermbuildbot docker login
+                command: |
+                  echo "$DOCKER_PWD" | docker login --username pachydermbuildbot --password-stdin
+            - run:
+                name: check if console docker image released
+                command: |
+                  SECONDS=0
+                  while :; do
+                      docker pull pachyderm/haberdashery:<< parameters.tag >> 2>/dev/null && break
+                      if (( $SECONDS > 600 )); then
+                          printf 'Waited 10 minutes for console docker image to appear in the registry, inspect console relase at https://app.circleci.com/pipelines/gh/pachyderm/haberdashery for failures or delays\n' >&2
+                          exit 1
+                      fi
+                      sleep 1
+                  done
   release-docker-hub:
     docker:
       - image: cimg/base:stable
@@ -1948,68 +1963,11 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-2
-          env: qa2
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-3
-          env: qa3
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-4
-          env: qa4
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
       - aws-prerelease-testing:
           name: aws-testing
           filters: *only-release-tags
           requires:
             - aws-prerelease-testing-env-1
-      - cust-prerelease-testing:
-          name: wp-testing
-          customer: wp
-          env: qa2
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-2
-      - cust-prerelease-testing:
-          name: btl-testing
-          customer: btl
-          env: qa3
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-3
-      - cust-prerelease-testing:
-          name: krs-testing
-          customer: krs
-          env: qa4
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-4
       - pulumi-aws-test-env:
           name: destroy-aws-prerelease-testing-env-1
           env: qa1
