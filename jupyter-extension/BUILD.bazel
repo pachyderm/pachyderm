@@ -39,7 +39,6 @@ py_test(
     data = glob(
         ["**"],
         exclude = [
-            ".git/**",
             ".ipynb_checkpoints/**",
             ".jestcache/**",
             "cypress/**",
