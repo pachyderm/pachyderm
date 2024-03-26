@@ -124,7 +124,7 @@ class App(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ProfileArgs(betterproto.Message):
-    profiles: List[str] = betterproto.string_field(1)
+    profiles: List["Profile"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)

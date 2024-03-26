@@ -2100,7 +2100,7 @@ ResourceType represents the type of a Resource
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| profiles | [string](#string) | repeated |  |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 

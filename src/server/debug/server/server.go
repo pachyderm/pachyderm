@@ -31,6 +31,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/yaml.v3"
@@ -49,6 +50,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -149,8 +151,8 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 				Version:   true,
 				Describes: apps,
 				Logs:      apps,
-				LokiLogs:  possibleApps,
-				Profiles:  pachApps,
+				LokiLogs:  addLokiDefaults(ctx, possibleApps),
+				Profiles:  addProfileDefaults(ctx, pachApps),
 			},
 			InputRepos: true,
 			Pipelines:  ps,
@@ -160,6 +162,48 @@ func (s *debugServer) GetDumpV2Template(ctx context.Context, request *debug.GetD
 			StarlarkScripts: scripts,
 		},
 	}, nil
+}
+
+func addLokiDefaults(ctx context.Context, apps []*debug.App) []*debug.App {
+	var result []*debug.App
+	for _, app := range apps {
+		app = protoutil.Clone(app)
+		any, err := anypb.New(&debug.LokiArgs{
+			MaxLogs: 30_000,
+		})
+		if err != nil {
+			// This indicates that the binary was built wrong or something like that.
+			log.DPanic(ctx, "unable to marshal LokiArgs to Any", zap.Error(err))
+			continue
+		}
+		app.ExtraArgs = any
+		result = append(result, app)
+	}
+	return result
+}
+
+func addProfileDefaults(ctx context.Context, apps []*debug.App) []*debug.App {
+	var result []*debug.App
+	for _, app := range apps {
+		app = protoutil.Clone(app)
+		any, err := anypb.New(&debug.ProfileArgs{
+			Profiles: []*debug.Profile{
+				{
+					Name: "heap",
+				},
+				{
+					Name: "goroutine",
+				},
+			},
+		})
+		if err != nil {
+			log.DPanic(ctx, "unable to marshal ProfileArgs to Any", zap.Error(err))
+			continue
+		}
+		app.ExtraArgs = any
+		result = append(result, app)
+	}
+	return result
 }
 
 // list apps returns a list of running apps, and a list of apps which may possibly exist.  The
@@ -489,7 +533,19 @@ func (s *debugServer) makeProfilesTask(server debug.Debug_DumpV2Server, apps []*
 				defer rp(ctx)
 				for _, pod := range app.Pods {
 					for _, c := range pod.Containers {
-						for _, profile := range []string{"heap", "goroutine"} {
+						var profileArgs debug.ProfileArgs
+						if err := app.ExtraArgs.UnmarshalTo(&profileArgs); err != nil {
+							log.Debug(ctx, "unmarshal <profile>.ExtraArgs", zap.Error(err))
+							profileArgs.Profiles = []*debug.Profile{
+								{
+									Name: "heap",
+								},
+								{
+									Name: "goroutine",
+								},
+							}
+						}
+						for _, profile := range profileArgs.Profiles {
 							if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
 								errors.JoinInto(&errs, err)
 							}
@@ -731,9 +787,9 @@ func (s *debugServer) Profile(request *debug.ProfileRequest, server debug.Debug_
 	})
 }
 
-func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container, profile string) error {
-	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, profile), func(w io.Writer) (retErr error) {
-		req := &debug.ProfileRequest{Profile: &debug.Profile{Name: profile}}
+func (s *debugServer) collectProfile(ctx context.Context, dfs DumpFS, app *debug.App, pod *debug.Pod, container string, profile *debug.Profile) error {
+	if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, profile.GetName()), func(w io.Writer) (retErr error) {
+		req := &debug.ProfileRequest{Profile: profile}
 		if pod.Name == s.name {
 			if err := dfs.Write(filepath.Join(appDir(app), "pods", pod.Name, container, "go_info.txt"), func(w io.Writer) error {
 				fmt.Fprintf(w, "build info: ")

@@ -167,7 +167,7 @@ func (x *ProfileArgs) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	profilesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
 		for _, v := range x.Profiles {
-			enc.AppendString(v)
+			enc.AppendObject(v)
 		}
 		return nil
 	}
