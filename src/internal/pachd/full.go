@@ -221,6 +221,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		TaskService: task.NewEtcdService(env.EtcdClient, config.PPSEtcdPrefix),
 	})
 
+	kubeClient := fake.NewSimpleClientset(env.K8sObjects...)
+
 	pd.addSetup(
 		printVersion(),
 		tweakResources(config.GlobalConfiguration),
@@ -288,7 +290,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				DB:                env.DB,
 				Listener:          pd.dbListener,
 				TxnEnv:            pd.txnEnv,
-				KubeClient:        fake.NewSimpleClientset(env.K8sObjects...),
+				KubeClient:        kubeClient,
 				EtcdClient:        env.EtcdClient,
 				EtcdPrefix:        path.Join(config.EtcdPrefix, config.PPSEtcdPrefix),
 				TaskService:       task.NewEtcdService(env.EtcdClient, path.Join(config.EtcdPrefix, config.PPSEtcdPrefix)),
@@ -348,7 +350,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 						EtcdPrefix: path.Join(config.EtcdPrefix, config.EnterpriseEtcdPrefix),
 						AuthServer: pd.authSrv.(auth_server.APIServer),
 						GetKubeClient: func() kubernetes.Interface {
-							return fake.NewSimpleClientset(env.K8sObjects...)
+							return kubeClient
 						},
 						GetPachClient:     pd.MustGetPachClient,
 						Namespace:         "default",
@@ -399,7 +401,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					Name:          "testpachd",
 					GetLokiClient: env.GetLokiClient,
 					GetKubeClient: func() kubernetes.Interface {
-						return fake.NewSimpleClientset(env.K8sObjects...)
+						return kubeClient
 					},
 					GetDynamicKubeClient: func() dynamic.Interface {
 						return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), env.K8sObjects...)
