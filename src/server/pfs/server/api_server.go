@@ -989,9 +989,18 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 	summaries := make(map[string]*pfs.ReposSummary)
 	var repos []*pfs.RepoInfo
 	var err error
+	var projects []*pfs.Project
+	for _, p := range request.Projects {
+		switch p.Picker.(type) {
+		case *pfs.ProjectPicker_Name:
+			projects = append(projects, &pfs.Project{Name: p.GetName()})
+		default:
+			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+		}
+	}
 	if err := errors.Wrap(dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
 		return a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", request.Projects, nil)
+			repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
 			if err != nil {
 				return err
 			}

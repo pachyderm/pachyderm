@@ -758,7 +758,7 @@ message EgressResponse {
 }
 
 message ReposSummaryRequest {
-  repeated Project projects = 1; // a ReposSummary will be returned for every specified project
+  repeated ProjectPicker projects = 1; // a ReposSummary will be returned for every specified project
 }
 
 message ReposSummary {

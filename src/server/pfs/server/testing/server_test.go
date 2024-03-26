@@ -7357,7 +7357,18 @@ func TestReposSummary(t *testing.T) {
 		}
 	}
 	summaryResp, err := c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
-		Projects: []*pfs.Project{client.NewProject("B"), client.NewProject("A")},
+		Projects: []*pfs.ProjectPicker{
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "B",
+				},
+			},
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "A",
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, summaryResp.Summaries, 2)
@@ -7376,7 +7387,13 @@ func TestReposSummary(t *testing.T) {
 	_, err = c.WaitCommit("B", "B-3", "master", "")
 	require.NoError(t, err)
 	summaryResp, err = c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
-		Projects: []*pfs.Project{client.NewProject("B")},
+		Projects: []*pfs.ProjectPicker{
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "B",
+				},
+			},
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, summaryResp.Summaries, 1)

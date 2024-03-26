@@ -649,7 +649,7 @@ export type EgressResponse = BaseEgressResponse
   & OneOf<{ objectStorage: EgressResponseObjectStorageResult; sqlDatabase: EgressResponseSQLDatabaseResult }>
 
 export type ReposSummaryRequest = {
-  projects?: Project[]
+  projects?: ProjectPicker[]
 }
 
 export type ReposSummary = {

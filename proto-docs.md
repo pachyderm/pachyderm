@@ -6356,7 +6356,7 @@ Picker messages should only be used as request parameters.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| projects | [Project](#pfs_v2-Project) | repeated | a ReposSummary will be returned for every specified project |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
 
 
 

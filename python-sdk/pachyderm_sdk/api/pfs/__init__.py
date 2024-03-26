@@ -1001,7 +1001,7 @@ class EgressResponseSqlDatabaseResult(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class ReposSummaryRequest(betterproto.Message):
-    projects: List["Project"] = betterproto.message_field(1)
+    projects: List["ProjectPicker"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -2025,7 +2025,7 @@ class ApiStub:
         return self.__rpc_delete_project(request)
 
     def repos_summary(
-        self, *, projects: Optional[List["Project"]] = None
+        self, *, projects: Optional[List["ProjectPicker"]] = None
     ) -> "ReposSummaryResponse":
         projects = projects or []
 
