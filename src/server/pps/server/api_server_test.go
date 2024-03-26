@@ -956,3 +956,38 @@ func assertPipelineSequence(t *testing.T, names []string, pipelines []*pps.Pipel
 		require.Equal(t, n, pipelines[i].Pipeline.Name)
 	}
 }
+
+func TestListPipelinesSummary(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	repo := "input"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+	createPipeline := func(project, name string, state pps.PipelineState, latestJobState pps.JobState) {
+		require.NoError(t, env.PachClient.CreatePipeline(
+			project,
+			name,
+			"", /* default image*/
+			[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+			nil, /* stdin */
+			nil, /* spec */
+			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+			"",   /* output */
+			true, /* update */
+		))
+	}
+	projects := []string{"a", "b", "c"}
+	for _, prj := range projects {
+		require.NoError(t, env.PachClient.CreateProject(prj))
+	}
+	for i, p := range []string{"A", "B", "C", "D", "E"} {
+		proj := projects[0]
+		if i%2 == 1 {
+			proj = projects[1]
+		}
+		createPipeline(proj, p, pps.PipelineState_PIPELINE_RUNNING, pps.JobState_JOB_STARTING)
+	}
+	resp, err := env.PachClient.PipelinesSummary(ctx, &pps.PipelinesSummaryRequest{})
+	require.NoError(t, err)
+	require.Len(t, resp.Summaries, 4)
+
+}
