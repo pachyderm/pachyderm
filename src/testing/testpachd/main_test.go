@@ -28,7 +28,7 @@ func TestMain_(t *testing.T) {
 	cmd.Stdout = w
 	cmd.Cancel = func() error {
 		// This gives testpachd a chance to clean up even if this test fails.
-		return cmd.Process.Signal(os.Interrupt)
+		return cmd.Process.Signal(os.Interrupt) //nolint:wrapcheck
 	}
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("start testpachd: %v", err)
@@ -60,7 +60,9 @@ func TestMain_(t *testing.T) {
 	if err := cmd.Process.Signal(os.Interrupt); err != nil {
 		t.Errorf("kill testpachd: %v", err)
 	}
-	cmd.Cancel = func() error { return cmd.Process.Kill() }
+	cmd.Cancel = func() error {
+		return cmd.Process.Kill() //nolint:wrapcheck
+	}
 	if err := cmd.Wait(); err != nil {
 		t.Errorf("unexpectedly exited non-zero: %v", err)
 	}
