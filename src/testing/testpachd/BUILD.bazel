@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_binary", "go_library")
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
 
 go_library(
     name = "testpachd_lib",
@@ -24,4 +24,20 @@ go_binary(
         "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
         "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
     },
+)
+
+go_test(
+    name = "testpachd_test",
+    size = "small",
+    srcs = ["main_test.go"],
+    data = [
+        "testpachd",
+    ],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/grpcutil",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
 )
