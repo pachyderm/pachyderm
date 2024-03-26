@@ -218,22 +218,35 @@ const (
 
 type OrderByRepoColumn OrderByColumn[repoColumn]
 
-func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize, maxPages uint64, filter *pfs.Repo, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
+type RepoFilter struct {
+	RepoTemplate *pfs.Repo
+	Projects     []*pfs.Project
+}
+
+func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSize, maxPages uint64, filter *RepoFilter, orderBys ...OrderByRepoColumn) (*RepoIterator, error) {
 	var conditions []string
 	var values []any
-	if filter != nil {
-		if filter.Project != nil && filter.Project.Name != "" {
+	if filter != nil && filter.RepoTemplate != nil {
+		if filter.RepoTemplate.Project != nil && filter.RepoTemplate.Project.Name != "" {
 			conditions = append(conditions, "project.name = ?")
-			values = append(values, filter.Project.Name)
+			values = append(values, filter.RepoTemplate.Project.Name)
 		}
-		if filter.Name != "" {
+		if filter.RepoTemplate.Name != "" {
 			conditions = append(conditions, "repo.name = ?")
-			values = append(values, filter.Name)
+			values = append(values, filter.RepoTemplate.Name)
 		}
-		if filter.Type != "" {
+		if filter.RepoTemplate.Type != "" {
 			conditions = append(conditions, "repo.type = ?")
-			values = append(values, filter.Type)
+			values = append(values, filter.RepoTemplate.Type)
 		}
+	}
+	if filter != nil && len(filter.Projects) > 0 {
+		var projs []string
+		for _, p := range filter.Projects {
+			projs = append(projs, fmt.Sprintf("'%s'", p.Name))
+		}
+		cond := fmt.Sprintf("project.name IN (%s)", strings.Join(projs, ","))
+		conditions = append(conditions, cond)
 	}
 	query := getRepoAndBranches
 	if len(conditions) > 0 {
@@ -256,7 +269,7 @@ func NewRepoIterator(ctx context.Context, ext sqlx.ExtContext, startPage, pageSi
 	}, nil
 }
 
-func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
+func ForEachRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, cb func(repoWithID RepoInfoWithID) error, orderBys ...OrderByRepoColumn) error {
 	var maxPages uint64
 	if page == nil {
 		page = &pfs.RepoPage{
@@ -293,7 +306,7 @@ func makePageOrderBys(ordering pfs.RepoPage_Ordering) ([]OrderByRepoColumn, erro
 	return nil, errors.Errorf("cannot make page order bys for ordering %v", ordering)
 }
 
-func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *pfs.Repo, page *pfs.RepoPage, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
+func ListRepo(ctx context.Context, tx *pachsql.Tx, filter *RepoFilter, page *pfs.RepoPage, orderBys ...OrderByRepoColumn) ([]RepoInfoWithID, error) {
 	var repos []RepoInfoWithID
 	if err := ForEachRepo(ctx, tx, filter, page, func(repoWithID RepoInfoWithID) error {
 		repos = append(repos, repoWithID)
