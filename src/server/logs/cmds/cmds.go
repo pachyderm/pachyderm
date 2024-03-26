@@ -49,10 +49,29 @@ func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 	}
 }
 
+func newPipelineRequest(project, pipeline string) *logs.GetLogsRequest {
+	return &logs.GetLogsRequest{
+		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_User{
+				User: &logs.UserLogQuery{
+					UserType: &logs.UserLogQuery_Pipeline{
+						Pipeline: &logs.PipelineLogQuery{
+							Project:  project,
+							Pipeline: pipeline,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
-	var logQL string
+	var logQL, pipeline string
+	var project = pachCtx.Project
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): remove references to “new.”
 		Short: "New logs functionality",
@@ -74,7 +93,13 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			var req *logs.GetLogsRequest
 			switch {
 			case logQL != "":
+				if !(project == pachCtx.Project && pipeline == "") {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
+					os.Exit(1)
+				}
 				req = newLogQLRequest(logQL)
+			case pipeline != "":
+				req = newPipelineRequest(project, pipeline)
 			case isAdmin:
 				req = newLogQLRequest(`{suite="pachyderm"}`)
 			default:
@@ -115,6 +140,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use: "logs2",
 	}
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
+	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
+	logsCmd.Flags().StringVar(&pipeline, "pipeline", project, "Pipeline for pipeline query.")
 	commands = append(commands, logsCmd)
 	return commands
 }

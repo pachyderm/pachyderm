@@ -11,6 +11,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
@@ -48,7 +49,7 @@ func realEnvWithLoki(ctx context.Context, t testing.TB, entries []loki.Entry) *r
 		})
 }
 
-func TestGetLogs_noauth(t *testing.T) {
+func TestGetLogs_default_noauth(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -74,7 +75,7 @@ func TestGetLogs_noauth(t *testing.T) {
 	).Run())
 }
 
-func TestGetLogs_nonadmin(t *testing.T) {
+func TestGetLogs_default_nonadmin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -104,7 +105,7 @@ func TestGetLogs_nonadmin(t *testing.T) {
 	).Run())
 }
 
-func TestGetLogs_admin(t *testing.T) {
+func TestGetLogs_default_admin(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration tests in short mode")
 	}
@@ -130,5 +131,171 @@ func TestGetLogs_admin(t *testing.T) {
 
 	require.NoError(t, testutil.PachctlBashCmdCtx(adminClient.Ctx(), t, adminClient, `
 		pachctl logs2 | match "12 baz"`,
+	).Run())
+}
+
+func TestGetLogs_pipeline_noauth(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v quux", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
+	mockInspectCluster(env)
+
+	// TODO(CORE-2123): check for real logs
+	require.NoError(t, testutil.PachctlBashCmdCtx(ctx, t, c, `
+		pachctl create repo {{.RepoName}}
+		pachctl create pipeline <<EOF
+		{
+			"pipeline": {
+				"project": {
+					"name": "{{.ProjectName | js}}"
+				},
+				"name": "{{.PipelineName | js}}"
+			},
+			"transform": {
+				"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+			},
+			"input": {
+				"pfs": {
+					"project": "default",
+					"repo": "{{.RepoName | js}}",
+					"glob": "/*",
+					"name": "in"
+				}
+			},
+			"resource_requests": {
+				"cpu": null,
+				"disk": "187Mi"
+			},
+			"autoscaling": false
+		}
+		EOF
+		pachctl logs2 --pipeline {{.PipelineName}} | match "24 quux"`,
+		"ProjectName", pfs.DefaultProjectName,
+		"RepoName", "input",
+		"PipelineName", "pipeline",
+	).Run())
+}
+
+func TestGetLogs_pipeline_user(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	var (
+		ctx          = pctx.TestContext(t)
+		buildEntries = func() []loki.Entry {
+			var entries []loki.Entry
+			for i := -99; i <= 0; i++ {
+				entries = append(entries, loki.Entry{
+					Timestamp: time.Now().Add(time.Duration(i) * time.Second),
+					Line:      fmt.Sprintf("%v foo", i),
+				})
+			}
+			return entries
+		}
+		env = realEnvWithLoki(ctx, t, buildEntries())
+		c   = env.PachClient
+	)
+	mockInspectCluster(env)
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	alice := testutil.UniqueString("robot:alice")
+	aliceClient := testutil.AuthenticatedPachClient(t, c, alice, peerPort)
+
+	// TODO(CORE-2123): check for real logs
+	require.NoError(t, testutil.PachctlBashCmdCtx(aliceClient.Ctx(), t, aliceClient, `
+		pachctl create repo {{.RepoName}}
+		pachctl create pipeline <<EOF
+		{
+			"pipeline": {
+				"project": {
+					"name": "{{.ProjectName | js}}"
+				},
+				"name": "{{.PipelineName | js}}"
+			},
+			"transform": {
+				"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+			},
+			"input": {
+				"pfs": {
+					"project": "default",
+					"repo": "{{.RepoName | js}}",
+					"glob": "/*",
+					"name": "in"
+				}
+			},
+			"resource_requests": {
+				"cpu": null,
+				"disk": "187Mi"
+			},
+			"autoscaling": false
+		}
+		EOF
+		pachctl logs2 --pipeline {{.PipelineName}} | match "64 foo"`,
+		"ProjectName", pfs.DefaultProjectName,
+		"RepoName", "input",
+		"PipelineName", "pipeline",
+	).Run())
+}
+
+func TestGetLogs_combination_error(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnvWithIdentity(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+	mockInspectCluster(env)
+	peerPort := strconv.Itoa(int(env.ServiceEnv.Config().PeerPort))
+	alice := testutil.UniqueString("robot:alice")
+	aliceClient := testutil.AuthenticatedPachClient(t, c, alice, peerPort)
+
+	require.YesError(t, testutil.PachctlBashCmdCtx(aliceClient.Ctx(), t, aliceClient, `
+		pachctl create repo {{.RepoName}}
+		pachctl create pipeline <<EOF
+		{
+			"pipeline": {
+				"project": {
+					"name": "{{.ProjectName | js}}"
+				},
+				"name": "{{.PipelineName | js}}"
+			},
+			"transform": {
+				"cmd": ["cp", "r", "/pfs/in", "/pfs/out"]
+			},
+			"input": {
+				"pfs": {
+					"project": "default",
+					"repo": "{{.RepoName | js}}",
+					"glob": "/*",
+					"name": "in"
+				}
+			},
+			"resource_requests": {
+				"cpu": null,
+				"disk": "187Mi"
+			},
+			"autoscaling": false
+		}
+		EOF
+		pachctl logs2 --logql '{}' --pipeline {{.PipelineName}} | match "GetLogs dummy response"`,
+		"ProjectName", pfs.DefaultProjectName,
+		"RepoName", "input",
+		"PipelineName", "pipeline",
 	).Run())
 }
