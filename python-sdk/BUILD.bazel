@@ -1,0 +1,55 @@
+load("@rules_pyvenv//:venv.bzl", "py_venv")
+load("@rules_poetry//python:poetry.bzl", "poetry_update")
+
+poetry_update(
+    name = "update_lock",
+    lock = "poetry.lock",
+    toml = "pyproject.toml",
+)
+
+exports_files(["poetry.lock"])
+
+py_venv(
+    name = "venv",
+    venv_location = "python-sdk/venv2",
+    deps = [
+        "@poetry",
+        "@poetry//:betterproto",
+        "@poetry//:black",
+        "@poetry//:certifi",
+        "@poetry//:click",
+        "@poetry//:colorama",
+        "@poetry//:exceptiongroup",
+        "@poetry//:grpc-interceptor",
+        "@poetry//:grpcio",
+        "@poetry//:grpclib",
+        "@poetry//:h2",
+        "@poetry//:hpack",
+        "@poetry//:hyperframe",
+        "@poetry//:importlib-metadata",
+        "@poetry//:iniconfig",
+        "@poetry//:mako",
+        "@poetry//:markdown",
+        "@poetry//:markupsafe",
+        "@poetry//:multidict",
+        "@poetry//:mypy-extensions",
+        "@poetry//:numpy",
+        "@poetry//:packaging",
+        "@poetry//:pandas",
+        "@poetry//:pathspec",
+        "@poetry//:pdoc3",
+        "@poetry//:platformdirs",
+        "@poetry//:pluggy",
+        "@poetry//:pytest",
+        "@poetry//:pytest-black-ng",
+        "@poetry//:python-dateutil",
+        "@poetry//:python-dotenv",
+        "@poetry//:pytz",
+        "@poetry//:six",
+        "@poetry//:toml",
+        "@poetry//:tomli",
+        "@poetry//:typing-extensions",
+        "@poetry//:tzdata",
+        "@poetry//:zipp",
+    ],
+)
