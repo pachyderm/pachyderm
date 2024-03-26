@@ -20,12 +20,16 @@ import (
 
 var (
 	logfile = flag.String("log", "", "if set, log to this file")
+	verbose = flag.Bool("v", false, "if true, show debug level logs (they always end up in logfile, though)")
 	pachCtx = flag.String("context", "testpachd", "if set, setup the named pach context to connect to this server, and switch to it")
 )
 
 func main() {
 	flag.Parse()
 	done := log.InitBatchLogger(*logfile)
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	}
 	ctx, cancel := pctx.Interactive()
 	pd, cleanup, err := pachd.BuildTestPachd(ctx)
 	if err != nil {
