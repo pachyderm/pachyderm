@@ -7227,7 +7227,7 @@ func TestEgressToPostgres(_suite *testing.T) {
 			ctx := pctx.TestContext(t)
 			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 			// setup target database
-			dbName := tu.GenerateEphemeralDBName(t)
+			dbName := tu.GenerateEphemeralDBName()
 			tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
 			db := tu.OpenDB(t,
 				dbutil.WithMaxOpenConns(1),

@@ -219,7 +219,6 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 
 	pd.addSetup(
 		printVersion(),
-		setupProfiling("pachd", pachconfig.NewConfiguration(config)),
 		tweakResources(config.GlobalConfiguration),
 		initJaeger(),
 
@@ -412,4 +411,12 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		license.RegisterAPIServer(gs, pd.licenseSrv)
 	}))
 	return pd
+}
+
+func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
+	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
+	if err != nil {
+		return nil, errors.Wrap(err, "parse pachd address")
+	}
+	return client.NewFromPachdAddress(ctx, addr)
 }
