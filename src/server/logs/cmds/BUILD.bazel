@@ -1,0 +1,38 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cmds",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/logs/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/auth",
+        "//src/internal/client",
+        "//src/internal/config",
+        "//src/internal/pachctl",
+        "//src/logs",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//encoding/protojson",
+    ],
+)
+
+go_test(
+    name = "cmds_test",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    pure = "on",
+    deps = [
+        "//src/admin",
+        "//src/auth",
+        "//src/internal/dockertestenv",
+        "//src/internal/lokiutil",
+        "//src/internal/lokiutil/client",
+        "//src/internal/pachconfig",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+    ],
+)
