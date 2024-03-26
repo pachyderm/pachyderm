@@ -92,13 +92,13 @@ func newTestPachd(db, directDB *pachsql.DB, bucket *blob.Bucket, etcd *clientv3.
 	return pd
 }
 
-func BuildTestPachd(ctx context.Context) (_ *Full, cleaner *cleanup.Cleaner, _ error) {
-	cleaner = new(cleanup.Cleaner)
+func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
+	cleaner := new(cleanup.Cleaner)
 
 	// tmpdir
 	tmpdir, err := os.MkdirTemp("", "testpachd-")
 	if err != nil {
-		return nil, nil, errors.Wrap(err, "new tmpdir")
+		return nil, cleaner, errors.Wrap(err, "new tmpdir")
 	}
 	cleaner.AddCleanup("tmpdir", func() error {
 		return errors.Wrapf(os.RemoveAll(tmpdir), "RemoveAll(%v)", tmpdir)
