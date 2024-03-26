@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -82,7 +83,7 @@ func (dbc DBConfig) PachConfigOption(c *pachconfig.Configuration) {
 func NewTestDBConfig(t testing.TB) DBConfig {
 	var (
 		ctx     = pctx.TestContext(t)
-		dbName  = testutil.GenerateEphemeralDBName(t)
+		dbName  = testutil.GenerateEphemeralDBName()
 		dexName = testutil.UniqueString("dex")
 	)
 	err := backoff.Retry(func() error {
@@ -120,6 +121,66 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 			DBName:   dexName,
 		},
 	}
+}
+
+// NewTestDBConfigCtx returns a DBConfig for an environment outside of tests.
+func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.Cleaner, _ error) {
+	var (
+		dbName  = testutil.GenerateEphemeralDBName()
+		dexName = testutil.UniqueString("dex")
+	)
+	cleaner = new(cleanup.Cleaner)
+	if err := backoff.Retry(func() error {
+		return EnsureDBEnv(ctx)
+	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
+		return config, cleaner, errors.Wrap(err, "wait for database to be created")
+	}
+
+	db, err := dbutil.NewDB(
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithDBName(DefaultPostgresDatabase))
+	if err != nil {
+		return config, cleaner, errors.Wrap(err, "NewDB")
+	}
+	cleaner.AddCleanup("close db connection", db.Close)
+
+	if err := testutil.CreateEphemeralDBNontest(ctx, db, dbName); err != nil {
+		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dbName)
+	}
+	cleaner.AddCleanupCtx("cleanup pach database", func(ctx context.Context) error {
+		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dbName), "cleanup database %v", dbName)
+	})
+	if err := testutil.CreateEphemeralDBNontest(ctx, db, dexName); err != nil {
+		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dexName)
+	}
+	cleaner.AddCleanupCtx("cleanup dex database", func(ctx context.Context) error {
+		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dexName), "cleanup database %v", dbName)
+	})
+	return DBConfig{
+		Direct: PostgresConfig{
+			Host:     postgresHost(),
+			Port:     postgresPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		PGBouncer: PostgresConfig{
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dbName,
+		},
+		Identity: PostgresConfig{
+			Host:     PGBouncerHost(),
+			Port:     PGBouncerPort,
+			User:     DefaultPostgresUser,
+			Password: DefaultPostgresPassword,
+			DBName:   dexName,
+		},
+	}, cleaner, nil
 }
 
 // NewTestDB creates a new database connection scoped to the test.
