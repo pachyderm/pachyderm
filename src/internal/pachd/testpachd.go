@@ -15,23 +15,21 @@ import (
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	clientv3 "go.etcd.io/etcd/client/v3"
 	etcdcli "go.etcd.io/etcd/client/v3"
 	"go.etcd.io/etcd/server/v3/embed"
 	etcdwal "go.etcd.io/etcd/server/v3/wal"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"gocloud.dev/blob"
 )
 
 // NewTestPachd creates an environment suitable for non-k8s tests
@@ -51,15 +49,31 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	dbcfg := dockertestenv.NewTestDBConfig(t)
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
 	directDB := testutil.OpenDB(t, dbcfg.Direct.DBOptions()...)
+	dbListener := collection.NewPostgresListener(dbutil.GetDSN(
+		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
+		dbutil.WithDBName(dbcfg.Direct.DBName),
+		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
+		dbutil.WithSSLMode("disable"),
+	))
 
 	lis := testutil.Listen(t)
 	bucket, _ := dockertestenv.NewTestBucket(ctx, t)
 	etcd := testetcd.NewEnv(ctx, t).EtcdClient
 
-	pd := newTestPachd(db, directDB, bucket, etcd, lis)
+	env := Env{
+		DB:         db,
+		DirectDB:   directDB,
+		DBListener: dbListener,
+		Bucket:     bucket,
+		EtcdClient: etcd,
+		Listener:   lis,
+	}
+	pd := newTestPachd(env)
 	go func() {
 		if err := pd.Run(ctx); err != nil {
-			t.Log(err)
+			if !strings.Contains(err.Error(), "use of closed network connection") {
+				t.Log(err)
+			}
 		}
 	}()
 
@@ -70,14 +84,7 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
-func newTestPachd(db, directDB *pachsql.DB, bucket *blob.Bucket, etcd *clientv3.Client, lis net.Listener) *Full {
-	env := Env{
-		DB:         db,
-		DirectDB:   directDB,
-		Bucket:     bucket,
-		EtcdClient: etcd,
-		Listener:   lis,
-	}
+func newTestPachd(env Env) *Full {
 	config := pachconfig.PachdFullConfiguration{
 		PachdSpecificConfiguration: pachconfig.PachdSpecificConfiguration{
 			StorageConfiguration: pachconfig.StorageConfiguration{
@@ -120,6 +127,12 @@ func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
 		return nil, cleaner, errors.Wrap(err, "open direct db connection")
 	}
 	cleaner.AddCleanup("direct db connection", directDB.Close)
+	dbListener := collection.NewPostgresListener(dbutil.GetDSN(
+		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
+		dbutil.WithDBName(dbcfg.Direct.DBName),
+		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
+		dbutil.WithSSLMode("disable"),
+	))
 
 	// minio
 	bucket, _, cleanupMinio, err := dockertestenv.NewTestBucketCtx(ctx)
@@ -191,6 +204,14 @@ func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
 	})
 
 	// build pachd
-	pd := newTestPachd(db, directDB, bucket, etcdClient, lis)
+	env := Env{
+		DB:         db,
+		DirectDB:   directDB,
+		DBListener: dbListener,
+		Bucket:     bucket,
+		EtcdClient: etcdClient,
+		Listener:   lis,
+	}
+	pd := newTestPachd(env)
 	return pd, cleaner, nil
 }
