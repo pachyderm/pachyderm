@@ -1028,7 +1028,7 @@ message SetProjectDefaultsResponse {
 }
 
 message PipelinesSummaryRequest {
-  repeated pfs_v2.Project projects = 1; // a PipelinesSummary will be returned for every specified project
+  repeated pfs_v2.ProjectPicker projects = 1; // a PipelinesSummary will be returned for every specified project
 }
 
 message PipelinesSummaryResponse {

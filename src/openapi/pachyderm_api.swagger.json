@@ -11493,7 +11493,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "$ref": "#/definitions/pfs_v2Project"
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
           },
           "title": "a PipelinesSummary will be returned for every specified project"
         }

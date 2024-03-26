@@ -8552,7 +8552,7 @@ potentially expensive operations.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | a PipelinesSummary will be returned for every specified project |
+| projects | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a PipelinesSummary will be returned for every specified project |
 
 
 

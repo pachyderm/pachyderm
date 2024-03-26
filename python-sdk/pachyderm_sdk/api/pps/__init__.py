@@ -1322,7 +1322,7 @@ class SetProjectDefaultsResponse(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class PipelinesSummaryRequest(betterproto.Message):
-    projects: List["_pfs__.Project"] = betterproto.message_field(1)
+    projects: List["_pfs__.ProjectPicker"] = betterproto.message_field(1)
 
 
 @dataclass(eq=False, repr=False)
@@ -2223,7 +2223,7 @@ class ApiStub:
         return self.__rpc_set_project_defaults(request)
 
     def pipelines_summary(
-        self, *, projects: Optional[List["_pfs__.Project"]] = None
+        self, *, projects: Optional[List["_pfs__.ProjectPicker"]] = None
     ) -> "PipelinesSummaryResponse":
         projects = projects or []
 

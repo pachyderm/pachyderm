@@ -6,7 +6,7 @@
             "properties": {
                 "projects": {
                     "items": {
-                        "$ref": "#/definitions/pfs_v2.Project"
+                        "$ref": "#/definitions/pfs_v2.ProjectPicker"
                     },
                     "additionalProperties": false,
                     "type": "array",
@@ -17,7 +17,7 @@
             "type": "object",
             "title": "Pipelines Summary Request"
         },
-        "pfs_v2.Project": {
+        "pfs_v2.ProjectPicker": {
             "properties": {
                 "name": {
                     "type": "string"
@@ -25,7 +25,15 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Project"
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Project Picker",
+            "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project. Currently, the only way to pick a project is by using a project name. Picker messages should only be used as request parameters."
         }
     }
 }

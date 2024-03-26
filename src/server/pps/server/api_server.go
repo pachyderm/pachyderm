@@ -4141,9 +4141,18 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 }
 
 func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
-	projects := make(map[string]struct{})
+	var projects []*pfs.Project
 	for _, p := range req.Projects {
-		projects[p.String()] = struct{}{}
+		switch p.Picker.(type) {
+		case *pfs.ProjectPicker_Name:
+			projects = append(projects, &pfs.Project{Name: p.GetName()})
+		default:
+			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+		}
+	}
+	projectsMap := make(map[string]struct{})
+	for _, p := range projects {
+		projectsMap[p.String()] = struct{}{}
 	}
 	summaries := make(map[string]*pps.PipelinesSummary)
 	resp := &pps.PipelinesSummaryResponse{}
@@ -4152,23 +4161,17 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 		var summary *pps.PipelinesSummary
 		var ok bool
 		if summary, ok = summaries[project.String()]; !ok {
-			if _, ok := projects[project.String()]; !ok {
+			if _, ok := projectsMap[project.String()]; !ok {
 				summary = &pps.PipelinesSummary{}
 				summaries[project.String()] = summary
 			}
 		}
-		// Group BY?
-		// are RESTARTING and CRASHING active?
-		if pi.State == pps.PipelineState_PIPELINE_RUNNING ||
-			pi.State == pps.PipelineState_PIPELINE_STARTING ||
-			pi.State == pps.PipelineState_PIPELINE_STANDBY {
-			summary.ActivePipelines++
-		} else if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
 			summary.FailedPipelines++
 		} else if pi.State == pps.PipelineState_PIPELINE_PAUSED {
 			summary.PausedPipelines++
-		} else {
-
+		} else { // catch all includes crashing state
+			summary.ActivePipelines++
 		}
 		if pi.LastJobState == pps.JobState_JOB_KILLED ||
 			pi.LastJobState == pps.JobState_JOB_FAILURE ||
@@ -4179,7 +4182,7 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 	}); err != nil {
 		return nil, err
 	}
-	for _, p := range req.Projects {
+	for _, p := range projects {
 		if summary, ok := summaries[p.String()]; ok {
 			resp.Summaries = append(resp.Summaries, summary)
 		}

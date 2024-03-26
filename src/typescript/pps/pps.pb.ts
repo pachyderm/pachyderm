@@ -764,7 +764,7 @@ export type SetProjectDefaultsResponse = {
 }
 
 export type PipelinesSummaryRequest = {
-  projects?: Pfs_v2Pfs.Project[]
+  projects?: Pfs_v2Pfs.ProjectPicker[]
 }
 
 export type PipelinesSummaryResponse = {
