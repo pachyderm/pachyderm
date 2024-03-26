@@ -3,15 +3,14 @@ package server
 import (
 	"context"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
-	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
-	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
-	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
 // Auth is the subset of the auth server needed by the metadata service.
