@@ -680,6 +680,10 @@ func (c *unsupportedPpsBuilderClient) ListTask(_ context.Context, _ *taskapi.Lis
 	return nil, unsupportedError("ListTask")
 }
 
+func (c *unsupportedPpsBuilderClient) PipelinesSummary(_ context.Context, _ *pps_v2.PipelinesSummaryRequest, opts ...grpc.CallOption) (*pps_v2.PipelinesSummaryResponse, error) {
+	return nil, unsupportedError("PipelinesSummary")
+}
+
 func (c *unsupportedPpsBuilderClient) QueryLoki(_ context.Context, _ *pps_v2.LokiRequest, opts ...grpc.CallOption) (pps_v2.API_QueryLokiClient, error) {
 	return nil, unsupportedError("QueryLoki")
 }

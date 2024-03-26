@@ -1292,3 +1292,43 @@ func (x *SetProjectDefaultsResponse) MarshalLogObject(enc zapcore.ObjectEncoder)
 	enc.AddArray("affected_pipelines", zapcore.ArrayMarshalerFunc(affected_pipelinesArrMarshaller))
 	return nil
 }
+
+func (x *PipelinesSummaryRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Projects {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	summariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Summaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
+	return nil
+}
+
+func (x *PipelinesSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddInt64("active_pipelines", x.ActivePipelines)
+	enc.AddInt64("paused_pipelines", x.PausedPipelines)
+	enc.AddInt64("failed_pipelines", x.FailedPipelines)
+	enc.AddInt64("unhealthy_pipelines", x.UnhealthyPipelines)
+	return nil
+}
