@@ -54,6 +54,15 @@ func TestEditMetadata(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("create repo foo/test: %v", err)
 	}
+	repoPicker := &pfs.RepoPicker{
+		Picker: &pfs.RepoPicker_Name{
+			Name: &pfs.RepoPicker_RepoName{
+				Project: projectPicker,
+				Name:    repo.GetName(),
+				Type:    repo.GetType(),
+			},
+		},
+	}
 
 	branch := &pfs.Branch{
 		Repo: repo,
@@ -148,6 +157,7 @@ func TestEditMetadata(t *testing.T) {
 			t.Errorf("project foo (-want +got):\n%s", diff)
 		}
 	})
+
 	t.Run("commit", func(t *testing.T) {
 		if _, err := c.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
 			Edits: []*metadata.Edit{
@@ -208,6 +218,36 @@ func TestEditMetadata(t *testing.T) {
 		}
 	})
 
+	t.Run("repo", func(t *testing.T) {
+		if _, err := c.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
+			Edits: []*metadata.Edit{
+				{
+					Target: &metadata.Edit_Repo{
+						Repo: repoPicker,
+					},
+					Op: &metadata.Edit_AddKey_{
+						AddKey: &metadata.Edit_AddKey{
+							Key:   "key",
+							Value: "value",
+						},
+					},
+				},
+			},
+		}); err != nil {
+			t.Errorf("edit metadata: %v", err)
+		}
+		want := map[string]string{"key": "value"}
+		got, err := c.PfsAPIClient.InspectRepo(ctx, &pfs.InspectRepoRequest{
+			Repo: repo,
+		})
+		if err != nil {
+			t.Errorf("inspect repo: %v", err)
+		}
+		if diff := cmp.Diff(want, got.GetMetadata()); diff != "" {
+			t.Errorf("repo default/test (-want +got):\n%s", diff)
+		}
+	})
+
 	t.Run("multi_failed", func(t *testing.T) {
 		_, err := c.MetadataClient.EditMetadata(ctx, &metadata.EditMetadataRequest{
 			Edits: []*metadata.Edit{
@@ -244,6 +284,17 @@ func TestEditMetadata(t *testing.T) {
 						},
 					},
 				},
+				{
+					Target: &metadata.Edit_Repo{
+						Repo: repoPicker,
+					},
+					Op: &metadata.Edit_AddKey_{
+						AddKey: &metadata.Edit_AddKey{
+							Key:   "key",
+							Value: "value",
+						},
+					},
+				},
 			},
 		})
 		if err == nil {
@@ -254,6 +305,7 @@ func TestEditMetadata(t *testing.T) {
 			"edit #0:.*already exists; use edit_key instead$" +
 			".*^edit #1:.*already exists; use edit_key instead$" +
 			".*^edit #2:.*already exists; use edit_key instead$" +
+			".*^edit #3:.*already exists; use edit_key instead$" +
 			")/"
 		require.NoDiff(t, want, err.Error(), []cmp.Option{cmputil.RegexpStrings()})
 	})

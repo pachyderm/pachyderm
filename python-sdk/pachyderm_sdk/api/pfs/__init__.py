@@ -161,6 +161,10 @@ class RepoInfo(betterproto.Message):
     """
 
     details: "RepoInfoDetails" = betterproto.message_field(7)
+    metadata: Dict[str, str] = betterproto.map_field(
+        8, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """Metadata are user-defined key-value pairs."""
 
 
 @dataclass(eq=False, repr=False)

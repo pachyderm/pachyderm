@@ -91,6 +91,17 @@ func editInTx(ctx context.Context, tx *pachsql.Tx, edit *metadata.Edit) error {
 		if _, err := pfsdb.UpsertBranch(ctx, tx, b.BranchInfo); err != nil {
 			return errors.Wrapf(err, "update branch %q", b.GetBranch().Key())
 		}
+	case *metadata.Edit_Repo:
+		r, err := pfsdb.PickRepo(ctx, x.Repo, tx)
+		if err != nil {
+			return errors.Wrap(err, "pick repo")
+		}
+		if err := editMetadata(edit, &r.RepoInfo.Metadata); err != nil {
+			return errors.Wrapf(err, "edit repo %q", r.GetRepo().Key())
+		}
+		if _, err := pfsdb.UpsertRepo(ctx, tx, r.RepoInfo); err != nil {
+			return errors.Wrapf(err, "update repo %q", r.GetRepo().Key())
+		}
 	default:
 		return errors.Errorf("unknown target %v", edit.GetTarget())
 	}
