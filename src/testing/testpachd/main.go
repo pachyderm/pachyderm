@@ -6,6 +6,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
@@ -84,6 +85,7 @@ func main() {
 			break
 		}
 		fmt.Println(pachClient.GetAddress().Qualified())
+		os.Stdout.Close()
 	}()
 
 	<-ctx.Done()
