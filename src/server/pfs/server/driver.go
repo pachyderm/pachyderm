@@ -269,13 +269,12 @@ func (d *driver) hasProjectAccess(
 }
 
 func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, includeAuth bool, repoType string, projects []*pfs.Project, page *pfs.RepoPage) ([]*pfs.RepoInfo, error) {
-	projectNames := make(map[string]bool, 0)
-	for _, project := range projects {
-		projectNames[project.GetName()] = true
+	filter := &pfsdb.RepoFilter{
+		RepoTemplate: &pfs.Repo{},
+		Projects:     projects,
 	}
-	filter := &pfs.Repo{}
 	if repoType != "" { // blank type means return all, otherwise return a specific type
-		filter.Type = repoType
+		filter.RepoTemplate.Type = repoType
 	}
 	var authActive bool
 	if includeAuth {
@@ -291,9 +290,6 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 	}, 100)
 	var repos []*pfs.RepoInfo
 	if err := pfsdb.ForEachRepo(ctx, txnCtx.SqlTx, filter, page, func(repoWithID pfsdb.RepoInfoWithID) error {
-		if _, ok := projectNames[repoWithID.RepoInfo.Repo.Project.GetName()]; !ok && len(projectNames) > 0 {
-			return nil // project doesn't match filter.
-		}
 		if authActive {
 			hasAccess, err := d.hasProjectAccess(txnCtx, repoWithID.RepoInfo, checkProjectAccess)
 			if err != nil {
@@ -494,9 +490,8 @@ func (d *driver) relatedRepos(ctx context.Context, txnCtx *txncontext.Transactio
 		}
 		return []pfsdb.RepoInfoWithID{{RepoInfo: ri}}, nil
 	}
-	filter := &pfs.Repo{
-		Name:    repo.Name,
-		Project: repo.Project,
+	filter := &pfsdb.RepoFilter{
+		RepoTemplate: &pfs.Repo{Name: repo.Name, Project: repo.Project},
 	}
 	related, err := pfsdb.ListRepo(ctx, txnCtx.SqlTx, filter, nil)
 	if err != nil {
