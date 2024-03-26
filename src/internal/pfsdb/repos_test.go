@@ -346,7 +346,6 @@ func TestForEachRepoPaginationWithFilter(t *testing.T) {
 				&pfs.RepoPage{PageSize: 2, PageIndex: 1},
 			),
 		)
-
 	})
 }
 
