@@ -6,7 +6,8 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata/server",
     visibility = ["//visibility:public"],
     deps = [
-        "//src/internal/pachsql",
+        "//src/internal/transactionenv",
+        "//src/internal/transactionenv/txncontext",
         "//src/metadata",
         "//src/server/metadata",
         "@org_golang_google_grpc//codes",

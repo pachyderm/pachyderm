@@ -10020,7 +10020,7 @@
             },
             {
               "name": "commit",
-              "description": "",
+              "description": "commit targets a commit's metadata.",
               "label": "",
               "type": "CommitPicker",
               "longType": "pfs_v2.CommitPicker",
@@ -10040,11 +10040,31 @@
             },
             {
               "name": "branch",
-              "description": "",
+              "description": "branch targets a branch's metadata.",
               "label": "",
               "type": "BranchPicker",
               "longType": "pfs_v2.BranchPicker",
               "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "repo",
+              "description": "repo targets a repo's metadata.",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "pfs_v2.RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "target",
@@ -14208,6 +14228,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Metadata are user-defined key-value pairs.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "RepoInfo.MetadataEntry",
+              "fullType": "pfs_v2.RepoInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -14228,6 +14260,42 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "RepoInfo.MetadataEntry",
+          "fullName": "pfs_v2.RepoInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -14348,6 +14416,102 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummary",
+          "longName": "ReposSummary",
+          "fullName": "pfs_v2.ReposSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the ReposSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user_repo_count",
+              "description": "the count of user repos in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "aggregate size of all the repos returned in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryRequest",
+          "longName": "ReposSummaryRequest",
+          "fullName": "pfs_v2.ReposSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a ReposSummary will be returned for every specified project",
+              "label": "repeated",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryResponse",
+          "longName": "ReposSummaryResponse",
+          "fullName": "pfs_v2.ReposSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "repo summaries for the requested projects",
+              "label": "repeated",
+              "type": "ReposSummary",
+              "longType": "ReposSummary",
+              "fullType": "pfs_v2.ReposSummary",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -15740,6 +15904,18 @@
               "responseType": "Empty",
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ReposSummary",
+              "description": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+              "requestType": "ReposSummaryRequest",
+              "requestLongType": "ReposSummaryRequest",
+              "requestFullType": "pfs_v2.ReposSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "ReposSummaryResponse",
+              "responseLongType": "ReposSummaryResponse",
+              "responseFullType": "pfs_v2.ReposSummaryResponse",
               "responseStreaming": false
             }
           ]

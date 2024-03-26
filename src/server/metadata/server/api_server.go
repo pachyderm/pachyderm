@@ -9,11 +9,14 @@ import (
 	metadatapb "github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/server/metadata"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 )
 
+// Auth is the subset of the auth server needed by the metadata service.
 type Env struct {
-	DB *pachsql.DB
+	TxnEnv *transactionenv.TransactionEnv
+	Auth   metadata.Auth
 }
 
 type APIServer struct {
@@ -33,8 +36,13 @@ func NewMetadataServer(env Env) *APIServer {
 // any fail, the entire operation fails.
 func (s *APIServer) EditMetadata(ctx context.Context, req *metadatapb.EditMetadataRequest) (*metadatapb.EditMetadataResponse, error) {
 	res := &metadatapb.EditMetadataResponse{}
-	if err := metadata.EditMetadata(ctx, s.env.DB, req); err != nil {
-		return res, status.Errorf(codes.FailedPrecondition, "apply edits: %v", err)
+	if err := s.env.TxnEnv.WithWriteContext(ctx, func(tc *txncontext.TransactionContext) error {
+		if err := metadata.EditMetadataInTransaction(ctx, tc, s.env.Auth, req); err != nil {
+			return status.Errorf(codes.FailedPrecondition, "apply edits: %v", err)
+		}
+		return nil
+	}); err != nil {
+		return res, status.Errorf(codes.Unknown, "run write txn: %v", err)
 	}
 	return res, nil
 }

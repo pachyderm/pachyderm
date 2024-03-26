@@ -389,9 +389,13 @@
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
+    - [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry)
     - [RepoPage](#pfs_v2-RepoPage)
     - [RepoPicker](#pfs_v2-RepoPicker)
     - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
+    - [ReposSummary](#pfs_v2-ReposSummary)
+    - [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest)
+    - [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -4691,8 +4695,9 @@ Edit represents editing one piece of metadata.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
-| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  |  |
-| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  |  |
+| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  | commit targets a commit&#39;s metadata. |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
+| repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -6236,6 +6241,7 @@ RepoInfo is the main data structure representing a Repo in etcd
 | branches | [Branch](#pfs_v2-Branch) | repeated |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  | Set by ListRepo and InspectRepo if Pachyderm&#39;s auth system is active, but not stored in etcd. To set a user&#39;s auth scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto) |
 | details | [RepoInfo.Details](#pfs_v2-RepoInfo-Details) |  |  |
+| metadata | [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry) | repeated | Metadata are user-defined key-value pairs. |
 
 
 
@@ -6251,6 +6257,22 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | size_bytes | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoInfo-MetadataEntry"></a>
+
+### RepoInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -6303,6 +6325,53 @@ Picker messages should only be used as request parameters.
 | project | [ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
 | name | [string](#string) |  |  |
 | type | [string](#string) |  | type is optional. If omitted, the default type is &#39;user&#39;. |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummary"></a>
+
+### ReposSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  | the project the ReposSummary corresponds to |
+| user_repo_count | [int64](#int64) |  | the count of user repos in the summary |
+| size_bytes | [int64](#int64) |  | aggregate size of all the repos returned in the summary |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryRequest"></a>
+
+### ReposSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryResponse"></a>
+
+### ReposSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [ReposSummary](#pfs_v2-ReposSummary) | repeated | repo summaries for the requested projects |
 
 
 
@@ -6740,6 +6809,7 @@ These are the different places where a commit may be originated from
 | InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+| ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
 
  
 

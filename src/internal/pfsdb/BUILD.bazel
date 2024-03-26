@@ -61,6 +61,7 @@ go_test(
         "//src/internal/migrations",
         "//src/internal/pachsql",
         "//src/internal/pctx",
+        "//src/internal/protoutil",
         "//src/internal/require",
         "//src/internal/stream",
         "//src/internal/testetcd",

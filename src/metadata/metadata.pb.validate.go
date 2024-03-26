@@ -217,6 +217,59 @@ func (m *Edit) validate(all bool) error {
 			}
 		}
 
+	case *Edit_Repo:
+		if v == nil {
+			err := EditValidationError{
+				field:  "Target",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		oneofTargetPresent = true
+
+		if m.GetRepo() == nil {
+			err := EditValidationError{
+				field:  "Repo",
+				reason: "value is required",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetRepo()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "Repo",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, EditValidationError{
+						field:  "Repo",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetRepo()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return EditValidationError{
+					field:  "Repo",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	default:
 		_ = v // ensures v is used
 	}

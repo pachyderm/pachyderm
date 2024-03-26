@@ -80,6 +80,8 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
+  // Metadata are user-defined key-value pairs.
+  map<string, string> metadata = 8;
 }
 
 // AuthInfo includes the caller's access scope for a resource, and is returned
@@ -755,6 +757,20 @@ message EgressResponse {
   }
 }
 
+message ReposSummaryRequest {
+  repeated ProjectPicker projects = 1; // a ReposSummary will be returned for every specified project
+}
+
+message ReposSummary {
+  Project project = 1; // the project the ReposSummary corresponds to
+  int64 user_repo_count = 2; // the count of user repos in the summary
+  int64 size_bytes = 3; // aggregate size of all the repos returned in the summary
+}
+
+message ReposSummaryResponse {
+  repeated ReposSummary summaries = 1; // repo summaries for the requested projects
+}
+
 service API {
   // CreateRepo creates a new repo.
   rpc CreateRepo(CreateRepoRequest) returns (google.protobuf.Empty) {}
@@ -879,4 +895,8 @@ service API {
   rpc ListProject(ListProjectRequest) returns (stream ProjectInfo) {}
   // DeleteProject deletes a project.
   rpc DeleteProject(DeleteProjectRequest) returns (google.protobuf.Empty) {}
+
+  // Summary API
+  // ReposSummary returns a list of summaries about the repos for each of the requested projects.
+  rpc ReposSummary(ReposSummaryRequest) returns (ReposSummaryResponse) {}
 }

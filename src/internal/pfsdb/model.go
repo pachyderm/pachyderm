@@ -66,7 +66,8 @@ type Repo struct {
 	Type        string  `db:"type"`
 	Description string  `db:"description"`
 	CreatedAtUpdatedAt
-	BranchesNames string `db:"branches"`
+	BranchesNames string  `db:"branches"`
+	Metadata      jsonMap `db:"metadata"`
 }
 
 func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
@@ -91,6 +92,7 @@ func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
 		Description: repo.Description,
 		Branches:    branches,
 		Created:     timestamppb.New(repo.CreatedAt),
+		Metadata:    repo.Metadata.Data,
 	}, nil
 }
 
