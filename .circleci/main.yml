@@ -737,7 +737,7 @@ jobs:
       python-version:
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>-node
+      - image: cimg/node:20.11.0
     resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
@@ -759,7 +759,7 @@ jobs:
             - "node_modules"
       - run:
           name: "Install Python dependencies"
-          command: bazel run :venv
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: "Build and test the extension"
           command: |
@@ -898,7 +898,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: bazel run :venv
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -937,7 +937,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: bazel run :venv
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -962,7 +962,7 @@ jobs:
       - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: bazel run :venv
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
