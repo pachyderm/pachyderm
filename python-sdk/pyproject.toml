@@ -20,7 +20,8 @@ classifiers = [
 
 
 [tool.poetry.dependencies]
-python = ">=3.8,<4.0"
+numpy = "^1.26.0"
+python = ">=3.9,<4.0"
 betterproto = "2.0.0b6"
 certifi = ">=2022.9"
 grpcio = ">=1.52.0"
@@ -28,6 +29,7 @@ grpc-interceptor = "^0.14.2"
 python-dotenv = "1.0"
 
 [tool.poetry.dev-dependencies]
+poetry = ">=1.8.2"
 black = "^23.3.0"
 pdoc3 = "0.10.0"
 pandas = "2.0.3"
