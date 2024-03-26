@@ -230,7 +230,7 @@ describe('datum screen', () => {
 
     it('executes command for toast notification on load.', async () => {
       const executeCommand = jest.fn();
-      const {getByTestId, findByTestId} = render(
+      const {findByTestId} = render(
         <Datum
           executeCommand={executeCommand}
           open={jest.fn()}
@@ -244,13 +244,13 @@ describe('datum screen', () => {
       userEvent.type(input, YAML.stringify({pfs: 'repo'}));
       submit.click();
 
-      expect(executeCommand).toBeCalledWith('apputils:notify', {
+      expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
         message: 'Datum order not guaranteed when loading datums.',
         type: 'info',
         options: {
           autoClose: 10000, // 10 seconds
         },
-      })
+      });
     });
   });
 });

@@ -6,14 +6,15 @@ import {
   CurrentDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
-import {
-  ReadonlyPartialJSONObject
-} from '@lumino/coreutils';
+import {ReadonlyPartialJSONObject} from '@lumino/coreutils';
 
 type DatumProps = {
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
-  executeCommand: (id: string, args?: ReadonlyPartialJSONObject | undefined) => void;
+  executeCommand: (
+    id: string,
+    args?: ReadonlyPartialJSONObject | undefined,
+  ) => void;
   currentDatumInfo?: CurrentDatumResponse;
   repoViewInputSpec: CrossInputSpec | PfsInput;
 };
