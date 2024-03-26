@@ -113,6 +113,14 @@
   --disabled-purple: #a187ad;
   --disabled-tertiary: #8c9198;
 
+  /* dag lines */
+  --dag-line-idle: #a4a8ae;
+  --dag-line-transferring: #9bd49d;
+  --dag-line-highlighted: #99caff;
+  --dag-line-animation: #007304;
+  --dag-line-hover: #020408;
+  --dag-line-hover-animation: #19caaa;
+
   /* sizes */
   --border-radius-bottom-level: 5px;
   --border-radius-top-level: 10px;

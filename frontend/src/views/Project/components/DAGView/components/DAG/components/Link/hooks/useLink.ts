@@ -1,5 +1,5 @@
-import {line} from 'd3';
-import {useMemo} from 'react';
+import {line, select} from 'd3';
+import {useCallback, useMemo} from 'react';
 
 import {DagDirection, Link, PointCoordinates} from '@dash-frontend/lib/types';
 import useHoveredNode from '@dash-frontend/views/Project/components/DAGView/providers/HoveredNodeProvider/hooks/useHoveredNode';
@@ -9,6 +9,8 @@ const MASK_WIDTH = 2;
 //The marker is currently defined in DAGView.tsx
 const MARKER_WIDTH = 4;
 const MARKER_LENGTH = 10;
+
+export const CIRCLE_RADIUS = 10;
 
 export const getLineArray = (
   startPoint: PointCoordinates,
@@ -177,13 +179,32 @@ const useLink = (
   const {hoveredNode} = useHoveredNode();
   const id = `${link.source.id}_${link.target.id}`;
 
-  const lineArray = getLineArray(
+  const displayLineArray = getLineArray(
     link.startPoint,
     link.endPoint,
     link.bendPoints,
     dagDirection,
   );
-  const d = useMemo(() => line()(lineArray) || '', [lineArray]);
+
+  const displayPath = useMemo(
+    () => line()(displayLineArray) || '',
+    [displayLineArray],
+  );
+
+  const animationLineArray = getLineArray(
+    dagDirection === DagDirection.DOWN
+      ? {x: link.startPoint.x, y: link.startPoint.y - CIRCLE_RADIUS * 2}
+      : {x: link.startPoint.x - CIRCLE_RADIUS * 2, y: link.startPoint.y},
+    dagDirection === DagDirection.DOWN
+      ? {x: link.endPoint.x, y: link.endPoint.y + CIRCLE_RADIUS * 2}
+      : {x: link.endPoint.x + CIRCLE_RADIUS * 2, y: link.endPoint.y},
+    link.bendPoints,
+    dagDirection,
+  );
+  const animationPath = useMemo(
+    () => line()(animationLineArray) || '',
+    [animationLineArray],
+  );
   const clipPath = useMemo(
     () =>
       getLineClipPath(
@@ -197,9 +218,9 @@ const useLink = (
 
   // length / desired speed = time
   const speed = useMemo(() => {
-    const length = getLength(lineArray);
+    const length = getLength(animationLineArray);
     return `${length / DESIRED_SPEED}s`;
-  }, [lineArray]);
+  }, [animationLineArray]);
 
   const subDagSelected = useMemo(
     () =>
@@ -215,14 +236,28 @@ const useLink = (
   const sourceOrTargetHovered =
     hoveredNode === link.source.id || hoveredNode === link.target.id;
 
+  const {setHoveredNode} = useHoveredNode();
+
+  const onMouseOver = useCallback(() => {
+    select(`#link_${link.id}`).raise();
+    setHoveredNode(link.id);
+  }, [link.id, setHoveredNode]);
+
+  const onMouseOut = useCallback(() => {
+    setHoveredNode('');
+  }, [setHoveredNode]);
+
   return {
     transferring: link.transferring,
     highlightLink: subDagSelected || sourceOrTargetHovered,
     isCrossProject: link.isCrossProject,
     speed,
     id,
-    d,
+    displayPath,
+    animationPath,
     clipPath,
+    onMouseOver,
+    onMouseOut,
   };
 };
 

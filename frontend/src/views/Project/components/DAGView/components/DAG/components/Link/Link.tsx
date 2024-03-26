@@ -3,7 +3,7 @@ import React from 'react';
 
 import {DagDirection, Link as LinkType} from '@dash-frontend/lib/types';
 
-import useLink from './hooks/useLink';
+import useLink, {CIRCLE_RADIUS} from './hooks/useLink';
 import styles from './Link.module.css';
 
 type LinkProps = {
@@ -21,8 +21,18 @@ const Link: React.FC<LinkProps> = ({
   reversePreorder,
   hideDetails,
 }) => {
-  const {transferring, isCrossProject, id, speed, d, clipPath, highlightLink} =
-    useLink(link, dagDirection, preorder, reversePreorder);
+  const {
+    transferring,
+    isCrossProject,
+    id,
+    speed,
+    displayPath,
+    animationPath,
+    clipPath,
+    highlightLink,
+    onMouseOut,
+    onMouseOver,
+  } = useLink(link, dagDirection, preorder, reversePreorder);
 
   const classes = classNames(styles.link, {
     [styles.transferring]: transferring,
@@ -42,14 +52,33 @@ const Link: React.FC<LinkProps> = ({
       <clipPath id={`${id}_clipPath`}>
         <path d={clipPath} />
       </clipPath>
-      <g className={styles.group} id={`${link.id}_link`}>
-        <path d={d} strokeWidth="15" pointerEvents="stroke" fill="none" />
-        <path d={d} id={id} className={classes} fill="none" />
+      <g
+        className={classNames({
+          [styles.group]: !hideDetails,
+        })}
+        id={`link_${link.id}`}
+        onMouseOver={onMouseOver}
+        onMouseOut={onMouseOut}
+      >
+        {!hideDetails && (
+          <path
+            d={displayPath}
+            strokeWidth="15"
+            pointerEvents="stroke"
+            fill="none"
+          />
+        )}
+
+        <path d={displayPath} id={id} className={classes} fill="none" />
 
         {transferring && !hideDetails && (
           <g style={{clipPath: `url(#${id}_clipPath)`}}>
-            <circle r={10} className={styles.circle}>
-              <animateMotion dur={speed} repeatCount="indefinite" path={d} />
+            <circle r={CIRCLE_RADIUS} className={styles.circle}>
+              <animateMotion
+                dur={speed}
+                repeatCount="indefinite"
+                path={animationPath}
+              />
             </circle>
           </g>
         )}

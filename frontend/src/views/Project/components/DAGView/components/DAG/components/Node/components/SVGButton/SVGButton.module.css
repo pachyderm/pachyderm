@@ -9,7 +9,8 @@
 .buttonGroup.selected .roundedButton {
   fill: var(--cyan-10);
   stroke: var(--cyan);
-  stroke-width: 1px;
+  stroke-width: 2px;
+  paint-order: stroke;
 }
 
 .buttonGroup.interactive:hover .roundedButton {

@@ -1,5 +1,5 @@
 import {select} from 'd3-selection';
-import {useCallback, useEffect, useMemo} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useHistory} from 'react-router';
 
 import useLogsNavigation from '@dash-frontend/hooks/useLogsNavigation';
@@ -18,7 +18,11 @@ import {useClipboardCopy} from '@pachyderm/components';
 
 const LABEL_WIDTH = NODE_WIDTH - 44;
 
-const setText = (selector: string, groupName: string, elementText: string) => {
+const setText = (
+  selector: string,
+  groupName: string,
+  elementText: string,
+): boolean => {
   const text = select<SVGGElement, Node>(
     `#${groupName}`,
   ).select<SVGTextElement>(selector);
@@ -34,6 +38,8 @@ const setText = (selector: string, groupName: string, elementText: string) => {
 
   const maxWidth = LABEL_WIDTH;
 
+  let doesOverflow = false;
+
   while (nameChars.length > 0) {
     const char = nameChars.pop();
     if (char) {
@@ -44,10 +50,12 @@ const setText = (selector: string, groupName: string, elementText: string) => {
       if (tspanNode && tspanNode.getComputedTextLength() > maxWidth) {
         line.splice(line.length - 3, 3, '...');
         tspan.text(line.join(''));
+        doesOverflow = true;
         break;
       }
     }
   }
+  return doesOverflow;
 };
 
 const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
@@ -63,7 +71,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   const browserHistory = useHistory();
   const {setHoveredNode} = useHoveredNode();
   const {copy, copied, reset} = useClipboardCopy(node.name);
-
+  const [doesOverflow, setDoesOverflow] = useState(false);
   const noAccess = !node.access;
 
   const groupName = useMemo(() => `GROUP_${node.id}`, [node]);
@@ -161,7 +169,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
   useEffect(() => {
     if (hideDetails) return;
 
-    setText('.nodeLabel', groupName, node.name);
+    setDoesOverflow(setText('.nodeLabel', groupName, node.name));
 
     // This type of node has a second line of information we need to display.
     if (node.type === NodeType.CROSS_PROJECT_REPO) {
@@ -182,6 +190,7 @@ const useNode = (node: Node, isInteractive: boolean, hideDetails: boolean) => {
     onMouseOver,
     groupName,
     copied,
+    doesOverflow,
   };
 };
 

@@ -1,0 +1,41 @@
+.base {
+  display: flex;
+  position: absolute;
+  align-items: center;
+  margin-bottom: 0.125rem;
+  border-radius: 3px;
+  filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));
+  background-color: var(--white);
+
+  padding: 0.5rem;
+  min-width: 4rem;
+
+  bottom: 1rem;
+  left: 1rem;
+}
+
+.padding .base {
+  bottom: 4.125rem;
+}
+
+.border {
+  display: flex;
+  align-items: center;
+
+  padding: 0.25rem;
+
+  border: solid 1px var(--line-grey);
+  border-radius: 4px;
+}
+
+.flexColumn {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.pipelineDetails {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}

@@ -32,15 +32,6 @@
   white-space: pre-line;
 }
 
-.base:hover {
-  cursor: move;
-  cursor: grab;
-}
-
-.base:active {
-  cursor: grabbing;
-}
-
 .divider {
   box-sizing: border-box;
   height: 1.5rem;

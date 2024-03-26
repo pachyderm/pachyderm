@@ -1,7 +1,7 @@
 .link {
-  stroke: var(--grey-4);
+  stroke: var(--dag-line-idle);
   stroke-width: 2px;
-  marker-end: url(#end-arrow);
+  marker-end: url(#end-arrow-idle);
   stroke-linejoin: bevel;
 }
 
@@ -10,8 +10,8 @@
 }
 
 .group:hover .link {
-  stroke: var(--background-black);
-  marker-end: url(#end-arrow-active);
+  stroke: var(--dag-line-hover);
+  marker-end: url(#end-arrow-hover);
 }
 
 .crossProject {
@@ -19,20 +19,24 @@
 }
 
 .transferring {
-  stroke: var(--cyan-30);
+  stroke: var(--dag-line-transferring);
   stroke-width: 2px;
   stroke-linejoin: bevel;
   marker-end: url(#end-arrow-transferring);
 }
 
 .highlightLink {
-  stroke: var(--focus-state);
+  stroke: var(--dag-line-highlighted);
   marker-end: url(#end-arrow-highlighted);
 }
 
 .circle {
   filter: blur(2px);
-  fill: #007304;
+  fill: var(--dag-line-animation);
+}
+
+.group:hover .circle {
+  fill: var(--dag-line-hover-animation);
 }
 
 @-moz-document url-prefix() {

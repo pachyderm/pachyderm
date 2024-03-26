@@ -16,6 +16,7 @@ interface SVGButtonProps extends SVGProps<SVGGElement> {
   isSelected: boolean;
   round?: 'top' | 'bottom' | 'none';
   text?: string;
+  title?: string;
   textClassName?: string;
   IconSVG?: JSX.Element;
 }
@@ -26,6 +27,7 @@ const SVGButton: React.FC<SVGButtonProps> = ({
   isSelected,
   round,
   text,
+  title,
   IconSVG,
   textClassName = 'nodeLabel',
   ...rest
@@ -45,7 +47,7 @@ const SVGButton: React.FC<SVGButtonProps> = ({
 
   let container = (
     <rect
-      className={classNames(styles.roundedButton)}
+      className={styles.roundedButton}
       width={BUTTON_WIDTH}
       height={BUTTON_HEIGHT}
       rx={round === 'none' ? 0 : BORDER_RADIUS}
@@ -58,6 +60,7 @@ const SVGButton: React.FC<SVGButtonProps> = ({
     if (round === 'top') {
       container = (
         <use
+          transform="translate (0,-1)"
           xlinkHref="#topRoundedButton"
           clipPath="url(#topRoundedButtonOnly)"
           className={styles.roundedButton}
@@ -66,6 +69,7 @@ const SVGButton: React.FC<SVGButtonProps> = ({
     } else if (round === 'bottom') {
       container = (
         <use
+          transform="translate (0,-1)"
           xlinkHref="#bottomRoundedButton"
           clipPath="url(#bottomRoundedButtonOnly)"
           className={styles.roundedButton}
@@ -79,6 +83,7 @@ const SVGButton: React.FC<SVGButtonProps> = ({
       {container}
       <text {...textElementProps} x="34" y="17">
         {text}
+        <title>{title}</title>
       </text>
       <g transform="scale(0.75)">
         {access ? (

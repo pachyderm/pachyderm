@@ -177,4 +177,32 @@ describe('Dag', () => {
     }).click();
     cy.url().should('contain', '/lineage/default/repos/images/upload');
   });
+
+  it('should show correct hover stats when pipeline is hovered', () => {
+    cy.findByRole('button', {
+      name: 'GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838 pipeline',
+    })
+      .should('exist')
+      .trigger('mouseover');
+
+    cy.findByText('Workers active', {timeout: 10000});
+    cy.findByText('1/1', {timeout: 10000});
+  });
+
+  it('should show correct hover stats when edge is hovered', () => {
+    // images -> edges
+    cy.get(
+      'path[id="8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65_d0e1e9a51269508c3f11c0e64c721c3ea6204838"]',
+    )
+      .should('exist')
+      .trigger('mouseover');
+
+    cy.findByTestId('HoverStats__link').should(
+      'contain.text',
+      'images edges',
+      {
+        timeout: 10000,
+      },
+    );
+  });
 });

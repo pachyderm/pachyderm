@@ -158,6 +158,7 @@ const Node: React.FC<NodeProps> = ({
     onMouseOver,
     groupName,
     copied,
+    doesOverflow,
   } = useNode(node, isInteractive, hideDetails);
 
   const statusClasses = classNames(styles.statusGroup, {
@@ -322,6 +323,7 @@ const Node: React.FC<NodeProps> = ({
               onClick={() => onClick('egress')}
               round="top"
               transform={`translate (${BUTTON_MARGIN}, ${BUTTON_MARGIN - 1})`}
+              title={doesOverflow ? node.name : ''}
               IconSVG={
                 !copied ? (
                   <CopySVG x="11" y="12" />
