@@ -14,10 +14,10 @@ import (
 )
 
 func TestNewTestPachd(t *testing.T) {
-	c := pachd.NewTestPachd(t)
 	ctx, done := context.WithTimeout(pctx.TestContext(t), 5*time.Second)
+	c := pachd.NewTestPachd(t).WithCtx(ctx)
+
 	defer done()
-	c = c.WithCtx(ctx)
 	repo := &pfs.Repo{
 		Name: "test",
 		Project: &pfs.Project{

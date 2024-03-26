@@ -161,21 +161,22 @@ func FullMode(ctx context.Context, config *pachconfig.PachdFullConfiguration) er
 }
 
 type Env struct {
-	DB            *pachsql.DB
-	DirectDB      *pachsql.DB
-	DBListener    collection.PostgresListener
-	ObjClient     obj.Client
-	Bucket        *obj.Bucket
-	EtcdClient    *clientv3.Client
-	Listener      net.Listener
-	K8sObjects    []runtime.Object
-	GetLokiClient func() (*lokiclient.Client, error)
+	DB               *pachsql.DB
+	DirectDB         *pachsql.DB
+	DBListenerConfig string
+	ObjClient        obj.Client
+	Bucket           *obj.Bucket
+	EtcdClient       *clientv3.Client
+	Listener         net.Listener
+	K8sObjects       []runtime.Object
+	GetLokiClient    func() (*lokiclient.Client, error)
 }
 
 type Full struct {
 	base
-	env    Env
-	config pachconfig.PachdFullConfiguration
+	env        Env
+	config     pachconfig.PachdFullConfiguration
+	dbListener collection.PostgresListener
 
 	selfGRPC        *grpc.ClientConn
 	authInterceptor *auth_interceptor.Interceptor
@@ -196,6 +197,8 @@ type Full struct {
 	pfsWorker   *pfs_server.Worker
 	ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
+
+	pfsMaster *pfs_server.Master
 }
 
 // NewFull sets up a new Full pachd and returns it.
@@ -225,12 +228,19 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		awaitDB(env.DB),
 		runMigrations(env.DirectDB, env.EtcdClient),
 		awaitMigrations(env.DB),
+		setupStep{
+			Name: "setup listener",
+			Fn: func(ctx context.Context) error {
+				pd.dbListener = collection.NewPostgresListener(env.DBListenerConfig)
+				return nil
+			},
+		},
 
 		// API Servers
 		initTransactionServer(&pd.txnSrv, func() txn_server.Env {
 			return txn_server.Env{
 				DB:         env.DB,
-				PGListener: env.DBListener,
+				PGListener: pd.dbListener,
 				TxnEnv:     pd.txnEnv,
 			}
 		}),
@@ -238,7 +248,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			return auth_server.Env{
 				DB:         env.DB,
 				EtcdClient: env.EtcdClient,
-				Listener:   env.DBListener,
+				Listener:   pd.dbListener,
 				TxnEnv:     pd.txnEnv,
 				GetEnterpriseServer: func() entiface.APIServer {
 					return pd.enterpriseSrv.(entiface.APIServer)
@@ -252,12 +262,12 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				},
 			}
 		}),
-		initPFSAPIServer(&pd.pfsSrv, func() pfs_server.Env {
+		initPFSAPIServer(&pd.pfsSrv, &pd.pfsMaster, func() pfs_server.Env {
 			etcdPrefix := path.Join(config.EtcdPrefix, config.PFSEtcdPrefix)
 			return pfs_server.Env{
 				DB:            env.DB,
 				Bucket:        env.Bucket,
-				Listener:      env.DBListener,
+				Listener:      pd.dbListener,
 				ObjectClient:  env.ObjClient,
 				EtcdClient:    env.EtcdClient,
 				EtcdPrefix:    etcdPrefix,
@@ -275,8 +285,8 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			return pps_server.Env{
 				AuthServer:        pd.authSrv.(auth_server.APIServer),
 				BackgroundContext: pctx.Background("pps"),
-				DB:                pd.env.DB,
-				Listener:          env.DBListener,
+				DB:                env.DB,
+				Listener:          pd.dbListener,
 				TxnEnv:            pd.txnEnv,
 				KubeClient:        fake.NewSimpleClientset(env.K8sObjects...),
 				EtcdClient:        env.EtcdClient,
@@ -285,8 +295,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetLokiClient:     env.GetLokiClient,
 				GetPachClient:     pd.MustGetPachClient,
 				Config: pachconfig.Configuration{
-					GlobalConfiguration:        &config.GlobalConfiguration,
-					PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+					GlobalConfiguration:             &config.GlobalConfiguration,
+					PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+					EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 				},
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
 			}
@@ -314,8 +325,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				pd.adminSrv = admin_server.NewAPIServer(admin_server.Env{
 					ClusterID: "mockPachd",
 					Config: &pachconfig.Configuration{
-						GlobalConfiguration:        &config.GlobalConfiguration,
-						PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+						GlobalConfiguration:             &config.GlobalConfiguration,
+						PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+						EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 					},
 					PFSServer: pd.pfsSrv,
 					Paused:    false,
@@ -330,13 +342,13 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				pd.enterpriseSrv, err = ent_server.NewEnterpriseServer(
 					&ent_server.Env{
 						DB:         env.DB,
-						Listener:   nil,
+						Listener:   pd.dbListener,
 						TxnEnv:     pd.txnEnv,
 						EtcdClient: env.EtcdClient,
 						EtcdPrefix: path.Join(config.EtcdPrefix, config.EnterpriseEtcdPrefix),
 						AuthServer: pd.authSrv.(auth_server.APIServer),
 						GetKubeClient: func() kubernetes.Interface {
-							return fake.NewSimpleClientset(pd.env.K8sObjects...)
+							return fake.NewSimpleClientset(env.K8sObjects...)
 						},
 						GetPachClient:     pd.MustGetPachClient,
 						Namespace:         "default",
@@ -364,7 +376,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			Fn: func(ctx context.Context) error {
 				var err error
 				pd.licenseSrv, err = license_server.New(&license_server.Env{
-					DB:       pd.env.DB,
+					DB:       env.DB,
 					Listener: nil,
 					Config: &pachconfig.Configuration{
 						GlobalConfiguration:             &config.GlobalConfiguration,
@@ -383,7 +395,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 			Name: "initDebugServer",
 			Fn: func(ctx context.Context) error {
 				pd.debugSrv = debug_server.NewDebugServer(debug_server.Env{
-					DB:            pd.env.DB,
+					DB:            env.DB,
 					Name:          "testpachd",
 					GetLokiClient: env.GetLokiClient,
 					GetKubeClient: func() kubernetes.Interface {
@@ -393,8 +405,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 						return dynamicfake.NewSimpleDynamicClient(runtime.NewScheme(), env.K8sObjects...)
 					},
 					Config: pachconfig.Configuration{
-						GlobalConfiguration:        &config.GlobalConfiguration,
-						PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+						GlobalConfiguration:             &config.GlobalConfiguration,
+						PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+						EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 					},
 					TaskService:   task.NewEtcdService(env.EtcdClient, path.Join(config.EtcdPrefix, "debug")),
 					GetPachClient: pd.MustGetPachClient,
@@ -417,6 +430,9 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 	pd.addBackground("pfsWorker", func(ctx context.Context) error {
 		return pd.pfsWorker.Run(ctx)
 	})
+	pd.addBackground("pfsMaster", func(ctx context.Context) error {
+		return pd.pfsMaster.Run(ctx)
+	})
 	pd.addBackground("ppsWorker", func(ctx context.Context) error {
 		return pd.ppsWorker.Run(ctx)
 	})
@@ -424,16 +440,16 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		return pd.debugWorker.Run(ctx)
 	})
 	pd.addBackground("grpc", newServeGRPC(pd.authInterceptor, env.Listener, func(gs grpc.ServiceRegistrar) {
-		grpc_health_v1.RegisterHealthServer(gs, pd.healthSrv)
-		version.RegisterAPIServer(gs, pd.version)
+		admin.RegisterAPIServer(gs, pd.adminSrv)
 		auth.RegisterAPIServer(gs, pd.authSrv)
+		debug.RegisterDebugServer(gs, pd.debugSrv)
+		enterprise.RegisterAPIServer(gs, pd.enterpriseSrv)
+		grpc_health_v1.RegisterHealthServer(gs, pd.healthSrv)
+		license.RegisterAPIServer(gs, pd.licenseSrv)
+		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
 		pps.RegisterAPIServer(gs, pd.ppsSrv)
-		metadata.RegisterAPIServer(gs, pd.metadataSrv)
-		admin.RegisterAPIServer(gs, pd.adminSrv)
-		enterprise.RegisterAPIServer(gs, pd.enterpriseSrv)
-		license.RegisterAPIServer(gs, pd.licenseSrv)
-		debug.RegisterDebugServer(gs, pd.debugSrv)
+		version.RegisterAPIServer(gs, pd.version)
 	}))
 	return pd
 }
