@@ -2775,6 +2775,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "extra_args",
+              "description": "",
+              "label": "",
+              "type": "Any",
+              "longType": "google.protobuf.Any",
+              "fullType": "google.protobuf.Any",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -3163,6 +3175,30 @@
           ]
         },
         {
+          "name": "LokiArgs",
+          "longName": "LokiArgs",
+          "fullName": "debug_v2.LokiArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "max_logs",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Pipeline",
           "longName": "Pipeline",
           "fullName": "debug_v2.Pipeline",
@@ -3275,6 +3311,30 @@
               "type": "Duration",
               "longType": "google.protobuf.Duration",
               "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProfileArgs",
+          "longName": "ProfileArgs",
+          "fullName": "debug_v2.ProfileArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "profiles",
+              "description": "",
+              "label": "repeated",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

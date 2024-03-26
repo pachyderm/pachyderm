@@ -119,6 +119,17 @@ class App(betterproto.Message):
     pods: List["Pod"] = betterproto.message_field(2)
     timeout: timedelta = betterproto.message_field(3)
     pipeline: "Pipeline" = betterproto.message_field(4)
+    extra_args: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(5)
+
+
+@dataclass(eq=False, repr=False)
+class ProfileArgs(betterproto.Message):
+    profiles: List[str] = betterproto.string_field(1)
+
+
+@dataclass(eq=False, repr=False)
+class LokiArgs(betterproto.Message):
+    max_logs: int = betterproto.uint64_field(1)
 
 
 @dataclass(eq=False, repr=False)

@@ -5,6 +5,7 @@
 */
 
 import * as fm from "../fetch.pb"
+import * as GoogleProtobufAny from "../google/protobuf/any.pb"
 import * as GoogleProtobufDuration from "../google/protobuf/duration.pb"
 import * as GoogleProtobufEmpty from "../google/protobuf/empty.pb"
 import * as GoogleProtobufWrappers from "../google/protobuf/wrappers.pb"
@@ -97,6 +98,15 @@ export type App = {
   pods?: Pod[]
   timeout?: GoogleProtobufDuration.Duration
   pipeline?: Pipeline
+  extraArgs?: GoogleProtobufAny.Any
+}
+
+export type ProfileArgs = {
+  profiles?: string[]
+}
+
+export type LokiArgs = {
+  maxLogs?: string
 }
 
 export type System = {
