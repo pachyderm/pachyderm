@@ -503,6 +503,8 @@ go_library(
         "debug_v2/TraceChunk.schema.json",
         "debug_v2/TraceRequest.schema.json",
         "metadata/Edit.schema.json",
+        "debug_v2/LokiArgs.schema.json",
+        "debug_v2/ProfileArgs.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],
