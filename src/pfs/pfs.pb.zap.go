@@ -91,6 +91,12 @@ func (x *RepoInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("branches", zapcore.ArrayMarshalerFunc(branchesArrMarshaller))
 	enc.AddObject("auth_info", x.AuthInfo)
 	enc.AddObject("details", x.Details)
+	enc.AddObject("metadata", zapcore.ObjectMarshalerFunc(func(enc zapcore.ObjectEncoder) error {
+		for k, v := range x.Metadata {
+			enc.AddString(fmt.Sprintf("%v", k), v)
+		}
+		return nil
+	}))
 	return nil
 }
 

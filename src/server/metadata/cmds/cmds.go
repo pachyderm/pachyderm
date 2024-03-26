@@ -24,7 +24,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	var commands []*cobra.Command
 
 	editMetadata := &cobra.Command{
-		Use:   `{{alias}} [<object type: project|commit|branch> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
+		Use:   `{{alias}} [<object type: project|repo|branch|commit> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
 		Short: "Edits an object's metadata",
 		Long:  "Edits an object's metadata.",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
@@ -105,6 +105,16 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 			fixupProjects(&bp, defaultProject)
 			edit.Target = &metadata.Edit_Branch{
 				Branch: &bp,
+			}
+		case "repo":
+			var rp pfs.RepoPicker
+			if err := rp.UnmarshalText([]byte(picker)); err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: unable to parse repo picker %q", i, picker))
+				continue
+			}
+			fixupProjects(&rp, defaultProject)
+			edit.Target = &metadata.Edit_Repo{
+				Repo: &rp,
 			}
 		default:
 			errors.JoinInto(&errs, errors.Errorf("arg set %d: unknown object type %q", i, kind))

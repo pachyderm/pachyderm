@@ -313,6 +313,68 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "add to a user repo",
+			args: []string{"repo", "test", "add", "key=value"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Repo{
+							Repo: &pfs.RepoPicker{
+								Picker: &pfs.RepoPicker_Name{
+									Name: &pfs.RepoPicker_RepoName{
+										Project: &pfs.ProjectPicker{
+											Picker: &pfs.ProjectPicker_Name{
+												Name: "the_default_project",
+											},
+										},
+										Name: "test",
+										Type: "user",
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_AddKey_{
+							AddKey: &metadata.Edit_AddKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "add to a spec repo",
+			args: []string{"repo", "default/test.spec", "add", "key=value"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Repo{
+							Repo: &pfs.RepoPicker{
+								Picker: &pfs.RepoPicker_Name{
+									Name: &pfs.RepoPicker_RepoName{
+										Project: &pfs.ProjectPicker{
+											Picker: &pfs.ProjectPicker_Name{
+												Name: "default",
+											},
+										},
+										Name: "test",
+										Type: "spec",
+									},
+								},
+							},
+						},
+						Op: &metadata.Edit_AddKey_{
+							AddKey: &metadata.Edit_AddKey{
+								Key:   "key",
+								Value: "value",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, test := range testData {
@@ -377,6 +439,13 @@ func TestEditMetadata(t *testing.T) {
 			`,
 		},
 		{
+			name: "repo",
+			code: `
+				pachctl edit metadata repo test set '{"key":"value"}'
+				pachctl inspect repo test --raw | match '"key":[[:space:]]+"value"'
+			`,
+		},
+		{
 			name: "all",
 			code: `
 				pachctl inspect project default
@@ -401,7 +470,10 @@ func TestEditMetadata(t *testing.T) {
 						      commit test@master add implied=true \
 						      branch default/test@master add mybranchproject=default \
 						      branch project/test@master add mybranchproject=project \
-						      branch test@master add branchimplied=true
+						      branch test@master add branchimplied=true \
+						      repo default/test add myrepoproject=default \
+						      repo project/test add myrepoproject=project \
+						      repo test add repoimplied=true
 				pachctl inspect commit test@master --raw --project=default |
 					match '"myproject":[[:space:]]+"default"'
 				pachctl inspect commit test@master --raw --project=project |
@@ -412,6 +484,11 @@ func TestEditMetadata(t *testing.T) {
 				pachctl inspect branch test@master --raw --project=project |
 					match '"branchimplied":[[:space:]]+"true"' |
 					match '"mybranchproject":[[:space:]]+"project"'
+				pachctl inspect repo test --raw --project=default |
+					match '"myrepoproject":[[:space:]]+"default"'
+				pachctl inspect repo test --raw --project=project |
+					match '"repoimplied":[[:space:]]+"true"' |
+					match '"myrepoproject":[[:space:]]+"project"'
 			`,
 		},
 	}

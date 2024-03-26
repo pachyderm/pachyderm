@@ -80,6 +80,8 @@ message RepoInfo {
     int64 size_bytes = 1;
   }
   Details details = 7;
+  // Metadata are user-defined key-value pairs.
+  map<string, string> metadata = 8;
 }
 
 // AuthInfo includes the caller's access scope for a resource, and is returned

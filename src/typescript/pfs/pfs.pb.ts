@@ -121,6 +121,7 @@ export type RepoInfo = {
   branches?: Branch[]
   authInfo?: AuthInfo
   details?: RepoInfoDetails
+  metadata?: {[key: string]: string}
 }
 
 export type AuthInfo = {
