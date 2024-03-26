@@ -15,7 +15,6 @@ import (
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/collection"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -49,24 +48,23 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	dbcfg := dockertestenv.NewTestDBConfig(t)
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
 	directDB := testutil.OpenDB(t, dbcfg.Direct.DBOptions()...)
-	dbListener := collection.NewPostgresListener(dbutil.GetDSN(
+	dbListenerConfig := dbutil.GetDSN(
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
-		dbutil.WithSSLMode("disable"),
-	))
+		dbutil.WithSSLMode("disable"))
 
 	lis := testutil.Listen(t)
 	bucket, _ := dockertestenv.NewTestBucket(ctx, t)
 	etcd := testetcd.NewEnv(ctx, t).EtcdClient
 
 	env := Env{
-		DB:         db,
-		DirectDB:   directDB,
-		DBListener: dbListener,
-		Bucket:     bucket,
-		EtcdClient: etcd,
-		Listener:   lis,
+		DB:               db,
+		DirectDB:         directDB,
+		DBListenerConfig: dbListenerConfig,
+		Bucket:           bucket,
+		EtcdClient:       etcd,
+		Listener:         lis,
 	}
 	pd := newTestPachd(env)
 	go func() {
@@ -94,6 +92,7 @@ func newTestPachd(env Env) *Full {
 				StorageMemoryCacheSize:    20,
 			},
 		},
+		EnterpriseSpecificConfiguration: pachconfig.EnterpriseSpecificConfiguration{},
 	}
 	pd := NewFull(env, config)
 	return pd
@@ -127,12 +126,12 @@ func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
 		return nil, cleaner, errors.Wrap(err, "open direct db connection")
 	}
 	cleaner.AddCleanup("direct db connection", directDB.Close)
-	dbListener := collection.NewPostgresListener(dbutil.GetDSN(
+	dbListenerConfig := dbutil.GetDSN(
 		dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 		dbutil.WithDBName(dbcfg.Direct.DBName),
 		dbutil.WithUserPassword(dbcfg.Direct.User, dbcfg.Direct.Password),
 		dbutil.WithSSLMode("disable"),
-	))
+	)
 
 	// minio
 	bucket, _, cleanupMinio, err := dockertestenv.NewTestBucketCtx(ctx)
@@ -205,12 +204,12 @@ func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
 
 	// build pachd
 	env := Env{
-		DB:         db,
-		DirectDB:   directDB,
-		DBListener: dbListener,
-		Bucket:     bucket,
-		EtcdClient: etcdClient,
-		Listener:   lis,
+		DB:               db,
+		DirectDB:         directDB,
+		DBListenerConfig: dbListenerConfig,
+		Bucket:           bucket,
+		EtcdClient:       etcdClient,
+		Listener:         lis,
 	}
 	pd := newTestPachd(env)
 	return pd, cleaner, nil
