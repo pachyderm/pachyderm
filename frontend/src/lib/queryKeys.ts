@@ -27,8 +27,24 @@ const projectQueryKeys = {
     projectId,
     'projectDefaults',
   ],
-  pipelines: ({projectId}: {projectId?: string}) => [projectId, 'pipelines'],
-  repos: ({projectId}: {projectId?: string}) => [projectId, 'repos'],
+  pipelines: ({
+    projectId,
+    pageSize,
+    pageIndex,
+  }: {
+    projectId?: string;
+    pageSize?: number;
+    pageIndex?: number;
+  }) => [projectId, 'pipelines', pageSize, pageIndex],
+  repos: ({
+    projectId,
+    pageSize,
+    pageIndex,
+  }: {
+    projectId?: string;
+    pageSize?: number;
+    pageIndex?: number;
+  }) => [projectId, 'repos', pageSize, pageIndex],
   jobs: <ArgsType>({projectId, args}: {projectId?: string; args: ArgsType}) => [
     projectId,
     'jobs',

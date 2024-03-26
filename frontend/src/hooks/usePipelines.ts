@@ -30,6 +30,35 @@ export const usePipelines = (
   };
 };
 
+export const usePaginatedPipelines = (
+  projectName: Project['name'],
+  pageSize: number,
+  pageIndex: number,
+) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.pipelines({
+      projectId: projectName,
+      pageIndex,
+      pageSize,
+    }),
+    queryFn: () =>
+      listPipeline({
+        projects: [{name: projectName}],
+        page: {pageSize: String(pageSize), pageIndex: String(pageIndex)},
+      }),
+  });
+
+  return {
+    loading,
+    pipelines: data,
+    error: getErrorMessage(error),
+  };
+};
+
 export const usePipelinesLazy = (projectName: Project['name']) => {
   const {
     data,

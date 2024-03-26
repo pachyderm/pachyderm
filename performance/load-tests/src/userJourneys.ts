@@ -74,6 +74,46 @@ const pageThroughFiles: Journey = async (page: Page) => {
   }
 };
 
+const pageThroughRepos: Journey = async (page: Page) => {
+  await page.goto(
+    './project/perf-project-1/repos'
+  );
+
+  const pageForward = page.getByTestId('ReposTable__table').getByTestId('Pager__forward');
+  const pageBack = page.getByTestId('ReposTable__table').getByTestId('Pager__backward');
+  const MAX_PAGES = 8;
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    await pageForward.click();
+    page.getByText('RepoListRow__row'); // Wait for repos to load
+  }
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    await pageBack.click();
+    page.getByText('RepoListRow__row'); // Wait for repos to load
+  }
+};
+
+const pageThroughPipelines: Journey = async (page: Page) => {
+  await page.goto(
+    './project/perf-project-1/pipelines'
+  );
+
+  const pageForward = page.getByTestId('PipelineStepsTable__table').getByTestId('Pager__forward');
+  const pageBack = page.getByTestId('PipelineStepsTable__table').getByTestId('Pager__backward');
+  const MAX_PAGES = 8;
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    await pageForward.click();
+    page.getByText('PipelineListRow__row'); // Wait for pipelines to load
+  }
+
+  for (let i = 0; i < MAX_PAGES; i++) {
+    await pageBack.click();
+    page.getByText('PipelineListRow__row'); // Wait for pipelines to load
+  }
+};
+
 const idleOnJobs: Journey = async (page: Page) => {
   await page.goto('./project/perf-project-0/jobs');
 
@@ -149,6 +189,8 @@ export const journeys: JourneyObject[] = [
   {name: 'Load the landing page.', journey: loadLandingPage},
   {name: 'Page through datums', journey: pageThroughDatums},
   {name: 'Page through files', journey: pageThroughFiles},
+  {name: 'Page through repos', journey: pageThroughRepos},
+  {name: 'Page through pipelines', journey: pageThroughPipelines},
   {name: 'View commits on all repos', journey: viewCommitsOnAllRepos},
   {name: 'Idle for one minute on landing page', journey: idleLandingPage},
   {name: 'Idle for one minute on logs page', journey: idleLogsPage},

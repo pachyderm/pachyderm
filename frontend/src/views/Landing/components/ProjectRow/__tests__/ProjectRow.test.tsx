@@ -59,9 +59,48 @@ describe('ProjectRow RBAC', () => {
     server.listen();
     server.use(mockGetVersionInfo());
     server.use(mockGetEnterpriseInfoInactive());
+    server.use(mockFalseGetAuthorize());
   });
 
   afterAll(() => server.close());
+
+  it('should route users to the DAG page', async () => {
+    render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+    await click(
+      screen.getByRole('button', {
+        name: /view project projecta/i,
+      }),
+    );
+    expect(window.location.pathname).toBe('/lineage/ProjectA');
+  });
+
+  it('should route users to the Repos list', async () => {
+    render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+    await click(
+      screen.getByRole('button', {
+        name: /view projecta repos/i,
+      }),
+    );
+    expect(window.location.pathname).toBe('/project/ProjectA/repos');
+  });
+
+  it('should route users to the Pipelines list', async () => {
+    render(<ProjectRow />);
+
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+    await click(
+      screen.getByRole('button', {
+        name: /view projecta pipelines/i,
+      }),
+    );
+    expect(window.location.pathname).toBe('/project/ProjectA/pipelines');
+  });
 
   it('should not allow CRUD actions without permission', async () => {
     server.use(mockFalseGetAuthorize());

@@ -51,6 +51,10 @@ export enum Delimiter {
     CSV = "CSV",
 }
 
+export enum RepoPageOrdering {
+    PROJECT_REPO = "PROJECT_REPO",
+}
+
 export enum GetFileSetRequestFileSetType {
     TOTAL = "TOTAL",
     DIFF = "DIFF",
@@ -70,11 +74,40 @@ export type Repo = {
     project?: Project;
 };
 
+export type RepoPickerRepoName = {
+    __typename?: "RepoPickerRepoName";
+    project?: ProjectPicker;
+    name?: string;
+    type?: string;
+};
+
+
+type BaseRepoPicker = {
+    __typename?: "BaseRepoPicker";
+};
+
+export type RepoPicker = BaseRepoPicker
+    & OneOf<{ name: RepoPickerRepoName; }>;
+
 export type Branch = {
     __typename?: "Branch";
     repo?: Repo;
     name?: string;
 };
+
+export type BranchPickerBranchName = {
+    __typename?: "BranchPickerBranchName";
+    repo?: RepoPicker;
+    name?: string;
+};
+
+
+type BaseBranchPicker = {
+    __typename?: "BaseBranchPicker";
+};
+
+export type BranchPicker = BaseBranchPicker
+    & OneOf<{ name: BranchPickerBranchName; }>;
 
 export type File = {
     __typename?: "File";
@@ -137,6 +170,32 @@ export type Commit = {
     branch?: Branch;
 };
 
+export type CommitPickerCommitByGlobalId = {
+    __typename?: "CommitPickerCommitByGlobalId";
+    repo?: RepoPicker;
+    id?: string;
+};
+
+export type CommitPickerBranchRoot = {
+    __typename?: "CommitPickerBranchRoot";
+    offset?: number;
+    branch?: BranchPicker;
+};
+
+export type CommitPickerAncestorOf = {
+    __typename?: "CommitPickerAncestorOf";
+    offset?: number;
+    start?: CommitPicker;
+};
+
+
+type BaseCommitPicker = {
+    __typename?: "BaseCommitPicker";
+};
+
+export type CommitPicker = BaseCommitPicker
+    & OneOf<{ branchHead: BranchPicker; id: CommitPickerCommitByGlobalId; ancestor: CommitPickerAncestorOf; branchRoot: CommitPickerBranchRoot; }>;
+
 export type CommitInfoDetails = {
     __typename?: "CommitInfoDetails";
     sizeBytes?: string;
@@ -191,7 +250,16 @@ export type ProjectInfo = {
     description?: string;
     authInfo?: AuthInfo;
     createdAt?: GoogleProtobufTimestamp.Timestamp;
+    metadata?: { [key: string]: string; };
 };
+
+
+type BaseProjectPicker = {
+    __typename?: "BaseProjectPicker";
+};
+
+export type ProjectPicker = BaseProjectPicker
+    & OneOf<{ name: string; }>;
 
 export type CreateRepoRequest = {
     __typename?: "CreateRepoRequest";
@@ -209,6 +277,14 @@ export type ListRepoRequest = {
     __typename?: "ListRepoRequest";
     type?: string;
     projects?: Project[];
+    page?: RepoPage;
+};
+
+export type RepoPage = {
+    __typename?: "RepoPage";
+    order?: RepoPageOrdering;
+    pageSize?: string;
+    pageIndex?: string;
 };
 
 export type DeleteRepoRequest = {
@@ -317,6 +393,34 @@ export type DropCommitRequest = {
     __typename?: "DropCommitRequest";
     commit?: Commit;
     recursive?: boolean;
+};
+
+export type WalkCommitProvenanceRequest = {
+    __typename?: "WalkCommitProvenanceRequest";
+    start?: CommitPicker[];
+    maxCommits?: string;
+    maxDepth?: string;
+};
+
+export type WalkCommitSubvenanceRequest = {
+    __typename?: "WalkCommitSubvenanceRequest";
+    start?: CommitPicker[];
+    maxCommits?: string;
+    maxDepth?: string;
+};
+
+export type WalkBranchProvenanceRequest = {
+    __typename?: "WalkBranchProvenanceRequest";
+    start?: BranchPicker[];
+    maxBranches?: string;
+    maxDepth?: string;
+};
+
+export type WalkBranchSubvenanceRequest = {
+    __typename?: "WalkBranchSubvenanceRequest";
+    start?: BranchPicker[];
+    maxBranches?: string;
+    maxDepth?: string;
 };
 
 export type DropCommitResponse = {
@@ -698,6 +802,12 @@ export class API {
     static FindCommits(req: FindCommitsRequest, entityNotifier?: fm.NotifyStreamEntityArrival<FindCommitsResponse>, initReq?: fm.InitReq): Promise<void> {
         return fm.fetchStreamingRequest<FindCommitsRequest, FindCommitsResponse>(`/pfs_v2.API/FindCommits`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
     }
+    static WalkCommitProvenance(req: WalkCommitProvenanceRequest, entityNotifier?: fm.NotifyStreamEntityArrival<CommitInfo>, initReq?: fm.InitReq): Promise<void> {
+        return fm.fetchStreamingRequest<WalkCommitProvenanceRequest, CommitInfo>(`/pfs_v2.API/WalkCommitProvenance`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
+    }
+    static WalkCommitSubvenance(req: WalkCommitSubvenanceRequest, entityNotifier?: fm.NotifyStreamEntityArrival<CommitInfo>, initReq?: fm.InitReq): Promise<void> {
+        return fm.fetchStreamingRequest<WalkCommitSubvenanceRequest, CommitInfo>(`/pfs_v2.API/WalkCommitSubvenance`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
+    }
     static CreateBranch(req: CreateBranchRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
         return fm.fetchReq<CreateBranchRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/CreateBranch`, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
     }
@@ -709,6 +819,12 @@ export class API {
     }
     static DeleteBranch(req: DeleteBranchRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
         return fm.fetchReq<DeleteBranchRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/DeleteBranch`, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
+    }
+    static WalkBranchProvenance(req: WalkBranchProvenanceRequest, entityNotifier?: fm.NotifyStreamEntityArrival<BranchInfo>, initReq?: fm.InitReq): Promise<void> {
+        return fm.fetchStreamingRequest<WalkBranchProvenanceRequest, BranchInfo>(`/pfs_v2.API/WalkBranchProvenance`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
+    }
+    static WalkBranchSubvenance(req: WalkBranchSubvenanceRequest, entityNotifier?: fm.NotifyStreamEntityArrival<BranchInfo>, initReq?: fm.InitReq): Promise<void> {
+        return fm.fetchStreamingRequest<WalkBranchSubvenanceRequest, BranchInfo>(`/pfs_v2.API/WalkBranchSubvenance`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });
     }
     static GetFile(req: GetFileRequest, entityNotifier?: fm.NotifyStreamEntityArrival<GoogleProtobufWrappers.BytesValue>, initReq?: fm.InitReq): Promise<void> {
         return fm.fetchStreamingRequest<GetFileRequest, GoogleProtobufWrappers.BytesValue>(`/pfs_v2.API/GetFile`, entityNotifier, { ...initReq, method: "POST", body: JSON.stringify(req, fm.replacer) });

@@ -1,20 +1,30 @@
 import React from 'react';
 
-import {RepoInfo} from '@dash-frontend/api/pfs';
 import {PipelineInfo} from '@dash-frontend/api/pps';
 import EmptyState from '@dash-frontend/components/EmptyState';
 import ErrorStateSupportLink from '@dash-frontend/components/ErrorStateSupportLink';
-import {TableViewWrapper} from '@dash-frontend/components/TableView';
-import {Table, LoadingDots} from '@pachyderm/components';
+import {
+  TableViewPaginationWrapper,
+  TableViewWrapper,
+} from '@dash-frontend/components/TableView';
+import {Table, LoadingDots, Pager} from '@pachyderm/components';
+
+import {PIPELINES_DEFAULT_PAGE_SIZE} from '../../hooks/usePipelineList';
 
 import PipelineListRow from './components/PipelineListRow';
+import styles from './PipelineStepsList.module.css';
 
 type PipelineStepsListProps = {
   error?: string;
   loading: boolean;
   totalPipelinesLength: number;
   pipelines?: PipelineInfo[];
-  pipelineRepoMap: Record<string, RepoInfo>;
+  pageIndex: number;
+  updatePage: (page: number) => void;
+  pageSize: number;
+  setPageSize: React.Dispatch<React.SetStateAction<number>>;
+  hasNextPage: boolean;
+  isAuthActive: boolean;
 };
 
 const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
@@ -22,13 +32,14 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
   pipelines = [],
   loading,
   error,
-  pipelineRepoMap,
+  pageIndex,
+  updatePage,
+  pageSize,
+  setPageSize,
+  hasNextPage,
+  isAuthActive,
 }) => {
-  if (loading) {
-    return <LoadingDots />;
-  }
-
-  if (error) {
+  if (!loading && error) {
     return (
       <ErrorStateSupportLink
         title="We couldn't load the pipelines list"
@@ -37,7 +48,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
     );
   }
 
-  if (totalPipelinesLength === 0) {
+  if (!loading && totalPipelinesLength === 0) {
     return (
       <EmptyState
         title="This DAG has no pipelines"
@@ -50,7 +61,7 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
     );
   }
 
-  if (pipelines?.length === 0) {
+  if (!loading && pipelines?.length === 0) {
     return (
       <EmptyState
         title="No matching results"
@@ -59,37 +70,76 @@ const PipelineStepsList: React.FC<PipelineStepsListProps> = ({
     );
   }
 
+  const boxShadowBottomOnly = pageIndex > 0 || hasNextPage;
+
   return (
-    <TableViewWrapper>
-      <Table>
-        <Table.Head sticky>
-          <Table.Row>
-            <Table.HeaderCell>Name</Table.HeaderCell>
-            <Table.HeaderCell>Pipeline State</Table.HeaderCell>
-            <Table.HeaderCell>Last Job Status</Table.HeaderCell>
-            <Table.HeaderCell>Version</Table.HeaderCell>
-            <Table.HeaderCell>Created</Table.HeaderCell>
-            <Table.HeaderCell>Description</Table.HeaderCell>
-            {pipelineRepoMap[pipelines?.[0]?.pipeline?.name || '']?.authInfo
-              ?.roles && <Table.HeaderCell>Roles</Table.HeaderCell>}
-            <Table.HeaderCell />
-          </Table.Row>
-        </Table.Head>
-        <Table.Body>
-          {pipelines.map((pipeline) => {
-            return (
-              pipeline && (
-                <PipelineListRow
-                  key={pipeline.pipeline?.name}
-                  pipeline={pipeline}
-                  pipelineRepoMap={pipelineRepoMap}
-                />
-              )
-            );
-          })}
-        </Table.Body>
-      </Table>
-    </TableViewWrapper>
+    <>
+      <TableViewWrapper>
+        <Table>
+          <Table.Head sticky>
+            <Table.Row>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Name
+              </Table.HeaderCell>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Pipeline State
+              </Table.HeaderCell>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Last Job Status
+              </Table.HeaderCell>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Version
+              </Table.HeaderCell>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Created
+              </Table.HeaderCell>
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                Description
+              </Table.HeaderCell>
+              {isAuthActive && (
+                <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly}>
+                  Roles
+                </Table.HeaderCell>
+              )}
+              <Table.HeaderCell boxShadowBottomOnly={boxShadowBottomOnly} />
+            </Table.Row>
+          </Table.Head>
+          <Table.Body>
+            {loading && (
+              <tr className={styles.loading}>
+                <td>
+                  <LoadingDots data-testid="PipelineStepsList__loadingDots" />
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              pipelines.map((pipeline) => {
+                return (
+                  pipeline && (
+                    <PipelineListRow
+                      key={pipeline.pipeline?.name}
+                      pipeline={pipeline}
+                    />
+                  )
+                );
+              })}
+          </Table.Body>
+        </Table>
+      </TableViewWrapper>
+      {(pageIndex > 0 || hasNextPage) && (
+        <TableViewPaginationWrapper>
+          <Pager
+            elementName="pipeline"
+            page={pageIndex + 1}
+            updatePage={updatePage}
+            pageSizes={[PIPELINES_DEFAULT_PAGE_SIZE, 25, 50]}
+            nextPageDisabled={!hasNextPage}
+            updatePageSize={setPageSize}
+            pageSize={pageSize}
+          />
+        </TableViewPaginationWrapper>
+      )}
+    </>
   );
 };
 

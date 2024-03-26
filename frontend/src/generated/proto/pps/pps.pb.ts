@@ -81,6 +81,10 @@ export enum PipelineInfoPipelineType {
     PIPELINE_TYPE_SERVICE = "PIPELINE_TYPE_SERVICE",
 }
 
+export enum PipelinePageOrdering {
+    RECENT = "RECENT",
+}
+
 export type SecretMount = {
     __typename?: "SecretMount";
     name?: string;
@@ -539,11 +543,24 @@ export type ListDatumRequest = {
     reverse?: boolean;
 };
 
-export type CreateDatumRequest = {
-    __typename?: "CreateDatumRequest";
+export type StartCreateDatumRequest = {
+    __typename?: "StartCreateDatumRequest";
     input?: Input;
-    number?: string;
+    number?: number;
 };
+
+export type ContinueCreateDatumRequest = {
+    __typename?: "ContinueCreateDatumRequest";
+    number?: number;
+};
+
+
+type BaseCreateDatumRequest = {
+    __typename?: "BaseCreateDatumRequest";
+};
+
+export type CreateDatumRequest = BaseCreateDatumRequest
+    & OneOf<{ start: StartCreateDatumRequest; continue: ContinueCreateDatumRequest; }>;
 
 export type DatumSetSpec = {
     __typename?: "DatumSetSpec";
@@ -628,6 +645,14 @@ export type ListPipelineRequest = {
     jqFilter?: string;
     commitSet?: Pfs_v2Pfs.CommitSet;
     projects?: Pfs_v2Pfs.Project[];
+    page?: PipelinePage;
+};
+
+export type PipelinePage = {
+    __typename?: "PipelinePage";
+    order?: PipelinePageOrdering;
+    pageSize?: string;
+    pageIndex?: string;
 };
 
 export type DeletePipelineRequest = {

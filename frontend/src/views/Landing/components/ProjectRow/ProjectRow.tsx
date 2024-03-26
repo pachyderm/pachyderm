@@ -15,6 +15,8 @@ import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import {
   lineageRoute,
   projectConfigRoute,
+  projectPipelinesRoute,
+  projectReposRoute,
 } from '@dash-frontend/views/Project/utils/routes';
 import {
   Button,
@@ -24,6 +26,8 @@ import {
   Info,
   LoadingDots,
   OverflowSVG,
+  PipelineSVG,
+  RepoSVG,
   useModal,
 } from '@pachyderm/components';
 
@@ -89,8 +93,18 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
 
   const show = showOnlyAccessible ? hasProjectListRepo || hasRepoRead : true;
 
-  const onClick = () =>
+  const onViewDAGClick = () =>
     browserHistory.push(lineageRoute({projectId: project.project?.name || ''}));
+
+  const onViewReposClick = () =>
+    browserHistory.push(
+      projectReposRoute({projectId: project.project?.name || ''}),
+    );
+
+  const onViewPipelinesClick = () =>
+    browserHistory.push(
+      projectPipelinesRoute({projectId: project.project?.name || ''}),
+    );
 
   const overflowMenuItems: DropdownItem[] = [];
 
@@ -171,12 +185,32 @@ const ProjectRow: React.FC<ProjectRowProps> = ({
                 <Group spacing={8}>
                   <Button
                     buttonType="secondary"
-                    onClick={onClick}
+                    onClick={onViewDAGClick}
                     className={styles.button}
                     aria-label={`View project ${project.project?.name || ''}`}
                   >
                     <span>View</span>
                     <span className={styles.responsiveHide}> Project</span>
+                  </Button>
+                  <Button
+                    buttonType="ghost"
+                    onClick={onViewPipelinesClick}
+                    className={styles.button}
+                    aria-label={`View ${project.project?.name || ''} pipelines`}
+                    IconSVG={PipelineSVG}
+                  >
+                    <span className={styles.responsiveHide}>
+                      View Pipelines
+                    </span>
+                  </Button>
+                  <Button
+                    buttonType="ghost"
+                    onClick={onViewReposClick}
+                    className={styles.button}
+                    aria-label={`View ${project.project?.name || ''} repos`}
+                    IconSVG={RepoSVG}
+                  >
+                    <span className={styles.responsiveHide}>View Repos</span>
                   </Button>
                   <DefaultDropdown
                     items={overflowMenuItems}

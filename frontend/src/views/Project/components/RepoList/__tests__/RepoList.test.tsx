@@ -10,7 +10,12 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {CommitInfo, ListCommitRequest} from '@dash-frontend/api/pfs';
+import {
+  CommitInfo,
+  ListCommitRequest,
+  ListRepoRequest,
+  RepoInfo,
+} from '@dash-frontend/api/pfs';
 import {
   mockEmptyGetAuthorize,
   mockTrueGetAuthorize,
@@ -20,6 +25,7 @@ import {
   mockGetEnterpriseInfo,
   mockPipelinesEmpty,
   mockGetVersionInfo,
+  generatePagingRepos,
 } from '@dash-frontend/mocks';
 import {withContextProviders, click} from '@dash-frontend/testHelpers';
 
@@ -157,9 +163,7 @@ describe('Repo List', () => {
   it('should display repo details', async () => {
     render(<RepoList />);
 
-    await waitForElementToBeRemoved(() =>
-      screen.queryByTestId('ReposTable__loadingDots'),
-    );
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     const repos = screen.getAllByTestId('RepoListRow__row');
     expect(repos[1]).toHaveTextContent('edges');
@@ -200,9 +204,7 @@ describe('Repo List', () => {
   it('should sort repos', async () => {
     render(<RepoList />);
 
-    await waitForElementToBeRemoved(() =>
-      screen.queryByTestId('ReposTable__loadingDots'),
-    );
+    await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
     await waitFor(() =>
       expect(screen.getAllByTestId('RepoListRow__row')[1]).toHaveTextContent(
@@ -266,9 +268,7 @@ describe('Repo List', () => {
     it('should allow users to open the roles modal', async () => {
       render(<RepoList />);
 
-      await waitForElementToBeRemoved(() =>
-        screen.queryByTestId('ReposTable__loadingDots'),
-      );
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
       const montageRow = screen.getAllByTestId('RepoListRow__row')[0];
       await click(await within(montageRow).findByText('clusterAdmin'));
@@ -281,6 +281,98 @@ describe('Repo List', () => {
           name: 'Set Repo Level Roles: default/montage',
         }),
       ).toBeInTheDocument();
+    });
+  });
+
+  describe('repo paging', () => {
+    beforeEach(() => {
+      const repos = generatePagingRepos(30);
+      server.use(
+        rest.post<ListRepoRequest, Empty, RepoInfo[]>(
+          '/api/pfs_v2.API/ListRepo',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            const {page} = body;
+            const {pageSize, pageIndex} = page;
+
+            if (pageSize === '15' && pageIndex === '0') {
+              return res(ctx.json(repos.slice(0, 15)));
+            }
+
+            if (pageSize === '15' && pageIndex === '1') {
+              return res(ctx.json(repos.slice(15, 29)));
+            }
+
+            if (pageSize === '50' && pageIndex === '0') {
+              return res(ctx.json(repos));
+            }
+
+            return res(ctx.json(repos));
+          },
+        ),
+      );
+      server.use(
+        rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+          '/api/pfs_v2.API/ListCommit',
+          async (_req, res, ctx) => {
+            return res(ctx.json([]));
+          },
+        ),
+      );
+    });
+
+    it('should allow users to navigate through paged repos', async () => {
+      render(<RepoList />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      let repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos).toHaveLength(15);
+      expect(repos[0]).toHaveTextContent('repo-0');
+      expect(repos[14]).toHaveTextContent('repo-14');
+
+      let pager = screen.getByTestId('Pager__pager');
+      expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+      await click(within(pager).getByTestId('Pager__forward'));
+
+      expect(await screen.findByText('repo-15')).toBeInTheDocument();
+      repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos).toHaveLength(14);
+      expect(repos[0]).toHaveTextContent('repo-15');
+      repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos[0]).toHaveTextContent('repo-15');
+      expect(repos[13]).toHaveTextContent('repo-28');
+
+      pager = screen.getByTestId('Pager__pager');
+      expect(within(pager).getByTestId('Pager__forward')).toBeDisabled();
+      await click(within(pager).getByTestId('Pager__backward'));
+
+      repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos).toHaveLength(15);
+      expect(repos[0]).toHaveTextContent('repo-0');
+      expect(repos[14]).toHaveTextContent('repo-14');
+    });
+
+    it('should allow users to update page size', async () => {
+      render(<RepoList />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+
+      expect(await screen.findByText('repo-0')).toBeInTheDocument();
+
+      let repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos).toHaveLength(15);
+
+      const pager = screen.getByTestId('Pager__pager');
+      expect(within(pager).getByTestId('Pager__forward')).toBeEnabled();
+      expect(within(pager).getByTestId('Pager__backward')).toBeDisabled();
+
+      await click(within(pager).getByTestId('DropdownButton__button'));
+      await click(within(pager).getByText(50));
+
+      expect(await screen.findByText('repo-16')).toBeInTheDocument();
+      repos = screen.getAllByTestId('RepoListRow__row');
+      expect(repos).toHaveLength(30);
     });
   });
 });

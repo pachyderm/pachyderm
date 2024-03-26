@@ -15,9 +15,39 @@ export const useRepos = (
     error,
   } = useQuery({
     queryKey: queryKeys.repos({projectId: projectName}),
-    queryFn: () => listRepo({projects: [{name: projectName}], type: 'user'}),
+    queryFn: () =>
+      listRepo({
+        projects: [{name: projectName}],
+        type: 'user',
+      }),
     enabled,
     staleTime,
+  });
+
+  return {
+    loading,
+    repos: data,
+    error: getErrorMessage(error),
+  };
+};
+
+export const usePaginatedRepos = (
+  projectName: Project['name'],
+  pageSize: number,
+  pageIndex: number,
+) => {
+  const {
+    data,
+    isLoading: loading,
+    error,
+  } = useQuery({
+    queryKey: queryKeys.repos({projectId: projectName, pageIndex, pageSize}),
+    queryFn: () =>
+      listRepo({
+        projects: [{name: projectName}],
+        type: 'user',
+        page: {pageSize: String(pageSize), pageIndex: String(pageIndex)},
+      }),
   });
 
   return {

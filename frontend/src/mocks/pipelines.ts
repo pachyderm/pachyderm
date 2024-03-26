@@ -324,3 +324,15 @@ export const mockPipelinesEmpty = () =>
     '/api/pps_v2.API/ListPipeline',
     (_req, res, ctx) => res(ctx.json([])),
   );
+
+export const generatePagingPipelines = (n: number): PipelineInfo[] => {
+  const pipelines: PipelineInfo[] = [];
+  for (let i = 0; i < n; i++) {
+    pipelines.push(
+      buildPipeline({
+        pipeline: {name: `pipeline-${i}`, project: {name: 'default'}},
+      }),
+    );
+  }
+  return pipelines;
+};

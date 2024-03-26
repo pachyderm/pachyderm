@@ -69,7 +69,7 @@ const REPO_INFO_IMAGES: RepoInfo = buildRepo({
   sizeBytesUpperBound: '14783',
 });
 
-const REPO_INFO_EMPTY: RepoInfo = buildRepo({
+export const REPO_INFO_EMPTY: RepoInfo = buildRepo({
   branches: [],
   created: '2023-07-24T17:58:14Z',
   description: '',
@@ -151,3 +151,15 @@ export const mockReposEmpty = () =>
     '/api/pfs_v2.API/ListRepo',
     (_req, res, ctx) => res(ctx.json([])),
   );
+
+export const generatePagingRepos = (n: number): RepoInfo[] => {
+  const repos: RepoInfo[] = [];
+  for (let i = 0; i < n; i++) {
+    repos.push(
+      buildRepo({
+        repo: {name: `repo-${i}`, project: {name: 'default'}},
+      }),
+    );
+  }
+  return repos;
+};

@@ -1,5 +1,6 @@
 import {ResourceType} from '@dash-frontend/api/auth';
 import {Permission, useAuthorizeLazy} from '@dash-frontend/hooks/useAuthorize';
+import {useRepo} from '@dash-frontend/hooks/useRepo';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {useModal} from '@pachyderm/components';
 
@@ -10,6 +11,15 @@ const usePipelineListRow = (pipelineName: string) => {
     closeModal: closeRolesModal,
     isOpen: rolesModalOpen,
   } = useModal(false);
+
+  const {repo, loading: repoLoading} = useRepo({
+    repo: {
+      name: pipelineName,
+      project: {
+        name: projectId,
+      },
+    },
+  });
 
   const {checkPermissions, hasRepoModifyBindings: hasRepoEditRoles} =
     useAuthorizeLazy({
@@ -24,6 +34,8 @@ const usePipelineListRow = (pipelineName: string) => {
     closeRolesModal,
     hasRepoEditRoles,
     checkPermissions,
+    repo,
+    repoLoading,
   };
 };
 

@@ -22,6 +22,7 @@ type TableViewProps = {
   singleRowSelection?: boolean;
   filtersExpanded: boolean;
   setFiltersExpanded: React.Dispatch<React.SetStateAction<boolean>>;
+  hideFilters?: boolean;
 };
 
 const TableView: React.FC<TableViewProps> = ({
@@ -31,6 +32,7 @@ const TableView: React.FC<TableViewProps> = ({
   tabs,
   selectedItems,
   singleRowSelection = false,
+  hideFilters = false,
   filtersExpanded,
   setFiltersExpanded,
   children,
@@ -81,14 +83,16 @@ const TableView: React.FC<TableViewProps> = ({
                   {capitalize(value)}
                 </Tabs.Tab>
               ))}
-            <span className={styles.filterButton}>
-              <Button
-                IconSVG={FilterSVG}
-                onClick={() => setFiltersExpanded(!filtersExpanded)}
-                buttonType="ghost"
-                aria-label="expand filters"
-              />
-            </span>
+            {!hideFilters && (
+              <span className={styles.filterButton}>
+                <Button
+                  IconSVG={FilterSVG}
+                  onClick={() => setFiltersExpanded(!filtersExpanded)}
+                  buttonType="ghost"
+                  aria-label="expand filters"
+                />
+              </span>
+            )}
           </Tabs.TabsHeader>
           {children}
         </Tabs.RouterTabs>

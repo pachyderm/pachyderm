@@ -19,6 +19,7 @@ export interface HeaderCellProps
   sortLabel?: string;
   sortSelected?: boolean;
   sortReversed?: boolean;
+  boxShadowBottomOnly?: boolean;
 }
 
 const HeaderCell: React.FC<HeaderCellProps> = ({
@@ -29,12 +30,14 @@ const HeaderCell: React.FC<HeaderCellProps> = ({
   sortLabel = 'field',
   sortReversed = false,
   sortSelected = false,
+  boxShadowBottomOnly = false,
   className,
   ...rest
 }) => {
   const classNames = classnames(className, styles.base, {
     [styles.rightAligned]: rightAligned,
     [styles.sortHeader]: sortable,
+    [styles.boxShadowBottomOnly]: boxShadowBottomOnly,
     className,
   });
 

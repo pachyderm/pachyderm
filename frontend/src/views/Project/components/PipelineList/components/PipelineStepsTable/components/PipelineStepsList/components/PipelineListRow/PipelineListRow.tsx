@@ -1,7 +1,6 @@
 import capitalize from 'lodash/capitalize';
 import React from 'react';
 
-import {RepoInfo} from '@dash-frontend/api/pfs';
 import {PipelineInfo} from '@dash-frontend/api/pps';
 import {
   restJobStateToNodeState,
@@ -17,13 +16,12 @@ import {getStandardDateFromISOString} from '@dash-frontend/lib/dateTime';
 import hasRepoReadPermissions from '@dash-frontend/lib/hasRepoReadPermissions';
 import {readableJobState} from '@dash-frontend/lib/jobs';
 import readablePipelineState from '@dash-frontend/lib/readablePipelineState';
-import {Table, ButtonLink} from '@pachyderm/components';
+import {Table, ButtonLink, SkeletonBodyText} from '@pachyderm/components';
 
 import usePipelineListRow from './hooks/usePipelineListRow';
 
 type PipelineListRowProps = {
   pipeline?: PipelineInfo;
-  pipelineRepoMap: Record<string, RepoInfo>;
 };
 
 const getPipelineStateString = (nodeState: string, state: string) => {
@@ -36,10 +34,7 @@ const getPipelineStateString = (nodeState: string, state: string) => {
   }
 };
 
-const PipelineListRow: React.FC<PipelineListRowProps> = ({
-  pipeline,
-  pipelineRepoMap,
-}) => {
+const PipelineListRow: React.FC<PipelineListRowProps> = ({pipeline}) => {
   const pipelineId = pipeline?.pipeline?.name || '';
   const {
     closeRerunPipelineModal,
@@ -57,6 +52,8 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
     hasRepoEditRoles,
     openRolesModal,
     checkPermissions,
+    repo,
+    repoLoading,
   } = usePipelineListRow(pipelineId);
   const {searchParams, toggleSearchParamsListEntry} = useUrlQueryState();
 
@@ -64,9 +61,7 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
     toggleSearchParamsListEntry('selectedPipelines', value);
   };
 
-  const access = hasRepoReadPermissions(
-    pipelineRepoMap[pipelineId]?.authInfo?.permissions,
-  );
+  const access = hasRepoReadPermissions(repo?.authInfo?.permissions);
 
   return (
     <Table.Row
@@ -100,11 +95,15 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
           : '-'}
       </Table.DataCell>
       <Table.DataCell>{pipeline?.details?.description || '-'}</Table.DataCell>
-      {pipelineRepoMap[pipelineId]?.authInfo?.roles && (
+      {repo?.authInfo?.roles && (
         <Table.DataCell>
-          <ButtonLink onClick={openRolesModal}>
-            {pipelineRepoMap[pipelineId]?.authInfo?.roles?.join(', ') || 'None'}
-          </ButtonLink>
+          {repoLoading ? (
+            <SkeletonBodyText />
+          ) : (
+            <ButtonLink onClick={openRolesModal}>
+              {repo?.authInfo?.roles?.join(', ') || 'None'}
+            </ButtonLink>
+          )}
         </Table.DataCell>
       )}
 
@@ -116,7 +115,7 @@ const PipelineListRow: React.FC<PipelineListRowProps> = ({
         setDeleteModalOpen={setDeleteModalOpen}
       />
 
-      {pipelineRepoMap[pipelineId]?.authInfo?.roles && rolesModalOpen && (
+      {repo?.authInfo?.roles && rolesModalOpen && (
         <RepoRolesModal
           show={rolesModalOpen}
           onHide={closeRolesModal}
