@@ -1130,3 +1130,41 @@ func (x *EgressResponse_SQLDatabaseResult) MarshalLogObject(enc zapcore.ObjectEn
 	}))
 	return nil
 }
+
+func (x *ReposSummaryRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	projectsArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Projects {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("projects", zapcore.ArrayMarshalerFunc(projectsArrMarshaller))
+	return nil
+}
+
+func (x *ReposSummary) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddObject("project", x.Project)
+	enc.AddInt64("user_repo_count", x.UserRepoCount)
+	enc.AddInt64("size_bytes", x.SizeBytes)
+	return nil
+}
+
+func (x *ReposSummaryResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	summariesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Summaries {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("summaries", zapcore.ArrayMarshalerFunc(summariesArrMarshaller))
+	return nil
+}

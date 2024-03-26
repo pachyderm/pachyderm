@@ -14424,6 +14424,102 @@
           ]
         },
         {
+          "name": "ReposSummary",
+          "longName": "ReposSummary",
+          "fullName": "pfs_v2.ReposSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the ReposSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user_repo_count",
+              "description": "the count of user repos in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "aggregate size of all the repos returned in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryRequest",
+          "longName": "ReposSummaryRequest",
+          "fullName": "pfs_v2.ReposSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a ReposSummary will be returned for every specified project",
+              "label": "repeated",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryResponse",
+          "longName": "ReposSummaryResponse",
+          "fullName": "pfs_v2.ReposSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "repo summaries for the requested projects",
+              "label": "repeated",
+              "type": "ReposSummary",
+              "longType": "ReposSummary",
+              "fullType": "pfs_v2.ReposSummary",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "SQLDatabaseEgress",
           "longName": "SQLDatabaseEgress",
           "fullName": "pfs_v2.SQLDatabaseEgress",
@@ -15808,6 +15904,18 @@
               "responseType": "Empty",
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
+              "responseStreaming": false
+            },
+            {
+              "name": "ReposSummary",
+              "description": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+              "requestType": "ReposSummaryRequest",
+              "requestLongType": "ReposSummaryRequest",
+              "requestFullType": "pfs_v2.ReposSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "ReposSummaryResponse",
+              "responseLongType": "ReposSummaryResponse",
+              "responseFullType": "pfs_v2.ReposSummaryResponse",
               "responseStreaming": false
             }
           ]

@@ -13138,6 +13138,410 @@ var _ interface {
 	ErrorName() string
 } = EgressResponseValidationError{}
 
+// Validate checks the field values on ReposSummaryRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ReposSummaryRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReposSummaryRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ReposSummaryRequestMultiError, or nil if none found.
+func (m *ReposSummaryRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReposSummaryRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetProjects() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ReposSummaryRequestValidationError{
+						field:  fmt.Sprintf("Projects[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ReposSummaryRequestValidationError{
+						field:  fmt.Sprintf("Projects[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ReposSummaryRequestValidationError{
+					field:  fmt.Sprintf("Projects[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ReposSummaryRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReposSummaryRequestMultiError is an error wrapping multiple validation
+// errors returned by ReposSummaryRequest.ValidateAll() if the designated
+// constraints aren't met.
+type ReposSummaryRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReposSummaryRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReposSummaryRequestMultiError) AllErrors() []error { return m }
+
+// ReposSummaryRequestValidationError is the validation error returned by
+// ReposSummaryRequest.Validate if the designated constraints aren't met.
+type ReposSummaryRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReposSummaryRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReposSummaryRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReposSummaryRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReposSummaryRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReposSummaryRequestValidationError) ErrorName() string {
+	return "ReposSummaryRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReposSummaryRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReposSummaryRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReposSummaryRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReposSummaryRequestValidationError{}
+
+// Validate checks the field values on ReposSummary with the rules defined in
+// the proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *ReposSummary) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReposSummary with the rules defined
+// in the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in ReposSummaryMultiError, or
+// nil if none found.
+func (m *ReposSummary) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReposSummary) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	if all {
+		switch v := interface{}(m.GetProject()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ReposSummaryValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ReposSummaryValidationError{
+					field:  "Project",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetProject()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ReposSummaryValidationError{
+				field:  "Project",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	// no validation rules for UserRepoCount
+
+	// no validation rules for SizeBytes
+
+	if len(errors) > 0 {
+		return ReposSummaryMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReposSummaryMultiError is an error wrapping multiple validation errors
+// returned by ReposSummary.ValidateAll() if the designated constraints aren't met.
+type ReposSummaryMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReposSummaryMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReposSummaryMultiError) AllErrors() []error { return m }
+
+// ReposSummaryValidationError is the validation error returned by
+// ReposSummary.Validate if the designated constraints aren't met.
+type ReposSummaryValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReposSummaryValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReposSummaryValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReposSummaryValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReposSummaryValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReposSummaryValidationError) ErrorName() string { return "ReposSummaryValidationError" }
+
+// Error satisfies the builtin error interface
+func (e ReposSummaryValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReposSummary.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReposSummaryValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReposSummaryValidationError{}
+
+// Validate checks the field values on ReposSummaryResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ReposSummaryResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReposSummaryResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ReposSummaryResponseMultiError, or nil if none found.
+func (m *ReposSummaryResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReposSummaryResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	for idx, item := range m.GetSummaries() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ReposSummaryResponseValidationError{
+						field:  fmt.Sprintf("Summaries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ReposSummaryResponseValidationError{
+						field:  fmt.Sprintf("Summaries[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ReposSummaryResponseValidationError{
+					field:  fmt.Sprintf("Summaries[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	if len(errors) > 0 {
+		return ReposSummaryResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReposSummaryResponseMultiError is an error wrapping multiple validation
+// errors returned by ReposSummaryResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ReposSummaryResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReposSummaryResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReposSummaryResponseMultiError) AllErrors() []error { return m }
+
+// ReposSummaryResponseValidationError is the validation error returned by
+// ReposSummaryResponse.Validate if the designated constraints aren't met.
+type ReposSummaryResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReposSummaryResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReposSummaryResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReposSummaryResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReposSummaryResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReposSummaryResponseValidationError) ErrorName() string {
+	return "ReposSummaryResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReposSummaryResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReposSummaryResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReposSummaryResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReposSummaryResponseValidationError{}
+
 // Validate checks the field values on RepoPicker_RepoName with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
