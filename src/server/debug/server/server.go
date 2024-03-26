@@ -1137,7 +1137,12 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 			queryStr += `", container="` + container
 		}
 		queryStr += `"}`
-		logs, err := s.queryLoki(ctx, queryStr)
+		var lokiConfig debug.LokiArgs
+		if err := app.ExtraArgs.UnmarshalTo(&lokiConfig); err != nil {
+			log.Debug(ctx, "unmarshal <loki>.ExtraArgs", zap.Error(err))
+			lokiConfig.MaxLogs = maxLogs
+		}
+		logs, err := s.queryLoki(ctx, queryStr, lokiConfig.MaxLogs)
 		if err != nil {
 			return errors.EnsureStack(err)
 		}
@@ -1221,14 +1226,14 @@ func quoteLogQLStreamSelector(s string) string {
 
 func (s *debugServer) getWorkerPodsLoki(ctx context.Context, p *pps.Pipeline) (map[string]struct{}, error) {
 	// This function uses the log querying API and not the label querying API, to bound the the
-	// number of workers for a pipeline that we return.  We'll get 30,000 of the most recent
+	// number of workers for a pipeline that we return.  We'll get <maxLogs> of the most recent
 	// logs for each pipeline, and return the names of the workers that contributed to those
 	// logs for further inspection.  The alternative would be to get every worker that existed
 	// in some time interval, but that results in too much data to inspect.
 
 	queryStr := fmt.Sprintf(`{pipelineProject=%s, pipelineName=%s}`, quoteLogQLStreamSelector(p.Project.Name), quoteLogQLStreamSelector(p.Name))
 	pods := make(map[string]struct{})
-	logs, err := s.queryLoki(ctx, queryStr)
+	logs, err := s.queryLoki(ctx, queryStr, maxLogs)
 	if err != nil {
 		return nil, err
 	}
@@ -1249,9 +1254,10 @@ func (s *debugServer) getWorkerPodsLoki(ctx context.Context, p *pps.Pipeline) (m
 }
 
 const (
-	// maxLogs used to be 5,000 but a comment said this was too few logs, so now it's 30,000.
-	// If it still seems too small, bump it up again.
-	maxLogs = 30000
+	// maxLogs used to be 5,000 but a comment said this was too few logs, so then it was 30,000,
+	// and that was too small, so now it's 300,000.  If it still seems too small, bump it up
+	// again.
+	maxLogs = 300_000
 	// 5,000 is the maximum value of "limit" in queries that Loki seems to accept.
 	// We set serverMaxLogs below the actual limit because of a bug in Loki where it hangs when you request too much data from it.
 	serverMaxLogs = 1000
@@ -1262,7 +1268,7 @@ type lokiLog struct {
 	Entry  *loki.Entry
 }
 
-func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult []lokiLog, retErr error) {
+func (s *debugServer) queryLoki(ctx context.Context, queryStr string, wantNumLogs uint64) (retResult []lokiLog, retErr error) {
 	ctx, finishSpan := log.SpanContext(ctx, "queryLoki", zap.String("queryStr", queryStr))
 	defer func() {
 		finishSpan(zap.Error(retErr), zap.Int("logs", len(retResult)))
@@ -1284,16 +1290,16 @@ func (s *debugServer) queryLoki(ctx context.Context, queryStr string) (retResult
 	// this month, instead of the most recent 30,000 logs.  To use "BACKWARD" to get chunks of
 	// logs starting with the most recent (whose start time we can't know without asking), we
 	// have to either output logs in reverse order, or collect them all and then reverse.  Thus,
-	// we just buffer.  30k logs * (200 bytes each + 16 bytes of pointers per line + 24 bytes of
-	// time.Time) = 6.8MiB.  That seems totally reasonable to keep in memory, with the benefit
-	// of providing lines in chronological order even when the app uses both stdout and stderr.
+	// we just buffer.  300k logs * (200 bytes each + 16 bytes of pointers per line + 24 bytes
+	// of time.Time) = 68MiB.  That seems reasonable to keep in memory, with the benefit of
+	// providing lines in chronological order even when the app uses both stdout and stderr.
 	var result []lokiLog
 
 	var end time.Time
 	start := time.Now().Add(-30 * 24 * time.Hour) // 30 days.  (Loki maximum range is 30 days + 1 hour.)
 
-	for numLogs := 0; (end.IsZero() || start.Before(end)) && numLogs < maxLogs; {
-		// Loki requests can hang if the size of the log lines is too big
+	for numLogs := uint64(0); (end.IsZero() || start.Before(end)) && numLogs < wantNumLogs; {
+		// Loki requests can hang if the size of the log lines is too big.
 		ctx, cancel := context.WithTimeout(ctx, time.Minute)
 		resp, err := c.QueryRange(ctx, queryStr, serverMaxLogs, start, end, "BACKWARD", 0 /* step */, 0 /* interval */, true /* quiet */)
 		cancel()

@@ -6973,6 +6973,9 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "extraArgs": {
+          "$ref": "#/definitions/protobufAny"
         }
       }
     },
