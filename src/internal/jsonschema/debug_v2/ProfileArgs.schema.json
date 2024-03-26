@@ -6,14 +6,31 @@
             "properties": {
                 "profiles": {
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/debug_v2.Profile"
                     },
+                    "additionalProperties": false,
                     "type": "array"
                 }
             },
             "additionalProperties": false,
             "type": "object",
             "title": "Profile Args"
+        },
+        "debug_v2.Profile": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "duration": {
+                    "pattern": "^([0-9]+\\.?[0-9]*|\\.[0-9]+)s$",
+                    "type": "string",
+                    "description": "only meaningful if name == \"cpu\"",
+                    "format": "regex"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Profile"
         }
     }
 }

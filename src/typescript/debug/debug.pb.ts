@@ -102,7 +102,7 @@ export type App = {
 }
 
 export type ProfileArgs = {
-  profiles?: string[]
+  profiles?: Profile[]
 }
 
 export type LokiArgs = {

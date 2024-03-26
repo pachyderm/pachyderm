@@ -96,7 +96,7 @@ message App {
 }
 
 message ProfileArgs {
-  repeated string profiles = 1;
+  repeated Profile profiles = 1;
 }
 
 message LokiArgs {
