@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"strings"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -36,11 +37,20 @@ func (s *APIServer) EditMetadata(ctx context.Context, req *metadatapb.EditMetada
 	res := &metadatapb.EditMetadataResponse{}
 	if err := s.env.TxnEnv.WithWriteContext(ctx, func(tc *txncontext.TransactionContext) error {
 		if err := metadata.EditMetadataInTransaction(ctx, tc, s.env.Auth, req); err != nil {
-			return status.Errorf(codes.FailedPrecondition, "apply edits: %v", err)
+			return err
 		}
 		return nil
 	}); err != nil {
-		return res, status.Errorf(codes.Unknown, "run write txn: %v", err)
+		switch {
+		case strings.Contains(err.Error(), "SQLSTATE"):
+			return res, status.Errorf(codes.Aborted, "apply edits: %v", err)
+		case strings.Contains(err.Error(), "is not authorized"):
+			return res, status.Errorf(codes.PermissionDenied, "apply edits: %v", err)
+		case strings.Contains(err.Error(), "already exists"):
+			return res, status.Errorf(codes.FailedPrecondition, "apply edits: %v", err)
+		default:
+			return res, status.Errorf(codes.Unknown, "apply edits: %v", err)
+		}
 	}
 	return res, nil
 }

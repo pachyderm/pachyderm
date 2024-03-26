@@ -419,7 +419,7 @@ func TestEditMetadata(t *testing.T) {
 			t.Error("unexpected success")
 		}
 		want := []string{
-			`/edit #1: check permissions on branch.*robot:mallory is not authorized/`,
+			`/PermissionDenied.*edit #1: check permissions on branch.*robot:mallory is not authorized/`,
 			`/edit #3: check permissions on repo.*robot:mallory is not authorized/`,
 		}
 		require.NoDiff(t, want, strings.Split(err.Error(), "\n"), []cmp.Option{cmputil.RegexpStrings()})
