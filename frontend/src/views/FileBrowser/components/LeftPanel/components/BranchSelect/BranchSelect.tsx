@@ -30,11 +30,9 @@ const BranchSelect: React.FC = () => {
   const updateSelectedBranch = (selectedBranchId?: string) => {
     setSearchFilter('');
 
-    const params = selectedBranchId
-      ? {
-          branchId: `${selectedBranchId}`,
-        }
-      : {branchId: undefined};
+    const params = {
+      branchId: selectedBranchId ? selectedBranchId : undefined,
+    };
 
     browserHistory.push(
       `${fileBrowserLatestRoute(

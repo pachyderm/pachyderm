@@ -113,7 +113,6 @@ const ListViewTable: React.FC<ListViewTableProps> = ({files}) => {
         <BasicModal
           show={deleteModalOpen}
           onHide={closeModal}
-          //TODO: UPDATE
           headerContent={`Are you sure you want to delete the selected items from ${repoId}@${branchId}?`}
           actionable
           mode="Small"

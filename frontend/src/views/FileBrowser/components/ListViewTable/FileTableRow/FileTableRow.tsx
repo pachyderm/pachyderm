@@ -60,10 +60,6 @@ const FileTableRow: React.FC<FileTableRowProps> = ({
             },
             type: 'user',
           },
-          //: Double check but commit id should be enough here
-          // branch: {
-          //   name: branchId,
-          // },
         },
         path: file.file?.path,
       },
