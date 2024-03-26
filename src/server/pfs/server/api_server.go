@@ -1024,7 +1024,7 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 		return nil, err
 	}
 	resp := &pfs.ReposSummaryResponse{}
-	for _, p := range request.Projects {
+	for _, p := range projects {
 		if summary, ok := summaries[p.String()]; ok {
 			resp.Summaries = append(resp.Summaries, summary)
 		}
