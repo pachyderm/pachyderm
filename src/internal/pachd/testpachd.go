@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -93,6 +94,9 @@ func newTestPachd(env Env) *Full {
 			},
 		},
 		EnterpriseSpecificConfiguration: pachconfig.EnterpriseSpecificConfiguration{},
+	}
+	env.GetLokiClient = func() (*lokiclient.Client, error) {
+		return nil, errors.New("no loki")
 	}
 	pd := NewFull(env, config)
 	return pd
