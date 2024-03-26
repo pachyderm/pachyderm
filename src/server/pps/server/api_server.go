@@ -4143,12 +4143,17 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
 	var projects []*pfs.Project
 	for _, p := range req.Projects {
+		var project *pfs.Project
 		switch p.Picker.(type) {
 		case *pfs.ProjectPicker_Name:
-			projects = append(projects, &pfs.Project{Name: p.GetName()})
+			project = &pfs.Project{Name: p.GetName()}
 		default:
 			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
 		}
+		if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+			return nil, errors.Wrapf(err, "not authorized to list repos of project %q", project.String())
+		}
+		projects = append(projects, project)
 	}
 	projectsMap := make(map[string]struct{})
 	for _, p := range projects {
