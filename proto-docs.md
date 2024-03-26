@@ -393,6 +393,9 @@
     - [RepoPage](#pfs_v2-RepoPage)
     - [RepoPicker](#pfs_v2-RepoPicker)
     - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
+    - [ReposSummary](#pfs_v2-ReposSummary)
+    - [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest)
+    - [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -6328,6 +6331,53 @@ Picker messages should only be used as request parameters.
 
 
 
+<a name="pfs_v2-ReposSummary"></a>
+
+### ReposSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  | the project the ReposSummary corresponds to |
+| user_repo_count | [int64](#int64) |  | the count of user repos in the summary |
+| size_bytes | [int64](#int64) |  | aggregate size of all the repos returned in the summary |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryRequest"></a>
+
+### ReposSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryResponse"></a>
+
+### ReposSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [ReposSummary](#pfs_v2-ReposSummary) | repeated | repo summaries for the requested projects |
+
+
+
+
+
+
 <a name="pfs_v2-SQLDatabaseEgress"></a>
 
 ### SQLDatabaseEgress
@@ -6759,6 +6809,7 @@ These are the different places where a commit may be originated from
 | InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+| ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
 
  
 

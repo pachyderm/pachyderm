@@ -76,6 +76,7 @@ const (
 	API_InspectProjectV2_FullMethodName     = "/pfs_v2.API/InspectProjectV2"
 	API_ListProject_FullMethodName          = "/pfs_v2.API/ListProject"
 	API_DeleteProject_FullMethodName        = "/pfs_v2.API/DeleteProject"
+	API_ReposSummary_FullMethodName         = "/pfs_v2.API/ReposSummary"
 )
 
 // APIClient is the client API for API service.
@@ -195,6 +196,9 @@ type APIClient interface {
 	ListProject(ctx context.Context, in *ListProjectRequest, opts ...grpc.CallOption) (API_ListProjectClient, error)
 	// DeleteProject deletes a project.
 	DeleteProject(ctx context.Context, in *DeleteProjectRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	// Summary API
+	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
+	ReposSummary(ctx context.Context, in *ReposSummaryRequest, opts ...grpc.CallOption) (*ReposSummaryResponse, error)
 }
 
 type aPIClient struct {
@@ -1201,6 +1205,15 @@ func (c *aPIClient) DeleteProject(ctx context.Context, in *DeleteProjectRequest,
 	return out, nil
 }
 
+func (c *aPIClient) ReposSummary(ctx context.Context, in *ReposSummaryRequest, opts ...grpc.CallOption) (*ReposSummaryResponse, error) {
+	out := new(ReposSummaryResponse)
+	err := c.cc.Invoke(ctx, API_ReposSummary_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // APIServer is the server API for API service.
 // All implementations must embed UnimplementedAPIServer
 // for forward compatibility
@@ -1318,6 +1331,9 @@ type APIServer interface {
 	ListProject(*ListProjectRequest, API_ListProjectServer) error
 	// DeleteProject deletes a project.
 	DeleteProject(context.Context, *DeleteProjectRequest) (*emptypb.Empty, error)
+	// Summary API
+	// ReposSummary returns a list of summaries about the repos for each of the requested projects.
+	ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error)
 	mustEmbedUnimplementedAPIServer()
 }
 
@@ -1486,6 +1502,9 @@ func (UnimplementedAPIServer) ListProject(*ListProjectRequest, API_ListProjectSe
 }
 func (UnimplementedAPIServer) DeleteProject(context.Context, *DeleteProjectRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method DeleteProject not implemented")
+}
+func (UnimplementedAPIServer) ReposSummary(context.Context, *ReposSummaryRequest) (*ReposSummaryResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ReposSummary not implemented")
 }
 func (UnimplementedAPIServer) mustEmbedUnimplementedAPIServer() {}
 
@@ -2548,6 +2567,24 @@ func _API_DeleteProject_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _API_ReposSummary_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ReposSummaryRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(APIServer).ReposSummary(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: API_ReposSummary_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(APIServer).ReposSummary(ctx, req.(*ReposSummaryRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // API_ServiceDesc is the grpc.ServiceDesc for API service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -2682,6 +2719,10 @@ var API_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DeleteProject",
 			Handler:    _API_DeleteProject_Handler,
+		},
+		{
+			MethodName: "ReposSummary",
+			Handler:    _API_ReposSummary_Handler,
 		},
 	},
 	Streams: []grpc.StreamDesc{

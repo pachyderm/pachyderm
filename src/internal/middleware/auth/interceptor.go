@@ -189,6 +189,7 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/WalkBranchSubvenance": authDisabledOr(authenticated),
 	"/pfs_v2.API/WalkCommitProvenance": authDisabledOr(authenticated),
 	"/pfs_v2.API/WalkCommitSubvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/ReposSummary":         authDisabledOr(authenticated),
 
 	//
 	// PPS API
