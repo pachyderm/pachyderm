@@ -4166,9 +4166,11 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 		var summary *pps.PipelinesSummary
 		var ok bool
 		if summary, ok = summaries[project.String()]; !ok {
-			if _, ok := projectsMap[project.String()]; !ok {
-				summary = &pps.PipelinesSummary{}
+			if _, ok := projectsMap[project.String()]; ok {
+				summary = &pps.PipelinesSummary{Project: project}
 				summaries[project.String()] = summary
+			} else {
+				return nil
 			}
 		}
 		if pi.State == pps.PipelineState_PIPELINE_FAILURE {

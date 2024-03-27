@@ -975,19 +975,51 @@ func TestListPipelinesSummary(t *testing.T) {
 			true, /* update */
 		))
 	}
-	projects := []string{"a", "b", "c"}
+	projects := []string{"a", "b"}
 	for _, prj := range projects {
 		require.NoError(t, env.PachClient.CreateProject(prj))
 	}
-	for i, p := range []string{"A", "B", "C", "D", "E"} {
-		proj := projects[0]
-		if i%2 == 1 {
-			proj = projects[1]
+	pips := []string{"A", "B", "C", "D", "E"}
+	for _, prj := range projects {
+		for i, pip := range pips {
+			var jobState pps.JobState = pps.JobState_JOB_RUNNING
+			var pipState pps.PipelineState = pps.PipelineState_PIPELINE_RUNNING
+			if i%2 == 0 {
+				pipState = pps.PipelineState_PIPELINE_FAILURE
+				jobState = pps.JobState_JOB_UNRUNNABLE
+			} else if i%4 == 0 {
+				pipState = pps.PipelineState_PIPELINE_PAUSED
+				jobState = pps.JobState_JOB_SUCCESS
+			}
+			createPipeline(prj, pip, pipState, jobState)
 		}
-		createPipeline(proj, p, pps.PipelineState_PIPELINE_RUNNING, pps.JobState_JOB_STARTING)
 	}
 	resp, err := env.PachClient.PipelinesSummary(ctx, &pps.PipelinesSummaryRequest{})
 	require.NoError(t, err)
-	require.Len(t, resp.Summaries, 4)
+	require.Len(t, resp.Summaries, 0)
+	resp, err = env.PachClient.PipelinesSummary(ctx, &pps.PipelinesSummaryRequest{
+		Projects: []*pfs.ProjectPicker{
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "b",
+				},
+			},
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "a",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, resp.Summaries, 2)
+	// check summaries are sequenced by requested project
+	require.Equal(t, "b", resp.Summaries[0].Project.String())
+	require.Equal(t, "a", resp.Summaries[1].Project.String())
+	// check summary info
+	require.Equal(t, 2, resp.Summaries[0].ActivePipelines)
+	require.Equal(t, 0, resp.Summaries[0].PausedPipelines)
+	require.Equal(t, 0, resp.Summaries[0].FailedPipelines)
+	require.Equal(t, 0, resp.Summaries[0].UnhealthyPipelines)
 
 }
