@@ -177,6 +177,7 @@ type Full struct {
 	env        Env
 	config     pachconfig.PachdFullConfiguration
 	dbListener collection.PostgresListener
+	authReady  chan struct{}
 
 	selfGRPC        *grpc.ClientConn
 	authInterceptor *auth_interceptor.Interceptor
@@ -203,7 +204,7 @@ type Full struct {
 
 // NewFull sets up a new Full pachd and returns it.
 func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
-	pd := &Full{env: env, config: config}
+	pd := &Full{env: env, config: config, authReady: make(chan struct{})}
 
 	pd.selfGRPC = newSelfGRPC(env.Listener, nil)
 	pd.healthSrv = health.NewServer()
@@ -252,6 +253,11 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				EtcdClient: env.EtcdClient,
 				Listener:   pd.dbListener,
 				TxnEnv:     pd.txnEnv,
+				Config: pachconfig.Configuration{
+					GlobalConfiguration:             &config.GlobalConfiguration,
+					PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+					EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
+				},
 				GetEnterpriseServer: func() entiface.APIServer {
 					return pd.enterpriseSrv.(entiface.APIServer)
 				},
@@ -295,7 +301,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				EtcdPrefix:        path.Join(config.EtcdPrefix, config.PPSEtcdPrefix),
 				TaskService:       task.NewEtcdService(env.EtcdClient, path.Join(config.EtcdPrefix, config.PPSEtcdPrefix)),
 				GetLokiClient:     env.GetLokiClient,
-				GetPachClient:     pd.MustGetPachClient,
+				GetPachClient:     pd.mustGetPachClient,
 				Config: pachconfig.Configuration{
 					GlobalConfiguration:             &config.GlobalConfiguration,
 					PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
@@ -352,7 +358,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 						GetKubeClient: func() kubernetes.Interface {
 							return kubeClient
 						},
-						GetPachClient:     pd.MustGetPachClient,
+						GetPachClient:     pd.mustGetPachClient,
 						Namespace:         "default",
 						BackgroundContext: pctx.Background("enterprise"),
 						Config: pachconfig.Configuration{
@@ -412,7 +418,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 						EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
 					},
 					TaskService:   task.NewEtcdService(env.EtcdClient, path.Join(config.EtcdPrefix, "debug")),
-					GetPachClient: pd.MustGetPachClient,
+					GetPachClient: pd.mustGetPachClient,
 				})
 				return nil
 			},
@@ -453,21 +459,57 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		pps.RegisterAPIServer(gs, pd.ppsSrv)
 		version.RegisterAPIServer(gs, pd.version)
 	}))
+	pd.addBackground("bootstrap", func(ctx context.Context) error {
+		defer close(pd.authReady)
+		return errors.Join(
+			errors.Wrap(bootstrapIfAble(ctx, pd.licenseSrv), "license"),
+			errors.Wrap(bootstrapIfAble(ctx, pd.enterpriseSrv), "enterprise"),
+			errors.Wrap(bootstrapIfAble(ctx, pd.authSrv), "auth"),
+		)
+	})
 	return pd
 }
 
+func bootstrapIfAble(ctx context.Context, x any) error {
+	if b, ok := x.(interface{ EnvBootstrap(context.Context) error }); ok {
+		return b.EnvBootstrap(ctx)
+	}
+	return nil
+}
+
+// PachClient returns a pach client that can talk to the server with root privileges.
 func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
 	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
 	if err != nil {
 		return nil, errors.Wrap(err, "parse pachd address")
 	}
-	return client.NewFromPachdAddress(ctx, addr)
+	c, err := client.NewFromPachdAddress(ctx, addr)
+	if err != nil {
+		return nil, errors.Wrap(err, "NewPachdFromAddress")
+	}
+	if t := pd.config.AuthRootToken; t != "" {
+		c.SetAuthToken(t)
+	}
+	return c, nil
 }
 
-func (pd *Full) MustGetPachClient(ctx context.Context) *client.APIClient {
-	c, err := pd.PachClient(ctx)
+// mustGetPachClient returns an unauthenticated client for internal use by API servers.
+func (pd *Full) mustGetPachClient(ctx context.Context) *client.APIClient {
+	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
 	if err != nil {
-		panic(fmt.Sprintf("MustGetPachClient: %v", err))
+		panic(fmt.Sprintf("parse pachd address: %v", err))
+	}
+	c, err := client.NewFromPachdAddress(ctx, addr)
+	if err != nil {
+		panic(fmt.Sprintf("NewFromPachdAddress: %v", err))
 	}
 	return c
+}
+
+// AwaitAuth returns when auth is ready.  It must be called after Run() starts.
+func (pd *Full) AwaitAuth(ctx context.Context) {
+	select {
+	case <-pd.authReady:
+	case <-ctx.Done():
+	}
 }

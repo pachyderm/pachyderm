@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
@@ -46,6 +47,18 @@ func TestNewTestPachd(t *testing.T) {
 	require.Equal(t, want, buf.String(), "file content should be equal")
 }
 
-func TestNewTestPachd_underscore(t *testing.T) {
-	pachd.NewTestPachd(t)
+func TestNewTestPachd_WithAuth(t *testing.T) {
+	c := pachd.NewTestPachd(t, pachd.ActivateAuthOption(""))
+	robot, err := c.AuthAPIClient.GetRobotToken(c.Ctx(), &auth.GetRobotTokenRequest{
+		Robot: "robotguy42",
+	})
+	if err != nil {
+		t.Fatalf("create robot token: %v", err)
+	}
+	c.SetAuthToken(robot.Token)
+	whoami, err := c.AuthAPIClient.WhoAmI(c.Ctx(), &auth.WhoAmIRequest{})
+	if err != nil {
+		t.Fatalf("who am i: %v", err)
+	}
+	require.Equal(t, "robot:robotguy42", whoami.Username, "whoami should tell me my username")
 }
