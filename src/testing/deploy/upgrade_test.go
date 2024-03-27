@@ -46,6 +46,7 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 			}
 			ns, portOffset := minikubetestenv.ClaimCluster(t)
 			t.Logf("starting preUpgrade; version %v, namespace %v", from, ns)
+			valuesOverridden, strValuesOverridden := helmValuesPreGoCDK(numPachds)
 			preUpgrade(t, ctx, minikubetestenv.InstallRelease(t,
 				context.Background(),
 				ns,
@@ -55,7 +56,8 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 					DisableLoki:        true,
 					PortOffset:         portOffset,
 					UseLeftoverCluster: false,
-					ValueOverrides:     map[string]string{"pachw.minReplicas": "1", "pachw.maxReplicas": "5", "pachd.replicas": strconv.Itoa(numPachds)},
+					ValueOverrides:     valuesOverridden,
+					ValuesStrOverrides: strValuesOverridden,
 				}), from)
 			t.Logf("preUpgrade done; starting postUpgrade")
 			postUpgrade(t, ctx, minikubetestenv.UpgradeRelease(t,
@@ -70,6 +72,28 @@ func upgradeTest(suite *testing.T, ctx context.Context, parallelOK bool, numPach
 			t.Logf("postUpgrade done")
 		})
 	}
+}
+
+// helmValuesPreGoCDK returns two maps. The first is for overriding SetValues, the second is for
+// overriding SetStrValues.
+func helmValuesPreGoCDK(numPachds int) (map[string]string, map[string]string) {
+	return map[string]string{
+			"pachw.minReplicas": "1",
+			"pachw.maxReplicas": "5",
+			"pachd.replicas":    strconv.Itoa(numPachds),
+			// We are using "old" minio values here to pass CI tests. Current configurations has enabled gocdk by default,
+			// so to make UpgradeTest work, we overried configuration with these "old" minio values.
+			"pachd.storage.gocdkEnabled":   "false",
+			"pachd.storage.backend":        "MINIO",
+			"pachd.storage.minio.bucket":   "pachyderm-test",
+			"pachd.storage.minio.endpoint": "minio.default.svc.cluster.local:9000",
+			"pachd.storage.minio.id":       "minioadmin",
+			"pachd.storage.minio.secret":   "minioadmin",
+		},
+		map[string]string{
+			"pachd.storage.minio.signature": "",
+			"pachd.storage.minio.secure":    "false",
+		}
 }
 
 func TestUpgradeTrigger(t *testing.T) {

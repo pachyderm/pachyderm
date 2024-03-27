@@ -1397,26 +1397,22 @@ jobs:
           command: |
             helm install pachd ../etc/helm/pachyderm \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
               --namespace enterprise \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
@@ -2155,13 +2151,11 @@ commands:
           command: |
             helm install pachd ../etc/helm/pachyderm \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set pachd.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
