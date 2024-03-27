@@ -140,15 +140,20 @@ func initTransactionServer(out *transaction.APIServer, env func() txn_server.Env
 	}
 }
 
-func initPFSAPIServer(out *pfs.APIServer, env func() pfs_server.Env) setupStep {
+func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env func() pfs_server.Env) setupStep {
 	return setupStep{
 		Name: "initPFSAPIServer",
 		Fn: func(ctx context.Context) error {
 			apiServer, err := pfs_server.NewAPIServer(env())
 			if err != nil {
-				return err
+				return errors.Wrap(err, "pfs api server")
 			}
 			*out = apiServer
+			master, err := pfs_server.NewMaster(env())
+			if err != nil {
+				return errors.Wrap(err, "pfs master")
+			}
+			*outMaster = master
 			return nil
 		},
 	}
@@ -158,7 +163,7 @@ func initPPSAPIServer(out *pps.APIServer, env func() pps_server.Env) setupStep {
 	return setupStep{
 		Name: "initPPSServer",
 		Fn: func(ctx context.Context) error {
-			s, err := pps_server.NewAPIServerNoMaster(env())
+			s, err := pps_server.NewAPIServer(env())
 			if err != nil {
 				return err
 			}

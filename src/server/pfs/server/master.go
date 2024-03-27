@@ -395,7 +395,10 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitWithID, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
 		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			commitInfo := commitWithID.CommitInfo
+			commitInfo, err := pfsdb.GetCommit(ctx, txnCtx.SqlTx, commitWithID.ID)
+			if err != nil {
+				return errors.Wrap(err, "refresh commitInfo")
+			}
 			commitInfo.Finished = txnCtx.Timestamp
 			if details != nil {
 				commitInfo.SizeBytesUpperBound = details.SizeBytes

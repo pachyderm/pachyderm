@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"fmt"
+	"net/http"
 	"strings"
 	"sync"
 	"testing"
@@ -16,7 +17,9 @@ import (
 	minio "github.com/minio/minio-go/v7"
 	minioCreds "github.com/minio/minio-go/v7/pkg/credentials"
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"gocloud.dev/blob"
 	"gocloud.dev/blob/s3blob"
@@ -105,4 +108,59 @@ func NewTestBucket(ctx context.Context, t testing.TB) (*blob.Bucket, string) {
 		Scheme: "minio",
 		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
 	}.String()
+}
+
+func NewTestBucketCtx(ctx context.Context) (*blob.Bucket, string, func(ctx context.Context) error, error) {
+	dclient := newDockerClient()
+	defer dclient.Close()
+	if err := backoff.Retry(func() error {
+		return ensureMinio(ctx, dclient)
+	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
+		return nil, "", nil, errors.Wrap(err, "ensureMinio")
+	}
+
+	endpoint := getMinioEndpoint()
+	id := "minioadmin"
+	secret := "minioadmin"
+	client, err := minio.New(endpoint, &minio.Options{
+		Creds:  minioCreds.NewStaticV4(id, secret, ""),
+		Secure: false,
+	})
+	if err != nil {
+		return nil, "", nil, errors.Wrap(err, "minio.New")
+	}
+	buf := make([]byte, 4)
+	if _, err := rand.Reader.Read(buf[:]); err != nil {
+		return nil, "", nil, errors.Wrap(err, "generate bucket name: Read")
+	}
+	bucketName := fmt.Sprintf("%x", buf[:])
+	if err := client.MakeBucket(ctx, bucketName, minio.MakeBucketOptions{}); err != nil {
+		return nil, "", nil, errors.Wrapf(err, "minio.MakeBucket(%v)", bucketName)
+	}
+	cleanupMinio := func(ctx context.Context) error {
+		if err := client.RemoveBucketWithOptions(ctx, bucketName, minio.RemoveBucketOptions{ForceDelete: true}); err != nil {
+			return errors.Wrapf(err, "RemoveBucket(%v)", bucketName)
+		}
+		return nil
+	}
+
+	sess, err := session.NewSession(&aws.Config{
+		HTTPClient:       &http.Client{Transport: promutil.InstrumentRoundTripper("minio", nil)},
+		Region:           aws.String("dummy-region"),
+		Credentials:      credentials.NewStaticCredentials(id, secret, ""),
+		Endpoint:         aws.String(endpoint),
+		DisableSSL:       aws.Bool(true),
+		S3ForcePathStyle: aws.Bool(true),
+	})
+	if err != nil {
+		return nil, "", cleanupMinio, errors.Wrap(err, "session.NewSession")
+	}
+	bucket, err := s3blob.OpenBucket(ctx, sess, bucketName, nil)
+	if err != nil {
+		return nil, "", cleanupMinio, errors.Wrap(err, "s3blob.OpenBucket")
+	}
+	return bucket, obj.ObjectStoreURL{
+		Scheme: "minio",
+		Bucket: fmt.Sprintf("%s/%s", endpoint, bucketName),
+	}.String(), cleanupMinio, nil
 }

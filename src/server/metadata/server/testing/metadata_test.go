@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"strconv"
 	"strings"
 	"testing"
 
@@ -28,9 +27,7 @@ func TestRealEnv(t *testing.T) {
 }
 
 func TestEditMetadata(t *testing.T) {
-	c := pachd.NewTestPachd(t)
-	testutil.ActivateAuthClient(t, c, strconv.Itoa(int(c.GetAddress().Port)))
-	root := testutil.AuthenticateClient(t, c, auth.RootUser)
+	root := pachd.NewTestPachd(t, pachd.ActivateAuthOption(""))
 	ctx := root.Ctx()
 
 	alice := testutil.AuthenticateClient(t, root, "alice")     // alice has the necessary permissions
@@ -115,7 +112,7 @@ func TestEditMetadata(t *testing.T) {
 	}
 
 	// Grant auth permissions.
-	require.NoError(t, root.ModifyRepoRoleBinding(root.Ctx(), "foo", "test", "robot:alice", []string{auth.RepoWriterRole}))
+	require.NoError(t, root.ModifyRepoRoleBinding(ctx, "foo", "test", "robot:alice", []string{auth.RepoWriterRole}))
 
 	// Tests follow.
 	t.Run("project", func(t *testing.T) {
@@ -419,7 +416,7 @@ func TestEditMetadata(t *testing.T) {
 			t.Error("unexpected success")
 		}
 		want := []string{
-			`/edit #1: check permissions on branch.*robot:mallory is not authorized/`,
+			`/PermissionDenied.*edit #1: check permissions on branch.*robot:mallory is not authorized/`,
 			`/edit #3: check permissions on repo.*robot:mallory is not authorized/`,
 		}
 		require.NoDiff(t, want, strings.Split(err.Error(), "\n"), []cmp.Option{cmputil.RegexpStrings()})

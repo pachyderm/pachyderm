@@ -12,6 +12,7 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/backoff",
+        "//src/internal/cleanup",
         "//src/internal/dbutil",
         "//src/internal/errors",
         "//src/internal/log",
@@ -19,6 +20,7 @@ go_library(
         "//src/internal/pachconfig",
         "//src/internal/pachsql",
         "//src/internal/pctx",
+        "//src/internal/promutil",
         "//src/internal/require",
         "//src/internal/testutil",
         "@com_github_aws_aws_sdk_go//aws",
