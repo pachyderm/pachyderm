@@ -1,7 +1,7 @@
 {
   "proto": "1687d9344fbc8886d51cabc21099b576703e061b",
-  "pachyderm": "2.10.0-alpha.3-394ba113c9f307bb5d55be86f71dfc53c3b961a4",
-  "pachReleaseCommit": "394ba113c9f307bb5d55be86f71dfc53c3b961a4",
-  "pachctl": "2.10.0-alpha.3",
+  "pachyderm": "2.10.0-alpha.4-9245e70cde9da8a028f70f74a565e8b47c2e3c2b",
+  "pachReleaseCommit": "9245e70cde9da8a028f70f74a565e8b47c2e3c2b",
+  "pachctl": "2.10.0-alpha.4",
   "kind": "0.12.0"
 }
