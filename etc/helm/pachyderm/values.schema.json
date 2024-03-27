@@ -94,6 +94,9 @@
                         },
                         "reactAppRuntimeIssuerURI": {
                             "type": "string"
+                        },
+                        "reactAppRuntimeRefetchInterval": {
+                            "type": "integer"
                         }
                     }
                 },
