@@ -22,6 +22,7 @@ filegroup(
         "//src/logs:protos",
         "//src/metadata:protos",
         "//src/pfs:protos",
+        "//src/storage:protos",
         "//src/pjs:protos",
         "//src/pps:protos",
         "//src/protoextensions:protos",
