@@ -32,29 +32,29 @@ var (
 	dsn    = flag.String("dsn", "host=localhost port=5432 database=pachydermlogs user=postgres pool_max_conns=50", "postgres dsn")
 )
 
-var nerr, nrows, ndups, nlines, njson, nfiles, nbinary, nbytesin, nbytesout, ngoro, nconnacq atomic.Int64
+var nErr, nRows, nDups, nLines, nJSON, nFiles, nBinary, nBytesIn, nBytesOut, nGoro, nConnAcq atomic.Int64
 
 func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn) (retErr error) {
 	ctx, done := log.SpanContext(ctx, "addFile", zap.String("filename", name))
 	defer done(log.Errorp(&retErr))
-	nfiles.Add(1)
-	ngoro.Add(1)
-	defer ngoro.Add(-1)
+	nFiles.Add(1)
+	nGoro.Add(1)
+	defer nGoro.Add(-1)
 
 	slop := int64(r.Len())
 	defer func() {
-		nbytesout.Add(slop)
+		nBytesOut.Add(slop)
 	}()
 
 	s := bufio.NewScanner(r)
 	for s.Scan() {
 		line := s.Bytes()
 		if !utf8.Valid(line) {
-			nbinary.Add(1)
+			nBinary.Add(1)
 			continue
 		}
-		nlines.Add(1)
-		nbytesout.Add(int64(len(line)))
+		nLines.Add(1)
+		nBytesOut.Add(int64(len(line)))
 		slop -= int64(len(line)) // account for unknown number of newlines
 
 		hash := blake3.Sum256(line)
@@ -67,7 +67,7 @@ func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn
 			parseError.Valid = true
 			parseError.String = err.Error()
 		} else {
-			njson.Add(1)
+			nJSON.Add(1)
 		}
 
 		var ts sql.NullTime
@@ -96,16 +96,16 @@ func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn
 		if err != nil {
 			if err := context.Cause(ctx); err != nil {
 				// This is where we exit when C-c is pressed.
-				nerr.Add(1)
+				nErr.Add(1)
 				return err //nolint:wrapcheck
 			}
 			log.Info(ctx, "inserting line failed", zap.Error(err))
 		}
 		switch tag.RowsAffected() {
 		case 0:
-			ndups.Add(1)
+			nDups.Add(1)
 		default:
-			nrows.Add(tag.RowsAffected())
+			nRows.Add(tag.RowsAffected())
 		}
 	}
 	if err := s.Err(); err != nil {
@@ -116,7 +116,7 @@ func addFile(ctx context.Context, r *bytes.Buffer, name string, db *pgxpool.Conn
 
 func printStats(ctx context.Context) {
 	stats := func(m string) {
-		log.Info(ctx, m, zap.Int64("duplicates", ndups.Load()), zap.Int64("rows", nrows.Load()), zap.Int64("json", njson.Load()), zap.Int64("lines", nlines.Load()), zap.Int64("files", nfiles.Load()), zap.Int64("binary", nbinary.Load()), zap.Int64("bytes_read", nbytesin.Load()), zap.Int64("bytes_processed", nbytesout.Load()), zap.Int64("bytes_in_flight", nbytesin.Load()-nbytesout.Load()), zap.Int64("running", ngoro.Load()), zap.Int64("awaiting_db", nconnacq.Load()))
+		log.Info(ctx, m, zap.Int64("duplicates", nDups.Load()), zap.Int64("rows", nRows.Load()), zap.Int64("json", nJSON.Load()), zap.Int64("lines", nLines.Load()), zap.Int64("files", nFiles.Load()), zap.Int64("binary", nBinary.Load()), zap.Int64("bytes_read", nBytesIn.Load()), zap.Int64("bytes_processed", nBytesOut.Load()), zap.Int64("bytes_in_flight", nBytesIn.Load()-nBytesOut.Load()), zap.Int64("running", nGoro.Load()), zap.Int64("awaiting_db", nConnAcq.Load()))
 	}
 	for {
 		select {
@@ -135,7 +135,7 @@ func main() {
 	done := log.InitBatchLogger("")
 	defer func() {
 		var err error
-		if nerr.Load() > 0 {
+		if nErr.Load() > 0 {
 			err = errors.New("dump errored")
 		}
 		done(err)
@@ -173,7 +173,7 @@ func main() {
 			}
 			// but wait for everything else to finish
 			log.Error(ctx, "problem reading dump", zap.Error(err))
-			nerr.Add(1)
+			nErr.Add(1)
 			break
 		}
 
@@ -183,14 +183,14 @@ func main() {
 			log.Debug(ctx, "read error", zap.String("filename", h.Name), zap.Error(err))
 			continue
 		}
-		nbytesin.Add(n)
+		nBytesIn.Add(n)
 
-		nconnacq.Add(1)
+		nConnAcq.Add(1)
 		c, err := pool.Acquire(ctx)
-		nconnacq.Add(-1)
+		nConnAcq.Add(-1)
 		if err != nil {
 			log.Error(ctx, "cannot acquire db conn", zap.Error(err))
-			nerr.Add(1)
+			nErr.Add(1)
 			break
 		}
 
