@@ -18,10 +18,13 @@ import (
 	"go.uber.org/zap"
 )
 
+const rootToken = "iamroot"
+
 var (
-	logfile = flag.String("log", "", "if set, log to this file")
-	verbose = flag.Bool("v", false, "if true, show debug level logs (they always end up in logfile, though)")
-	pachCtx = flag.String("context", "testpachd", "if set, setup the named pach context to connect to this server, and switch to it")
+	logfile      = flag.String("log", "", "if set, log to this file")
+	verbose      = flag.Bool("v", false, "if true, show debug level logs (they always end up in logfile, though)")
+	pachCtx      = flag.String("context", "testpachd", "if set, setup the named pach context to connect to this server, and switch to it")
+	activateAuth = flag.Bool("auth", false, "if true, activate auth")
 )
 
 func main() {
@@ -30,8 +33,12 @@ func main() {
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	}
+	var opts []pachd.TestPachdOption
+	if *activateAuth {
+		opts = append(opts, pachd.ActivateAuthOption(rootToken))
+	}
 	ctx, cancel := pctx.Interactive()
-	pd, cleanup, err := pachd.BuildTestPachd(ctx)
+	pd, cleanup, err := pachd.BuildTestPachd(ctx, opts...)
 	if err != nil {
 		log.Error(ctx, "problem building pachd", zap.Error(err))
 		if err := cleanup.Cleanup(ctx); err != nil {
@@ -59,7 +66,7 @@ func main() {
 	}
 
 	if *pachCtx != "" {
-		oldContext, err := setupPachctlConfig(ctx, *pachCtx, pachClient)
+		oldContext, err := setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
 		if err != nil {
 			exitErr = err
 			cancel()
@@ -88,6 +95,10 @@ func main() {
 			}
 			break
 		}
+		if *activateAuth {
+			log.Info(ctx, "pachd ready; waiting for auth...")
+			pd.AwaitAuth(ctx)
+		}
 		fmt.Println(pachClient.GetAddress().Qualified())
 		os.Stdout.Close()
 	}()
@@ -104,7 +115,7 @@ func main() {
 	done(exitErr)
 }
 
-func setupPachctlConfig(ctx context.Context, context string, pachClient *client.APIClient) (string, error) {
+func setupPachctlConfig(ctx context.Context, context string, activateAuth bool, pachClient *client.APIClient) (string, error) {
 	pachctl, err := config.Read(true, false)
 	if err != nil {
 		log.Error(ctx, "problem reading pachctl config", zap.Error(err))
@@ -112,9 +123,13 @@ func setupPachctlConfig(ctx context.Context, context string, pachClient *client.
 	}
 	old := pachctl.GetV2().GetActiveContext()
 	contexts := pachctl.GetV2().GetContexts()
-	contexts[*pachCtx] = &config.Context{
+	c := &config.Context{
 		PachdAddress: pachClient.GetAddress().Qualified(),
 	}
+	if activateAuth {
+		c.SessionToken = rootToken
+	}
+	contexts[*pachCtx] = c
 	pachctl.GetV2().ActiveContext = *pachCtx
 	if err := pachctl.Write(); err != nil {
 		log.Error(ctx, "problem updating pachctl config", zap.Error(err))

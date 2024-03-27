@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path"
@@ -32,19 +33,58 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// TestPachdOptions allow a testpachd to be customized.
+type TestPachdOption struct {
+	noLogToFile  bool // A flag to turn off the LogToFileOption when it's the default.
+	MutateEnv    func(env *Env)
+	MutateConfig func(config *pachconfig.PachdFullConfiguration)
+	MutatePachd  func(full *Full)
+}
+
+// NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
+// logs to a file.
+func NoLogToFileOption() TestPachdOption {
+	return TestPachdOption{noLogToFile: true}
+}
+
+// ActivateAuthOption is an option that activates auth inside the created pachd.  Outside of tests,
+// you must manually call pachd.AwaitAuth(ctx).
+func ActivateAuthOption(rootToken string) TestPachdOption {
+	if rootToken == "" {
+		rootToken = "iamroot"
+	}
+	return TestPachdOption{
+		MutateConfig: func(config *pachconfig.PachdFullConfiguration) {
+			config.ActivateAuth = true
+			config.AuthRootToken = rootToken
+			config.LicenseKey = os.Getenv("ENT_ACT_CODE")
+			config.EnterpriseSecret = "enterprisey"
+		},
+	}
+}
+
 // NewTestPachd creates an environment suitable for non-k8s tests
 // and then calls pachd.NewFull with that environment.
-func NewTestPachd(t testing.TB) *client.APIClient {
+func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 	ctx := pctx.TestContext(t)
-	cfg := zap.NewProductionConfig()
-	cfg.Sampling = nil
-	cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
-	cfg.Level.SetLevel(zapcore.DebugLevel)
-	logger, err := cfg.Build()
-	require.NoError(t, err, "should be able to make a realenv logger")
-	ctx = pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-		return logger.Core()
-	})))
+	logToFile := true
+	for _, o := range opts {
+		if o.noLogToFile {
+			logToFile = false
+			break
+		}
+	}
+	if logToFile {
+		cfg := zap.NewProductionConfig()
+		cfg.Sampling = nil
+		cfg.OutputPaths = []string{filepath.Join(os.TempDir(), fmt.Sprintf("pachyderm-real-env-%s.log", url.PathEscape(t.Name())))}
+		cfg.Level.SetLevel(zapcore.DebugLevel)
+		logger, err := cfg.Build()
+		require.NoError(t, err, "should be able to build a logger")
+		ctx = pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+			return logger.Core()
+		})))
+	}
 
 	dbcfg := dockertestenv.NewTestDBConfig(t)
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
@@ -67,7 +107,7 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 		EtcdClient:       etcd,
 		Listener:         lis,
 	}
-	pd := newTestPachd(env)
+	pd := newTestPachd(env, opts)
 	go func() {
 		if err := pd.Run(ctx); err != nil {
 			if !strings.Contains(err.Error(), "use of closed network connection") {
@@ -75,6 +115,7 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 			}
 		}
 	}()
+	pd.AwaitAuth(ctx)
 
 	// client setup
 	pachClient, err := pd.PachClient(ctx)
@@ -83,8 +124,11 @@ func NewTestPachd(t testing.TB) *client.APIClient {
 	return pachClient
 }
 
-func newTestPachd(env Env) *Full {
+func newTestPachd(env Env, opts []TestPachdOption) *Full {
 	config := pachconfig.PachdFullConfiguration{
+		GlobalConfiguration: pachconfig.GlobalConfiguration{
+			PeerPort: netip.MustParseAddrPort(env.Listener.Addr().String()).Port(),
+		},
 		PachdSpecificConfiguration: pachconfig.PachdSpecificConfiguration{
 			StorageConfiguration: pachconfig.StorageConfiguration{
 				StorageMemoryThreshold:    units.GB,
@@ -93,16 +137,30 @@ func newTestPachd(env Env) *Full {
 				StorageMemoryCacheSize:    20,
 			},
 		},
-		EnterpriseSpecificConfiguration: pachconfig.EnterpriseSpecificConfiguration{},
 	}
 	env.GetLokiClient = func() (*lokiclient.Client, error) {
 		return nil, errors.New("no loki")
 	}
+	for _, opt := range opts {
+		if opt.MutateEnv != nil {
+			opt.MutateEnv(&env)
+		}
+		if opt.MutateConfig != nil {
+			opt.MutateConfig(&config)
+		}
+	}
 	pd := NewFull(env, config)
+	for _, opt := range opts {
+		if opt.MutatePachd != nil {
+			opt.MutatePachd(pd)
+		}
+	}
 	return pd
 }
 
-func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
+// BuildTestPachd returns a test pachd that can be run outside of tests.  The returned cleanup
+// handler frees all ephemeral resources associated with the instance.
+func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *cleanup.Cleaner, error) {
 	cleaner := new(cleanup.Cleaner)
 
 	// tmpdir
@@ -215,6 +273,6 @@ func BuildTestPachd(ctx context.Context) (*Full, *cleanup.Cleaner, error) {
 		EtcdClient:       etcdClient,
 		Listener:         lis,
 	}
-	pd := newTestPachd(env)
+	pd := newTestPachd(env, opts)
 	return pd, cleaner, nil
 }
