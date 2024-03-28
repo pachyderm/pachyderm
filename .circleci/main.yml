@@ -2137,6 +2137,7 @@ commands:
           background: true
       - run:
           name: Install pachd without auth
+          command: |
             export XDG_CONFIG_HOME=${PWD}/etc/testing/python-test-helm-values
             bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push
       - run:
