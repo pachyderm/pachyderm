@@ -401,14 +401,22 @@ type WalkCommitSubvenanceRequest struct {
 	*pfs.WalkCommitSubvenanceRequest
 }
 
-// WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
-func (a *apiServer) WalkCommitProvenance(request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
-	return errors.New("not implemented")
+func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, request *WalkCommitProvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkCommitProvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkCommitProvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk commit provenance tx")
+		}
+	}
+	return nil
 }
 
-// WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
-func (a *apiServer) WalkCommitSubvenance(request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
-	return errors.New("not implemented")
+func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, request *WalkCommitSubvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkCommitSubvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkCommitSubvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk commit subvenance tx")
+		}
+	}
+	return nil
 }
 
 // CreateBranchInTransaction is identical to CreateBranch except that it can run
@@ -480,14 +488,22 @@ type WalkBranchSubvenanceRequest struct {
 	*pfs.WalkBranchSubvenanceRequest
 }
 
-// WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
-func (a *apiServer) WalkBranchProvenance(request *WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) (retErr error) {
-	return errors.New("not implemented")
+func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, request *WalkBranchProvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkBranchProvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkBranchProvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk branch provenance tx")
+		}
+	}
+	return nil
 }
 
-// WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
-func (a *apiServer) WalkBranchSubvenance(request *WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) (retErr error) {
-	return errors.New("not implemented")
+func (a *apiServer) WalkBranchSubvenanceTx(ctx context.Context, request *WalkBranchSubvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkBranchSubvenanceServer) error {
+	for _, start := range request.StartWithID {
+		if err := a.driver.walkBranchSubvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
+			return errors.Wrap(err, "walk branch subvenance tx")
+		}
+	}
+	return nil
 }
 
 // CreateProject implements the protobuf pfs.CreateProject RPC

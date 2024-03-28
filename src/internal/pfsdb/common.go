@@ -114,3 +114,28 @@ func IsNotFoundError(err error) bool {
 		errors.As(err, &CommitNotFoundError{}) ||
 		errors.As(err, &BranchNotFoundError{})
 }
+
+// GraphOpt is used to configure depth and limit parameters for provenance and subvenance queries.
+type GraphOpt struct {
+	// these are pointers to distinguish between an intentional 0 value and absent configuration.
+	MaxDepth *uint64
+	MaxItems *uint64
+}
+
+func (g *GraphOpt) Merge(other GraphOpt) {
+	if other.MaxDepth != nil && *other.MaxDepth != 0 {
+		g.MaxDepth = other.MaxDepth
+	}
+	if other.MaxItems != nil && *other.MaxItems != 0 {
+		g.MaxItems = other.MaxItems
+	}
+}
+
+func defaultOption() GraphOpt {
+	depth := uint64(MaxSearchDepth)
+	items := uint64(10_000)
+	return GraphOpt{
+		MaxDepth: &depth,
+		MaxItems: &items,
+	}
+}
