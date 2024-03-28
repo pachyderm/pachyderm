@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -117,16 +117,16 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 				resp = &logs.GetLogsResponse{
 					ResponseType: &logs.GetLogsResponse_Log{
 						Log: &logs.LogMessage{
-              LogType: &logs.LogMessage_Json{
-                Json: &logs.ParsedJSONLogMessage{
-                  Verbatim: &logs.VerbatimLogMessage{
-                    Line:      []byte(e.Line),
-                    Timestamp: timestamppb.New(e.Timestamp),
-                  },
-                  NativeTimestamp: timestamppb.New(e.Timestamp),
-                },
-              },
-            },
+							LogType: &logs.LogMessage_Json{
+								Json: &logs.ParsedJSONLogMessage{
+									Verbatim: &logs.VerbatimLogMessage{
+										Line:      []byte(e.Line),
+										Timestamp: timestamppb.New(e.Timestamp),
+									},
+									NativeTimestamp: timestamppb.New(e.Timestamp),
+								},
+							},
+						},
 					},
 				}
 				jsonStruct := new(structpb.Struct)
@@ -148,15 +148,15 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 					DiscardUnknown: true,
 				}
 				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
-          continue
+					continue
 				}
-        resp = &logs.GetLogsResponse{
-          ResponseType: &logs.GetLogsResponse_Log{
-            Log: &logs.LogMessage{
-              LogType: &logs.LogMessage_PpsLogMessage{
-                PpsLogMessage: ppsLog,
-              },
-            },
+				resp = &logs.GetLogsResponse{
+					ResponseType: &logs.GetLogsResponse_Log{
+						Log: &logs.LogMessage{
+							LogType: &logs.LogMessage_PpsLogMessage{
+								PpsLogMessage: ppsLog,
+							},
+						},
 					},
 				}
 			default:
