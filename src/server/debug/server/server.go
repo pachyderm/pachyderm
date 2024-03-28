@@ -31,7 +31,6 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gopkg.in/yaml.v3"
@@ -168,15 +167,11 @@ func addLokiDefaults(ctx context.Context, apps []*debug.App) []*debug.App {
 	var result []*debug.App
 	for _, app := range apps {
 		app = protoutil.Clone(app)
-		any, err := anypb.New(&debug.LokiArgs{
-			MaxLogs: 30_000,
-		})
-		if err != nil {
-			// This indicates that the binary was built wrong or something like that.
-			log.DPanic(ctx, "unable to marshal LokiArgs to Any", zap.Error(err))
-			continue
+		app.ExtraArgs = &debug.App_LokiArgs{
+			LokiArgs: &debug.LokiArgs{
+				MaxLogs: 30_000,
+			},
 		}
-		app.ExtraArgs = any
 		result = append(result, app)
 	}
 	return result
@@ -186,21 +181,18 @@ func addProfileDefaults(ctx context.Context, apps []*debug.App) []*debug.App {
 	var result []*debug.App
 	for _, app := range apps {
 		app = protoutil.Clone(app)
-		any, err := anypb.New(&debug.ProfileArgs{
-			Profiles: []*debug.Profile{
-				{
-					Name: "heap",
-				},
-				{
-					Name: "goroutine",
+		app.ExtraArgs = &debug.App_ProfileArgs{
+			ProfileArgs: &debug.ProfileArgs{
+				Profiles: []*debug.Profile{
+					{
+						Name: "heap",
+					},
+					{
+						Name: "goroutine",
+					},
 				},
 			},
-		})
-		if err != nil {
-			log.DPanic(ctx, "unable to marshal ProfileArgs to Any", zap.Error(err))
-			continue
 		}
-		app.ExtraArgs = any
 		result = append(result, app)
 	}
 	return result
@@ -531,20 +523,22 @@ func (s *debugServer) makeProfilesTask(server debug.Debug_DumpV2Server, apps []*
 					defer cf()
 				}
 				defer rp(ctx)
+				profileArgs := app.GetProfileArgs()
+				if profileArgs == nil {
+					profileArgs = &debug.ProfileArgs{
+						Profiles: []*debug.Profile{
+							{
+								Name: "heap",
+							},
+							{
+								Name: "goroutine",
+							},
+						},
+					}
+				}
+
 				for _, pod := range app.Pods {
 					for _, c := range pod.Containers {
-						var profileArgs debug.ProfileArgs
-						if err := app.ExtraArgs.UnmarshalTo(&profileArgs); err != nil {
-							log.Debug(ctx, "unmarshal <profile>.ExtraArgs", zap.Error(err))
-							profileArgs.Profiles = []*debug.Profile{
-								{
-									Name: "heap",
-								},
-								{
-									Name: "goroutine",
-								},
-							}
-						}
 						for _, profile := range profileArgs.Profiles {
 							if err := s.collectProfile(ctx, dfs, app, pod, c, profile); err != nil {
 								errors.JoinInto(&errs, err)
@@ -1193,10 +1187,11 @@ func (s *debugServer) collectLogsLoki(ctx context.Context, dfs DumpFS, app *debu
 			queryStr += `", container="` + container
 		}
 		queryStr += `"}`
-		var lokiConfig debug.LokiArgs
-		if err := app.ExtraArgs.UnmarshalTo(&lokiConfig); err != nil {
-			log.Debug(ctx, "unmarshal <loki>.ExtraArgs", zap.Error(err))
-			lokiConfig.MaxLogs = maxLogs
+		lokiConfig := app.GetLokiArgs()
+		if lokiConfig == nil {
+			lokiConfig = &debug.LokiArgs{
+				MaxLogs: maxLogs,
+			}
 		}
 		logs, err := s.queryLoki(ctx, queryStr, lokiConfig.MaxLogs)
 		if err != nil {
