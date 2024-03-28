@@ -1793,7 +1793,9 @@ workflows:
               python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
       - jupyter-extension-integration-test
-      - jupyter-extension-e2e-test
+      - jupyter-extension-e2e-test:
+          requires:
+            - jupyter-extension-build
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
