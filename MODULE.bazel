@@ -247,6 +247,7 @@ use_repo(
     "com_github_vbauerster_mpb_v6",
     "com_github_wader_readline",
     "com_github_wcharczuk_go_chart",
+    "com_github_zeebo_blake3",
     "com_github_zeebo_xxh3",
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",
