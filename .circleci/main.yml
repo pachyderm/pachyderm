@@ -2117,7 +2117,9 @@ commands:
           command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
       - run:
           name: Setup k8s cluster
-          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
       - run:
           name: Install pachd with auth
           command: |
