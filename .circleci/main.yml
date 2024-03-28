@@ -846,8 +846,6 @@ jobs:
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
 
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
-
             pachctl create repo images
             pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
             pachctl put file images@branch:branch.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
