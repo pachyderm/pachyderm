@@ -166,14 +166,25 @@ func (c *Cluster) helmFlags(ctx context.Context, install *HelmConfig) ([]string,
 	}
 
 	// Look for ~/.config/pachdev/<name>-pachyderm-values.json and use if found.
-	local, err := xdg.ConfigFile(fmt.Sprintf("pachdev/%s-pachyderm-values.json", c.name))
+	cluster, err := xdg.ConfigFile(fmt.Sprintf("pachdev/%s-pachyderm-values.json", c.name))
 	if err != nil {
-		log.Info(ctx, "not using local value overrides; $XDG_CONFIG_HOME broken", zap.String("path", local), zap.Error(err))
-	} else if _, err := os.Stat(local); err != nil {
-		log.Debug(ctx, "not using local value overrides; file unreadable", zap.String("path", local))
+		log.Info(ctx, "not using cluster value overrides; $XDG_CONFIG_HOME broken", zap.String("path", cluster), zap.Error(err))
+	} else if _, err := os.Stat(cluster); err != nil {
+		log.Debug(ctx, "not using cluster value overrides; file unreadable", zap.String("path", cluster))
 	} else {
-		log.Info(ctx, "using local value overrides", zap.String("path", local))
-		flags = append(flags, "-f", local)
+		log.Info(ctx, "using cluster value overrides", zap.String("path", cluster))
+		flags = append(flags, "-f", cluster)
+	}
+
+	// Look for ~/.config/pachdev/<name>-<namespace>-pachyderm-values.json and use if found.
+	ns, err := xdg.ConfigFile(fmt.Sprintf("pachdev/%s-%s-pachyderm-values.json", c.name, install.Namespace))
+	if err != nil {
+		log.Info(ctx, "not using ns value overrides; $XDG_CONFIG_HOME broken", zap.String("path", ns), zap.Error(err))
+	} else if _, err := os.Stat(ns); err != nil {
+		log.Debug(ctx, "not using ns value overrides; file unreadable", zap.String("path", ns))
+	} else {
+		log.Info(ctx, "using ns value overrides", zap.String("path", ns))
+		flags = append(flags, "-f", ns)
 	}
 
 	return flags, nil

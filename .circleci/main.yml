@@ -824,6 +824,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - install-jupyter-test-deps
       - run:
           name: "e2e tests"
@@ -2116,66 +2117,33 @@ commands:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
       - run:
-          name: Install kind
-          command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - install-helm
-      - install-kubectl
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
       - run:
           name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
+      - run:
+          name: Install pachd with auth
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-      - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
-      - run:
-          name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
-      - run:
-          name: Install pach
-          command: |
-            helm install pachd ../etc/helm/pachyderm \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=AMAZON \
-              --set pachd.storage.gocdkEnabled=true \
-              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
-              --set pachd.storage.amazon.id=minioadmin \
-              --set pachd.storage.amazon.secret=minioadmin \
-              --set pachd.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
-            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm \
-              --namespace enterprise \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
-              --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1} \
-              --set proxy.service.httpNodePort=30081 \
-              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
-              --set pachd.rootToken=roottoken1234
-      - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
-          command: |
-            sleep 20
-            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
-      - run:
-          name: Setup pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30081'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
-            echo 'roottoken1234' | pachctl auth use-auth-token
+            export XDG_CONFIG_HOME=${PWD}/etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
+      - run:
+          name: Watch pachd with auth
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachd -f
+          background: true
+      - run:
+          name: Install pachd without auth
+            export XDG_CONFIG_HOME=${PWD}/etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push
+      - run:
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachd -f
+          background: true
+
   install-pulumi-deps:
     steps:
       - node/install
