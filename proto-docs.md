@@ -1859,7 +1859,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
-| extra_args | [google.protobuf.Any](#google-protobuf-Any) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 

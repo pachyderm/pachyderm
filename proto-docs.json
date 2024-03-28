@@ -2725,7 +2725,7 @@
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
-          "hasOneofs": false,
+          "hasOneofs": true,
           "extensions": [],
           "fields": [
             {
@@ -2777,15 +2777,27 @@
               "defaultValue": ""
             },
             {
-              "name": "extra_args",
+              "name": "loki_args",
               "description": "",
               "label": "",
-              "type": "Any",
-              "longType": "google.protobuf.Any",
-              "fullType": "google.protobuf.Any",
+              "type": "LokiArgs",
+              "longType": "LokiArgs",
+              "fullType": "debug_v2.LokiArgs",
               "ismap": false,
-              "isoneof": false,
-              "oneofdecl": "",
+              "isoneof": true,
+              "oneofdecl": "extra_args",
+              "defaultValue": ""
+            },
+            {
+              "name": "profile_args",
+              "description": "",
+              "label": "",
+              "type": "ProfileArgs",
+              "longType": "ProfileArgs",
+              "fullType": "debug_v2.ProfileArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
               "defaultValue": ""
             }
           ]

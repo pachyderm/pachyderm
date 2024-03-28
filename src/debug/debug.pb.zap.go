@@ -157,7 +157,8 @@ func (x *App) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("pods", zapcore.ArrayMarshalerFunc(podsArrMarshaller))
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	enc.AddObject("pipeline", x.Pipeline)
-	protoextensions.AddAny(enc, "extra_args", x.ExtraArgs)
+	enc.AddObject("loki_args", x.GetLokiArgs())
+	enc.AddObject("profile_args", x.GetProfileArgs())
 	return nil
 }
 

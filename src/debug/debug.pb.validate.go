@@ -1709,33 +1709,91 @@ func (m *App) validate(all bool) error {
 		}
 	}
 
-	if all {
-		switch v := interface{}(m.GetExtraArgs()).(type) {
-		case interface{ ValidateAll() error }:
-			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, AppValidationError{
-					field:  "ExtraArgs",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		case interface{ Validate() error }:
-			if err := v.Validate(); err != nil {
-				errors = append(errors, AppValidationError{
-					field:  "ExtraArgs",
-					reason: "embedded message failed validation",
-					cause:  err,
-				})
-			}
-		}
-	} else if v, ok := interface{}(m.GetExtraArgs()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return AppValidationError{
+	switch v := m.ExtraArgs.(type) {
+	case *App_LokiArgs:
+		if v == nil {
+			err := AppValidationError{
 				field:  "ExtraArgs",
-				reason: "embedded message failed validation",
-				cause:  err,
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetLokiArgs()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "LokiArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "LokiArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetLokiArgs()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AppValidationError{
+					field:  "LokiArgs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
 			}
 		}
+
+	case *App_ProfileArgs:
+		if v == nil {
+			err := AppValidationError{
+				field:  "ExtraArgs",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetProfileArgs()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "ProfileArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, AppValidationError{
+						field:  "ProfileArgs",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetProfileArgs()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return AppValidationError{
+					field:  "ProfileArgs",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	default:
+		_ = v // ensures v is used
 	}
 
 	if len(errors) > 0 {

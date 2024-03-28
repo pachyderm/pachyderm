@@ -119,7 +119,8 @@ class App(betterproto.Message):
     pods: List["Pod"] = betterproto.message_field(2)
     timeout: timedelta = betterproto.message_field(3)
     pipeline: "Pipeline" = betterproto.message_field(4)
-    extra_args: "betterproto_lib_google_protobuf.Any" = betterproto.message_field(5)
+    loki_args: "LokiArgs" = betterproto.message_field(5, group="extra_args")
+    profile_args: "ProfileArgs" = betterproto.message_field(6, group="extra_args")
 
 
 @dataclass(eq=False, repr=False)
