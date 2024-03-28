@@ -2,7 +2,10 @@ load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "logs",
-    srcs = ["logs.go"],
+    srcs = [
+        "logs.go",
+        "query.go",
+    ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/server/logs",
     visibility = ["//visibility:public"],
     deps = [
