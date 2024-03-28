@@ -105,9 +105,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction string,
 		published int
 	)
 	for _, s := range streams {
-		for _, e := range s.Entries {
-			entries = append(entries, e)
-		}
+		entries = append(entries, s.Entries...)
 	}
 	if len(entries) == 0 {
 		return 0, nil, nil
