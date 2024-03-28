@@ -49,6 +49,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -101,7 +102,72 @@ func NewDebugServer(env Env) debug.DebugServer {
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
+	ticker := time.NewTicker(3 * time.Second)
+	query := `SELECT current_timestamp - query_start as runtime,
+                         datname,
+                         usename,
+                         client_addr,
+                         backend_xid,
+                         query
+		  FROM pg_stat_activity WHERE state = 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`
+	ctx := pctx.Background("debug server")
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				rows, err := s.database.QueryContext(ctx, query)
+				if err != nil {
+					log.Error(ctx, "query idle txns", zap.Error(err))
+				}
+				var buf bytes.Buffer
+				if err := s.writeRowsToJSON(rows, &buf); err != nil {
+					log.Error(ctx, "write idle txns query results", zap.Error(err))
+				}
+				log.Info(ctx, "idle txns", zap.String("txns", buf.String()))
+			}
+		}
+	}()
 	return s
+}
+
+func (s *debugServer) logDBState() {
+	ticker := time.NewTicker(3 * time.Second)
+	queries := map[string]string{
+		"idle queries": `
+                  SELECT current_timestamp - query_start as runtime,
+                         datname,
+                         usename,
+                         client_addr,
+                         backend_xid,
+                         query
+		  FROM pg_stat_activity WHERE state = 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+		"active queries": `
+                  SELECT current_timestamp - query_start as runtime,
+                         datname,
+                         usename,
+                         client_addr,
+                         backend_xid,
+                         query
+		  FROM pg_stat_activity WHERE state != 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+	}
+	ctx := pctx.Background("debug server")
+	for {
+		select {
+		case <-ticker.C:
+			for msg, query := range queries {
+				rows, err := s.database.QueryContext(ctx, query)
+				if err != nil {
+					log.Error(ctx, fmt.Sprintf("query %s", msg), zap.Error(err))
+				}
+				var buf bytes.Buffer
+				if err := s.writeRowsToJSON(rows, &buf); err != nil {
+					log.Error(ctx, fmt.Sprintf("write results for  %s", msg), zap.Error(err))
+				}
+				log.Info(ctx, msg, zap.String("txns", buf.String()))
+			}
+		}
+	}
+
 }
 
 // the returned taskPath gets deleted by the caller after its contents are streamed, and is the location of any associated error file

@@ -150,6 +150,11 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 			underlyingTxFinishMetric.WithLabelValues("failed_start").Inc()
 			return errors.EnsureStack(err)
 		}
+		var txid int64
+		if err := tx.GetContext(ctx, &txid, "select txid_current()"); err != nil {
+			return errors.Wrap(err, "txid_current")
+		}
+		log.Info(ctx, "start transaction", zap.Int64("txid_current", txid))
 		return tryTxFunc(ctx, tx, cb)
 	}, c.BackOff, func(err error, _ time.Duration) error {
 		if errutil.IsDatabaseDisconnect(err) {
