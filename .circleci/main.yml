@@ -2125,21 +2125,21 @@ commands:
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/etc/testing/python-test-helm-values
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run:
-          name: Watch pachd with auth
-          command: kubectl logs --namespace=test-namespace-1 -l suite=pachd -f
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
           background: true
       - run:
           name: Install pachd without auth
           command: |
             export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
             export XDG_CONFIG_HOME=${PWD}/etc/testing/python-test-helm-values
-            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
       - run:
           name: Watch pachd without auth logs
-          command: kubectl logs --namespace=default -l suite=pachd -f
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
           background: true
 
   install-pulumi-deps:
