@@ -90,9 +90,11 @@
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
+    - [LokiArgs](#debug_v2-LokiArgs)
     - [Pipeline](#debug_v2-Pipeline)
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
+    - [ProfileArgs](#debug_v2-ProfileArgs)
     - [ProfileRequest](#debug_v2-ProfileRequest)
     - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
@@ -1857,6 +1859,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 
@@ -2025,6 +2029,21 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-LokiArgs"></a>
+
+### LokiArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| max_logs | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Pipeline"></a>
 
 ### Pipeline
@@ -2068,6 +2087,21 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | duration | [google.protobuf.Duration](#google-protobuf-Duration) |  | only meaningful if name == &#34;cpu&#34; |
+
+
+
+
+
+
+<a name="debug_v2-ProfileArgs"></a>
+
+### ProfileArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 

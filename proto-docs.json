@@ -2725,7 +2725,7 @@
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
-          "hasOneofs": false,
+          "hasOneofs": true,
           "extensions": [],
           "fields": [
             {
@@ -2774,6 +2774,30 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "loki_args",
+              "description": "",
+              "label": "",
+              "type": "LokiArgs",
+              "longType": "LokiArgs",
+              "fullType": "debug_v2.LokiArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
+              "defaultValue": ""
+            },
+            {
+              "name": "profile_args",
+              "description": "",
+              "label": "",
+              "type": "ProfileArgs",
+              "longType": "ProfileArgs",
+              "fullType": "debug_v2.ProfileArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
               "defaultValue": ""
             }
           ]
@@ -3163,6 +3187,30 @@
           ]
         },
         {
+          "name": "LokiArgs",
+          "longName": "LokiArgs",
+          "fullName": "debug_v2.LokiArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "max_logs",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Pipeline",
           "longName": "Pipeline",
           "fullName": "debug_v2.Pipeline",
@@ -3275,6 +3323,30 @@
               "type": "Duration",
               "longType": "google.protobuf.Duration",
               "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProfileArgs",
+          "longName": "ProfileArgs",
+          "fullName": "debug_v2.ProfileArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "profiles",
+              "description": "",
+              "label": "repeated",
+              "type": "Profile",
+              "longType": "Profile",
+              "fullType": "debug_v2.Profile",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
