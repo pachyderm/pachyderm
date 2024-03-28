@@ -34,6 +34,7 @@ var (
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
+	var direction = "forward"
 	if err := validateGetLogsRequest(request); err != nil {
 		return errors.Wrap(err, "invalid GetLogs request")
 	}
@@ -46,6 +47,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if filter == nil {
 		filter = new(logs.LogFilter)
 		request.Filter = filter
+	}
+	if filter.Limit == 0 {
+		filter.Limit = 100
 	}
 	switch {
 	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
@@ -83,40 +87,42 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "loki client error")
 	}
-	resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
-	if err != nil {
-		return errors.Wrap(err, "Loki QueryRange")
+	start := filter.TimeRange.From.AsTime()
+	end := filter.TimeRange.Until.AsTime()
+	if start.Equal(end) {
+		return errors.Errorf("start equals end (%v)", start)
 	}
-	streams, ok := resp.Data.Result.(loki.Streams)
-	if !ok {
-		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T, to call ForEachStream on it", resp.Data.Result)
+	if start.After(end) {
+		direction = "backward"
+		start, end = end, start
 	}
-	for _, s := range streams {
-		for _, e := range s.Entries {
-			var resp *logs.GetLogsResponse
-			switch request.LogFormat {
-			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-				return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-				resp = &logs.GetLogsResponse{
-					ResponseType: &logs.GetLogsResponse_Log{
-						Log: &logs.LogMessage{
-							LogType: &logs.LogMessage_Verbatim{
-								Verbatim: &logs.VerbatimLogMessage{
-									Line: []byte(e.Line),
-								},
+	if err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, func(ctx context.Context, entry loki.Entry) error {
+		var resp *logs.GetLogsResponse
+		switch request.LogFormat {
+		case logs.LogFormat_LOG_FORMAT_UNKNOWN:
+			return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
+		case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
+			resp = &logs.GetLogsResponse{
+				ResponseType: &logs.GetLogsResponse_Log{
+					Log: &logs.LogMessage{
+						LogType: &logs.LogMessage_Verbatim{
+							Verbatim: &logs.VerbatimLogMessage{
+								Line: []byte(entry.Line),
 							},
 						},
 					},
-				}
-			default:
-				return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
+				},
 			}
-
-			if err := publisher.Publish(ctx, resp); err != nil {
-				return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-			}
+		default:
+			return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
 		}
+
+		if err := publisher.Publish(ctx, resp); err != nil {
+			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "doQuery failed")
 	}
 
 	return nil
