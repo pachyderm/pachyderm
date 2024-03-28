@@ -1,0 +1,20 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/RenewFilesetRequest",
+    "definitions": {
+        "RenewFilesetRequest": {
+            "properties": {
+                "filesetId": {
+                    "type": "string"
+                },
+                "ttlSeconds": {
+                    "type": "integer",
+                    "description": "The TTL, in seconds, for the fileset after renewal."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Renew Fileset Request"
+        }
+    }
+}
