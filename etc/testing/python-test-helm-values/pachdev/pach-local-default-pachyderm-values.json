@@ -1,0 +1,17 @@
+{
+  "deployTarget": "custom",
+  "console": {
+    "enabled": false
+  },
+  "oidc": {
+    "issuerURI": "http://pachd:30658/dex"
+  },
+  "pachd": {
+    "clusterDeploymentID": "main",
+    "lokiDeploy": false,
+    "lokiLogging": false,
+    "resources": null,
+    "rootToken": "",
+    "activateAuth": false
+  }
+}
