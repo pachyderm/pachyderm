@@ -1792,15 +1792,8 @@ workflows:
             parameters:
               python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-      - jupyter-extension-e2e-test:
-          requires:
-            - build-docker-images
-            - jupyter-extension-build
-            - build-pachctl-bin
+      - jupyter-extension-integration-test
+      - jupyter-extension-e2e-test
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
@@ -2111,7 +2104,7 @@ commands:
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps:
     steps:
       - attach_workspace:
           at: ./
