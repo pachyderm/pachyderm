@@ -6,9 +6,12 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
@@ -103,10 +106,57 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 						Log: &logs.LogMessage{
 							LogType: &logs.LogMessage_Verbatim{
 								Verbatim: &logs.VerbatimLogMessage{
-									Line: []byte(e.Line),
+									Line:      []byte(e.Line),
+									Timestamp: timestamppb.New(e.Timestamp),
 								},
 							},
 						},
+					},
+				}
+			case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
+				resp = &logs.GetLogsResponse{
+					ResponseType: &logs.GetLogsResponse_Log{
+						Log: &logs.LogMessage{
+              LogType: &logs.LogMessage_Json{
+                Json: &logs.ParsedJSONLogMessage{
+                  Verbatim: &logs.VerbatimLogMessage{
+                    Line:      []byte(e.Line),
+                    Timestamp: timestamppb.New(e.Timestamp),
+                  },
+                  NativeTimestamp: timestamppb.New(e.Timestamp),
+                },
+              },
+            },
+					},
+				}
+				jsonStruct := new(structpb.Struct)
+				if err := jsonStruct.UnmarshalJSON([]byte(e.Line)); err == nil {
+					resp.GetLog().GetJson().Object = jsonStruct
+				}
+				ppsLog := new(pps.LogMessage)
+				m := protojson.UnmarshalOptions{
+					AllowPartial:   true,
+					DiscardUnknown: true,
+				}
+				if err := m.Unmarshal([]byte(e.Line), ppsLog); err == nil {
+					resp.GetLog().GetJson().PpsLogMessage = ppsLog
+				}
+			case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
+				ppsLog := new(pps.LogMessage)
+				m := protojson.UnmarshalOptions{
+					AllowPartial:   true,
+					DiscardUnknown: true,
+				}
+				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
+          continue
+				}
+        resp = &logs.GetLogsResponse{
+          ResponseType: &logs.GetLogsResponse_Log{
+            Log: &logs.LogMessage{
+              LogType: &logs.LogMessage_PpsLogMessage{
+                PpsLogMessage: ppsLog,
+              },
+            },
 					},
 				}
 			default:
