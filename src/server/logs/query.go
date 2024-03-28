@@ -35,8 +35,8 @@ func (err ErrInvalidBatchSize) Error() string {
 func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction string, publishResponse func(context.Context, loki.Entry) error) error {
 	var (
 		batchSize    = limit
-		resultLength = 0
-		total        = 0
+		resultLength int
+		total        int
 		lastEntry    []loki.Entry
 	)
 	for total < limit {
