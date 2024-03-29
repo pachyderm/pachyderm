@@ -38,7 +38,6 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 }
 
 func withLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest {
-	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_Admin{
 			Admin: &logs.AdminLogQuery{
@@ -52,7 +51,6 @@ func withLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest
 }
 
 func withPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs.GetLogsRequest {
-	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
 			User: &logs.UserLogQuery{
@@ -69,7 +67,6 @@ func withPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs
 }
 
 func withProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsRequest {
-	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
 			User: &logs.UserLogQuery{
@@ -109,6 +106,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 
 			var req logs.GetLogsRequest
+			req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:  timestamppb.New(time.Time(from)),
