@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -513,7 +514,14 @@ func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parse pachd address")
 	}
-	c, err := client.NewFromPachdAddress(ctx, addr)
+	c, err := client.NewFromPachdAddress(ctx, addr,
+		client.WithAdditionalUnaryClientInterceptors(
+			clientlog_interceptor.LogUnary,
+		),
+		client.WithAdditionalStreamClientInterceptors(
+			clientlog_interceptor.LogStream,
+		),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewPachdFromAddress")
 	}
@@ -529,7 +537,14 @@ func (pd *Full) mustGetPachClient(ctx context.Context) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("parse pachd address: %v", err))
 	}
-	c, err := client.NewFromPachdAddress(ctx, addr)
+	c, err := client.NewFromPachdAddress(ctx, addr,
+		client.WithAdditionalUnaryClientInterceptors(
+			clientlog_interceptor.LogUnary,
+		),
+		client.WithAdditionalStreamClientInterceptors(
+			clientlog_interceptor.LogStream,
+		),
+	)
 	if err != nil {
 		panic(fmt.Sprintf("NewFromPachdAddress: %v", err))
 	}

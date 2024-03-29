@@ -41,6 +41,7 @@ func main() {
 
 	// Handle cleaning up on exit.
 	ctx, cancel := pctx.Interactive()
+	runCtx := ctx
 	var exitErr error
 	var clean cleanup.Cleaner
 	defer func() {
@@ -73,7 +74,9 @@ func main() {
 			return
 		}
 		clean.AddCleanup("loki", l.Close)
-		opts = append(opts, testloki.WithTestLoki(l))
+		opt := testloki.WithTestLoki(l)
+		opts = append(opts, opt)
+		runCtx = opt.MutateContext(runCtx)
 	}
 
 	// Build pachd.
@@ -90,7 +93,7 @@ func main() {
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
-		if err := pd.Run(ctx); err != nil {
+		if err := pd.Run(runCtx); err != nil {
 			// If pachd exits, send the error on errCh.  errCh is read after the context
 			// that cancel() cancels is done, so cancel it first so the write doesn't
 			// block.

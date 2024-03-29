@@ -219,13 +219,16 @@ func initMetadataServer(out *metadata.APIServer, env func() metadata_server.Env)
 // reg is called to register functions with the server.
 func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener, reg func(gs grpc.ServiceRegistrar)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		loggingInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		baseContextInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		loggingInterceptor := log_interceptor.NewLoggingInterceptor(ctx)
+		loggingInterceptor.Level = log.DebugLevel
 		gs := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
 				errorsmw.UnaryServerInterceptor,
 				version_middleware.UnaryServerInterceptor,
 				tracing.UnaryServerInterceptor(),
 				authInterceptor.InterceptUnary,
+				baseContextInterceptor.UnaryServerInterceptor,
 				loggingInterceptor.UnaryServerInterceptor,
 				validation.UnaryServerInterceptor,
 			),
@@ -234,6 +237,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				version_middleware.StreamServerInterceptor,
 				tracing.StreamServerInterceptor(),
 				authInterceptor.InterceptStream,
+				baseContextInterceptor.StreamServerInterceptor,
 				loggingInterceptor.StreamServerInterceptor,
 				validation.StreamServerInterceptor,
 			),
