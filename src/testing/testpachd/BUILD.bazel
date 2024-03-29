@@ -1,0 +1,43 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library", "go_test")
+
+go_library(
+    name = "testpachd_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/testpachd",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/log",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "testpachd",
+    embed = [":testpachd_lib"],
+    visibility = ["//visibility:public"],
+    x_defs = {
+        "github.com/pachyderm/pachyderm/v2/src/version.AppVersion": "{STABLE_APP_VERSION}",
+        "github.com/pachyderm/pachyderm/v2/src/version.AdditionalVersion": "{STABLE_ADDITIONAL_VERSION}",
+    },
+)
+
+go_test(
+    name = "testpachd_test",
+    size = "small",
+    srcs = ["main_test.go"],
+    data = [
+        "testpachd",
+    ],
+    deps = [
+        "//src/internal/client",
+        "//src/internal/grpcutil",
+        "//src/internal/log",
+        "//src/internal/pctx",
+        "@rules_go//go/tools/bazel:go_default_library",
+    ],
+)

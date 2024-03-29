@@ -12,9 +12,11 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
@@ -36,14 +38,26 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 	return false, nil
 }
 
-func newLogQLRequest(logQL string) *logs.GetLogsRequest {
-	return &logs.GetLogsRequest{
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
-		Query: &logs.LogQuery{
-			QueryType: &logs.LogQuery_Admin{
-				Admin: &logs.AdminLogQuery{
-					AdminType: &logs.AdminLogQuery_Logql{
-						Logql: logQL,
+func addLogQLRequest(req *logs.GetLogsRequest, logQL string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_Admin{
+			Admin: &logs.AdminLogQuery{
+				AdminType: &logs.AdminLogQuery_Logql{
+					Logql: logQL,
+				},
+			},
+		},
+	}
+}
+
+func addPipelineRequest(req *logs.GetLogsRequest, project, pipeline string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_User{
+			User: &logs.UserLogQuery{
+				UserType: &logs.UserLogQuery_Pipeline{
+					Pipeline: &logs.PipelineLogQuery{
+						Project:  project,
+						Pipeline: pipeline,
 					},
 				},
 			},
@@ -51,33 +65,12 @@ func newLogQLRequest(logQL string) *logs.GetLogsRequest {
 	}
 }
 
-func newPipelineRequest(project, pipeline string) *logs.GetLogsRequest {
-	return &logs.GetLogsRequest{
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
-		Query: &logs.LogQuery{
-			QueryType: &logs.LogQuery_User{
-				User: &logs.UserLogQuery{
-					UserType: &logs.UserLogQuery_Pipeline{
-						Pipeline: &logs.PipelineLogQuery{
-							Project:  project,
-							Pipeline: pipeline,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
-func newProjectRequest(project string) *logs.GetLogsRequest {
-	return &logs.GetLogsRequest{
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
-		Query: &logs.LogQuery{
-			QueryType: &logs.LogQuery_User{
-				User: &logs.UserLogQuery{
-					UserType: &logs.UserLogQuery_Project{
-						Project: project,
-					},
+func addProjectRequest(req *logs.GetLogsRequest, project string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_User{
+			User: &logs.UserLogQuery{
+				UserType: &logs.UserLogQuery_Project{
+					Project: project,
 				},
 			},
 		},
@@ -85,10 +78,13 @@ func newProjectRequest(project string) *logs.GetLogsRequest {
 }
 
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
-	var commands []*cobra.Command
-
-	var logQL, pipeline string
-	var project = pachCtx.Project
+	var (
+		commands        []*cobra.Command
+		logQL, pipeline string
+		project         = pachCtx.Project
+		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
+		to              = cmdutil.TimeFlag(time.Now())
+	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): remove references to “new.”
 		Short: "New logs functionality",
@@ -107,22 +103,28 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				os.Exit(1)
 			}
 
-			var req *logs.GetLogsRequest
+			var req = new(logs.GetLogsRequest)
+			req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
+			req.Filter = new(logs.LogFilter)
+			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
+				From:  timestamppb.New(time.Time(from)),
+				Until: timestamppb.New(time.Time(to)),
+			}
 			switch {
 			case cmd.Flag("logql").Changed:
 				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
 					os.Exit(1)
 				}
-				req = newLogQLRequest(logQL)
+				addLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
-				req = newPipelineRequest(project, pipeline)
+				addPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
-				req = newProjectRequest(project)
+				addProjectRequest(req, project)
 			case isAdmin:
-				req = newLogQLRequest(`{suite="pachyderm"}`)
+				addLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
-				req = newLogQLRequest(`{pod=~".+"}`)
+				addLogQLRequest(req, `{pod=~".+"}`)
 			}
 
 			// always ask for paging hints
@@ -172,6 +174,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
+	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
+	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
 	commands = append(commands, logsCmd)
 	return commands
 }
