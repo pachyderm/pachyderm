@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/wcharczuk/go-chart"
 	"go.uber.org/zap"
 	"golang.org/x/exp/maps"
@@ -108,7 +109,7 @@ func NewDebugServer(env Env) debug.DebugServer {
 }
 
 func (s *debugServer) logDBState(ctx context.Context) {
-	ticker := time.NewTicker(3 * time.Second)
+	ticker := time.NewTicker(8 * time.Second)
 	queries := map[string]string{
 		"idle queries": `
                   SELECT current_timestamp - query_start AS runtime,
@@ -116,16 +117,18 @@ func (s *debugServer) logDBState(ctx context.Context) {
                          usename,
                          client_addr,
                          backend_xid,
+                         state,
                          query
-		  FROM pg_stat_activity WHERE state = 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+		  FROM pg_stat_activity WHERE state LIKE '%idle%' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
 		"active queries": `
                   SELECT current_timestamp - query_start AS runtime,
                          datname,
                          usename,
                          client_addr,
                          backend_xid,
+                         state,
                          query
-		  FROM pg_stat_activity WHERE state != 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
+		  FROM pg_stat_activity WHERE state NOT LIKE '%idle%' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
 	}
 	for {
 		select {
@@ -137,12 +140,24 @@ func (s *debugServer) logDBState(ctx context.Context) {
 				rows, err := s.database.QueryContext(ctx, query)
 				if err != nil {
 					log.Error(ctx, fmt.Sprintf("query %s", msg), zap.Error(err))
+					continue
 				}
-				var buf bytes.Buffer
-				if err := s.writeRowsToJSON(rows, &buf); err != nil {
+				var activities []map[string]interface{}
+				for rows.Next() {
+					r := make(map[string]interface{})
+					if err := sqlx.MapScan(rows, r); err != nil {
+						log.Error(ctx, fmt.Sprintf("map scan row for:  %s", msg), zap.Error(err))
+						break
+					}
+					activities = append(activities, r)
+				}
+				if err := rows.Err(); err != nil {
 					log.Error(ctx, fmt.Sprintf("write results for  %s", msg), zap.Error(err))
+					continue
 				}
-				log.Info(ctx, msg, zap.String("txns", buf.String()))
+				if len(activities) > 0 {
+					log.Info(ctx, msg, zap.Any("activities", activities))
+				}
 			}
 		}
 	}
