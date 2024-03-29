@@ -7559,3 +7559,46 @@ func TestReposSummary(t *testing.T) {
 	require.Equal(t, "B", summaryResp.Summaries[0].Project.Name)
 	require.Equal(t, int64(2*len([]byte(data))), summaryResp.Summaries[0].SizeBytes)
 }
+
+func TestNilBranchNameUnary(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+
+	commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+
+	fileContent1 := "foo\n"
+	err = env.PachClient.PutFile(commit, "dir/foo", strings.NewReader(fileContent1))
+	require.NoError(t, err)
+
+	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", commit.Id)
+	require.NoError(t, err)
+
+	require.Equal(t, "", commitInfo.Commit.Branch.Name)
+}
+
+func TestNilBranchNameStream(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+
+	repo := "test"
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
+
+	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+
+	require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.5", &bytes.Buffer{}))
+	require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
+
+	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+
+	require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
+		require.Equal(t, "", fi.File.Commit.Branch.Name)
+		return nil
+	}))
+}
