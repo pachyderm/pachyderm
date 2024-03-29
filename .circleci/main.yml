@@ -37,7 +37,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240314-78aa2972ea51c84c3442e24598bad86ff17ddbfe@sha256:276eebee50725d52deb526dce070f1e5fd5586f9a25964a9c7dc9ae8fcda044d
+    default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
   go-version:
     type: string
     default: "1.22.1"
@@ -824,6 +824,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - install-jupyter-test-deps
       - run:
           name: "e2e tests"
@@ -844,8 +845,6 @@ jobs:
             # Enable the examples extension
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
             pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
@@ -1791,15 +1790,10 @@ workflows:
             parameters:
               python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
+      - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
           requires:
-            - build-docker-images
             - jupyter-extension-build
-            - build-pachctl-bin
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
@@ -2110,72 +2104,44 @@ commands:
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps:
     steps:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
       - run:
-          name: Install kind
-          command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - install-helm
-      - install-kubectl
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
       - run:
           name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
       - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
-      - run:
-          name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
-      - run:
-          name: Install pach
+          name: Install pachd with auth
           command: |
-            helm install pachd ../etc/helm/pachyderm \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=AMAZON \
-              --set pachd.storage.gocdkEnabled=true \
-              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
-              --set pachd.storage.amazon.id=minioadmin \
-              --set pachd.storage.amazon.secret=minioadmin \
-              --set pachd.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
-            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm \
-              --namespace enterprise \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
-              --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1} \
-              --set proxy.service.httpNodePort=30081 \
-              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
-              --set pachd.rootToken=roottoken1234
-      - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
-          command: |
-            sleep 20
-            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
-      - run:
-          name: Setup pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30081'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
-            echo 'roottoken1234' | pachctl auth use-auth-token
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
             mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
+      - run:
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+          background: true
+      - run:
+          name: Install pachd without auth
+          command: |
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
+      - run:
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
+          background: true
+
   install-pulumi-deps:
     steps:
       - node/install
