@@ -102,39 +102,16 @@ func NewDebugServer(env Env) debug.DebugServer {
 		logLevel:      log.LogLevel,
 		grpcLevel:     log.GRPCLevel,
 	}
-	ticker := time.NewTicker(3 * time.Second)
-	query := `SELECT current_timestamp - query_start as runtime,
-                         datname,
-                         usename,
-                         client_addr,
-                         backend_xid,
-                         query
-		  FROM pg_stat_activity WHERE state = 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`
 	ctx := pctx.Background("debug server")
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				rows, err := s.database.QueryContext(ctx, query)
-				if err != nil {
-					log.Error(ctx, "query idle txns", zap.Error(err))
-				}
-				var buf bytes.Buffer
-				if err := s.writeRowsToJSON(rows, &buf); err != nil {
-					log.Error(ctx, "write idle txns query results", zap.Error(err))
-				}
-				log.Info(ctx, "idle txns", zap.String("txns", buf.String()))
-			}
-		}
-	}()
+	go s.logDBState(ctx)
 	return s
 }
 
-func (s *debugServer) logDBState() {
+func (s *debugServer) logDBState(ctx context.Context) {
 	ticker := time.NewTicker(3 * time.Second)
 	queries := map[string]string{
 		"idle queries": `
-                  SELECT current_timestamp - query_start as runtime,
+                  SELECT current_timestamp - query_start AS runtime,
                          datname,
                          usename,
                          client_addr,
@@ -142,7 +119,7 @@ func (s *debugServer) logDBState() {
                          query
 		  FROM pg_stat_activity WHERE state = 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
 		"active queries": `
-                  SELECT current_timestamp - query_start as runtime,
+                  SELECT current_timestamp - query_start AS runtime,
                          datname,
                          usename,
                          client_addr,
@@ -150,9 +127,11 @@ func (s *debugServer) logDBState() {
                          query
 		  FROM pg_stat_activity WHERE state != 'idle' AND current_timestamp - query_start > interval '10 seconds' ORDER BY runtime DESC;`,
 	}
-	ctx := pctx.Background("debug server")
 	for {
 		select {
+		case <-ctx.Done():
+			log.Error(pctx.TODO(), "log db context cancelled", zap.Error(context.Cause(ctx)))
+			return
 		case <-ticker.C:
 			for msg, query := range queries {
 				rows, err := s.database.QueryContext(ctx, query)
