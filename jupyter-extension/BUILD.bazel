@@ -1,5 +1,5 @@
-load("@jupyter-pip-requirements//:requirements.bzl", "all_requirements")
-load("@jupyter-pip-requirements-dev//:requirements.bzl", all_requirements_dev = "all_requirements")
+load("@jupyter-pip-requirements//:requirements.bzl", "all_data_requirements", "all_requirements")
+load("@jupyter-pip-requirements-dev//:requirements.bzl", all_data_requirements_dev = "all_data_requirements", all_requirements_dev = "all_requirements")
 load("@rules_python//python:pip.bzl", "compile_pip_requirements")
 load("@rules_pyvenv//:venv.bzl", "py_venv")
 
@@ -27,6 +27,11 @@ compile_pip_requirements(
 # Create a virtual environment at ./venv: bazel :venv
 py_venv(
     name = "venv",
+    data = all_data_requirements + all_data_requirements_dev,
+    extra_pip_commands = [
+        # Important! ref: https://github.com/cedarai/rules_pyvenv/issues/15
+        "install --ignore-installed setuptools",
+    ],
     venv_location = "jupyter-extension/venv",
     deps = all_requirements + all_requirements_dev,
 )

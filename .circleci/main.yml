@@ -737,19 +737,13 @@ jobs:
       python-version:
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>-node
+      - image: cimg/node:20.11.0
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
-
+      - install-bazel
       # Install and cache Node dependencies
       - restore_cache:
           keys:
@@ -764,13 +758,15 @@ jobs:
           paths:
             - "node_modules"
       - run:
+          name: "Install Python dependencies"
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+      - run:
           name: "Build and test the extension"
           command: |
             set -eux
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install -e '.[dev]'
 
             # Run Python unit tests
             mkdir -p test-results
@@ -793,8 +789,9 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-bazel
       - install-jupyter-test-deps
-      - run:
+      - run: # Convert to bazel: INT-1201
           name: "Integration tests"
           command: |
             set -eux
@@ -879,6 +876,7 @@ jobs:
 
   jupyter-extension-build:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -897,14 +895,10 @@ jobs:
             then
                 contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
             fi
-
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -923,7 +917,6 @@ jobs:
       - run:
           name: build
           command: |
-            python -m venv venv
             . venv/bin/activate
             python -m build
 
@@ -934,19 +927,17 @@ jobs:
 
   jupyter-extension-test-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -956,25 +947,22 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload --repository testpypi dist/*
 
   jupyter-extension-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r requirements-dev.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -984,7 +972,6 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload dist/*
 
@@ -1397,26 +1384,22 @@ jobs:
           command: |
             helm install pachd ../etc/helm/pachyderm \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
               --namespace enterprise \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
@@ -2155,13 +2138,11 @@ commands:
           command: |
             helm install pachd ../etc/helm/pachyderm \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set pachd.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
@@ -2269,3 +2250,11 @@ commands:
             $POETRY_HOME/bin/pip install poetry==1.4.1
             $POETRY_HOME/bin/poetry --version
             ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+  install-bazel:
+    steps:
+      - run:
+          name: Install Bazel
+          command: |
+            wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+            chmod +x ./bazel
+            sudo mv ./bazel /home/circleci/bin/bazel

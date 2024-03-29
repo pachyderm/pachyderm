@@ -886,7 +886,7 @@ pachd:
     # When using gocdkEnabled, 'backend' cannot be 'MINIO'.
     # Users who desire to use minio as their storage backend should set the 'backend' to 'AMAZON' instead
     # and set 'storageURL' to the s3 compatible URL representation for their minio endpoint.
-    gocdkEnabled: false
+    gocdkEnabled: true
     # storageURL is a URL endpoint for object storage such as "s3://myamazonbucket" or "gcs://mygooglebucket.
     # Depending on the storage provider, some configuration options may also be passed via URL query parameters.
     storageURL: ""

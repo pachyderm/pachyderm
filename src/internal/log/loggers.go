@@ -253,6 +253,7 @@ func InitBatchLogger(logFile string) func(err error) {
 			if keepLog {
 				zap.S().Infof("logfile retained at %v", logFile)
 			}
+			time.Sleep(5 * time.Millisecond)
 			close()
 			if !keepLog && logFile != "" {
 				if err := os.Remove(logFile); err != nil {
