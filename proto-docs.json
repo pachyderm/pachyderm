@@ -28105,6 +28105,42 @@
           ]
         },
         {
+          "name": "FileFilter",
+          "longName": "FileFilter",
+          "fullName": "storage.FileFilter",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path_range",
+              "description": "Only emit files with paths in the provided path range.",
+              "label": "",
+              "type": "PathRange",
+              "longType": "PathRange",
+              "fullType": "storage.PathRange",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            },
+            {
+              "name": "path_regex",
+              "description": "Only emit files with paths that match the provided regular expression.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "filter",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "PathRange",
           "longName": "PathRange",
           "fullName": "storage.PathRange",
@@ -28133,6 +28169,90 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReadFilesetRequest",
+          "longName": "ReadFilesetRequest",
+          "fullName": "storage.ReadFilesetRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "fileset_id",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "filters",
+              "description": "Filters constrain which files are emitted.\nA file is only emitted if it makes it through all of the filters sequentially.",
+              "label": "repeated",
+              "type": "FileFilter",
+              "longType": "FileFilter",
+              "fullType": "storage.FileFilter",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "empty_files",
+              "description": "If true, then the file data will be omitted from the stream.",
+              "label": "",
+              "type": "bool",
+              "longType": "bool",
+              "fullType": "bool",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReadFilesetResponse",
+          "longName": "ReadFilesetResponse",
+          "fullName": "storage.ReadFilesetResponse",
+          "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file. \nSmall or empty files will be contained within a single message, while large\nfiles may be spread across multiple messages.\nFor files spread across multiple messages, each message will have the same\npath and the content will be returned in append order.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "path",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "data",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -28267,6 +28387,18 @@
               "responseLongType": "CreateFilesetResponse",
               "responseFullType": "storage.CreateFilesetResponse",
               "responseStreaming": false
+            },
+            {
+              "name": "ReadFileset",
+              "description": "ReadFileset reads a fileset.",
+              "requestType": "ReadFilesetRequest",
+              "requestLongType": "ReadFilesetRequest",
+              "requestFullType": "storage.ReadFilesetRequest",
+              "requestStreaming": false,
+              "responseType": "ReadFilesetResponse",
+              "responseLongType": "ReadFilesetResponse",
+              "responseFullType": "storage.ReadFilesetResponse",
+              "responseStreaming": true
             },
             {
               "name": "RenewFileset",

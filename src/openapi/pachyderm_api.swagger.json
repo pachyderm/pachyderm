@@ -5483,6 +5483,45 @@
         ]
       }
     },
+    "/storage.Fileset/ReadFileset": {
+      "post": {
+        "summary": "ReadFileset reads a fileset.",
+        "operationId": "Fileset_ReadFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/storageReadFilesetResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of storageReadFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageReadFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/storage.Fileset/RenewFileset": {
       "post": {
         "summary": "RenewFileset renews a fileset.",
@@ -11712,6 +11751,19 @@
       },
       "description": "DeleteFile will delete the file with the specified path. If a file with the\nspecified path doesn't exist, the delete will be a no-op."
     },
+    "storageFileFilter": {
+      "type": "object",
+      "properties": {
+        "pathRange": {
+          "$ref": "#/definitions/storagePathRange",
+          "description": "Only emit files with paths in the provided path range."
+        },
+        "pathRegex": {
+          "type": "string",
+          "description": "Only emit files with paths that match the provided regular expression."
+        }
+      }
+    },
     "storagePathRange": {
       "type": "object",
       "properties": {
@@ -11723,6 +11775,39 @@
         }
       },
       "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper)."
+    },
+    "storageReadFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/storageFileFilter"
+          },
+          "description": "Filters constrain which files are emitted.\nA file is only emitted if it makes it through all of the filters sequentially."
+        },
+        "emptyFiles": {
+          "type": "boolean",
+          "description": "If true, then the file data will be omitted from the stream."
+        }
+      }
+    },
+    "storageReadFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file. \nSmall or empty files will be contained within a single message, while large\nfiles may be spread across multiple messages.\nFor files spread across multiple messages, each message will have the same\npath and the content will be returned in append order."
     },
     "storageRenewFilesetRequest": {
       "type": "object",

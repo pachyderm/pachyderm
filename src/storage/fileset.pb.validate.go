@@ -559,6 +559,436 @@ var _ interface {
 	ErrorName() string
 } = CreateFilesetResponseValidationError{}
 
+// Validate checks the field values on FileFilter with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *FileFilter) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on FileFilter with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in FileFilterMultiError, or
+// nil if none found.
+func (m *FileFilter) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *FileFilter) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	switch v := m.Filter.(type) {
+	case *FileFilter_PathRange:
+		if v == nil {
+			err := FileFilterValidationError{
+				field:  "Filter",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+
+		if all {
+			switch v := interface{}(m.GetPathRange()).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, FileFilterValidationError{
+						field:  "PathRange",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, FileFilterValidationError{
+						field:  "PathRange",
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(m.GetPathRange()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return FileFilterValidationError{
+					field:  "PathRange",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *FileFilter_PathRegex:
+		if v == nil {
+			err := FileFilterValidationError{
+				field:  "Filter",
+				reason: "oneof value cannot be a typed-nil",
+			}
+			if !all {
+				return err
+			}
+			errors = append(errors, err)
+		}
+		// no validation rules for PathRegex
+	default:
+		_ = v // ensures v is used
+	}
+
+	if len(errors) > 0 {
+		return FileFilterMultiError(errors)
+	}
+
+	return nil
+}
+
+// FileFilterMultiError is an error wrapping multiple validation errors
+// returned by FileFilter.ValidateAll() if the designated constraints aren't met.
+type FileFilterMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m FileFilterMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m FileFilterMultiError) AllErrors() []error { return m }
+
+// FileFilterValidationError is the validation error returned by
+// FileFilter.Validate if the designated constraints aren't met.
+type FileFilterValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e FileFilterValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e FileFilterValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e FileFilterValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e FileFilterValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e FileFilterValidationError) ErrorName() string { return "FileFilterValidationError" }
+
+// Error satisfies the builtin error interface
+func (e FileFilterValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sFileFilter.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = FileFilterValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = FileFilterValidationError{}
+
+// Validate checks the field values on ReadFilesetRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ReadFilesetRequest) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReadFilesetRequest with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ReadFilesetRequestMultiError, or nil if none found.
+func (m *ReadFilesetRequest) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReadFilesetRequest) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for FilesetId
+
+	for idx, item := range m.GetFilters() {
+		_, _ = idx, item
+
+		if all {
+			switch v := interface{}(item).(type) {
+			case interface{ ValidateAll() error }:
+				if err := v.ValidateAll(); err != nil {
+					errors = append(errors, ReadFilesetRequestValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			case interface{ Validate() error }:
+				if err := v.Validate(); err != nil {
+					errors = append(errors, ReadFilesetRequestValidationError{
+						field:  fmt.Sprintf("Filters[%v]", idx),
+						reason: "embedded message failed validation",
+						cause:  err,
+					})
+				}
+			}
+		} else if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return ReadFilesetRequestValidationError{
+					field:  fmt.Sprintf("Filters[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	// no validation rules for EmptyFiles
+
+	if len(errors) > 0 {
+		return ReadFilesetRequestMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReadFilesetRequestMultiError is an error wrapping multiple validation errors
+// returned by ReadFilesetRequest.ValidateAll() if the designated constraints
+// aren't met.
+type ReadFilesetRequestMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReadFilesetRequestMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReadFilesetRequestMultiError) AllErrors() []error { return m }
+
+// ReadFilesetRequestValidationError is the validation error returned by
+// ReadFilesetRequest.Validate if the designated constraints aren't met.
+type ReadFilesetRequestValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReadFilesetRequestValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReadFilesetRequestValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReadFilesetRequestValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReadFilesetRequestValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReadFilesetRequestValidationError) ErrorName() string {
+	return "ReadFilesetRequestValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReadFilesetRequestValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReadFilesetRequest.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReadFilesetRequestValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReadFilesetRequestValidationError{}
+
+// Validate checks the field values on ReadFilesetResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the first error encountered is returned, or nil if there are no violations.
+func (m *ReadFilesetResponse) Validate() error {
+	return m.validate(false)
+}
+
+// ValidateAll checks the field values on ReadFilesetResponse with the rules
+// defined in the proto definition for this message. If any rules are
+// violated, the result is a list of violation errors wrapped in
+// ReadFilesetResponseMultiError, or nil if none found.
+func (m *ReadFilesetResponse) ValidateAll() error {
+	return m.validate(true)
+}
+
+func (m *ReadFilesetResponse) validate(all bool) error {
+	if m == nil {
+		return nil
+	}
+
+	var errors []error
+
+	// no validation rules for Path
+
+	if all {
+		switch v := interface{}(m.GetData()).(type) {
+		case interface{ ValidateAll() error }:
+			if err := v.ValidateAll(); err != nil {
+				errors = append(errors, ReadFilesetResponseValidationError{
+					field:  "Data",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		case interface{ Validate() error }:
+			if err := v.Validate(); err != nil {
+				errors = append(errors, ReadFilesetResponseValidationError{
+					field:  "Data",
+					reason: "embedded message failed validation",
+					cause:  err,
+				})
+			}
+		}
+	} else if v, ok := interface{}(m.GetData()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ReadFilesetResponseValidationError{
+				field:  "Data",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if len(errors) > 0 {
+		return ReadFilesetResponseMultiError(errors)
+	}
+
+	return nil
+}
+
+// ReadFilesetResponseMultiError is an error wrapping multiple validation
+// errors returned by ReadFilesetResponse.ValidateAll() if the designated
+// constraints aren't met.
+type ReadFilesetResponseMultiError []error
+
+// Error returns a concatenation of all the error messages it wraps.
+func (m ReadFilesetResponseMultiError) Error() string {
+	var msgs []string
+	for _, err := range m {
+		msgs = append(msgs, err.Error())
+	}
+	return strings.Join(msgs, "; ")
+}
+
+// AllErrors returns a list of validation violation errors.
+func (m ReadFilesetResponseMultiError) AllErrors() []error { return m }
+
+// ReadFilesetResponseValidationError is the validation error returned by
+// ReadFilesetResponse.Validate if the designated constraints aren't met.
+type ReadFilesetResponseValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e ReadFilesetResponseValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e ReadFilesetResponseValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e ReadFilesetResponseValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e ReadFilesetResponseValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e ReadFilesetResponseValidationError) ErrorName() string {
+	return "ReadFilesetResponseValidationError"
+}
+
+// Error satisfies the builtin error interface
+func (e ReadFilesetResponseValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sReadFilesetResponse.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = ReadFilesetResponseValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = ReadFilesetResponseValidationError{}
+
 // Validate checks the field values on RenewFilesetRequest with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.

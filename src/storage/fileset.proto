@@ -35,6 +35,34 @@ message CreateFilesetResponse {
   string fileset_id = 1;
 }
 
+message FileFilter {
+  oneof filter {
+   // Only emit files with paths in the provided path range.
+   PathRange path_range = 1;
+   // Only emit files with paths that match the provided regular expression.
+   string path_regex = 2;
+  }
+}
+
+message ReadFilesetRequest {
+ string fileset_id = 1;
+ // Filters constrain which files are emitted.
+ // A file is only emitted if it makes it through all of the filters sequentially.
+ repeated FileFilter filters = 2;
+ // If true, then the file data will be omitted from the stream.
+ bool empty_files = 3;
+}
+
+// A ReadFilesetResponse corresponds to a single chunk of data in a file. 
+// Small or empty files will be contained within a single message, while large
+// files may be spread across multiple messages.
+// For files spread across multiple messages, each message will have the same
+// path and the content will be returned in append order.
+message ReadFilesetResponse {
+  string path = 1;
+  google.protobuf.BytesValue data = 2;
+}
+
 message RenewFilesetRequest {
   string fileset_id = 1;
   // The TTL, in seconds, for the fileset after renewal.
@@ -80,11 +108,13 @@ service Fileset {
   // Filesets have a fixed time-to-live (ttl), which is currently 10 minutes.
   // Filesets needed longer than the ttl will need to be renewed.
   rpc CreateFileset(stream CreateFilesetRequest) returns (CreateFilesetResponse) {}
+  // ReadFileset reads a fileset.
+  rpc ReadFileset(ReadFilesetRequest) returns (stream ReadFilesetResponse) {}
   // RenewFileset renews a fileset.
   rpc RenewFileset(RenewFilesetRequest) returns (google.protobuf.Empty) {}
   // ComposeFileset composes a fileset.
   // Composing a fileset involves combining one or more filesets into a single fileset.
-// TODO: Explain how the filesets are layered and what that means for the order of file modifications.
+  // TODO: Explain how the filesets are layered and what that means for the order of file modifications.
   rpc ComposeFileset(ComposeFilesetRequest) returns (ComposeFilesetResponse) {}
   // ShardFileset shards a fileset.
   // The shards of a fileset are returned as a list of path ranges that are disjoint

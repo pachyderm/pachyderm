@@ -9,7 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -60,7 +60,7 @@ func (sb *sidecarBuilder) registerStorageServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	server, err := storage_server.New(*env)
+	server, err := storageserver.New(*env)
 	if err != nil {
 		return err
 	}

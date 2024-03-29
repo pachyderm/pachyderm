@@ -51,6 +51,48 @@ func (x *CreateFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) erro
 	return nil
 }
 
+func (x *FileFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	if obj, ok := interface{}(x.GetPathRange()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("path_range", obj)
+	} else {
+		enc.AddReflected("path_range", x.GetPathRange())
+	}
+	enc.AddString("path_regex", x.GetPathRegex())
+	return nil
+}
+
+func (x *ReadFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("fileset_id", x.FilesetId)
+	filtersArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Filters {
+			if obj, ok := interface{}(v).(zapcore.ObjectMarshaler); ok {
+				enc.AppendObject(obj)
+			} else {
+				enc.AppendReflected(v)
+			}
+		}
+		return nil
+	}
+	enc.AddArray("filters", zapcore.ArrayMarshalerFunc(filtersArrMarshaller))
+	enc.AddBool("empty_files", x.EmptyFiles)
+	return nil
+}
+
+func (x *ReadFilesetResponse) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddString("path", x.Path)
+	protoextensions.AddBytesValue(enc, "data", x.Data)
+	return nil
+}
+
 func (x *RenewFilesetRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil

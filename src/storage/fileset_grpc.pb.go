@@ -21,6 +21,7 @@ const _ = grpc.SupportPackageIsVersion7
 
 const (
 	Fileset_CreateFileset_FullMethodName  = "/storage.Fileset/CreateFileset"
+	Fileset_ReadFileset_FullMethodName    = "/storage.Fileset/ReadFileset"
 	Fileset_RenewFileset_FullMethodName   = "/storage.Fileset/RenewFileset"
 	Fileset_ComposeFileset_FullMethodName = "/storage.Fileset/ComposeFileset"
 	Fileset_ShardFileset_FullMethodName   = "/storage.Fileset/ShardFileset"
@@ -35,6 +36,8 @@ type FilesetClient interface {
 	// Filesets have a fixed time-to-live (ttl), which is currently 10 minutes.
 	// Filesets needed longer than the ttl will need to be renewed.
 	CreateFileset(ctx context.Context, opts ...grpc.CallOption) (Fileset_CreateFilesetClient, error)
+	// ReadFileset reads a fileset.
+	ReadFileset(ctx context.Context, in *ReadFilesetRequest, opts ...grpc.CallOption) (Fileset_ReadFilesetClient, error)
 	// RenewFileset renews a fileset.
 	RenewFileset(ctx context.Context, in *RenewFilesetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 	// ComposeFileset composes a fileset.
@@ -89,6 +92,38 @@ func (x *filesetCreateFilesetClient) CloseAndRecv() (*CreateFilesetResponse, err
 	return m, nil
 }
 
+func (c *filesetClient) ReadFileset(ctx context.Context, in *ReadFilesetRequest, opts ...grpc.CallOption) (Fileset_ReadFilesetClient, error) {
+	stream, err := c.cc.NewStream(ctx, &Fileset_ServiceDesc.Streams[1], Fileset_ReadFileset_FullMethodName, opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &filesetReadFilesetClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Fileset_ReadFilesetClient interface {
+	Recv() (*ReadFilesetResponse, error)
+	grpc.ClientStream
+}
+
+type filesetReadFilesetClient struct {
+	grpc.ClientStream
+}
+
+func (x *filesetReadFilesetClient) Recv() (*ReadFilesetResponse, error) {
+	m := new(ReadFilesetResponse)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
 func (c *filesetClient) RenewFileset(ctx context.Context, in *RenewFilesetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
 	err := c.cc.Invoke(ctx, Fileset_RenewFileset_FullMethodName, in, out, opts...)
@@ -125,6 +160,8 @@ type FilesetServer interface {
 	// Filesets have a fixed time-to-live (ttl), which is currently 10 minutes.
 	// Filesets needed longer than the ttl will need to be renewed.
 	CreateFileset(Fileset_CreateFilesetServer) error
+	// ReadFileset reads a fileset.
+	ReadFileset(*ReadFilesetRequest, Fileset_ReadFilesetServer) error
 	// RenewFileset renews a fileset.
 	RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error)
 	// ComposeFileset composes a fileset.
@@ -144,6 +181,9 @@ type UnimplementedFilesetServer struct {
 
 func (UnimplementedFilesetServer) CreateFileset(Fileset_CreateFilesetServer) error {
 	return status.Errorf(codes.Unimplemented, "method CreateFileset not implemented")
+}
+func (UnimplementedFilesetServer) ReadFileset(*ReadFilesetRequest, Fileset_ReadFilesetServer) error {
+	return status.Errorf(codes.Unimplemented, "method ReadFileset not implemented")
 }
 func (UnimplementedFilesetServer) RenewFileset(context.Context, *RenewFilesetRequest) (*emptypb.Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method RenewFileset not implemented")
@@ -191,6 +231,27 @@ func (x *filesetCreateFilesetServer) Recv() (*CreateFilesetRequest, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+func _Fileset_ReadFileset_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(ReadFilesetRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(FilesetServer).ReadFileset(m, &filesetReadFilesetServer{stream})
+}
+
+type Fileset_ReadFilesetServer interface {
+	Send(*ReadFilesetResponse) error
+	grpc.ServerStream
+}
+
+type filesetReadFilesetServer struct {
+	grpc.ServerStream
+}
+
+func (x *filesetReadFilesetServer) Send(m *ReadFilesetResponse) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Fileset_RenewFileset_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -272,6 +333,11 @@ var Fileset_ServiceDesc = grpc.ServiceDesc{
 			StreamName:    "CreateFileset",
 			Handler:       _Fileset_CreateFileset_Handler,
 			ClientStreams: true,
+		},
+		{
+			StreamName:    "ReadFileset",
+			Handler:       _Fileset_ReadFileset_Handler,
+			ServerStreams: true,
 		},
 	},
 	Metadata: "storage/fileset.proto",

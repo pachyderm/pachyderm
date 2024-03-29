@@ -262,6 +262,215 @@ func (x *CreateFilesetResponse) GetFilesetId() string {
 	return ""
 }
 
+type FileFilter struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	// Types that are assignable to Filter:
+	//
+	//	*FileFilter_PathRange
+	//	*FileFilter_PathRegex
+	Filter isFileFilter_Filter `protobuf_oneof:"filter"`
+}
+
+func (x *FileFilter) Reset() {
+	*x = FileFilter{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_storage_fileset_proto_msgTypes[4]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *FileFilter) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FileFilter) ProtoMessage() {}
+
+func (x *FileFilter) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_fileset_proto_msgTypes[4]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FileFilter.ProtoReflect.Descriptor instead.
+func (*FileFilter) Descriptor() ([]byte, []int) {
+	return file_storage_fileset_proto_rawDescGZIP(), []int{4}
+}
+
+func (m *FileFilter) GetFilter() isFileFilter_Filter {
+	if m != nil {
+		return m.Filter
+	}
+	return nil
+}
+
+func (x *FileFilter) GetPathRange() *PathRange {
+	if x, ok := x.GetFilter().(*FileFilter_PathRange); ok {
+		return x.PathRange
+	}
+	return nil
+}
+
+func (x *FileFilter) GetPathRegex() string {
+	if x, ok := x.GetFilter().(*FileFilter_PathRegex); ok {
+		return x.PathRegex
+	}
+	return ""
+}
+
+type isFileFilter_Filter interface {
+	isFileFilter_Filter()
+}
+
+type FileFilter_PathRange struct {
+	// Only emit files with paths in the provided path range.
+	PathRange *PathRange `protobuf:"bytes,1,opt,name=path_range,json=pathRange,proto3,oneof"`
+}
+
+type FileFilter_PathRegex struct {
+	// Only emit files with paths that match the provided regular expression.
+	PathRegex string `protobuf:"bytes,2,opt,name=path_regex,json=pathRegex,proto3,oneof"`
+}
+
+func (*FileFilter_PathRange) isFileFilter_Filter() {}
+
+func (*FileFilter_PathRegex) isFileFilter_Filter() {}
+
+type ReadFilesetRequest struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	FilesetId string `protobuf:"bytes,1,opt,name=fileset_id,json=filesetId,proto3" json:"fileset_id,omitempty"`
+	// Filters constrain which files are emitted.
+	// A file is only emitted if it makes it through all of the filters sequentially.
+	Filters []*FileFilter `protobuf:"bytes,2,rep,name=filters,proto3" json:"filters,omitempty"`
+	// If true, then the file data will be omitted from the stream.
+	EmptyFiles bool `protobuf:"varint,3,opt,name=empty_files,json=emptyFiles,proto3" json:"empty_files,omitempty"`
+}
+
+func (x *ReadFilesetRequest) Reset() {
+	*x = ReadFilesetRequest{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_storage_fileset_proto_msgTypes[5]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ReadFilesetRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadFilesetRequest) ProtoMessage() {}
+
+func (x *ReadFilesetRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_fileset_proto_msgTypes[5]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadFilesetRequest.ProtoReflect.Descriptor instead.
+func (*ReadFilesetRequest) Descriptor() ([]byte, []int) {
+	return file_storage_fileset_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ReadFilesetRequest) GetFilesetId() string {
+	if x != nil {
+		return x.FilesetId
+	}
+	return ""
+}
+
+func (x *ReadFilesetRequest) GetFilters() []*FileFilter {
+	if x != nil {
+		return x.Filters
+	}
+	return nil
+}
+
+func (x *ReadFilesetRequest) GetEmptyFiles() bool {
+	if x != nil {
+		return x.EmptyFiles
+	}
+	return false
+}
+
+// A ReadFilesetResponse corresponds to a single chunk of data in a file.
+// Small or empty files will be contained within a single message, while large
+// files may be spread across multiple messages.
+// For files spread across multiple messages, each message will have the same
+// path and the content will be returned in append order.
+type ReadFilesetResponse struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+
+	Path string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
+	Data *wrapperspb.BytesValue `protobuf:"bytes,2,opt,name=data,proto3" json:"data,omitempty"`
+}
+
+func (x *ReadFilesetResponse) Reset() {
+	*x = ReadFilesetResponse{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_storage_fileset_proto_msgTypes[6]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ReadFilesetResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReadFilesetResponse) ProtoMessage() {}
+
+func (x *ReadFilesetResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_storage_fileset_proto_msgTypes[6]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReadFilesetResponse.ProtoReflect.Descriptor instead.
+func (*ReadFilesetResponse) Descriptor() ([]byte, []int) {
+	return file_storage_fileset_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ReadFilesetResponse) GetPath() string {
+	if x != nil {
+		return x.Path
+	}
+	return ""
+}
+
+func (x *ReadFilesetResponse) GetData() *wrapperspb.BytesValue {
+	if x != nil {
+		return x.Data
+	}
+	return nil
+}
+
 type RenewFilesetRequest struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -275,7 +484,7 @@ type RenewFilesetRequest struct {
 func (x *RenewFilesetRequest) Reset() {
 	*x = RenewFilesetRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[4]
+		mi := &file_storage_fileset_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -288,7 +497,7 @@ func (x *RenewFilesetRequest) String() string {
 func (*RenewFilesetRequest) ProtoMessage() {}
 
 func (x *RenewFilesetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[4]
+	mi := &file_storage_fileset_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -301,7 +510,7 @@ func (x *RenewFilesetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RenewFilesetRequest.ProtoReflect.Descriptor instead.
 func (*RenewFilesetRequest) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{4}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *RenewFilesetRequest) GetFilesetId() string {
@@ -331,7 +540,7 @@ type ComposeFilesetRequest struct {
 func (x *ComposeFilesetRequest) Reset() {
 	*x = ComposeFilesetRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[5]
+		mi := &file_storage_fileset_proto_msgTypes[8]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -344,7 +553,7 @@ func (x *ComposeFilesetRequest) String() string {
 func (*ComposeFilesetRequest) ProtoMessage() {}
 
 func (x *ComposeFilesetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[5]
+	mi := &file_storage_fileset_proto_msgTypes[8]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -357,7 +566,7 @@ func (x *ComposeFilesetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComposeFilesetRequest.ProtoReflect.Descriptor instead.
 func (*ComposeFilesetRequest) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{5}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ComposeFilesetRequest) GetFilesetIds() []string {
@@ -385,7 +594,7 @@ type ComposeFilesetResponse struct {
 func (x *ComposeFilesetResponse) Reset() {
 	*x = ComposeFilesetResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[6]
+		mi := &file_storage_fileset_proto_msgTypes[9]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -398,7 +607,7 @@ func (x *ComposeFilesetResponse) String() string {
 func (*ComposeFilesetResponse) ProtoMessage() {}
 
 func (x *ComposeFilesetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[6]
+	mi := &file_storage_fileset_proto_msgTypes[9]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -411,7 +620,7 @@ func (x *ComposeFilesetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComposeFilesetResponse.ProtoReflect.Descriptor instead.
 func (*ComposeFilesetResponse) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{6}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ComposeFilesetResponse) GetFilesetId() string {
@@ -440,7 +649,7 @@ type ShardFilesetRequest struct {
 func (x *ShardFilesetRequest) Reset() {
 	*x = ShardFilesetRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[7]
+		mi := &file_storage_fileset_proto_msgTypes[10]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -453,7 +662,7 @@ func (x *ShardFilesetRequest) String() string {
 func (*ShardFilesetRequest) ProtoMessage() {}
 
 func (x *ShardFilesetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[7]
+	mi := &file_storage_fileset_proto_msgTypes[10]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -466,7 +675,7 @@ func (x *ShardFilesetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShardFilesetRequest.ProtoReflect.Descriptor instead.
 func (*ShardFilesetRequest) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{7}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ShardFilesetRequest) GetFilesetId() string {
@@ -504,7 +713,7 @@ type PathRange struct {
 func (x *PathRange) Reset() {
 	*x = PathRange{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[8]
+		mi := &file_storage_fileset_proto_msgTypes[11]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -517,7 +726,7 @@ func (x *PathRange) String() string {
 func (*PathRange) ProtoMessage() {}
 
 func (x *PathRange) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[8]
+	mi := &file_storage_fileset_proto_msgTypes[11]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -530,7 +739,7 @@ func (x *PathRange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PathRange.ProtoReflect.Descriptor instead.
 func (*PathRange) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{8}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *PathRange) GetLower() string {
@@ -558,7 +767,7 @@ type ShardFilesetResponse struct {
 func (x *ShardFilesetResponse) Reset() {
 	*x = ShardFilesetResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_storage_fileset_proto_msgTypes[9]
+		mi := &file_storage_fileset_proto_msgTypes[12]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -571,7 +780,7 @@ func (x *ShardFilesetResponse) String() string {
 func (*ShardFilesetResponse) ProtoMessage() {}
 
 func (x *ShardFilesetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_storage_fileset_proto_msgTypes[9]
+	mi := &file_storage_fileset_proto_msgTypes[12]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -584,7 +793,7 @@ func (x *ShardFilesetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShardFilesetResponse.ProtoReflect.Descriptor instead.
 func (*ShardFilesetResponse) Descriptor() ([]byte, []int) {
-	return file_storage_fileset_proto_rawDescGZIP(), []int{9}
+	return file_storage_fileset_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ShardFilesetResponse) GetShards() []*PathRange {
@@ -623,7 +832,28 @@ var file_storage_fileset_proto_rawDesc = []byte{
 	0x72, 0x65, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70,
 	0x6f, 0x6e, 0x73, 0x65, 0x12, 0x1d, 0x0a, 0x0a, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x5f,
 	0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x66, 0x69, 0x6c, 0x65, 0x73, 0x65,
-	0x74, 0x49, 0x64, 0x22, 0x55, 0x0a, 0x13, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65,
+	0x74, 0x49, 0x64, 0x22, 0x6c, 0x0a, 0x0a, 0x46, 0x69, 0x6c, 0x65, 0x46, 0x69, 0x6c, 0x74, 0x65,
+	0x72, 0x12, 0x33, 0x0a, 0x0a, 0x70, 0x61, 0x74, 0x68, 0x5f, 0x72, 0x61, 0x6e, 0x67, 0x65, 0x18,
+	0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
+	0x50, 0x61, 0x74, 0x68, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x48, 0x00, 0x52, 0x09, 0x70, 0x61, 0x74,
+	0x68, 0x52, 0x61, 0x6e, 0x67, 0x65, 0x12, 0x1f, 0x0a, 0x0a, 0x70, 0x61, 0x74, 0x68, 0x5f, 0x72,
+	0x65, 0x67, 0x65, 0x78, 0x18, 0x02, 0x20, 0x01, 0x28, 0x09, 0x48, 0x00, 0x52, 0x09, 0x70, 0x61,
+	0x74, 0x68, 0x52, 0x65, 0x67, 0x65, 0x78, 0x42, 0x08, 0x0a, 0x06, 0x66, 0x69, 0x6c, 0x74, 0x65,
+	0x72, 0x22, 0x83, 0x01, 0x0a, 0x12, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65,
+	0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x66, 0x69, 0x6c, 0x65,
+	0x73, 0x65, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09, 0x66, 0x69,
+	0x6c, 0x65, 0x73, 0x65, 0x74, 0x49, 0x64, 0x12, 0x2d, 0x0a, 0x07, 0x66, 0x69, 0x6c, 0x74, 0x65,
+	0x72, 0x73, 0x18, 0x02, 0x20, 0x03, 0x28, 0x0b, 0x32, 0x13, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
+	0x67, 0x65, 0x2e, 0x46, 0x69, 0x6c, 0x65, 0x46, 0x69, 0x6c, 0x74, 0x65, 0x72, 0x52, 0x07, 0x66,
+	0x69, 0x6c, 0x74, 0x65, 0x72, 0x73, 0x12, 0x1f, 0x0a, 0x0b, 0x65, 0x6d, 0x70, 0x74, 0x79, 0x5f,
+	0x66, 0x69, 0x6c, 0x65, 0x73, 0x18, 0x03, 0x20, 0x01, 0x28, 0x08, 0x52, 0x0a, 0x65, 0x6d, 0x70,
+	0x74, 0x79, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x22, 0x5a, 0x0a, 0x13, 0x52, 0x65, 0x61, 0x64, 0x46,
+	0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x12, 0x12,
+	0x0a, 0x04, 0x70, 0x61, 0x74, 0x68, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x04, 0x70, 0x61,
+	0x74, 0x68, 0x12, 0x2f, 0x0a, 0x04, 0x64, 0x61, 0x74, 0x61, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b,
+	0x32, 0x1b, 0x2e, 0x67, 0x6f, 0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62,
+	0x75, 0x66, 0x2e, 0x42, 0x79, 0x74, 0x65, 0x73, 0x56, 0x61, 0x6c, 0x75, 0x65, 0x52, 0x04, 0x64,
+	0x61, 0x74, 0x61, 0x22, 0x55, 0x0a, 0x13, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65,
 	0x73, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x12, 0x1d, 0x0a, 0x0a, 0x66, 0x69,
 	0x6c, 0x65, 0x73, 0x65, 0x74, 0x5f, 0x69, 0x64, 0x18, 0x01, 0x20, 0x01, 0x28, 0x09, 0x52, 0x09,
 	0x66, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x49, 0x64, 0x12, 0x1f, 0x0a, 0x0b, 0x74, 0x74, 0x6c,
@@ -652,32 +882,36 @@ var file_storage_fileset_proto_rawDesc = []byte{
 	0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73,
 	0x65, 0x12, 0x2a, 0x0a, 0x06, 0x73, 0x68, 0x61, 0x72, 0x64, 0x73, 0x18, 0x01, 0x20, 0x03, 0x28,
 	0x0b, 0x32, 0x12, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x50, 0x61, 0x74, 0x68,
-	0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x06, 0x73, 0x68, 0x61, 0x72, 0x64, 0x73, 0x32, 0xc9, 0x02,
+	0x52, 0x61, 0x6e, 0x67, 0x65, 0x52, 0x06, 0x73, 0x68, 0x61, 0x72, 0x64, 0x73, 0x32, 0x97, 0x03,
 	0x0a, 0x07, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x52, 0x0a, 0x0d, 0x43, 0x72, 0x65,
 	0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1d, 0x2e, 0x73, 0x74, 0x6f,
 	0x72, 0x61, 0x67, 0x65, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73,
 	0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1e, 0x2e, 0x73, 0x74, 0x6f, 0x72,
 	0x61, 0x67, 0x65, 0x2e, 0x43, 0x72, 0x65, 0x61, 0x74, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65,
-	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x12, 0x46, 0x0a,
-	0x0c, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1c, 0x2e,
-	0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c,
-	0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f,
-	0x6f, 0x67, 0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d,
-	0x70, 0x74, 0x79, 0x22, 0x00, 0x12, 0x53, 0x0a, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65,
-	0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1e, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67,
-	0x65, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74,
-	0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67,
-	0x65, 0x2e, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74,
-	0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x4d, 0x0a, 0x0c, 0x53, 0x68,
-	0x61, 0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1c, 0x2e, 0x73, 0x74, 0x6f,
-	0x72, 0x61, 0x67, 0x65, 0x2e, 0x53, 0x68, 0x61, 0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65,
-	0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
+	0x74, 0x52, 0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x28, 0x01, 0x12, 0x4c, 0x0a,
+	0x0b, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1b, 0x2e, 0x73,
+	0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73,
+	0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1c, 0x2e, 0x73, 0x74, 0x6f, 0x72,
+	0x61, 0x67, 0x65, 0x2e, 0x52, 0x65, 0x61, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52,
+	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x30, 0x01, 0x12, 0x46, 0x0a, 0x0c, 0x52,
+	0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1c, 0x2e, 0x73, 0x74,
+	0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e, 0x52, 0x65, 0x6e, 0x65, 0x77, 0x46, 0x69, 0x6c, 0x65, 0x73,
+	0x65, 0x74, 0x52, 0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x16, 0x2e, 0x67, 0x6f, 0x6f, 0x67,
+	0x6c, 0x65, 0x2e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x62, 0x75, 0x66, 0x2e, 0x45, 0x6d, 0x70, 0x74,
+	0x79, 0x22, 0x00, 0x12, 0x53, 0x0a, 0x0e, 0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65, 0x46, 0x69,
+	0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1e, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
+	0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65,
+	0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1f, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x2e,
+	0x43, 0x6f, 0x6d, 0x70, 0x6f, 0x73, 0x65, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65,
+	0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x12, 0x4d, 0x0a, 0x0c, 0x53, 0x68, 0x61, 0x72,
+	0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x12, 0x1c, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61,
 	0x67, 0x65, 0x2e, 0x53, 0x68, 0x61, 0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52,
-	0x65, 0x73, 0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74,
-	0x68, 0x75, 0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72,
-	0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x76, 0x32, 0x2f, 0x73,
-	0x72, 0x63, 0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74,
-	0x6f, 0x33,
+	0x65, 0x71, 0x75, 0x65, 0x73, 0x74, 0x1a, 0x1d, 0x2e, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65,
+	0x2e, 0x53, 0x68, 0x61, 0x72, 0x64, 0x46, 0x69, 0x6c, 0x65, 0x73, 0x65, 0x74, 0x52, 0x65, 0x73,
+	0x70, 0x6f, 0x6e, 0x73, 0x65, 0x22, 0x00, 0x42, 0x2f, 0x5a, 0x2d, 0x67, 0x69, 0x74, 0x68, 0x75,
+	0x62, 0x2e, 0x63, 0x6f, 0x6d, 0x2f, 0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f,
+	0x70, 0x61, 0x63, 0x68, 0x79, 0x64, 0x65, 0x72, 0x6d, 0x2f, 0x76, 0x32, 0x2f, 0x73, 0x72, 0x63,
+	0x2f, 0x73, 0x74, 0x6f, 0x72, 0x61, 0x67, 0x65, 0x62, 0x06, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x33,
 }
 
 var (
@@ -692,39 +926,47 @@ func file_storage_fileset_proto_rawDescGZIP() []byte {
 	return file_storage_fileset_proto_rawDescData
 }
 
-var file_storage_fileset_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_storage_fileset_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_storage_fileset_proto_goTypes = []interface{}{
 	(*AppendFile)(nil),             // 0: storage.AppendFile
 	(*DeleteFile)(nil),             // 1: storage.DeleteFile
 	(*CreateFilesetRequest)(nil),   // 2: storage.CreateFilesetRequest
 	(*CreateFilesetResponse)(nil),  // 3: storage.CreateFilesetResponse
-	(*RenewFilesetRequest)(nil),    // 4: storage.RenewFilesetRequest
-	(*ComposeFilesetRequest)(nil),  // 5: storage.ComposeFilesetRequest
-	(*ComposeFilesetResponse)(nil), // 6: storage.ComposeFilesetResponse
-	(*ShardFilesetRequest)(nil),    // 7: storage.ShardFilesetRequest
-	(*PathRange)(nil),              // 8: storage.PathRange
-	(*ShardFilesetResponse)(nil),   // 9: storage.ShardFilesetResponse
-	(*wrapperspb.BytesValue)(nil),  // 10: google.protobuf.BytesValue
-	(*emptypb.Empty)(nil),          // 11: google.protobuf.Empty
+	(*FileFilter)(nil),             // 4: storage.FileFilter
+	(*ReadFilesetRequest)(nil),     // 5: storage.ReadFilesetRequest
+	(*ReadFilesetResponse)(nil),    // 6: storage.ReadFilesetResponse
+	(*RenewFilesetRequest)(nil),    // 7: storage.RenewFilesetRequest
+	(*ComposeFilesetRequest)(nil),  // 8: storage.ComposeFilesetRequest
+	(*ComposeFilesetResponse)(nil), // 9: storage.ComposeFilesetResponse
+	(*ShardFilesetRequest)(nil),    // 10: storage.ShardFilesetRequest
+	(*PathRange)(nil),              // 11: storage.PathRange
+	(*ShardFilesetResponse)(nil),   // 12: storage.ShardFilesetResponse
+	(*wrapperspb.BytesValue)(nil),  // 13: google.protobuf.BytesValue
+	(*emptypb.Empty)(nil),          // 14: google.protobuf.Empty
 }
 var file_storage_fileset_proto_depIdxs = []int32{
-	10, // 0: storage.AppendFile.data:type_name -> google.protobuf.BytesValue
+	13, // 0: storage.AppendFile.data:type_name -> google.protobuf.BytesValue
 	0,  // 1: storage.CreateFilesetRequest.append_file:type_name -> storage.AppendFile
 	1,  // 2: storage.CreateFilesetRequest.delete_file:type_name -> storage.DeleteFile
-	8,  // 3: storage.ShardFilesetResponse.shards:type_name -> storage.PathRange
-	2,  // 4: storage.Fileset.CreateFileset:input_type -> storage.CreateFilesetRequest
-	4,  // 5: storage.Fileset.RenewFileset:input_type -> storage.RenewFilesetRequest
-	5,  // 6: storage.Fileset.ComposeFileset:input_type -> storage.ComposeFilesetRequest
-	7,  // 7: storage.Fileset.ShardFileset:input_type -> storage.ShardFilesetRequest
-	3,  // 8: storage.Fileset.CreateFileset:output_type -> storage.CreateFilesetResponse
-	11, // 9: storage.Fileset.RenewFileset:output_type -> google.protobuf.Empty
-	6,  // 10: storage.Fileset.ComposeFileset:output_type -> storage.ComposeFilesetResponse
-	9,  // 11: storage.Fileset.ShardFileset:output_type -> storage.ShardFilesetResponse
-	8,  // [8:12] is the sub-list for method output_type
-	4,  // [4:8] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	11, // 3: storage.FileFilter.path_range:type_name -> storage.PathRange
+	4,  // 4: storage.ReadFilesetRequest.filters:type_name -> storage.FileFilter
+	13, // 5: storage.ReadFilesetResponse.data:type_name -> google.protobuf.BytesValue
+	11, // 6: storage.ShardFilesetResponse.shards:type_name -> storage.PathRange
+	2,  // 7: storage.Fileset.CreateFileset:input_type -> storage.CreateFilesetRequest
+	5,  // 8: storage.Fileset.ReadFileset:input_type -> storage.ReadFilesetRequest
+	7,  // 9: storage.Fileset.RenewFileset:input_type -> storage.RenewFilesetRequest
+	8,  // 10: storage.Fileset.ComposeFileset:input_type -> storage.ComposeFilesetRequest
+	10, // 11: storage.Fileset.ShardFileset:input_type -> storage.ShardFilesetRequest
+	3,  // 12: storage.Fileset.CreateFileset:output_type -> storage.CreateFilesetResponse
+	6,  // 13: storage.Fileset.ReadFileset:output_type -> storage.ReadFilesetResponse
+	14, // 14: storage.Fileset.RenewFileset:output_type -> google.protobuf.Empty
+	9,  // 15: storage.Fileset.ComposeFileset:output_type -> storage.ComposeFilesetResponse
+	12, // 16: storage.Fileset.ShardFileset:output_type -> storage.ShardFilesetResponse
+	12, // [12:17] is the sub-list for method output_type
+	7,  // [7:12] is the sub-list for method input_type
+	7,  // [7:7] is the sub-list for extension type_name
+	7,  // [7:7] is the sub-list for extension extendee
+	0,  // [0:7] is the sub-list for field type_name
 }
 
 func init() { file_storage_fileset_proto_init() }
@@ -782,7 +1024,7 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*RenewFilesetRequest); i {
+			switch v := v.(*FileFilter); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -794,7 +1036,7 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ComposeFilesetRequest); i {
+			switch v := v.(*ReadFilesetRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -806,7 +1048,7 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ComposeFilesetResponse); i {
+			switch v := v.(*ReadFilesetResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -818,7 +1060,7 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*ShardFilesetRequest); i {
+			switch v := v.(*RenewFilesetRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -830,7 +1072,7 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[8].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*PathRange); i {
+			switch v := v.(*ComposeFilesetRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -842,6 +1084,42 @@ func file_storage_fileset_proto_init() {
 			}
 		}
 		file_storage_fileset_proto_msgTypes[9].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ComposeFilesetResponse); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_storage_fileset_proto_msgTypes[10].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*ShardFilesetRequest); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_storage_fileset_proto_msgTypes[11].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*PathRange); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_storage_fileset_proto_msgTypes[12].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*ShardFilesetResponse); i {
 			case 0:
 				return &v.state
@@ -858,13 +1136,17 @@ func file_storage_fileset_proto_init() {
 		(*CreateFilesetRequest_AppendFile)(nil),
 		(*CreateFilesetRequest_DeleteFile)(nil),
 	}
+	file_storage_fileset_proto_msgTypes[4].OneofWrappers = []interface{}{
+		(*FileFilter_PathRange)(nil),
+		(*FileFilter_PathRegex)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_storage_fileset_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   13,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -32,7 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/serviceenv"
-	storage_server "github.com/pachyderm/pachyderm/v2/src/internal/storage"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
@@ -274,7 +274,7 @@ func (b *builder) registerStorageServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	server, err := storage_server.New(*env)
+	server, err := storageserver.New(*env)
 	if err != nil {
 		return err
 	}

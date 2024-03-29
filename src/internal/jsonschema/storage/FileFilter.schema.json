@@ -1,0 +1,48 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/FileFilter",
+    "definitions": {
+        "FileFilter": {
+            "properties": {
+                "pathRange": {
+                    "$ref": "#/definitions/storage.PathRange",
+                    "additionalProperties": false,
+                    "description": "Only emit files with paths in the provided path range."
+                },
+                "pathRegex": {
+                    "type": "string",
+                    "description": "Only emit files with paths that match the provided regular expression."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "path_range"
+                    ]
+                },
+                {
+                    "required": [
+                        "path_regex"
+                    ]
+                }
+            ],
+            "title": "File Filter"
+        },
+        "storage.PathRange": {
+            "properties": {
+                "lower": {
+                    "type": "string"
+                },
+                "upper": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Path Range",
+            "description": "PathRange is a range of paths. The range is inclusive, exclusive: [Lower, Upper)."
+        }
+    }
+}

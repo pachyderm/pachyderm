@@ -650,7 +650,10 @@
     - [CreateFilesetRequest](#storage-CreateFilesetRequest)
     - [CreateFilesetResponse](#storage-CreateFilesetResponse)
     - [DeleteFile](#storage-DeleteFile)
+    - [FileFilter](#storage-FileFilter)
     - [PathRange](#storage-PathRange)
+    - [ReadFilesetRequest](#storage-ReadFilesetRequest)
+    - [ReadFilesetResponse](#storage-ReadFilesetResponse)
     - [RenewFilesetRequest](#storage-RenewFilesetRequest)
     - [ShardFilesetRequest](#storage-ShardFilesetRequest)
     - [ShardFilesetResponse](#storage-ShardFilesetResponse)
@@ -10439,6 +10442,22 @@ specified path doesn&#39;t exist, the delete will be a no-op.
 
 
 
+<a name="storage-FileFilter"></a>
+
+### FileFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path_range | [PathRange](#storage-PathRange) |  | Only emit files with paths in the provided path range. |
+| path_regex | [string](#string) |  | Only emit files with paths that match the provided regular expression. |
+
+
+
+
+
+
 <a name="storage-PathRange"></a>
 
 ### PathRange
@@ -10450,6 +10469,43 @@ The range is inclusive, exclusive: [Lower, Upper).
 | ----- | ---- | ----- | ----------- |
 | lower | [string](#string) |  |  |
 | upper | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-ReadFilesetRequest"></a>
+
+### ReadFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| filters | [FileFilter](#storage-FileFilter) | repeated | Filters constrain which files are emitted. A file is only emitted if it makes it through all of the filters sequentially. |
+| empty_files | [bool](#bool) |  | If true, then the file data will be omitted from the stream. |
+
+
+
+
+
+
+<a name="storage-ReadFilesetResponse"></a>
+
+### ReadFilesetResponse
+A ReadFilesetResponse corresponds to a single chunk of data in a file. 
+Small or empty files will be contained within a single message, while large
+files may be spread across multiple messages.
+For files spread across multiple messages, each message will have the same
+path and the content will be returned in append order.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
 
 
 
@@ -10521,6 +10577,7 @@ storage&#39;s default value is used.
 | Method Name | Request Type | Response Type | Description |
 | ----------- | ------------ | ------------- | ------------|
 | CreateFileset | [CreateFilesetRequest](#storage-CreateFilesetRequest) stream | [CreateFilesetResponse](#storage-CreateFilesetResponse) | CreateFileset creates a fileset based on a stream of file modifications. A string identifier for the created fileset will be returned that can be used for subsequent fileset operations. Filesets have a fixed time-to-live (ttl), which is currently 10 minutes. Filesets needed longer than the ttl will need to be renewed. |
+| ReadFileset | [ReadFilesetRequest](#storage-ReadFilesetRequest) | [ReadFilesetResponse](#storage-ReadFilesetResponse) stream | ReadFileset reads a fileset. |
 | RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
 | ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
 | ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |

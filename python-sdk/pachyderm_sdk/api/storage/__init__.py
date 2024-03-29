@@ -64,6 +64,44 @@ class CreateFilesetResponse(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
+class FileFilter(betterproto.Message):
+    path_range: "PathRange" = betterproto.message_field(1, group="filter")
+    """Only emit files with paths in the provided path range."""
+
+    path_regex: str = betterproto.string_field(2, group="filter")
+    """
+    Only emit files with paths that match the provided regular expression.
+    """
+
+
+@dataclass(eq=False, repr=False)
+class ReadFilesetRequest(betterproto.Message):
+    fileset_id: str = betterproto.string_field(1)
+    filters: List["FileFilter"] = betterproto.message_field(2)
+    """
+    Filters constrain which files are emitted. A file is only emitted if it
+    makes it through all of the filters sequentially.
+    """
+
+    empty_files: bool = betterproto.bool_field(3)
+    """If true, then the file data will be omitted from the stream."""
+
+
+@dataclass(eq=False, repr=False)
+class ReadFilesetResponse(betterproto.Message):
+    """
+    A ReadFilesetResponse corresponds to a single chunk of data in a file.
+    Small or empty files will be contained within a single message, while large
+    files may be spread across multiple messages. For files spread across
+    multiple messages, each message will have the same path and the content
+    will be returned in append order.
+    """
+
+    path: str = betterproto.string_field(1)
+    data: Optional[bytes] = betterproto.message_field(2, wraps=betterproto.TYPE_BYTES)
+
+
+@dataclass(eq=False, repr=False)
 class RenewFilesetRequest(betterproto.Message):
     fileset_id: str = betterproto.string_field(1)
     ttl_seconds: int = betterproto.int64_field(2)
@@ -122,6 +160,11 @@ class FilesetStub:
             request_serializer=CreateFilesetRequest.SerializeToString,
             response_deserializer=CreateFilesetResponse.FromString,
         )
+        self.__rpc_read_fileset = channel.unary_stream(
+            "/storage.Fileset/ReadFileset",
+            request_serializer=ReadFilesetRequest.SerializeToString,
+            response_deserializer=ReadFilesetResponse.FromString,
+        )
         self.__rpc_renew_fileset = channel.unary_unary(
             "/storage.Fileset/RenewFileset",
             request_serializer=RenewFilesetRequest.SerializeToString,
@@ -146,6 +189,24 @@ class FilesetStub:
     ) -> "CreateFilesetResponse":
 
         return self.__rpc_create_fileset(request_iterator)
+
+    def read_fileset(
+        self,
+        *,
+        fileset_id: str = "",
+        filters: Optional[List["FileFilter"]] = None,
+        empty_files: bool = False
+    ) -> Iterator["ReadFilesetResponse"]:
+        filters = filters or []
+
+        request = ReadFilesetRequest()
+        request.fileset_id = fileset_id
+        if filters is not None:
+            request.filters = filters
+        request.empty_files = empty_files
+
+        for response in self.__rpc_read_fileset(request):
+            yield response
 
     def renew_fileset(
         self, *, fileset_id: str = "", ttl_seconds: int = 0

@@ -36,6 +36,24 @@ export type CreateFilesetResponse = {
   filesetId?: string
 }
 
+
+type BaseFileFilter = {
+}
+
+export type FileFilter = BaseFileFilter
+  & OneOf<{ pathRange: PathRange; pathRegex: string }>
+
+export type ReadFilesetRequest = {
+  filesetId?: string
+  filters?: FileFilter[]
+  emptyFiles?: boolean
+}
+
+export type ReadFilesetResponse = {
+  path?: string
+  data?: GoogleProtobufWrappers.BytesValue
+}
+
 export type RenewFilesetRequest = {
   filesetId?: string
   ttlSeconds?: string
@@ -66,6 +84,9 @@ export type ShardFilesetResponse = {
 }
 
 export class Fileset {
+  static ReadFileset(req: ReadFilesetRequest, entityNotifier?: fm.NotifyStreamEntityArrival<ReadFilesetResponse>, initReq?: fm.InitReq): Promise<void> {
+    return fm.fetchStreamingRequest<ReadFilesetRequest, ReadFilesetResponse>(`/storage.Fileset/ReadFileset`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
   static RenewFileset(req: RenewFilesetRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<RenewFilesetRequest, GoogleProtobufEmpty.Empty>(`/storage.Fileset/RenewFileset`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
