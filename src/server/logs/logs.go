@@ -3,6 +3,7 @@ package logs
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -28,7 +29,8 @@ var (
 	// ErrUnimplemented is returned whenever requested functionality is planned but unimplemented.
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
-	ErrPublish = errors.New("error publishing")
+	ErrPublish    = errors.New("error publishing")
+	ErrBadRequest = errors.New("bad request")
 )
 
 // GetLogs gets logs according its request and publishes them.  The pattern is
@@ -48,9 +50,14 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter = new(logs.LogFilter)
 		request.Filter = filter
 	}
+	if filter.Limit+1 > math.MaxInt {
+		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
+	}
 	if filter.Limit == 0 {
 		filter.Limit = 100
 	}
+	// retrieve one extra record for paging
+	filter.Limit++
 	switch {
 	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
 		now := time.Now()
@@ -96,7 +103,63 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		direction = "backward"
 		start, end = end, start
 	}
-	if err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, func(ctx context.Context, entry loki.Entry) error {
+	// FIXME: retry with new batch size when necessary, or return error?
+
+	entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit+1), start, end, direction)
+	if err != nil {
+		return errors.Wrap(err, "doQuery failed")
+	}
+	if request.WantPagingHint {
+		var newer, older loki.Entry
+		if len(entries) > 1 {
+			switch direction {
+			case "forward":
+				var l = len(entries) - 1
+				newer = entries[l]
+				entries = entries[:l]
+			case "backward":
+				newer = entries[0]
+				entries = entries[1:]
+			default:
+				return errors.Errorf("invalid direction %q", direction)
+			}
+		}
+		// request a record immediately prior to the page
+		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(700*time.Hour), start, "backward")
+		if err != nil {
+			return errors.Wrap(err, "hint doQuery failed")
+		}
+		if len(entries) > 0 {
+			older = entries[len(entries)-1]
+		}
+		hint := &logs.PagingHint{
+			Older: proto.Clone(request).(*logs.GetLogsRequest),
+			Newer: proto.Clone(request).(*logs.GetLogsRequest),
+		}
+		if !older.Timestamp.IsZero() {
+			hint.Older.Filter.TimeRange.Until = timestamppb.New(older.Timestamp)
+		}
+		if !newer.Timestamp.IsZero() {
+			hint.Newer.Filter.TimeRange.From = timestamppb.New(newer.Timestamp)
+		}
+		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
+			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
+			if !older.Timestamp.IsZero() {
+				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
+			}
+			if !newer.Timestamp.IsZero() {
+				hint.Newer.Filter.TimeRange.Until = timestamppb.New(older.Timestamp.Add(delta))
+			}
+		}
+		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_PagingHint{
+				PagingHint: hint,
+			},
+		}); err != nil {
+			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
+		}
+	}
+	for _, entry := range entries {
 		var resp *logs.GetLogsResponse
 		switch request.LogFormat {
 		case logs.LogFormat_LOG_FORMAT_UNKNOWN:
@@ -120,9 +183,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		if err := publisher.Publish(ctx, resp); err != nil {
 			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 		}
-		return nil
-	}); err != nil {
-		return errors.Wrap(err, "doQuery failed")
 	}
 
 	return nil
