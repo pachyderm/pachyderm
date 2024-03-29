@@ -6416,6 +6416,12 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "lokiArgs": {
+          "$ref": "#/definitions/debug_v2LokiArgs"
+        },
+        "profileArgs": {
+          "$ref": "#/definitions/debug_v2ProfileArgs"
         }
       }
     },
@@ -6549,6 +6555,15 @@
         }
       }
     },
+    "debug_v2LokiArgs": {
+      "type": "object",
+      "properties": {
+        "maxLogs": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "debug_v2Pipeline": {
       "type": "object",
       "properties": {
@@ -6586,6 +6601,18 @@
         "duration": {
           "type": "string",
           "title": "only meaningful if name == \"cpu\""
+        }
+      }
+    },
+    "debug_v2ProfileArgs": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Profile"
+          }
         }
       }
     },

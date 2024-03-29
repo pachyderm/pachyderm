@@ -341,7 +341,7 @@ func TestQueryLoki(t *testing.T) {
 			var got []int
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
-			out, err := d.queryLoki(ctx, `{foo="bar"}`)
+			out, err := d.queryLoki(ctx, `{foo="bar"}`, 30000)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}
