@@ -180,7 +180,7 @@ func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage
 		case *storage.FileFilter_PathRegex:
 			regex, err := regexp.Compile(f.PathRegex)
 			if err != nil {
-				return err
+				return errors.EnsureStack(err)
 			}
 			regexes = append(regexes, regex)
 		}
@@ -200,7 +200,7 @@ func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage
 		if err := f.Content(ctx, bufW); err != nil {
 			return err
 		}
-		return bufW.Flush()
+		return errors.EnsureStack(bufW.Flush())
 	}, index.WithRange(pathRange))
 }
 
