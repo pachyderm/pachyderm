@@ -16,7 +16,11 @@ type validatable interface {
 	ValidateAll() error
 }
 
-func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+type branchNillable interface {
+	NilBranchName()
+}
+
+func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
 	if r, ok := req.(validatable); ok {
 		if err := r.ValidateAll(); err != nil {
 			return nil, status.Errorf(codes.InvalidArgument, "validate request: %v", err)
@@ -26,7 +30,15 @@ func UnaryServerInterceptor(ctx context.Context, req any, info *grpc.UnaryServer
 	} else {
 		log.DPanic(ctx, "no validation routine on request message", zap.String("type", fmt.Sprintf("%T", req)))
 	}
-	return handler(ctx, req)
+
+	resp, err := handler(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	if b, ok := resp.(branchNillable); ok {
+		b.NilBranchName()
+	}
+	return resp, nil
 }
 
 var _ grpc.UnaryServerInterceptor = UnaryServerInterceptor
@@ -52,7 +64,21 @@ func (w *streamWrapper) RecvMsg(m any) error {
 	return nil
 }
 
+func (w *streamWrapper) SendMsg(m any) error {
+	//w.ServerStream.
+	if b, ok := m.(branchNillable); ok {
+		b.NilBranchName()
+	}
+	return w.ServerStream.SendMsg(m)
+}
+
 func StreamServerInterceptor(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+	// google grpc library wraps client stream and puts server stream. We don't want our implementation to apply to client streams.
+	// TODO: is it possible for these two booleans to be true?
+	if info.IsClientStream && !info.IsServerStream {
+		return handler(srv, stream)
+	}
+
 	return handler(srv, &streamWrapper{ServerStream: stream})
 }
 
