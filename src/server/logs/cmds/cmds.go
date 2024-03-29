@@ -37,7 +37,7 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 	return false, nil
 }
 
-func fillLogQLRequest(req *logs.GetLogsRequest, logQL string) *logs.GetLogsRequest {
+func fillLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_Admin{
@@ -51,7 +51,7 @@ func fillLogQLRequest(req *logs.GetLogsRequest, logQL string) *logs.GetLogsReque
 	return req
 }
 
-func fillPipelineRequest(req *logs.GetLogsRequest, project, pipeline string) *logs.GetLogsRequest {
+func fillPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
@@ -68,7 +68,7 @@ func fillPipelineRequest(req *logs.GetLogsRequest, project, pipeline string) *lo
 	return req
 }
 
-func fillProjectRequest(req *logs.GetLogsRequest, project string) *logs.GetLogsRequest {
+func fillProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
@@ -108,7 +108,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				os.Exit(1)
 			}
 
-			var req = new(logs.GetLogsRequest)
+			var req logs.GetLogsRequest
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:  timestamppb.New(time.Time(from)),
@@ -131,7 +131,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				req = fillLogQLRequest(req, `{pod=~".+"}`)
 			}
 
-			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
+			resp, err := client.LogsClient.GetLogs(client.Ctx(), &req)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
