@@ -37,7 +37,7 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 	return false, nil
 }
 
-func withLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest {
+func addLogQLRequest(req *logs.GetLogsRequest, logQL string) {
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_Admin{
 			Admin: &logs.AdminLogQuery{
@@ -47,10 +47,9 @@ func withLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest
 			},
 		},
 	}
-	return req
 }
 
-func withPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs.GetLogsRequest {
+func addPipelineRequest(req *logs.GetLogsRequest, project, pipeline string) {
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
 			User: &logs.UserLogQuery{
@@ -63,10 +62,9 @@ func withPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs
 			},
 		},
 	}
-	return req
 }
 
-func withProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsRequest {
+func addProjectRequest(req *logs.GetLogsRequest, project string) {
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
 			User: &logs.UserLogQuery{
@@ -76,7 +74,6 @@ func withProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsReq
 			},
 		},
 	}
-	return req
 }
 
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
@@ -105,7 +102,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				os.Exit(1)
 			}
 
-			var req logs.GetLogsRequest
+			var req = new(logs.GetLogsRequest)
 			req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
@@ -118,18 +115,18 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
 					os.Exit(1)
 				}
-				req = withLogQLRequest(req, logQL)
+				addLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
-				req = withPipelineRequest(req, project, pipeline)
+				addPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
-				req = withProjectRequest(req, project)
+				addProjectRequest(req, project)
 			case isAdmin:
-				req = withLogQLRequest(req, `{suite="pachyderm"}`)
+				addLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
-				req = withLogQLRequest(req, `{pod=~".+"}`)
+				addLogQLRequest(req, `{pod=~".+"}`)
 			}
 
-			resp, err := client.LogsClient.GetLogs(client.Ctx(), &req)
+			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
 				os.Exit(1)
