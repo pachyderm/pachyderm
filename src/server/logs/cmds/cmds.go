@@ -37,7 +37,7 @@ func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
 	return false, nil
 }
 
-func fillLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest {
+func withLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_Admin{
@@ -51,7 +51,7 @@ func fillLogQLRequest(req logs.GetLogsRequest, logQL string) logs.GetLogsRequest
 	return req
 }
 
-func fillPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs.GetLogsRequest {
+func withPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
@@ -68,7 +68,7 @@ func fillPipelineRequest(req logs.GetLogsRequest, project, pipeline string) logs
 	return req
 }
 
-func fillProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsRequest {
+func withProjectRequest(req logs.GetLogsRequest, project string) logs.GetLogsRequest {
 	req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 	req.Query = &logs.LogQuery{
 		QueryType: &logs.LogQuery_User{
@@ -120,15 +120,15 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
 					os.Exit(1)
 				}
-				req = fillLogQLRequest(req, logQL)
+				req = withLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
-				req = fillPipelineRequest(req, project, pipeline)
+				req = withPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
-				req = fillProjectRequest(req, project)
+				req = withProjectRequest(req, project)
 			case isAdmin:
-				req = fillLogQLRequest(req, `{suite="pachyderm"}`)
+				req = withLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
-				req = fillLogQLRequest(req, `{pod=~".+"}`)
+				req = withLogQLRequest(req, `{pod=~".+"}`)
 			}
 
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), &req)
