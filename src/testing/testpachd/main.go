@@ -29,49 +29,74 @@ var (
 
 func main() {
 	flag.Parse()
+
+	// Init logging.
 	done := log.InitBatchLogger(*logfile)
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	}
+
+	// Init testpachd options.
 	var opts []pachd.TestPachdOption
 	if *activateAuth {
 		opts = append(opts, pachd.ActivateAuthOption(rootToken))
 	}
+
+	// Build pachd.
 	ctx, cancel := pctx.Interactive()
+	var exitErr error
 	pd, cleanup, err := pachd.BuildTestPachd(ctx, opts...)
+
+	// Cleanup pachd on return.
+	defer func() {
+		ctx = pctx.Background("cleanup")
+		if err := cleanup.Cleanup(ctx); err != nil {
+			log.Error(ctx, "problem cleaning up", zap.Error(err))
+		}
+		done(exitErr)
+	}()
+
+	// If pachd failed to build, exit now.
 	if err != nil {
 		log.Error(ctx, "problem building pachd", zap.Error(err))
-		if err := cleanup.Cleanup(ctx); err != nil {
-			log.Error(ctx, "problem cleaning up after failed run", zap.Error(err))
-		}
+		exitErr = err
+		return
 	}
 
+	// Start pachd running.
 	errCh := make(chan error)
 	go func() {
+		defer close(errCh)
 		if err := pd.Run(ctx); err != nil {
+			// If pachd exits, send the error on errCh.  errCh is read after the context
+			// that cancel() cancels is done, so cancel it first so the write doesn't
+			// block.
 			cancel()
 			if !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}
-		close(errCh)
 	}()
 
-	var exitErr error
+	// Get an RPC client connected to testpachd.
 	pachClient, err := pd.PachClient(ctx)
 	if err != nil {
 		log.Error(ctx, "problem creating pach client", zap.Error(err))
 		exitErr = errors.Wrap(err, "create pach client")
 		cancel()
+		return
 	}
 
+	// If the user wants their pachctl config to be updated, do that now.
 	if *pachCtx != "" {
 		oldContext, err := setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
 		if err != nil {
 			exitErr = err
 			cancel()
+			return
 		}
 		if oldContext != "" && oldContext != *pachCtx {
+			// Restore the context they were currently pointing at on exit.
 			cleanup.AddCleanupCtx("restore pach context", func(ctx context.Context) error {
 				cfg, err := config.Read(true, false)
 				if err != nil {
@@ -86,9 +111,16 @@ func main() {
 			})
 		}
 	}
+
+	// Poll pachd until it's ready.
 	go func() {
 		for {
 			if err := pachClient.Health(); err != nil {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+				}
 				log.Debug(ctx, "pachd not yet healthy, retrying...")
 				time.Sleep(time.Second)
 				continue
@@ -99,20 +131,20 @@ func main() {
 			log.Info(ctx, "pachd ready; waiting for auth...")
 			pd.AwaitAuth(ctx)
 		}
+		// When ready, print the address on stdout.  This is so that non-Go tests can run
+		// testpachd as a subprocess and not have to reimplement health checking / auth
+		// readiness checking.  Once a line is printed, it's ready to go.
 		fmt.Println(pachClient.GetAddress().Qualified())
 		os.Stdout.Close()
 	}()
 
+	// With pachd started and the config ready, run until the context is done.  Background
+	// errors cause this, as does SIGINT.
 	<-ctx.Done()
 	if err := <-errCh; err != nil {
 		log.Error(ctx, "problem running pachd", zap.Error(err))
 		exitErr = err
 	}
-	ctx = pctx.Background("cleanup")
-	if err := cleanup.Cleanup(ctx); err != nil {
-		log.Error(ctx, "problem cleaning up", zap.Error(err))
-	}
-	done(exitErr)
 }
 
 func setupPachctlConfig(ctx context.Context, context string, activateAuth bool, pachClient *client.APIClient) (string, error) {

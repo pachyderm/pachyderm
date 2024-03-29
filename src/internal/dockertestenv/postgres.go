@@ -96,6 +96,7 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(DefaultPostgresDatabase),
 	)
+	defer db.Close()
 	testutil.CreateEphemeralDB(t, db, dbName)
 	testutil.CreateEphemeralDB(t, db, dexName)
 	return DBConfig{
