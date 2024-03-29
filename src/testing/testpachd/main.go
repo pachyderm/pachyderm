@@ -63,6 +63,9 @@ func main() {
 			exitErr = err
 			return
 		}
+		clean.AddCleanup("loki files", func() error {
+			return errors.Wrapf(os.RemoveAll(tmpdir), "cleanup loki tmpdir %v", tmpdir)
+		})
 		l, err := testloki.New(ctx, tmpdir)
 		if err != nil {
 			log.Error(ctx, "problem starting loki", zap.Error(err))
