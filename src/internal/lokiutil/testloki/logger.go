@@ -2,6 +2,7 @@ package testloki
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -25,15 +26,24 @@ func WithTestLoki(l *TestLoki) pachd.TestPachdOption {
 			config.LokiLogging = true
 		},
 		MutateContext: func(ctx context.Context) context.Context {
-			return pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
-				return zapcore.NewTee(c, l.NewZapCore(ctx))
-			})))
+			templateHash := randutil.UniqueString("")[0:10]
+			procHash := randutil.UniqueString("")[0:5]
+			return pctx.Child(ctx, "", l.WithLoki(ctx, map[string]string{
+				"host":              "localhost",
+				"app":               "pachd",
+				"container":         "pachd",
+				"node_name":         "localhost",
+				"pod":               fmt.Sprintf("pachd-%v-%v", templateHash, procHash),
+				"pod_template_hash": templateHash,
+				"stream":            "stderr",
+				"suite":             "pachyderm",
+			}))
 		},
 	}
 }
 
-// NewZapCore returns a zapcore.Core that sends logs to this Loki instance.
-func (l *TestLoki) NewZapCore(ctx context.Context) zapcore.Core {
+// newZapCore returns a zapcore.Core that sends logs to this Loki instance.
+func (l *TestLoki) newZapCore(ctx context.Context) *lokiCore {
 	return &lokiCore{
 		ctx: ctx,
 		l:   l,
@@ -51,16 +61,29 @@ func (l *TestLoki) NewZapCore(ctx context.Context) zapcore.Core {
 			EncodeDuration: zapcore.SecondsDurationEncoder,
 			EncodeCaller:   zapcore.ShortCallerEncoder,
 		}),
-		podTemplateHash: randutil.UniqueString("")[0:10],
+		labels: map[string]string{"suite": "pachyderm"},
 	}
 }
 
+// WithLoki returns a pctx context option that will send logs to this Loki instance.
+func (l *TestLoki) WithLoki(sendCtx context.Context, lokiLabels map[string]string) pctx.Option {
+	lc := l.newZapCore(sendCtx)
+	lc.labels = lokiLabels
+	return pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, lc)
+	}))
+}
+
+// lokiCore sends JSON log messages to the provided TestLoki instance.  If you were going to use
+// this code in production, you would want to skip the JSON serialization step, buffer lines to send
+// them in batches, and read the time from the Entry instead of using time.Now().  (We use
+// time.Now() here because it's more like what promtail does; reads the line and adds its own
+// timestamp.)
 type lokiCore struct {
-	ctx             context.Context
-	l               *TestLoki
-	enc             zapcore.Encoder
-	podTemplateHash string
-	fields          []zapcore.Field
+	ctx    context.Context
+	l      *TestLoki
+	enc    zapcore.Encoder
+	labels map[string]string
 }
 
 var _ zapcore.Core = (*lokiCore)(nil)
@@ -71,11 +94,12 @@ func (c *lokiCore) Enabled(zapcore.Level) bool {
 }
 
 // With implements zapcore.Core.
-func (c *lokiCore) With(f []zapcore.Field) zapcore.Core {
-	var fields []zapcore.Field
-	fields = append(fields, c.fields...)
-	fields = append(fields, f...)
-	return &lokiCore{ctx: c.ctx, l: c.l, enc: c.enc, podTemplateHash: c.podTemplateHash, fields: fields}
+func (c *lokiCore) With(fields []zapcore.Field) zapcore.Core {
+	enc := c.enc.Clone()
+	for _, f := range fields {
+		f.AddTo(enc)
+	}
+	return &lokiCore{ctx: c.ctx, l: c.l, enc: enc, labels: c.labels}
 }
 
 // Check implements zapcore.Core.
@@ -88,22 +112,19 @@ func (c *lokiCore) Check(e zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.Che
 
 // Write implements zapcore.Core.
 func (c *lokiCore) Write(e zapcore.Entry, fields []zapcore.Field) error {
+	select {
+	case <-c.ctx.Done():
+		// For tests, we do not care about writes failing beacuse the root context is done.
+		return nil
+	default:
+	}
 	buf, err := c.enc.EncodeEntry(e, fields)
 	if err != nil {
 		return errors.Wrap(err, "encode log entry")
 	}
 	if err := c.l.AddLog(c.ctx, &Log{
-		Time: time.Now(),
-		Labels: map[string]string{
-			"host":              "localhost",
-			"app":               "pachd",
-			"container":         "pachd",
-			"node_name":         "localhost",
-			"pod":               "pachd-" + c.podTemplateHash + c.podTemplateHash[0:5],
-			"pod_template_hash": c.podTemplateHash,
-			"stream":            "stderr",
-			"suite":             "pachyderm",
-		},
+		Time:    time.Now(),
+		Labels:  c.labels,
 		Message: string(buf.Bytes()),
 	}); err != nil {
 		return errors.Wrap(err, "send log to loki")
