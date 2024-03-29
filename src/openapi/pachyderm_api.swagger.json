@@ -976,6 +976,44 @@
         ]
       }
     },
+    "/debug_v2.Debug/Trace": {
+      "post": {
+        "operationId": "Debug_Trace",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/debug_v2TraceChunk"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of debug_v2TraceChunk"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/debug_v2TraceRequest"
+            }
+          }
+        ]
+      }
+    },
     "/debug_v2.Debug/RunPFSLoadTest": {
       "post": {
         "summary": "RunLoadTest runs a load test.",
@@ -1952,6 +1990,37 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/logsGetLogsRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/metadata.API/EditMetadata": {
+      "post": {
+        "summary": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
+        "operationId": "API_EditMetadata",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/metadataEditMetadataRequest"
             }
           }
         ]
@@ -3766,6 +3835,36 @@
             "required": true,
             "schema": {
               "$ref": "#/definitions/pfs_v2DeleteProjectRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/pfs_v2.API/ReposSummary": {
+      "post": {
+        "summary": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+        "operationId": "API_ReposSummary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryRequest"
             }
           }
         ]
@@ -6014,6 +6113,57 @@
         }
       }
     },
+    "EditAddKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "AddKey is an operation that adds a new metadata key."
+    },
+    "EditDeleteKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to remove.  It may not be the empty string."
+        }
+      },
+      "description": "DeleteKey is an operation that removes a metadata key."
+    },
+    "EditEditKey": {
+      "type": "object",
+      "properties": {
+        "key": {
+          "type": "string",
+          "description": "key is the metadata key to change or add.  It may not be the empty string."
+        },
+        "value": {
+          "type": "string",
+          "description": "value is the value to assign to the metadata key."
+        }
+      },
+      "description": "EditKey is an operation that changes or adds a metadata key."
+    },
+    "EditReplace": {
+      "type": "object",
+      "properties": {
+        "replacement": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "replacement is the map to replace the object's metadata with."
+        }
+      },
+      "description": "Replace is an operation that replaces metadata."
+    },
     "EgressResponseObjectStorageResult": {
       "type": "object",
       "properties": {
@@ -6062,13 +6212,6 @@
       ],
       "default": "PIPELINT_TYPE_UNKNOWN",
       "description": "The pipeline type is stored here so that we can internally know the type of\nthe pipeline without loading the spec from PFS."
-    },
-    "RepoPageOrdering": {
-      "type": "string",
-      "enum": [
-        "PROJECT_REPO"
-      ],
-      "default": "PROJECT_REPO"
     },
     "RepoPickerRepoName": {
       "type": "object",
@@ -6830,6 +6973,12 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "lokiArgs": {
+          "$ref": "#/definitions/debug_v2LokiArgs"
+        },
+        "profileArgs": {
+          "$ref": "#/definitions/debug_v2ProfileArgs"
         }
       }
     },
@@ -6963,6 +7112,15 @@
         }
       }
     },
+    "debug_v2LokiArgs": {
+      "type": "object",
+      "properties": {
+        "maxLogs": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "debug_v2Pipeline": {
       "type": "object",
       "properties": {
@@ -7000,6 +7158,18 @@
         "duration": {
           "type": "string",
           "title": "only meaningful if name == \"cpu\""
+        }
+      }
+    },
+    "debug_v2ProfileArgs": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Profile"
+          }
         }
       }
     },
@@ -7180,6 +7350,23 @@
             "type": "object",
             "$ref": "#/definitions/debug_v2App"
           }
+        }
+      }
+    },
+    "debug_v2TraceChunk": {
+      "type": "object",
+      "properties": {
+        "bytes": {
+          "type": "string",
+          "format": "byte"
+        }
+      }
+    },
+    "debug_v2TraceRequest": {
+      "type": "object",
+      "properties": {
+        "duration": {
+          "type": "string"
         }
       }
     },
@@ -8028,6 +8215,62 @@
         }
       }
     },
+    "metadataEdit": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2ProjectPicker",
+          "description": "project targets a named project's metadata."
+        },
+        "commit": {
+          "$ref": "#/definitions/pfs_v2CommitPicker",
+          "description": "commit targets a commit's metadata."
+        },
+        "branch": {
+          "$ref": "#/definitions/pfs_v2BranchPicker",
+          "description": "branch targets a branch's metadata."
+        },
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker",
+          "description": "repo targets a repo's metadata."
+        },
+        "replace": {
+          "$ref": "#/definitions/EditReplace",
+          "description": "replace replaces a target's metadata with a new metadata mapping."
+        },
+        "addKey": {
+          "$ref": "#/definitions/EditAddKey",
+          "description": "add_key adds a new key to the target object's metadata."
+        },
+        "editKey": {
+          "$ref": "#/definitions/EditEditKey",
+          "description": "edit_key adds or changes a key in the target object's metadata."
+        },
+        "deleteKey": {
+          "$ref": "#/definitions/EditDeleteKey",
+          "description": "delete_key removes a key from the target object's metadata."
+        }
+      },
+      "description": "Edit represents editing one piece of metadata."
+    },
+    "metadataEditMetadataRequest": {
+      "type": "object",
+      "properties": {
+        "edits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/metadataEdit"
+          },
+          "description": "edits is the ordered list of metadata edits to perform."
+        }
+      },
+      "description": "EditMetadataRequest is a sequence of edits to apply to metadata."
+    },
+    "metadataEditMetadataResponse": {
+      "type": "object",
+      "description": "EditMetadataResponse is the result of editing metadata."
+    },
     "pfs_v2ActivateAuthRequest": {
       "type": "object"
     },
@@ -8126,6 +8369,12 @@
         },
         "trigger": {
           "$ref": "#/definitions/pfs_v2Trigger"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -8246,6 +8495,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2CommitInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata is user-applied annotations."
         }
       },
       "title": "CommitInfo is the main data structure representing a commit in postgres"
@@ -9011,6 +9267,12 @@
         "createdAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         }
       }
     },
@@ -9099,6 +9361,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2RepoInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata are user-defined key-value pairs."
         }
       },
       "title": "RepoInfo is the main data structure representing a Repo in etcd"
@@ -9117,7 +9386,7 @@
       "type": "object",
       "properties": {
         "order": {
-          "$ref": "#/definitions/RepoPageOrdering"
+          "$ref": "#/definitions/pfs_v2RepoPageOrdering"
         },
         "pageSize": {
           "type": "string",
@@ -9129,6 +9398,13 @@
         }
       }
     },
+    "pfs_v2RepoPageOrdering": {
+      "type": "string",
+      "enum": [
+        "PROJECT_REPO"
+      ],
+      "default": "PROJECT_REPO"
+    },
     "pfs_v2RepoPicker": {
       "type": "object",
       "properties": {
@@ -9137,6 +9413,51 @@
         }
       },
       "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters."
+    },
+    "pfs_v2ReposSummary": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "the project the ReposSummary corresponds to"
+        },
+        "userRepoCount": {
+          "type": "string",
+          "format": "int64",
+          "title": "the count of user repos in the summary"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "aggregate size of all the repos returned in the summary"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
+          },
+          "title": "a ReposSummary will be returned for every specified project"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ReposSummary"
+          },
+          "title": "repo summaries for the requested projects"
+        }
+      }
     },
     "pfs_v2SQLDatabaseEgress": {
       "type": "object",
@@ -10715,6 +11036,10 @@
             "$ref": "#/definitions/pfs_v2Project"
           },
           "description": "Projects to filter on. Empty list means no filter, so return all pipelines."
+        },
+        "page": {
+          "$ref": "#/definitions/pps_v2PipelinePage",
+          "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned."
         }
       }
     },
@@ -11047,6 +11372,29 @@
           "format": "date-time"
         }
       }
+    },
+    "pps_v2PipelinePage": {
+      "type": "object",
+      "properties": {
+        "order": {
+          "$ref": "#/definitions/pps_v2PipelinePageOrdering"
+        },
+        "pageSize": {
+          "type": "string",
+          "format": "int64"
+        },
+        "pageIndex": {
+          "type": "string",
+          "format": "int64"
+        }
+      }
+    },
+    "pps_v2PipelinePageOrdering": {
+      "type": "string",
+      "enum": [
+        "RECENT"
+      ],
+      "default": "RECENT"
     },
     "pps_v2PipelineState": {
       "type": "string",

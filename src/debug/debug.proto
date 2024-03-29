@@ -3,9 +3,11 @@ syntax = "proto3";
 package debug_v2;
 option go_package = "github.com/pachyderm/pachyderm/v2/src/debug";
 
-import "google/protobuf/wrappers.proto";
 import "google/protobuf/duration.proto";
 import "google/protobuf/empty.proto";
+import "google/protobuf/wrappers.proto";
+
+import "protoextensions/validate.proto";
 
 import "pps/pps.proto";
 import "pfs/pfs.proto";
@@ -89,6 +91,18 @@ message App {
   repeated Pod pods = 2;
   google.protobuf.Duration timeout = 3;
   Pipeline pipeline = 4;
+  oneof extra_args {
+    LokiArgs loki_args = 5;
+    ProfileArgs profile_args = 6;
+  }
+}
+
+message ProfileArgs {
+  repeated Profile profiles = 1;
+}
+
+message LokiArgs {
+  uint64 max_logs = 1;
 }
 
 message System {
@@ -175,6 +189,16 @@ message RunPFSLoadTestResponse {
   string state_id = 6;
 }
 
+message TraceRequest {
+  google.protobuf.Duration duration = 1 [(validate.rules).duration.gt.seconds = 0, (validate.rules).duration.required = true];
+}
+
+message TraceChunk {
+  oneof reply {
+    google.protobuf.BytesValue bytes = 1;
+  }
+}
+
 service Debug {
   rpc Profile(ProfileRequest) returns (stream google.protobuf.BytesValue) {}
   rpc Binary(BinaryRequest) returns (stream google.protobuf.BytesValue) {}
@@ -182,6 +206,7 @@ service Debug {
   rpc SetLogLevel(SetLogLevelRequest) returns (SetLogLevelResponse) {}
   rpc GetDumpV2Template(GetDumpV2TemplateRequest) returns (GetDumpV2TemplateResponse) {}
   rpc DumpV2(DumpV2Request) returns (stream DumpChunk) {}
+  rpc Trace(TraceRequest) returns (stream TraceChunk) {}
 
   // RunLoadTest runs a load test.
   rpc RunPFSLoadTest(RunPFSLoadTestRequest) returns (RunPFSLoadTestResponse) {}

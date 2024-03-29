@@ -21,9 +21,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
@@ -206,6 +208,17 @@ func initAuthServer(out *auth.APIServer, env func() authserver.Env) setupStep {
 				return err
 			}
 			*out = apiServer
+			return nil
+		},
+	}
+}
+
+func initMetadataServer(out *metadata.APIServer, env func() metadata_server.Env) setupStep {
+	return setupStep{
+		Name: "initMetadataServer",
+		Fn: func(ctx context.Context) error {
+			server := metadata_server.NewMetadataServer(env())
+			*out = server
 			return nil
 		},
 	}

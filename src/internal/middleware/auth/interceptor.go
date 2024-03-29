@@ -73,6 +73,7 @@ var authHandlers = map[string]authHandler{
 	"/debug_v2.Debug/GetDumpV2Template":     authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/DumpV2":                authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/SetLogLevel":           authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
+	"/debug_v2.Debug/Trace":                 authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_DEBUG_DUMP)),
 	"/debug_v2.Debug/RunPFSLoadTest":        authDisabledOr(authenticated),
 	"/debug_v2.Debug/RunPFSLoadTestDefault": authDisabledOr(authenticated),
 
@@ -164,26 +165,31 @@ var authHandlers = map[string]authHandler{
 	// TODO: GetFileTAR is unauthenticated for performance reasons. Normal authentication
 	// will be applied internally when a commit is used. When a file set id is used, we lean
 	// on the capability based authentication of file sets.
-	"/pfs_v2.API/GetFileTAR":     unauthenticated,
-	"/pfs_v2.API/InspectFile":    authDisabledOr(authenticated),
-	"/pfs_v2.API/ListFile":       authDisabledOr(authenticated),
-	"/pfs_v2.API/WalkFile":       authDisabledOr(authenticated),
-	"/pfs_v2.API/GlobFile":       authDisabledOr(authenticated),
-	"/pfs_v2.API/DiffFile":       authDisabledOr(authenticated),
-	"/pfs_v2.API/DeleteAll":      authDisabledOr(authenticated),
-	"/pfs_v2.API/Fsck":           authDisabledOr(authenticated),
-	"/pfs_v2.API/CreateFileSet":  authDisabledOr(authenticated),
-	"/pfs_v2.API/GetFileSet":     authDisabledOr(authenticated),
-	"/pfs_v2.API/AddFileSet":     authDisabledOr(authenticated),
-	"/pfs_v2.API/RenewFileSet":   authDisabledOr(authenticated),
-	"/pfs_v2.API/ComposeFileSet": authDisabledOr(authenticated),
-	"/pfs_v2.API/ShardFileSet":   authDisabledOr(authenticated),
-	"/pfs_v2.API/CheckStorage":   authDisabledOr(authenticated),
-	"/pfs_v2.API/PutCache":       authDisabledOr(authenticated),
-	"/pfs_v2.API/GetCache":       authDisabledOr(authenticated),
-	"/pfs_v2.API/ClearCache":     authDisabledOr(authenticated),
-	"/pfs_v2.API/ListTask":       authDisabledOr(authenticated),
-	"/pfs_v2.API/Egress":         authDisabledOr(authenticated),
+	"/pfs_v2.API/GetFileTAR":           unauthenticated,
+	"/pfs_v2.API/InspectFile":          authDisabledOr(authenticated),
+	"/pfs_v2.API/ListFile":             authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkFile":             authDisabledOr(authenticated),
+	"/pfs_v2.API/GlobFile":             authDisabledOr(authenticated),
+	"/pfs_v2.API/DiffFile":             authDisabledOr(authenticated),
+	"/pfs_v2.API/DeleteAll":            authDisabledOr(authenticated),
+	"/pfs_v2.API/Fsck":                 authDisabledOr(authenticated),
+	"/pfs_v2.API/CreateFileSet":        authDisabledOr(authenticated),
+	"/pfs_v2.API/GetFileSet":           authDisabledOr(authenticated),
+	"/pfs_v2.API/AddFileSet":           authDisabledOr(authenticated),
+	"/pfs_v2.API/RenewFileSet":         authDisabledOr(authenticated),
+	"/pfs_v2.API/ComposeFileSet":       authDisabledOr(authenticated),
+	"/pfs_v2.API/ShardFileSet":         authDisabledOr(authenticated),
+	"/pfs_v2.API/CheckStorage":         authDisabledOr(authenticated),
+	"/pfs_v2.API/PutCache":             authDisabledOr(authenticated),
+	"/pfs_v2.API/GetCache":             authDisabledOr(authenticated),
+	"/pfs_v2.API/ClearCache":           authDisabledOr(authenticated),
+	"/pfs_v2.API/ListTask":             authDisabledOr(authenticated),
+	"/pfs_v2.API/Egress":               authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkBranchProvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkBranchSubvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkCommitProvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/WalkCommitSubvenance": authDisabledOr(authenticated),
+	"/pfs_v2.API/ReposSummary":         authDisabledOr(authenticated),
 
 	//
 	// Storage API
@@ -272,6 +278,11 @@ var authHandlers = map[string]authHandler{
 
 	// TODO: Only the pachd sidecar instances should be able to use this endpoint.
 	"/proxy.API/Listen": unauthenticated,
+
+	//
+	// Metadata API
+	//
+	"/metadata.API/EditMetadata": authDisabledOr(authenticated),
 }
 
 // NewInterceptor instantiates a new Interceptor

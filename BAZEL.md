@@ -90,6 +90,10 @@ Writing Go code works like it always did. Your editor can understand the entire 
 any help. Whenever you add or delete files, or change dependencies, run `bazel run //:gazelle` to
 update the associated BUILD files for Bazel.
 
+## Write Python code
+
+For the Jupyter extension, see [jupyter-extension/BAZEL.md](jupyter-extensions/BAZEL.md).
+
 ## Regenerating protos
 
 Right now, `make proto` calls out to `bazel run //:make_proto` to generate the Go protos. When you
@@ -181,9 +185,16 @@ in sync. If you forget to run this, nothing will work, so it's unlikely that you
 
 ### pachctl
 
-To run pachctl, `bazel run //:pachctl`. You can also build the binary and copy it to $PATH, if you
-like. After `bazel run //:pachctl` or `bazel build //:pachctl`, it will be in
-`bazel-bin/src/server/cmd/pachctl/pachctl_/pachctl`.
+To run pachctl, `bazel run //:pachctl`.
+
+If you want to install `pachctl` from this source tree, run
+`bazel run //src/server/cmd/pachctl:install` or `bazel run //src/serer/cmd/pachctl:install_nostamp`.
+The `nostamp` variant doesn't have a version number baked into it, much like a normal
+`go install ./src/server/cmd/pachctl`. This avoids it printing a message when it's not the same
+version as pachd. From a release tag, you probably want the stamped version. From a random working
+copy, you probably want the nostamp version. (The warning about version mismatches is annoying, but
+important if you're working on pachd and pachctl at the same time; it probably means you forgot to
+restart pachd after your change, so it potentially reminds you.)
 
 ## Hints
 
@@ -196,6 +207,42 @@ useful if you are passing flags to something you're `bazel run`ning.
 from `//some:target` to `@@some_library//:whatever`. `allpaths` will show all the chains.
 
 `bazel query --output=build ...` will show a BUILD file representing the matched rules.
+
+### ibazel
+
+Bazel can restart a program or rerun a test whenever its dependencies change on disk. It can also
+run `gazelle` for you automatically.
+
+Start by installing the bundled ibazel. `bazel run //tools/ibazel` won't work, because ibazel runs
+bazel, and bazel is already running.
+
+    $ bazel run //tools/ibazel:install
+
+This will install it to a "good" location on your $PATH. If you don't like its choice, you can pass
+the desired location to the :install target:
+
+    $ bazel run //tools/ibazel:install /home/you/go/bin
+
+That would install ibazel to `/home/you/go/bin/ibazel`.
+
+Once you have it installed, you can run `ibazel` like `bazel`, except that the target will be rerun
+when its dependencies change.
+
+To run the PFS tests while you're working on PFS:
+
+    $ ibazel test //src/server/pfs/... --test_output=streamed
+
+To rerun pachctl while you're working on it:
+
+    $ ibazel run //:pachctl -- list repo -v
+
+To push Pachyderm to Kubernetes whenever you change its code:
+
+    $ ibazel run //src/testing/pachdev push
+
+`ibazel` works best if you edit the code less quickly than it takes to run the tests. That means
+it's ideal for things in `//src/internal`. Less ideal for pushing Pachyderm on every change. But it
+does work, if you really want that.
 
 ### protoc
 
@@ -280,3 +327,19 @@ edit files on your workstation and they are immediately there; it's just a read-
 can run `git` or `bazel` inside this environment as well. While converting to Bazel, I've had a lot
 of weird failures on CI, and this has always solved them without wasting time waiting for CI to
 restart!
+
+### Code coverage
+
+`bazel coverage //some/test:target` will generate a combined coverage report for your tests. To view
+it, install [lcov](https://github.com/linux-test-project/lcov) (often available as an OS package;
+it's written in Perl so we don't vendor it in `//tools`), and then run:
+
+```
+genhtml --output genhtml "$(bazel info output_path)/_coverage/_coverage_report.dat"
+```
+
+Then view `genhtml/index.html` in your browser:
+
+```
+chrome genhtml/index.html
+```

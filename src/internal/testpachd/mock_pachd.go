@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -1015,6 +1016,7 @@ type getCacheFunc func(context.Context, *pfs.GetCacheRequest) (*pfs.GetCacheResp
 type clearCacheFunc func(context.Context, *pfs.ClearCacheRequest) (*emptypb.Empty, error)
 type listTaskPFSFunc func(*task.ListTaskRequest, pfs.API_ListTaskServer) error
 type egressFunc func(context.Context, *pfs.EgressRequest) (*pfs.EgressResponse, error)
+type reposSummaryFunc func(context.Context, *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error)
 
 type mockActivateAuthPFS struct{ handler activateAuthPFSFunc }
 type mockCreateRepo struct{ handler createRepoFunc }
@@ -1070,6 +1072,7 @@ type mockGetCache struct{ handler getCacheFunc }
 type mockClearCache struct{ handler clearCacheFunc }
 type mockListTaskPFS struct{ handler listTaskPFSFunc }
 type mockEgress struct{ handler egressFunc }
+type mockReposSummary struct{ handler reposSummaryFunc }
 
 func (mock *mockActivateAuthPFS) Use(cb activateAuthPFSFunc)           { mock.handler = cb }
 func (mock *mockCreateRepo) Use(cb createRepoFunc)                     { mock.handler = cb }
@@ -1125,6 +1128,7 @@ func (mock *mockGetCache) Use(cb getCacheFunc)                         { mock.ha
 func (mock *mockClearCache) Use(cb clearCacheFunc)                     { mock.handler = cb }
 func (mock *mockListTaskPFS) Use(cb listTaskPFSFunc)                   { mock.handler = cb }
 func (mock *mockEgress) Use(cb egressFunc)                             { mock.handler = cb }
+func (mock *mockReposSummary) Use(cb reposSummaryFunc)                 { mock.handler = cb }
 
 type pfsServerAPI struct {
 	pfs.UnsafeAPIServer
@@ -1187,6 +1191,7 @@ type mockPFSServer struct {
 	ClearCache           mockClearCache
 	ListTask             mockListTaskPFS
 	Egress               mockEgress
+	ReposSummary         mockReposSummary
 }
 
 func (api *pfsServerAPI) ActivateAuth(ctx context.Context, req *pfs.ActivateAuthRequest) (*pfs.ActivateAuthResponse, error) {
@@ -1515,6 +1520,13 @@ func (api *pfsServerAPI) ListTask(req *task.ListTaskRequest, server pfs.API_List
 		return api.mock.ListTask.handler(req, server)
 	}
 	return errors.Errorf("unhandled pachd mock pfs.ListTask")
+}
+
+func (api *pfsServerAPI) ReposSummary(ctx context.Context, req *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error) {
+	if api.mock.Egress.handler != nil {
+		return api.mock.ReposSummary.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pfs.ReposSummary")
 }
 
 /* Storage Server Mocks */
@@ -2185,6 +2197,29 @@ func (api *logsServerAPI) GetLogs(req *logs.GetLogsRequest, srv logs.API_GetLogs
 	return errors.Errorf("unhandled pachd mock logs.GetLogs")
 }
 
+/* Metadata Server Mocks */
+type metadataServerAPI struct {
+	metadata.UnsafeAPIServer
+	mock *mockMetadataServer
+}
+
+type mockMetadataServer struct {
+	api          metadataServerAPI
+	EditMetadata mockEditMetadata
+}
+
+type metadata_EditMetadataFunc func(context.Context, *metadata.EditMetadataRequest) (*metadata.EditMetadataResponse, error)
+type mockEditMetadata struct{ handler metadata_EditMetadataFunc }
+
+func (mock *mockEditMetadata) Use(cb metadata_EditMetadataFunc) { mock.handler = cb }
+
+func (api *metadataServerAPI) EditMetadata(ctx context.Context, req *metadata.EditMetadataRequest) (*metadata.EditMetadataResponse, error) {
+	if api.mock.EditMetadata.handler != nil {
+		return api.mock.EditMetadata.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock metadata.EditMetadata")
+}
+
 // MockPachd provides an interface for running the interface for a Pachd API
 // server locally without any of its dependencies. Tests may mock out specific
 // API calls by providing a handler function, and later check information about
@@ -2208,6 +2243,7 @@ type MockPachd struct {
 	Admin         mockAdminServer
 	Proxy         mockProxyServer
 	Logs          mockLogsServer
+	Metadata      mockMetadataServer
 }
 
 type InterceptorOption func(mock *MockPachd) grpcutil.Interceptor
@@ -2243,6 +2279,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	mock.Proxy.api.mock = &mock.Proxy
 	mock.Logs.api.mock = &mock.Logs
 	mock.Identity.api.mock = &mock.Identity
+	mock.Metadata.api.mock = &mock.Metadata
 	mock.GetAuthServer = func() authserver.APIServer {
 		return &mock.Auth.api
 	}
@@ -2312,6 +2349,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	logs.RegisterAPIServer(server.Server, &mock.Logs.api)
 	license.RegisterAPIServer(server.Server, &mock.License.api)
 	identity.RegisterAPIServer(server.Server, &mock.Identity.api)
+	metadata.RegisterAPIServer(server.Server, &mock.Metadata.api)
 
 	listener, err := server.ListenTCP("localhost", port)
 	if err != nil {

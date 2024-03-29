@@ -157,6 +157,30 @@ func (x *App) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddArray("pods", zapcore.ArrayMarshalerFunc(podsArrMarshaller))
 	protoextensions.AddDuration(enc, "timeout", x.Timeout)
 	enc.AddObject("pipeline", x.Pipeline)
+	enc.AddObject("loki_args", x.GetLokiArgs())
+	enc.AddObject("profile_args", x.GetProfileArgs())
+	return nil
+}
+
+func (x *ProfileArgs) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	profilesArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.Profiles {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("profiles", zapcore.ArrayMarshalerFunc(profilesArrMarshaller))
+	return nil
+}
+
+func (x *LokiArgs) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	enc.AddUint64("max_logs", x.MaxLogs)
 	return nil
 }
 
@@ -305,5 +329,21 @@ func (x *RunPFSLoadTestResponse) MarshalLogObject(enc zapcore.ObjectEncoder) err
 	enc.AddString("error", x.Error)
 	protoextensions.AddDuration(enc, "duration", x.Duration)
 	enc.AddString("state_id", x.StateId)
+	return nil
+}
+
+func (x *TraceRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddDuration(enc, "duration", x.Duration)
+	return nil
+}
+
+func (x *TraceChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	protoextensions.AddBytesValue(enc, "bytes", x.GetBytes())
 	return nil
 }

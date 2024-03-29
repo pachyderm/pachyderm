@@ -4,10 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
-	"strings"
 
 	"github.com/jmoiron/sqlx"
 	"google.golang.org/grpc/codes"
@@ -33,61 +34,64 @@ const (
 	CommitChannelName      = "pfs_commits_"
 	createCommit           = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=$1 AND type=$2 AND project_id=(SELECT id from core.projects WHERE name=$3))
-		INSERT INTO pfs.commits 
-    	(commit_id, 
-    	 commit_set_id, 
-    	 repo_id, 
-    	 branch_id, 
-    	 description, 
-    	 origin, 
-    	 start_time, 
-    	 finishing_time, 
-    	 finished_time, 
-    	 compacting_time_s, 
-    	 validating_time_s, 
-    	 size, 
-    	 error) 
-		VALUES 
+		INSERT INTO pfs.commits
+    	(commit_id,
+    	 commit_set_id,
+    	 repo_id,
+    	 branch_id,
+    	 description,
+    	 origin,
+    	 start_time,
+    	 finishing_time,
+    	 finished_time,
+    	 compacting_time_s,
+    	 validating_time_s,
+    	 size,
+    	 error,
+    	 metadata)
+		VALUES
 		($4, $5,
-		 (SELECT id from repo_row_id), 
-		 (SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)), 
-		 $7, $8, $9, $10, $11, $12, $13, $14, $15)
+		 (SELECT id from repo_row_id),
+		 (SELECT id from pfs.branches WHERE name=$6 AND repo_id=(SELECT id from repo_row_id)),
+		 $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 		RETURNING int_id;`
 	updateCommit = `
 		WITH repo_row_id AS (SELECT id from pfs.repos WHERE name=:repo.name AND type=:repo.type AND project_id=(SELECT id from core.projects WHERE name= :repo.project.name))
-		UPDATE pfs.commits SET 
-			commit_id=:commit_id, 
+		UPDATE pfs.commits SET
+			commit_id=:commit_id,
 			commit_set_id=:commit_set_id,
-		    repo_id=(SELECT id from repo_row_id), 
-		    branch_id=(SELECT id from pfs.branches WHERE name=:branch_name AND repo_id=(SELECT id from repo_row_id)), 
-			description=:description, 
-			origin=:origin, 
-			start_time=:start_time, 
-			finishing_time=:finishing_time, 
-			finished_time=:finished_time, 
-		    compacting_time_s=:compacting_time_s, 
-			validating_time_s=:validating_time_s, 
-			size=:size, 
-			error=:error 
+		    repo_id=(SELECT id from repo_row_id),
+		    branch_id=(SELECT id from pfs.branches WHERE name=:branch_name AND repo_id=(SELECT id from repo_row_id)),
+			description=:description,
+			origin=:origin,
+			start_time=:start_time,
+			finishing_time=:finishing_time,
+			finished_time=:finished_time,
+		    compacting_time_s=:compacting_time_s,
+			validating_time_s=:validating_time_s,
+			size=:size,
+			error=:error,
+			metadata=:metadata
 		WHERE int_id=:int_id;`
 	getCommit = `
 		SELECT DISTINCT
-    		commit.int_id, 
-    		commit.commit_id, 
-			commit.commit_set_id,
-    		commit.branch_id, 
-    		commit.origin, 
-    		commit.description, 
-    		commit.start_time, 
-    		commit.finishing_time, 
-    		commit.finished_time, 
-    		commit.compacting_time_s, 
+    		commit.int_id,
+    		commit.commit_id,
+    		commit.commit_set_id,
+    		commit.branch_id,
+    		commit.origin,
+    		commit.description,
+    		commit.start_time,
+    		commit.finishing_time,
+    		commit.finished_time,
+    		commit.compacting_time_s,
     		commit.validating_time_s,
-    		commit.error, 
-    		commit.size, 
+    		commit.error,
+    		commit.size,
+    		commit.metadata,
     		commit.created_at,
     		commit.updated_at,
-    		commit.repo_id AS "repo.id", 
+    		commit.repo_id AS "repo.id",
     		repo.name AS "repo.name",
     		repo.type AS "repo.type",
     		project.name AS "repo.project.name",
@@ -241,13 +245,14 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
+		Metadata:       jsonMap{Data: commitInfo.Metadata},
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
 
 	row := tx.QueryRowxContext(ctx, createCommit, insert.Repo.Name, insert.Repo.Type, insert.Repo.Project.Name,
 		insert.CommitID, insert.CommitSetID, insert.BranchName, insert.Description, insert.Origin, insert.StartTime, insert.FinishingTime,
-		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error)
+		insert.FinishedTime, insert.CompactingTime, insert.ValidatingTime, insert.Size, insert.Error, insert.Metadata)
 	lastInsertId := 0
 	if err := row.Scan(&lastInsertId); err != nil {
 		return 0, errors.Wrap(err, "scanning id from create commitInfo")
@@ -645,6 +650,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
+		Metadata:       jsonMap{Data: commitInfo.Metadata},
 	}
 	query := updateCommit
 	res, err := tx.NamedExecContext(ctx, query, update)
@@ -822,6 +828,7 @@ func parseCommitInfoFromRow(row *Commit) *pfs.CommitInfo {
 		Finished:    pbutil.TimeToTimestamppb(row.FinishedTime),
 		Description: row.Description,
 		Error:       row.Error,
+		Metadata:    row.Metadata.Data,
 		Details: &pfs.CommitInfo_Details{
 			CompactingTime: pbutil.BigIntToDurationpb(row.CompactingTime),
 			ValidatingTime: pbutil.BigIntToDurationpb(row.ValidatingTime),

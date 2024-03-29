@@ -121,6 +121,7 @@ export type RepoInfo = {
   branches?: Branch[]
   authInfo?: AuthInfo
   details?: RepoInfoDetails
+  metadata?: {[key: string]: string}
 }
 
 export type AuthInfo = {
@@ -135,6 +136,7 @@ export type BranchInfo = {
   subvenance?: Branch[]
   directProvenance?: Branch[]
   trigger?: Trigger
+  metadata?: {[key: string]: string}
 }
 
 export type Trigger = {
@@ -197,6 +199,7 @@ export type CommitInfo = {
   error?: string
   sizeBytesUpperBound?: string
   details?: CommitInfoDetails
+  metadata?: {[key: string]: string}
 }
 
 export type CommitSet = {
@@ -225,6 +228,7 @@ export type ProjectInfo = {
   description?: string
   authInfo?: AuthInfo
   createdAt?: GoogleProtobufTimestamp.Timestamp
+  metadata?: {[key: string]: string}
 }
 
 
@@ -644,6 +648,20 @@ type BaseEgressResponse = {
 export type EgressResponse = BaseEgressResponse
   & OneOf<{ objectStorage: EgressResponseObjectStorageResult; sqlDatabase: EgressResponseSQLDatabaseResult }>
 
+export type ReposSummaryRequest = {
+  projects?: ProjectPicker[]
+}
+
+export type ReposSummary = {
+  project?: Project
+  userRepoCount?: string
+  sizeBytes?: string
+}
+
+export type ReposSummaryResponse = {
+  summaries?: ReposSummary[]
+}
+
 export class API {
   static CreateRepo(req: CreateRepoRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<CreateRepoRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/CreateRepo`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -800,5 +818,8 @@ export class API {
   }
   static DeleteProject(req: DeleteProjectRequest, initReq?: fm.InitReq): Promise<GoogleProtobufEmpty.Empty> {
     return fm.fetchReq<DeleteProjectRequest, GoogleProtobufEmpty.Empty>(`/pfs_v2.API/DeleteProject`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static ReposSummary(req: ReposSummaryRequest, initReq?: fm.InitReq): Promise<ReposSummaryResponse> {
+    return fm.fetchReq<ReposSummaryRequest, ReposSummaryResponse>(`/pfs_v2.API/ReposSummary`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
 }

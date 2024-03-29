@@ -92,11 +92,23 @@ export type Pod = {
   containers?: string[]
 }
 
-export type App = {
+
+type BaseApp = {
   name?: string
   pods?: Pod[]
   timeout?: GoogleProtobufDuration.Duration
   pipeline?: Pipeline
+}
+
+export type App = BaseApp
+  & OneOf<{ lokiArgs: LokiArgs; profileArgs: ProfileArgs }>
+
+export type ProfileArgs = {
+  profiles?: Profile[]
+}
+
+export type LokiArgs = {
+  maxLogs?: string
 }
 
 export type System = {
@@ -169,6 +181,17 @@ export type RunPFSLoadTestResponse = {
   stateId?: string
 }
 
+export type TraceRequest = {
+  duration?: GoogleProtobufDuration.Duration
+}
+
+
+type BaseTraceChunk = {
+}
+
+export type TraceChunk = BaseTraceChunk
+  & OneOf<{ bytes: GoogleProtobufWrappers.BytesValue }>
+
 export class Debug {
   static Profile(req: ProfileRequest, entityNotifier?: fm.NotifyStreamEntityArrival<GoogleProtobufWrappers.BytesValue>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<ProfileRequest, GoogleProtobufWrappers.BytesValue>(`/debug_v2.Debug/Profile`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
@@ -187,6 +210,9 @@ export class Debug {
   }
   static DumpV2(req: DumpV2Request, entityNotifier?: fm.NotifyStreamEntityArrival<DumpChunk>, initReq?: fm.InitReq): Promise<void> {
     return fm.fetchStreamingRequest<DumpV2Request, DumpChunk>(`/debug_v2.Debug/DumpV2`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
+  }
+  static Trace(req: TraceRequest, entityNotifier?: fm.NotifyStreamEntityArrival<TraceChunk>, initReq?: fm.InitReq): Promise<void> {
+    return fm.fetchStreamingRequest<TraceRequest, TraceChunk>(`/debug_v2.Debug/Trace`, entityNotifier, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})
   }
   static RunPFSLoadTest(req: RunPFSLoadTestRequest, initReq?: fm.InitReq): Promise<RunPFSLoadTestResponse> {
     return fm.fetchReq<RunPFSLoadTestRequest, RunPFSLoadTestResponse>(`/debug_v2.Debug/RunPFSLoadTest`, {...initReq, method: "POST", body: JSON.stringify(req, fm.replacer)})

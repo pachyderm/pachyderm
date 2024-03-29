@@ -87,6 +87,7 @@ require (
 	github.com/vbauerster/mpb/v6 v6.0.2
 	github.com/wader/readline v0.0.0-20230307172220-bcb7158e7448
 	github.com/wcharczuk/go-chart v2.0.1+incompatible
+	github.com/zeebo/blake3 v0.2.3
 	github.com/zeebo/xxh3 v1.0.2
 	go.etcd.io/etcd/api/v3 v3.5.12
 	go.etcd.io/etcd/client/v3 v3.5.12
@@ -97,8 +98,8 @@ require (
 	go.uber.org/zap v1.24.0
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.20.0
-	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
-	golang.org/x/mod v0.14.0
+	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f
+	golang.org/x/mod v0.15.0
 	golang.org/x/net v0.21.0
 	golang.org/x/oauth2 v0.13.0
 	golang.org/x/sync v0.5.0
@@ -125,6 +126,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/safetext v0.0.0-20220905092116-b49f7bc46da2 // indirect
+	github.com/jackc/puddle v1.3.0 // indirect
 	github.com/moby/term v0.0.0-20221205130635-1aeaba878587 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect

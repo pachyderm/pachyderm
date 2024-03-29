@@ -1,0 +1,39 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "cmds",
+    srcs = ["cmds.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata/cmds",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/cmdutil",
+        "//src/internal/config",
+        "//src/internal/errors",
+        "//src/internal/pachctl",
+        "//src/metadata",
+        "//src/pfs",
+        "@com_github_spf13_cobra//:cobra",
+        "@org_golang_google_protobuf//proto",
+        "@org_golang_google_protobuf//reflect/protopath",
+        "@org_golang_google_protobuf//reflect/protorange",
+        "@org_golang_google_protobuf//reflect/protoreflect",
+    ],
+)
+
+go_test(
+    name = "cmds_test",
+    size = "small",
+    srcs = ["cmds_test.go"],
+    embed = [":cmds"],
+    deps = [
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testutil",
+        "//src/metadata",
+        "//src/pfs",
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
+)

@@ -33,6 +33,7 @@ type Project struct {
 	ID          ProjectID `db:"id"`
 	Name        string    `db:"name"`
 	Description string    `db:"description"`
+	Metadata    jsonMap   `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
@@ -49,6 +50,7 @@ func (project *Project) PbInfo() *pfs.ProjectInfo {
 		},
 		Description: project.Description,
 		CreatedAt:   timestamppb.New(project.CreatedAt),
+		Metadata:    project.Metadata.Data,
 	}
 }
 
@@ -64,7 +66,8 @@ type Repo struct {
 	Type        string  `db:"type"`
 	Description string  `db:"description"`
 	CreatedAtUpdatedAt
-	BranchesNames string `db:"branches"`
+	BranchesNames string  `db:"branches"`
+	Metadata      jsonMap `db:"metadata"`
 }
 
 func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
@@ -89,6 +92,7 @@ func (repo *Repo) PbInfo() (*pfs.RepoInfo, error) {
 		Description: repo.Description,
 		Branches:    branches,
 		Created:     timestamppb.New(repo.CreatedAt),
+		Metadata:    repo.Metadata.Data,
 	}, nil
 }
 
@@ -121,6 +125,7 @@ type Commit struct {
 	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
 	Error          string        `db:"error"`
 	Size           int64         `db:"size"`
+	Metadata       jsonMap       `db:"metadata"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
@@ -148,10 +153,11 @@ func (commit *Commit) Pb() *pfs.Commit {
 
 // Branch is a row in the pfs.branches table.
 type Branch struct {
-	ID   BranchID `db:"id"`
-	Head Commit   `db:"head"`
-	Repo Repo     `db:"repo"`
-	Name string   `db:"name"`
+	ID       BranchID `db:"id"`
+	Head     Commit   `db:"head"`
+	Repo     Repo     `db:"repo"`
+	Name     string   `db:"name"`
+	Metadata jsonMap  `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 

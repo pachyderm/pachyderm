@@ -46,12 +46,17 @@ func TestGC(t *testing.T) {
 	tgc := track.NewGarbageCollector(tracker, time.Minute, deleter)
 	require.NoError(t, tgc.RunUntilEmpty(ctx))
 
-	// run the chunk GC
-	gc := NewGC(s, time.Minute)
+	checkGCConcurrency(t, s, ctx, oc, true)
+	checkGCConcurrency(t, s, ctx, oc, false)
+}
+
+func checkGCConcurrency(t *testing.T, s *Storage, ctx context.Context, oc kv.Store, isConcurrent bool) {
+	t.Helper()
+	gc := NewGC(s, time.Minute, WithConcurrency(isConcurrent))
 	require.NoError(t, gc.RunOnce(ctx))
 
 	// make sure there are no objects
-	count, err = countObjects(ctx, oc)
+	count, err := countObjects(ctx, oc)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
 }

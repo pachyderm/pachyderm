@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var raw bool
@@ -26,12 +25,12 @@ func Cmds(mainCtx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		Use:    "{{alias}} <service>",
 		Short:  "Return info about tasks from a service.",
 		Long:   "Return info about tasks from a service.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			if namespace == "" && group != "" {
 				return errors.Errorf("must set a task namespace to list a group")
 			}
 
-			client, err := pachctlCfg.NewOnUserMachine(mainCtx, false)
+			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
 				return err
 			}

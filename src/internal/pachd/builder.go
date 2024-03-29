@@ -37,6 +37,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	licenseclient "github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
@@ -48,6 +49,7 @@ import (
 	identity_server "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pachw "github.com/pachyderm/pachyderm/v2/src/server/pachw/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
@@ -341,11 +343,22 @@ func (b *builder) registerProxyServer(ctx context.Context) error {
 }
 
 func (b *builder) registerLogsServer(ctx context.Context) error {
-	apiServer, err := logsserver.NewAPIServer()
+	apiServer, err := logsserver.NewAPIServer(logsserver.Env{
+		GetLokiClient: b.env.GetLokiClient,
+	})
 	if err != nil {
 		return err
 	}
 	b.forGRPCServer(func(s *grpc.Server) { logs.RegisterAPIServer(s, apiServer) })
+	return nil
+}
+
+func (b *builder) registerMetadataServer(_ context.Context) error {
+	apiServer := metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   b.env.AuthServer(),
+		TxnEnv: b.txnEnv,
+	})
+	b.forGRPCServer(func(s *grpc.Server) { metadata.RegisterAPIServer(s, apiServer) })
 	return nil
 }
 

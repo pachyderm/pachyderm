@@ -13,6 +13,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	license_v2 "github.com/pachyderm/pachyderm/v2/src/license"
 	logs "github.com/pachyderm/pachyderm/v2/src/logs"
+	metadata "github.com/pachyderm/pachyderm/v2/src/metadata"
 	pfs_v2 "github.com/pachyderm/pachyderm/v2/src/pfs"
 	pjs "github.com/pachyderm/pachyderm/v2/src/pjs"
 	pps_v2 "github.com/pachyderm/pachyderm/v2/src/pps"
@@ -171,6 +172,10 @@ func (c *unsupportedDebugBuilderClient) SetLogLevel(_ context.Context, _ *debug_
 	return nil, unsupportedError("SetLogLevel")
 }
 
+func (c *unsupportedDebugBuilderClient) Trace(_ context.Context, _ *debug_v2.TraceRequest, opts ...grpc.CallOption) (debug_v2.Debug_TraceClient, error) {
+	return nil, unsupportedError("Trace")
+}
+
 type unsupportedEnterpriseBuilderClient struct{}
 
 func (c *unsupportedEnterpriseBuilderClient) Activate(_ context.Context, _ *enterprise_v2.ActivateRequest, opts ...grpc.CallOption) (*enterprise_v2.ActivateResponse, error) {
@@ -301,6 +306,12 @@ type unsupportedLogsBuilderClient struct{}
 
 func (c *unsupportedLogsBuilderClient) GetLogs(_ context.Context, _ *logs.GetLogsRequest, opts ...grpc.CallOption) (logs.API_GetLogsClient, error) {
 	return nil, unsupportedError("GetLogs")
+}
+
+type unsupportedMetadataBuilderClient struct{}
+
+func (c *unsupportedMetadataBuilderClient) EditMetadata(_ context.Context, _ *metadata.EditMetadataRequest, opts ...grpc.CallOption) (*metadata.EditMetadataResponse, error) {
+	return nil, unsupportedError("EditMetadata")
 }
 
 type unsupportedPfsBuilderClient struct{}
@@ -479,6 +490,10 @@ func (c *unsupportedPfsBuilderClient) PutCache(_ context.Context, _ *pfs_v2.PutC
 
 func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.RenewFileSetRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	return nil, unsupportedError("RenewFileSet")
+}
+
+func (c *unsupportedPfsBuilderClient) ReposSummary(_ context.Context, _ *pfs_v2.ReposSummaryRequest, opts ...grpc.CallOption) (*pfs_v2.ReposSummaryResponse, error) {
+	return nil, unsupportedError("ReposSummary")
 }
 
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {

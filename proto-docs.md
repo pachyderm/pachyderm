@@ -90,9 +90,11 @@
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
+    - [LokiArgs](#debug_v2-LokiArgs)
     - [Pipeline](#debug_v2-Pipeline)
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
+    - [ProfileArgs](#debug_v2-ProfileArgs)
     - [ProfileRequest](#debug_v2-ProfileRequest)
     - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
@@ -101,6 +103,8 @@
     - [Starlark](#debug_v2-Starlark)
     - [StarlarkLiteral](#debug_v2-StarlarkLiteral)
     - [System](#debug_v2-System)
+    - [TraceChunk](#debug_v2-TraceChunk)
+    - [TraceRequest](#debug_v2-TraceRequest)
     - [Worker](#debug_v2-Worker)
   
     - [SetLogLevelRequest.LogLevel](#debug_v2-SetLogLevelRequest-LogLevel)
@@ -287,6 +291,18 @@
   
     - [API](#logs-API)
   
+- [metadata/metadata.proto](#metadata_metadata-proto)
+    - [Edit](#metadata-Edit)
+    - [Edit.AddKey](#metadata-Edit-AddKey)
+    - [Edit.DeleteKey](#metadata-Edit-DeleteKey)
+    - [Edit.EditKey](#metadata-Edit-EditKey)
+    - [Edit.Replace](#metadata-Edit-Replace)
+    - [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry)
+    - [EditMetadataRequest](#metadata-EditMetadataRequest)
+    - [EditMetadataResponse](#metadata-EditMetadataResponse)
+  
+    - [API](#metadata-API)
+  
 - [pfs/pfs.proto](#pfs_pfs-proto)
     - [ActivateAuthRequest](#pfs_v2-ActivateAuthRequest)
     - [ActivateAuthResponse](#pfs_v2-ActivateAuthResponse)
@@ -296,6 +312,7 @@
     - [AuthInfo](#pfs_v2-AuthInfo)
     - [Branch](#pfs_v2-Branch)
     - [BranchInfo](#pfs_v2-BranchInfo)
+    - [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry)
     - [BranchPicker](#pfs_v2-BranchPicker)
     - [BranchPicker.BranchName](#pfs_v2-BranchPicker-BranchName)
     - [CheckStorageRequest](#pfs_v2-CheckStorageRequest)
@@ -305,6 +322,7 @@
     - [Commit](#pfs_v2-Commit)
     - [CommitInfo](#pfs_v2-CommitInfo)
     - [CommitInfo.Details](#pfs_v2-CommitInfo-Details)
+    - [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry)
     - [CommitOrigin](#pfs_v2-CommitOrigin)
     - [CommitPicker](#pfs_v2-CommitPicker)
     - [CommitPicker.AncestorOf](#pfs_v2-CommitPicker-AncestorOf)
@@ -366,15 +384,20 @@
     - [PathRange](#pfs_v2-PathRange)
     - [Project](#pfs_v2-Project)
     - [ProjectInfo](#pfs_v2-ProjectInfo)
+    - [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry)
     - [ProjectPicker](#pfs_v2-ProjectPicker)
     - [PutCacheRequest](#pfs_v2-PutCacheRequest)
     - [RenewFileSetRequest](#pfs_v2-RenewFileSetRequest)
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
+    - [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry)
     - [RepoPage](#pfs_v2-RepoPage)
     - [RepoPicker](#pfs_v2-RepoPicker)
     - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
+    - [ReposSummary](#pfs_v2-ReposSummary)
+    - [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest)
+    - [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -496,6 +519,7 @@
     - [PipelineInfo](#pps_v2-PipelineInfo)
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
+    - [PipelinePage](#pps_v2-PipelinePage)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -536,6 +560,7 @@
     - [DatumState](#pps_v2-DatumState)
     - [JobState](#pps_v2-JobState)
     - [PipelineInfo.PipelineType](#pps_v2-PipelineInfo-PipelineType)
+    - [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering)
     - [PipelineState](#pps_v2-PipelineState)
     - [TaintEffect](#pps_v2-TaintEffect)
     - [TolerationOperator](#pps_v2-TolerationOperator)
@@ -1834,6 +1859,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 
@@ -2002,6 +2029,21 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-LokiArgs"></a>
+
+### LokiArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| max_logs | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Pipeline"></a>
 
 ### Pipeline
@@ -2045,6 +2087,21 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | duration | [google.protobuf.Duration](#google-protobuf-Duration) |  | only meaningful if name == &#34;cpu&#34; |
+
+
+
+
+
+
+<a name="debug_v2-ProfileArgs"></a>
+
+### ProfileArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 
@@ -2194,6 +2251,36 @@ StarlarkLiteral is a custom Starlark script.
 
 
 
+<a name="debug_v2-TraceChunk"></a>
+
+### TraceChunk
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| bytes | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="debug_v2-TraceRequest"></a>
+
+### TraceRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| duration | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Worker"></a>
 
 ### Worker
@@ -2244,6 +2331,7 @@ StarlarkLiteral is a custom Starlark script.
 | SetLogLevel | [SetLogLevelRequest](#debug_v2-SetLogLevelRequest) | [SetLogLevelResponse](#debug_v2-SetLogLevelResponse) |  |
 | GetDumpV2Template | [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest) | [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse) |  |
 | DumpV2 | [DumpV2Request](#debug_v2-DumpV2Request) | [DumpChunk](#debug_v2-DumpChunk) stream |  |
+| Trace | [TraceRequest](#debug_v2-TraceRequest) | [TraceChunk](#debug_v2-TraceChunk) stream |  |
 | RunPFSLoadTest | [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTest runs a load test. |
 | RunPFSLoadTestDefault | [.google.protobuf.Empty](#google-protobuf-Empty) | [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse) | RunLoadTestDefault runs the default load tests. |
 
@@ -4642,6 +4730,157 @@ Only returns &#34;user&#34; logs
 
 
 
+<a name="metadata_metadata-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## metadata/metadata.proto
+
+
+
+<a name="metadata-Edit"></a>
+
+### Edit
+Edit represents editing one piece of metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
+| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  | commit targets a commit&#39;s metadata. |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
+| repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
+| replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
+| add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
+| edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
+| delete_key | [Edit.DeleteKey](#metadata-Edit-DeleteKey) |  | delete_key removes a key from the target object&#39;s metadata. |
+
+
+
+
+
+
+<a name="metadata-Edit-AddKey"></a>
+
+### Edit.AddKey
+AddKey is an operation that adds a new metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
+
+
+
+
+
+
+<a name="metadata-Edit-DeleteKey"></a>
+
+### Edit.DeleteKey
+DeleteKey is an operation that removes a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to remove. It may not be the empty string. |
+
+
+
+
+
+
+<a name="metadata-Edit-EditKey"></a>
+
+### Edit.EditKey
+EditKey is an operation that changes or adds a metadata key.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  | key is the metadata key to change or add. It may not be the empty string. |
+| value | [string](#string) |  | value is the value to assign to the metadata key. |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace"></a>
+
+### Edit.Replace
+Replace is an operation that replaces metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| replacement | [Edit.Replace.ReplacementEntry](#metadata-Edit-Replace-ReplacementEntry) | repeated | replacement is the map to replace the object&#39;s metadata with. |
+
+
+
+
+
+
+<a name="metadata-Edit-Replace-ReplacementEntry"></a>
+
+### Edit.Replace.ReplacementEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="metadata-EditMetadataRequest"></a>
+
+### EditMetadataRequest
+EditMetadataRequest is a sequence of edits to apply to metadata.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| edits | [Edit](#metadata-Edit) | repeated | edits is the ordered list of metadata edits to perform. |
+
+
+
+
+
+
+<a name="metadata-EditMetadataResponse"></a>
+
+### EditMetadataResponse
+EditMetadataResponse is the result of editing metadata.
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="metadata-API"></a>
+
+### API
+API is the public API of the metadata service.
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| EditMetadata | [EditMetadataRequest](#metadata-EditMetadataRequest) | [EditMetadataResponse](#metadata-EditMetadataResponse) | EditMetadata edits metadata according to the request. All edits are applied atomically at once. All edits are attempted, but any failing edit fails the entire request. |
+
+ 
+
+
+
 <a name="pfs_pfs-proto"></a>
 <p align="right"><a href="#top">Top</a></p>
 
@@ -4769,6 +5008,23 @@ To set a user&#39;s auth scope for a resource, use the Pachyderm Auth API (in sr
 | subvenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | direct_provenance | [Branch](#pfs_v2-Branch) | repeated |  |
 | trigger | [Trigger](#pfs_v2-Trigger) |  |  |
+| metadata | [BranchInfo.MetadataEntry](#pfs_v2-BranchInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-BranchInfo-MetadataEntry"></a>
+
+### BranchInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -4909,6 +5165,7 @@ CommitInfo is the main data structure representing a commit in postgres
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
+| metadata | [CommitInfo.MetadataEntry](#pfs_v2-CommitInfo-MetadataEntry) | repeated | Metadata is user-applied annotations. |
 
 
 
@@ -4926,6 +5183,22 @@ Details are only provided when explicitly requested
 | size_bytes | [int64](#int64) |  |  |
 | compacting_time | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | validating_time | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-CommitInfo-MetadataEntry"></a>
+
+### CommitInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -5913,6 +6186,23 @@ DeleteReposRequest is used to delete more than one repo at once.
 | description | [string](#string) |  |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  |  |
 | created_at | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
+| metadata | [ProjectInfo.MetadataEntry](#pfs_v2-ProjectInfo-MetadataEntry) | repeated |  |
+
+
+
+
+
+
+<a name="pfs_v2-ProjectInfo-MetadataEntry"></a>
+
+### ProjectInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -6002,6 +6292,7 @@ RepoInfo is the main data structure representing a Repo in etcd
 | branches | [Branch](#pfs_v2-Branch) | repeated |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  | Set by ListRepo and InspectRepo if Pachyderm&#39;s auth system is active, but not stored in etcd. To set a user&#39;s auth scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto) |
 | details | [RepoInfo.Details](#pfs_v2-RepoInfo-Details) |  |  |
+| metadata | [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry) | repeated | Metadata are user-defined key-value pairs. |
 
 
 
@@ -6017,6 +6308,22 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | size_bytes | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoInfo-MetadataEntry"></a>
+
+### RepoInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -6069,6 +6376,53 @@ Picker messages should only be used as request parameters.
 | project | [ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
 | name | [string](#string) |  |  |
 | type | [string](#string) |  | type is optional. If omitted, the default type is &#39;user&#39;. |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummary"></a>
+
+### ReposSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  | the project the ReposSummary corresponds to |
+| user_repo_count | [int64](#int64) |  | the count of user repos in the summary |
+| size_bytes | [int64](#int64) |  | aggregate size of all the repos returned in the summary |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryRequest"></a>
+
+### ReposSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryResponse"></a>
+
+### ReposSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [ReposSummary](#pfs_v2-ReposSummary) | repeated | repo summaries for the requested projects |
 
 
 
@@ -6506,6 +6860,7 @@ These are the different places where a commit may be originated from
 | InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+| ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
 
  
 
@@ -7851,6 +8206,7 @@ all of the filtered attributes.
 | jqFilter | [string](#string) |  | A jq program string for additional result filtering |
 | commit_set | [pfs_v2.CommitSet](#pfs_v2-CommitSet) |  | If non-nil, will return all the pipeline infos at this commit set |
 | projects | [pfs_v2.Project](#pfs_v2-Project) | repeated | Projects to filter on. Empty list means no filter, so return all pipelines. |
+| page | [PipelinePage](#pps_v2-PipelinePage) |  | Page indicates which page of a certain size to return. If page is left empty, all of the selected pipelines will be returned. |
 
 
 
@@ -8111,6 +8467,23 @@ potentially expensive operations.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | pipeline_info | [PipelineInfo](#pps_v2-PipelineInfo) | repeated |  |
+
+
+
+
+
+
+<a name="pps_v2-PipelinePage"></a>
+
+### PipelinePage
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| order | [PipelinePage.Ordering](#pps_v2-PipelinePage-Ordering) |  |  |
+| page_size | [int64](#int64) |  |  |
+| page_index | [int64](#int64) |  |  |
 
 
 
@@ -8780,6 +9153,17 @@ the pipeline without loading the spec from PFS.
 | PIPELINE_TYPE_TRANSFORM | 1 |  |
 | PIPELINE_TYPE_SPOUT | 2 |  |
 | PIPELINE_TYPE_SERVICE | 3 |  |
+
+
+
+<a name="pps_v2-PipelinePage-Ordering"></a>
+
+### PipelinePage.Ordering
+
+
+| Name | Number | Description |
+| ---- | ------ | ----------- |
+| RECENT | 0 |  |
 
 
 

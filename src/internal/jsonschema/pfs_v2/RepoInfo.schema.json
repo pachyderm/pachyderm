@@ -33,6 +33,13 @@
                 "details": {
                     "$ref": "#/definitions/pfs_v2.RepoInfo.Details",
                     "additionalProperties": false
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "Metadata are user-defined key-value pairs."
                 }
             },
             "additionalProperties": false,

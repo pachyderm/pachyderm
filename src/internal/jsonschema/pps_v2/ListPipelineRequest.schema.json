@@ -33,6 +33,11 @@
                     "additionalProperties": false,
                     "type": "array",
                     "description": "Projects to filter on. Empty list means no filter, so return all pipelines."
+                },
+                "page": {
+                    "$ref": "#/definitions/pps_v2.PipelinePage",
+                    "additionalProperties": false,
+                    "description": "Page indicates which page of a certain size to return. If page is left empty, all of the selected pipelines will be returned."
                 }
             },
             "additionalProperties": false,
@@ -72,6 +77,26 @@
             "additionalProperties": false,
             "type": "object",
             "title": "Pipeline"
+        },
+        "pps_v2.PipelinePage": {
+            "properties": {
+                "order": {
+                    "enum": [
+                        "RECENT"
+                    ],
+                    "type": "string",
+                    "title": "Ordering"
+                },
+                "pageSize": {
+                    "type": "integer"
+                },
+                "pageIndex": {
+                    "type": "integer"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Pipeline Page"
         }
     }
 }

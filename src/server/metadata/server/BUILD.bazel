@@ -1,0 +1,16 @@
+load("@rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "server",
+    srcs = ["api_server.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/server/metadata/server",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/internal/transactionenv",
+        "//src/internal/transactionenv/txncontext",
+        "//src/metadata",
+        "//src/server/metadata",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
+    ],
+)

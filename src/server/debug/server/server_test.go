@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -15,149 +14,25 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	"github.com/pachyderm/pachyderm/v2/src/debug"
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
-	"google.golang.org/protobuf/testing/protocmp"
 	"gopkg.in/yaml.v3"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+
+	"github.com/pachyderm/pachyderm/v2/src/debug"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"google.golang.org/protobuf/testing/protocmp"
+
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
+	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/tarutil"
 )
-
-type lokiResult struct {
-	Stream map[string]string `json:"stream"`
-	Values [][2]string       `json:"values"`
-}
-
-type data struct {
-	ResultType string       `json:"resultType"`
-	Result     []lokiResult `json:"result"`
-}
-type response struct {
-	Status string `json:"status"`
-	Data   data   `json:"data"`
-}
-
-func mustParseQuerystringInt64(r *http.Request, field string) int64 {
-	x, err := strconv.ParseInt(r.URL.Query().Get(field), 10, 64)
-	if err != nil {
-		panic(err)
-	}
-	return x
-}
-
-type fakeLoki struct {
-	entries     []loki.Entry // Must be sorted by time ascending.
-	page        int          // Keep track of the current page.
-	sleepAtPage int          // Which page to put the server to sleep. 0 means don't sleep.
-}
-
-func (l *fakeLoki) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	// Simulate the bug where Loki server hangs due to large logs.
-	l.page++
-	if l.sleepAtPage > 0 && l.page >= l.sleepAtPage {
-		// wait for request to time out on purpose
-		<-r.Context().Done()
-		return
-	}
-
-	var (
-		start, end time.Time
-		limit      int
-	)
-	direction := r.URL.Query().Get("direction")
-	if r.URL.Query().Get("start") != "" {
-		start = time.Unix(0, mustParseQuerystringInt64(r, "start"))
-	} else {
-		start = time.Now().Add(-1 * time.Hour)
-	}
-	if r.URL.Query().Get("end") != "" {
-		end = time.Unix(0, mustParseQuerystringInt64(r, "end"))
-	} else {
-		end = time.Now()
-	}
-	if r.URL.Query().Get("limit") != "" {
-		limit = int(mustParseQuerystringInt64(r, "limit"))
-	}
-
-	if end.Before(start) {
-		panic("end is before start")
-	}
-	if end.Sub(start) >= 721*time.Hour { // Not documented, but what a local Loki rejects.
-		panic("query range too long")
-	}
-
-	var match []loki.Entry
-
-	// From the logcli docs:
-	// --from=FROM          Start looking for logs at this absolute time (inclusive)
-	// --to=TO              Stop looking for logs at this absolute time (exclusive)
-	// To is "end" and From is "start", so end is exclusive and start is inclusive.
-	inRange := func(e loki.Entry) bool {
-		return (e.Timestamp.After(start) || e.Timestamp.Equal(start)) && e.Timestamp.Before(end)
-	}
-
-	switch direction {
-	case "FORWARD":
-		for _, e := range l.entries {
-			if inRange(e) {
-				if len(match) >= limit {
-					break
-				}
-				match = append(match, e)
-			}
-		}
-	case "BACKWARD":
-		for i := len(l.entries) - 1; i >= 0; i-- {
-			e := l.entries[i]
-			if inRange(e) {
-				if len(match) >= limit {
-					break
-				}
-				match = append(match, e)
-			}
-		}
-	default:
-		panic("invalid direction")
-	}
-
-	result := response{
-		Status: "success",
-		Data: data{
-			ResultType: "streams",
-			Result: []lokiResult{
-				{
-					Stream: map[string]string{"test": "stream"},
-					Values: [][2]string{},
-				},
-			},
-		},
-	}
-	for _, e := range match {
-		result.Data.Result[0].Values = append(result.Data.Result[0].Values, [2]string{
-			strconv.FormatInt(e.Timestamp.UnixNano(), 10),
-			e.Line,
-		})
-	}
-
-	content, err := json.Marshal(&result)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	if _, err := w.Write(content); err != nil {
-		panic(err)
-	}
-}
 
 func TestQueryLoki(t *testing.T) {
 	testData := []struct {
@@ -326,10 +201,11 @@ func TestQueryLoki(t *testing.T) {
 			entries := test.buildEntries()
 			want := test.buildWant()
 
-			s := httptest.NewServer(&fakeLoki{
-				entries:     entries,
-				sleepAtPage: test.sleepAtPage,
+			s := httptest.NewServer(&lokiutil.FakeServer{
+				Entries:     entries,
+				SleepAtPage: test.sleepAtPage,
 			})
+			defer s.Close()
 			d := &debugServer{
 				env: Env{
 					GetLokiClient: func() (*loki.Client, error) {
@@ -341,7 +217,7 @@ func TestQueryLoki(t *testing.T) {
 			var got []int
 			ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 			defer cancel()
-			out, err := d.queryLoki(ctx, `{foo="bar"}`)
+			out, err := d.queryLoki(ctx, `{foo="bar"}`, 30000)
 			if err != nil {
 				t.Fatalf("query loki: %v", err)
 			}

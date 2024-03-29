@@ -2,26 +2,16 @@ describe('mount', () => {
   beforeEach(() => {
     cy.resetApp();
     cy.isAppReady();
-    cy.unmountAllRepos();
     cy.openMountPlugin();
-    cy.findAllByText('Load');
-    cy.wait(3000);
   });
 
-  it('should mount and unmount pachyderm repos', () => {
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').first().click();
-    cy.findAllByText('Load').should('have.length', 1);
+  it('should mount pachyderm repo', () => {
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
+    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('default_images');
   });
 
   it('file browser should show correct breadcrumbs', () => {
-    cy.findAllByText('/ pfs').should('have.length', 2);
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images')
-      .dblclick();
-
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
       .invoke('text')
@@ -29,30 +19,20 @@ describe('mount', () => {
   });
 
   it("should correctly mount a repo's branch", () => {
-    cy.findByTestId('ListItem__select').select('branch');
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images_branch')
-      .dblclick();
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
+    cy.wait(1000);
+    cy.findByTestId('Branch-DropdownCombobox-input').click();
+    cy.findByTestId('Branch-DropdownCombobox-li-branch').click();
     cy.findAllByText('branch.png').should('have.length', 1);
   });
 
   it('should open mounted directory in the file browser on click', () => {
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images')
-      .dblclick();
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.findAllByText('liberty.png').should('have.length', 1);
   });
 
   it('file browser should show correct right click actions', () => {
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images')
-      .dblclick();
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.findAllByText('liberty.png').first().rightclick();
     cy.get('ul.lm-Menu-content.p-Menu-content')
       .children()
@@ -66,11 +46,7 @@ describe('mount', () => {
   });
 
   it('file browser should have loading attribute', () => {
-    cy.findAllByText('Load').first().click();
-    cy.findAllByText('Unload').should('have.length', 1);
-    cy.get('#jupyterlab-pachyderm-browser-pfs')
-      .findByText('default_images')
-      .dblclick();
+    cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.get('ul.jp-DirListing-content[loading]').should('have.length', 2);
   });
 });

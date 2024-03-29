@@ -41,6 +41,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/license"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	adminapi "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
@@ -52,6 +53,7 @@ import (
 	identityserver "github.com/pachyderm/pachyderm/v2/src/server/identity/server"
 	licenseserver "github.com/pachyderm/pachyderm/v2/src/server/license/server"
 	logsserver "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsapi "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfsserver "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsapi "github.com/pachyderm/pachyderm/v2/src/server/pps"
@@ -84,6 +86,7 @@ type RealEnv struct {
 	TransactionServer        txnserver.APIServer
 	VersionServer            pb.APIServer
 	ProxyServer              proxy.APIServer
+	MetadataServer           metadata.APIServer
 	MockPPSTransactionServer *testpachd.MockPPSTransactionServer
 }
 
@@ -259,10 +262,6 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		TxnEnv:     txnEnv,
 	})
 	require.NoError(t, err)
-	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
-
-	// VERSION
-	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
 
 	txnEnv.Initialize(
 		realEnv.ServiceEnv.GetDBClient(),
@@ -277,6 +276,18 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		},
 		realEnv.TransactionServer,
 	)
+
+	// PROXY
+	realEnv.ProxyServer = proxyserver.NewAPIServer(proxyserver.Env{Listener: realEnv.ServiceEnv.GetPostgresListener()})
+
+	// VERSION
+	realEnv.VersionServer = version.NewAPIServer(version.Version, version.APIServerOptions{})
+
+	// METADATA
+	realEnv.MetadataServer = metadata_server.NewMetadataServer(metadata_server.Env{
+		Auth:   realEnv.ServiceEnv.AuthServer(),
+		TxnEnv: txnEnv,
+	})
 
 	// PPS
 	if mockPPSTransactionServer {
@@ -324,7 +335,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	})
 	go debugWorker.Run(ctx) //nolint:errcheck
 
-	realEnv.LogsServer, err = logsserver.NewAPIServer()
+	realEnv.LogsServer, err = logsserver.NewAPIServer(logsserver.Env{GetLokiClient: realEnv.ServiceEnv.GetLokiClient})
 	require.NoError(t, err)
 
 	linkServers(&realEnv.MockPachd.PFS, realEnv.PFSServer)
@@ -337,6 +348,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	linkServers(&realEnv.MockPachd.Version, realEnv.VersionServer)
 	linkServers(&realEnv.MockPachd.Proxy, realEnv.ProxyServer)
 	linkServers(&realEnv.MockPachd.Logs, realEnv.LogsServer)
+	linkServers(&realEnv.MockPachd.Metadata, realEnv.MetadataServer)
 
 	return realEnv
 }

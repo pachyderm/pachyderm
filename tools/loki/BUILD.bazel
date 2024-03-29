@@ -1,0 +1,18 @@
+load("@bazel_skylib//rules:native_binary.bzl", "native_binary")
+
+native_binary(
+    name = "loki_bin",
+    src = select({
+        "//:is_x86_64_linux": "@com_github_grafana_loki_loki_x86_64_linux//:loki-linux-amd64",
+        "//:is_aarch64_linux": "@com_github_grafana_loki_loki_aarch64_linux//:loki-linux-arm64",
+        "//:is_x86_64_macos": "@com_github_grafana_loki_loki_x86_64_macos//:loki-darwin-amd64",
+        "//:is_aarch64_macos": "@com_github_grafana_loki_loki_aarch64_macos//:loki-darwin-arm64",
+    }),
+    out = "loki",
+)
+
+alias(
+    name = "loki",
+    actual = "loki_bin",
+    visibility = ["//visibility:public"],
+)

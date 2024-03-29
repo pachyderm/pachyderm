@@ -2725,7 +2725,7 @@
           "description": "",
           "hasExtensions": false,
           "hasFields": true,
-          "hasOneofs": false,
+          "hasOneofs": true,
           "extensions": [],
           "fields": [
             {
@@ -2774,6 +2774,30 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "loki_args",
+              "description": "",
+              "label": "",
+              "type": "LokiArgs",
+              "longType": "LokiArgs",
+              "fullType": "debug_v2.LokiArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
+              "defaultValue": ""
+            },
+            {
+              "name": "profile_args",
+              "description": "",
+              "label": "",
+              "type": "ProfileArgs",
+              "longType": "ProfileArgs",
+              "fullType": "debug_v2.ProfileArgs",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "extra_args",
               "defaultValue": ""
             }
           ]
@@ -3163,6 +3187,30 @@
           ]
         },
         {
+          "name": "LokiArgs",
+          "longName": "LokiArgs",
+          "fullName": "debug_v2.LokiArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "max_logs",
+              "description": "",
+              "label": "",
+              "type": "uint64",
+              "longType": "uint64",
+              "fullType": "uint64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
           "name": "Pipeline",
           "longName": "Pipeline",
           "fullName": "debug_v2.Pipeline",
@@ -3275,6 +3323,30 @@
               "type": "Duration",
               "longType": "google.protobuf.Duration",
               "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ProfileArgs",
+          "longName": "ProfileArgs",
+          "fullName": "debug_v2.ProfileArgs",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "profiles",
+              "description": "",
+              "label": "repeated",
+              "type": "Profile",
+              "longType": "Profile",
+              "fullType": "debug_v2.Profile",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -3751,6 +3823,70 @@
           ]
         },
         {
+          "name": "TraceChunk",
+          "longName": "TraceChunk",
+          "fullName": "debug_v2.TraceChunk",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "bytes",
+              "description": "",
+              "label": "",
+              "type": "BytesValue",
+              "longType": "google.protobuf.BytesValue",
+              "fullType": "google.protobuf.BytesValue",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "reply",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "TraceRequest",
+          "longName": "TraceRequest",
+          "fullName": "debug_v2.TraceRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "duration",
+              "description": "",
+              "label": "",
+              "type": "Duration",
+              "longType": "google.protobuf.Duration",
+              "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "duration.required",
+                    "value": true
+                  },
+                  {
+                    "name": "duration.gt.seconds",
+                    "value": 0
+                  },
+                  {
+                    "name": "duration.gt.nanos",
+                    "value": 0
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Worker",
           "longName": "Worker",
           "fullName": "debug_v2.Worker",
@@ -3864,6 +4000,18 @@
               "responseType": "DumpChunk",
               "responseLongType": "DumpChunk",
               "responseFullType": "debug_v2.DumpChunk",
+              "responseStreaming": true
+            },
+            {
+              "name": "Trace",
+              "description": "",
+              "requestType": "TraceRequest",
+              "requestLongType": "TraceRequest",
+              "requestFullType": "debug_v2.TraceRequest",
+              "requestStreaming": false,
+              "responseType": "TraceChunk",
+              "responseLongType": "TraceChunk",
+              "responseFullType": "debug_v2.TraceChunk",
               "responseStreaming": true
             },
             {
@@ -9299,7 +9447,17 @@
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
-              "defaultValue": ""
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "enum.not_in",
+                    "value": [
+                      0
+                    ]
+                  }
+                ]
+              }
             }
           ]
         },
@@ -9892,6 +10050,444 @@
       ]
     },
     {
+      "name": "metadata/metadata.proto",
+      "description": "",
+      "package": "metadata",
+      "hasEnums": false,
+      "hasExtensions": false,
+      "hasMessages": true,
+      "hasServices": true,
+      "enums": [],
+      "extensions": [],
+      "messages": [
+        {
+          "name": "Edit",
+          "longName": "Edit",
+          "fullName": "metadata.Edit",
+          "description": "Edit represents editing one piece of metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": true,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "project targets a named project's metadata.",
+              "label": "",
+              "type": "ProjectPicker",
+              "longType": "pfs_v2.ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "commit",
+              "description": "commit targets a commit's metadata.",
+              "label": "",
+              "type": "CommitPicker",
+              "longType": "pfs_v2.CommitPicker",
+              "fullType": "pfs_v2.CommitPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "branch",
+              "description": "branch targets a branch's metadata.",
+              "label": "",
+              "type": "BranchPicker",
+              "longType": "pfs_v2.BranchPicker",
+              "fullType": "pfs_v2.BranchPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "repo",
+              "description": "repo targets a repo's metadata.",
+              "label": "",
+              "type": "RepoPicker",
+              "longType": "pfs_v2.RepoPicker",
+              "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "replace",
+              "description": "replace replaces a target's metadata with a new metadata mapping.",
+              "label": "",
+              "type": "Replace",
+              "longType": "Edit.Replace",
+              "fullType": "metadata.Edit.Replace",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "add_key",
+              "description": "add_key adds a new key to the target object's metadata.",
+              "label": "",
+              "type": "AddKey",
+              "longType": "Edit.AddKey",
+              "fullType": "metadata.Edit.AddKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "edit_key",
+              "description": "edit_key adds or changes a key in the target object's metadata.",
+              "label": "",
+              "type": "EditKey",
+              "longType": "Edit.EditKey",
+              "fullType": "metadata.Edit.EditKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "delete_key",
+              "description": "delete_key removes a key from the target object's metadata.",
+              "label": "",
+              "type": "DeleteKey",
+              "longType": "Edit.DeleteKey",
+              "fullType": "metadata.Edit.DeleteKey",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "op",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "AddKey",
+          "longName": "Edit.AddKey",
+          "fullName": "metadata.Edit.AddKey",
+          "description": "AddKey is an operation that adds a new metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "DeleteKey",
+          "longName": "Edit.DeleteKey",
+          "fullName": "metadata.Edit.DeleteKey",
+          "description": "DeleteKey is an operation that removes a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to remove.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EditKey",
+          "longName": "Edit.EditKey",
+          "fullName": "metadata.Edit.EditKey",
+          "description": "EditKey is an operation that changes or adds a metadata key.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "key is the metadata key to change or add.  It may not be the empty string.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            },
+            {
+              "name": "value",
+              "description": "value is the value to assign to the metadata key.",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "Replace",
+          "longName": "Edit.Replace",
+          "fullName": "metadata.Edit.Replace",
+          "description": "Replace is an operation that replaces metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "replacement",
+              "description": "replacement is the map to replace the object's metadata with.",
+              "label": "repeated",
+              "type": "ReplacementEntry",
+              "longType": "Edit.Replace.ReplacementEntry",
+              "fullType": "metadata.Edit.Replace.ReplacementEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "map.keys.string.min_len",
+                    "value": 1
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "ReplacementEntry",
+          "longName": "Edit.Replace.ReplacementEntry",
+          "fullName": "metadata.Edit.Replace.ReplacementEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "EditMetadataRequest",
+          "longName": "EditMetadataRequest",
+          "fullName": "metadata.EditMetadataRequest",
+          "description": "EditMetadataRequest is a sequence of edits to apply to metadata.",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "edits",
+              "description": "edits is the ordered list of metadata edits to perform.",
+              "label": "repeated",
+              "type": "Edit",
+              "longType": "Edit",
+              "fullType": "metadata.Edit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "repeated.items.message.required",
+                    "value": true
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "EditMetadataResponse",
+          "longName": "EditMetadataResponse",
+          "fullName": "metadata.EditMetadataResponse",
+          "description": "EditMetadataResponse is the result of editing metadata.",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        }
+      ],
+      "services": [
+        {
+          "name": "API",
+          "longName": "API",
+          "fullName": "metadata.API",
+          "description": "API is the public API of the metadata service.",
+          "methods": [
+            {
+              "name": "EditMetadata",
+              "description": "EditMetadata edits metadata according to the request.  All edits are applied atomically at\nonce.  All edits are attempted, but any failing edit fails the entire request.",
+              "requestType": "EditMetadataRequest",
+              "requestLongType": "EditMetadataRequest",
+              "requestFullType": "metadata.EditMetadataRequest",
+              "requestStreaming": false,
+              "responseType": "EditMetadataResponse",
+              "responseLongType": "EditMetadataResponse",
+              "responseFullType": "metadata.EditMetadataResponse",
+              "responseStreaming": false
+            }
+          ]
+        }
+      ]
+    },
+    {
       "name": "pfs/pfs.proto",
       "description": "",
       "package": "pfs_v2",
@@ -10398,6 +10994,54 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "BranchInfo.MetadataEntry",
+              "fullType": "pfs_v2.BranchInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "BranchInfo.MetadataEntry",
+          "fullName": "pfs_v2.BranchInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -10782,6 +11426,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Metadata is user-applied annotations.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "CommitInfo.MetadataEntry",
+              "fullType": "pfs_v2.CommitInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -10826,6 +11482,42 @@
               "type": "Duration",
               "longType": "google.protobuf.Duration",
               "fullType": "google.protobuf.Duration",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "CommitInfo.MetadataEntry",
+          "fullName": "pfs_v2.CommitInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -13296,6 +13988,54 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "ProjectInfo.MetadataEntry",
+              "fullType": "pfs_v2.ProjectInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "ProjectInfo.MetadataEntry",
+          "fullName": "pfs_v2.ProjectInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -13560,6 +14300,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Metadata are user-defined key-value pairs.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "RepoInfo.MetadataEntry",
+              "fullType": "pfs_v2.RepoInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -13580,6 +14332,42 @@
               "type": "int64",
               "longType": "int64",
               "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "RepoInfo.MetadataEntry",
+          "fullName": "pfs_v2.RepoInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -13700,6 +14488,102 @@
               "type": "string",
               "longType": "string",
               "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummary",
+          "longName": "ReposSummary",
+          "fullName": "pfs_v2.ReposSummary",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "project",
+              "description": "the project the ReposSummary corresponds to",
+              "label": "",
+              "type": "Project",
+              "longType": "Project",
+              "fullType": "pfs_v2.Project",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "user_repo_count",
+              "description": "the count of user repos in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "size_bytes",
+              "description": "aggregate size of all the repos returned in the summary",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryRequest",
+          "longName": "ReposSummaryRequest",
+          "fullName": "pfs_v2.ReposSummaryRequest",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "projects",
+              "description": "a ReposSummary will be returned for every specified project",
+              "label": "repeated",
+              "type": "ProjectPicker",
+              "longType": "ProjectPicker",
+              "fullType": "pfs_v2.ProjectPicker",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "ReposSummaryResponse",
+          "longName": "ReposSummaryResponse",
+          "fullName": "pfs_v2.ReposSummaryResponse",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "summaries",
+              "description": "repo summaries for the requested projects",
+              "label": "repeated",
+              "type": "ReposSummary",
+              "longType": "ReposSummary",
+              "fullType": "pfs_v2.ReposSummary",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",
@@ -15093,6 +15977,18 @@
               "responseLongType": ".google.protobuf.Empty",
               "responseFullType": "google.protobuf.Empty",
               "responseStreaming": false
+            },
+            {
+              "name": "ReposSummary",
+              "description": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+              "requestType": "ReposSummaryRequest",
+              "requestLongType": "ReposSummaryRequest",
+              "requestFullType": "pfs_v2.ReposSummaryRequest",
+              "requestStreaming": false,
+              "responseType": "ReposSummaryResponse",
+              "responseLongType": "ReposSummaryResponse",
+              "responseFullType": "pfs_v2.ReposSummaryResponse",
+              "responseStreaming": false
             }
           ]
         }
@@ -16252,6 +17148,19 @@
             {
               "name": "PIPELINE_TYPE_SERVICE",
               "number": "3",
+              "description": ""
+            }
+          ]
+        },
+        {
+          "name": "Ordering",
+          "longName": "PipelinePage.Ordering",
+          "fullName": "pps_v2.PipelinePage.Ordering",
+          "description": "",
+          "values": [
+            {
+              "name": "RECENT",
+              "number": "0",
               "description": ""
             }
           ]
@@ -19458,6 +20367,18 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "page",
+              "description": "Page indicates which page of a certain size to return. If page is left empty,\nall of the selected pipelines will be returned.",
+              "label": "",
+              "type": "PipelinePage",
+              "longType": "PipelinePage",
+              "fullType": "pps_v2.PipelinePage",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -20638,6 +21559,54 @@
               "type": "PipelineInfo",
               "longType": "PipelineInfo",
               "fullType": "pps_v2.PipelineInfo",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "PipelinePage",
+          "longName": "PipelinePage",
+          "fullName": "pps_v2.PipelinePage",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "order",
+              "description": "",
+              "label": "",
+              "type": "Ordering",
+              "longType": "PipelinePage.Ordering",
+              "fullType": "pps_v2.PipelinePage.Ordering",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_size",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "page_index",
+              "description": "",
+              "label": "",
+              "type": "int64",
+              "longType": "int64",
+              "fullType": "int64",
               "ismap": false,
               "isoneof": false,
               "oneofdecl": "",

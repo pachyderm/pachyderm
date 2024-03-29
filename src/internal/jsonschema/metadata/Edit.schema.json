@@ -1,0 +1,336 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/Edit",
+    "definitions": {
+        "Edit": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false,
+                    "description": "project targets a named project's metadata."
+                },
+                "commit": {
+                    "$ref": "#/definitions/pfs_v2.CommitPicker",
+                    "additionalProperties": false,
+                    "description": "commit targets a commit's metadata."
+                },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker",
+                    "additionalProperties": false,
+                    "description": "branch targets a branch's metadata."
+                },
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker",
+                    "additionalProperties": false,
+                    "description": "repo targets a repo's metadata."
+                },
+                "replace": {
+                    "$ref": "#/definitions/metadata.Edit.Replace",
+                    "additionalProperties": false,
+                    "description": "replace replaces a target's metadata with a new metadata mapping."
+                },
+                "addKey": {
+                    "$ref": "#/definitions/metadata.Edit.AddKey",
+                    "additionalProperties": false,
+                    "description": "add_key adds a new key to the target object's metadata."
+                },
+                "editKey": {
+                    "$ref": "#/definitions/metadata.Edit.EditKey",
+                    "additionalProperties": false,
+                    "description": "edit_key adds or changes a key in the target object's metadata."
+                },
+                "deleteKey": {
+                    "$ref": "#/definitions/metadata.Edit.DeleteKey",
+                    "additionalProperties": false,
+                    "description": "delete_key removes a key from the target object's metadata."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "project"
+                    ]
+                },
+                {
+                    "required": [
+                        "commit"
+                    ]
+                },
+                {
+                    "required": [
+                        "branch"
+                    ]
+                },
+                {
+                    "required": [
+                        "repo"
+                    ]
+                },
+                {
+                    "required": [
+                        "replace"
+                    ]
+                },
+                {
+                    "required": [
+                        "add_key"
+                    ]
+                },
+                {
+                    "required": [
+                        "edit_key"
+                    ]
+                },
+                {
+                    "required": [
+                        "delete_key"
+                    ]
+                }
+            ],
+            "title": "Edit",
+            "description": "Edit represents editing one piece of metadata."
+        },
+        "metadata.Edit.AddKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to add.  It may not be the empty string."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "value is the value to assign to the metadata key."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Add Key",
+            "description": "AddKey is an operation that adds a new metadata key."
+        },
+        "metadata.Edit.DeleteKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to remove.  It may not be the empty string."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Delete Key",
+            "description": "DeleteKey is an operation that removes a metadata key."
+        },
+        "metadata.Edit.EditKey": {
+            "properties": {
+                "key": {
+                    "minLength": 1,
+                    "type": "string",
+                    "description": "key is the metadata key to change or add.  It may not be the empty string."
+                },
+                "value": {
+                    "type": "string",
+                    "description": "value is the value to assign to the metadata key."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Edit Key",
+            "description": "EditKey is an operation that changes or adds a metadata key."
+        },
+        "metadata.Edit.Replace": {
+            "properties": {
+                "replacement": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "replacement is the map to replace the object's metadata with."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Replace",
+            "description": "Replace is an operation that replaces metadata."
+        },
+        "pfs_v2.BranchPicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker.BranchName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Branch Picker",
+            "description": "BranchPicker defines mutually exclusive pickers that resolve to a single branch. Currently, the only way to pick a branch is by composing a branch name with a repo. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.BranchPicker.BranchName": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch Name"
+        },
+        "pfs_v2.CommitPicker": {
+            "properties": {
+                "branchHead": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "$ref": "#/definitions/pfs_v2.CommitPicker.CommitByGlobalId",
+                    "additionalProperties": false
+                },
+                "ancestor": {
+                    "$ref": "#/definitions/pfs_v2.CommitPicker.AncestorOf",
+                    "additionalProperties": false
+                },
+                "branchRoot": {
+                    "$ref": "#/definitions/pfs_v2.CommitPicker.BranchRoot",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "branch_head"
+                    ]
+                },
+                {
+                    "required": [
+                        "id"
+                    ]
+                },
+                {
+                    "required": [
+                        "ancestor"
+                    ]
+                },
+                {
+                    "required": [
+                        "branch_root"
+                    ]
+                }
+            ],
+            "title": "Commit Picker",
+            "description": "CommitPicker defines mutually exclusive pickers that resolve to a single commit. Commits can be picked relatively from some other commit like a parent or start of branch. Alternatively, they can be picked via their global Id, which is composed of a repo picker and an id. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.CommitPicker.AncestorOf": {
+            "properties": {
+                "offset": {
+                    "type": "integer"
+                },
+                "start": {
+                    "$ref": "#/definitions/pfs_v2.CommitPicker",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Ancestor Of",
+            "description": "This models ^ syntax recursively."
+        },
+        "pfs_v2.CommitPicker.BranchRoot": {
+            "properties": {
+                "offset": {
+                    "type": "integer"
+                },
+                "branch": {
+                    "$ref": "#/definitions/pfs_v2.BranchPicker",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Branch Root",
+            "description": "This models .N syntax."
+        },
+        "pfs_v2.CommitPicker.CommitByGlobalId": {
+            "properties": {
+                "repo": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker",
+                    "additionalProperties": false
+                },
+                "id": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Commit By Global Id"
+        },
+        "pfs_v2.ProjectPicker": {
+            "properties": {
+                "name": {
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Project Picker",
+            "description": "ProjectPicker defines mutually exclusive pickers that resolve to a single project. Currently, the only way to pick a project is by using a project name. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.RepoPicker": {
+            "properties": {
+                "name": {
+                    "$ref": "#/definitions/pfs_v2.RepoPicker.RepoName",
+                    "additionalProperties": false
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "oneOf": [
+                {
+                    "required": [
+                        "name"
+                    ]
+                }
+            ],
+            "title": "Repo Picker",
+            "description": "Repo defines mutually exclusive pickers that resolve to a single repository. Currently, the only way to pick a repo is by composing a repo name and type with a project. If the type is omitted, the 'user' type will be used as a default. Picker messages should only be used as request parameters."
+        },
+        "pfs_v2.RepoPicker.RepoName": {
+            "properties": {
+                "project": {
+                    "$ref": "#/definitions/pfs_v2.ProjectPicker",
+                    "additionalProperties": false
+                },
+                "name": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string",
+                    "description": "type is optional. If omitted, the default type is 'user'."
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Repo Name"
+        }
+    }
+}

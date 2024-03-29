@@ -24,7 +24,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/preflight"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/signals"
@@ -35,7 +34,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
-func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
+func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 	var commands []*cobra.Command
 
 	var d net.Dialer
@@ -73,7 +72,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <hostname>",
 		Short: "Do a DNS lookup on a hostname.",
 		Long:  "Do a DNS lookup on a hostname.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			var errs error
 			if result, err := r.LookupHost(ctx, args[0]); err != nil {
 				errors.JoinInto(&errs, errors.Wrap(err, "lookup host"))
@@ -102,8 +102,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <url>",
 		Short: "Make an HTTP HEAD request.",
 		Long:  "Make an HTTP HEAD request.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
-			ctx := pctx.Background("")
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			req, err := http.NewRequestWithContext(ctx, "HEAD", args[0], nil)
 			if err != nil {
 				return errors.Wrap(err, "NewRequest")
@@ -130,8 +130,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <network(tcp|udp)> <address>",
 		Short: "Dials a network server and then disconnects.",
 		Long:  "Dials a network server and then disconnects.",
-		Run: cmdutil.RunFixedArgs(2, func(args []string) error {
-			ctx := pctx.Background("")
+		Run: cmdutil.RunFixedArgs(2, func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			conn, err := d.DialContext(ctx, args[0], args[1])
 			if err != nil {
 				return errors.Wrap(err, "Dial")
@@ -149,7 +149,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} project/repo@branch_or_commit:/file_or_directory ...",
 		Short: "Generates the encoded part of an archive download URL.",
 		Long:  "Generates the encoded part of an archive download URL.",
-		Run: cmdutil.Run(func(args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			path, err := archiveserver.EncodeV1(args)
 			if err != nil {
 				return errors.Wrap(err, "encode")
@@ -183,7 +184,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <url>",
 		Short: "Decodes the encoded part of an archive download URL.",
 		Long:  "Decodes the encoded part of an archive download URL.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) error {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) error {
 			u, err := url.Parse(args[0])
 			if err != nil {
 				return errors.Wrap(err, "url.Parse")
@@ -213,7 +214,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <postgres dsn>",
 		Short: "Runs the database migrations against the supplied database, then rolls them back.",
 		Long:  "Runs the database migrations against the supplied database, then rolls them back.",
-		Run: cmdutil.RunFixedArgs(1, func(args []string) (retErr error) {
+		Run: cmdutil.RunFixedArgs(1, func(cmd *cobra.Command, args []string) (retErr error) {
+			ctx := cmd.Context()
 			ctx, c := signal.NotifyContext(ctx, signals.TerminationSignals...)
 			defer c()
 
@@ -240,7 +242,8 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} service.Method {msg}... ",
 		Short: "Call a gRPC method on the server.",
 		Long:  "Call a gRPC method on the server.  With no args; prints all available methods.  With 1 arg; reads messages to send as JSON lines from stdin.  With >1 arg, sends each JSON-encoded argument as a message.",
-		Run: cmdutil.Run(func(args []string) error {
+		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
 			return gRPCParams{
 				Address: grpcAddress,
 				TLS:     grpcTLS,
@@ -259,7 +262,7 @@ func Cmds(ctx context.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 		Use:   "{{alias}} <message type> <message bytes>",
 		Short: "Decodes a protocol buffer message",
 		Long:  "Decodes the provided bytes as the named proto message type and prints the result as JSON.  Without the last arg, reads from stdin.  If the message type is @, then try all message types and print any messages that result in non-empty JSON.",
-		Run: cmdutil.RunBoundedArgs(0, 2, func(args []string) error {
+		Run: cmdutil.RunBoundedArgs(0, 2, func(cmd *cobra.Command, args []string) error {
 			all := allProtoMessages()
 
 			// If no args, print all message types.

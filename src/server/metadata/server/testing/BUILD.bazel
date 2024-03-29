@@ -1,0 +1,21 @@
+load("@rules_go//go:def.bzl", "go_test")
+
+go_test(
+    name = "testing_test",
+    size = "small",
+    srcs = ["metadata_test.go"],
+    deps = [
+        "//src/auth",
+        "//src/internal/cmputil",
+        "//src/internal/dockertestenv",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/internal/require",
+        "//src/internal/testpachd/realenv",
+        "//src/internal/testutil",
+        "//src/metadata",
+        "//src/pfs",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//testing/protocmp",
+    ],
+)

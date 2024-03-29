@@ -37,7 +37,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   ci_runner_image:
     type: string
-    default: docker.io/pachyderm/ci-runner:20240205-3f2b2bba3c4cda4e990a413cd27d6cb21862fa5a@sha256:69778c8ae8e2189a6a6539bb70aaea7a2cf4d321f42256ab691daa613b1da10d
+    default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
   go-version:
     type: string
     default: "1.22.1"
@@ -737,19 +737,13 @@ jobs:
       python-version:
         type: string
     docker:
-      - image: cimg/python:<< parameters.python-version >>-node
+      - image: cimg/node:20.11.0
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
-      - run:
-          name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
-
+      - install-bazel
       # Install and cache Node dependencies
       - restore_cache:
           keys:
@@ -764,13 +758,15 @@ jobs:
           paths:
             - "node_modules"
       - run:
+          name: "Install Python dependencies"
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+      - run:
           name: "Build and test the extension"
           command: |
             set -eux
 
             . venv/bin/activate
             npm run eslint:check
-            python -m pip install -e '.[dev]'
 
             # Run Python unit tests
             mkdir -p test-results
@@ -793,21 +789,17 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-bazel
       - install-jupyter-test-deps
-      - run:
+      - run: # Convert to bazel: INT-1201
           name: "Integration tests"
           command: |
             set -eux
 
             python3 -m venv venv
             . venv/bin/activate
-            python3 -m pip install -e '.[dev]'
-
-            nohup pachctl port-forward &
-
-            touch /tmp/mount-server.log # mount-server will truncate on startup
-            tail -F /tmp/mount-server.log &
-            export MOUNT_SERVER_LOG_FILE=/tmp/mount-server.log \
+            python3 -m pip install '.'
+            python3 -m pip install -r requirements-dev.txt
 
             mkdir pfs
             export PFS_MOUNT_DIR=$(pwd)/pfs
@@ -832,6 +824,7 @@ jobs:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - install-jupyter-test-deps
       - run:
           name: "e2e tests"
@@ -852,8 +845,6 @@ jobs:
             # Enable the examples extension
             mkdir -p /home/circleci/.jupyter/labconfig
             cp ./scripts/page_config.json /home/circleci/.jupyter/labconfig
-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'", "source": 2}' | pachctl config set context "mount-server" --overwrite && pachctl config set active-context "mount-server"
 
             pachctl create repo images
             pachctl put file images@master:liberty.png -f https://docs.pachyderm.com/images/opencv/liberty.jpg
@@ -884,6 +875,7 @@ jobs:
 
   jupyter-extension-build:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
@@ -902,14 +894,10 @@ jobs:
             then
                 contents="$(jq --arg version ${CIRCLE_TAG:1} '.version = $version' package.json)" && echo "${contents}" > package.json
             fi
-
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
 
       # Install and cache Node dependencies
       - restore_cache:
@@ -928,7 +916,6 @@ jobs:
       - run:
           name: build
           command: |
-            python -m venv venv
             . venv/bin/activate
             python -m build
 
@@ -939,19 +926,17 @@ jobs:
 
   jupyter-extension-test-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -961,25 +946,22 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload --repository testpypi dist/*
 
   jupyter-extension-publish:
     executor: python
+    resource_class: large
     working_directory: ~/project/jupyter-extension
     steps:
       - checkout:
           path: ~/project
       - attach_workspace:
           at: .
+      - install-bazel
       - run:
           name: "Install Python dependencies"
-          command: |
-            python -m venv venv
-            . venv/bin/activate
-            python -m pip install --upgrade pip
-            python -m pip install -r ci-requirements.txt
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: Init .pypirc
           command: |
@@ -989,7 +971,6 @@ jobs:
       - run:
           name: Publish
           command: |
-            python -m venv venv
             . venv/bin/activate
             twine upload dist/*
 
@@ -1402,26 +1383,22 @@ jobs:
           command: |
             helm install pachd ../etc/helm/pachyderm \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1}
             kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
             helm install pachd-enterprise ../etc/helm/pachyderm \
               --namespace enterprise \
               --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
               --set proxy.service.type=NodePort \
               --set pachd.image.tag=${CIRCLE_SHA1} \
               --set proxy.service.httpNodePort=30081 \
@@ -1813,15 +1790,10 @@ workflows:
             parameters:
               python-version: ["3.8", "3.9", "3.10"]
       - jupyter-extension-frontend-test
-      - jupyter-extension-integration-test:
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
+      - jupyter-extension-integration-test
       - jupyter-extension-e2e-test:
           requires:
-            - build-docker-images
             - jupyter-extension-build
-            - build-pachctl-bin
       - jupyter-extension-build
       - jupyter-extension-docker-build:
           requires:
@@ -1937,68 +1909,11 @@ workflows:
             - build-pachctl-bin
             - publish-chart-preview
             - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-2
-          env: qa2
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-3
-          env: qa3
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
-      - pulumi-aws-test-env:
-          name: aws-prerelease-testing-env-4
-          env: qa4
-          action: update
-          pachdVersion: $CIRCLE_SHA1
-          helmChartVersion: ${CIRCLE_TAG:1}-${CIRCLE_SHA1}
-          filters: *only-alpha-tags
-          requires:
-            - build-docker-images
-            - build-pachctl-bin
-            - publish-chart-preview
-            - release-github-draft
       - aws-prerelease-testing:
           name: aws-testing
           filters: *only-release-tags
           requires:
             - aws-prerelease-testing-env-1
-      - cust-prerelease-testing:
-          name: wp-testing
-          customer: wp
-          env: qa2
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-2
-      - cust-prerelease-testing:
-          name: btl-testing
-          customer: btl
-          env: qa3
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-3
-      - cust-prerelease-testing:
-          name: krs-testing
-          customer: krs
-          env: qa4
-          filters: *only-alpha-tags
-          requires:
-            - aws-prerelease-testing-env-4
       - pulumi-aws-test-env:
           name: destroy-aws-prerelease-testing-env-1
           env: qa1
@@ -2189,54 +2104,44 @@ commands:
             chmod +x ./minikube && \
             sudo mv ./minikube /usr/local/bin/minikube
 
-  install-jupyter-test-deps: # Requires build-docker-images and build-pachctl-bin
+  install-jupyter-test-deps:
     steps:
       - attach_workspace:
           at: ./
       - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
       - run:
-          name: Install kind
-          command: |
-            curl -fLo ./kind-linux-amd64 "https://github.com/kubernetes-sigs/kind/releases/download/v0.22.0/kind-linux-amd64" \
-            && chmod +x ./kind-linux-amd64 \
-            && sudo mv ./kind-linux-amd64 /usr/local/bin/kind
-      - install-helm
-      - install-kubectl
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
       - run:
           name: Install pachctl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
+      - run:
+          name: Setup k8s cluster
           command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
       - run:
-          name: Start kind
-          command: kind create cluster && kubectl config set current-context kind-kind
-      - run:
-          name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
-      - run:
-          name: Install pach
+          name: Install pachd with auth
           command: |
-            helm install pachd ../etc/helm/pachyderm \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=MINIO \
-              --set pachd.storage.minio.bucket=pachyderm-test \
-              --set pachd.storage.minio.endpoint=minio.default.svc.cluster.local:9000 \
-              --set pachd.storage.minio.id=minioadmin \
-              --set pachd.storage.minio.secret=minioadmin \
-              --set-string pachd.storage.minio.signature="" \
-              --set-string pachd.storage.minio.secure=false \
-              --set pachd.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+          background: true
+      - run:
+          name: Install pachd without auth
           command: |
-            sleep 20
-            kubectl wait --for=condition=ready pod -l app=pachd --timeout=5m
-            pachctl version
+            export CI=false # pachdev bug; CI=true assumes docker executor, not machine executor
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
       - run:
-          name: Setup pach # Get Kind node IP and pass that to pachctl
-          command: |-
-            echo '{"pachd_address": "grpc://'"$(docker inspect -f '{{range.NetworkSettings.Networks}}{{.IPAddress}}{{end}}' kind-control-plane)":30650'"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
+          background: true
+
   install-pulumi-deps:
     steps:
       - node/install
@@ -2311,3 +2216,11 @@ commands:
             $POETRY_HOME/bin/pip install poetry==1.4.1
             $POETRY_HOME/bin/poetry --version
             ln -s $POETRY_HOME/bin/poetry /home/circleci/bin/poetry
+  install-bazel:
+    steps:
+      - run:
+          name: Install Bazel
+          command: |
+            wget -O ./bazel "https://github.com/bazelbuild/bazelisk/releases/download/v1.19.0/bazelisk-linux-amd64"
+            chmod +x ./bazel
+            sudo mv ./bazel /home/circleci/bin/bazel

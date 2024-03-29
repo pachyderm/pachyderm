@@ -2,6 +2,7 @@ package pachd
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"os"
 	"path"
@@ -10,9 +11,14 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	"google.golang.org/grpc/health/grpc_health_v1"
+	"k8s.io/client-go/kubernetes"
 
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
+	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
@@ -21,13 +27,21 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
+	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	debug_server "github.com/pachyderm/pachyderm/v2/src/server/debug/server"
+	entiface "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
+	license_server "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
+	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
+	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
@@ -113,6 +127,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.registerVersionServer,
 		fb.registerDebugServer,
 		fb.registerProxyServer,
+		fb.registerMetadataServer,
 		fb.registerLogsServer,
 		fb.initS3Server,
 		fb.initPrometheusServer,
@@ -158,19 +173,31 @@ type Full struct {
 	authInterceptor *auth_interceptor.Interceptor
 	txnEnv          *transactionenv.TransactionEnv
 
-	healthSrv  grpc_health_v1.HealthServer
-	version    version.APIServer
-	txnSrv     transaction.APIServer
-	authSrv    auth.APIServer
-	pfsSrv     pfs.APIServer
-	storageSrv *storage.Server
-	ppsSrv     pps.APIServer
+	healthSrv     grpc_health_v1.HealthServer
+	version       version.APIServer
+	txnSrv        transaction.APIServer
+	authSrv       auth.APIServer
+	pfsSrv        pfs.APIServer
+	storageSrv    *storage.Server
+	ppsSrv        pps.APIServer
+	metadataSrv   metadata.APIServer
+	adminSrv      admin.APIServer
+	enterpriseSrv enterprise.APIServer
+	licenseSrv    license.APIServer
 	// TODO
 	// debugSrv debug.DebugServer
 
 	pfsWorker   *pfs_server.Worker
 	ppsWorker   *pps_server.Worker
 	debugWorker *debug_server.Worker
+}
+
+func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
+	addr, err := grpcutil.ParsePachdAddress("http://" + pd.env.Listener.Addr().String())
+	if err != nil {
+		return nil, errors.Wrap(err, "parse pachd address")
+	}
+	return client.NewFromPachdAddress(ctx, addr)
 }
 
 // NewFull sets up a new Full pachd and returns it.
@@ -217,8 +244,16 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				EtcdClient: env.EtcdClient,
 				Listener:   nil,
 				TxnEnv:     pd.txnEnv,
-
-				BackgroundContext: pctx.TODO(),
+				GetEnterpriseServer: func() entiface.APIServer {
+					return pd.enterpriseSrv.(entiface.APIServer)
+				},
+				BackgroundContext: pctx.Background("auth"),
+				GetPfsServer: func() pfsiface.APIServer {
+					return pd.pfsSrv.(pfsiface.APIServer)
+				},
+				GetPpsServer: func() ppsiface.APIServer {
+					return pd.ppsSrv.(ppsiface.APIServer)
+				},
 			}
 		}),
 		initPFSAPIServer(&pd.pfsSrv, func() pfs_server.Env {
@@ -237,6 +272,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPipelineInspector: func() pfs_server.PipelineInspector {
 					panic("GetPipelineInspector")
 				},
+				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
 		initStorageServer(&pd.storageSrv, func() storage.Env {
@@ -256,7 +292,13 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
 				},
 				PFSServer: pd.pfsSrv.(pfs_server.APIServer),
+				TxnEnv:    pd.txnEnv,
 			}
+		}),
+		initMetadataServer(&pd.metadataSrv, func() (env metadata_server.Env) {
+			env.Auth = pd.authSrv.(auth_server.APIServer)
+			env.TxnEnv = pd.txnEnv
+			return
 		}),
 		setupStep{
 			Name: "initTransactionEnv",
@@ -267,6 +309,83 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					func() transactionenv.PPSBackend { return pd.ppsSrv.(pps_server.APIServer) },
 					pd.txnSrv.(txn_server.APIServer),
 				)
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initAdminServer",
+			Fn: func(ctx context.Context) error {
+				pd.adminSrv = admin_server.NewAPIServer(admin_server.Env{
+					ClusterID: "mockPachd",
+					Config: &pachconfig.Configuration{
+						GlobalConfiguration:        &config.GlobalConfiguration,
+						PachdSpecificConfiguration: &config.PachdSpecificConfiguration,
+					},
+					PFSServer: pd.pfsSrv,
+					Paused:    false,
+				})
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initEnterpriseServer",
+			Fn: func(ctx context.Context) error {
+				var err error
+				pd.enterpriseSrv, err = ent_server.NewEnterpriseServer(
+					&ent_server.Env{
+						DB:         env.DB,
+						Listener:   nil,
+						TxnEnv:     pd.txnEnv,
+						EtcdClient: env.EtcdClient,
+						EtcdPrefix: path.Join(config.EtcdPrefix, config.EnterpriseEtcdPrefix),
+						AuthServer: pd.authSrv.(auth_server.APIServer),
+						GetKubeClient: func() kubernetes.Interface {
+							panic("attempt to do k8s things from TestPachd")
+						},
+						GetPachClient: func(ctx context.Context) *client.APIClient {
+							c, err := pd.PachClient(ctx)
+							if err != nil {
+								panic(fmt.Sprintf("build enterprise pach client: %v", err))
+							}
+							return c
+						},
+						Namespace:         "default",
+						BackgroundContext: pctx.Background("enterprise"),
+						Config: pachconfig.Configuration{
+							GlobalConfiguration:             &config.GlobalConfiguration,
+							PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+							EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
+						},
+					},
+					ent_server.Config{
+						Heartbeat:    false,
+						Mode:         ent_server.FullMode,
+						UnpausedMode: "full",
+					},
+				)
+				if err != nil {
+					return errors.Wrap(err, "NewEnterpriseServer")
+				}
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initLicenseServer",
+			Fn: func(ctx context.Context) error {
+				var err error
+				pd.licenseSrv, err = license_server.New(&license_server.Env{
+					DB:       pd.env.DB,
+					Listener: nil,
+					Config: &pachconfig.Configuration{
+						GlobalConfiguration:             &config.GlobalConfiguration,
+						PachdSpecificConfiguration:      &config.PachdSpecificConfiguration,
+						EnterpriseSpecificConfiguration: &config.EnterpriseSpecificConfiguration,
+					},
+					EnterpriseServer: pd.enterpriseSrv,
+				})
+				if err != nil {
+					return errors.Wrap(err, "license_server.New")
+				}
 				return nil
 			},
 		},
@@ -296,6 +415,11 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		version.RegisterAPIServer(gs, pd.version)
 		auth.RegisterAPIServer(gs, pd.authSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
+		pps.RegisterAPIServer(gs, pd.ppsSrv)
+		metadata.RegisterAPIServer(gs, pd.metadataSrv)
+		admin.RegisterAPIServer(gs, pd.adminSrv)
+		enterprise.RegisterAPIServer(gs, pd.enterpriseSrv)
+		license.RegisterAPIServer(gs, pd.licenseSrv)
 	}))
 	return pd
 }

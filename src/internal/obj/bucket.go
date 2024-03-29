@@ -3,14 +3,15 @@ package obj
 import (
 	"context"
 	"crypto/tls"
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
-	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 	"net/http"
 	"net/url"
 	"strconv"
 	"time"
+
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -97,6 +98,14 @@ func NewAmazonBucket(ctx context.Context, objURL *ObjectStoreURL) (*Bucket, erro
 func NewBucket(ctx context.Context, storageBackend, storageRoot, storageURL string) (*Bucket, error) {
 	var err error
 	var bucket *Bucket
+	// handle local differently since it is set without passing in an object storage url.
+	if storageBackend == Local {
+		bucket, err = fileblob.OpenBucket(storageRoot, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "new local bucket")
+		}
+		return bucket, nil
+	}
 	objURL, err := ParseURL(storageURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "new bucket")
