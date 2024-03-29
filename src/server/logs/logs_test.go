@@ -132,11 +132,12 @@ func TestGetLogsHint(t *testing.T) {
 			// GetLogs with a limit and a hint request is currently an error.
 			//
 			// TODO(CORE-2189): Update with support once logs are actually implemented.
-			require.ErrorIs(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
+			publisher = new(testPublisher)
+			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
 				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 				WantPagingHint: true,
 				Filter:         &logs.LogFilter{Limit: 100}}, publisher),
-				logservice.ErrUnimplemented, "GetLogs with both a limit and a hint request must error")
+				"GetLogs with both a limit and a hint request should work")
 
 			var badPublisher errPublisher
 			err := ls.GetLogs(ctx, &logs.GetLogsRequest{}, &badPublisher)

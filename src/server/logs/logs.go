@@ -71,25 +71,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
 	}
 
-	if request.WantPagingHint {
-		hint := &logs.PagingHint{
-			Older: proto.Clone(request).(*logs.GetLogsRequest),
-			Newer: proto.Clone(request).(*logs.GetLogsRequest),
-		}
-		from, until := request.Filter.TimeRange.From.AsTime(), request.Filter.TimeRange.Until.AsTime()
-		hint.Older.Filter.TimeRange.From = timestamppb.New(from.Add(from.Sub(until)))
-		hint.Older.Filter.TimeRange.Until = timestamppb.New(from)
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
-		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
-		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
-			ResponseType: &logs.GetLogsResponse_PagingHint{
-				PagingHint: hint,
-			},
-		}); err != nil {
-			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
-		}
-	}
-
 	c, err := ls.GetLokiClient()
 	if err != nil {
 		return errors.Wrap(err, "loki client error")
@@ -125,10 +106,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			}
 		}
 		// request a record immediately prior to the page
-		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(700*time.Hour), start, "backward")
+		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, "backward")
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
+		fmt.Println("QQQ", entries)
 		if len(entries) > 0 {
 			older = entries[len(entries)-1]
 		}
@@ -189,11 +171,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 }
 
 func validateGetLogsRequest(request *logs.GetLogsRequest) error {
-	if request.GetWantPagingHint() {
-		// TODO(CORE-2189): actually need to have logs to implement the logic with limits
-		if request.GetFilter().GetLimit() > 0 {
-			return errors.Wrap(ErrUnimplemented, "paging hints with limit > 0")
-		}
-	}
+	// FIXME: any validation required?
 	return nil
 }
