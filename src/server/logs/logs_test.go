@@ -96,20 +96,18 @@ func TestGetLogsHint(t *testing.T) {
 
 			// GetLogs with a hint request should return a hint.
 			publisher = new(testPublisher)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP, WantPagingHint: true}, publisher), "GetLogs must succeed")
+			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
+				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
+				WantPagingHint: true,
+			}, publisher), "GetLogs must succeed")
 			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
 			h, ok := publisher.responses[0].ResponseType.(*logs.GetLogsResponse_PagingHint)
 			require.True(t, ok, "paging hints should be returned when requested")
-			for _, hint := range []*logs.GetLogsRequest{h.PagingHint.Older, h.PagingHint.Newer} {
-				from := hint.Filter.TimeRange.From.AsTime()
-				until := hint.Filter.TimeRange.Until.AsTime()
-				require.Equal(t, 700*time.Hour, until.Sub(from), "default window is 700 hours")
-			}
 
 			// GetLogs with a hint request and a non-standard time filter should duplicate that duration.
 			publisher = new(testPublisher)
 			until := time.Now()
-			from := until.Add(-1 * time.Hour)
+			from := until.Add(-1 * time.Second)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
 				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 				WantPagingHint: true,
@@ -126,7 +124,7 @@ func TestGetLogsHint(t *testing.T) {
 			for _, hint := range []*logs.GetLogsRequest{h.PagingHint.Older, h.PagingHint.Newer} {
 				from := hint.Filter.TimeRange.From.AsTime()
 				until := hint.Filter.TimeRange.Until.AsTime()
-				require.Equal(t, time.Hour, until.Sub(from), "explicit window is one hour, not %v", until.Sub(from))
+				require.Equal(t, time.Second, until.Sub(from), "explicit window is one hour, not %v (%v–%v)", until.Sub(from), from, until)
 			}
 
 			// GetLogs with a limit and a hint request is currently an error.

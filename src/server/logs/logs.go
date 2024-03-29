@@ -110,7 +110,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
-		fmt.Println("QQQ", entries)
 		if len(entries) > 0 {
 			older = entries[len(entries)-1]
 		}
