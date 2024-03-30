@@ -9,6 +9,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/kvparse"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -124,19 +125,27 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 		}
 		switch strings.ToLower(op) {
 		case "add":
-			k, v := parseKV(data)
+			kv, err := kvparse.ParseOne(data)
+			if err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: parse error", err))
+				continue
+			}
 			edit.Op = &metadata.Edit_AddKey_{
 				AddKey: &metadata.Edit_AddKey{
-					Key:   k,
-					Value: v,
+					Key:   kv.Key,
+					Value: kv.Value,
 				},
 			}
 		case "edit":
-			k, v := parseKV(data)
+			kv, err := kvparse.ParseOne(data)
+			if err != nil {
+				errors.JoinInto(&errs, errors.Errorf("arg set %d: parse error", err))
+				continue
+			}
 			edit.Op = &metadata.Edit_EditKey_{
 				EditKey: &metadata.Edit_EditKey{
-					Key:   k,
-					Value: v,
+					Key:   kv.Key,
+					Value: kv.Value,
 				},
 			}
 		case "delete":
@@ -146,9 +155,21 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 				},
 			}
 		case "set":
-			md, err := parseData(data)
+			kvs, err := kvparse.ParseMany(data)
 			if err != nil {
 				errors.JoinInto(&errs, errors.Wrapf(err, "arg set %d: invalid 'set' expression", i))
+				continue
+			}
+			md := make(map[string]string)
+			mdOK := true
+			for _, kv := range kvs {
+				if _, ok := md[kv.Key]; ok {
+					errors.JoinInto(&errs, errors.Errorf("duplicate key %q", kv.Key))
+					mdOK = false
+				}
+				md[kv.Key] = kv.Value
+			}
+			if !mdOK {
 				continue
 			}
 			edit.Op = &metadata.Edit_Replace_{

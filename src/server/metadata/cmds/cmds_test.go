@@ -198,8 +198,30 @@ func TestParseEditMetadataCmdline(t *testing.T) {
 			},
 		},
 		{
+			name: "set metadata for a project",
+			args: []string{"project", "default", "set", "key=new"},
+			want: &metadata.EditMetadataRequest{
+				Edits: []*metadata.Edit{
+					{
+						Target: &metadata.Edit_Project{
+							Project: &pfs.ProjectPicker{
+								Picker: &pfs.ProjectPicker_Name{
+									Name: "default",
+								},
+							},
+						},
+						Op: &metadata.Edit_Replace_{
+							Replace: &metadata.Edit_Replace{
+								Replacement: map[string]string{"key": "new"},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
 			name:    "wrong syntax for set",
-			args:    []string{"project", "default", "set", "key=value"},
+			args:    []string{"project", "default", "set", ";key=value"},
 			wantErr: true,
 		},
 		{
