@@ -1,7 +1,6 @@
 package kvgrammar
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -114,7 +113,8 @@ func (s *DoubleQuoted) String() string {
 		if e := part.Escaped; e != nil {
 			val, _, _, err := strconv.UnquoteChar(*e, '"')
 			if err != nil {
-				panic(fmt.Sprintf("problem with parser; can't unescape %v", *e))
+				buf.WriteString(*e) // example: \ud800; this isn't a character, but is "grammatically" correct
+				continue
 			}
 			buf.WriteRune(val)
 		}
