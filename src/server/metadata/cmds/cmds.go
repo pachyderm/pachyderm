@@ -24,9 +24,77 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	var commands []*cobra.Command
 
 	editMetadata := &cobra.Command{
-		Use:   `{{alias}} [<object type: cluster|project|repo|branch|commit> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
+		Use:   `{{alias}} [<object type: cluster|project|repo|branch|commit> <object picker> <operation: add|edit|delete|replace> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
 		Short: "Edits an object's metadata",
-		Long:  "Edits an object's metadata.",
+		Long: `Edits an object's metadata.
+
+Each metadata change is a sequence of 4 arguments, the object type, the object, the operation, and
+the edit to perform.  A command-line may contain zero or more of these changes.  One command-line is
+run as one transaction; either all of the changes succeed, or all of the changes fail.
+
+The objects available are:
+
+  * cluster: Adjust metadata on the cluster itself.  The metadata is visible on an "InspectCluster" RPC, or
+    "pachctl inspect cluster --raw".  The "object picker" is ignored, as there is only one cluster.
+    By convention, "." is used as the object picker.
+
+  * project: Adjust metadata on a project.  The metadata is visible on an "InspectProject" RPC, or
+    "pachctl inspect project <name> --raw".
+
+  * repo: Adjust metadata on a repo.  The metadata is visible on an "InspectRepo" RPC, or
+    "pachctl inspect repo <name> --raw".
+
+  * branch: Adjust metadata on a branch.  The metadata is visible on an "InspectBranch" RPC, or
+    "pachctl inspect branch <repo>@<name> --raw".
+
+  * commit: Adjust metadata on a commit (not a commitset).  The metadata is visible on an "InspectCommit" RPC,
+    or "pachctl inspect commit <repo>@<commit> --raw".
+
+Object pickers are used throughout Pachyderm.  A summary:
+
+  * cluster: Ignored, any string matches the current cluster.
+
+  * project: The name of the project, for example, "default".
+
+  * repo: The project and name of the repo, like "default/images".  If the project is omitted, the current project
+    is assumed.  Special repo types may be selected, like "default/edges.meta" for the meta repo associated with
+    the pipeline "edges".
+
+  * branch: A repo picker, with @ and a branch name, like "default/images@master".  If the project is omitted, the
+    current project is assumed.
+
+  * commit: Like a branch picker, but identifying a commit instead.  For example, "default/images@master", or
+    "default/images@fc337b93997e4bc7b167222cb2482460".
+
+The operations available are:
+
+  * add: Add a new key/value pair to the metadata.  The operation fails if the key already exists.
+    Add takes a single key/value pair, in key=value syntax.
+
+  * edit: Change the value of a key.  It's OK if they key doesn't already exist.
+    Edit takes a single key/value pair, in key=value syntax.
+
+  * delete: Remove a key/value pair.  Delete takes the name of the key to delete.
+
+  * replace: Replace the entire metadata structure with a new set of key/value pairs.
+    Replace takes zero or more key/value pairs.  This can be represented as JSON, like
+    {"key1":"value1","key2":"value2"}, or as our custom format,
+    "key1=value1;key2=value2".
+
+Key/value pair format:
+
+  A single key-value pair is represented as "key=value".  Key and value can be double-quoted or single-quoted.
+  Standard escapes apply inside double-quoted strings.  No escapes are allowed in single-quoted strings.
+  For example, "two lines"="one\ntwo", 'key with a \'=value.
+
+  Multiple key-value pairs follow the same format and are separated with a semicolon.  For example,
+  "key1"='value1';key2=value2;'key3'="value3".  You may also supply a normal JSON object.  Keys must
+  be strings, and values must be strings.  No other JSON syntax is allowed.
+`,
+		Example: "\t- {{alias}} edit metadata cluster . add environment=production \n" +
+			"\t - {{alias}} edit metadata project myproject edit support_contact=you@example.com \n" +
+			"\t - {{alias}} edit metadata commit images@master add verified_by=you@example.com \\ \n" +
+			"\t \t \t commit edges@master add verified_by=you@example.com",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
 			req, err := parseEditMetadataCmdline(args, pachCtx.Project)
 			if err != nil {
@@ -137,10 +205,10 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 					Key: data,
 				},
 			}
-		case "set":
+		case "replace":
 			kvs, err := kvparse.ParseMany(data)
 			if err != nil {
-				errors.JoinInto(&errs, errors.Wrapf(err, "arg set %d: invalid 'set' expression", i))
+				errors.JoinInto(&errs, errors.Wrapf(err, "arg set %d: invalid 'replace' expression", i))
 				continue
 			}
 			md := make(map[string]string)
