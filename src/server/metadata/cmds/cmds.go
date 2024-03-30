@@ -1,7 +1,6 @@
 package cmds
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -49,22 +48,6 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	commands = append(commands, cmdutil.CreateAlias(editMetadata, "edit metadata"))
 
 	return commands
-}
-
-func parseKV(data string) (k, v string) {
-	// TODO(jrockway, CORE-2228): Allow keys and values with = in them.
-	parts := strings.SplitN(data, "=", 2)
-	return parts[0], parts[1]
-}
-
-func parseData(data string) (result map[string]string, _ error) {
-	if len(data) == 0 || data[0] != '{' {
-		return nil, errors.New("data must be a JSON object")
-	}
-	if err := json.Unmarshal([]byte(data), &result); err != nil {
-		return nil, errors.Wrap(err, "parse json data")
-	}
-	return
 }
 
 func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.EditMetadataRequest, error) {
