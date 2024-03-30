@@ -45,7 +45,7 @@ var Lexer = lexer.Rules{
 	"DoubleQuotedString": {
 		{
 			Name:    "Escaped",
-			Pattern: `\\(?:["'\\abfnrtv]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})`, // go allows \U<hex digit>{8}, but we don't.
+			Pattern: `\\(?:["\\abfnrtv]|x[0-9a-fA-F]{2}|u[0-9a-fA-F]{4})`, // go allows \U<hex digit>{8}, but we don't.
 		},
 		{
 			Name:    "DoubleQuotedStringEnd",
