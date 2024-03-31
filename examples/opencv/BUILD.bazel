@@ -64,7 +64,7 @@ oci_image_index(
 
 pachyderm_pipeline(
     name = "edges_pipeline",
-    image = "opencv_image",
+    image = "opencv_image_x86_64",
     pipeline = "edges.pipeline.json",
 )
 

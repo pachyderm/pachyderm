@@ -437,12 +437,10 @@ pip.parse(
 use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev", "opencv-pip-requirements")
 
 # C++ compiler, etc.
-toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
-use_repo(toolchains, "zig_sdk")
+# toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+# use_repo(toolchains, "zig_sdk")
 
-register_toolchains(
-    "@zig_sdk//toolchain:linux_amd64_gnu.2.31",
-    "@zig_sdk//toolchain:linux_arm64_gnu.2.31",
-    "@zig_sdk//toolchain:darwin_amd64",
-    "@zig_sdk//toolchain:darwin_arm64",
-)
+# register_toolchains(
+#     "@zig_sdk//toolchain:linux_amd64_gnu.2.31",
+#     "@zig_sdk//toolchain:linux_arm64_gnu.2.31",
+# )

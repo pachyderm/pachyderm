@@ -14,6 +14,7 @@ def _pipeline_impl(ctx):
         PipelineInfo(
             name = ctx.label.name,
             spec = ctx.files.pipeline[0],
+            image = ctx.files.image[0],
         ),
     ]
 
@@ -47,10 +48,14 @@ def _pipeline_shell_command(ctx, name, template):
         content = template.format(
             PACHCTL = ctx.attr._runfiles[0][DefaultInfo].files_to_run.executable.short_path,
             PIPELINE_SPEC = pipeline.spec.short_path,
+            IMAGE = pipeline.image.short_path,
         ),
         is_executable = True,
     )
-    runfiles = ctx.runfiles([pipeline.spec, runner])
+    r = [pipeline.spec, runner]
+    if pipeline.image:
+        r.append(pipeline.image)
+    runfiles = ctx.runfiles(r)
     for r in ctx.attr._runfiles:
         runfiles = runfiles.merge(r.default_runfiles)
     return DefaultInfo(
@@ -94,6 +99,25 @@ _pachctl_apply = rule(
     executable = True,
 )
 
+def _pachctl_push_impl(ctx):
+    tmpl = """
+find    
+exec {PACHCTL} --image={IMAGE} --pipeline={PIPELINE_SPEC}
+"""
+    return _pipeline_shell_command(ctx, "_update", tmpl)
+
+_pachctl_push = rule(
+    implementation = _pachctl_push_impl,
+    attrs = {
+        "pipeline": attr.label(
+            providers = [PipelineInfo],
+            doc = "Pipeline spec file to apply.",
+        ),
+        "_runfiles": attr.label_list(default = ["//src/testing/push-pipeline"]),
+    },
+    executable = True,
+)
+    
 def pachyderm_pipeline(name, pipeline, image = None, **kwargs):
     _pipeline(
         name = name,
@@ -108,6 +132,11 @@ def pachyderm_pipeline(name, pipeline, image = None, **kwargs):
     )
     _pachctl_apply(
         name = name + ".apply",
+        pipeline = name,
+        **kwargs
+    )
+    _pachctl_push(
+        name = name + ".push",
         pipeline = name,
         **kwargs
     )
