@@ -5,6 +5,7 @@ go_test(
     size = "small",
     srcs = ["metadata_test.go"],
     deps = [
+        "//src/admin",
         "//src/auth",
         "//src/internal/cmputil",
         "//src/internal/dockertestenv",
@@ -16,6 +17,7 @@ go_test(
         "//src/metadata",
         "//src/pfs",
         "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//encoding/protojson",
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )

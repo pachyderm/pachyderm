@@ -339,6 +339,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					},
 					PFSServer: pd.pfsSrv,
 					Paused:    false,
+					DB:        env.DB,
 				})
 				return nil
 			},
