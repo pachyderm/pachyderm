@@ -1,4 +1,4 @@
-package pfsdb
+package pgjsontypes
 
 import (
 	"testing"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestNonStringData(t *testing.T) {
-	var got jsonMap
+	var got StringMap
 	if err := got.Scan([]byte(`{"good": "value", "bad": [1, 2, 3]}`)); err != nil {
 		t.Fatal(err)
 	}
@@ -21,7 +21,7 @@ func TestNonStringData(t *testing.T) {
 	}
 }
 
-func TestJsonMapRoundTrip(t *testing.T) {
+func TestStringMapRoundTrip(t *testing.T) {
 	testData := []struct {
 		name string
 		data map[string]string
@@ -42,11 +42,11 @@ func TestJsonMapRoundTrip(t *testing.T) {
 
 	for _, test := range testData {
 		t.Run(test.name, func(t *testing.T) {
-			js, err := (&jsonMap{Data: test.data}).Value()
+			js, err := (&StringMap{Data: test.data}).Value()
 			if err != nil {
 				t.Fatalf("Value: %v", err)
 			}
-			var got jsonMap
+			var got StringMap
 			if err := got.Scan(js); err != nil {
 				t.Fatalf("Scan: %v", err)
 			}
