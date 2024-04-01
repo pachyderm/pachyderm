@@ -23,7 +23,11 @@ func (err ErrInvalidBatchSize) Error() string {
 		"(there will always be 1 overlapping entry but Loki allows multiple entries to have "+
 		"the same timestamp, so when a batch ends in this scenario the next query will include "+
 		"all the overlapping entries again).  Please increase your batch size to at least %v to account "+
-		"for overlapping entryes\n", err.batchSize, err.overlappingCount, err.overlappingCount+1)
+		"for overlapping entryes\n", err.batchSize, err.overlappingCount, err.RecommendedBatchSize())
+}
+
+func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
+	return err.overlappingCount + 1
 }
 
 // doQuery executes a query.
@@ -31,7 +35,7 @@ func (err ErrInvalidBatchSize) Error() string {
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction string) ([]loki.Entry, error) {
+func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction logDirection) ([]loki.Entry, error) {
 	var (
 		batchSize    = limit
 		resultLength int
@@ -50,9 +54,12 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			// correct amount of new logs knowing there will be some overlapping logs returned.
 			bs = limit - total + len(lastEntry)
 		}
-		resp, err := client.QueryRange(ctx, logQL, bs, start, end, direction, 0, 0, true)
+		resp, err := client.QueryRange(ctx, logQL, bs, start, end, string(direction), 0, 0, true)
 		if err != nil {
-			// FIXME: should try to distinguish user from server errors here
+			// It would be nice to distinguish user query errors
+			// from internal errors here, but … any invalid user
+			// query passed through by the log server is effectively
+			// an internal error.
 			return nil, errors.Wrap(err, "query failed")
 		}
 
@@ -89,7 +96,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		total += resultLength
 		// Based on the query direction we either set the start or end for the next query.
 		// If there are multiple entries in `lastEntry` they have to have the same timestamp so we can pick just the first
-		if direction == "forward" {
+		if direction == forwardLogDirection {
 			start = lastEntry[0].Timestamp
 		} else {
 			// The end timestamp is exclusive on a backward query, so to make sure we get back an overlapping result
@@ -103,7 +110,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go#L259>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func publishEntries(ctx context.Context, streams loki.Streams, direction string, lastEntry []loki.Entry) ([]loki.Entry, int, []loki.Entry, error) {
+func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry) ([]loki.Entry, int, []loki.Entry, error) {
 	var (
 		entries, result []loki.Entry
 		published       int
@@ -115,9 +122,9 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction string,
 		return nil, 0, nil, nil
 	}
 	switch direction {
-	case "forward": // FIXME: const
+	case forwardLogDirection:
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.Before(entries[j].Timestamp) })
-	case "backward":
+	case backwardLogDirection:
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.After(entries[j].Timestamp) })
 	default:
 		return nil, 0, nil, errors.Errorf("invalid direction %q", direction)

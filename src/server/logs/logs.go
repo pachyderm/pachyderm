@@ -33,13 +33,17 @@ var (
 	ErrBadRequest = errors.New("bad request")
 )
 
+type logDirection string
+
+const (
+	forwardLogDirection  logDirection = "forward"
+	backwardLogDirection logDirection = "backward"
+)
+
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
-	var direction = "forward"
-	if err := validateGetLogsRequest(request); err != nil {
-		return errors.Wrap(err, "invalid GetLogs request")
-	}
+	var direction = forwardLogDirection
 
 	if request == nil {
 		request = &logs.GetLogsRequest{}
@@ -81,24 +85,33 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		return errors.Errorf("start equals end (%v)", start)
 	}
 	if start.After(end) {
-		direction = "backward"
+		direction = backwardLogDirection
 		start, end = end, start
 	}
-	// FIXME: retry with new batch size when necessary, or return error?
 
 	entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit+1), start, end, direction)
 	if err != nil {
-		return errors.Wrap(err, "doQuery failed")
+		var invalidBatchSizeErr ErrInvalidBatchSize
+		switch {
+		case errors.As(err, &invalidBatchSizeErr):
+			// try to requery
+			entries, err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction)
+			if err != nil {
+				return errors.Wrap(err, "invalid batch size requery failed")
+			}
+		default:
+			return errors.Wrap(err, "doQuery failed")
+		}
 	}
 	if request.WantPagingHint {
 		var newer, older loki.Entry
 		if len(entries) > 1 {
 			switch direction {
-			case "forward":
+			case forwardLogDirection:
 				var l = len(entries) - 1
 				newer = entries[l]
 				entries = entries[:l]
-			case "backward":
+			case backwardLogDirection:
 				newer = entries[0]
 				entries = entries[1:]
 			default:
@@ -106,7 +119,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			}
 		}
 		// request a record immediately prior to the page
-		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, "backward")
+		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection)
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
@@ -166,10 +179,5 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 
-	return nil
-}
-
-func validateGetLogsRequest(request *logs.GetLogsRequest) error {
-	// FIXME: any validation required?
 	return nil
 }
