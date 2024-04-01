@@ -466,6 +466,11 @@
               "description": ""
             },
             {
+              "name": "CLUSTER_EDIT_CLUSTER_METADATA",
+              "number": "151",
+              "description": ""
+            },
+            {
               "name": "CLUSTER_DELETE_ALL",
               "number": "138",
               "description": ""

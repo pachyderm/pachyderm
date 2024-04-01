@@ -1758,6 +1758,7 @@ Permission represents the ability to perform a given operation on a Resource
 | CLUSTER_LIST_SECRETS | 144 |  |
 | SECRET_DELETE | 145 |  |
 | SECRET_INSPECT | 146 |  |
+| CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
