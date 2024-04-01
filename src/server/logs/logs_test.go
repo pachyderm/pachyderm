@@ -103,6 +103,7 @@ func TestGetLogsHint(t *testing.T) {
 			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
 			h, ok := publisher.responses[0].ResponseType.(*logs.GetLogsResponse_PagingHint)
 			require.True(t, ok, "paging hints should be returned when requested")
+			require.NotNil(t, h, "paging hint should be present")
 
 			// GetLogs with a hint request and a non-standard time filter should duplicate that duration.
 			publisher = new(testPublisher)
