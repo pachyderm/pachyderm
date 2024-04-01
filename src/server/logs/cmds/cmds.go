@@ -186,7 +186,7 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
 		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
 	}
-	if until := hint.GetFilter().GetTimeRange().GetFrom(); !until.AsTime().IsZero() {
+	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
 		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
 	}
 	for flag, arg := range flags {
