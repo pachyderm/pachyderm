@@ -17,7 +17,6 @@ go_test(
         "//src/metadata",
         "//src/pfs",
         "@com_github_google_go_cmp//cmp",
-        "@org_golang_google_protobuf//encoding/protojson",
         "@org_golang_google_protobuf//testing/protocmp",
     ],
 )
