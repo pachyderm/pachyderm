@@ -187,7 +187,7 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
 	}
 	if until := hint.GetFilter().GetTimeRange().GetFrom(); !until.AsTime().IsZero() {
-		flags["until"] = until.AsTime().Format(time.RFC3339Nano)
+		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
 	}
 	for flag, arg := range flags {
 		result += " --" + flag + " " + arg
@@ -197,7 +197,6 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 
 func toPachctl(cmd *cobra.Command, args []string, hint *logs.PagingHint) string {
 	var flags = make(map[string]string)
-	fmt.Println(cmd.CommandPath())
 	older := cmd.CommandPath()
 	newer := cmd.CommandPath()
 	cmd.Flags().Visit(func(flag *pflag.Flag) {
