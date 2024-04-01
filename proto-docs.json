@@ -10061,6 +10061,17 @@
       "extensions": [],
       "messages": [
         {
+          "name": "ClusterPicker",
+          "longName": "ClusterPicker",
+          "fullName": "metadata.ClusterPicker",
+          "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server.",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "Edit",
           "longName": "Edit",
           "fullName": "metadata.Edit",
@@ -10137,6 +10148,26 @@
               "type": "RepoPicker",
               "longType": "pfs_v2.RepoPicker",
               "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cluster",
+              "description": "cluster targets the cluster's metadata.",
+              "label": "",
+              "type": "ClusterPicker",
+              "longType": "ClusterPicker",
+              "fullType": "metadata.ClusterPicker",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "target",

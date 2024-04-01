@@ -8215,6 +8215,10 @@
         }
       }
     },
+    "metadataClusterPicker": {
+      "type": "object",
+      "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server."
+    },
     "metadataEdit": {
       "type": "object",
       "properties": {
@@ -8233,6 +8237,10 @@
         "repo": {
           "$ref": "#/definitions/pfs_v2RepoPicker",
           "description": "repo targets a repo's metadata."
+        },
+        "cluster": {
+          "$ref": "#/definitions/metadataClusterPicker",
+          "description": "cluster targets the cluster's metadata."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",
