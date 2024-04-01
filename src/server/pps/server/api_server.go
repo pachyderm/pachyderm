@@ -4140,6 +4140,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	return &resp, nil
 }
 
+// PipelinesSummary implements the protobuf pps.PipelinesSummary RPC
 func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
 	var projects []*pfs.Project
 	for _, p := range req.Projects {
@@ -4179,6 +4180,9 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 			summary.PausedPipelines++
 		} else { // catch all includes crashing state
 			summary.ActivePipelines++
+		}
+		if err := a.getLatestJobState(ctx, pi); err != nil {
+			return errors.Wrapf(err, "get latest job state for pipeline: %s", pi.Pipeline.String())
 		}
 		if pi.LastJobState == pps.JobState_JOB_KILLED ||
 			pi.LastJobState == pps.JobState_JOB_FAILURE ||
