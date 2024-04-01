@@ -160,8 +160,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 						fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %v\n`", resp)
 						continue
 					}
-					//fmt.Fprintf(os.Stderr, "%v", hint)
-					fmt.Println(toPachctl(cmd, args, hint))
+					// printing to stderr in order to keep stdout clean
+					fmt.Fprintln(os.Stderr, toPachctl(cmd, args, hint))
 				default:
 					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", log)
 					continue
