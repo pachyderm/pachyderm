@@ -6287,6 +6287,13 @@
         "webResources": {
           "$ref": "#/definitions/admin_v2WebResource",
           "description": "Any HTTP links that the client might want to be aware of."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cluster-level metadata."
         }
       }
     },

@@ -5,6 +5,7 @@
 
 - [admin/admin.proto](#admin_admin-proto)
     - [ClusterInfo](#admin_v2-ClusterInfo)
+    - [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry)
     - [InspectClusterRequest](#admin_v2-InspectClusterRequest)
     - [WebResource](#admin_v2-WebResource)
   
@@ -749,6 +750,23 @@
 | proxy_tls | [bool](#bool) |  | True if Pachyderm is served over TLS (HTTPS). |
 | paused | [bool](#bool) |  | True if this pachd is in &#34;paused&#34; mode. |
 | web_resources | [WebResource](#admin_v2-WebResource) |  | Any HTTP links that the client might want to be aware of. |
+| metadata | [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry) | repeated | Cluster-level metadata. |
+
+
+
+
+
+
+<a name="admin_v2-ClusterInfo-MetadataEntry"></a>
+
+### ClusterInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
