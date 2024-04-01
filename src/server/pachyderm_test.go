@@ -11706,18 +11706,25 @@ func TestPipelinesSummary(t *testing.T) {
 	c, _ := minikubetestenv.AcquireCluster(t)
 	repo := "input"
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
-	createPipeline := func(project, name string, state pps.PipelineState, latestJobState pps.JobState) {
+	createPipeline := func(project, name string, state pps.PipelineState, fail, stop bool) {
+		cmd := []string{"cp", "-r", "/pfs/in", "/pfs/out"}
+		if fail {
+			cmd = []string{"exit 1"}
+		}
 		require.NoError(t, c.CreatePipeline(
 			project,
 			name,
 			"", /* default image*/
-			[]string{"cp", "-r", "/pfs/in", "/pfs/out"},
+			cmd,
 			nil, /* stdin */
 			nil, /* spec */
 			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
-			"",   /* output */
-			true, /* update */
+			"",    /* output */
+			false, /* update */
 		))
+		if stop {
+			require.NoError(t, c.StopPipeline(project, name))
+		}
 	}
 	projects := []string{"a", "b"}
 	for _, prj := range projects {
@@ -11726,51 +11733,26 @@ func TestPipelinesSummary(t *testing.T) {
 	pips := []string{"A", "B", "C", "D", "E"}
 	for _, prj := range projects {
 		for i, pip := range pips {
-			var jobState pps.JobState = pps.JobState_JOB_RUNNING
 			var pipState pps.PipelineState = pps.PipelineState_PIPELINE_RUNNING
-			if i%2 == 0 {
-				pipState = pps.PipelineState_PIPELINE_FAILURE
-				jobState = pps.JobState_JOB_UNRUNNABLE
+			var fail bool
+			var stop bool
+			if i%3 == 0 {
+				fail = true
 			} else if i%4 == 0 {
-				pipState = pps.PipelineState_PIPELINE_PAUSED
-				jobState = pps.JobState_JOB_SUCCESS
+				stop = true
 			}
-			createPipeline(prj, pip, pipState, jobState)
+			createPipeline(prj, pip, pipState, fail, stop)
 		}
 	}
-
 	dataRepo := tu.UniqueString("TestPipelineFailure_data")
 	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, dataRepo))
 
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
-
-	pipeline := tu.UniqueString("pipeline")
-	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
-		pipeline,
-		"",
-		[]string{"exit 1"},
-		nil,
-		&pps.ParallelismSpec{
-			Constant: 1,
-		},
-		client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/*"),
-		"",
-		false,
-	))
-	var jobInfos []*pps.JobInfo
-	require.NoError(t, backoff.Retry(func() error {
-		jobInfos, err = c.ListJob(pfs.DefaultProjectName, pipeline, nil, -1, true)
-		require.NoError(t, err)
-		if len(jobInfos) != 1 {
-			return errors.Errorf("expected 1 jobs, got %d", len(jobInfos))
-		}
-		return nil
-	}, backoff.NewTestingBackOff()))
-	jobInfo, err := c.WaitJob(pfs.DefaultProjectName, pipeline, jobInfos[0].Job.Id, false)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+	summaries, err := c.PipelinesSummary(pctx.TestContext(t), &pps.PipelinesSummaryRequest{})
 	require.NoError(t, err)
-	require.Equal(t, pps.JobState_JOB_FAILURE, jobInfo.State)
-	require.True(t, strings.Contains(jobInfo.Reason, "datum"))
+	require.Len(t, summaries, 0)
+	summaries, err = c.PipelinesSummary(pctx.TestContext(t), &pps.PipelinesSummaryRequest{})
 }
