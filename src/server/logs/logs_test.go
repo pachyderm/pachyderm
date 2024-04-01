@@ -128,9 +128,6 @@ func TestGetLogsHint(t *testing.T) {
 				require.Equal(t, time.Second, until.Sub(from), "explicit window is one hour, not %v (%v–%v)", until.Sub(from), from, until)
 			}
 
-			// GetLogs with a limit and a hint request is currently an error.
-			//
-			// TODO(CORE-2189): Update with support once logs are actually implemented.
 			publisher = new(testPublisher)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
 				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
