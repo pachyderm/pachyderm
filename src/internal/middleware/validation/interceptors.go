@@ -3,6 +3,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
@@ -69,7 +70,7 @@ func (w *streamWrapper) SendMsg(m any) error {
 	if b, ok := m.(branchNillable); ok {
 		b.NilBranchName()
 	}
-	return w.ServerStream.SendMsg(m)
+	return errors.EnsureStack(w.ServerStream.SendMsg(m))
 }
 
 func StreamServerInterceptor(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
