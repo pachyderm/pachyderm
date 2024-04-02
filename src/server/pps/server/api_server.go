@@ -3793,7 +3793,6 @@ func ensurePipelineProject(p *pps.Pipeline) {
 
 // newMessageFilterFunc returns a function that filters out messages that don't satisify either jq filter or projects filter.
 func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(context.Context, proto.Message) (bool, error), error) {
-	log.Info(context.Background(), "length of projects is: ", zap.Int("projects_length", len(projects)))
 	projectsFilter := make(map[string]bool, len(projects))
 	for _, project := range projects {
 		projectsFilter[project.GetName()] = true
