@@ -31,7 +31,7 @@ func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, i
 	case input.Cross != nil:
 		streamingCreateCross(ctx, c, taskDoer, input.Cross, fsidChan, errChan, requestDatumsChan)
 	case input.Join != nil:
-		errChan <- errors.New("join input type unimplemented")
+		streamingCreateJoin(ctx, c, taskDoer, input.Join, fsidChan, errChan, requestDatumsChan)
 	case input.Group != nil:
 		errChan <- errors.New("group input type unimplemented")
 	case input.Cron != nil:
@@ -341,3 +341,143 @@ func cartesianProduct(inputsShards [][]string, addedInput int) [][]string {
 	shardPermute(inputsShards, addedInput, 0, result, &output)
 	return output
 }
+
+func streamingCreateJoin(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	inputs []*pps.Input,
+	fsidChan chan<- string,
+	errChan chan<- error,
+	requestDatumsChan <-chan struct{},
+) {
+	defer close(fsidChan)
+	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
+		childrenChans := initChildrenChans(len(inputs))
+		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
+		inputsShards := make([][]string, len(inputs))
+		if err := consumeChildrenChans(ctx, childrenChans, func(idx int, fsid string) error {
+			keyFsidChan := make(chan string)
+			go streamingCreateKeyFileSet(ctx, c, taskDoer, renewer, keyFsidChan, errChan, fsid, KeyTask_JOIN)
+			for keyFsid := range keyFsidChan {
+				inputsShards[idx] = append(inputsShards[idx], keyFsid)
+				if err := streamingMergeKeyFileSets(ctx, c, taskDoer, renewer, fsidChan, inputsShards, idx, MergeTask_JOIN); err != nil {
+					return errors.Wrap(err, "streamingMergeKeyFileSets")
+				}
+			}
+			return nil
+		}); err != nil {
+			return errors.Wrap(err, "consuming children channels")
+		}
+		return nil
+	}); err != nil {
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreateJoin"):
+		}
+	}
+}
+
+func streamingCreateKeyFileSet(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	renewer *renew.StringSet,
+	fsidChan chan<- string,
+	errChan chan<- error,
+	fileSetID string,
+	keyType KeyTask_Type,
+) {
+	defer close(fsidChan)
+	if err := func() error {
+		shards, err := client.ShardFileSetWithConfig(ctx, c, fileSetID, ShardNumFiles, 0)
+		if err != nil {
+			return errors.Wrap(err, "shard file set")
+		}
+		var inputs []*anypb.Any
+		for _, shard := range shards {
+			input, err := serializeKeyTask(&KeyTask{
+				FileSetId: fileSetID,
+				PathRange: shard,
+				Type:      keyType,
+				AuthToken: getAuthToken(ctx),
+			})
+			if err != nil {
+				return errors.Wrap(err, "serialize key task")
+			}
+			inputs = append(inputs, input)
+		}
+		return task.DoBatch(ctx, taskDoer, inputs, func(_ int64, output *anypb.Any, err error) error {
+			if err != nil {
+				return errors.Wrap(err, "task do batch")
+			}
+			result, err := deserializeKeyTaskResult(output)
+			if err != nil {
+				return errors.Wrap(err, "deserialize key task result")
+			}
+			if err := renewer.Add(ctx, result.FileSetId); err != nil {
+				return errors.Wrap(err, "renew result file set")
+			}
+			select {
+			case <-ctx.Done():
+				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+			case fsidChan <- result.FileSetId:
+			}
+			return nil
+		})
+	}(); err != nil {
+		select {
+		case <-ctx.Done():
+		case errChan <- errors.Wrap(err, "streamingCreateKeyFileSet"):
+		}
+	}
+}
+
+func streamingMergeKeyFileSets(
+	ctx context.Context,
+	c pfs.APIClient,
+	taskDoer task.Doer,
+	renewer *renew.StringSet,
+	fsidChan chan<- string,
+	inputsShards [][]string,
+	idx int,
+	mergeType MergeTask_Type,
+) error {
+	taskInputs, err := getTasksForNewShard(ctx, c, inputsShards, idx, func(ctx context.Context, shards []string, _ int, baseShard *pfs.PathRange) (*anypb.Any, error) {
+		input, err := serializeMergeTask(&MergeTask{
+			FileSetIds: shards,
+			PathRange:  baseShard,
+			Type:       mergeType,
+			AuthToken:  getAuthToken(ctx),
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "serialize merge task")
+		}
+		return input, nil
+	})
+	if err != nil {
+		return errors.Wrap(err, "cartesian product")
+	}
+	if taskInputs != nil {
+		return task.DoBatch(ctx, taskDoer, taskInputs, func(_ int64, output *anypb.Any, err error) error {
+			if err != nil {
+				return errors.Wrap(err, "task do batch")
+			}
+			result, err := deserializeMergeTaskResult(output)
+			if err != nil {
+				return errors.Wrap(err, "deserialize merge task result")
+			}
+			if err := renewer.Add(ctx, result.FileSetId); err != nil {
+				return errors.Wrap(err, "renew result file set")
+			}
+			select {
+			case <-ctx.Done():
+				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+			case fsidChan <- result.FileSetId:
+			}
+			return nil
+		})
+	}
+	return nil
+}
+
