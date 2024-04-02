@@ -177,6 +177,9 @@ export class MountPlugin implements IMountPlugin {
         <UseSignal signal={this._saveInputSpecSignal}>
           {(_, repoViewInputSpec) => (
             <Datum
+              executeCommand={(command, options) => {
+                this._app.commands.execute(command, options);
+              }}
               open={this.openDatum}
               pollRefresh={this._poller.refresh}
               currentDatumInfo={this._currentDatumInfo}
