@@ -3840,6 +3840,36 @@
         ]
       }
     },
+    "/pfs_v2.API/ReposSummary": {
+      "post": {
+        "summary": "Summary API\nReposSummary returns a list of summaries about the repos for each of the requested projects.",
+        "operationId": "API_ReposSummary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pfs_v2ReposSummaryRequest"
+            }
+          }
+        ]
+      }
+    },
     "/pjs.API/CreateJob": {
       "post": {
         "summary": "CreateJob creates a new job.\nChild jobs can be created by setting the context field to the appropriate parent job context.",
@@ -5521,6 +5551,168 @@
         ]
       }
     },
+    "/storage.Fileset/CreateFileset": {
+      "post": {
+        "summary": "CreateFileset creates a fileset based on a stream of file modifications.\nA string identifier for the created fileset will be returned that can be used for subsequent fileset operations.\nFilesets have a fixed time-to-live (ttl), which is currently 10 minutes.\nFilesets needed longer than the ttl will need to be renewed.",
+        "operationId": "Fileset_CreateFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageCreateFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums. (streaming inputs)",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageCreateFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ReadFileset": {
+      "post": {
+        "summary": "ReadFileset reads a fileset.",
+        "operationId": "Fileset_ReadFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.(streaming responses)",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "result": {
+                  "$ref": "#/definitions/storageReadFilesetResponse"
+                },
+                "error": {
+                  "$ref": "#/definitions/rpcStatus"
+                }
+              },
+              "title": "Stream result of storageReadFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageReadFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/RenewFileset": {
+      "post": {
+        "summary": "RenewFileset renews a fileset.",
+        "operationId": "Fileset_RenewFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageRenewFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ComposeFileset": {
+      "post": {
+        "summary": "ComposeFileset composes a fileset.\nComposing a fileset involves combining one or more filesets into a single fileset.\nTODO: Explain how the filesets are layered and what that means for the order of file modifications.",
+        "operationId": "Fileset_ComposeFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageComposeFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageComposeFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
+    "/storage.Fileset/ShardFileset": {
+      "post": {
+        "summary": "ShardFileset shards a fileset.\nThe shards of a fileset are returned as a list of path ranges that are disjoint\nand account for the full set of paths in the fileset.",
+        "operationId": "Fileset_ShardFileset",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/storageShardFilesetResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used.",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/storageShardFilesetRequest"
+            }
+          }
+        ]
+      }
+    },
     "/transaction_v2.API/BatchTransaction": {
       "post": {
         "summary": "Transaction rpcs",
@@ -6781,6 +6973,12 @@
         },
         "pipeline": {
           "$ref": "#/definitions/debug_v2Pipeline"
+        },
+        "lokiArgs": {
+          "$ref": "#/definitions/debug_v2LokiArgs"
+        },
+        "profileArgs": {
+          "$ref": "#/definitions/debug_v2ProfileArgs"
         }
       }
     },
@@ -6914,6 +7112,15 @@
         }
       }
     },
+    "debug_v2LokiArgs": {
+      "type": "object",
+      "properties": {
+        "maxLogs": {
+          "type": "string",
+          "format": "uint64"
+        }
+      }
+    },
     "debug_v2Pipeline": {
       "type": "object",
       "properties": {
@@ -6951,6 +7158,18 @@
         "duration": {
           "type": "string",
           "title": "only meaningful if name == \"cpu\""
+        }
+      }
+    },
+    "debug_v2ProfileArgs": {
+      "type": "object",
+      "properties": {
+        "profiles": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/debug_v2Profile"
+          }
         }
       }
     },
@@ -8004,10 +8223,16 @@
           "description": "project targets a named project's metadata."
         },
         "commit": {
-          "$ref": "#/definitions/pfs_v2CommitPicker"
+          "$ref": "#/definitions/pfs_v2CommitPicker",
+          "description": "commit targets a commit's metadata."
         },
         "branch": {
-          "$ref": "#/definitions/pfs_v2BranchPicker"
+          "$ref": "#/definitions/pfs_v2BranchPicker",
+          "description": "branch targets a branch's metadata."
+        },
+        "repo": {
+          "$ref": "#/definitions/pfs_v2RepoPicker",
+          "description": "repo targets a repo's metadata."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",
@@ -9136,6 +9361,13 @@
         },
         "details": {
           "$ref": "#/definitions/pfs_v2RepoInfoDetails"
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Metadata are user-defined key-value pairs."
         }
       },
       "title": "RepoInfo is the main data structure representing a Repo in etcd"
@@ -9181,6 +9413,51 @@
         }
       },
       "description": "Repo defines mutually exclusive pickers that resolve to a single repository.\nCurrently, the only way to pick a repo is by composing a repo name and type with a project.\nIf the type is omitted, the 'user' type will be used as a default.\nPicker messages should only be used as request parameters."
+    },
+    "pfs_v2ReposSummary": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "the project the ReposSummary corresponds to"
+        },
+        "userRepoCount": {
+          "type": "string",
+          "format": "int64",
+          "title": "the count of user repos in the summary"
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "title": "aggregate size of all the repos returned in the summary"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
+          },
+          "title": "a ReposSummary will be returned for every specified project"
+        }
+      }
+    },
+    "pfs_v2ReposSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ReposSummary"
+          },
+          "title": "repo summaries for the requested projects"
+        }
+      }
     },
     "pfs_v2SQLDatabaseEgress": {
       "type": "object",
@@ -11752,6 +12029,174 @@
           "items": {
             "type": "object",
             "$ref": "#/definitions/protobufAny"
+          }
+        }
+      }
+    },
+    "storageAppendFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "AppendFile will append the provided data to the file with the specified path. If\na file with the specified path doesn't exist, it will be created."
+    },
+    "storageComposeFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ttlSeconds": {
+          "type": "string",
+          "format": "int64",
+          "description": "The TTL, in seconds, for the composite fileset that is created."
+        }
+      }
+    },
+    "storageComposeFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageCreateFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "appendFile": {
+          "$ref": "#/definitions/storageAppendFile"
+        },
+        "deleteFile": {
+          "$ref": "#/definitions/storageDeleteFile"
+        }
+      },
+      "description": "A CreateFilesetRequest corresponds to a single file modification.\nSupported file modifications are append and delete.\nA put / overwrite file modification can be performed by a delete followed by an\nappend.\n TODO: Decide how to handle datums."
+    },
+    "storageCreateFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        }
+      }
+    },
+    "storageDeleteFile": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        }
+      },
+      "description": "DeleteFile will delete the file with the specified path. If a file with the\nspecified path doesn't exist, the delete will be a no-op."
+    },
+    "storageFileFilter": {
+      "type": "object",
+      "properties": {
+        "pathRange": {
+          "$ref": "#/definitions/storagePathRange",
+          "description": "Only emit files with paths in the provided path range."
+        },
+        "pathRegex": {
+          "type": "string",
+          "description": "Only emit files with paths that match the provided regular expression."
+        }
+      }
+    },
+    "storagePathRange": {
+      "type": "object",
+      "properties": {
+        "lower": {
+          "type": "string"
+        },
+        "upper": {
+          "type": "string"
+        }
+      },
+      "description": "PathRange is a range of paths.\nThe range is inclusive, exclusive: [Lower, Upper)."
+    },
+    "storageReadFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "filters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/storageFileFilter"
+          },
+          "description": "Filters constrain which files are emitted.\nA file is only emitted if it makes it through all of the filters sequentially."
+        },
+        "emptyFiles": {
+          "type": "boolean",
+          "description": "If true, then the file data will be omitted from the stream."
+        }
+      }
+    },
+    "storageReadFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "data": {
+          "type": "string",
+          "format": "byte"
+        }
+      },
+      "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file. \nSmall or empty files will be contained within a single message, while large\nfiles may be spread across multiple messages.\nFor files spread across multiple messages, each message will have the same\npath and the content will be returned in append order."
+    },
+    "storageRenewFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "ttlSeconds": {
+          "type": "string",
+          "format": "int64",
+          "description": "The TTL, in seconds, for the fileset after renewal."
+        }
+      }
+    },
+    "storageShardFilesetRequest": {
+      "type": "object",
+      "properties": {
+        "filesetId": {
+          "type": "string"
+        },
+        "numFiles": {
+          "type": "string",
+          "format": "int64",
+          "description": "Number of files targeted in each shard."
+        },
+        "sizeBytes": {
+          "type": "string",
+          "format": "int64",
+          "description": "Size (in bytes) targeted for each shard."
+        }
+      },
+      "description": "If both num_files and size_bytes are set, shards are created\nbased on whichever threshold is surpassed first. If a shard\nconfiguration field (num_files, size_bytes) is unset, the\nstorage's default value is used."
+    },
+    "storageShardFilesetResponse": {
+      "type": "object",
+      "properties": {
+        "shards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/storagePathRange"
           }
         }
       }

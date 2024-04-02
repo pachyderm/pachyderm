@@ -30,6 +30,7 @@ go_library(
         "//src/internal/pachsql",
         "//src/internal/pctx",
         "//src/internal/pfsload",
+        "//src/internal/protoutil",
         "//src/internal/task",
         "//src/internal/uuid",
         "//src/pfs",

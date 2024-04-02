@@ -984,3 +984,51 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 	}
 	return nil, errors.Errorf("egress failed")
 }
+
+func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error) {
+	summaries := make(map[string]*pfs.ReposSummary)
+	var repos []*pfs.RepoInfo
+	var err error
+	var projects []*pfs.Project
+	for _, p := range request.Projects {
+		switch p.Picker.(type) {
+		case *pfs.ProjectPicker_Name:
+			projects = append(projects, &pfs.Project{Name: p.GetName()})
+		default:
+			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+		}
+	}
+	if err := errors.Wrap(dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
+		return a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
+			if err != nil {
+				return err
+			}
+			for _, r := range repos {
+				project := r.Repo.Project.String()
+				summary, ok := summaries[project]
+				if !ok {
+					summary = &pfs.ReposSummary{Project: r.Repo.Project}
+					summaries[project] = summary
+				}
+				summary.UserRepoCount++
+				size, err := a.driver.repoSize(ctx, txnCtx, r)
+				if err != nil {
+					return errors.Wrapf(err, "get size of repo %q", r.Repo.String())
+				}
+				summary.SizeBytes += size
+			}
+			return nil
+		})
+	}, dbutil.WithReadOnly()), "list repo"); err != nil {
+		return nil, err
+	}
+	resp := &pfs.ReposSummaryResponse{}
+	for _, p := range projects {
+		if summary, ok := summaries[p.String()]; ok {
+			resp.Summaries = append(resp.Summaries, summary)
+		}
+	}
+	return resp, nil
+
+}

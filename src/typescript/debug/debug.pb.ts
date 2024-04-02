@@ -92,11 +92,23 @@ export type Pod = {
   containers?: string[]
 }
 
-export type App = {
+
+type BaseApp = {
   name?: string
   pods?: Pod[]
   timeout?: GoogleProtobufDuration.Duration
   pipeline?: Pipeline
+}
+
+export type App = BaseApp
+  & OneOf<{ lokiArgs: LokiArgs; profileArgs: ProfileArgs }>
+
+export type ProfileArgs = {
+  profiles?: Profile[]
+}
+
+export type LokiArgs = {
+  maxLogs?: string
 }
 
 export type System = {

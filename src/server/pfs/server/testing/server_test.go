@@ -7227,7 +7227,7 @@ func TestEgressToPostgres(_suite *testing.T) {
 			ctx := pctx.TestContext(t)
 			env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 			// setup target database
-			dbName := tu.GenerateEphemeralDBName(t)
+			dbName := tu.GenerateEphemeralDBName()
 			tu.CreateEphemeralDB(t, sqlx.NewDb(env.ServiceEnv.GetDBClient().DB, "postgres"), dbName)
 			db := tu.OpenDB(t,
 				dbutil.WithMaxOpenConns(1),
@@ -7341,6 +7341,64 @@ func TestInspectProjectV2(t *testing.T) {
 	resp, err = c.PfsAPIClient.InspectProjectV2(ctx, &pfs.InspectProjectV2Request{Project: &pfs.Project{Name: "default"}})
 	require.NoError(t, err, "InspectProjectV2 must succeed with a real project")
 	require.Equal(t, `{"createPipelineRequest": {"datumTries": 2}}`, resp.DefaultsJson)
+}
+
+func TestReposSummary(t *testing.T) {
+	ctx := pctx.TestContext(t)
+	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
+	c := env.PachClient
+	projectNames := []string{"A", "B", "C"}
+	data := strings.Repeat("a", 50)
+	for _, p := range projectNames {
+		require.NoError(t, c.CreateProject(p))
+		for i := 0; i < 5; i++ {
+			r := fmt.Sprintf("%s-%d", p, i)
+			require.NoError(t, c.CreateRepo(p, r))
+		}
+	}
+	summaryResp, err := c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
+		Projects: []*pfs.ProjectPicker{
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "B",
+				},
+			},
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "A",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, summaryResp.Summaries, 2)
+	idx := 0
+	require.Equal(t, "B", summaryResp.Summaries[idx].Project.Name)
+	require.Equal(t, 5, int(summaryResp.Summaries[idx].UserRepoCount))
+	require.Equal(t, int64(0), summaryResp.Summaries[idx].SizeBytes)
+	idx = 1
+	require.Equal(t, "A", summaryResp.Summaries[idx].Project.Name)
+	require.Equal(t, 5, int(summaryResp.Summaries[idx].UserRepoCount))
+	require.Equal(t, int64(0), summaryResp.Summaries[idx].SizeBytes)
+	commit := client.NewCommit("B", "B-2", "master", "")
+	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
+	commit = client.NewCommit("B", "B-3", "master", "")
+	require.NoError(t, c.PutFile(commit, "f", strings.NewReader(data)))
+	_, err = c.WaitCommit("B", "B-3", "master", "")
+	require.NoError(t, err)
+	summaryResp, err = c.PfsAPIClient.ReposSummary(ctx, &pfs.ReposSummaryRequest{
+		Projects: []*pfs.ProjectPicker{
+			{
+				Picker: &pfs.ProjectPicker_Name{
+					Name: "B",
+				},
+			},
+		},
+	})
+	require.NoError(t, err)
+	require.Len(t, summaryResp.Summaries, 1)
+	require.Equal(t, "B", summaryResp.Summaries[0].Project.Name)
+	require.Equal(t, int64(2*len([]byte(data))), summaryResp.Summaries[0].SizeBytes)
 }
 
 func TestNilBranchNameUnary(t *testing.T) {

@@ -38,7 +38,7 @@ type BaseEdit = {
 }
 
 export type Edit = BaseEdit
-  & OneOf<{ project: Pfs_v2Pfs.ProjectPicker; commit: Pfs_v2Pfs.CommitPicker; branch: Pfs_v2Pfs.BranchPicker }>
+  & OneOf<{ project: Pfs_v2Pfs.ProjectPicker; commit: Pfs_v2Pfs.CommitPicker; branch: Pfs_v2Pfs.BranchPicker; repo: Pfs_v2Pfs.RepoPicker }>
   & OneOf<{ replace: EditReplace; addKey: EditAddKey; editKey: EditEditKey; deleteKey: EditDeleteKey }>
 
 export type EditMetadataRequest = {

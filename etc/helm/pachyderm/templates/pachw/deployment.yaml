@@ -57,7 +57,7 @@ spec:
         - name: IS_PACHW
           value: "true"
         - name: GOCDK_ENABLED
-          value: {{ .Values.pachd.storage.gocdkEnabled | default false | quote }}
+          value: {{ .Values.pachd.storage.gocdkEnabled | default true | quote }}
         {{- if .Values.pachd.storage.storageURL }}
         - name: STORAGE_URL
           value: {{ .Values.pachd.storage.storageURL }}

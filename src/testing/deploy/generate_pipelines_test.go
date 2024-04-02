@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"flag"
+	"maps"
 	"math/rand"
 	"os"
 	"path"
@@ -430,19 +431,23 @@ func TestCreateDAGS(t *testing.T) {
 	}
 	flushLog := log.InitBatchLogger("/tmp/fuzzdb.log")
 	ctx := pctx.Background("FuzzGrpcWorkflow")
-
+	valuesOverridden, strValuesOverridden := helmValuesPreGoCDK(1)
+	values := map[string]string{
+		"proxy.resources.requests.memory": "250M",
+		"proxy.resources.limits.memory":   "250M",
+		"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
+		"console.enabled":                 "true",
+		"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
+		"pachd.activateAuth":              "false",
+	}
+	maps.Copy(valuesOverridden, values)
 	deployOpts := &minikubetestenv.DeployOpts{
 		Version:            "2.8.3",
 		CleanupAfter:       false,
 		UseLeftoverCluster: false,
-		ValueOverrides: map[string]string{
-			"prxoy.resources.requests.memory": "250MB",
-			"prxoy.resources.limits.memory":   "250MB",
-			"proxy.replicas":                  "5", // proxy overload_manager oom kills incoming requests to avoid taking down the cluster, which is smart, but not what we want here.
-			"console.enabled":                 "true",
-			"pachd.enterpriseLicenseKey":      os.Getenv("ENT_ACT_CODE"),
-			"pachd.activateAuth":              "false",
-		},
+		ValueOverrides:     valuesOverridden,
+		ValuesStrOverrides: strValuesOverridden,
+		DisableLoki:        true,
 	}
 	k := testutil.GetKubeClient(t)
 	namespace, _ := minikubetestenv.ClaimCluster(t)
@@ -460,6 +465,8 @@ func TestCreateDAGS(t *testing.T) {
 		require.NoError(t, err, "fsck should not error after fuzzing")
 	}
 	deployOpts.Version = "" // use the default (this commit in CI)
+	deployOpts.ValueOverrides = values
+	deployOpts.ValuesStrOverrides = nil
 	minikubetestenv.UpgradeRelease(t, ctx, namespace, testutil.GetKubeClient(t), deployOpts)
 	if err := c.Fsck(true, func(*pfs.FsckResponse) error { return nil }); err == nil {
 		require.NoError(t, err, "fsck should not error after upgrade")

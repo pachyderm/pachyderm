@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -27,6 +28,8 @@ func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInf
 			return nil, status.Errorf(codes.InvalidArgument, "validate request: %v", err)
 		}
 	} else if _, ok := req.(*emptypb.Empty); ok {
+		// Expected.
+	} else if _, ok := req.(*grpc_health_v1.HealthCheckRequest); ok {
 		// Expected.
 	} else {
 		log.DPanic(ctx, "no validation routine on request message", zap.String("type", fmt.Sprintf("%T", req)))

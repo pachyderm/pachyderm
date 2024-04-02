@@ -90,9 +90,11 @@
     - [Filter](#debug_v2-Filter)
     - [GetDumpV2TemplateRequest](#debug_v2-GetDumpV2TemplateRequest)
     - [GetDumpV2TemplateResponse](#debug_v2-GetDumpV2TemplateResponse)
+    - [LokiArgs](#debug_v2-LokiArgs)
     - [Pipeline](#debug_v2-Pipeline)
     - [Pod](#debug_v2-Pod)
     - [Profile](#debug_v2-Profile)
+    - [ProfileArgs](#debug_v2-ProfileArgs)
     - [ProfileRequest](#debug_v2-ProfileRequest)
     - [RunPFSLoadTestRequest](#debug_v2-RunPFSLoadTestRequest)
     - [RunPFSLoadTestResponse](#debug_v2-RunPFSLoadTestResponse)
@@ -389,9 +391,13 @@
     - [Repo](#pfs_v2-Repo)
     - [RepoInfo](#pfs_v2-RepoInfo)
     - [RepoInfo.Details](#pfs_v2-RepoInfo-Details)
+    - [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry)
     - [RepoPage](#pfs_v2-RepoPage)
     - [RepoPicker](#pfs_v2-RepoPicker)
     - [RepoPicker.RepoName](#pfs_v2-RepoPicker-RepoName)
+    - [ReposSummary](#pfs_v2-ReposSummary)
+    - [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest)
+    - [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse)
     - [SQLDatabaseEgress](#pfs_v2-SQLDatabaseEgress)
     - [SQLDatabaseEgress.FileFormat](#pfs_v2-SQLDatabaseEgress-FileFormat)
     - [SQLDatabaseEgress.Secret](#pfs_v2-SQLDatabaseEgress-Secret)
@@ -661,6 +667,23 @@
     - [CreateSerialDatumsTaskResult](#pachyderm-worker-pipeline-transform-CreateSerialDatumsTaskResult)
     - [DatumSetTask](#pachyderm-worker-pipeline-transform-DatumSetTask)
     - [DatumSetTaskResult](#pachyderm-worker-pipeline-transform-DatumSetTaskResult)
+  
+- [storage/fileset.proto](#storage_fileset-proto)
+    - [AppendFile](#storage-AppendFile)
+    - [ComposeFilesetRequest](#storage-ComposeFilesetRequest)
+    - [ComposeFilesetResponse](#storage-ComposeFilesetResponse)
+    - [CreateFilesetRequest](#storage-CreateFilesetRequest)
+    - [CreateFilesetResponse](#storage-CreateFilesetResponse)
+    - [DeleteFile](#storage-DeleteFile)
+    - [FileFilter](#storage-FileFilter)
+    - [PathRange](#storage-PathRange)
+    - [ReadFilesetRequest](#storage-ReadFilesetRequest)
+    - [ReadFilesetResponse](#storage-ReadFilesetResponse)
+    - [RenewFilesetRequest](#storage-RenewFilesetRequest)
+    - [ShardFilesetRequest](#storage-ShardFilesetRequest)
+    - [ShardFilesetResponse](#storage-ShardFilesetResponse)
+  
+    - [Fileset](#storage-Fileset)
   
 - [task/task.proto](#task_task-proto)
     - [Group](#taskapi-Group)
@@ -1836,6 +1859,8 @@ ResourceType represents the type of a Resource
 | pods | [Pod](#debug_v2-Pod) | repeated |  |
 | timeout | [google.protobuf.Duration](#google-protobuf-Duration) |  |  |
 | pipeline | [Pipeline](#debug_v2-Pipeline) |  |  |
+| loki_args | [LokiArgs](#debug_v2-LokiArgs) |  |  |
+| profile_args | [ProfileArgs](#debug_v2-ProfileArgs) |  |  |
 
 
 
@@ -2004,6 +2029,21 @@ ResourceType represents the type of a Resource
 
 
 
+<a name="debug_v2-LokiArgs"></a>
+
+### LokiArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| max_logs | [uint64](#uint64) |  |  |
+
+
+
+
+
+
 <a name="debug_v2-Pipeline"></a>
 
 ### Pipeline
@@ -2047,6 +2087,21 @@ ResourceType represents the type of a Resource
 | ----- | ---- | ----- | ----------- |
 | name | [string](#string) |  |  |
 | duration | [google.protobuf.Duration](#google-protobuf-Duration) |  | only meaningful if name == &#34;cpu&#34; |
+
+
+
+
+
+
+<a name="debug_v2-ProfileArgs"></a>
+
+### ProfileArgs
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| profiles | [Profile](#debug_v2-Profile) | repeated |  |
 
 
 
@@ -4691,8 +4746,9 @@ Edit represents editing one piece of metadata.
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | project | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) |  | project targets a named project&#39;s metadata. |
-| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  |  |
-| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  |  |
+| commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  | commit targets a commit&#39;s metadata. |
+| branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
+| repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -6236,6 +6292,7 @@ RepoInfo is the main data structure representing a Repo in etcd
 | branches | [Branch](#pfs_v2-Branch) | repeated |  |
 | auth_info | [AuthInfo](#pfs_v2-AuthInfo) |  | Set by ListRepo and InspectRepo if Pachyderm&#39;s auth system is active, but not stored in etcd. To set a user&#39;s auth scope for a repo, use the Pachyderm Auth API (in src/client/auth/auth.proto) |
 | details | [RepoInfo.Details](#pfs_v2-RepoInfo-Details) |  |  |
+| metadata | [RepoInfo.MetadataEntry](#pfs_v2-RepoInfo-MetadataEntry) | repeated | Metadata are user-defined key-value pairs. |
 
 
 
@@ -6251,6 +6308,22 @@ Details are only provided when explicitly requested
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
 | size_bytes | [int64](#int64) |  |  |
+
+
+
+
+
+
+<a name="pfs_v2-RepoInfo-MetadataEntry"></a>
+
+### RepoInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -6303,6 +6376,53 @@ Picker messages should only be used as request parameters.
 | project | [ProjectPicker](#pfs_v2-ProjectPicker) |  |  |
 | name | [string](#string) |  |  |
 | type | [string](#string) |  | type is optional. If omitted, the default type is &#39;user&#39;. |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummary"></a>
+
+### ReposSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [Project](#pfs_v2-Project) |  | the project the ReposSummary corresponds to |
+| user_repo_count | [int64](#int64) |  | the count of user repos in the summary |
+| size_bytes | [int64](#int64) |  | aggregate size of all the repos returned in the summary |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryRequest"></a>
+
+### ReposSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a ReposSummary will be returned for every specified project |
+
+
+
+
+
+
+<a name="pfs_v2-ReposSummaryResponse"></a>
+
+### ReposSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [ReposSummary](#pfs_v2-ReposSummary) | repeated | repo summaries for the requested projects |
 
 
 
@@ -6740,6 +6860,7 @@ These are the different places where a commit may be originated from
 | InspectProjectV2 | [InspectProjectV2Request](#pfs_v2-InspectProjectV2Request) | [InspectProjectV2Response](#pfs_v2-InspectProjectV2Response) | InspectProjectV2 returns info about and defaults for a project. |
 | ListProject | [ListProjectRequest](#pfs_v2-ListProjectRequest) | [ProjectInfo](#pfs_v2-ProjectInfo) stream | ListProject returns info about all projects. |
 | DeleteProject | [DeleteProjectRequest](#pfs_v2-DeleteProjectRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | DeleteProject deletes a project. |
+| ReposSummary | [ReposSummaryRequest](#pfs_v2-ReposSummaryRequest) | [ReposSummaryResponse](#pfs_v2-ReposSummaryResponse) | Summary API ReposSummary returns a list of summaries about the repos for each of the requested projects. |
 
  
 
@@ -10594,6 +10715,256 @@ WellKnownRegex contain some well-known patterns.
  
 
  
+
+ 
+
+
+
+<a name="storage_fileset-proto"></a>
+<p align="right"><a href="#top">Top</a></p>
+
+## storage/fileset.proto
+
+
+
+<a name="storage-AppendFile"></a>
+
+### AppendFile
+AppendFile will append the provided data to the file with the specified path. If
+a file with the specified path doesn&#39;t exist, it will be created.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetRequest"></a>
+
+### ComposeFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_ids | [string](#string) | repeated |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the composite fileset that is created. |
+
+
+
+
+
+
+<a name="storage-ComposeFilesetResponse"></a>
+
+### ComposeFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetRequest"></a>
+
+### CreateFilesetRequest
+A CreateFilesetRequest corresponds to a single file modification.
+Supported file modifications are append and delete.
+A put / overwrite file modification can be performed by a delete followed by an
+append.
+ TODO: Decide how to handle datums.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| append_file | [AppendFile](#storage-AppendFile) |  |  |
+| delete_file | [DeleteFile](#storage-DeleteFile) |  |  |
+
+
+
+
+
+
+<a name="storage-CreateFilesetResponse"></a>
+
+### CreateFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-DeleteFile"></a>
+
+### DeleteFile
+DeleteFile will delete the file with the specified path. If a file with the
+specified path doesn&#39;t exist, the delete will be a no-op.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-FileFilter"></a>
+
+### FileFilter
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path_range | [PathRange](#storage-PathRange) |  | Only emit files with paths in the provided path range. |
+| path_regex | [string](#string) |  | Only emit files with paths that match the provided regular expression. |
+
+
+
+
+
+
+<a name="storage-PathRange"></a>
+
+### PathRange
+PathRange is a range of paths.
+The range is inclusive, exclusive: [Lower, Upper).
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| lower | [string](#string) |  |  |
+| upper | [string](#string) |  |  |
+
+
+
+
+
+
+<a name="storage-ReadFilesetRequest"></a>
+
+### ReadFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| filters | [FileFilter](#storage-FileFilter) | repeated | Filters constrain which files are emitted. A file is only emitted if it makes it through all of the filters sequentially. |
+| empty_files | [bool](#bool) |  | If true, then the file data will be omitted from the stream. |
+
+
+
+
+
+
+<a name="storage-ReadFilesetResponse"></a>
+
+### ReadFilesetResponse
+A ReadFilesetResponse corresponds to a single chunk of data in a file. 
+Small or empty files will be contained within a single message, while large
+files may be spread across multiple messages.
+For files spread across multiple messages, each message will have the same
+path and the content will be returned in append order.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| path | [string](#string) |  |  |
+| data | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+
+
+
+
+
+
+<a name="storage-RenewFilesetRequest"></a>
+
+### RenewFilesetRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| ttl_seconds | [int64](#int64) |  | The TTL, in seconds, for the fileset after renewal. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetRequest"></a>
+
+### ShardFilesetRequest
+If both num_files and size_bytes are set, shards are created
+based on whichever threshold is surpassed first. If a shard
+configuration field (num_files, size_bytes) is unset, the
+storage&#39;s default value is used.
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| fileset_id | [string](#string) |  |  |
+| num_files | [int64](#int64) |  | Number of files targeted in each shard. |
+| size_bytes | [int64](#int64) |  | Size (in bytes) targeted for each shard. |
+
+
+
+
+
+
+<a name="storage-ShardFilesetResponse"></a>
+
+### ShardFilesetResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| shards | [PathRange](#storage-PathRange) | repeated |  |
+
+
+
+
+
+ 
+
+ 
+
+ 
+
+
+<a name="storage-Fileset"></a>
+
+### Fileset
+
+
+| Method Name | Request Type | Response Type | Description |
+| ----------- | ------------ | ------------- | ------------|
+| CreateFileset | [CreateFilesetRequest](#storage-CreateFilesetRequest) stream | [CreateFilesetResponse](#storage-CreateFilesetResponse) | CreateFileset creates a fileset based on a stream of file modifications. A string identifier for the created fileset will be returned that can be used for subsequent fileset operations. Filesets have a fixed time-to-live (ttl), which is currently 10 minutes. Filesets needed longer than the ttl will need to be renewed. |
+| ReadFileset | [ReadFilesetRequest](#storage-ReadFilesetRequest) | [ReadFilesetResponse](#storage-ReadFilesetResponse) stream | ReadFileset reads a fileset. |
+| RenewFileset | [RenewFilesetRequest](#storage-RenewFilesetRequest) | [.google.protobuf.Empty](#google-protobuf-Empty) | RenewFileset renews a fileset. |
+| ComposeFileset | [ComposeFilesetRequest](#storage-ComposeFilesetRequest) | [ComposeFilesetResponse](#storage-ComposeFilesetResponse) | ComposeFileset composes a fileset. Composing a fileset involves combining one or more filesets into a single fileset. TODO: Explain how the filesets are layered and what that means for the order of file modifications. |
+| ShardFileset | [ShardFilesetRequest](#storage-ShardFilesetRequest) | [ShardFilesetResponse](#storage-ShardFilesetResponse) | ShardFileset shards a fileset. The shards of a fileset are returned as a list of path ranges that are disjoint and account for the full set of paths in the fileset. |
 
  
 

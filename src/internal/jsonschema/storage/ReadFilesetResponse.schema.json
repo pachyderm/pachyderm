@@ -1,0 +1,21 @@
+{
+    "$schema": "http://json-schema.org/draft-04/schema#",
+    "$ref": "#/definitions/ReadFilesetResponse",
+    "definitions": {
+        "ReadFilesetResponse": {
+            "properties": {
+                "path": {
+                    "type": "string"
+                },
+                "data": {
+                    "additionalProperties": false,
+                    "type": "string"
+                }
+            },
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Read Fileset Response",
+            "description": "A ReadFilesetResponse corresponds to a single chunk of data in a file.  Small or empty files will be contained within a single message, while large files may be spread across multiple messages. For files spread across multiple messages, each message will have the same path and the content will be returned in append order."
+        }
+    }
+}

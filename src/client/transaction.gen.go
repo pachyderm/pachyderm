@@ -492,6 +492,10 @@ func (c *unsupportedPfsBuilderClient) RenewFileSet(_ context.Context, _ *pfs_v2.
 	return nil, unsupportedError("RenewFileSet")
 }
 
+func (c *unsupportedPfsBuilderClient) ReposSummary(_ context.Context, _ *pfs_v2.ReposSummaryRequest, opts ...grpc.CallOption) (*pfs_v2.ReposSummaryResponse, error) {
+	return nil, unsupportedError("ReposSummary")
+}
+
 func (c *unsupportedPfsBuilderClient) ShardFileSet(_ context.Context, _ *pfs_v2.ShardFileSetRequest, opts ...grpc.CallOption) (*pfs_v2.ShardFileSetResponse, error) {
 	return nil, unsupportedError("ShardFileSet")
 }
