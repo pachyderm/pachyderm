@@ -74,6 +74,7 @@ func main() {
 		}
 		clean.AddCleanup("loki", l.Close)
 		opt := testloki.WithTestLoki(l)
+		ctx = opt.MutateContext(ctx) // want to send all logs to Loki
 		opts = append(opts, opt)
 	}
 
@@ -87,19 +88,14 @@ func main() {
 	}
 
 	errCh := make(chan error)
-	go func(ctx context.Context) {
+	go func() {
 		defer close(errCh)
-		for _, opt := range opts {
-			if opt.MutateContext != nil {
-				ctx = opt.MutateContext(ctx)
-			}
-		}
 		if err := pd.Run(ctx); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}
-	}(ctx)
+	}()
 
 	// Get an RPC client connected to testpachd.
 	pachClient, err := pd.PachClient(ctx)
