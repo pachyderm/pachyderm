@@ -286,7 +286,7 @@ func BuildAndRunTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestP
 
 	select {
 	case <-ctx.Done():
-		return nil, ctx.Err()
+		return nil, ctx.Err() //nolint:wrapcheck
 	case pd := <-pdCh:
 		return pd, nil
 	}
