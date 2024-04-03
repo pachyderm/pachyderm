@@ -401,7 +401,7 @@ type WalkCommitSubvenanceRequest struct {
 	*pfs.WalkCommitSubvenanceRequest
 }
 
-func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, request *WalkCommitProvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkCommitProvenanceServer) error {
+func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
 	for _, start := range request.StartWithID {
 		if err := a.driver.walkCommitProvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk commit provenance tx")
@@ -410,7 +410,7 @@ func (a *apiServer) WalkCommitProvenanceTx(ctx context.Context, request *WalkCom
 	return nil
 }
 
-func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, request *WalkCommitSubvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkCommitSubvenanceServer) error {
+func (a *apiServer) WalkCommitSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
 	for _, start := range request.StartWithID {
 		if err := a.driver.walkCommitSubvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk commit subvenance tx")
@@ -488,7 +488,7 @@ type WalkBranchSubvenanceRequest struct {
 	*pfs.WalkBranchSubvenanceRequest
 }
 
-func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, request *WalkBranchProvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkBranchProvenanceServer) error {
+func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
 	for _, start := range request.StartWithID {
 		if err := a.driver.walkBranchProvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk branch provenance tx")
@@ -497,7 +497,7 @@ func (a *apiServer) WalkBranchProvenanceTx(ctx context.Context, request *WalkBra
 	return nil
 }
 
-func (a *apiServer) WalkBranchSubvenanceTx(ctx context.Context, request *WalkBranchSubvenanceRequest, tx *pachsql.Tx, srv pfs.API_WalkBranchSubvenanceServer) error {
+func (a *apiServer) WalkBranchSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
 	for _, start := range request.StartWithID {
 		if err := a.driver.walkBranchSubvenanceTx(ctx, tx, request, start.ID, srv.Send); err != nil {
 			return errors.Wrap(err, "walk branch subvenance tx")

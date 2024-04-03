@@ -198,7 +198,7 @@ func TestBranchInfoWithIDProvenance(t *testing.T) {
 			require.NoError(t, err, "should be able to get branch info with provenance")
 			require.Equal(t, len(provenantBranches), int(maxDepth))
 			maxItems := uint64(2)
-			subvenantBranches, err = pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1), pfsdb.GraphOpt{MaxItems: &maxItems})
+			subvenantBranches, err = pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1), pfsdb.GraphOpt{Limit: &maxItems})
 			require.NoError(t, err, "should be able to get branch info with provenance")
 			require.Equal(t, len(subvenantBranches), int(maxItems))
 		})

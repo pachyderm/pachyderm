@@ -473,7 +473,7 @@ func getBranchProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 		    FROM pfs.branch_provenance
 		    WHERE from_id = $1
 		  UNION ALL
-		    SELECT bp.from_id, bp.to_id, depth+1
+		    SELECT DISTINCT bp.from_id, bp.to_id, depth+1
 		    FROM prov JOIN pfs.branch_provenance bp ON prov.to_id = bp.from_id
 		    WHERE depth < $2
 		)
@@ -492,7 +492,7 @@ func getBranchProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 		GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
 		ORDER BY depth ASC
 		LIMIT $3;
-	`, id, option.MaxDepth, option.MaxItems); err != nil {
+	`, id, option.MaxDepth, option.Limit); err != nil {
 		return nil, errors.Wrap(err, "could not get branch provenance")
 	}
 	return branches, nil
@@ -573,7 +573,7 @@ func getBranchSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 			    FROM pfs.branch_provenance
 			    WHERE to_id = $1
 			  UNION ALL
-			    SELECT bp.from_id, bp.to_id, depth+1
+			    SELECT DISTINCT bp.from_id, bp.to_id, depth+1
 			    FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
 			    WHERE depth < $2
 			)
@@ -591,7 +591,7 @@ func getBranchSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 			WHERE branch.id != $1
 			GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
 			ORDER BY depth ASC
-			LIMIT $3;`, id, option.MaxDepth, option.MaxItems); err != nil {
+			LIMIT $3;`, id, option.MaxDepth, option.Limit); err != nil {
 		return nil, errors.Wrap(err, "could not get branch subvenance")
 	}
 	return branches, nil

@@ -172,7 +172,7 @@ type commitWithDepth struct {
 	Depth uint32 `db:"depth"`
 }
 
-// GetCommitWithIDProvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
+// GetCommitWithIDProvenance returns the full provenance of a commit, i.e. all commits that it either directly or transitively depends on.
 // It accepts a GraphOpt option.
 func GetCommitWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opt ...GraphOpt) ([]*CommitWithID, error) {
 	commitsWithDepth, err := getCommitProvenanceWithDepth(ctx, ext, startId, opt...)
@@ -194,9 +194,10 @@ func getCommitProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, comm
 		    FROM pfs.commit_provenance
 		    WHERE from_id = $1
 		  UNION ALL
-		    SELECT cp.from_id, cp.to_id, depth+1
+		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
 		    FROM prov p
 		    JOIN pfs.commit_provenance cp ON cp.from_id = p.to_id
+			WHERE depth < $2
 		)
 		SELECT DISTINCT`+commitFields+","+
 		`	MIN(depth) as "depth"
@@ -207,7 +208,7 @@ func getCommitProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, comm
 		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
 		GROUP BY`+commitFieldsGroupBy+`
 		ORDER BY depth ASC 
-        LIMIT $2`, commitId, option.MaxItems); err != nil {
+        LIMIT $3`, commitId, option.MaxDepth, option.Limit); err != nil {
 		return nil, errors.Wrap(err, "could not get commit provenance")
 	}
 	return commits, nil
@@ -245,7 +246,7 @@ func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit
 	return commits, nil
 }
 
-// GetCommitWithIDSubvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
+// GetCommitWithIDSubvenance returns the full provenance of a commits, i.e. all commits that it either directly or transitively depends on.
 // It accepts a GraphOpt option.
 func GetCommitWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opt ...GraphOpt) ([]*CommitWithID, error) {
 	commitsWithDepth, err := getCommitSubvenanceWithDepth(ctx, ext, startId, opt...)
@@ -267,7 +268,7 @@ func getCommitSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, comm
 		    FROM pfs.commit_provenance
 		    WHERE to_id = $1
 		  UNION ALL
-		    SELECT cp.from_id, cp.to_id, depth+1
+		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
 		    FROM subv s
 		    JOIN pfs.commit_provenance cp ON s.from_id = cp.to_id
 			WHERE depth < $2
@@ -281,7 +282,7 @@ func getCommitSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, comm
 		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
 		GROUP BY`+commitFieldsGroupBy+`
         ORDER BY depth ASC
-        LIMIT $3`, commitId, option.MaxDepth, option.MaxItems); err != nil {
+        LIMIT $3`, commitId, option.MaxDepth, option.Limit); err != nil {
 		return nil, errors.Wrap(err, "could not get commit subvenance")
 	}
 	return commits, nil

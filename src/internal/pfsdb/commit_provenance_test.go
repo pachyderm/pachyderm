@@ -169,7 +169,7 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 			}
 			// test options
 			maxItems := uint64(3)
-			provenantCommits, err = pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID, pfsdb.GraphOpt{MaxItems: &maxItems})
+			provenantCommits, err = pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID, pfsdb.GraphOpt{Limit: &maxItems})
 			require.NoError(t, err, "should be able to get provenant commits")
 			require.Equal(t, uint64(len(provenantCommits)), maxItems) // ignore commit whose id is size.
 			maxDepth := uint64(2)

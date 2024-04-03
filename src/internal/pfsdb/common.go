@@ -119,23 +119,23 @@ func IsNotFoundError(err error) bool {
 type GraphOpt struct {
 	// these are pointers to distinguish between an intentional 0 value and absent configuration.
 	MaxDepth *uint64
-	MaxItems *uint64
+	Limit    *uint64
 }
 
 func (g *GraphOpt) Merge(other GraphOpt) {
 	if other.MaxDepth != nil && *other.MaxDepth != 0 {
 		g.MaxDepth = other.MaxDepth
 	}
-	if other.MaxItems != nil && *other.MaxItems != 0 {
-		g.MaxItems = other.MaxItems
+	if other.Limit != nil && *other.Limit != 0 {
+		g.Limit = other.Limit
 	}
 }
 
 func defaultOption() GraphOpt {
 	depth := uint64(MaxSearchDepth)
-	items := uint64(10_000)
+	limit := uint64(10_000)
 	return GraphOpt{
 		MaxDepth: &depth,
-		MaxItems: &items,
+		Limit:    &limit,
 	}
 }

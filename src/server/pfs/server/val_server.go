@@ -246,12 +246,12 @@ func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvena
 		if err != nil {
 			return errors.Wrap(err, "walk commit provenance")
 		}
-		return a.apiServer.WalkCommitProvenanceTx(ctx,
+		return a.apiServer.WalkCommitProvenanceTx(ctx, tx,
 			&WalkCommitProvenanceRequest{
 				StartWithID:                 commits,
 				WalkCommitProvenanceRequest: request,
-			}, tx, srv)
-	}), "walk commit subvenance")
+			}, srv)
+	}), "walk commit provenance")
 }
 
 // WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
@@ -261,11 +261,11 @@ func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvena
 		if err != nil {
 			return errors.Wrap(err, "walk commit subvenance")
 		}
-		return a.apiServer.WalkCommitSubvenanceTx(ctx,
+		return a.apiServer.WalkCommitSubvenanceTx(ctx, tx,
 			&WalkCommitSubvenanceRequest{
 				StartWithID:                 commits,
 				WalkCommitSubvenanceRequest: request,
-			}, tx, srv)
+			}, srv)
 	}), "walk commit subvenance")
 }
 
@@ -276,11 +276,11 @@ func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvena
 		if err != nil {
 			return err
 		}
-		return a.apiServer.WalkBranchProvenanceTx(ctx,
+		return a.apiServer.WalkBranchProvenanceTx(ctx, tx,
 			&WalkBranchProvenanceRequest{
 				StartWithID:                 branches,
 				WalkBranchProvenanceRequest: request,
-			}, tx, srv)
+			}, srv)
 	}), "walk branch provenance")
 }
 
@@ -291,11 +291,11 @@ func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvena
 		if err != nil {
 			return err
 		}
-		return a.apiServer.WalkBranchSubvenanceTx(ctx,
+		return a.apiServer.WalkBranchSubvenanceTx(ctx, tx,
 			&WalkBranchSubvenanceRequest{
 				StartWithID:                 branches,
 				WalkBranchSubvenanceRequest: request,
-			}, tx, srv)
+			}, srv)
 	}), "walk branch subvenance")
 }
 
