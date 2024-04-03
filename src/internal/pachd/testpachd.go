@@ -2,6 +2,7 @@ package pachd
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"net"
 	"net/netip"
@@ -14,7 +15,6 @@ import (
 	"time"
 
 	"github.com/docker/go-units"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -161,27 +161,24 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 
 // BuildTestPachd returns a test pachd that can be run outside of tests.  The returned cleanup
 // handler frees all ephemeral resources associated with the instance.
-func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOption) (*Full, error) {
-	cleaner := new(cleanup.Cleaner)
-	eg.Go(func() error {
-		<-ctx.Done()
-		return cleaner.Cleanup(pctx.Background("cleanup"))
-	})
+func BuildAndRunTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOption) (*Full, error) {
 	var pdCh = make(chan *Full)
 
-	eg.Go(func() error {
+	eg.Go(func() (errs error) {
 		// tmpdir
 		tmpdir, err := os.MkdirTemp("", "testpachd-")
 		if err != nil {
 			return errors.Wrap(err, "new tmpdir")
 		}
-		cleaner.AddCleanup("tmpdir", func() error {
-			return errors.Wrapf(os.RemoveAll(tmpdir), "RemoveAll(%v)", tmpdir)
-		})
+		defer func() {
+			errs = stderrors.Join(errs, errors.Wrapf(os.RemoveAll(tmpdir), "RemoveAll(%v)", tmpdir))
+		}()
 
 		// database
 		dbcfg, closeDB, err := dockertestenv.NewTestDBConfigCtx(ctx)
-		cleaner.Subsume(closeDB)
+		defer func() {
+			errs = stderrors.Join(errs, closeDB.Cleanup(pctx.Background("cleanup DB config")))
+		}()
 		if err != nil {
 			return errors.Wrap(err, "test db config")
 		}
@@ -189,12 +186,16 @@ func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOp
 		if err != nil {
 			return errors.Wrap(err, "open pgbouncer connection")
 		}
-		cleaner.AddCleanup("pgbouncer connection", db.Close)
+		defer func() {
+			errs = stderrors.Join(errs, db.Close())
+		}()
 		directDB, err := dbutil.NewDB(dbcfg.Direct.DBOptions()...)
 		if err != nil {
 			return errors.Wrap(err, "open direct db connection")
 		}
-		cleaner.AddCleanup("direct db connection", directDB.Close)
+		defer func() {
+			errs = stderrors.Join(errs, directDB.Close())
+		}()
 		dbListenerConfig := dbutil.GetDSN(
 			dbutil.WithHostPort(dbcfg.Direct.Host, int(dbcfg.Direct.Port)),
 			dbutil.WithDBName(dbcfg.Direct.DBName),
@@ -204,7 +205,9 @@ func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOp
 
 		// minio
 		bucket, _, cleanupMinio, err := dockertestenv.NewTestBucketCtx(ctx)
-		cleaner.AddCleanupCtx("minio", cleanupMinio)
+		defer func() {
+			errs = stderrors.Join(errs, cleanupMinio(pctx.Background("cleanup minio")))
+		}()
 		if err != nil {
 			return errors.Wrap(err, "create test bucket")
 		}
@@ -237,17 +240,14 @@ func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOp
 		if err != nil {
 			return errors.Wrap(err, "start etcd")
 		}
-		cleaner.AddCleanup("etcd", func() error { etcd.Close(); return nil })
+		defer etcd.Close()
 		select {
 		case <-etcd.Server.ReadyNotify():
 			level.SetLevel(zapcore.InfoLevel)
 		case <-ctx.Done():
 			return errors.Wrap(err, "wait for etcd startup")
 		}
-		cleaner.AddCleanup("shut up etcd", func() error {
-			level.SetLevel(zapcore.ErrorLevel)
-			return nil
-		})
+		defer level.SetLevel(zapcore.ErrorLevel)
 		cfg := log.GetEtcdClientConfig(ctx)
 		cfg.Endpoints = []string{clientURL.String()}
 		cfg.DialOptions = client.DefaultDialOptions()
@@ -261,15 +261,11 @@ func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOp
 		if err != nil {
 			return errors.Wrap(err, "listen on 127.0.0.1:0")
 		}
-		cleaner.AddCleanup("pachd listener", func() error {
-			err := lis.Close()
-			if err != nil {
-				if !strings.Contains(err.Error(), "use of closed network connection") {
-					return errors.Wrap(err, "close listener")
-				}
+		defer func() {
+			if err := lis.Close(); err != nil && !strings.Contains(err.Error(), "use of closed network connection") {
+				errs = stderrors.Join(errs, errors.Wrap(err, "close listener"))
 			}
-			return nil
-		})
+		}()
 
 		// build pachd
 		env := Env{
@@ -280,9 +276,18 @@ func BuildTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestPachdOp
 			EtcdClient:       etcdClient,
 			Listener:         lis,
 		}
-		pdCh <- newTestPachd(env, opts)
+		pd := newTestPachd(env, opts)
+		pdCh <- pd
+		if err := pd.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+			return errors.Wrap(err, "pd.Run")
+		}
 		return nil
 	})
 
-	return <-pdCh, nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case pd := <-pdCh:
+		return pd, nil
+	}
 }

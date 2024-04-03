@@ -47,15 +47,16 @@ func main() {
 	ctx, cancel := pctx.Interactive()
 	var exitErr error
 	eg, ctx := errgroup.WithContext(ctx)
-	pd, err := pachd.BuildTestPachd(ctx, eg, opts...)
 
 	// Cleanup pachd on return.
 	defer func() {
 		if err := eg.Wait(); err != nil {
-			log.Error(pctx.Background("wait"), "problem waiting", zap.Error(err))
+			log.Error(pctx.Background("testpachd"), "problem running or cleaning up pachd", zap.Error(err))
 		}
+		cancel()
 		done(exitErr)
 	}()
+	pd, err := pachd.BuildAndRunTestPachd(ctx, eg, opts...)
 
 	// If pachd failed to build, exit now.
 	if err != nil {
@@ -63,21 +64,6 @@ func main() {
 		exitErr = err
 		return
 	}
-
-	// Start pachd running.
-	errCh := make(chan error)
-	go func() {
-		defer close(errCh)
-		if err := pd.Run(ctx); err != nil {
-			// If pachd exits, send the error on errCh.  errCh is read after the context
-			// that cancel() cancels is done, so cancel it first so the write doesn't
-			// block.
-			cancel()
-			if !errors.Is(err, context.Canceled) {
-				errCh <- err
-			}
-		}
-	}()
 
 	// Get an RPC client connected to testpachd.
 	pachClient, err := pd.PachClient(ctx)
@@ -126,16 +112,6 @@ func main() {
 		fmt.Println(pachClient.GetAddress().Qualified())
 		os.Stdout.Close()
 	}()
-
-	// With pachd started and the config ready, run until the context is done.  Background
-	// errors cause this, as does SIGINT.
-	if err := eg.Wait(); err != nil {
-		log.Error(pctx.Background("waiting"), "problem waiting", zap.Error(err))
-	}
-	if err := <-errCh; err != nil {
-		log.Error(ctx, "problem running pachd", zap.Error(err))
-		exitErr = err
-	}
 }
 
 func setupPachctlConfig(ctx context.Context, context string, activateAuth bool, pachClient *client.APIClient) (string, error) {
