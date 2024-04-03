@@ -62,8 +62,8 @@ type Env struct {
 }
 
 // NewAPIServer creates an APIServer.
-func NewAPIServer(env Env) (pfsserver.APIServer, error) {
-	a, err := newAPIServer(env)
+func NewAPIServer(ctx context.Context, env Env) (pfsserver.APIServer, error) {
+	a, err := newAPIServer(ctx, env)
 	if err != nil {
 		return nil, err
 	}
