@@ -225,16 +225,20 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	pfsEnv, err := pachd.PFSEnv(realEnv.ServiceEnv, txnEnv)
 	require.NoError(t, err)
 	pfsEnv.EtcdPrefix = ""
-	realEnv.PFSServer, err = pfsserver.NewAPIServer(*pfsEnv)
+	realEnv.PFSServer, err = pfsserver.NewAPIServer(ctx, *pfsEnv)
 	require.NoError(t, err)
-	w, err := pfsserver.NewWorker(pfsserver.WorkerEnv{
-		DB:          pfsEnv.DB,
-		ObjClient:   pfsEnv.ObjectClient,
-		Bucket:      pfsEnv.Bucket,
-		TaskService: pfsEnv.TaskService,
-	}, pfsserver.WorkerConfig{
-		Storage: pfsEnv.StorageConfig,
-	})
+	w, err := pfsserver.NewWorker(
+		ctx,
+		pfsserver.WorkerEnv{
+			DB:          pfsEnv.DB,
+			ObjClient:   pfsEnv.ObjectClient,
+			Bucket:      pfsEnv.Bucket,
+			TaskService: pfsEnv.TaskService,
+		},
+		pfsserver.WorkerConfig{
+			Storage: pfsEnv.StorageConfig,
+		},
+	)
 	require.NoError(t, err)
 	go func() {
 		if err := w.Run(ctx); err != nil {
@@ -242,7 +246,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 		}
 	}()
 	realEnv.ServiceEnv.SetPfsServer(realEnv.PFSServer)
-	pfsMaster, err := pfsserver.NewMaster(*pfsEnv)
+	pfsMaster, err := pfsserver.NewMaster(ctx, *pfsEnv)
 	require.NoError(t, err)
 	go pfsMaster.Run(ctx) //nolint:errcheck
 
