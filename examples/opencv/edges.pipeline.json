@@ -10,7 +10,7 @@
     }
   },
   "transform": {
-    "cmd": ["python3", "/edges.py"],
+    "cmd": ["/examples/opencv/edges.py"],
     "image": "pachyderm/opencv:1.0"
   }
 }

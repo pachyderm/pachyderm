@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "goclient-example_lib",
+    srcs = ["opencv-example.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/examples/opencv/goclient-example",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/client",
+        "//src/pfs",
+        "//src/pps",
+    ],
+)
+
+go_binary(
+    name = "goclient-example",
+    embed = [":goclient-example_lib"],
+    visibility = ["//visibility:public"],
+)

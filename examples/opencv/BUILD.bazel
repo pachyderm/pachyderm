@@ -1,0 +1,74 @@
+load("@aspect_bazel_lib//lib:tar.bzl", "tar")
+load("@aspect_bazel_lib//lib:transitions.bzl", "platform_transition_filegroup")
+load("@opencv-pip-requirements//:requirements.bzl", "requirement")
+load("@rules_oci//oci:defs.bzl", "oci_image", "oci_image_index")
+load("@rules_python//python:defs.bzl", "py_binary")
+load("@rules_python//python:pip.bzl", "compile_pip_requirements")
+load("//rules:pachyderm.bzl", "pachyderm_pipeline")
+
+# To create lock files: bazel run :requirements.update
+compile_pip_requirements(
+    name = "requirements",
+    src = "requirements.txt",
+    requirements_txt = "requirements-lock.txt",
+)
+
+py_binary(
+    name = "edges",
+    srcs = ["edges.py"],
+    deps = [
+        requirement("matplotlib"),
+        requirement("opencv-python-headless"),
+    ],
+)
+
+tar(
+    name = "edges_tar",
+    srcs = [":edges"],
+)
+
+platform_transition_filegroup(
+    name = "edges_linux_tar",
+    srcs = [":edges_tar"],
+    target_platform = select({
+        "@platforms//cpu:arm64": "//:aarch64_linux",
+        "@platforms//cpu:x86_64": "//:x86_64_linux",
+    }),
+)
+
+oci_image(
+    name = "opencv_image",
+    base = "@distroless_python3",
+    tars = [":edges_linux_tar"],
+)
+
+platform_transition_filegroup(
+    name = "opencv_image_aarch64",
+    srcs = ["opencv_image"],
+    target_platform = "//:aarch64_linux",
+)
+
+platform_transition_filegroup(
+    name = "opencv_image_x86_64",
+    srcs = ["opencv_image"],
+    target_platform = "//:x86_64_linux",
+)
+
+oci_image_index(
+    name = "opencv_image_index",
+    images = [
+        "opencv_image_aarch64",
+        "opencv_image_x86_64",
+    ],
+)
+
+pachyderm_pipeline(
+    name = "edges_pipeline",
+    image = "opencv_image_x86_64",
+    pipeline = "edges.pipeline.json",
+)
+
+pachyderm_pipeline(
+    name = "montage_pipeline",
+    pipeline = "montage.pipeline.json",
+)

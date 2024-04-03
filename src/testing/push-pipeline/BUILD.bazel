@@ -1,0 +1,27 @@
+load("@rules_go//go:def.bzl", "go_binary", "go_library")
+
+go_library(
+    name = "push-pipeline_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/testing/push-pipeline",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//src/internal/kindenv",
+        "//src/internal/log",
+        "//src/internal/pachctl",
+        "//src/internal/pctx",
+        "//src/internal/protoutil",
+        "//src/internal/randutil",
+        "//src/pps",
+        "@com_github_google_go_cmp//cmp",
+        "@org_golang_google_protobuf//encoding/protojson",
+        "@org_golang_google_protobuf//testing/protocmp",
+        "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_binary(
+    name = "push-pipeline",
+    embed = [":push-pipeline_lib"],
+    visibility = ["//visibility:public"],
+)

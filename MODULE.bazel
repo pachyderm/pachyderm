@@ -6,6 +6,7 @@ module(
 bazel_dep(name = "aspect_bazel_lib", version = "2.5.3")  # Needed for arm64 jq and rules_oci/#425.
 bazel_dep(name = "container_structure_test", version = "1.16.0")
 bazel_dep(name = "gazelle", version = "0.35.0")
+bazel_dep(name = "hermetic_cc_toolchain", version = "3.0.1")
 bazel_dep(name = "jsonnet_go", version = "0.20.0")
 bazel_dep(name = "rules_go", version = "0.46.0")
 bazel_dep(name = "rules_oci", version = "1.5.1")
@@ -371,6 +372,17 @@ oci.pull(
     ],
 )
 
+# Base of Python images.
+oci.pull(
+    name = "distroless_python3",
+    digest = "sha256:d306c94efafe2ceee85bb8d2a4ed905d5273bcc2730c1939ad9583a33aa1f898",
+    image = "gcr.io/distroless/python3",  # nonroot tag
+    platforms = [
+        "linux/amd64",
+        "linux/arm64/v8",
+    ],
+)
+
 # Needed by kindenv tests.
 oci.pull(
     name = "pause",
@@ -393,13 +405,15 @@ oci.pull(
     digest = "sha256:370582183d29bf3b3604251d63cda48cb44c55e9622c8c13c605cba5f1b6cb21",
     image = "ghcr.io/project-zot/zot-linux-arm64",
 )
-use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
+use_repo(oci, "distroless", "distroless_python3", "pause", "zot_amd64", "zot_arm64")
 
 # Python
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
+    is_default = True,
     python_version = "3.9",
 )
+use_repo(python, "python_3_9", "python_versions")
 
 # Load in both the strict and dev requirements for the jupyter extension.
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
@@ -415,4 +429,18 @@ pip.parse(
     requirements_linux = "//jupyter-extension:requirements-dev-lock-linux.txt",
     requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
-use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
+pip.parse(
+    hub_name = "opencv-pip-requirements",
+    python_version = "3.9",
+    requirements_lock = "//examples/opencv:requirements-lock.txt",
+)
+use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev", "opencv-pip-requirements")
+
+# C++ compiler, etc.
+# toolchains = use_extension("@hermetic_cc_toolchain//toolchain:ext.bzl", "toolchains")
+# use_repo(toolchains, "zig_sdk")
+
+# register_toolchains(
+#     "@zig_sdk//toolchain:linux_amd64_gnu.2.31",
+#     "@zig_sdk//toolchain:linux_arm64_gnu.2.31",
+# )

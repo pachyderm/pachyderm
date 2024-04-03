@@ -66,6 +66,24 @@ config_setting(
     ],
 )
 
+platform(
+    name = "aarch64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:aarch64",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
+platform(
+    name = "x86_64_linux",
+    constraint_values = [
+        "@platforms//os:linux",
+        "@platforms//cpu:x86_64",
+    ],
+    visibility = ["//:__subpackages__"],
+)
+
 # Add gazelle for "bazel run gazelle -- ..."
 
 # gazelle:prefix github.com/pachyderm/pachyderm/v2
