@@ -25,20 +25,6 @@ func WithTestLoki(l *TestLoki) pachd.TestPachdOption {
 		MutateConfig: func(config *pachconfig.PachdFullConfiguration) {
 			config.LokiLogging = true
 		},
-		MutateContext: func(ctx context.Context) context.Context {
-			templateHash := randutil.UniqueString("")[0:10]
-			procHash := randutil.UniqueString("")[0:5]
-			return pctx.Child(ctx, "", l.WithLoki(ctx, map[string]string{
-				"host":              "localhost",
-				"app":               "pachd",
-				"container":         "pachd",
-				"node_name":         "localhost",
-				"pod":               fmt.Sprintf("pachd-%v-%v", templateHash, procHash),
-				"pod_template_hash": templateHash,
-				"stream":            "stderr",
-				"suite":             "pachyderm",
-			}))
-		},
 	}
 }
 
@@ -72,6 +58,25 @@ func (l *TestLoki) WithLoki(sendCtx context.Context, lokiLabels map[string]strin
 	return pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
 		return zapcore.NewTee(c, lc)
 	}))
+}
+
+func WithLoki(ctx context.Context, l *TestLoki) context.Context {
+	lc := l.newZapCore(ctx)
+	templateHash := randutil.UniqueString("")[0:10]
+	procHash := randutil.UniqueString("")[0:5]
+	lc.labels = map[string]string{
+		"host":              "localhost",
+		"app":               "pachd",
+		"container":         "pachd",
+		"node_name":         "localhost",
+		"pod":               fmt.Sprintf("pachd-%v-%v", templateHash, procHash),
+		"pod_template_hash": templateHash,
+		"stream":            "stderr",
+		"suite":             "pachyderm",
+	}
+	return pctx.Child(ctx, "", pctx.WithOptions(zap.WrapCore(func(c zapcore.Core) zapcore.Core {
+		return zapcore.NewTee(c, lc)
+	})))
 }
 
 // lokiCore sends JSON log messages to the provided TestLoki instance.  If you were going to use
