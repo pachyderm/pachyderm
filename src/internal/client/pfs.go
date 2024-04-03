@@ -45,9 +45,8 @@ func NewCommit(projectName, repoName, branchName, commitID string) *pfs.Commit {
 		Repo: NewRepo(projectName, repoName),
 		Id:   commitID,
 	}
-	if branchName != "" {
-		commit.Branch = NewBranch(projectName, repoName, branchName)
-	}
+	commit.Branch = NewBranch(projectName, repoName, branchName)
+
 	return commit
 }
 
