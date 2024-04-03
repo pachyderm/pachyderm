@@ -1647,7 +1647,7 @@ func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionC
 func (d *driver) walkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitProvenanceRequest,
 	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
 	commits, err := pfsdb.GetCommitWithIDProvenance(ctx, tx, startId,
-		pfsdb.GraphOpt{MaxDepth: &request.MaxDepth, Limit: &request.MaxCommits})
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit provenance in transaction")
 	}
@@ -1662,7 +1662,7 @@ func (d *driver) walkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 func (d *driver) walkCommitSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitSubvenanceRequest,
 	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
 	commits, err := pfsdb.GetCommitWithIDSubvenance(ctx, tx, startId,
-		pfsdb.GraphOpt{MaxDepth: &request.MaxDepth, Limit: &request.MaxCommits})
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit subvenance in transaction")
 	}
@@ -2031,7 +2031,7 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 func (d *driver) walkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchProvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
 	branches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, startId,
-		pfsdb.GraphOpt{MaxDepth: &request.MaxDepth, Limit: &request.MaxBranches})
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
 	if err != nil {
 		return errors.Wrap(err, "walk branch provenance in transaction")
 	}
@@ -2046,7 +2046,7 @@ func (d *driver) walkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 func (d *driver) walkBranchSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchSubvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
 	branches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, startId,
-		pfsdb.GraphOpt{MaxDepth: &request.MaxDepth, Limit: &request.MaxBranches})
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
 	if err != nil {
 		return errors.Wrap(err, "walk branch subvenance in transaction")
 	}

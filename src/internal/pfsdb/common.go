@@ -108,6 +108,14 @@ func (i *pageIterator[T]) next(ctx context.Context, extCtx sqlx.ExtContext) (*T,
 	return &t, i.revision, nil
 }
 
+type GraphOption func(g *graphOptions)
+
+// graphOptions are used to configure depth and limit parameters for provenance and subvenance queries.
+type graphOptions struct {
+	maxDepth uint64
+	limit    uint64
+}
+
 func IsNotFoundError(err error) bool {
 	return errors.As(err, &RepoNotFoundError{}) ||
 		errors.As(err, &ProjectNotFoundError{}) ||
@@ -115,27 +123,25 @@ func IsNotFoundError(err error) bool {
 		errors.As(err, &BranchNotFoundError{})
 }
 
-// GraphOpt is used to configure depth and limit parameters for provenance and subvenance queries.
-type GraphOpt struct {
-	// these are pointers to distinguish between an intentional 0 value and absent configuration.
-	MaxDepth *uint64
-	Limit    *uint64
-}
-
-func (g *GraphOpt) Merge(other GraphOpt) {
-	if other.MaxDepth != nil && *other.MaxDepth != 0 {
-		g.MaxDepth = other.MaxDepth
-	}
-	if other.Limit != nil && *other.Limit != 0 {
-		g.Limit = other.Limit
+func WithMaxDepth(maxDepth uint64) GraphOption {
+	return func(g *graphOptions) {
+		if maxDepth > 0 {
+			g.maxDepth = maxDepth
+		}
 	}
 }
 
-func defaultOption() GraphOpt {
-	depth := uint64(MaxSearchDepth)
-	limit := uint64(10_000)
-	return GraphOpt{
-		MaxDepth: &depth,
-		Limit:    &limit,
+func WithLimit(limit uint64) GraphOption {
+	return func(g *graphOptions) {
+		if limit > 0 {
+			g.limit = limit
+		}
+	}
+}
+
+func defaultGraphOptions() *graphOptions {
+	return &graphOptions{
+		maxDepth: uint64(MaxSearchDepth),
+		limit:    uint64(10_000),
 	}
 }
