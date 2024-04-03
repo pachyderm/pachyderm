@@ -7,9 +7,11 @@ import (
 	"github.com/docker/go-units"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/miscutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/storage/chunk"
+	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 	"io"
 )
@@ -23,16 +25,6 @@ const (
 	DefaultShardSizeThreshold = units.GB
 )
 
-type edge struct {
-	from   string
-	to     string
-	reason string
-}
-
-func (e *edge) String() string {
-	return e.from + ", " + e.to + ", reason: " + e.reason
-}
-
 func (idx *Index) toEdgeStr() string {
 	if idx.File != nil {
 		return "{type:file path:" + idx.Path + "}"
@@ -40,31 +32,25 @@ func (idx *Index) toEdgeStr() string {
 	return fmt.Sprintf("{type:range path:%s chunk:%x}", idx.Path, idx.Range.ChunkRef.Ref.Id)
 }
 
-func toEdge(from, to *Index, reason string) edge {
-	return edge{
-		from:   from.toEdgeStr(),
-		to:     to.toEdgeStr(),
-		reason: reason,
-	}
-}
-
 // Reader is used for reading a multilevel index.
 type Reader struct {
-	chunks       *chunk.Storage
-	cache        *Cache
-	filter       *pathFilter
-	topIdx       *Index
-	datum        string
-	shardConfig  *ShardConfig
-	prevIdx      *Index
-	traversedIdx []edge
-	skippedIdx   []edge
+	chunks      *chunk.Storage
+	cache       *Cache
+	filter      *pathFilter
+	topIdx      *Index
+	datum       string
+	shardConfig *ShardConfig
+
+	// fields added for instrumentation.
+	prevIdx         *Index
+	traversedRanges int
+	skippedRanges   int
+	traversedFiles  int
+	skippedFiles    int
 }
 
 // NewReader creates a new Reader.
 func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Option) *Reader {
-	traversedEdges := make([]edge, 0)
-	skippedEdges := make([]edge, 0)
 	r := &Reader{
 		chunks:  chunks,
 		cache:   cache,
@@ -74,8 +60,6 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 			NumFiles:  DefaultShardNumThreshold,
 			SizeBytes: DefaultShardSizeThreshold,
 		},
-		traversedIdx: traversedEdges,
-		skippedIdx:   skippedEdges,
 	}
 	for _, opt := range opts {
 		opt(r)
@@ -90,42 +74,48 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	}
 	traverseCb := func(idx *Index) (bool, error) {
 		if atEnd(idx.Path, r.filter) {
-			r.skippedIdx = append(r.skippedIdx, toEdge(r.prevIdx, idx, "past end"))
+			if idx.File != nil {
+				r.skippedFiles++
+			} else {
+				r.skippedRanges++
+			}
 			return false, errutil.ErrBreak
 		}
 		if idx.File != nil {
 			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
-				r.skippedIdx = append(r.skippedIdx, toEdge(r.prevIdx, idx, "file before start / datum mismatch"))
+				r.skippedFiles++
 				return false, nil
 			}
-			r.traversedIdx = append(r.traversedIdx, toEdge(r.prevIdx, idx, "traversed file"))
+			r.traversedFiles++
 			return false, cb(idx)
 		}
 		if !atStart(idx.Range.LastPath, r.filter) {
-			r.skippedIdx = append(r.skippedIdx, toEdge(r.prevIdx, idx, "range before start"))
+			r.skippedRanges++
 			return false, nil
 		}
-		r.traversedIdx = append(r.traversedIdx, toEdge(r.prevIdx, idx, "traversed range"))
+		r.traversedRanges++
 		return true, nil
 	}
 	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)
 	if errors.Is(err, errutil.ErrBreak) {
 		err = nil
 	}
-	traversedEdges := ""
-	for _, edge := range r.traversedIdx {
-		traversedEdges += edge.String() + "\n"
+	fields := []zap.Field{
+		zap.String("top index", r.topIdx.toEdgeStr()),
+		zap.Int("traversed ranges", r.traversedRanges),
+		zap.Int("skipped ranges", r.skippedRanges),
+		zap.Int("traversed files", r.traversedFiles),
+		zap.Int("skipped files", r.skippedFiles),
 	}
-	skippedEdges := ""
-	for _, edge := range r.skippedIdx {
-		skippedEdges += edge.String() + "\n"
+	if r.filter != nil {
+		if r.filter.prefix != "" {
+			fields = append(fields, zap.String("filter prefix", r.filter.prefix))
+		} else if r.filter.pathRange != nil && (r.filter.pathRange.Lower != "" || r.filter.pathRange.Upper != "") {
+			fields = append(fields, zap.String("filter path range:",
+				fmt.Sprintf("['%s', '%s')", r.filter.pathRange.Lower, r.filter.pathRange.Upper)))
+		}
 	}
-	if len(skippedEdges)+len(traversedEdges) > 0 {
-		fmt.Println("traversed indices:", len(r.traversedIdx), "skipped indices:", len(r.skippedIdx))
-		fmt.Println(traversedEdges)
-		fmt.Println(skippedEdges)
-	}
-
+	log.Info(ctx, "index reader metrics", fields...)
 	return err
 }
 
@@ -146,7 +136,6 @@ func (r *Reader) traverse(ctx context.Context, idx *Index, prependBytes []byte, 
 	if err := r.getChunk(ctx, idx, buf); err != nil {
 		return nil, err
 	}
-	r.prevIdx = idx
 	pbr := pbutil.NewReader(buf)
 	nextPrependBytes := []byte{}
 	for {
