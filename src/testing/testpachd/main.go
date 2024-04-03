@@ -112,24 +112,14 @@ func main() {
 	// If the user wants their pachctl config to be updated, do that now.
 	if *pachCtx != "" {
 		var oldContext string
-		oldContext, err = setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
-		if err != nil {
+		if oldContext, err = setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient); err != nil {
 			log.Error(ctx, "problem reading pachctl config", zap.Error(err))
 			return
 		}
 		if oldContext != "" && oldContext != *pachCtx {
 			// Restore the context they were currently pointing at on exit.
 			clean.AddCleanupCtx("restore pach context", func(ctx context.Context) error {
-				cfg, err := config.Read(true, false)
-				if err != nil {
-					return errors.Wrap(err, "read pachctl config")
-				}
-				cfg.V2.ActiveContext = oldContext
-				if err := cfg.Write(); err != nil {
-					return errors.Wrap(err, "write restored context to pachctl config")
-				}
-				log.Info(ctx, "restored pachctl config", zap.String("context", oldContext))
-				return nil
+				return restorePachctlConfig(ctx, oldContext)
 			})
 		}
 	}
@@ -188,4 +178,17 @@ func setupPachctlConfig(ctx context.Context, context string, activateAuth bool, 
 	}
 	log.Info(ctx, "set pachctl context", zap.String("context", context))
 	return old, nil
+}
+
+func restorePachctlConfig(ctx context.Context, oldContext string) error {
+	cfg, err := config.Read(true, false)
+	if err != nil {
+		return errors.Wrap(err, "read pachctl config")
+	}
+	cfg.V2.ActiveContext = oldContext
+	if err := cfg.Write(); err != nil {
+		return errors.Wrap(err, "write restored context to pachctl config")
+	}
+	log.Info(ctx, "restored pachctl config", zap.String("context", oldContext))
+	return nil
 }
