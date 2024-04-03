@@ -263,7 +263,7 @@ describe('config screen', () => {
           'PUT',
           {
             pachd_address:
-              'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400'
+              'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
           },
         );
         expect(updateConfig).toHaveBeenCalledTimes(1);
