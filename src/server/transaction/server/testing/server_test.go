@@ -22,9 +22,14 @@ func requireEmptyResponse(t *testing.T, response *transaction.TransactionRespons
 	require.Nil(t, response.Commit)
 }
 
+// Ignores branch field when comparing, bacause branch names are nilled out in responses.
+func commitDiffIgnoringBranchName(commit, commit2 *pfs.Commit) string {
+	return cmp.Diff(commit, commit2, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name"))
+}
+
 func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
-	// Adding this cmp here to ignore branch field when comparing, bacause branch names are nilled out in responses.
-	if diff := cmp.Diff(commit, response.Commit, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name")); diff == "" {
+	diff := commitDiffIgnoringBranchName(response.Commit, commit)
+	if diff == "" {
 		return
 	}
 	require.Equal(t, commit, response.Commit)
@@ -525,6 +530,10 @@ func TestTransactions(suite *testing.T) {
 
 		for _, branchInfo := range branchInfos {
 			if branchInfo.Branch.Name == "master" {
+				diff := commitDiffIgnoringBranchName(branchInfo.Head, info.Responses[1].Commit)
+				if diff == "" {
+					continue
+				}
 				require.Equal(t, branchInfo.Head, info.Responses[1].Commit)
 			}
 		}
