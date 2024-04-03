@@ -32,20 +32,24 @@ var (
 
 func main() {
 	flag.Parse()
-	var (
-		ctx, cancel = pctx.Interactive()
-		clean       cleanup.Cleaner
-		err         error
-	)
 
+	var (
+		clean cleanup.Cleaner
+		err   error
+	)
 	defer func(done func(error)) {
-		cancel()
 		ctx := pctx.Background("cleanup")
 		if err := clean.Cleanup(ctx); err != nil {
 			log.Error(ctx, "problem cleaning up", zap.Error(err))
 		}
 		done(err)
 	}(log.InitBatchLogger(*logfile))
+	if *verbose {
+		log.SetLevel(log.DebugLevel)
+	}
+
+	ctx, cancel := pctx.Interactive()
+	defer cancel()
 
 	// Init testpachd options.
 	var opts []pachd.TestPachdOption
