@@ -44,7 +44,7 @@ func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
