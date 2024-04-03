@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"

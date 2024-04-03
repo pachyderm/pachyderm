@@ -123,32 +123,46 @@ func (c *Commit) AccessRepo() *Repo {
 }
 
 func (c *Commit) NilBranchName() {
-	c.Branch.Name = ""
+	if c != nil && c.Branch != nil {
+		c.Branch.Name = ""
+	}
 }
 
 func (ci *CommitInfo) NilBranchName() {
-	ci.Commit.NilBranchName()
+	if ci != nil {
+		ci.Commit.NilBranchName()
+	}
 }
 
 func (f *File) NilBranchName() {
-	f.Commit.NilBranchName()
+	if f != nil {
+		f.Commit.NilBranchName()
+	}
 }
 
 func (fi *FileInfo) NilBranchName() {
-	fi.File.NilBranchName()
+	if fi != nil {
+		fi.File.NilBranchName()
+	}
 }
 
 func (dfr *DiffFileResponse) NilBranchName() {
-	dfr.OldFile.NilBranchName()
-	dfr.NewFile.NilBranchName()
+	if dfr != nil {
+		dfr.OldFile.NilBranchName()
+		dfr.NewFile.NilBranchName()
+	}
 }
 
 func (cf *CopyFile) NilBranchName() {
-	cf.Src.NilBranchName()
+	if cf != nil {
+		cf.Src.NilBranchName()
+	}
 }
 
 func (bi *BranchInfo) NilBranchName() {
-	bi.Head.NilBranchName()
+	if bi != nil {
+		bi.Head.NilBranchName()
+	}
 }
 
 func (b *Branch) NewCommit(id string) *Commit {
