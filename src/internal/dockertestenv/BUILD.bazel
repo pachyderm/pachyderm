@@ -12,7 +12,6 @@ go_library(
     visibility = ["//src:__subpackages__"],
     deps = [
         "//src/internal/backoff",
-        "//src/internal/cleanup",
         "//src/internal/dbutil",
         "//src/internal/errors",
         "//src/internal/log",
