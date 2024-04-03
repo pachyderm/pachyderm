@@ -175,9 +175,9 @@ func BuildAndRunTestPachd(ctx context.Context, eg *errgroup.Group, opts ...TestP
 		}()
 
 		// database
-		dbcfg, closeDB, err := dockertestenv.NewTestDBConfigCtx(ctx)
+		dbcfg, err := dockertestenv.NewTestDBConfigCtx(ctx)
 		defer func() {
-			errs = stderrors.Join(errs, closeDB.Cleanup(pctx.Background("cleanup DB config")))
+			errs = stderrors.Join(errs, dbcfg.Cleanup(pctx.Background("cleanup DB config")))
 		}()
 		if err != nil {
 			return errors.Wrap(err, "test db config")

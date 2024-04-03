@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
-	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
@@ -124,16 +123,39 @@ func NewTestDBConfig(t testing.TB) DBConfig {
 }
 
 // NewTestDBConfigCtx returns a DBConfig for an environment outside of tests.
-func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.Cleaner, _ error) {
+func NewTestDBConfigCtx(ctx context.Context) (DBConfig, error) {
 	var (
 		dbName  = testutil.GenerateEphemeralDBName()
 		dexName = testutil.UniqueString("dex")
+		config  = DBConfig{
+			Direct: PostgresConfig{
+				Host:     postgresHost(),
+				Port:     postgresPort,
+				User:     DefaultPostgresUser,
+				Password: DefaultPostgresPassword,
+				DBName:   dbName,
+			},
+			PGBouncer: PostgresConfig{
+				Host:     PGBouncerHost(),
+				Port:     PGBouncerPort,
+				User:     DefaultPostgresUser,
+				Password: DefaultPostgresPassword,
+				DBName:   dbName,
+			},
+			Identity: PostgresConfig{
+				Host:     PGBouncerHost(),
+				Port:     PGBouncerPort,
+				User:     DefaultPostgresUser,
+				Password: DefaultPostgresPassword,
+				DBName:   dexName,
+			},
+		}
 	)
-	cleaner = new(cleanup.Cleaner)
+
 	if err := backoff.Retry(func() error {
 		return EnsureDBEnv(ctx)
 	}, backoff.NewConstantBackOff(time.Second*3)); err != nil {
-		return config, cleaner, errors.Wrap(err, "wait for database to be created")
+		return config, errors.Wrap(err, "wait for database to be created")
 	}
 
 	db, err := dbutil.NewDB(
@@ -142,45 +164,37 @@ func NewTestDBConfigCtx(ctx context.Context) (config DBConfig, cleaner *cleanup.
 		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
 		dbutil.WithDBName(DefaultPostgresDatabase))
 	if err != nil {
-		return config, cleaner, errors.Wrap(err, "NewDB")
+		return config, errors.Wrap(err, "NewDB")
 	}
-	cleaner.AddCleanup("close db connection", db.Close)
+	defer db.Close()
 
 	if err := testutil.CreateEphemeralDBNontest(ctx, db, dbName); err != nil {
-		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dbName)
+		return config, errors.Wrapf(err, "CreateEphemeralDB(%v)", dbName)
 	}
-	cleaner.AddCleanupCtx("cleanup pach database", func(ctx context.Context) error {
-		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dbName), "cleanup database %v", dbName)
-	})
 	if err := testutil.CreateEphemeralDBNontest(ctx, db, dexName); err != nil {
-		return config, cleaner, errors.Wrapf(err, "CreateEphemeralDB(%v)", dexName)
+		return config, errors.Wrapf(err, "CreateEphemeralDB(%v)", dexName)
 	}
-	cleaner.AddCleanupCtx("cleanup dex database", func(ctx context.Context) error {
-		return errors.Wrapf(testutil.CleanupEphemeralDB(ctx, db, dexName), "cleanup database %v", dbName)
-	})
-	return DBConfig{
-		Direct: PostgresConfig{
-			Host:     postgresHost(),
-			Port:     postgresPort,
-			User:     DefaultPostgresUser,
-			Password: DefaultPostgresPassword,
-			DBName:   dbName,
-		},
-		PGBouncer: PostgresConfig{
-			Host:     PGBouncerHost(),
-			Port:     PGBouncerPort,
-			User:     DefaultPostgresUser,
-			Password: DefaultPostgresPassword,
-			DBName:   dbName,
-		},
-		Identity: PostgresConfig{
-			Host:     PGBouncerHost(),
-			Port:     PGBouncerPort,
-			User:     DefaultPostgresUser,
-			Password: DefaultPostgresPassword,
-			DBName:   dexName,
-		},
-	}, cleaner, nil
+	return config, nil
+}
+
+func (config DBConfig) Cleanup(ctx context.Context) error {
+	db, err := dbutil.NewDB(
+		dbutil.WithMaxOpenConns(1),
+		dbutil.WithUserPassword(DefaultPostgresUser, DefaultPostgresPassword),
+		dbutil.WithHostPort(PGBouncerHost(), PGBouncerPort),
+		dbutil.WithDBName(DefaultPostgresDatabase))
+	for _, c := range []PostgresConfig{config.Direct, config.Identity} {
+		if err != nil {
+			log.Error(ctx, "opening", zap.String("db", c.DBName), zap.Error(err))
+			continue
+		}
+		if err := testutil.CleanupEphemeralDB(ctx, db, c.DBName); err != nil {
+			log.Error(ctx, "deleting", zap.String("db", c.DBName), zap.Error(err))
+			continue
+		}
+
+	}
+	return errors.Wrap(db.Close(), "closing database")
 }
 
 // NewTestDB creates a new database connection scoped to the test.
