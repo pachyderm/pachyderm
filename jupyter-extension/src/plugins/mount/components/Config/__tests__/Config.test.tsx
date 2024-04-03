@@ -221,6 +221,57 @@ describe('config screen', () => {
         'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
       );
     });
+
+    it('should show address after address is resubmitted', async () => {
+      const healthCheck: HealthCheck = {
+        status: 'HEALTHY_NO_AUTH',
+      };
+
+      const {getByTestId} = render(
+        <Config
+          updateConfig={updateConfig}
+          healthCheck={healthCheck}
+          authConfig={authConfig}
+          refresh={jest.fn()}
+        />,
+      );
+
+      mockRequestAPI.requestAPI.mockImplementation(
+        mockedRequestAPI({
+          pachd_address:
+            'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+        }),
+      );
+
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+      await getByTestId('Config__pachdAddressUpdate').click();
+      expect(getByTestId('Config__mountConfigSubheading')).toHaveTextContent(
+        'Update Configuration',
+      );
+      const input = getByTestId('Config__pachdAddressInput');
+      userEvent.type(
+        input,
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+      getByTestId('Config__pachdAddressSubmit').click();
+
+      await waitFor(() => {
+        expect(mockRequestAPI.requestAPI).toHaveBeenCalledWith(
+          'config',
+          'PUT',
+          {
+            pachd_address:
+              'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400'
+          },
+        );
+        expect(updateConfig).toHaveBeenCalledTimes(1);
+      });
+      expect(getByTestId('Config__pachdAddress')).toHaveTextContent(
+        'grpcs://hub-c0-jwn7iwcca9.clusters.pachyderm.io:31400',
+      );
+    });
   });
 
   describe('pachd address field', () => {
