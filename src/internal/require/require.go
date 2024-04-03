@@ -3,7 +3,6 @@ package require
 import (
 	"context"
 	"fmt"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"reflect"
 	"regexp"
 	"runtime/debug"
@@ -93,7 +92,7 @@ func Equal(tb testing.TB, expected interface{}, actual interface{}, msgAndArgs .
 
 // EqualOrErr checks equality of two values and returns an error if they're not equal
 func EqualOrErr(expected interface{}, actual interface{}) error {
-	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name")); diff == "" {
+	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors()); diff == "" {
 		return nil
 	}
 
