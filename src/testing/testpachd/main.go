@@ -32,36 +32,31 @@ var (
 
 func main() {
 	flag.Parse()
+	var (
+		ctx, cancel = pctx.Interactive()
+		clean       cleanup.Cleaner
+		err         error
+	)
 
-	// Init logging.
-	done := log.InitBatchLogger(*logfile)
-	if *verbose {
-		log.SetLevel(log.DebugLevel)
-	}
-
-	// Handle cleaning up on exit.
-	ctx, cancel := pctx.Interactive()
-	runCtx := ctx
-	var exitErr error
-	var clean cleanup.Cleaner
-	defer func() {
-		ctx = pctx.Background("cleanup")
+	defer func(done func(error)) {
+		cancel()
+		ctx := pctx.Background("cleanup")
 		if err := clean.Cleanup(ctx); err != nil {
 			log.Error(ctx, "problem cleaning up", zap.Error(err))
 		}
-		done(exitErr)
-	}()
+		done(err)
+	}(log.InitBatchLogger(*logfile))
 
 	// Init testpachd options.
 	var opts []pachd.TestPachdOption
 	if *activateAuth {
 		opts = append(opts, pachd.ActivateAuthOption(rootToken))
 	}
+
 	if *useLoki {
-		tmpdir, err := os.MkdirTemp("", "testpachd-loki-")
-		if err != nil {
+		var tmpdir string
+		if tmpdir, err = os.MkdirTemp("", "testpachd-loki-"); err != nil {
 			log.Error(ctx, "problem making tmpdir for loki", zap.Error(err))
-			exitErr = err
 			return
 		}
 		clean.AddCleanup("loki files", func() error {
@@ -70,13 +65,11 @@ func main() {
 		l, err := testloki.New(ctx, tmpdir)
 		if err != nil {
 			log.Error(ctx, "problem starting loki", zap.Error(err))
-			exitErr = err
 			return
 		}
 		clean.AddCleanup("loki", l.Close)
 		opt := testloki.WithTestLoki(l)
 		opts = append(opts, opt)
-		runCtx = opt.MutateContext(runCtx)
 	}
 
 	// Build pachd.
@@ -85,41 +78,38 @@ func main() {
 	if err != nil {
 		// If pachd failed to build, exit now.
 		log.Error(ctx, "problem building pachd", zap.Error(err))
-		exitErr = err
 		return
 	}
 
-	// Start pachd running.
 	errCh := make(chan error)
-	go func() {
+	go func(ctx context.Context) {
 		defer close(errCh)
-		if err := pd.Run(runCtx); err != nil {
-			// If pachd exits, send the error on errCh.  errCh is read after the context
-			// that cancel() cancels is done, so cancel it first so the write doesn't
-			// block.
-			cancel()
+		for _, opt := range opts {
+			if opt.MutateContext != nil {
+				ctx = opt.MutateContext(ctx)
+			}
+		}
+		if err := pd.Run(ctx); err != nil {
 			if !errors.Is(err, context.Canceled) {
 				errCh <- err
 			}
 		}
-	}()
+	}(ctx)
 
 	// Get an RPC client connected to testpachd.
 	pachClient, err := pd.PachClient(ctx)
 	if err != nil {
 		log.Error(ctx, "problem creating pach client", zap.Error(err))
-		exitErr = errors.Wrap(err, "create pach client")
-		cancel()
+		err = errors.Wrap(err, "create pach client")
 		return
 	}
 
 	// If the user wants their pachctl config to be updated, do that now.
 	if *pachCtx != "" {
-		oldContext, err := setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
+		var oldContext string
+		oldContext, err = setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
 		if err != nil {
 			log.Error(ctx, "problem reading pachctl config", zap.Error(err))
-			exitErr = err
-			cancel()
 			return
 		}
 		if oldContext != "" && oldContext != *pachCtx {
@@ -165,12 +155,9 @@ func main() {
 		os.Stdout.Close()
 	}()
 
-	// With pachd started and the config ready, run until the context is done.  Background
-	// errors cause this, as does SIGINT.
-	<-ctx.Done()
-	if err := <-errCh; err != nil {
+	// wait for pachd to complete
+	if err = <-errCh; err != nil {
 		log.Error(ctx, "problem running pachd", zap.Error(err))
-		exitErr = err
 	}
 }
 
