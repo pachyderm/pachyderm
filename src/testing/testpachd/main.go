@@ -16,6 +16,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 )
 
 const rootToken = "iamroot"
@@ -45,13 +46,13 @@ func main() {
 	// Build pachd.
 	ctx, cancel := pctx.Interactive()
 	var exitErr error
-	pd, cleanup, err := pachd.BuildTestPachd(ctx, opts...)
+	eg, ctx := errgroup.WithContext(ctx)
+	pd, err := pachd.BuildTestPachd(ctx, eg, opts...)
 
 	// Cleanup pachd on return.
 	defer func() {
-		ctx = pctx.Background("cleanup")
-		if err := cleanup.Cleanup(ctx); err != nil {
-			log.Error(ctx, "problem cleaning up", zap.Error(err))
+		if err := eg.Wait(); err != nil {
+			log.Error(pctx.Background("wait"), "problem waiting", zap.Error(err))
 		}
 		done(exitErr)
 	}()
@@ -96,19 +97,7 @@ func main() {
 			return
 		}
 		if oldContext != "" && oldContext != *pachCtx {
-			// Restore the context they were currently pointing at on exit.
-			cleanup.AddCleanupCtx("restore pach context", func(ctx context.Context) error {
-				cfg, err := config.Read(true, false)
-				if err != nil {
-					return errors.Wrap(err, "read pachctl config")
-				}
-				cfg.V2.ActiveContext = oldContext
-				if err := cfg.Write(); err != nil {
-					return errors.Wrap(err, "write restored context to pachctl config")
-				}
-				log.Info(ctx, "restored pachctl config", zap.String("context", oldContext))
-				return nil
-			})
+			eg.Go(func() error { return restorePachctlConfig(ctx, oldContext) })
 		}
 	}
 
@@ -140,7 +129,9 @@ func main() {
 
 	// With pachd started and the config ready, run until the context is done.  Background
 	// errors cause this, as does SIGINT.
-	<-ctx.Done()
+	if err := eg.Wait(); err != nil {
+		log.Error(pctx.Background("waiting"), "problem waiting", zap.Error(err))
+	}
 	if err := <-errCh; err != nil {
 		log.Error(ctx, "problem running pachd", zap.Error(err))
 		exitErr = err
@@ -169,4 +160,18 @@ func setupPachctlConfig(ctx context.Context, context string, activateAuth bool, 
 	}
 	log.Info(ctx, "set pachctl context", zap.String("context", context))
 	return old, nil
+}
+
+func restorePachctlConfig(ctx context.Context, oldContext string) error {
+	<-ctx.Done()
+	cfg, err := config.Read(true, false)
+	if err != nil {
+		return errors.Wrap(err, "read pachctl config")
+	}
+	cfg.V2.ActiveContext = oldContext
+	if err := cfg.Write(); err != nil {
+		return errors.Wrap(err, "write restored context to pachctl config")
+	}
+	log.Info(pctx.Background("restoring pachctl config"), "restored pachctl config", zap.String("context", oldContext))
+	return nil
 }
