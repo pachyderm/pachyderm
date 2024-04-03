@@ -31,22 +31,23 @@ var (
 )
 
 func main() {
+	var err error
 	flag.Parse()
 
-	var (
-		clean cleanup.Cleaner
-		err   error
-	)
 	defer func(done func(error)) {
-		ctx := pctx.Background("cleanup")
-		if err := clean.Cleanup(ctx); err != nil {
-			log.Error(ctx, "problem cleaning up", zap.Error(err))
-		}
 		done(err)
 	}(log.InitBatchLogger(*logfile))
 	if *verbose {
 		log.SetLevel(log.DebugLevel)
 	}
+
+	var clean cleanup.Cleaner
+	defer func() {
+		ctx := pctx.Background("cleanup")
+		if err = clean.Cleanup(ctx); err != nil {
+			log.Error(ctx, "problem cleaning up", zap.Error(err))
+		}
+	}()
 
 	ctx, cancel := pctx.Interactive()
 	defer cancel()
