@@ -1360,6 +1360,7 @@ jobs:
     steps:
       - checkout:
           path: ~/project
+      - install-bazel
       - install-jupyter-test-deps
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
@@ -1854,7 +1855,6 @@ workflows:
       - test-python-sdk:
           filters: *only-release-tags
           requires:
-            - build-docker-images
             - build-pachctl-bin
       - pulumi-aws-test-env:
           name: aws-prerelease-testing-env-1
