@@ -1,8 +1,8 @@
 module github.com/pachyderm/pachyderm/v2
 
-go 1.20
+go 1.22
 
-toolchain go1.21.9
+toolchain go1.22.2
 
 require (
 	cloud.google.com/go/profiler v0.3.0
