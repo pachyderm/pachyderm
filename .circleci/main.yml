@@ -40,7 +40,7 @@ parameters:
     default: docker.io/pachyderm/ci-runner:20240327-e244f4987bb95479ace93f62388b267c5afc12ef@sha256:6eca53ba260096076ae7decbfb66a779b3d78984ae5f249c8d28514f34c02ef4
   go-version:
     type: string
-    default: "1.22.1"
+    default: "1.22.2"
   go-releaser-version:
     type: string
     default: "1.17.1"
