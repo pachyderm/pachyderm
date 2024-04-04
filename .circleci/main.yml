@@ -36,7 +36,7 @@ parameters:
     default: ubuntu-2204:2023.04.2
   go-version:
     type: string
-    default: "1.21.9"
+    default: "1.22.2"
   go-releaser-version:
     type: string
     default: "1.17.1"
@@ -883,10 +883,6 @@ jobs:
     resource_class: xlarge
     steps:
       - checkout
-      - run:
-          command: go version
-      - run:
-          command: pwd
       - run:
           name: Install govulncheck
           command: go install golang.org/x/vuln/cmd/govulncheck@latest
