@@ -94,13 +94,17 @@ const Datum: React.FC<DatumProps> = ({
             data-testid="Datum__loadDatums"
             className="pachyderm-button-link"
             onClick={() => {
-              executeCommand('apputils:notify', {
-                message: 'Datum order not guaranteed when loading datums.',
-                type: 'info',
-                options: {
-                  autoClose: 10000, // 10 seconds
-                },
-              });
+              // Only show the datum order warning if the input spec is more complicated than a simple mount
+              if (!inputSpec.startsWith("pfs:")) {
+                executeCommand('apputils:notify', {
+                  message: 'Datum order not guaranteed when loading datums.',
+                  type: 'info',
+                  options: {
+                    autoClose: 10000, // 10 seconds
+                  },
+                });
+              }
+
               callMountDatums();
             }}
             style={{padding: '0.5rem'}}
