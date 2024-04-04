@@ -3630,7 +3630,6 @@ func TestWaitCommitSet(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
-	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "B"))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 	require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
