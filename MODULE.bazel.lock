@@ -3925,11 +3925,11 @@
       "general": {
         "bzlTransitiveDigest": "D1+rhhbwX4ufoTmeUVxDpPg+Sknv3QzVXZnyK2zOjj4=",
         "recordedFileInputs": {
-          "@@//go.mod": "a68a5d4670bf03d615dec1fb0ca05b189527d5ef656bf87726a4147bdd376c00",
+          "@@//go.mod": "4f3094314167139a89d45f55611dbbf4930f106320b090809de3fdc484dccbc7",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
-          "@@//go.sum": "a66e55c4bcb558755ead1697d6aa5914a62b579f57860c1971ae41517c8f1a1e",
+          "@@//go.sum": "9f761a5807987fdac8160efba2d756ec735570e20a31f55b18e84198f0c3acd5",
           "@@rules_go~//go.sum": "d56fdb19b21a5f12bcf625c49432371ac39c2def0f564098fbda107f7c080f40",
           "@@gazelle~//go.mod": "48dc6e771c3028ee1c18b9ffc81e596fd5f6d7e0016c5ef280e30f2821f60473",
           "@@jsonnet_go~//go.sum": "cf6cba94b78ec389dcea5dda9207b611deea699e8dbbe45e98b7a7f990482bb4"
@@ -5885,9 +5885,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:jmAMJJZXr5KiCw05dfYK9QnqaqKLYXijU23lsEdcQqg=",
+              "sum": "h1:X31++rzVUdKhX5sWmSOFZxx8UW/ldWx55cbf08iNAMA=",
               "replace": "",
-              "version": "v0.20.0"
+              "version": "v0.21.0"
             }
           },
           "com_github_aws_aws_sdk_go_v2_internal_configsources": {
@@ -7293,9 +7293,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:25cE3gD+tdBA7lp7QfhuV+rJiE9YXTcS3VG1SqssI/Y=",
+              "sum": "h1:DBdB3niSjOA/O0blCZBqDefyWNYveAYMNF1Wum0DYQ4=",
               "replace": "",
-              "version": "v0.17.0"
+              "version": "v0.18.0"
             }
           },
           "com_github_docker_go_units": {
@@ -8713,9 +8713,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:AQyQV4dYCvJ7vGmJyKki9+PBdyvhkSd8EIx/qb0AYv4=",
+              "sum": "h1:7EYJ93RZ9vYSZAIb2x3lnuvqO5zneoD6IvWjuhfxjTs=",
               "replace": "",
-              "version": "v0.21.0"
+              "version": "v0.23.0"
             }
           },
           "io_k8s_api": {
@@ -9000,9 +9000,9 @@
               "build_extra_args": [],
               "patches": [],
               "patch_args": [],
-              "sum": "h1:mkTF7LCd6WGJNL3K1Ad7kwxNfYAW6a8a8QqtMblp/4U=",
+              "sum": "h1:FcHjZXDMxI8mM3nwhX9HlKop4C0YQvCVCdwYl2wOtE8=",
               "replace": "",
-              "version": "v0.17.0"
+              "version": "v0.18.0"
             }
           },
           "com_github_dexidp_dex_api_v2": {
