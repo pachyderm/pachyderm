@@ -140,7 +140,8 @@ func TestCreateDatum(t *testing.T) {
 
 	commit, err := pc.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	for i := 0; i < ppsserver.DefaultDatumBatchSize+50; i++ {
+	numFiles := ppsserver.DefaultDatumBatchSize + 50
+	for i := 0; i < numFiles; i++ {
 		require.NoError(t, pc.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader(fmt.Sprintf("file%d", i))))
 	}
 	require.NoError(t, pc.FinishCommit(pfs.DefaultProjectName, repo, "master", commit.Id))
@@ -149,40 +150,84 @@ func TestCreateDatum(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Requesting more datums than exist should return all datums without erroring
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: ppsserver.DefaultDatumBatchSize + 100}}}))
-		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize+100)
-		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: int32(numFiles)}}}))
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, numFiles+1))
 		require.True(t, stream.IsEOS(err))
-		require.Equal(t, ppsserver.DefaultDatumBatchSize+50, n)
+		require.Equal(t, numFiles, n)
 	})
 	t.Run("MultipleBatches", func(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
 		require.NoError(t, err)
 		// Not specifying number of datums should return DefaultDatumBatchSize datums
 		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
-		dis := make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize)
-		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize))
 		require.NoError(t, err)
 		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
-		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{Number: 50}}}))
-		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
+
+		remaining := numFiles - ppsserver.DefaultDatumBatchSize
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{Number: int32(remaining)}}}))
+		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize))
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, remaining, n)
+	})
+	t.Run("UnionInput", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		input := client.NewUnionInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, ppsserver.DefaultDatumBatchSize))
+		require.NoError(t, err)
+		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
+
+		remaining := 2*numFiles - ppsserver.DefaultDatumBatchSize
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{Number: int32(remaining)}}}))
+		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, remaining+1))
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, remaining, n)
+	})
+	t.Run("CrossInput", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		input := client.NewCrossInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file?"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file?"),
+		)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input, Number: 50}}}))
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, 50))
+		require.NoError(t, err)
+		require.Equal(t, 50, n)
+
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Continue{Continue: &pps.ContinueCreateDatumRequest{}}}))
+		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, 51))
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 50, n)
 	})
-	t.Run("UnimplementedInputTypes", func(t *testing.T) {
-		inputs := []*pps.Input{
-			{Union: []*pps.Input{}},
-			{Cross: []*pps.Input{}},
-			{Join: []*pps.Input{}},
-			{Group: []*pps.Input{}},
-		}
-		for _, input := range inputs {
-			datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
-			require.NoError(t, err)
-			require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
-			_, err = datumClient.Recv()
-			require.ErrorContains(t, err, "unimplemented input type")
-		}
+	t.Run("JoinInput", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		input := client.NewJoinInput(
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)", "$1", "", false, false, nil),
+		)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, 11))
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, 10, n)
+	})
+	t.Run("GroupInput", func(t *testing.T) {
+		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)
+		require.NoError(t, err)
+		input := client.NewGroupInput(
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)*", "", "$1", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file(?)*", "", "$1", false, false, nil),
+		)
+		require.NoError(t, datumClient.Send(&pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}))
+		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, make([]*pps.DatumInfo, 11))
+		require.True(t, stream.IsEOS(err))
+		require.Equal(t, 10, n)
 	})
 	t.Run("WrongRequestMessage", func(t *testing.T) {
 		datumClient, err := pc.PpsAPIClient.CreateDatum(ctx)

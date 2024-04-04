@@ -61,6 +61,7 @@ go_test(
         "datum_test.go",
         "iterator_internal_test.go",
         "iterator_test.go",
+        "util_test.go",
     ],
     embed = [":datum"],
     pure = "on",

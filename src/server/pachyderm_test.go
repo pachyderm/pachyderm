@@ -3641,47 +3641,80 @@ func TestCreateDatum(t *testing.T) {
 	}))
 	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 
-	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
-	var eg errgroup.Group
-	var listDatumTimeToFirstDatum, createDatumTimeToFirstDatum float64
-	eg.Go(func() error {
-		ctx, cf := context.WithCancel(c.Ctx())
-		defer cf()
-		req := &pps.ListDatumRequest{Input: input}
-		start := time.Now()
-		client, err := c.PpsAPIClient.ListDatum(ctx, req)
-		if err != nil {
-			return err
-		}
-		_, err = client.Recv()
-		if err != nil {
-			return err
-		}
-		listDatumTimeToFirstDatum = time.Since(start).Seconds()
-		return nil
+	testTimeToFirstDatum := func(input *pps.Input) {
+		var eg errgroup.Group
+		var listDatumTimeToFirstDatum, createDatumTimeToFirstDatum float64
+		eg.Go(func() error {
+			ctx, cf := context.WithCancel(c.Ctx())
+			defer cf()
+			req := &pps.ListDatumRequest{Input: input}
+			start := time.Now()
+			client, err := c.PpsAPIClient.ListDatum(ctx, req)
+			if err != nil {
+				return err
+			}
+			_, err = client.Recv()
+			if err != nil {
+				return err
+			}
+			listDatumTimeToFirstDatum = time.Since(start).Seconds()
+			return nil
+		})
+		eg.Go(func() error {
+			ctx, cf := context.WithCancel(c.Ctx())
+			defer cf()
+			client, err := c.PpsAPIClient.CreateDatum(ctx)
+			if err != nil {
+				return err
+			}
+			req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
+			start := time.Now()
+			if err := client.Send(req); err != nil {
+				return err
+			}
+			_, err = client.Recv()
+			if err != nil {
+				return err
+			}
+			createDatumTimeToFirstDatum = time.Since(start).Seconds()
+			return nil
+		})
+		require.NoError(t, eg.Wait())
+		// The choice of 0.75 provides a conservative buffer for the test to pass
+		require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
+	}
+
+	t.Run("PFSInput", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
+		testTimeToFirstDatum(input)
 	})
-	eg.Go(func() error {
-		ctx, cf := context.WithCancel(c.Ctx())
-		defer cf()
-		client, err := c.PpsAPIClient.CreateDatum(ctx)
-		if err != nil {
-			return err
-		}
-		req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
-		start := time.Now()
-		if err := client.Send(req); err != nil {
-			return err
-		}
-		_, err = client.Recv()
-		if err != nil {
-			return err
-		}
-		createDatumTimeToFirstDatum = time.Since(start).Seconds()
-		return nil
+	t.Run("UnionInput", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewUnionInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		)
+		testTimeToFirstDatum(input)
 	})
-	require.NoError(t, eg.Wait())
-	// The choice of 0.75 provides a conservative buffer for the test to pass
-	require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
+	t.Run("CrossInput", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewCrossInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-??"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-???"),
+		)
+		testTimeToFirstDatum(input)
+	})
+	t.Run("JoinInput", func(t *testing.T) {
+		t.Parallel()
+		input := client.NewJoinInput(
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-00(??)*", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-00(??)*", "$1", "", false, false, nil),
+		)
+		testTimeToFirstDatum(input)
+	})
+	// No test for Group because CreateDatum's streaming can't improve
+	// time to first datum
 }
 
 func TestStopPipeline(t *testing.T) {
