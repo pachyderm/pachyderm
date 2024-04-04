@@ -95,7 +95,7 @@ const Datum: React.FC<DatumProps> = ({
             className="pachyderm-button-link"
             onClick={() => {
               // Only show the datum order warning if the input spec is more complicated than a simple mount
-              if (!inputSpec.startsWith("pfs:")) {
+              if (!inputSpec.startsWith('pfs:')) {
                 executeCommand('apputils:notify', {
                   message: 'Datum order not guaranteed when loading datums.',
                   type: 'info',
