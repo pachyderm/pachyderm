@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"io"
 	"math/rand"
 	"os"
@@ -75,6 +76,14 @@ func RepoInfoToName(repoInfo interface{}) interface{} {
 
 func FileInfoToPath(fileInfo interface{}) interface{} {
 	return fileInfo.(*pfs.FileInfo).File.Path
+}
+
+func commitEqualIgnoringBranchName(t *testing.T, expected *pfs.Commit, actual *pfs.Commit) {
+	t.Helper()
+	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name")); diff == "" {
+		return
+	}
+	require.Equal(t, expected, actual)
 }
 
 func finishCommitSet(pachClient *client.APIClient, id string) error {
@@ -3621,6 +3630,7 @@ func TestWaitCommitSet(t *testing.T) {
 	env := realenv.NewRealEnv(ctx, t, dockertestenv.NewTestDBConfig(t).PachConfigOption)
 
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
+	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "A"))
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, "B"))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, "B", "master", "", "", []*pfs.Branch{client.NewBranch(pfs.DefaultProjectName, "A", "master")}))
 	require.NoError(t, finishCommit(env.PachClient, "B", "master", ""))
@@ -3634,8 +3644,8 @@ func TestWaitCommitSet(t *testing.T) {
 	commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	require.Equal(t, ACommit, commitInfos[0].Commit)
-	require.Equal(t, BCommit, commitInfos[1].Commit)
+	commitEqualIgnoringBranchName(t, ACommit, commitInfos[0].Commit)
+	commitEqualIgnoringBranchName(t, BCommit, commitInfos[1].Commit)
 }
 
 // WaitCommitSet2 implements the following DAG:
@@ -3677,10 +3687,10 @@ func TestWaitCommitSet2(t *testing.T) {
 	CCommit := client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.Id)
 	DCommit := client.NewCommit(pfs.DefaultProjectName, "D", "master", ACommit.Id)
 	require.Equal(t, 4, len(commitInfos))
-	require.Equal(t, ACommit, commitInfos[0].Commit)
-	require.Equal(t, BCommit, commitInfos[1].Commit)
-	require.Equal(t, CCommit, commitInfos[2].Commit)
-	require.Equal(t, DCommit, commitInfos[3].Commit)
+	commitEqualIgnoringBranchName(t, ACommit, commitInfos[0].Commit)
+	commitEqualIgnoringBranchName(t, BCommit, commitInfos[1].Commit)
+	commitEqualIgnoringBranchName(t, CCommit, commitInfos[2].Commit)
+	commitEqualIgnoringBranchName(t, DCommit, commitInfos[3].Commit)
 	<-done
 }
 
@@ -3722,11 +3732,11 @@ func TestWaitCommitSet3(t *testing.T) {
 	commitInfos, err := env.PachClient.WaitCommitSetAll(ACommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-	require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.Id), commitInfos[2].Commit)
+	commitEqualIgnoringBranchName(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", ACommit.Id), commitInfos[2].Commit)
 	commitInfos, err = env.PachClient.WaitCommitSetAll(BCommit.Id)
 	require.NoError(t, err)
 	require.Equal(t, 3, len(commitInfos))
-	require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", BCommit.Id), commitInfos[2].Commit)
+	commitEqualIgnoringBranchName(t, client.NewCommit(pfs.DefaultProjectName, "C", "master", BCommit.Id), commitInfos[2].Commit)
 }
 
 func TestWaitCommitSetWithNoDownstreamRepos(t *testing.T) {
@@ -3773,8 +3783,8 @@ func TestWaitOpenCommit(t *testing.T) {
 	commitInfos, err := env.PachClient.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
 	require.Equal(t, 2, len(commitInfos))
-	require.Equal(t, commit, commitInfos[0].Commit)
-	require.Equal(t, client.NewCommit(pfs.DefaultProjectName, "B", "master", commit.Id), commitInfos[1].Commit)
+	commitEqualIgnoringBranchName(t, commit, commitInfos[0].Commit)
+	commitEqualIgnoringBranchName(t, client.NewCommit(pfs.DefaultProjectName, "B", "master", commit.Id), commitInfos[1].Commit)
 }
 
 func TestWaitUninvolvedBranch(t *testing.T) {
@@ -4312,9 +4322,11 @@ func TestFindCommits(t *testing.T) {
 	resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
 	require.NoError(t, err)
 
-	require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
+	commitEqualIgnoringBranchName(t, commit4, resp.FoundCommits[0])
+	commitEqualIgnoringBranchName(t, commit3, resp.FoundCommits[1])
+	commitEqualIgnoringBranchName(t, commit1, resp.FoundCommits[2])
 	require.Equal(t, uint32(4), resp.CommitsSearched)
-	require.Equal(t, commit1, resp.LastSearchedCommit)
+	commitEqualIgnoringBranchName(t, commit1, resp.LastSearchedCommit)
 
 	require.NoError(t, env.PachClient.DeleteBranch(pfs.DefaultProjectName, repo, "master", true))
 	commit4.Branch = nil
@@ -4325,9 +4337,11 @@ func TestFindCommits(t *testing.T) {
 	resp, err = env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit4, Limit: 0})
 	require.NoError(t, err)
 
-	require.Equal(t, []*pfs.Commit{commit4, commit3, commit1}, resp.FoundCommits)
+	commitEqualIgnoringBranchName(t, commit4, resp.FoundCommits[0])
+	commitEqualIgnoringBranchName(t, commit3, resp.FoundCommits[1])
+	commitEqualIgnoringBranchName(t, commit1, resp.FoundCommits[2])
 	require.Equal(t, uint32(4), resp.CommitsSearched)
-	require.Equal(t, commit1, resp.LastSearchedCommit)
+	commitEqualIgnoringBranchName(t, commit1, resp.LastSearchedCommit)
 }
 
 func TestFindCommitsLimit(t *testing.T) {
@@ -4352,9 +4366,9 @@ func TestFindCommitsLimit(t *testing.T) {
 	resp, err := env.PachClient.FindCommits(&pfs.FindCommitsRequest{FilePath: "/files/b", Start: commit2, Limit: 1})
 	require.NoError(t, err)
 
-	require.Equal(t, []*pfs.Commit{commit2}, resp.FoundCommits)
+	commitEqualIgnoringBranchName(t, commit2, resp.FoundCommits[0])
 	require.Equal(t, uint32(1), resp.CommitsSearched)
-	require.Equal(t, commit2, resp.LastSearchedCommit)
+	commitEqualIgnoringBranchName(t, commit2, resp.LastSearchedCommit)
 }
 
 func TestFindCommitsOpenCommit(t *testing.T) {
