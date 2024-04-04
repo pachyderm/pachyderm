@@ -861,7 +861,7 @@ jobs:
             find . -maxdepth 10 -name \*.jsonnet | xargs jsonnet-lint
   test-envoy:
     docker:
-      - image: envoyproxy/envoy:v1.25.10
+      - image: envoyproxy/envoy:v1.26.8
         entrypoint: /bin/sh
     steps:
       - run: apt update
