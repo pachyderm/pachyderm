@@ -131,6 +131,7 @@ func (c *Commit) NilBranchName() {
 func (ci *CommitInfo) NilBranchName() {
 	if ci != nil {
 		ci.Commit.NilBranchName()
+		ci.ParentCommit.NilBranchName()
 	}
 }
 
