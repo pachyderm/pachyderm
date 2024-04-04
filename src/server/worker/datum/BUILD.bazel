@@ -23,7 +23,6 @@ go_library(
         "//src/internal/errutil",
         "//src/internal/grpcutil",
         "//src/internal/log",
-        "//src/internal/middleware/auth",
         "//src/internal/miscutil",
         "//src/internal/pctx",
         "//src/internal/pfsfile",

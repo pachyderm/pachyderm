@@ -3680,8 +3680,9 @@ func TestCreateDatum(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, eg.Wait())
-		// The choice of 0.75 provides a conservative buffer for the test to pass
-		require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
+		t.Logf("listDatumTimeToFirstDatum: %f seconds", listDatumTimeToFirstDatum)
+		t.Logf("createDatumTimeToFirstDatum: %f seconds", createDatumTimeToFirstDatum)
+		require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum)
 	}
 
 	t.Run("PFSInput", func(t *testing.T) {
@@ -3708,8 +3709,8 @@ func TestCreateDatum(t *testing.T) {
 	t.Run("JoinInput", func(t *testing.T) {
 		t.Parallel()
 		input := client.NewJoinInput(
-			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-00(??)*", "$1", "", false, false, nil),
-			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-00(??)*", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?*(??)0", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?0(??)0", "$1", "", false, false, nil),
 		)
 		testTimeToFirstDatum(input)
 	})

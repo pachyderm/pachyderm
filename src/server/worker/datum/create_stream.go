@@ -95,7 +95,7 @@ func streamingCreatePFS(
 			}
 			select {
 			case <-ctx.Done():
-				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+				return errors.Wrap(context.Cause(ctx), "send file set id up")
 			case fsidChan <- result.FileSetId:
 			}
 		}
@@ -119,9 +119,9 @@ func streamingCreateUnion(
 ) {
 	defer close(fsidChan)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
-		childrenChans := initChildrenChans(len(inputs))
-		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
-		if err := consumeChildrenChans(ctx, childrenChans, func(_ int, fsid string) error {
+		childrenFsidChans := initChildrenFsidChans(len(inputs))
+		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, childrenFsidChans, errChan, requestDatumsChan)
+		if err := consumeChildrenFsidChans(ctx, childrenFsidChans, func(_ int, fsid string) error {
 			fsidChan <- fsid
 			return nil
 		}); err != nil {
@@ -136,7 +136,8 @@ func streamingCreateUnion(
 	}
 }
 
-func initChildrenChans(num int) []chan string {
+// Creates a slice of channels for each child input. Each channel will receive file set id shards
+func initChildrenFsidChans(num int) []chan string {
 	childrenFsidChans := make([]chan string, num)
 	for i := range num {
 		childrenFsidChans[i] = make(chan string)
@@ -144,9 +145,11 @@ func initChildrenChans(num int) []chan string {
 	return childrenFsidChans
 }
 
-func consumeChildrenChans(ctx context.Context, childrenChans []chan string, cb func(int, string) error) error {
-	cases := make([]reflect.SelectCase, len(childrenChans)+1)
-	for i, childChan := range childrenChans {
+// Consumes file set id shards from each child input as they arrive. Calls cb with the index of
+// the child input. Function returns when all children channels are closed or the context is done.
+func consumeChildrenFsidChans(ctx context.Context, childrenFsidChans []chan string, cb func(int, string) error) error {
+	cases := make([]reflect.SelectCase, len(childrenFsidChans)+1)
+	for i, childChan := range childrenFsidChans {
 		cases[i] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(childChan)}
 	}
 	cases[len(cases)-1] = reflect.SelectCase{Dir: reflect.SelectRecv, Chan: reflect.ValueOf(ctx.Done())}
@@ -154,12 +157,12 @@ func consumeChildrenChans(ctx context.Context, childrenChans []chan string, cb f
 	for len(finished) < len(cases)-1 {
 		i, value, ok := reflect.Select(cases)
 		if i == len(cases)-1 {
-			return errors.Wrap(context.Cause(ctx), "consumeChildrenChans")
+			return errors.Wrap(context.Cause(ctx), "consumeChildrenFsidChans")
 		}
 		if ok {
 			fsid := value.Interface().(string)
 			if err := cb(i, fsid); err != nil {
-				return errors.Wrap(err, "consumeChildrenChans")
+				return errors.Wrap(err, "consumeChildrenFsidChans")
 			}
 		} else {
 			finished[i] = true
@@ -174,9 +177,9 @@ func streamingCreateInputs(
 	taskDoer task.Doer,
 	renewer *renew.StringSet,
 	inputs []*pps.Input,
+	childrenFsidChans []chan string,
 	errChan chan<- error,
 	requestDatumsChan <-chan struct{},
-	childrenChans []chan string,
 ) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	for i, input := range inputs {
@@ -187,9 +190,9 @@ func streamingCreateInputs(
 				if err := renewer.Add(ctx, fsid); err != nil {
 					return errors.Wrap(err, "renew file set")
 				}
-				childrenChans[i] <- fsid
+				childrenFsidChans[i] <- fsid
 			}
-			close(childrenChans[i])
+			close(childrenFsidChans[i])
 			return nil
 		})
 	}
@@ -212,10 +215,10 @@ func streamingCreateCross(
 ) {
 	defer close(fsidChan)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
-		childrenChans := initChildrenChans(len(inputs))
-		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
+		childrenFsidChans := initChildrenFsidChans(len(inputs))
+		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, childrenFsidChans, errChan, requestDatumsChan)
 		inputsShards := make([][]string, len(inputs))
-		if err := consumeChildrenChans(ctx, childrenChans, func(idx int, fsid string) error {
+		if err := consumeChildrenFsidChans(ctx, childrenFsidChans, func(idx int, fsid string) error {
 			inputsShards[idx] = append(inputsShards[idx], fsid)
 			taskInputs, err := getTasksForNewShard(ctx, c, inputsShards, idx, func(ctx context.Context, fileSetIDs []string, baseShardIndex int, baseShard *pfs.PathRange) (*anypb.Any, error) {
 				input, err := serializeCrossTask(&CrossTask{
@@ -234,7 +237,7 @@ func streamingCreateCross(
 				return errors.Wrap(err, "cartesian product")
 			}
 			if taskInputs != nil {
-				if err := task.DoBatch(ctx, taskDoer, taskInputs, func(_ int64, output *anypb.Any, err error) error {
+				return task.DoBatch(ctx, taskDoer, taskInputs, func(_ int64, output *anypb.Any, err error) error {
 					if err != nil {
 						return errors.Wrap(err, "task do batch")
 					}
@@ -247,13 +250,11 @@ func streamingCreateCross(
 					}
 					select {
 					case <-ctx.Done():
-						return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+						return errors.Wrap(context.Cause(ctx), "send file set id up")
 					case fsidChan <- result.FileSetId:
 					}
 					return nil
-				}); err != nil {
-					return errors.Wrap(err, "task do batch")
-				}
+				})
 			}
 			return nil
 		}); err != nil {
@@ -268,8 +269,8 @@ func streamingCreateCross(
 	}
 }
 
-// Returns a slice of task inputs. Each task is a permutation of one shard from every input.
-// For the input that just received a shard (addedInput), use only the most recently added
+// Returns a slice of task inputs. Each task is a permutation of a shard from each input.
+// For the input that just received a shard (addedInput), use only the recently added
 // shard. For the other inputs, use all shards.
 func getTasksForNewShard(
 	ctx context.Context,
@@ -329,7 +330,8 @@ func shardPermute(input [][]string, addedInput int, index int, result []string, 
 
 // Used for crossing shards. inputsShards[i] refers to a slice of shards for the ith input.
 // addedInput is the index of the input that most recently received a shard. This function
-// returns a slice of slices, each of which represents a permutation of shards from each input.
+// returns a slice of slices, each of which represents a permutation of shards from each input,
+// except for the added input, which only uses the most recently added shard.
 func cartesianProduct(inputsShards [][]string, addedInput int) [][]string {
 	// If any input has no shards, we can't cross it with the other inputs
 	for _, inputShards := range inputsShards {
@@ -354,16 +356,16 @@ func streamingCreateJoin(
 ) {
 	defer close(fsidChan)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
-		childrenChans := initChildrenChans(len(inputs))
-		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
+		childrenFsidChans := initChildrenFsidChans(len(inputs))
+		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, childrenFsidChans, errChan, requestDatumsChan)
 		inputsShards := make([][]string, len(inputs))
-		if err := consumeChildrenChans(ctx, childrenChans, func(idx int, fsid string) error {
+		if err := consumeChildrenFsidChans(ctx, childrenFsidChans, func(idx int, fsid string) error {
 			keyFsidChan := make(chan string)
-			go streamingCreateKeyFileSet(ctx, c, taskDoer, renewer, keyFsidChan, errChan, fsid, KeyTask_JOIN)
+			go streamingCreateKeyFileSetsJoin(ctx, c, taskDoer, renewer, keyFsidChan, errChan, fsid)
 			for keyFsid := range keyFsidChan {
 				inputsShards[idx] = append(inputsShards[idx], keyFsid)
 				if err := streamingMergeKeyFileSetsJoin(ctx, c, taskDoer, renewer, fsidChan, inputsShards, idx); err != nil {
-					return errors.Wrap(err, "streamingMergeKeyFileSets")
+					return errors.Wrap(err, "streamingMergeKeyFileSetsJoin")
 				}
 			}
 			return nil
@@ -379,7 +381,7 @@ func streamingCreateJoin(
 	}
 }
 
-func streamingCreateKeyFileSet(
+func streamingCreateKeyFileSetsJoin(
 	ctx context.Context,
 	c pfs.APIClient,
 	taskDoer task.Doer,
@@ -387,7 +389,6 @@ func streamingCreateKeyFileSet(
 	fsidChan chan<- string,
 	errChan chan<- error,
 	fileSetID string,
-	keyType KeyTask_Type,
 ) {
 	defer close(fsidChan)
 	if err := func() error {
@@ -400,7 +401,7 @@ func streamingCreateKeyFileSet(
 			input, err := serializeKeyTask(&KeyTask{
 				FileSetId: fileSetID,
 				PathRange: shard,
-				Type:      keyType,
+				Type:      KeyTask_JOIN,
 				AuthToken: getAuthToken(ctx),
 			})
 			if err != nil {
@@ -421,7 +422,7 @@ func streamingCreateKeyFileSet(
 			}
 			select {
 			case <-ctx.Done():
-				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+				return errors.Wrap(context.Cause(ctx), "send file set id up")
 			case fsidChan <- result.FileSetId:
 			}
 			return nil
@@ -472,7 +473,7 @@ func streamingMergeKeyFileSetsJoin(
 			}
 			select {
 			case <-ctx.Done():
-				return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+				return errors.Wrap(context.Cause(ctx), "send file set id up")
 			case fsidChan <- result.FileSetId:
 			}
 			return nil
@@ -551,7 +552,7 @@ func streamingMergeKeyFileSetsGroup(
 		}
 		select {
 		case <-ctx.Done():
-			return errors.Wrap(context.Cause(ctx), "send file set id to iterator")
+			return errors.Wrap(context.Cause(ctx), "send file set id up")
 		case fsidChan <- result.FileSetId:
 		}
 		return nil
