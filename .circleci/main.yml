@@ -1354,23 +1354,63 @@ jobs:
           command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
-    docker:
-      - image: cimg/python:3.9
+    machine:
+      image: << pipeline.parameters.machine_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
           path: ~/project
-      - install-bazel
-      - install-jupyter-test-deps
+      - install-minikube
+      - install-helm
+      - install-kubectl
+      - start-minikube-large
+      - attach_workspace:
+          at: ./
+      - run:
+          name: Install pachctl
+          command: |
+            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
       - install-poetry
       - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
           name: Install Python Dependencies with Poetry
           command: poetry --no-ansi install
+      - wait-for-minikube
       - run:
-          name: debug
+          name: Install minio
+          command: kubectl apply -f ../etc/testing/minio.yaml
+      - run:
+          name: Install pach
           command: |
-            cat ${HOME}/.pachyderm/config.json
-            cat ${HOME}/.pachyderm/auth_config.json
+            helm install pachd ../etc/helm/pachyderm \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1}
+            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
+            helm install pachd-enterprise ../etc/helm/pachyderm \
+              --namespace enterprise \
+              --set deployTarget=custom \
+              --set pachd.storage.backend=AMAZON \
+              --set pachd.storage.gocdkEnabled=true \
+              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
+              --set pachd.storage.amazon.id=minioadmin \
+              --set pachd.storage.amazon.secret=minioadmin \
+              --set proxy.service.type=NodePort \
+              --set pachd.image.tag=${CIRCLE_SHA1} \
+              --set proxy.service.httpNodePort=30081 \
+              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
+              --set pachd.rootToken=roottoken1234
+      - run:
+          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          command: |
+            sleep 20
+            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
+            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
       - run:
           name: Run Tests
           command: |
@@ -1855,6 +1895,7 @@ workflows:
       - test-python-sdk:
           filters: *only-release-tags
           requires:
+            - build-docker-images
             - build-pachctl-bin
       - pulumi-aws-test-env:
           name: aws-prerelease-testing-env-1
