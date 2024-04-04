@@ -89,10 +89,10 @@ require (
 	gocloud.dev v0.27.0
 	golang.org/x/crypto v0.22.0
 	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
-	golang.org/x/mod v0.11.0
+	golang.org/x/mod v0.16.0
 	golang.org/x/net v0.23.0
 	golang.org/x/oauth2 v0.11.0
-	golang.org/x/sync v0.3.0
+	golang.org/x/sync v0.6.0
 	golang.org/x/sys v0.19.0
 	golang.org/x/term v0.19.0
 	golang.org/x/text v0.14.0
