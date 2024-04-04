@@ -24,10 +24,12 @@ func TestServer(t *testing.T) {
 	fileset.NewTestStorage(ctx, t, db, tracker)
 
 	var config pachconfig.StorageConfiguration
-	s, err := New(Env{
-		DB:     db,
-		Bucket: b,
-	}, config)
+	s, err := New(ctx,
+		Env{
+			DB:     db,
+			Bucket: b,
+		},
+		config)
 	require.NoError(t, err)
 
 	w := s.Filesets.NewWriter(ctx)

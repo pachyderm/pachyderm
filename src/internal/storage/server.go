@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"database/sql"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
@@ -38,13 +39,13 @@ type Server struct {
 }
 
 // New creates a new Server
-func New(env Env, config pachconfig.StorageConfiguration) (*Server, error) {
+func New(ctx context.Context, env Env, config pachconfig.StorageConfiguration) (*Server, error) {
 	// Setup tracker
 	tracker := track.NewPostgresTracker(env.DB)
 
 	// chunk
 	keyStore := chunk.NewPostgresKeyStore(env.DB)
-	secret, err := getOrCreateKey(context.TODO(), keyStore, "default")
+	secret, err := getOrCreateKey(ctx, keyStore, "default")
 	if err != nil {
 		return nil, err
 	}

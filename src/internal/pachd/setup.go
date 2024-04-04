@@ -144,12 +144,12 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 	return setupStep{
 		Name: "initPFSAPIServer",
 		Fn: func(ctx context.Context) error {
-			apiServer, err := pfs_server.NewAPIServer(env())
+			apiServer, err := pfs_server.NewAPIServer(ctx, env())
 			if err != nil {
 				return errors.Wrap(err, "pfs api server")
 			}
 			*out = apiServer
-			master, err := pfs_server.NewMaster(env())
+			master, err := pfs_server.NewMaster(ctx, env())
 			if err != nil {
 				return errors.Wrap(err, "pfs master")
 			}
@@ -177,7 +177,7 @@ func initPFSWorker(out **pfs_server.Worker, config pachconfig.StorageConfigurati
 	return setupStep{
 		Name: "initPFSWorker",
 		Fn: func(ctx context.Context) error {
-			w, err := pfs_server.NewWorker(env(), pfs_server.WorkerConfig{Storage: config})
+			w, err := pfs_server.NewWorker(ctx, env(), pfs_server.WorkerConfig{Storage: config})
 			if err != nil {
 				return err
 			}

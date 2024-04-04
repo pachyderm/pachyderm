@@ -39,8 +39,8 @@ type Master struct {
 	driver *driver
 }
 
-func NewMaster(env Env) (*Master, error) {
-	d, err := newDriver(env)
+func NewMaster(ctx context.Context, env Env) (*Master, error) {
+	d, err := newDriver(ctx, env)
 	if err != nil {
 		return nil, err
 	}
