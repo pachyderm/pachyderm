@@ -4,7 +4,7 @@
     "definitions": {
         "TraceChunk": {
             "properties": {
-                "bytes": {
+                "content": {
                     "additionalProperties": false,
                     "type": "string"
                 }
@@ -14,7 +14,7 @@
             "oneOf": [
                 {
                     "required": [
-                        "bytes"
+                        "content"
                     ]
                 }
             ],

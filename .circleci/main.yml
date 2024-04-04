@@ -1354,8 +1354,8 @@ jobs:
           command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
+    docker:
+      - image: cimg/python:3.9
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
