@@ -78,6 +78,7 @@ go_test(
         "//src/server/pfs/server",
         "@com_github_docker_go_units//:go-units",
         "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
         "@com_github_jmoiron_sqlx//:sqlx",
         "@com_github_stretchr_testify//assert",
         "@org_golang_google_genproto_googleapis_rpc//errdetails",
