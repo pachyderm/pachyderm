@@ -884,6 +884,8 @@ jobs:
     steps:
       - checkout
       - run:
+          command: go version
+      - run:
           name: Install govulncheck
           command: go install golang.org/x/vuln/cmd/govulncheck@latest
       - run:
