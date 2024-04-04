@@ -34,7 +34,7 @@ func streamingCreate(ctx context.Context, c pfs.APIClient, taskDoer task.Doer, i
 	case input.Join != nil:
 		streamingCreateJoin(ctx, c, taskDoer, input.Join, fsidChan, errChan, requestDatumsChan)
 	case input.Group != nil:
-		streamingCreateGroup(ctx, c, taskDoer, input.Group, fsidChan, errChan, requestDatumsChan)
+		streamingCreateGroup(ctx, c, taskDoer, input.Group, fsidChan, errChan)
 	case input.Cron != nil:
 		select {
 		case <-ctx.Done():
@@ -488,29 +488,20 @@ func streamingCreateGroup(
 	inputs []*pps.Input,
 	fsidChan chan<- string,
 	errChan chan<- error,
-	requestDatumsChan <-chan struct{},
 ) {
 	defer close(fsidChan)
 	if err := client.WithRenewer(ctx, c, func(ctx context.Context, renewer *renew.StringSet) error {
-		childrenChans := initChildrenChans(len(inputs))
-		go streamingCreateInputs(ctx, c, taskDoer, renewer, inputs, errChan, requestDatumsChan, childrenChans)
-		inputsShards := make([][]string, len(inputs))
-		if err := consumeChildrenChans(ctx, childrenChans, func(idx int, fsid string) error {
-			keyFsidChan := make(chan string)
-			go streamingCreateKeyFileSet(ctx, c, taskDoer, renewer, keyFsidChan, errChan, fsid, KeyTask_GROUP)
-			for keyFsid := range keyFsidChan {
-				inputsShards[idx] = append(inputsShards[idx], keyFsid)
-
-			}
-			return nil
-		}); err != nil {
-			return errors.Wrap(err, "consuming children channels")
-		}
-		composedShards, err := composeInputShards(ctx, c, taskDoer, renewer, &inputsShards)
+		// Group needs all key file set shards to be present before merging. Use ListDatum
+		// implementation until merge step, instead of streaming, as it's faster.
+		fileSetIDs, err := createInputs(ctx, c, taskDoer, renewer, inputs)
 		if err != nil {
-			return errors.Wrap(err, "composing input shards")
+			return err
 		}
-		if err := streamingMergeKeyFileSetsGroup(ctx, c, taskDoer, renewer, fsidChan, composedShards); err != nil {
+		keyFileSetIDs, err := createKeyFileSets(ctx, c, taskDoer, renewer, fileSetIDs, KeyTask_GROUP)
+		if err != nil {
+			return err
+		}
+		if err := streamingMergeKeyFileSetsGroup(ctx, c, taskDoer, renewer, fsidChan, keyFileSetIDs); err != nil {
 			return errors.Wrap(err, "streamingMergeKeyFileSetsGroup")
 		}
 		return nil
@@ -522,35 +513,6 @@ func streamingCreateGroup(
 	}
 }
 
-func composeInputShards(
-	ctx context.Context,
-	c pfs.APIClient,
-	taskDoer task.Doer,
-	renewer *renew.StringSet,
-	inputsShards *[][]string,
-) ([]string, error) {
-	composedShards := make([]string, len(*inputsShards))
-	eg, egCtx := errgroup.WithContext(ctx)
-	for i := range len(*inputsShards) {
-		eg.Go(func() error {
-			fsid, err := ComposeFileSets(egCtx, c, taskDoer, (*inputsShards)[i])
-			if err != nil {
-				return errors.Wrap(err, "compose file sets")
-			}
-			if err := renewer.Add(ctx, fsid); err != nil {
-				return errors.Wrap(err, "renew result file set")
-			}
-			composedShards[i] = fsid
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		return nil, errors.Wrap(err, "composing input shards")
-	}
-	return composedShards, nil
-}
-
-// Group needs all key file set shards to be present before merging
 func streamingMergeKeyFileSetsGroup(
 	ctx context.Context,
 	c pfs.APIClient,
