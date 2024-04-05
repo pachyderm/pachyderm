@@ -3833,7 +3833,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "bytes",
+              "name": "content",
               "description": "",
               "label": "",
               "type": "BytesValue",
