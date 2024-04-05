@@ -168,12 +168,11 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 				require.True(t, ok, "found subvenant commit should exist in map of created commits")
 			}
 			// test options
-			maxItems := uint64(3)
-			provenantCommits, err = pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID, pfsdb.GraphOpt{Limit: &maxItems})
+			limit := uint64(3)
+			provenantCommits, err = pfsdb.GetCommitWithIDProvenance(ctx, tx, commits[size].ID, pfsdb.WithLimit(limit))
 			require.NoError(t, err, "should be able to get provenant commits")
-			require.Equal(t, uint64(len(provenantCommits)), maxItems) // ignore commit whose id is size.
 			maxDepth := uint64(2)
-			subvenantCommits, err = pfsdb.GetCommitWithIDSubvenance(ctx, tx, commits[1].ID, pfsdb.GraphOpt{MaxDepth: &maxDepth})
+			require.Equal(t, uint64(len(provenantCommits)), limit) // ignore commit whose id is size.
 			require.NoError(t, err, "should be able to get subvenant commits")
 			require.Equal(t, uint64(len(subvenantCommits)), maxDepth) // ignore commit whose id is 1.
 		})
