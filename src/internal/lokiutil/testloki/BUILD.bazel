@@ -1,9 +1,13 @@
 load("@rules_go//go:def.bzl", "go_library", "go_test")
 
+# gazelle:go_test file
+
 go_library(
     name = "testloki",
-    testonly = 1,
-    srcs = ["testloki.go"],
+    srcs = [
+        "logger.go",
+        "testloki.go",
+    ],
     data = [
         "config.yaml",
         "//tools/loki",
@@ -14,10 +18,14 @@ go_library(
         "//src/internal/errors",
         "//src/internal/log",
         "//src/internal/lokiutil/client",
+        "//src/internal/pachconfig",
+        "//src/internal/pachd",
         "//src/internal/pctx",
         "//src/internal/promutil",
+        "//src/internal/randutil",
         "@in_gopkg_yaml_v3//:yaml_v3",
         "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
         "@rules_go//go/runfiles:go_default_library",
         "@rules_go//go/tools/bazel:go_default_library",
     ],
@@ -32,5 +40,18 @@ go_test(
         "//src/internal/lokiutil/client",
         "//src/internal/pctx",
         "@com_github_google_go_cmp//cmp",
+    ],
+)
+
+go_test(
+    name = "logger_test",
+    size = "small",
+    srcs = ["logger_test.go"],
+    deps = [
+        ":testloki",
+        "//src/internal/pachd",
+        "//src/internal/pctx",
+        "//src/logs",
+        "@org_golang_google_protobuf//encoding/protojson",
     ],
 )
