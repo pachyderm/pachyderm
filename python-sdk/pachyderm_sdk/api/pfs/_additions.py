@@ -155,9 +155,7 @@ def _Branch_as_uri(self: "Branch") -> str:
 def _Branch_as_picker(self: "Branch") -> BranchPicker:
     """Converts a Branch to a BranchPicker."""
     repo = self.repo.as_picker()
-    return BranchPicker(
-        name=BranchPickerBranchName(name=self.name, repo=repo)
-    )
+    return BranchPicker(name=BranchPickerBranchName(name=self.name, repo=repo))
 
 
 Branch.from_uri = _Branch_from_uri
