@@ -9,10 +9,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/cleanup"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"go.uber.org/zap"
@@ -25,6 +27,7 @@ var (
 	verbose      = flag.Bool("v", false, "if true, show debug level logs (they always end up in logfile, though)")
 	pachCtx      = flag.String("context", "testpachd", "if set, setup the named pach context to connect to this server, and switch to it")
 	activateAuth = flag.Bool("auth", false, "if true, activate auth")
+	useLoki      = flag.Bool("loki", false, "if true, start a loki sidecar and send pachd logs there")
 )
 
 func main() {
@@ -36,28 +39,51 @@ func main() {
 		log.SetLevel(log.DebugLevel)
 	}
 
-	// Init testpachd options.
-	var opts []pachd.TestPachdOption
-	if *activateAuth {
-		opts = append(opts, pachd.ActivateAuthOption(rootToken))
-	}
-
-	// Build pachd.
+	// Handle cleaning up on exit.
 	ctx, cancel := pctx.Interactive()
+	runCtx := ctx
 	var exitErr error
-	pd, cleanup, err := pachd.BuildTestPachd(ctx, opts...)
-
-	// Cleanup pachd on return.
+	var clean cleanup.Cleaner
 	defer func() {
 		ctx = pctx.Background("cleanup")
-		if err := cleanup.Cleanup(ctx); err != nil {
+		if err := clean.Cleanup(ctx); err != nil {
 			log.Error(ctx, "problem cleaning up", zap.Error(err))
 		}
 		done(exitErr)
 	}()
 
-	// If pachd failed to build, exit now.
+	// Init testpachd options.
+	var opts []pachd.TestPachdOption
+	if *activateAuth {
+		opts = append(opts, pachd.ActivateAuthOption(rootToken))
+	}
+	if *useLoki {
+		tmpdir, err := os.MkdirTemp("", "testpachd-loki-")
+		if err != nil {
+			log.Error(ctx, "problem making tmpdir for loki", zap.Error(err))
+			exitErr = err
+			return
+		}
+		clean.AddCleanup("loki files", func() error {
+			return errors.Wrapf(os.RemoveAll(tmpdir), "cleanup loki tmpdir %v", tmpdir)
+		})
+		l, err := testloki.New(ctx, tmpdir)
+		if err != nil {
+			log.Error(ctx, "problem starting loki", zap.Error(err))
+			exitErr = err
+			return
+		}
+		clean.AddCleanup("loki", l.Close)
+		opt := testloki.WithTestLoki(l)
+		opts = append(opts, opt)
+		runCtx = opt.MutateContext(runCtx)
+	}
+
+	// Build pachd.
+	pd, cleanupPachd, err := pachd.BuildTestPachd(ctx, opts...)
+	clean.Subsume(cleanupPachd)
 	if err != nil {
+		// If pachd failed to build, exit now.
 		log.Error(ctx, "problem building pachd", zap.Error(err))
 		exitErr = err
 		return
@@ -67,7 +93,7 @@ func main() {
 	errCh := make(chan error)
 	go func() {
 		defer close(errCh)
-		if err := pd.Run(ctx); err != nil {
+		if err := pd.Run(runCtx); err != nil {
 			// If pachd exits, send the error on errCh.  errCh is read after the context
 			// that cancel() cancels is done, so cancel it first so the write doesn't
 			// block.
@@ -91,13 +117,14 @@ func main() {
 	if *pachCtx != "" {
 		oldContext, err := setupPachctlConfig(ctx, *pachCtx, *activateAuth, pachClient)
 		if err != nil {
+			log.Error(ctx, "problem reading pachctl config", zap.Error(err))
 			exitErr = err
 			cancel()
 			return
 		}
 		if oldContext != "" && oldContext != *pachCtx {
 			// Restore the context they were currently pointing at on exit.
-			cleanup.AddCleanupCtx("restore pach context", func(ctx context.Context) error {
+			clean.AddCleanupCtx("restore pach context", func(ctx context.Context) error {
 				cfg, err := config.Read(true, false)
 				if err != nil {
 					return errors.Wrap(err, "read pachctl config")
