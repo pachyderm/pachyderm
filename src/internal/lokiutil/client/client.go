@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
@@ -157,36 +158,35 @@ type TailChunk struct {
 // can set this to something short and end as soon as they are ready to end.
 var TailPerReadDeadline = 30 * time.Second
 
-// Tail watches a Loki query until the provided context is cancelled.  The start time should be as
+// Tail watches a Loki query until the provided context is canceled.  The start time should be as
 // close as possible to the present time; you can get some historical logs through this API, but
 // logs will be missed while that query is running on the loki side.  So it's best to call
 // QueryRange up to the current timestamp, and then pass the most recent timestamp that call
 // received to Tail.  This function will always return an error; if you canceled the context on
 // purpose you should ignore the error context.Canceled.
 func (c *Client) Tail(ctx context.Context, start time.Time, query string, cb func(*TailChunk) error) error {
-	values := make(url.Values)
-	values.Add("query", query)
-	values.Add("start", strconv.FormatInt(start.UnixNano(), 10))
-	u, err := buildURL(c.Address, "/loki/api/v1/tail", values.Encode())
-	if err != nil {
-		return errors.Wrap(err, "build tailing url")
-	}
-	if http := "http:"; strings.HasPrefix(u, http) {
-		u = "ws:" + u[len(http):]
-	}
-	cfg, err := websocket.NewConfig(u, "ws://pachyderm-loki")
-	if err != nil {
-		return errors.Wrap(err, "build websocket config")
-	}
-
 	var connected bool
+	delay := backoff.NewExponentialBackOff()
 main:
 	for {
-		select {
-		case <-ctx.Done():
-			return errors.Wrap(context.Cause(ctx), "tail retry loop ending")
-		default:
+		// Calculate the URL to connect to.  This changes every iteration, because start
+		// advances as we read logs.
+		values := make(url.Values)
+		values.Add("query", query)
+		values.Add("start", strconv.FormatInt(start.UnixNano(), 10))
+		u, err := buildURL(c.Address, "/loki/api/v1/tail", values.Encode())
+		if err != nil {
+			return errors.Wrap(err, "build tailing url")
 		}
+		if http := "http:"; strings.HasPrefix(u, http) {
+			u = "ws:" + u[len(http):]
+		}
+		cfg, err := websocket.NewConfig(u, "ws://pachyderm-loki")
+		if err != nil {
+			return errors.Wrap(err, "build websocket config")
+		}
+
+		// Try connecting.
 		log.Debug(ctx, "attempting to connect to loki", zap.String("url", u), zap.Bool("previously_connected", connected))
 		conn, err := cfg.DialContext(ctx)
 		if err != nil {
@@ -198,13 +198,14 @@ main:
 				return errors.Wrap(err, "dial loki tail endpoint")
 			}
 			select {
-			case <-time.After(time.Second):
+			case <-time.After(delay.NextBackOff()):
 				continue main
 			case <-ctx.Done():
 				return errors.Wrap(context.Cause(ctx), "context done while awaiting loki reconnect after dial failure")
 			}
 		}
 		connected = true
+		delay.Reset()
 		log.Debug(ctx, "connected to loki websocket", zap.String("url", u))
 		for {
 			select {
@@ -212,27 +213,38 @@ main:
 				return errors.Wrap(context.Cause(ctx), "context done while awaiting loki websocket message")
 			default:
 			}
+
+			// This read is not otherwise gated by the context, so we set a short
+			// deadline on the read.  If the context is OK after the failed read, we
+			// just restart.
 			if err := conn.SetDeadline(time.Now().Add(TailPerReadDeadline)); err != nil {
 				return errors.Wrap(err, "set websocket activity deadline")
 			}
 			var res tailResponse
+
+			// Read a message.
 			if err := websocket.JSON.Receive(conn, &res); err != nil {
 				if errors.Is(err, io.EOF) {
+					// The Loki server closed the connection.  It will probably
+					// be back, so reconnect.
 					select {
-					case <-time.After(time.Second):
-						// Reconnect.
+					case <-time.After(delay.NextBackOff()):
 						continue main
 					case <-ctx.Done():
 						return errors.Wrap(context.Cause(ctx), "context done while awaiting loki reconnect after EOF")
 					}
 				}
 				if errors.Is(err, os.ErrDeadlineExceeded) {
-					// Check the context (at the top of this loop), and give
-					// Loki 10 more seconds to send something.
+					// We didn't get a message within our read deadline; that is
+					// expected.  The context is checked again at the top of the
+					// loop.
 					continue
 				}
 				return errors.Wrap(err, "decoding loki response")
 			}
+
+			// Order the messages in the response by time.  Loki chunks them into
+			// related log streams, but we want to read in time order instead.
 			var chunks []*TailChunk
 			for _, stream := range res.Streams {
 				for _, value := range stream.Values {

@@ -12,6 +12,7 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client",
     visibility = ["//src:__subpackages__"],
     deps = [
+        "//src/internal/backoff",
         "//src/internal/errors",
         "//src/internal/log",
         "//src/internal/promutil",
