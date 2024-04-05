@@ -45,8 +45,8 @@ func (d *debugServer) Trace(req *debug.TraceRequest, s debug.Debug_TraceServer) 
 			return errors.Wrap(err, "read")
 		}
 		if err := s.Send(&debug.TraceChunk{
-			Reply: &debug.TraceChunk_Bytes{
-				Bytes: wrapperspb.Bytes(p[:n]),
+			Reply: &debug.TraceChunk_Content{
+				Content: wrapperspb.Bytes(p[:n]),
 			},
 		}); err != nil {
 			return errors.Wrap(err, "send")

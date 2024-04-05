@@ -228,7 +228,35 @@ describe('datum screen', () => {
       );
     });
 
-    it('executes command for toast notification on load.', async () => {
+    it('executes command for datum order warning if not pfs mount.', async () => {
+      const executeCommand = jest.fn();
+      const {findByTestId} = render(
+        <Datum
+          executeCommand={executeCommand}
+          open={jest.fn()}
+          pollRefresh={jest.fn()}
+          repoViewInputSpec={{}}
+        />,
+      );
+
+      const input = await findByTestId('Datum__inputSpecInput');
+      const submit = await findByTestId('Datum__loadDatums');
+      userEvent.type(
+        input,
+        YAML.stringify({cross: [{pfs: 'repo'}, {pfs: 'repo'}]}),
+      );
+      submit.click();
+
+      expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
+        message: 'Datum order not guaranteed when loading datums.',
+        type: 'info',
+        options: {
+          autoClose: 10000, // 10 seconds
+        },
+      });
+    });
+
+    it('does not execute command for datum order warning if pfs mount.', async () => {
       const executeCommand = jest.fn();
       const {findByTestId} = render(
         <Datum
@@ -244,13 +272,7 @@ describe('datum screen', () => {
       userEvent.type(input, YAML.stringify({pfs: 'repo'}));
       submit.click();
 
-      expect(executeCommand).toHaveBeenCalledWith('apputils:notify', {
-        message: 'Datum order not guaranteed when loading datums.',
-        type: 'info',
-        options: {
-          autoClose: 10000, // 10 seconds
-        },
-      });
+      expect(executeCommand).not.toHaveBeenCalled();
     });
   });
 });
