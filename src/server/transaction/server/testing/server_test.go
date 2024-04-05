@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"fmt"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -167,12 +166,6 @@ func TestTransactions(suite *testing.T) {
 
 		// Check each response value
 		requireEmptyResponse(t, info.Responses[0])
-		//info.Responses[1].Commit.Branch.Name = ""
-		if diff := cmp.Diff(info.Responses[1].Commit, commit, protocmp.Transform(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name"), cmpopts.EquateErrors()); diff != "" {
-			fmt.Println(diff)
-			fmt.Println()
-		}
-
 		requireCommitResponse(t, info.Responses[1], commit)
 		requireEmptyResponse(t, info.Responses[2])
 
@@ -184,7 +177,6 @@ func TestTransactions(suite *testing.T) {
 
 		// Double-check each response value
 		requireEmptyResponse(t, info.Responses[0])
-		info.Responses[1].Commit.Branch.Name = ""
 		requireCommitResponse(t, info.Responses[1], commit)
 		requireEmptyResponse(t, info.Responses[2])
 
