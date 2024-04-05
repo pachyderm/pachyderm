@@ -1,10 +1,17 @@
 describe('Project', () => {
   before(() => {
-    cy.setupProject().visit('/');
+    cy.deleteReposAndPipelines();
+    cy.multiLineExec(
+      `
+    pachctl create repo images
+    echo '{"pipeline": {"name": "edges"} ,"transform": {"cmd": ["sh"],"stdin": ["sleep 0"]},"input": {"pfs": {"glob": "/*","repo": "images"}}}'  | pachctl create pipeline
+    echo '{"pipeline": {"name": "montage"} ,"transform": {"cmd": ["sh"],"stdin": ["sleep 0"]},  "input": {"cross": [{"pfs": {"glob": "/","repo": "images"}}, {"pfs": {"glob": "/","repo": "edges"}}]},}'  | pachctl create pipeline
+  `,
+    ).visit('/');
   });
 
   beforeEach(() => {
-    cy.findAllByText(/^View(\sProject)*$/)
+    cy.findAllByText(/^View(\sProject)*$/, {timeout: 30_000})
       .eq(0)
       .click();
   });
@@ -18,23 +25,7 @@ describe('Project', () => {
   });
 
   it('should enable the pipeline and repo deletion buttons when all downstream pipelines and repos are deleted', () => {
-    cy.exec('jq -r .pachReleaseCommit version.json').then((res) => {
-      cy.exec(
-        `pachctl create pipeline -f https://raw.githubusercontent.com/pachyderm/pachyderm/${res.stdout}/examples/opencv/montage.pipeline.json`,
-      );
-    });
-
-    // wait for jobs to finish to reduce pachd strain
-    cy.findByText('Jobs').click();
-    cy.findByLabelText('expand filters').click();
-    cy.findAllByText('Success').filter(':visible').last().click();
-    cy.findAllByTestId('RunsList__row', {timeout: 60000}).should(
-      'have.length',
-      2,
-    );
-    cy.findByText('DAG').click();
-
-    cy.findByText('images').click();
+    cy.findByText('images', {timeout: 30_000}).click();
     cy.findByRole('button', {name: 'Repo Actions'}).click();
     cy.findByRole('menuitem', {name: 'Delete Repo'}).should('be.disabled');
     cy.findByRole('button', {name: 'Close sidebar'}).click();

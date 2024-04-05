@@ -53,22 +53,6 @@ commands:
           command: |
             etc/testing/circle/install.sh
             etc/testing/circle/start-kind.sh
-  run-pachyderm-ce:
-    steps:
-      - gh/setup:
-          version: 2.20.2
-      - install-pachyderm-dependencies
-      - run:
-          name: Deploy Pachyderm CE (Proxy)
-          command: etc/testing/circle/deploy-pachyderm.sh
-  run-pachyderm-ee:
-    steps:
-      - gh/setup:
-          version: 2.20.2
-      - install-pachyderm-dependencies
-      - run:
-          name: Deploy Pachyderm EE (Proxy)
-          command: etc/testing/circle/deploy-pachyderm-enterprise-proxy.sh
   run-pachyderm-with-console:
     steps:
       - gh/setup:
@@ -77,6 +61,14 @@ commands:
       - run:
           name: Deploy Pachyderm With Console (Proxy)
           command: etc/testing/circle/deploy-pachyderm-with-console.sh
+  run-pachyderm-with-console-enterprise:
+    steps:
+      - gh/setup:
+          version: 2.20.2
+      - install-pachyderm-dependencies
+      - run:
+          name: Deploy Pachyderm EE (Proxy)
+          command: etc/testing/circle/deploy-pachyderm-with-console-and-enterprise.sh
   activate-pachyderm-enterprise:
     steps:
       - run:
@@ -133,40 +125,6 @@ jobs:
       - run: npm run test:frontend --prefix frontend -- --coverage
       - codecov/upload:
           file: ./frontend/src/coverage/lcov.info
-
-  test-e2e-community-edition:
-    resource_class: xlarge
-    parallelism: 3
-    machine:
-      image: default
-    steps:
-      - checkout
-      - node-install-all
-      - run-pachyderm-ce
-      - run:
-          name: Run Community Edition Cypress tests
-          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e
-      - store_artifacts:
-          path: /tmp/cypress-screenshots
-      - store_artifacts:
-          path: /tmp/cypress-videos
-  test-e2e-enterprise-edition:
-    resource_class: xlarge
-    parallelism: 3
-    machine:
-      image: default
-    steps:
-      - checkout
-      - node-install-all
-      - run-pachyderm-ee
-      - run:
-          name: Run Enterprise Edition Cypress tests
-          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run e2e-auth
-      - store_artifacts:
-          path: /tmp/cypress-screenshots
-      - store_artifacts:
-          path: /tmp/cypress-videos
-
   build:
     resource_class: small
     docker:
@@ -252,9 +210,9 @@ jobs:
 
             </details>
             "
-
-  test-docker-console-can-render:
+  test-docker-e2e-community-edition:
     resource_class: xlarge
+    parallelism: 3
     machine:
       image: default
     steps:
@@ -263,8 +221,27 @@ jobs:
       - run-pachyderm-with-console
       - run: touch .env.development.local
       - run:
-          name: Run 'Build' Cypress tests
-          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build
+          name: Run Community Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-e2e
+      - store_artifacts:
+          path: /tmp/cypress-screenshots
+      - store_artifacts:
+          path: /tmp/cypress-videos
+      - store_artifacts:
+          path: /tmp/cypress-debug
+  test-docker-e2e-enterprise-edition:
+    resource_class: xlarge
+    parallelism: 3
+    machine:
+      image: default
+    steps:
+      - checkout
+      - run: npm ci
+      - run-pachyderm-with-console-enterprise
+      - run: touch .env.development.local
+      - run:
+          name: Run Enterprise Edition Cypress tests against built console image
+          command: CI=true CYPRESS_RECORD_KEY=$CONSOLE_CYPRESS_RECORD_KEY npm run cypress:ci-build-auth
       - store_artifacts:
           path: /tmp/cypress-screenshots
       - store_artifacts:
@@ -308,8 +285,6 @@ workflows:
       - test-backend
       - test-frontend-components
       - test-frontend-react
-      - test-e2e-community-edition
-      - test-e2e-enterprise-edition
 
   storybook-release:
     when:
@@ -349,7 +324,10 @@ workflows:
                 - master
                 # Match against 2.6.x, 2.7.x, etc
                 - /\d\.\d\.x/
-      - test-docker-console-can-render:
+      - test-docker-e2e-community-edition:
+          requires:
+            - docker-manifest
+      - test-docker-e2e-enterprise-edition:
           requires:
             - docker-manifest
   docker-release:

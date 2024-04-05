@@ -1,7 +1,11 @@
-describe('Docker Build', () => {
-  it('should load correctly and render a header', () => {
+describe('Proxy', () => {
+  beforeEach(() => {
+    cy.deleteReposAndPipelines();
     cy.visit('/');
-    cy.findByRole('heading', {name: 'default'});
+  });
+
+  after(() => {
+    cy.deleteReposAndPipelines();
   });
 
   it('should proxy request', () => {

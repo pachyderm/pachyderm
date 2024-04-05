@@ -19,7 +19,6 @@ describe('Pipelines', () => {
       win.location.href = 'about:blank';
     });
     cy.deleteReposAndPipelines();
-    cy.exec('pachctl delete project pipelineInferProject -f', {failOnNonZeroExit: false});
   });
 
   it('should allow a user to select a subset of pipelines to inspect jobs and apply a global ID', () => {
@@ -39,7 +38,8 @@ describe('Pipelines', () => {
     cy.findAllByTestId('JobsList__row')
       .first()
       .within(() => cy.findByTestId('DropdownButton__button').click());
-    cy.findByText('Apply Global ID and view in DAG').click();
+
+    cy.findAllByText('Apply Global ID and view in DAG').click();
 
     cy.get('#GROUP_8deb3fe2e77d2fe21f5825ac5e34951ac4eb8e65').should('exist');
     cy.get('#GROUP_d0e1e9a51269508c3f11c0e64c721c3ea6204838').should('exist');

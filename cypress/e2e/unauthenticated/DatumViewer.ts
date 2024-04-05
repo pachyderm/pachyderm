@@ -19,7 +19,7 @@ describe('DatumViewer', () => {
 
       cy.findByRole('link', {
         name: /previous subjobs/i,
-        timeout: 30000,
+        timeout: 30_000,
       }).click();
 
       cy.findByTestId('SidePanel__closeLeft').click();
@@ -55,6 +55,7 @@ describe('DatumViewer', () => {
       cy.visit('/lineage/default/pipelines/lots-of-logs/logs');
       cy.findByRole('link', {
         name: /1 success/i,
+        timeout: 30_000,
       });
     });
   });
