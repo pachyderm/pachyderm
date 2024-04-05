@@ -195,7 +195,7 @@ message TraceRequest {
 
 message TraceChunk {
   oneof reply {
-    google.protobuf.BytesValue bytes = 1;
+    google.protobuf.BytesValue content = 1;
   }
 }
 
