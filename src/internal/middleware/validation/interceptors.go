@@ -48,6 +48,7 @@ var _ grpc.UnaryServerInterceptor = UnaryServerInterceptor
 
 type streamWrapper struct {
 	grpc.ServerStream
+	IsServerStream bool
 }
 
 var _ grpc.ServerStream = new(streamWrapper)
@@ -68,9 +69,10 @@ func (w *streamWrapper) RecvMsg(m any) error {
 }
 
 func (w *streamWrapper) SendMsg(m any) error {
-	//w.ServerStream.
-	if b, ok := m.(branchNillable); ok {
-		b.NilBranchName()
+	if w.IsServerStream {
+		if b, ok := m.(branchNillable); ok {
+			b.NilBranchName()
+		}
 	}
 	return errors.EnsureStack(w.ServerStream.SendMsg(m))
 }
@@ -78,11 +80,11 @@ func (w *streamWrapper) SendMsg(m any) error {
 func StreamServerInterceptor(srv any, stream grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 	// google grpc library wraps client stream and puts server stream. We don't want our implementation to apply to client streams.
 	// TODO: is it possible for these two booleans to be true?
-	if info.IsClientStream && !info.IsServerStream {
-		return handler(srv, stream)
-	}
+	//if info.IsClientStream && !info.IsServerStream {
+	//	return handler(srv, stream)
+	//}
 
-	return handler(srv, &streamWrapper{ServerStream: stream})
+	return handler(srv, &streamWrapper{ServerStream: stream, IsServerStream: info.IsServerStream})
 }
 
 var _ grpc.StreamServerInterceptor = StreamServerInterceptor
