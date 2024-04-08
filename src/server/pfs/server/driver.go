@@ -806,10 +806,10 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
 	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			return d.listProjectInTransaction(ctx, txnCxt, func(proj *pfs.ProjectInfo) error {
+		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
 				if authIsActive {
-					resp, err := d.env.AuthServer.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+					resp, err := d.env.AuthServer.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
 					if err != nil {
 						if errors.Is(err, auth.ErrNotActivated) {
 							// Avoid unnecessary subsequent Auth API calls.
