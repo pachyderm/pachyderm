@@ -1652,6 +1652,9 @@ func (d *driver) walkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 		return errors.Wrap(err, "walk commit provenance in transaction")
 	}
 	for _, commit := range commits {
+		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := cb(commit.CommitInfo); err != nil {
 			return errors.Wrap(err, "walk commit provenance in transaction")
 		}
@@ -1667,6 +1670,9 @@ func (d *driver) walkCommitSubvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 		return errors.Wrap(err, "walk commit subvenance in transaction")
 	}
 	for _, commit := range commits {
+		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := cb(commit.CommitInfo); err != nil {
 			return errors.Wrap(err, "walk commit subvenance in transaction")
 		}
@@ -2036,6 +2042,9 @@ func (d *driver) walkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 		return errors.Wrap(err, "walk branch provenance in transaction")
 	}
 	for _, branch := range branches {
+		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := cb(branch.BranchInfo); err != nil {
 			return errors.Wrap(err, "walk branch provenance in transaction")
 		}
@@ -2051,6 +2060,9 @@ func (d *driver) walkBranchSubvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 		return errors.Wrap(err, "walk branch subvenance in transaction")
 	}
 	for _, branch := range branches {
+		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+			return errors.EnsureStack(err)
+		}
 		if err := cb(branch.BranchInfo); err != nil {
 			return errors.Wrap(err, "walk branch subvenance transaction")
 		}
