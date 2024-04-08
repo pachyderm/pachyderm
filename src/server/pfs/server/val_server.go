@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 
@@ -241,12 +240,13 @@ func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pf
 
 // WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
 func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
-	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		commits, err := a.pickCommits(ctx, tx, request.Start)
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return errors.Wrap(err, "walk commit provenance")
 		}
-		return a.apiServer.WalkCommitProvenanceTx(ctx, tx,
+		return a.apiServer.WalkCommitProvenanceTx(ctx, txnCtx,
 			&WalkCommitProvenanceRequest{
 				StartWithID:                 commits,
 				WalkCommitProvenanceRequest: request,
@@ -256,12 +256,13 @@ func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvena
 
 // WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
 func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
-	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		commits, err := a.pickCommits(ctx, tx, request.Start)
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return errors.Wrap(err, "walk commit subvenance")
 		}
-		return a.apiServer.WalkCommitSubvenanceTx(ctx, tx,
+		return a.apiServer.WalkCommitSubvenanceTx(ctx, txnCtx,
 			&WalkCommitSubvenanceRequest{
 				StartWithID:                 commits,
 				WalkCommitSubvenanceRequest: request,
@@ -271,12 +272,13 @@ func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvena
 
 // WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
 func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
-	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		branches, err := a.pickBranches(ctx, tx, request.Start)
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return err
 		}
-		return a.apiServer.WalkBranchProvenanceTx(ctx, tx,
+		return a.apiServer.WalkBranchProvenanceTx(ctx, txnCtx,
 			&WalkBranchProvenanceRequest{
 				StartWithID:                 branches,
 				WalkBranchProvenanceRequest: request,
@@ -286,12 +288,13 @@ func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvena
 
 // WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
 func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
-	return errors.Wrap(dbutil.WithTx(srv.Context(), a.driver.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		branches, err := a.pickBranches(ctx, tx, request.Start)
+	ctx := srv.Context()
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return err
 		}
-		return a.apiServer.WalkBranchSubvenanceTx(ctx, tx,
+		return a.apiServer.WalkBranchSubvenanceTx(ctx, txnCtx,
 			&WalkBranchSubvenanceRequest{
 				StartWithID:                 branches,
 				WalkBranchSubvenanceRequest: request,

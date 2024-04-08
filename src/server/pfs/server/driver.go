@@ -1644,15 +1644,15 @@ func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionC
 	return nil
 }
 
-func (d *driver) walkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitProvenanceRequest,
+func (d *driver) walkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest,
 	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
-	commits, err := pfsdb.GetCommitWithIDProvenance(ctx, tx, startId,
+	commits, err := pfsdb.GetCommitWithIDProvenance(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit provenance in transaction")
 	}
 	for _, commit := range commits {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(commit.CommitInfo); err != nil {
@@ -1662,15 +1662,15 @@ func (d *driver) walkCommitProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 	return nil
 }
 
-func (d *driver) walkCommitSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkCommitSubvenanceRequest,
+func (d *driver) walkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest,
 	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
-	commits, err := pfsdb.GetCommitWithIDSubvenance(ctx, tx, startId,
+	commits, err := pfsdb.GetCommitWithIDSubvenance(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
 	if err != nil {
 		return errors.Wrap(err, "walk commit subvenance in transaction")
 	}
 	for _, commit := range commits {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(commit.CommitInfo); err != nil {
@@ -2034,15 +2034,15 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID, force)
 }
 
-func (d *driver) walkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchProvenanceRequest,
+func (d *driver) walkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchProvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
-	branches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, startId,
+	branches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
 	if err != nil {
 		return errors.Wrap(err, "walk branch provenance in transaction")
 	}
 	for _, branch := range branches {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(branch.BranchInfo); err != nil {
@@ -2052,15 +2052,15 @@ func (d *driver) walkBranchProvenanceTx(ctx context.Context, tx *pachsql.Tx, req
 	return nil
 }
 
-func (d *driver) walkBranchSubvenanceTx(ctx context.Context, tx *pachsql.Tx, request *WalkBranchSubvenanceRequest,
+func (d *driver) walkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchSubvenanceRequest,
 	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
-	branches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, startId,
+	branches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, txnCtx.SqlTx, startId,
 		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
 	if err != nil {
 		return errors.Wrap(err, "walk branch subvenance in transaction")
 	}
 	for _, branch := range branches {
-		if err := d.env.Auth.CheckRepoIsAuthorized(ctx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(branch.BranchInfo); err != nil {
