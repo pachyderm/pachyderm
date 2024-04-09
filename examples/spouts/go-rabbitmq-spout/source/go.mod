@@ -1,8 +1,6 @@
 module github.com/pachyderm/pachyderm/examples/spouts/go-rabbitmq-spout/source
 
-go 1.21.1
-
-toolchain go1.22.1
+go 1.22.2
 
 require (
 	github.com/pachyderm/pachyderm/v2 v2.9.1
@@ -155,7 +153,7 @@ require (
 	golang.org/x/crypto v0.21.0 // indirect
 	golang.org/x/exp v0.0.0-20240314144324-c7f7c6466f7f // indirect
 	golang.org/x/mod v0.16.0 // indirect
-	golang.org/x/net v0.22.0 // indirect
+	golang.org/x/net v0.23.0 // indirect
 	golang.org/x/oauth2 v0.18.0 // indirect
 	golang.org/x/sync v0.6.0 // indirect
 	golang.org/x/sys v0.18.0 // indirect

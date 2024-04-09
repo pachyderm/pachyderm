@@ -6,10 +6,15 @@ import {
   CurrentDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
+import {ReadonlyPartialJSONObject} from '@lumino/coreutils';
 
 type DatumProps = {
   open: (path: string) => void;
   pollRefresh: () => Promise<void>;
+  executeCommand: (
+    id: string,
+    args?: ReadonlyPartialJSONObject | undefined,
+  ) => void;
   currentDatumInfo?: CurrentDatumResponse;
   repoViewInputSpec: CrossInputSpec | PfsInput;
 };
@@ -22,6 +27,7 @@ const placeholderText = `pfs:
 const Datum: React.FC<DatumProps> = ({
   open,
   pollRefresh,
+  executeCommand,
   currentDatumInfo,
   repoViewInputSpec,
 }) => {
@@ -87,7 +93,20 @@ const Datum: React.FC<DatumProps> = ({
           <button
             data-testid="Datum__loadDatums"
             className="pachyderm-button-link"
-            onClick={callMountDatums}
+            onClick={() => {
+              // Only show the datum order warning if the input spec is more complicated than a simple mount
+              if (!inputSpec.startsWith('pfs:')) {
+                executeCommand('apputils:notify', {
+                  message: 'Datum order not guaranteed when loading datums.',
+                  type: 'info',
+                  options: {
+                    autoClose: 10000, // 10 seconds
+                  },
+                });
+              }
+
+              callMountDatums();
+            }}
             style={{padding: '0.5rem'}}
           >
             Load Datums
