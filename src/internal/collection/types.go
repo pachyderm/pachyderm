@@ -125,7 +125,6 @@ type ReadOnlyCollection interface {
 	Get(key interface{}, val proto.Message) error
 	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 	List(val proto.Message, opts *Options, f func(string) error) error
-	ListRev(val proto.Message, opts *Options, f func(string, int64) error) error
 	Count() (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
@@ -137,8 +136,6 @@ type ReadOnlyCollection interface {
 
 type PostgresReadOnlyCollection interface {
 	ReadOnlyCollection
-
-	GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string, int64) error) error
 
 	// GetUniqueByIndex is identical to GetByIndex except it is an error if
 	// exactly one row is not found.
