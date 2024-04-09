@@ -67,12 +67,13 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	stateMap map[string]string       // key is mount name, value is 'mounted', etc
-	repoOpts map[string]*RepoOptions // key is mount name
-	branches map[string]string       // key is mount name
-	commits  map[string]string       // key is mount name
-	files    map[string]fileState    // key is {mount_name}/{path}
-	mu       sync.Mutex
+	stateMap    map[string]string       // key is mount name, value is 'mounted', etc
+	repoOpts    map[string]*RepoOptions // key is mount name
+	branches    map[string]string       // key is mount name
+	commits     map[string]string       // key is mount name
+	files       map[string]fileState    // key is {mount_name}/{path}
+	mu          sync.Mutex
+	repoOpsCmts map[string]string
 }
 
 type loopbackNode struct {
@@ -119,6 +120,10 @@ func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 	}
 	out.FromStat(&st)
 	return fs.OK
+}
+
+func (r *loopbackRoot) getRepoOptionCommit(repoName string) string {
+	return r.repoOpsCmts[repoName]
 }
 
 func (n *loopbackNode) root() *loopbackRoot {
@@ -538,16 +543,23 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	}
 
 	n := &loopbackRoot{
-		rootPath:   root,
-		rootDev:    uint64(st.Dev),
-		targetPath: target,
-		write:      opts.getWrite(),
-		c:          c,
-		repoOpts:   opts.getRepoOpts(),
-		branches:   opts.getBranches(),
-		commits:    make(map[string]string),
-		files:      make(map[string]fileState),
-		stateMap:   make(map[string]string),
+		rootPath:    root,
+		rootDev:     uint64(st.Dev),
+		targetPath:  target,
+		write:       opts.getWrite(),
+		c:           c,
+		repoOpts:    opts.getRepoOpts(),
+		branches:    opts.getBranches(),
+		commits:     make(map[string]string),
+		files:       make(map[string]fileState),
+		stateMap:    make(map[string]string),
+		repoOpsCmts: make(map[string]string),
+	}
+
+	for _, opt := range opts.RepoOptions {
+		if opt.File != nil && opt.File.Commit != nil && opt.File.Commit.Id != "" && opt.File.Commit.Repo != nil && opt.File.Commit.Repo.Name != "" {
+			n.repoOpsCmts[opt.File.Commit.Repo.Name] = opt.File.Commit.Id
+		}
 	}
 	return n, nil
 }
@@ -714,7 +726,7 @@ func (n *loopbackNode) branch(name string) string {
 	if branch, ok := n.root().branches[name]; ok {
 		return branch
 	}
-	return "master"
+	return ""
 }
 
 func (n *loopbackNode) commit(name string) (string, error) {
@@ -736,6 +748,13 @@ func (n *loopbackNode) commit(name string) (string, error) {
 	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
 	repoName := ro.File.Commit.Branch.Repo.Name
 	branch := n.root().branch(name)
+	if branch == "" {
+		commitId := n.root().getRepoOptionCommit(repoName)
+		if commitId == "" {
+			return "", errors.New("cannot resolve which commit to mount: not found in branch or repoOptions")
+		}
+		return commitId, nil
+	}
 	bi, err := n.root().c.InspectBranch(projectName, repoName, branch)
 	if err != nil && !errutil.IsNotFoundError(err) {
 		return "", err
