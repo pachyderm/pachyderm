@@ -73,7 +73,7 @@ type loopbackRoot struct {
 	commits     map[string]string       // key is mount name
 	files       map[string]fileState    // key is {mount_name}/{path}
 	mu          sync.Mutex
-	repoOpsCmts map[string]string
+	repoOpsCmts map[string]string // key is repo name, value is commit id
 }
 
 type loopbackNode struct {
