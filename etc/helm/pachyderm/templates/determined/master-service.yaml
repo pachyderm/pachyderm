@@ -9,9 +9,12 @@ metadata:
     release: {{ .Release.Name }}
 spec:
   ports:
-  - port: {{ required "A valid Values.masterPort entry required!" .Values.determined.masterPort }}
+  - port: {{ required "A valid Values.determined.masterPort entry required!" .Values.determined.masterPort }}
     targetPort: {{- include "determined.masterPort" . | indent 1 }}
     protocol: TCP
+  {{- if .Values.determined.loadBalancerSourceRanges }}
+  loadBalancerSourceRanges: {{- toYaml .Values.determined.loadBalancerSourceRanges | nindent 4 }}
+  {{- end }}
 
 {{- if ((.Values.determined.openshiftRoute).enabled | default false) }}
   type: ClusterIP
