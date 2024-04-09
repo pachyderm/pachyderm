@@ -2259,7 +2259,7 @@ StarlarkLiteral is a custom Starlark script.
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| bytes | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
+| content | [google.protobuf.BytesValue](#google-protobuf-BytesValue) |  |  |
 
 
 

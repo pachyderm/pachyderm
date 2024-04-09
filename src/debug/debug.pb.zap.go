@@ -344,6 +344,6 @@ func (x *TraceChunk) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
-	protoextensions.AddBytesValue(enc, "bytes", x.GetBytes())
+	protoextensions.AddBytesValue(enc, "content", x.GetContent())
 	return nil
 }
