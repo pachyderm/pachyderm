@@ -11,10 +11,15 @@ import (
 )
 
 func TestCommit_NilBranch(t *testing.T) {
-	var b = &Branch{}
-	var c = &Commit{Branch: b}
-	c.NilBranchName()
-	require.Equal(t, "", c.Branch.Name)
+	var b1 = &Branch{Name: "dummy"}
+	var c1 = &Commit{Branch: b1}
+	c1.NilBranchName()
+	require.Equal(t, "", c1.Branch.Name)
+
+	var b2 = &Branch{Name: ""}
+	var c2 = &Commit{Branch: b2}
+	c2.NilBranchName()
+	require.Equal(t, "", c2.Branch.Name)
 }
 
 func TestProject_ValidateName(t *testing.T) {
