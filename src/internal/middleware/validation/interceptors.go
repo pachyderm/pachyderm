@@ -69,6 +69,7 @@ func (w *streamWrapper) RecvMsg(m any) error {
 }
 
 func (w *streamWrapper) SendMsg(m any) error {
+	// google grpc library wraps client stream and puts server stream. We don't want our implementation to apply to client streams.
 	if w.IsServerStream {
 		if b, ok := m.(branchNillable); ok {
 			b.NilBranchName()
