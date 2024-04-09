@@ -505,53 +505,6 @@ func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f f
 	})
 }
 
-func (c *postgresReadOnlyCollection) listRev(withFields map[string]string, val proto.Message, opts *Options, f func(string, int64) error) error {
-	fakeRev := int64(0)
-	lastTimestamp := time.Time{}
-
-	updateRev := func(t time.Time) {
-		if t.After(lastTimestamp) {
-			lastTimestamp = t
-			fakeRev++
-		}
-	}
-
-	return c.list(withFields, opts, func(m *model) error {
-		if err := proto.Unmarshal(m.Proto, val); err != nil {
-			return errors.EnsureStack(err)
-		}
-
-		if opts.Target == SortByCreateRevision {
-			updateRev(m.CreatedAt)
-		} else if opts.Target == SortByModRevision {
-			updateRev(m.UpdatedAt)
-		}
-
-		return f(m.Key, fakeRev)
-	})
-}
-
-// ListRev emulates the behavior of etcd collection's ListRev, but doesn't
-// reproduce it exactly. The revisions returned are not from the database -
-// postgres uses 32-bit transaction ids and doesn't include one for the creating
-// transaction of a row. So, we fake a revision id by sorting rows by their
-// create/update timestamp and incrementing a fake revision id every time the
-// timestamp changes. Note that the etcd implementation always returns the
-// create revision, but that only works here if you also sort by the create
-// revision.
-func (c *postgresReadOnlyCollection) ListRev(val proto.Message, opts *Options, f func(string, int64) error) error {
-	return c.listRev(nil, val, opts, f)
-}
-
-// GetRevByIndex is identical to ListRev except that it filters the results
-// according to a predicate on the given index.
-func (c *postgresReadOnlyCollection) GetRevByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string, int64) error) error {
-	if err := c.validateIndex(index); err != nil {
-		return err
-	}
-	return c.listRev(map[string]string{indexFieldName(index): indexVal}, val, opts, f)
-}
-
 func (c *postgresReadOnlyCollection) Count() (int64, error) {
 	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
 	row := c.db.QueryRowContext(c.ctx, query)
