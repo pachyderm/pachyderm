@@ -256,7 +256,7 @@ func newRealEnv(ctx context.Context, t testing.TB, mockPPSTransactionServer bool
 	// STORAGE
 	storageEnv, err := pachd.StorageEnv(realEnv.ServiceEnv)
 	require.NoError(t, err)
-	realEnv.StorageServer, err = storageserver.New(*storageEnv)
+	realEnv.StorageServer, err = storageserver.New(ctx, *storageEnv)
 	require.NoError(t, err)
 
 	// TRANSACTION

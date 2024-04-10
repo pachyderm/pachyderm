@@ -113,21 +113,21 @@ func TestCreateAndRead(t *testing.T) {
 	t.Run("PathRange", func(t *testing.T) {
 		var files []string
 		for _, pr := range []*storage.PathRange{
-			&storage.PathRange{
+			{
 				Lower: "",
 				Upper: "/33",
 			},
-			&storage.PathRange{
+			{
 				Lower: "/33",
 				Upper: "/66",
 			},
-			&storage.PathRange{
+			{
 				Lower: "/66",
 				Upper: "",
 			},
 		} {
 			filters := []*storage.FileFilter{
-				&storage.FileFilter{
+				{
 					Filter: &storage.FileFilter_PathRange{
 						PathRange: pr,
 					},
@@ -148,22 +148,22 @@ func TestCreateAndRead(t *testing.T) {
 	})
 	t.Run("PathRangeIntersection", func(t *testing.T) {
 		for _, prs := range [][]*storage.PathRange{
-			[]*storage.PathRange{
-				&storage.PathRange{
+			{
+				{
 					Lower: "",
 					Upper: "/66",
 				},
-				&storage.PathRange{
+				{
 					Lower: "/33",
 					Upper: "",
 				},
 			},
-			[]*storage.PathRange{
-				&storage.PathRange{
+			{
+				{
 					Lower: "/33",
 					Upper: "",
 				},
-				&storage.PathRange{
+				{
 					Lower: "",
 					Upper: "/66",
 				},
@@ -191,22 +191,22 @@ func TestCreateAndRead(t *testing.T) {
 	})
 	t.Run("PathRangeDisjoint", func(t *testing.T) {
 		for _, prs := range [][]*storage.PathRange{
-			[]*storage.PathRange{
-				&storage.PathRange{
+			{
+				{
 					Lower: "",
 					Upper: "/50",
 				},
-				&storage.PathRange{
+				{
 					Lower: "/50",
 					Upper: "",
 				},
 			},
-			[]*storage.PathRange{
-				&storage.PathRange{
+			{
+				{
 					Lower: "/50",
 					Upper: "",
 				},
-				&storage.PathRange{
+				{
 					Lower: "",
 					Upper: "/50",
 				},
@@ -234,7 +234,7 @@ func TestCreateAndRead(t *testing.T) {
 	})
 	t.Run("PathRegex", func(t *testing.T) {
 		filters := []*storage.FileFilter{
-			&storage.FileFilter{
+			{
 				Filter: &storage.FileFilter_PathRegex{
 					PathRegex: "/.0",
 				},
@@ -253,7 +253,7 @@ func TestCreateAndRead(t *testing.T) {
 	})
 	t.Run("PathRangeAndPathRegex", func(t *testing.T) {
 		filters := []*storage.FileFilter{
-			&storage.FileFilter{
+			{
 				Filter: &storage.FileFilter_PathRange{
 					PathRange: &storage.PathRange{
 						Lower: "/33",
@@ -261,7 +261,7 @@ func TestCreateAndRead(t *testing.T) {
 					},
 				},
 			},
-			&storage.FileFilter{
+			{
 				Filter: &storage.FileFilter_PathRegex{
 					PathRegex: "/.0",
 				},
