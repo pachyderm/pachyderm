@@ -552,7 +552,6 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 		files:      make(map[string]fileState),
 		stateMap:   make(map[string]string),
 	}
-
 	return n, nil
 }
 
