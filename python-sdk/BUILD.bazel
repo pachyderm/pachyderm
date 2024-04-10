@@ -11,9 +11,11 @@ exports_files(["poetry.lock"])
 
 py_venv(
     name = "venv",
-    venv_location = "python-sdk/venv2",
+    venv_location = "python-sdk/venv",
+    extra_pip_commands = [
+        "install poetry"
+    ],
     deps = [
-        "@poetry",
         "@poetry//:betterproto",
         "@poetry//:black",
         "@poetry//:certifi",

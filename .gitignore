@@ -79,3 +79,4 @@ tests_to_run.csv
 bazel-*
 .bazelrc.local
 genhtml/
+python-sdk/venv
