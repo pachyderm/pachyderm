@@ -400,7 +400,10 @@ python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
     python_version = "3.12",
 )
+
+# Set python3.9 as default since we are targeting backwards-compatibility.
 python.toolchain(
+    is_default = True,
     python_version = "3.9",
 )
 use_repo(python, "python_3_12", "python_3_9")
