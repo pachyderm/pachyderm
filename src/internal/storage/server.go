@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	chunkPrefix = "chunk/"
+	ChunkPrefix = "chunk/"
 	defaultTTL  = client.DefaultTTL
 	maxTTL      = 30 * time.Minute
 )
@@ -73,7 +73,7 @@ func New(env Env) (*Server, error) {
 		store = kv.NewFromObjectClient(env.ObjectStore, maxKeySize, chunk.DefaultMaxChunkSize)
 	}
 	store = wrapStore(&env.Config, store)
-	store = kv.NewPrefixed(store, []byte(chunkPrefix))
+	store = kv.NewPrefixed(store, []byte(ChunkPrefix))
 	chunkStorageOpts := makeChunkOptions(&env.Config)
 	chunkStorageOpts = append(chunkStorageOpts, chunk.WithSecret(secret))
 	chunkStorage := chunk.NewStorage(store, env.DB, tracker, chunkStorageOpts...)
@@ -110,8 +110,7 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 	ctx := server.Context()
 	var id *fileset.ID
 	if err := s.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
-		// TODO: Validator
-		opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer)}
+		opts := []fileset.UnorderedWriterOption{fileset.WithRenewal(defaultTTL, renewer), fileset.WithValidator(ValidateFilename)}
 		uw, err := s.Filesets.NewUnorderedWriter(ctx, opts...)
 		if err != nil {
 			return err
@@ -145,6 +144,7 @@ func (s *Server) CreateFileset(server storage.Fileset_CreateFilesetServer) error
 	})
 }
 
+// TODO: Add file filter error types.
 func (s *Server) ReadFileset(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetServer) error {
 	ctx := server.Context()
 	id, err := fileset.ParseID(request.FilesetId)
