@@ -11,7 +11,6 @@ orbs:
   codecov: codecov/codecov@1.1.0
   browser-tools: circleci/browser-tools@1.2.3
   gh: circleci/github-cli@2.1.1
-  jq: circleci/jq@2.2.0
 
 parameters:
   working-pachyderm-version:
@@ -163,53 +162,6 @@ jobs:
           command: |
             make circle-docker-manifest
 
-  preview:
-    docker:
-      - image: node:20.11.0
-    steps:
-      - checkout
-      - jq/install
-      - run:
-          name: Comment on PR
-          command: |
-            export GH_ACCESS_TOKEN=${GHI_TOKEN}
-            PACHYDERM_VERSION=$(jq -r .pachyderm ./version.json)
-            RELEASE_COMMIT=$(jq -r .pachReleaseCommit ./version.json)
-            wget https://github.com/chainlink/onecomment/releases/download/v0.2.0/onecomment_0.2.0_Linux_x86_64.tar.gz
-            tar xvf onecomment_0.2.0_Linux_x86_64.tar.gz
-
-            # Setup GH token env var in circle project
-            ./onecomment -pr-id ${CIRCLE_PULL_REQUEST##*/} \
-            -owner pachyderm -repo haberdashery \
-            -includes '' \
-            -message "Install a Console image of this branch locally with:
-
-            <details><summary>Proxy</summary>
-
-            \`\`\`bash
-            helm repo add pachyderm https://pachyderm.github.io/helmchart
-            helm repo update
-            helm uninstall pachd
-
-            helm install \\
-              --wait --timeout 10m pachd pach/pachyderm \\
-              --version=$PACHYDERM_VERSION \\
-              --set deployTarget=LOCAL \\
-              --set console.image.tag=<<pipeline.git.revision>> \\
-              --set console.config.disableTelemetry=true \\
-              --set pachd.image.tag=$RELEASE_COMMIT \\
-              --set proxy.enabled=true \\
-              --set proxy.host=localhost \\
-              --set pachd.metrics.enabled=false \\
-              --set proxy.service.type=LoadBalancer
-
-            echo '{\"pachd_address\": \"grpc://127.0.0.1:80\"}' | pachctl config set context local --overwrite
-            pachctl config set active-context local
-            echo \"Verify pachctl is working with: pachctl version\"
-            \`\`\`
-
-            </details>
-            "
   test-docker-e2e-community-edition:
     resource_class: xlarge
     parallelism: 3
@@ -315,15 +267,6 @@ workflows:
       - docker-manifest:
           requires:
             - docker-build
-      - preview:
-          requires:
-            - docker-manifest
-          filters:
-            branches:
-              ignore:
-                - master
-                # Match against 2.6.x, 2.7.x, etc
-                - /\d\.\d\.x/
       - test-docker-e2e-community-edition:
           requires:
             - docker-manifest
