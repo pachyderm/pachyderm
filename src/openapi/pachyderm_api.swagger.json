@@ -7364,7 +7364,7 @@
     "debug_v2TraceChunk": {
       "type": "object",
       "properties": {
-        "bytes": {
+        "content": {
           "type": "string",
           "format": "byte"
         }

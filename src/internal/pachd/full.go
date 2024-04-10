@@ -27,6 +27,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/grpcutil"
 	lokiclient "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	auth_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/auth"
+	clientlog_interceptor "github.com/pachyderm/pachyderm/v2/src/internal/middleware/logging/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/obj"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
@@ -34,9 +35,11 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/license"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
+	"github.com/pachyderm/pachyderm/v2/src/proxy"
 	admin_server "github.com/pachyderm/pachyderm/v2/src/server/admin/server"
 	auth_iface "github.com/pachyderm/pachyderm/v2/src/server/auth"
 	auth_server "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
@@ -44,11 +47,13 @@ import (
 	entiface "github.com/pachyderm/pachyderm/v2/src/server/enterprise"
 	ent_server "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	license_server "github.com/pachyderm/pachyderm/v2/src/server/license/server"
+	logs_server "github.com/pachyderm/pachyderm/v2/src/server/logs/server"
 	metadata_server "github.com/pachyderm/pachyderm/v2/src/server/metadata/server"
 	pfsiface "github.com/pachyderm/pachyderm/v2/src/server/pfs"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	ppsiface "github.com/pachyderm/pachyderm/v2/src/server/pps"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	proxy_server "github.com/pachyderm/pachyderm/v2/src/server/proxy/server"
 	txn_server "github.com/pachyderm/pachyderm/v2/src/server/transaction/server"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	version_server "github.com/pachyderm/pachyderm/v2/src/version"
@@ -194,6 +199,8 @@ type Full struct {
 	enterpriseSrv enterprise.APIServer
 	licenseSrv    license.APIServer
 	debugSrv      debug.DebugServer
+	proxySrv      proxy.APIServer
+	logsSrv       logs.APIServer
 
 	pfsWorker   *pfs_server.Worker
 	ppsWorker   *pps_server.Worker
@@ -424,6 +431,28 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				return nil
 			},
 		},
+		setupStep{
+			Name: "initProxyServer",
+			Fn: func(ctx context.Context) error {
+				pd.proxySrv = proxy_server.NewAPIServer(proxy_server.Env{
+					Listener: pd.dbListener,
+				})
+				return nil
+			},
+		},
+		setupStep{
+			Name: "initLogsServer",
+			Fn: func(ctx context.Context) error {
+				var err error
+				pd.logsSrv, err = logs_server.NewAPIServer(logs_server.Env{
+					GetLokiClient: env.GetLokiClient,
+				})
+				if err != nil {
+					return errors.Wrap(err, "logs_server.NewAPIServer")
+				}
+				return nil
+			},
+		},
 
 		// Workers
 		initPFSWorker(&pd.pfsWorker, config.StorageConfiguration, func() pfs_server.WorkerEnv {
@@ -455,9 +484,11 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 		enterprise.RegisterAPIServer(gs, pd.enterpriseSrv)
 		grpc_health_v1.RegisterHealthServer(gs, pd.healthSrv)
 		license.RegisterAPIServer(gs, pd.licenseSrv)
+		logs.RegisterAPIServer(gs, pd.logsSrv)
 		metadata.RegisterAPIServer(gs, pd.metadataSrv)
 		pfs.RegisterAPIServer(gs, pd.pfsSrv)
 		pps.RegisterAPIServer(gs, pd.ppsSrv)
+		proxy.RegisterAPIServer(gs, pd.proxySrv)
 		version.RegisterAPIServer(gs, pd.version)
 	}))
 	pd.addBackground("bootstrap", func(ctx context.Context) error {
@@ -484,7 +515,14 @@ func (pd *Full) PachClient(ctx context.Context) (*client.APIClient, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "parse pachd address")
 	}
-	c, err := client.NewFromPachdAddress(ctx, addr)
+	c, err := client.NewFromPachdAddress(ctx, addr,
+		client.WithAdditionalUnaryClientInterceptors(
+			clientlog_interceptor.LogUnary,
+		),
+		client.WithAdditionalStreamClientInterceptors(
+			clientlog_interceptor.LogStream,
+		),
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "NewPachdFromAddress")
 	}
@@ -500,7 +538,14 @@ func (pd *Full) mustGetPachClient(ctx context.Context) *client.APIClient {
 	if err != nil {
 		panic(fmt.Sprintf("parse pachd address: %v", err))
 	}
-	c, err := client.NewFromPachdAddress(ctx, addr)
+	c, err := client.NewFromPachdAddress(ctx, addr,
+		client.WithAdditionalUnaryClientInterceptors(
+			clientlog_interceptor.LogUnary,
+		),
+		client.WithAdditionalStreamClientInterceptors(
+			clientlog_interceptor.LogStream,
+		),
+	)
 	if err != nil {
 		panic(fmt.Sprintf("NewFromPachdAddress: %v", err))
 	}

@@ -6,10 +6,12 @@ go_library(
     importpath = "github.com/pachyderm/pachyderm/v2/src/testing/testpachd",
     visibility = ["//visibility:private"],
     deps = [
+        "//src/internal/cleanup",
         "//src/internal/client",
         "//src/internal/config",
         "//src/internal/errors",
         "//src/internal/log",
+        "//src/internal/lokiutil/testloki",
         "//src/internal/pachd",
         "//src/internal/pctx",
         "@org_uber_go_zap//:zap",

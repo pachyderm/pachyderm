@@ -362,8 +362,8 @@ func Cmds(pachctlCfg *pachctl.Config) []*cobra.Command {
 					}
 				}
 				switch x := chunk.GetReply().(type) {
-				case *debug.TraceChunk_Bytes:
-					if _, err := output.Write(x.Bytes.GetValue()); err != nil {
+				case *debug.TraceChunk_Content:
+					if _, err := output.Write(x.Content.GetValue()); err != nil {
 						return errors.Wrap(err, "write trace data")
 					}
 				}

@@ -144,12 +144,12 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 	return setupStep{
 		Name: "initPFSAPIServer",
 		Fn: func(ctx context.Context) error {
-			apiServer, err := pfs_server.NewAPIServer(env())
+			apiServer, err := pfs_server.NewAPIServer(ctx, env())
 			if err != nil {
 				return errors.Wrap(err, "pfs api server")
 			}
 			*out = apiServer
-			master, err := pfs_server.NewMaster(env())
+			master, err := pfs_server.NewMaster(ctx, env())
 			if err != nil {
 				return errors.Wrap(err, "pfs master")
 			}
@@ -177,7 +177,7 @@ func initPFSWorker(out **pfs_server.Worker, config pachconfig.StorageConfigurati
 	return setupStep{
 		Name: "initPFSWorker",
 		Fn: func(ctx context.Context) error {
-			w, err := pfs_server.NewWorker(env(), pfs_server.WorkerConfig{Storage: config})
+			w, err := pfs_server.NewWorker(ctx, env(), pfs_server.WorkerConfig{Storage: config})
 			if err != nil {
 				return err
 			}
@@ -219,13 +219,16 @@ func initMetadataServer(out *metadata.APIServer, env func() metadata_server.Env)
 // reg is called to register functions with the server.
 func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener, reg func(gs grpc.ServiceRegistrar)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		loggingInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		baseContextInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		loggingInterceptor := log_interceptor.NewLoggingInterceptor(ctx)
+		loggingInterceptor.Level = log.DebugLevel
 		gs := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
 				errorsmw.UnaryServerInterceptor,
 				version_middleware.UnaryServerInterceptor,
 				tracing.UnaryServerInterceptor(),
 				authInterceptor.InterceptUnary,
+				baseContextInterceptor.UnaryServerInterceptor,
 				loggingInterceptor.UnaryServerInterceptor,
 				validation.UnaryServerInterceptor,
 			),
@@ -234,6 +237,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				version_middleware.StreamServerInterceptor,
 				tracing.StreamServerInterceptor(),
 				authInterceptor.InterceptStream,
+				baseContextInterceptor.StreamServerInterceptor,
 				loggingInterceptor.StreamServerInterceptor,
 				validation.StreamServerInterceptor,
 			),
