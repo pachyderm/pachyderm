@@ -43,8 +43,8 @@ type apiServer struct {
 	driver *driver
 }
 
-func newAPIServer(env Env) (*apiServer, error) {
-	d, err := newDriver(env)
+func newAPIServer(ctx context.Context, env Env) (*apiServer, error) {
+	d, err := newDriver(ctx, env)
 	if err != nil {
 		return nil, err
 	}

@@ -3788,7 +3788,7 @@ func (m *TraceChunk) validate(all bool) error {
 	var errors []error
 
 	switch v := m.Reply.(type) {
-	case *TraceChunk_Bytes:
+	case *TraceChunk_Content:
 		if v == nil {
 			err := TraceChunkValidationError{
 				field:  "Reply",
@@ -3801,11 +3801,11 @@ func (m *TraceChunk) validate(all bool) error {
 		}
 
 		if all {
-			switch v := interface{}(m.GetBytes()).(type) {
+			switch v := interface{}(m.GetContent()).(type) {
 			case interface{ ValidateAll() error }:
 				if err := v.ValidateAll(); err != nil {
 					errors = append(errors, TraceChunkValidationError{
-						field:  "Bytes",
+						field:  "Content",
 						reason: "embedded message failed validation",
 						cause:  err,
 					})
@@ -3813,16 +3813,16 @@ func (m *TraceChunk) validate(all bool) error {
 			case interface{ Validate() error }:
 				if err := v.Validate(); err != nil {
 					errors = append(errors, TraceChunkValidationError{
-						field:  "Bytes",
+						field:  "Content",
 						reason: "embedded message failed validation",
 						cause:  err,
 					})
 				}
 			}
-		} else if v, ok := interface{}(m.GetBytes()).(interface{ Validate() error }); ok {
+		} else if v, ok := interface{}(m.GetContent()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return TraceChunkValidationError{
-					field:  "Bytes",
+					field:  "Content",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}

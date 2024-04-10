@@ -20,7 +20,7 @@ func TestPostgresTracker(t *testing.T) {
 		db := dockertestenv.NewTestDB(t)
 		ctx := context.Background()
 		err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, tx *pachsql.Tx) error {
-			db.MustExec("CREATE SCHEMA storage")
+			tx.MustExec("CREATE SCHEMA storage")
 			return track.SetupPostgresTrackerV0(cbCtx, tx)
 		})
 		require.NoError(t, err)

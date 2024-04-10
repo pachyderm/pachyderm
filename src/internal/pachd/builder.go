@@ -262,7 +262,7 @@ func (b *builder) registerPFSServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
@@ -276,7 +276,7 @@ func (b *builder) registerStorageServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	server, err := storageserver.New(*env)
+	server, err := storageserver.New(ctx, *env)
 	if err != nil {
 		return err
 	}
@@ -447,7 +447,7 @@ func (b *builder) startPFSWorker(ctx context.Context) error {
 	config := pfs_server.WorkerConfig{
 		Storage: b.env.Config().StorageConfiguration,
 	}
-	w, err := pfs_server.NewWorker(*env, config)
+	w, err := pfs_server.NewWorker(ctx, *env, config)
 	if err != nil {
 		return err
 	}
@@ -465,7 +465,7 @@ func (b *builder) startPFSMaster(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	m, err := pfs_server.NewMaster(*env)
+	m, err := pfs_server.NewMaster(ctx, *env)
 	if err != nil {
 		return err
 	}

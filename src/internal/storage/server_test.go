@@ -33,7 +33,7 @@ func TestServer(t *testing.T) {
 	fileset.NewTestStorage(ctx, t, db, tracker)
 
 	var config pachconfig.StorageConfiguration
-	s, err := storageserver.New(storageserver.Env{
+	s, err := storageserver.New(ctx, storageserver.Env{
 		DB:     db,
 		Bucket: b,
 		Config: config,

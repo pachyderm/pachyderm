@@ -84,10 +84,10 @@ type driver struct {
 	cache *fileset.Cache
 }
 
-func newDriver(env Env) (*driver, error) {
+func newDriver(ctx context.Context, env Env) (*driver, error) {
 	// test object storage.
 	if err := func() error {
-		ctx, cf := context.WithTimeout(pctx.Background("newDriver"), 30*time.Second)
+		ctx, cf := context.WithTimeout(pctx.Child(ctx, "newDriver"), 30*time.Second)
 		defer cf()
 		return obj.TestStorage(ctx, env.Bucket, env.ObjectClient)
 	}(); err != nil {
@@ -114,7 +114,7 @@ func newDriver(env Env) (*driver, error) {
 	} else {
 		storageEnv.ObjectStore = env.ObjectClient
 	}
-	storageSrv, err := storage.New(storageEnv)
+	storageSrv, err := storage.New(ctx, storageEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -727,10 +727,10 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
 	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			return d.listProjectInTransaction(ctx, txnCxt, func(proj *pfs.ProjectInfo) error {
+		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+			return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
 				if authIsActive {
-					resp, err := d.env.Auth.GetPermissions(ctx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+					resp, err := d.env.Auth.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
 					if err != nil {
 						if errors.Is(err, auth.ErrNotActivated) {
 							// Avoid unnecessary subsequent Auth API calls.
