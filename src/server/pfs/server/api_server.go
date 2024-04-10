@@ -156,17 +156,12 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	var repos []*pfs.RepoInfo
-	var err error
-	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects, request.Page)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}, dbutil.WithReadOnly()), "list repo"); err != nil {
-		return err
+	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(txnCxt *txncontext.TransactionContext) error {
+		var err error
+		repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects, request.Page)
+		return errors.Wrap(err, "listRepoInTransaction")
+	}); err != nil {
+		return errors.Wrap(err, "WithReadContext")
 	}
 	for _, repo := range repos {
 		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
@@ -987,8 +982,6 @@ func (a *apiServer) Egress(ctx context.Context, req *pfs.EgressRequest) (*pfs.Eg
 
 func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryRequest) (*pfs.ReposSummaryResponse, error) {
 	summaries := make(map[string]*pfs.ReposSummary)
-	var repos []*pfs.RepoInfo
-	var err error
 	var projects []*pfs.Project
 	for _, p := range request.Projects {
 		switch p.Picker.(type) {
@@ -998,30 +991,28 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
 		}
 	}
-	if err := errors.Wrap(dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
+	if err := a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		repos, err := a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
+		if err != nil {
+			return errors.Wrap(err, "list repos")
+		}
+		for _, r := range repos {
+			project := r.Repo.Project.String()
+			summary, ok := summaries[project]
+			if !ok {
+				summary = &pfs.ReposSummary{Project: r.Repo.Project}
+				summaries[project] = summary
+			}
+			summary.UserRepoCount++
+			size, err := a.driver.repoSize(ctx, txnCtx, r)
 			if err != nil {
-				return err
+				return errors.Wrapf(err, "get size of repo %q", r.Repo.String())
 			}
-			for _, r := range repos {
-				project := r.Repo.Project.String()
-				summary, ok := summaries[project]
-				if !ok {
-					summary = &pfs.ReposSummary{Project: r.Repo.Project}
-					summaries[project] = summary
-				}
-				summary.UserRepoCount++
-				size, err := a.driver.repoSize(ctx, txnCtx, r)
-				if err != nil {
-					return errors.Wrapf(err, "get size of repo %q", r.Repo.String())
-				}
-				summary.SizeBytes += size
-			}
-			return nil
-		})
-	}, dbutil.WithReadOnly()), "list repo"); err != nil {
-		return nil, err
+			summary.SizeBytes += size
+		}
+		return nil
+	}); err != nil {
+		return nil, errors.Wrap(err, "generate summary")
 	}
 	resp := &pfs.ReposSummaryResponse{}
 	for _, p := range projects {
@@ -1030,5 +1021,4 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 		}
 	}
 	return resp, nil
-
 }
