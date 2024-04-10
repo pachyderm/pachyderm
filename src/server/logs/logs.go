@@ -5,13 +5,17 @@ import (
 	"fmt"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/pachyderm/pachyderm/v2/src/logs"
-
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 type ResponsePublisher interface {
@@ -29,6 +33,8 @@ var (
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
 	ErrPublish = errors.New("error publishing")
+	// ErrLogFormat returned if log line does not match requested log format
+	ErrLogFormat = errors.New("error invalid log format")
 )
 
 // GetLogs gets logs according its request and publishes them.  The pattern is
@@ -103,8 +109,59 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 						Log: &logs.LogMessage{
 							LogType: &logs.LogMessage_Verbatim{
 								Verbatim: &logs.VerbatimLogMessage{
-									Line: []byte(e.Line),
+									Line:      []byte(e.Line),
+									Timestamp: timestamppb.New(e.Timestamp),
 								},
+							},
+						},
+					},
+				}
+			case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
+				resp = &logs.GetLogsResponse{
+					ResponseType: &logs.GetLogsResponse_Log{
+						Log: &logs.LogMessage{
+							LogType: &logs.LogMessage_Json{
+								Json: &logs.ParsedJSONLogMessage{
+									Verbatim: &logs.VerbatimLogMessage{
+										Line:      []byte(e.Line),
+										Timestamp: timestamppb.New(e.Timestamp),
+									},
+									NativeTimestamp: timestamppb.New(e.Timestamp),
+								},
+							},
+						},
+					},
+				}
+				jsonStruct := new(structpb.Struct)
+				if err := jsonStruct.UnmarshalJSON([]byte(e.Line)); err != nil {
+					log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", e.Line))
+				} else {
+					resp.GetLog().GetJson().Object = jsonStruct
+				}
+				ppsLog := new(pps.LogMessage)
+				m := protojson.UnmarshalOptions{
+					AllowPartial:   true,
+					DiscardUnknown: true,
+				}
+				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
+					log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", e.Line))
+				} else {
+					resp.GetLog().GetJson().PpsLogMessage = ppsLog
+				}
+			case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
+				ppsLog := new(pps.LogMessage)
+				m := protojson.UnmarshalOptions{
+					AllowPartial:   true,
+					DiscardUnknown: true,
+				}
+				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
+					return errors.Wrapf(ErrLogFormat, "log line cannot be formatted as %v", request.LogFormat, zap.String("line", e.Line))
+				}
+				resp = &logs.GetLogsResponse{
+					ResponseType: &logs.GetLogsResponse_Log{
+						Log: &logs.LogMessage{
+							LogType: &logs.LogMessage_PpsLogMessage{
+								PpsLogMessage: ppsLog,
 							},
 						},
 					},
