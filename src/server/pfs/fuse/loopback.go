@@ -67,13 +67,12 @@ type loopbackRoot struct {
 
 	c *client.APIClient
 
-	stateMap    map[string]string       // key is mount name, value is 'mounted', etc
-	repoOpts    map[string]*RepoOptions // key is mount name
-	branches    map[string]string       // key is mount name
-	commits     map[string]string       // key is mount name
-	files       map[string]fileState    // key is {mount_name}/{path}
-	mu          sync.Mutex
-	repoOpsCmts map[string]string // key is repo name, value is commit id
+	stateMap map[string]string       // key is mount name, value is 'mounted', etc
+	repoOpts map[string]*RepoOptions // key is mount name
+	branches map[string]string       // key is mount name
+	commits  map[string]string       // key is mount name
+	files    map[string]fileState    // key is {mount_name}/{path}
+	mu       sync.Mutex
 }
 
 type loopbackNode struct {
@@ -112,7 +111,6 @@ func (n *loopbackNode) Statfs(ctx context.Context, out *fuse.StatfsOut) syscall.
 }
 
 func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.AttrOut) syscall.Errno {
-
 	st := syscall.Stat_t{}
 	err := syscall.Stat(r.rootPath, &st)
 	if err != nil {
@@ -123,7 +121,7 @@ func (r *loopbackRoot) Getattr(ctx context.Context, f fs.FileHandle, out *fuse.A
 }
 
 func (r *loopbackRoot) getRepoOptionCommit(repoName string) string {
-	return r.repoOpsCmts[repoName]
+	return r.repoOpts[repoName].File.Commit.Id
 }
 
 func (n *loopbackNode) root() *loopbackRoot {
@@ -543,24 +541,18 @@ func newLoopbackRoot(root, target string, c *client.APIClient, opts *Options) (*
 	}
 
 	n := &loopbackRoot{
-		rootPath:    root,
-		rootDev:     uint64(st.Dev),
-		targetPath:  target,
-		write:       opts.getWrite(),
-		c:           c,
-		repoOpts:    opts.getRepoOpts(),
-		branches:    opts.getBranches(),
-		commits:     make(map[string]string),
-		files:       make(map[string]fileState),
-		stateMap:    make(map[string]string),
-		repoOpsCmts: make(map[string]string),
+		rootPath:   root,
+		rootDev:    uint64(st.Dev),
+		targetPath: target,
+		write:      opts.getWrite(),
+		c:          c,
+		repoOpts:   opts.getRepoOpts(),
+		branches:   opts.getBranches(),
+		commits:    make(map[string]string),
+		files:      make(map[string]fileState),
+		stateMap:   make(map[string]string),
 	}
 
-	for _, opt := range opts.RepoOptions {
-		if opt.File != nil && opt.File.Commit != nil && opt.File.Commit.Id != "" && opt.File.Commit.Repo != nil && opt.File.Commit.Repo.Name != "" {
-			n.repoOpsCmts[opt.File.Commit.Repo.Name] = opt.File.Commit.Id
-		}
-	}
 	return n, nil
 }
 
