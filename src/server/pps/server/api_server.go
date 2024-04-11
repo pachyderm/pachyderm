@@ -388,7 +388,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(ctx context.Context, txnCtx
 				return nil
 			}
 			done[repo] = struct{}{}
-			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}, auth.Permission_REPO_READ)
+			err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: project}, Name: repo}, auth.Permission_REPO_READ)
 			return errors.EnsureStack(err)
 		}); err != nil {
 			return err
@@ -418,7 +418,7 @@ func (a *apiServer) authorizePipelineOpInTransaction(ctx context.Context, txnCtx
 		default:
 			return errors.Errorf("internal error, unrecognized operation %v", operation)
 		}
-		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}, required); err != nil {
+		if err := a.env.AuthServer.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, &pfs.Repo{Type: pfs.UserRepoType, Project: &pfs.Project{Name: projectName}, Name: outputName}, required); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -436,7 +436,7 @@ func (a *apiServer) UpdateJobState(ctx context.Context, request *pps.UpdateJobSt
 }
 
 func (a *apiServer) UpdateJobStateInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, request *pps.UpdateJobStateRequest) error {
-	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+	jobs := a.jobs.ReadWrite(ctx, txnCtx.SqlTx)
 	jobInfo := &pps.JobInfo{}
 	if err := jobs.Get(ppsdb.JobKey(request.Job), jobInfo); err != nil {
 		return errors.EnsureStack(err)
@@ -453,7 +453,7 @@ func (a *apiServer) UpdateJobStateInTransaction(ctx context.Context, txnCtx *txn
 	jobInfo.DataTotal = request.DataTotal
 	jobInfo.Stats = request.Stats
 
-	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, request.State, request.Reason)
+	return ppsutil.UpdateJobState(a.pipelines.ReadWrite(ctx, txnCtx.SqlTx), jobs, jobInfo, request.State, request.Reason)
 }
 
 // InspectJob implements the protobuf pps.InspectJob RPC
@@ -930,7 +930,7 @@ func (a *apiServer) deleteJobInTransaction(ctx context.Context, txnCtx *txnconte
 	if err := a.stopJob(ctx, txnCtx, request.Job, "job deleted"); err != nil {
 		return err
 	}
-	return errors.EnsureStack(a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job)))
+	return errors.EnsureStack(a.jobs.ReadWrite(ctx, txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job)))
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
@@ -965,7 +965,7 @@ func (a *apiServer) StopJobInTransaction(ctx context.Context, txnCtx *txncontext
 }
 
 func (a *apiServer) stopJob(ctx context.Context, txnCtx *txncontext.TransactionContext, job *pps.Job, reason string) error {
-	jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+	jobs := a.jobs.ReadWrite(ctx, txnCtx.SqlTx)
 	if job == nil {
 		return errors.New("Job must be specified")
 	}
@@ -1004,7 +1004,7 @@ func (a *apiServer) stopJob(ctx context.Context, txnCtx *txncontext.TransactionC
 	// TODO: We can still not update a job's state if we fail here. This is
 	// probably fine for now since we are likely to have a more comprehensive
 	// solution to this with global ids.
-	if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(txnCtx.SqlTx), jobs, jobInfo, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
+	if err := ppsutil.UpdateJobState(a.pipelines.ReadWrite(ctx, txnCtx.SqlTx), jobs, jobInfo, pps.JobState_JOB_KILLED, reason); err != nil && !ppsServer.IsJobFinishedErr(err) {
 		return err
 	}
 	return nil
@@ -2042,7 +2042,7 @@ func branchProvenance(project *pfs.Project, input *pps.Input) []*pfs.Branch {
 	return result
 }
 
-func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
+func (a *apiServer) fixPipelineInputRepoACLsInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, pipelineInfo *pps.PipelineInfo, prevPipelineInfo *pps.PipelineInfo) (retErr error) {
 	addRead := make(map[string]*pfs.Repo)
 	addWrite := make(map[string]*pfs.Repo)
 	remove := make(map[string]*pfs.Repo)
@@ -2144,28 +2144,28 @@ func (a *apiServer) fixPipelineInputRepoACLsInTransaction(txnCtx *txncontext.Tra
 	// Remove pipeline from old, unused inputs
 	for _, repo := range remove {
 		// If we get an `ErrNoRoleBinding` that means the input repo no longer exists - we're removing it anyways, so we don't care.
-		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(txnCtx, repo, pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
+		if err := a.env.AuthServer.RemovePipelineReaderFromRepoInTransaction(ctx, txnCtx, repo, pipeline); err != nil && !auth.IsErrNoRoleBinding(err) {
 			return errors.EnsureStack(err)
 		}
 	}
 	// Add pipeline to every new input's ACL as a READER
 	for _, repo := range addRead {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a reader on the input repo
-		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(txnCtx, repo, pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineReaderToRepoInTransaction(ctx, txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	for _, repo := range addWrite {
 		// This raises an error if the input repo doesn't exist, or if the user doesn't have permissions to add a pipeline as a writer on the input repo
-		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(txnCtx, repo, pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToSourceRepoInTransaction(ctx, txnCtx, repo, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
 
 	// Add pipeline to its output repo's ACL as a WRITER if it's new
 	if prevPipelineInfo == nil {
-		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(txnCtx, pipeline); err != nil {
+		if err := a.env.AuthServer.AddPipelineWriterToRepoInTransaction(ctx, txnCtx, pipeline); err != nil {
 			return errors.EnsureStack(err)
 		}
 	}
@@ -2624,7 +2624,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 	}
 	// Generate new pipeline auth token (added due to & add pipeline to the ACLs of input/output repos
 	if err := func() error {
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, request.Pipeline)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(ctx, txnCtx, request.Pipeline)
 		if err != nil {
 			if auth.IsErrNotActivated(err) {
 				return nil // no auth work to do
@@ -2637,12 +2637,12 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return err
 	}
 	// store the new PipelineInfo in the collection
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
+	if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
 
 	if newPipelineInfo.AuthToken != "" {
-		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, newPipelineInfo, oldPipelineInfo); err != nil {
+		if err := a.fixPipelineInputRepoACLsInTransaction(ctx, txnCtx, newPipelineInfo, oldPipelineInfo); err != nil {
 			return err
 		}
 	}
@@ -2658,10 +2658,10 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 			// delete old auth token
 			// refetch because inspect clears it
 			var oldWithAuth pps.PipelineInfo
-			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(oldPipelineInfo.SpecCommit, &oldWithAuth); err != nil {
+			if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Get(oldPipelineInfo.SpecCommit, &oldWithAuth); err != nil {
 				return errors.EnsureStack(err)
 			}
-			if _, err := a.env.AuthServer.RevokeAuthTokenInTransaction(txnCtx,
+			if _, err := a.env.AuthServer.RevokeAuthTokenInTransaction(ctx, txnCtx,
 				&auth.RevokeAuthTokenRequest{Token: oldWithAuth.AuthToken}); err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -2819,7 +2819,7 @@ func (a *apiServer) stopAllJobsInPipeline(ctx context.Context, txnCtx *txncontex
 		username = whoami.Username
 	}
 	reason += " for user " + username
-	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
+	err := a.jobs.ReadWrite(ctx, txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
 		return a.stopJob(ctx, txnCtx, jobInfo.Job, reason)
 	})
 	return errors.EnsureStack(err)
@@ -2838,7 +2838,7 @@ func (a *apiServer) updatePipeline(
 		return errors.Wrap(err, "find pipeline spec commit")
 	}
 
-	return errors.Wrapf(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb), "update pipeline %v", key)
+	return errors.Wrapf(a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Update(key, info, cb), "update pipeline %v", key)
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC
@@ -2927,7 +2927,7 @@ func (a *apiServer) InspectPipelineInTransaction(ctx context.Context, txnCtx *tx
 	}
 
 	pipelineInfo := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
+	if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Get(commit, pipelineInfo); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, ppsServer.ErrPipelineNotFound{Pipeline: pipeline}
 		}
@@ -2938,7 +2938,7 @@ func (a *apiServer) InspectPipelineInTransaction(ctx context.Context, txnCtx *tx
 		if targetVersion < 1 {
 			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", pipeline, pipelineInfo.Version, ancestors)
 		}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline, uint64(targetVersion)), pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}
@@ -2999,11 +2999,11 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 			if err != nil {
 				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
 			}
-			if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(key, pi); err != nil {
+			if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Get(key, pi); err != nil {
 				return errors.EnsureStack(err)
 			}
 			var ji pps.JobInfo
-			return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
+			return a.jobs.ReadWrite(ctx, txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
 				if ji.PipelineVersion > pi.Version {
 					return nil
 				}
@@ -3109,7 +3109,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	var deleteRepos []*pfs.Repo
 	// make sure the pipeline exists
 	var foundPipeline bool
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetByIndex(
+	if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).GetByIndex(
 		ppsdb.PipelinesNameIndex,
 		pipelinesNameKey,
 		&pps.PipelineInfo{},
@@ -3128,7 +3128,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	// Try to retrieve PipelineInfo for this pipeline. If we see a not found error,
 	// we will still try to delete what we can because we know there is a pipeline
 	if specCommit, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, request.Pipeline, ""); err == nil {
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
+		if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).Get(specCommit, pipelineInfo); err != nil && !col.IsErrNotFound(err) {
 			return nil, errors.EnsureStack(err)
 		}
 	} else if !errutil.IsNotFoundError(err) && !auth.IsErrNoRoleBinding(err) {
@@ -3151,11 +3151,11 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 		// 'pipelineInfo' == nil => remove pipeline from all input repos
 		if pipelineInfo.Details != nil {
 			// need details for acls
-			if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, nil, pipelineInfo); err != nil {
+			if err := a.fixPipelineInputRepoACLsInTransaction(ctx, txnCtx, nil, pipelineInfo); err != nil {
 				return nil, errors.Wrapf(err, "error fixing repo ACLs for pipeline %q", pipelineName)
 			}
 		}
-		if _, err := a.env.AuthServer.RevokeAuthTokenInTransaction(txnCtx,
+		if _, err := a.env.AuthServer.RevokeAuthTokenInTransaction(ctx, txnCtx,
 			&auth.RevokeAuthTokenRequest{
 				Token: pipelineInfo.AuthToken,
 			}); err != nil {
@@ -3165,7 +3165,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
 	// new jobs since the pipeline has already been stopped.
 	jobInfo := &pps.JobInfo{}
-	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
+	if err := a.jobs.ReadWrite(ctx, txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
 		err := a.deleteJobInTransaction(ctx, txnCtx, &pps.DeleteJobRequest{Job: job})
 		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
@@ -3176,7 +3176,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return nil, errors.EnsureStack(err)
 	}
 	// Delete all past PipelineInfos
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
+	if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
 		return nil, errors.Wrapf(err, "collection.Delete")
 	}
 	if !request.KeepRepo {
@@ -3451,7 +3451,7 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		// Check if there is an existing job for the output commit
 		job := client.NewJob(pipelineInfo.Pipeline.Project.GetName(), pipelineInfo.Pipeline.Name, txnCtx.CommitSetID)
 		jobInfo := &pps.JobInfo{}
-		if err := a.jobs.ReadWrite(txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
+		if err := a.jobs.ReadWrite(ctx, txnCtx.SqlTx).Get(ppsdb.JobKey(job), jobInfo); err == nil {
 			continue // Job already exists, skip it
 		} else if !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
@@ -3460,14 +3460,14 @@ func (a *apiServer) propagateJobs(ctx context.Context, txnCtx *txncontext.Transa
 		token := ""
 		if _, err := txnCtx.WhoAmI(); err == nil {
 			// If auth is active, generate an auth token for the job
-			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pipelineInfo.Pipeline)
+			token, err = a.env.AuthServer.GetPipelineAuthTokenInTransaction(ctx, txnCtx, pipelineInfo.Pipeline)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
 		}
 
-		pipelines := a.pipelines.ReadWrite(txnCtx.SqlTx)
-		jobs := a.jobs.ReadWrite(txnCtx.SqlTx)
+		pipelines := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx)
+		jobs := a.jobs.ReadWrite(ctx, txnCtx.SqlTx)
 		jobPtr := &pps.JobInfo{
 			Job:             job,
 			PipelineVersion: pipelineInfo.Version,
@@ -3597,10 +3597,10 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	pi := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
+	if err := a.pipelines.ReadWrite(ctx, txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
-		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(txnCtx, pi.Pipeline)
+		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(ctx, txnCtx, pi.Pipeline)
 		if err != nil {
 			return errors.Wrapf(grpcutil.ScrubGRPC(err), "could not generate pipeline auth token")
 		}
@@ -3611,7 +3611,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 			return errors.Wrapf(err, "could not update %q with new auth token", pi.Pipeline)
 		}
 		// put 'pipeline' on relevant ACLs
-		if err := a.fixPipelineInputRepoACLsInTransaction(txnCtx, pi, nil); err != nil {
+		if err := a.fixPipelineInputRepoACLsInTransaction(ctx, txnCtx, pi, nil); err != nil {
 			return errors.Wrapf(err, "fix repo ACLs for pipeline %q", pi.Pipeline)
 		}
 		return nil
@@ -4004,7 +4004,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
+		if err := a.clusterDefaults.ReadWrite(ctx, txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
 		}
 		for _, p := range pp {
@@ -4125,7 +4125,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 
 	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
+		if err := a.projectDefaults.ReadWrite(ctx, txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
 			return err
 		}
 		for _, p := range pp {

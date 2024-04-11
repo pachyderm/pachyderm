@@ -256,7 +256,7 @@ func (a *apiServer) Activate(ctx context.Context, req *ec.ActivateRequest) (resp
 
 	// If the test heartbeat succeeded, write the state and config to etcd
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		if err := a.configCol.ReadWrite(txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
+		if err := a.configCol.ReadWrite(ctx, txCtx.SqlTx).Put(configKey, &ec.EnterpriseConfig{
 			LicenseServer: req.LicenseServer,
 			Id:            req.Id,
 			Secret:        req.Secret,
@@ -377,7 +377,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
+		err := a.configCol.ReadWrite(ctx, txCtx.SqlTx).Delete(configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

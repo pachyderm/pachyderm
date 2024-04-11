@@ -18,7 +18,7 @@ func authIsActive(c collection.PostgresReadWriteCollection) bool {
 func Migrate(state migrations.State) migrations.State {
 	return state.
 		Apply("Grant all users ProjectWriter role for the default project", func(ctx context.Context, env migrations.Env) error {
-			roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(env.Tx)
+			roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(ctx, env.Tx)
 			if !authIsActive(roleBindingsCol) {
 				return nil
 			}

@@ -78,7 +78,7 @@ func newCollectionFunc(setup func(context.Context, *testing.T) (*pachsql.DB, col
 
 		writeCallback := func(ctx context.Context, f func(col.ReadWriteCollection) error) error {
 			return dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-				return f(testCol.ReadWrite(tx))
+				return f(testCol.ReadWrite(ctx, tx))
 			})
 		}
 

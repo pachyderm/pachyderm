@@ -175,7 +175,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 	err := dbutil.WithTx(ctx, db, func(cbCtx context.Context, sqlTx *pachsql.Tx) error {
 		resultMessage = ""
 		warn = false
-		pipelines := pipelinesCollection.ReadWrite(sqlTx)
+		pipelines := pipelinesCollection.ReadWrite(ctx, sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
 		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)

@@ -41,7 +41,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	}
 
 	// If auth is already activated, then run the migrations below because they wouldn't have gotten the new role bindings via activation.
-	roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(tx)
+	roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(ctx, tx)
 	if !authIsActive(roleBindingsCol) {
 		return nil
 	}

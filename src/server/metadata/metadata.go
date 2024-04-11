@@ -13,8 +13,8 @@ import (
 )
 
 type Auth interface {
-	CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error
-	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
+	CheckClusterIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, p ...auth.Permission) error
+	CheckRepoIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
 }
 
 // EditMetadataInTransaction transactionally mutates metadata.  All operations are attempted, in order, but if
@@ -93,7 +93,7 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		}
 		// Auth rules: users must have REPO_CREATE_BRANCH on the target repo to edit a
 		// branch.  This is the same as updating the HEAD of an existing branch.
-		if err := authServer.CheckRepoIsAuthorizedInTransaction(tc, b.GetBranch().GetRepo(), auth.Permission_REPO_CREATE_BRANCH); err != nil {
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(ctx, tc, b.GetBranch().GetRepo(), auth.Permission_REPO_CREATE_BRANCH); err != nil {
 			return errors.Wrapf(err, "check permissions on branch %q of repo %q", b.GetBranch().Key(), b.GetBranch().GetRepo().Key())
 		}
 		if err := editMetadata(edit, &b.BranchInfo.Metadata); err != nil {
@@ -109,7 +109,7 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		}
 		// Auth rules: users must have REPO_WRITE to update metadata.  This is the same rule
 		// as editing the description.
-		if err := authServer.CheckRepoIsAuthorizedInTransaction(tc, r.GetRepo(), auth.Permission_REPO_WRITE); err != nil {
+		if err := authServer.CheckRepoIsAuthorizedInTransaction(ctx, tc, r.GetRepo(), auth.Permission_REPO_WRITE); err != nil {
 			return errors.Wrapf(err, "check permissions on repo %q", r.GetRepo().Key())
 		}
 		if err := editMetadata(edit, &r.RepoInfo.Metadata); err != nil {
@@ -119,7 +119,7 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 			return errors.Wrapf(err, "update repo %q", r.GetRepo().Key())
 		}
 	case *metadata.Edit_Cluster:
-		if err := authServer.CheckClusterIsAuthorizedInTransaction(tc, auth.Permission_CLUSTER_EDIT_CLUSTER_METADATA); err != nil {
+		if err := authServer.CheckClusterIsAuthorizedInTransaction(ctx, tc, auth.Permission_CLUSTER_EDIT_CLUSTER_METADATA); err != nil {
 			return errors.Wrap(err, "check cluster permissions")
 		}
 		md, err := coredb.GetClusterMetadata(ctx, tc.SqlTx)

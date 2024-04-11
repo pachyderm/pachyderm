@@ -21,7 +21,7 @@ type PostgresCollection interface {
 	// invalidated at the end of the transaction.  Basically, it's
 	// software transactional memory.  See this blog post for details:
 	// https://coreos.com/blog/transactional-memory-with-etcd3.html
-	ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollection
+	ReadWrite(ctx context.Context, tx *pachsql.Tx) PostgresReadWriteCollection
 
 	// For read-only operations, use the ReadOnly for better performance
 	ReadOnly(ctx context.Context) PostgresReadOnlyCollection

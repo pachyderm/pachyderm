@@ -11,26 +11,26 @@ import (
 
 // CheckClusterIsAuthorizedInTransaction returns an error if the current user doesn't have
 // the permissions in `p` on the cluster
-func (a *apiServer) CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
-	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
+func (a *apiServer) CheckClusterIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorizedInTransaction(ctx, txnCtx, &auth.Resource{Type: auth.ResourceType_CLUSTER}, p...)
 }
 
 // CheckProjectIsAuthorizedInTransaction returns an error if the current user doesn't have the permissions in `p` on the project.
 // Projects inherit access controls from its parent cluster. Therefore, behind the scene, we check the cluster first, followed by this project.
-func (a *apiServer) CheckProjectIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error {
-	return a.checkResourceIsAuthorizedInTransaction(txnCtx, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project.Name}, p...)
+func (a *apiServer) CheckProjectIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, project *pfs.Project, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorizedInTransaction(ctx, txnCtx, &auth.Resource{Type: auth.ResourceType_PROJECT, Name: project.Name}, p...)
 }
 
 // CheckRepoIsAuthorizedInTransaction is identical to CheckRepoIsAuthorized except that
 // it performs reads consistent with the latest state of the STM transaction.
 // Repos inherit access controls from its parent project, which in turn inherits from the cluster.
 // Therefore, behind the scene, we check the cluster first, then this repo's project, and finally this repo.
-func (a *apiServer) CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error {
-	return a.checkResourceIsAuthorizedInTransaction(txnCtx, repo.AuthResource(), p...)
+func (a *apiServer) CheckRepoIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error {
+	return a.checkResourceIsAuthorizedInTransaction(ctx, txnCtx, repo.AuthResource(), p...)
 }
 
 // CheckResourceIsAuthorizedInTransaction returns an error if the subject/user doesn't have permission in `p` on the `resource`
-func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
+func (a *apiServer) checkResourceIsAuthorizedInTransaction(ctx context.Context, txnCtx *txncontext.TransactionContext, resource *auth.Resource, p ...auth.Permission) error {
 	me, err := txnCtx.WhoAmI()
 	if err != nil {
 		if errors.Is(err, auth.ErrNotActivated) {
@@ -40,7 +40,7 @@ func (a *apiServer) checkResourceIsAuthorizedInTransaction(txnCtx *txncontext.Tr
 	}
 
 	req := &auth.AuthorizeRequest{Resource: resource, Permissions: p}
-	resp, err := a.AuthorizeInTransaction(txnCtx, req)
+	resp, err := a.AuthorizeInTransaction(ctx, txnCtx, req)
 	if err != nil {
 		return err
 	}

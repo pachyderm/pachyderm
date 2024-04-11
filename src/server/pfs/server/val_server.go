@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
@@ -46,7 +47,7 @@ func (a *validatedAPIServer) FinishCommitInTransaction(ctx context.Context, txnC
 	if err := checkCommit(userCommit); err != nil {
 		return errors.Wrap(err, "check new file commit")
 	}
-	if err := a.auth.CheckRepoIsAuthorizedInTransaction(txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
+	if err := a.auth.CheckRepoIsAuthorizedInTransaction(ctx, txnCtx, userCommit.Repo, auth.Permission_REPO_WRITE); err != nil {
 		return errors.EnsureStack(err)
 	}
 	return a.apiServer.FinishCommitInTransaction(ctx, txnCtx, request)

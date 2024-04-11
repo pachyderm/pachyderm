@@ -123,7 +123,7 @@ func (a *apiServer) activate(ctx context.Context, req *lc.ActivateRequest) (resp
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		return errors.EnsureStack(a.license.ReadWrite(sqlTx).Put(licenseRecordKey, newRecord))
+		return errors.EnsureStack(a.license.ReadWrite(ctx, sqlTx).Put(licenseRecordKey, newRecord))
 	}); err != nil {
 		return nil, err
 	}
@@ -253,7 +253,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
+		err := a.license.ReadWrite(ctx, sqlTx).Delete(licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

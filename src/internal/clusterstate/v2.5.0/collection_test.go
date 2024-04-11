@@ -54,7 +54,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 		t.Fatal("could create test collection:", err)
 	}
 	if err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
-		return testCol.ReadWrite(tx).Put("foo1", &col.TestItem{Id: "foo", Value: "bar", Data: "baz"})
+		return testCol.ReadWrite(ctx, tx).Put("foo1", &col.TestItem{Id: "foo", Value: "bar", Data: "baz"})
 	}); err != nil {
 		t.Fatal("could not write test item:", err)
 	}

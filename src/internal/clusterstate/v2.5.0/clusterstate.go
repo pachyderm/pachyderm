@@ -23,7 +23,7 @@ func Migrate(state migrations.State) migrations.State {
 					Name: "default", // hardcoded so that pfs.DefaultProjectName may change in the future
 				},
 			}
-			if err := projects(nil, nil).ReadWrite(env.Tx).Create("default", defaultProject); err != nil {
+			if err := projects(nil, nil).ReadWrite(ctx, env.Tx).Create("default", defaultProject); err != nil {
 				return errors.Wrap(err, "could not create default project")
 			}
 			return nil
