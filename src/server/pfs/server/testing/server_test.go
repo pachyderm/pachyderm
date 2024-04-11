@@ -80,7 +80,7 @@ func FileInfoToPath(fileInfo interface{}) interface{} {
 
 func commitEqualIgnoringBranchName(t *testing.T, expected *pfs.Commit, actual *pfs.Commit) {
 	t.Helper()
-	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name")); diff == "" {
+	if diff := cmp.Diff(expected, actual, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Commit)(nil), "branch")); diff == "" {
 		return
 	}
 	require.Equal(t, expected, actual)
@@ -2760,7 +2760,7 @@ func TestInspectDir(t *testing.T) {
 	fileContent := "foo\n"
 	require.NoError(t, env.PachClient.PutFile(commit1, "dir/foo", strings.NewReader(fileContent)))
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
 
 	fileInfo, err := env.PachClient.InspectFile(commit1, "dir/foo")
 	require.NoError(t, err)
@@ -3375,12 +3375,12 @@ func TestBranch2(t *testing.T) {
 	commit, err := env.PachClient.StartCommit(project, repo, "branch1")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("bar")))
-	require.NoError(t, finishProjectCommit(env.PachClient, project, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishProjectCommit(env.PachClient, project, repo, "", commit.Id))
 
 	expectedBranches := []string{"branch1", "branch2", "branch3"}
 	expectedCommits := []*pfs.Commit{}
 	for _, branch := range expectedBranches {
-		require.NoError(t, env.PachClient.CreateBranch(project, repo, branch, commit.Branch.Name, commit.Id, nil))
+		require.NoError(t, env.PachClient.CreateBranch(project, repo, branch, "", commit.Id, nil))
 		commitInfo, err := env.PachClient.InspectCommit(project, repo, branch, "")
 		require.NoError(t, err)
 		expectedCommits = append(expectedCommits, commitInfo.Commit)
@@ -3499,7 +3499,7 @@ func TestInspectRepoSimple(t *testing.T) {
 	file2Content := "bar\n"
 	require.NoError(t, env.PachClient.PutFile(commit, "bar", strings.NewReader(file2Content)))
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 
 	info, err := env.PachClient.InspectRepo(pfs.DefaultProjectName, repo)
 	require.NoError(t, err)
@@ -3874,16 +3874,16 @@ func TestWaitCommitSet3(t *testing.T) {
 
 	ACommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "A", ACommit.Branch.Name, ACommit.Id))
+	require.NoError(t, finishCommit(env.PachClient, "A", "", ACommit.Id))
 	require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 	BCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "B", "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.Id))
+	require.NoError(t, finishCommit(env.PachClient, "B", "", BCommit.Id))
 	require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 
 	BCommit, err = env.PachClient.StartCommit(pfs.DefaultProjectName, "B", "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "B", BCommit.Branch.Name, BCommit.Id))
+	require.NoError(t, finishCommit(env.PachClient, "B", "", BCommit.Id))
 	require.NoError(t, finishCommit(env.PachClient, "C", "master", ""))
 
 	// The first two commits will be A and B, but they aren't deterministically sorted
@@ -4254,7 +4254,7 @@ func TestGlobFile3(t *testing.T) {
 	require.NoError(t, env.PachClient.PutFile(commit1, "/dir1/file1.2", &bytes.Buffer{}))
 	require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.1", &bytes.Buffer{}))
 	require.NoError(t, env.PachClient.PutFile(commit1, "/dir2/file2.2", &bytes.Buffer{}))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
 	globFile := func(pattern string) []string {
 		var fis []*pfs.FileInfo
 		require.NoError(t, env.PachClient.GlobFile(commit1, pattern, func(fi *pfs.FileInfo) error {

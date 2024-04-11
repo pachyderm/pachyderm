@@ -23,7 +23,7 @@ func requireEmptyResponse(t *testing.T, response *transaction.TransactionRespons
 
 // Ignores branch field when comparing, bacause branch names are nilled out in responses.
 func commitDiffIgnoringBranchName(commit, commit2 *pfs.Commit) string {
-	return cmp.Diff(commit, commit2, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Branch)(nil), "name"))
+	return cmp.Diff(commit, commit2, protocmp.Transform(), cmpopts.EquateErrors(), protocmp.IgnoreFields((*pfs.Commit)(nil), "branch"))
 }
 
 func requireCommitResponse(t *testing.T, response *transaction.TransactionResponse, commit *pfs.Commit) {
