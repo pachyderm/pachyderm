@@ -136,7 +136,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
 			}
 			if !newer.Timestamp.IsZero() {
-				hint.Newer.Filter.TimeRange.Until = timestamppb.New(older.Timestamp.Add(delta))
+				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Timestamp.Add(delta))
 			}
 		}
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
