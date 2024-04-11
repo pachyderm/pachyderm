@@ -117,8 +117,8 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
 func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publisher entryPublisher) (int, []loki.Entry, error) {
 	var (
-		entries, result []loki.Entry
-		published       int
+		entries   []loki.Entry
+		published int
 	)
 	for _, s := range streams {
 		entries = append(entries, s.Entries...)
@@ -149,7 +149,6 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 		if err := publisher.Publish(ctx, e); err != nil {
 			return 0, nil, errors.Wrap(err, "could not publish")
 		}
-		result = append(result, e)
 		published++
 	}
 	var lel []loki.Entry
