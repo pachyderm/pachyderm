@@ -122,47 +122,47 @@ func (c *Commit) AccessRepo() *Repo {
 	return c.GetBranch().GetRepo()
 }
 
-func (c *Commit) NilBranchName() {
-	if c != nil && c.Branch != nil {
-		c.Branch.Name = ""
+func (c *Commit) NilBranch() {
+	if c != nil {
+		c.Branch = nil
 	}
 }
 
-func (ci *CommitInfo) NilBranchName() {
+func (ci *CommitInfo) NilBranch() {
 	if ci != nil {
-		ci.Commit.NilBranchName()
-		ci.ParentCommit.NilBranchName()
+		ci.Commit.NilBranch()
+		ci.ParentCommit.NilBranch()
 	}
 }
 
-func (f *File) NilBranchName() {
+func (f *File) NilBranch() {
 	if f != nil {
-		f.Commit.NilBranchName()
+		f.Commit.NilBranch()
 	}
 }
 
-func (fi *FileInfo) NilBranchName() {
+func (fi *FileInfo) NilBranch() {
 	if fi != nil {
-		fi.File.NilBranchName()
+		fi.File.NilBranch()
 	}
 }
 
-func (dfr *DiffFileResponse) NilBranchName() {
+func (dfr *DiffFileResponse) NilBranch() {
 	if dfr != nil {
-		dfr.OldFile.NilBranchName()
-		dfr.NewFile.NilBranchName()
+		dfr.OldFile.NilBranch()
+		dfr.NewFile.NilBranch()
 	}
 }
 
-func (cf *CopyFile) NilBranchName() {
+func (cf *CopyFile) NilBranch() {
 	if cf != nil {
-		cf.Src.NilBranchName()
+		cf.Src.NilBranch()
 	}
 }
 
-func (bi *BranchInfo) NilBranchName() {
+func (bi *BranchInfo) NilBranch() {
 	if bi != nil {
-		bi.Head.NilBranchName()
+		bi.Head.NilBranch()
 	}
 }
 

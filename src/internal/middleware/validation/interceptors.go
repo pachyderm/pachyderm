@@ -18,7 +18,7 @@ type validatable interface {
 }
 
 type branchNillable interface {
-	NilBranchName()
+	NilBranch()
 }
 
 func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
@@ -39,7 +39,7 @@ func UnaryServerInterceptor(ctx context.Context, req any, _ *grpc.UnaryServerInf
 		return nil, err
 	}
 	if b, ok := resp.(branchNillable); ok {
-		b.NilBranchName()
+		b.NilBranch()
 	}
 	return resp, nil
 }
@@ -72,7 +72,7 @@ func (w *streamWrapper) SendMsg(m any) error {
 	// google grpc library wraps client stream and puts server stream. We don't want our implementation to apply to client streams.
 	if w.IsServerStream {
 		if b, ok := m.(branchNillable); ok {
-			b.NilBranchName()
+			b.NilBranch()
 		}
 	}
 	return errors.EnsureStack(w.ServerStream.SendMsg(m))
