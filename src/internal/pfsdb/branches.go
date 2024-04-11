@@ -433,15 +433,10 @@ func GetDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id Bran
 	return branchPbs, nil
 }
 
-type branchWithDepth struct {
-	Branch
-	Depth uint32 `db:"depth"`
-}
-
 // GetBranchProvenance returns the full provenance of a branch, i.e. all branches that it either directly or transitively depends on.
 // It accepts a GraphOpt option.
 func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*pfs.Branch, error) {
-	branches, err := getBranchProvenanceWithDepth(ctx, ext, id, opts...)
+	branches, err := getBranchProvenance(ctx, ext, id, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "get branch provenance")
 	}
@@ -454,19 +449,30 @@ func GetBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, 
 
 // GetBranchInfoWithIDProvenance is like GetBranchProvenance but returns a slice of BranchInfoWithID instead.
 func GetBranchInfoWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*BranchInfoWithID, error) {
-	branches, err := getBranchProvenanceWithDepth(ctx, ext, id, opts...)
+	branches, err := getBranchProvenance(ctx, ext, id, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "get branch provenance")
+		return nil, errors.Wrap(err, "get branch with id provenance")
 	}
-	return branchWithDepthToBranchInfoWithID(ctx, ext, branches)
+	var branchWithIDs []*BranchInfoWithID
+	for _, branch := range branches {
+		branchInfo, err := fetchBranchInfoByBranch(ctx, ext, branch)
+		if err != nil {
+			return nil, errors.Wrap(err, "get branch with ID provenance")
+		}
+		branchWithIDs = append(branchWithIDs, &BranchInfoWithID{
+			ID:         branch.ID,
+			BranchInfo: branchInfo,
+		})
+	}
+	return branchWithIDs, nil
 }
 
-func getBranchProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]branchWithDepth, error) {
+func getBranchProvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*Branch, error) {
 	graphOpts := defaultGraphOptions()
 	for _, opt := range opts {
 		opt(graphOpts)
 	}
-	var branches []branchWithDepth
+	var branches []*Branch
 	if err := sqlx.SelectContext(ctx, ext, &branches, `
 		WITH RECURSIVE prov(from_id, to_id) AS (
 		    SELECT from_id, to_id, 1 as depth
@@ -482,36 +488,17 @@ func getBranchProvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 			branch.name,
 			repo.name as "repo.name",
 			repo.type as "repo.type",
-			project.name as "repo.project.name",
-			MIN(depth) as "depth"
+			project.name as "repo.project.name"
 		FROM pfs.branches branch
 		    JOIN prov p ON branch.id = p.to_id
 			JOIN pfs.repos repo ON branch.repo_id = repo.id
 		    JOIN core.projects project ON repo.project_id = project.id
-		WHERE branch.id != $1
 		GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
-		ORDER BY depth ASC
-		LIMIT $3;
-	`, id, graphOpts.maxDepth, graphOpts.limit); err != nil {
+		ORDER BY MIN(depth) ASC LIMIT $3;`,
+		id, graphOpts.maxDepth, graphOpts.limit); err != nil {
 		return nil, errors.Wrap(err, "could not get branch provenance")
 	}
 	return branches, nil
-}
-
-func branchWithDepthToBranchInfoWithID(ctx context.Context, ext sqlx.ExtContext, branches []branchWithDepth) ([]*BranchInfoWithID, error) {
-	var branchInfos []*BranchInfoWithID
-	for _, branchWithDepth := range branches {
-		branch := branchWithDepth.Branch
-		branchInfo, err := fetchBranchInfoByBranch(ctx, ext, &branch)
-		if err != nil {
-			return nil, errors.Wrap(err, "get branch info with id from branch with depth")
-		}
-		branchInfos = append(branchInfos, &BranchInfoWithID{
-			ID:         branchWithDepth.ID,
-			BranchInfo: branchInfo,
-		})
-	}
-	return branchInfos, nil
 }
 
 func GetDirectBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) ([]*pfs.Branch, error) {
@@ -541,7 +528,7 @@ func GetDirectBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id Bran
 // GetBranchSubvenance returns the full subvenance of a branch, i.e. all branches that either directly or transitively depend on it.
 // It accepts a GraphOpt option.
 func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*pfs.Branch, error) {
-	branches, err := getBranchSubvenanceWithDepth(ctx, ext, id, opts...)
+	branches, err := getBranchSubvenance(ctx, ext, id, opts...)
 	if err != nil {
 		return nil, errors.Wrap(err, "get branch subvenance")
 	}
@@ -554,19 +541,30 @@ func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, 
 
 // GetBranchInfoWithIDSubvenance is like GetBranchSubvenance but returns a slice of BranchInfoWithID instead.
 func GetBranchInfoWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*BranchInfoWithID, error) {
-	branches, err := getBranchSubvenanceWithDepth(ctx, ext, id, opts...)
+	branches, err := getBranchSubvenance(ctx, ext, id, opts...)
 	if err != nil {
-		return nil, errors.Wrap(err, "get branch provenance")
+		return nil, errors.Wrap(err, "get branch with ID subvenance")
 	}
-	return branchWithDepthToBranchInfoWithID(ctx, ext, branches)
+	var branchWithIDs []*BranchInfoWithID
+	for _, branch := range branches {
+		branchInfo, err := fetchBranchInfoByBranch(ctx, ext, branch)
+		if err != nil {
+			return nil, errors.Wrap(err, "get branch with ID subvenance")
+		}
+		branchWithIDs = append(branchWithIDs, &BranchInfoWithID{
+			ID:         branch.ID,
+			BranchInfo: branchInfo,
+		})
+	}
+	return branchWithIDs, nil
 }
 
-func getBranchSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]branchWithDepth, error) {
+func getBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID, opts ...GraphOption) ([]*Branch, error) {
 	graphOpts := defaultGraphOptions()
 	for _, opt := range opts {
 		opt(graphOpts)
 	}
-	var branches []branchWithDepth
+	var branches []*Branch
 	if err := sqlx.SelectContext(ctx, ext, &branches, `
 			WITH RECURSIVE subv(from_id, to_id) AS (
 			    SELECT from_id, to_id, 1 as depth
@@ -577,21 +575,19 @@ func getBranchSubvenanceWithDepth(ctx context.Context, ext sqlx.ExtContext, id B
 			    FROM subv JOIN pfs.branch_provenance bp ON subv.from_id = bp.to_id
 			    WHERE depth < $2
 			)
-			SELECT DISTINCT
+			SELECT
 			    branch.id,
 				branch.name,
 				repo.name as "repo.name",
 				repo.type as "repo.type",
-				project.name as "repo.project.name",
-				MIN(depth) as "depth"
+				project.name as "repo.project.name"
 			FROM pfs.branches branch
 			    JOIN subv s ON branch.id = s.from_id
 				JOIN pfs.repos repo ON branch.repo_id = repo.id
 			    JOIN core.projects project ON repo.project_id = project.id
-			WHERE branch.id != $1
 			GROUP BY branch.id, branch.name, repo.name, repo.type, project.name
-			ORDER BY depth ASC
-			LIMIT $3;`, id, graphOpts.maxDepth, graphOpts.limit); err != nil {
+			ORDER BY MIN(depth) ASC LIMIT $3;`,
+		id, graphOpts.maxDepth, graphOpts.limit); err != nil {
 		return nil, errors.Wrap(err, "could not get branch subvenance")
 	}
 	return branches, nil
