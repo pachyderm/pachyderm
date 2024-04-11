@@ -10,11 +10,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"go.uber.org/zap"
 )
 
 func TestNestingTransactionsPanics(t *testing.T) {
-	ctx := pctx.Child(pctx.TestContext(t), "", pctx.WithOptions(zap.Development()))
+	ctx := pctx.TestContext(t)
 	db := dockertestenv.NewTestDB(t)
 	var withTxErr error
 	require.YesPanic(t, func() {
