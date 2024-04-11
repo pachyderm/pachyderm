@@ -13,7 +13,6 @@ py_venv(
     name = "venv",
     venv_location = "python-sdk/.venv",
     deps = [
-        "@@rules_poetry~~internal_deps~rules_poetry_deps//:poetry",  # install poetry into venv
         "@poetry//:betterproto",
         "@poetry//:black",
         "@poetry//:certifi",
@@ -24,5 +23,8 @@ py_venv(
         "@poetry//:pytest",
         "@poetry//:pytest-black-ng",
         "@poetry//:python-dotenv",
+    ],
+    extra_pip_commands = [
+        "install poetry==1.7.1"
     ],
 )
