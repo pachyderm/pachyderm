@@ -378,7 +378,7 @@ func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(ctx cont
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return col.NewDryrunSQLTx(ctx, env.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
+	return col.NewDryRunSQLTx(ctx, env.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }

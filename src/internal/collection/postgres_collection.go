@@ -144,9 +144,9 @@ func (c *postgresCollection) ReadWrite(tx *pachsql.Tx) PostgresReadWriteCollecti
 	return &postgresReadWriteCollection{c, tx}
 }
 
-// NewDryrunSQLTx is identical to NewSQLTx except it will always roll back the
+// NewDryRunSQLTx is identical to NewSQLTx except it will always roll back the
 // transaction instead of committing it.
-func NewDryrunSQLTx(ctx context.Context, db *pachsql.DB, apply func(context.Context, *pachsql.Tx) error) error {
+func NewDryRunSQLTx(ctx context.Context, db *pachsql.DB, apply func(context.Context, *pachsql.Tx) error) error {
 	err := dbutil.WithTx(ctx, db, func(ctx context.Context, tx *pachsql.Tx) error {
 		if err := apply(ctx, tx); err != nil {
 			return err
