@@ -7592,7 +7592,7 @@ func TestNilBranchNameUnary(t *testing.T) {
 	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", commit.Id)
 	require.NoError(t, err)
 
-	require.Equal(t, "", commitInfo.Commit.Branch.Name)
+	require.Nil(t, commitInfo.Commit.Branch)
 }
 
 func TestNilBranchNameStream(t *testing.T) {
@@ -7611,7 +7611,7 @@ func TestNilBranchNameStream(t *testing.T) {
 	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
 
 	require.NoError(t, env.PachClient.ListFile(commit1, "/", func(fi *pfs.FileInfo) error {
-		require.Equal(t, "", fi.File.Commit.Branch.Name)
+		require.Nil(t, fi.File.Commit.Branch)
 		return nil
 	}))
 }
