@@ -24,6 +24,11 @@
                     "additionalProperties": false,
                     "description": "repo targets a repo's metadata."
                 },
+                "cluster": {
+                    "$ref": "#/definitions/metadata.ClusterPicker",
+                    "additionalProperties": false,
+                    "description": "cluster targets the cluster's metadata."
+                },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
                     "additionalProperties": false,
@@ -70,6 +75,11 @@
                 },
                 {
                     "required": [
+                        "cluster"
+                    ]
+                },
+                {
+                    "required": [
                         "replace"
                     ]
                 },
@@ -91,6 +101,12 @@
             ],
             "title": "Edit",
             "description": "Edit represents editing one piece of metadata."
+        },
+        "metadata.ClusterPicker": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Picker",
+            "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster that can be selected, the one running this API server."
         },
         "metadata.Edit.AddKey": {
             "properties": {

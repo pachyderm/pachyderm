@@ -8,15 +8,14 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
-
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 // ProjectNotFoundError is returned by GetProject() when a project is not found in postgres.
@@ -161,7 +160,7 @@ func ListProject(ctx context.Context, tx *pachsql.Tx) ([]ProjectWithID, error) {
 
 // CreateProject creates an entry in the core.projects table.
 func CreateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo) error {
-	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &jsonMap{Data: project.Metadata})
+	_, err := tx.ExecContext(ctx, "INSERT INTO core.projects (name, description, metadata) VALUES ($1, $2, $3);", project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata})
 	//todo: insert project.authInfo into auth table.
 	if err != nil && IsErrProjectAlreadyExists(err) {
 		return &ProjectAlreadyExistsError{Name: project.Project.Name}
@@ -215,7 +214,7 @@ func getProject(ctx context.Context, tx *pachsql.Tx, where string, whereVal inte
 	project := &pfs.ProjectInfo{Project: &pfs.Project{}}
 	id := 0
 	var createdAt time.Time
-	metadata := &jsonMap{Data: make(map[string]string)}
+	metadata := &pgjsontypes.StringMap{Data: make(map[string]string)}
 	err := row.Scan(&project.Project.Name, &project.Description, &createdAt, &metadata, &id)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -247,7 +246,7 @@ func UpdateProject(ctx context.Context, tx *pachsql.Tx, id ProjectID, project *p
 
 func updateProject(ctx context.Context, tx *pachsql.Tx, project *pfs.ProjectInfo, where string, whereVal interface{}, upsert bool) error {
 	res, err := tx.ExecContext(ctx, fmt.Sprintf("UPDATE core.projects SET name = $1, description = $2, metadata = $3 WHERE %s = $4;", where),
-		project.Project.Name, project.Description, &jsonMap{Data: project.Metadata}, whereVal)
+		project.Project.Name, project.Description, &pgjsontypes.StringMap{Data: project.Metadata}, whereVal)
 	if err != nil {
 		return errors.Wrap(err, "update project")
 	}

@@ -24,6 +24,7 @@ func AdminEnv(senv serviceenv.ServiceEnv, paused bool) admin_server.Env {
 		Config:    senv.Config(),
 		PFSServer: senv.PfsServer(),
 		Paused:    paused,
+		DB:        senv.GetDBClient(),
 	}
 }
 

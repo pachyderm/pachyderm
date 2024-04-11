@@ -7,6 +7,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
@@ -30,10 +31,10 @@ type CreatedAtUpdatedAt struct {
 }
 
 type Project struct {
-	ID          ProjectID `db:"id"`
-	Name        string    `db:"name"`
-	Description string    `db:"description"`
-	Metadata    jsonMap   `db:"metadata"`
+	ID          ProjectID             `db:"id"`
+	Name        string                `db:"name"`
+	Description string                `db:"description"`
+	Metadata    pgjsontypes.StringMap `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
@@ -66,8 +67,8 @@ type Repo struct {
 	Type        string  `db:"type"`
 	Description string  `db:"description"`
 	CreatedAtUpdatedAt
-	BranchesNames string  `db:"branches"`
-	Metadata      jsonMap `db:"metadata"`
+	BranchesNames string                `db:"branches"`
+	Metadata      pgjsontypes.StringMap `db:"metadata"`
 }
 
 func (repo Repo) GetCreatedAtUpdatedAt() CreatedAtUpdatedAt {
@@ -113,19 +114,19 @@ func parseBranches(repo *Repo) ([]*pfs.Branch, error) {
 }
 
 type Commit struct {
-	ID             CommitID      `db:"int_id"`
-	CommitSetID    string        `db:"commit_set_id"`
-	CommitID       string        `db:"commit_id"`
-	Origin         string        `db:"origin"`
-	Description    string        `db:"description"`
-	StartTime      sql.NullTime  `db:"start_time"`
-	FinishingTime  sql.NullTime  `db:"finishing_time"`
-	FinishedTime   sql.NullTime  `db:"finished_time"`
-	CompactingTime sql.NullInt64 `db:"compacting_time_s"`
-	ValidatingTime sql.NullInt64 `db:"validating_time_s"`
-	Error          string        `db:"error"`
-	Size           int64         `db:"size"`
-	Metadata       jsonMap       `db:"metadata"`
+	ID             CommitID              `db:"int_id"`
+	CommitSetID    string                `db:"commit_set_id"`
+	CommitID       string                `db:"commit_id"`
+	Origin         string                `db:"origin"`
+	Description    string                `db:"description"`
+	StartTime      sql.NullTime          `db:"start_time"`
+	FinishingTime  sql.NullTime          `db:"finishing_time"`
+	FinishedTime   sql.NullTime          `db:"finished_time"`
+	CompactingTime sql.NullInt64         `db:"compacting_time_s"`
+	ValidatingTime sql.NullInt64         `db:"validating_time_s"`
+	Error          string                `db:"error"`
+	Size           int64                 `db:"size"`
+	Metadata       pgjsontypes.StringMap `db:"metadata"`
 	// BranchName is used to derive the BranchID in commit related queries.
 	BranchName sql.NullString `db:"branch_name"`
 	BranchID   sql.NullInt64  `db:"branch_id"`
@@ -153,11 +154,11 @@ func (commit *Commit) Pb() *pfs.Commit {
 
 // Branch is a row in the pfs.branches table.
 type Branch struct {
-	ID       BranchID `db:"id"`
-	Head     Commit   `db:"head"`
-	Repo     Repo     `db:"repo"`
-	Name     string   `db:"name"`
-	Metadata jsonMap  `db:"metadata"`
+	ID       BranchID              `db:"id"`
+	Head     Commit                `db:"head"`
+	Repo     Repo                  `db:"repo"`
+	Name     string                `db:"name"`
+	Metadata pgjsontypes.StringMap `db:"metadata"`
 	CreatedAtUpdatedAt
 }
 
