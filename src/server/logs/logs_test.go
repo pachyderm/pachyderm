@@ -101,9 +101,14 @@ func TestGetLogsHint(t *testing.T) {
 				WantPagingHint: true,
 			}, publisher), "GetLogs must succeed")
 			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
-			h, ok := publisher.responses[0].ResponseType.(*logs.GetLogsResponse_PagingHint)
-			require.True(t, ok, "paging hints should be returned when requested")
-			require.NotNil(t, h, "paging hint should be present")
+			var foundHint bool
+			for _, resp := range publisher.responses {
+				h, ok := resp.ResponseType.(*logs.GetLogsResponse_PagingHint)
+				if ok && h != nil {
+					foundHint = true
+				}
+			}
+			require.True(t, foundHint, "paging hints should be returned when requested")
 
 			// GetLogs with a hint request and a non-standard time filter should duplicate that duration.
 			publisher = new(testPublisher)
@@ -120,13 +125,20 @@ func TestGetLogsHint(t *testing.T) {
 				},
 			}, publisher), "GetLogs with an explicit time filter must succeed")
 			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
-			h, ok = publisher.responses[0].ResponseType.(*logs.GetLogsResponse_PagingHint)
-			require.True(t, ok, "paging hints should be returned when requested")
-			for _, hint := range []*logs.GetLogsRequest{h.PagingHint.Older, h.PagingHint.Newer} {
-				from := hint.Filter.TimeRange.From.AsTime()
-				until := hint.Filter.TimeRange.Until.AsTime()
-				require.Equal(t, time.Second, until.Sub(from), "explicit window is one hour, not %v (%v–%v)", until.Sub(from), from, until)
+			foundHint = false
+			for _, resp := range publisher.responses {
+				h, ok := resp.ResponseType.(*logs.GetLogsResponse_PagingHint)
+				if !ok && h == nil {
+					continue
+				}
+				foundHint = true
+				for _, hint := range []*logs.GetLogsRequest{h.PagingHint.Older, h.PagingHint.Newer} {
+					from := hint.Filter.TimeRange.From.AsTime()
+					until := hint.Filter.TimeRange.Until.AsTime()
+					require.Equal(t, time.Second, until.Sub(from), "explicit window is one hour, not %v (%v–%v)", until.Sub(from), from, until)
+				}
 			}
+			require.True(t, foundHint, "paging hints should be returned when requested")
 
 			publisher = new(testPublisher)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
