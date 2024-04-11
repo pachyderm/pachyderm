@@ -35,7 +35,7 @@
     "dotenv-flow-cli": "1.1.1",
     "envfile": "6.18.0",
     "graphql": "16.6.0",
-    "jsonrepair": "^3.2.4",
+    "jsonrepair": "^3.6.0",
     "msw": "^1.2.4",
     "size-limit": "^11.0.2",
     "start-server-and-test": "2.0.3",
