@@ -30,21 +30,27 @@ func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
 	return err.overlappingCount + 1
 }
 
+type entryPublisher interface {
+	// Publish publishes a single Entry to the client.
+	Publish(context.Context, loki.Entry) error
+}
+
 // doQuery executes a query.
 //
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction logDirection) ([]loki.Entry, error) {
+func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction logDirection, publisher entryPublisher) (err error) {
 	var (
-		batchSize    = limit
+		// FIXME: query server …
+		batchSize    = 5000
 		resultLength int
 		total        int
-		results      []loki.Entry
 		lastEntry    []loki.Entry
 	)
+	var i int
 	for total < limit {
-		var result []loki.Entry
+		i++
 		bs := batchSize
 		// We want to truncate the batch size if the remaining number
 		// of items needed to reach the limit is less than the batch size
@@ -60,18 +66,17 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			// from internal errors here, but … any invalid user
 			// query passed through by the log server is effectively
 			// an internal error.
-			return nil, errors.Wrap(err, "query failed")
+			return errors.Wrap(err, "query failed")
 		}
 
 		streams, ok := resp.Data.Result.(loki.Streams)
 		if !ok {
-			return nil, errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T", resp.Data.Result)
+			return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T", resp.Data.Result)
 		}
 
-		if result, resultLength, lastEntry, err = publishEntries(ctx, streams, direction, lastEntry); err != nil {
-			return nil, errors.Wrap(err, "could not publish entries")
+		if resultLength, lastEntry, err = publishEntries(ctx, streams, direction, lastEntry, publisher); err != nil {
+			return errors.Wrap(err, "could not publish entries")
 		}
-		results = append(results, result...)
 		if resultLength <= 0 {
 			// Was not a log stream query, or no results, no more batching
 			break
@@ -83,7 +88,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			break
 		}
 		if len(lastEntry) >= batchSize {
-			return nil, ErrInvalidBatchSize{batchSize, len(lastEntry)}
+			return ErrInvalidBatchSize{batchSize, len(lastEntry)}
 		}
 
 		// Batching works by taking the timestamp of the last query and using it in the next query,
@@ -104,13 +109,13 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			end = lastEntry[0].Timestamp.Add(1 * time.Nanosecond)
 		}
 	}
-	return results, nil
+	return nil
 }
 
 // Adapted from <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/pkg/logcli/query/query.go#L259>.
 //
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
-func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry) ([]loki.Entry, int, []loki.Entry, error) {
+func publishEntries(ctx context.Context, streams loki.Streams, direction logDirection, lastEntry []loki.Entry, publisher entryPublisher) (int, []loki.Entry, error) {
 	var (
 		entries, result []loki.Entry
 		published       int
@@ -119,7 +124,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 		entries = append(entries, s.Entries...)
 	}
 	if len(entries) == 0 {
-		return nil, 0, nil, nil
+		return 0, nil, nil
 	}
 	switch direction {
 	case forwardLogDirection:
@@ -127,7 +132,7 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 	case backwardLogDirection:
 		sort.Slice(entries, func(i, j int) bool { return entries[i].Timestamp.After(entries[j].Timestamp) })
 	default:
-		return nil, 0, nil, errors.Errorf("invalid direction %q", direction)
+		return 0, nil, errors.Errorf("invalid direction %q", direction)
 	}
 	for _, e := range entries {
 		if len(lastEntry) > 0 && e.Timestamp == lastEntry[0].Timestamp {
@@ -141,6 +146,9 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 				continue
 			}
 		}
+		if err := publisher.Publish(ctx, e); err != nil {
+			return 0, nil, errors.Wrap(err, "could not publish")
+		}
 		result = append(result, e)
 		published++
 	}
@@ -151,5 +159,5 @@ func publishEntries(ctx context.Context, streams loki.Streams, direction logDire
 			lel = append(lel, e)
 		}
 	}
-	return result, published, lel, nil
+	return published, lel, nil
 }
