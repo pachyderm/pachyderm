@@ -22,6 +22,17 @@ if TYPE_CHECKING:
 
 
 @dataclass(eq=False, repr=False)
+class ClusterPicker(betterproto.Message):
+    """
+    ClusterPicker selects a cluster.  Since clusters will never "cascade",
+    there is only one cluster that can be selected, the one running this API
+    server.
+    """
+
+    pass
+
+
+@dataclass(eq=False, repr=False)
 class Edit(betterproto.Message):
     """Edit represents editing one piece of metadata."""
 
@@ -36,6 +47,9 @@ class Edit(betterproto.Message):
 
     repo: "_pfs__.RepoPicker" = betterproto.message_field(4, group="target")
     """repo targets a repo's metadata."""
+
+    cluster: "ClusterPicker" = betterproto.message_field(5, group="target")
+    """cluster targets the cluster's metadata."""
 
     replace: "EditReplace" = betterproto.message_field(10, group="op")
     """replace replaces a target's metadata with a new metadata mapping."""

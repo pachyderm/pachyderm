@@ -46,6 +46,11 @@ class ClusterInfo(betterproto.Message):
     web_resources: "WebResource" = betterproto.message_field(8)
     """Any HTTP links that the client might want to be aware of."""
 
+    metadata: Dict[str, str] = betterproto.map_field(
+        9, betterproto.TYPE_STRING, betterproto.TYPE_STRING
+    )
+    """Cluster-level metadata."""
+
 
 @dataclass(eq=False, repr=False)
 class InspectClusterRequest(betterproto.Message):
