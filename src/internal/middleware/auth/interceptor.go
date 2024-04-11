@@ -192,6 +192,16 @@ var authHandlers = map[string]authHandler{
 	"/pfs_v2.API/ReposSummary":         authDisabledOr(authenticated),
 
 	//
+	// Storage API
+	//
+
+	"/storage.Fileset/CreateFileset":  authDisabledOr(authenticated),
+	"/storage.Fileset/ReadFileset":    authDisabledOr(authenticated),
+	"/storage.Fileset/RenewFileset":   authDisabledOr(authenticated),
+	"/storage.Fileset/ComposeFileset": authDisabledOr(authenticated),
+	"/storage.Fileset/ShardFileset":   authDisabledOr(authenticated),
+
+	//
 	// PPS API
 	//
 

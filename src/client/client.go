@@ -43,6 +43,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 	"github.com/pachyderm/pachyderm/v2/src/version"
 	"github.com/pachyderm/pachyderm/v2/src/version/versionpb"
@@ -63,6 +64,9 @@ const (
 
 // PfsAPIClient is an alias for pfs.APIClient.
 type PfsAPIClient pfs.APIClient
+
+// FilesetClient is an alias for storage.FilesetClient.
+type FilesetClient storage.FilesetClient
 
 // PpsAPIClient is an alias for pps.APIClient.
 type PpsAPIClient pps.APIClient
@@ -91,6 +95,7 @@ type ProxyClient proxy.APIClient
 // An APIClient is a wrapper around pfs, pps and block APIClients.
 type APIClient struct {
 	PfsAPIClient
+	FilesetClient
 	PpsAPIClient
 	AuthAPIClient
 	IdentityAPIClient
@@ -885,6 +890,7 @@ func (c *APIClient) connect(rctx context.Context, timeout time.Duration, unaryIn
 		return err
 	}
 	c.PfsAPIClient = pfs.NewAPIClient(clientConn)
+	c.FilesetClient = storage.NewFilesetClient(clientConn)
 	c.PpsAPIClient = pps.NewAPIClient(clientConn)
 	c.AuthAPIClient = auth.NewAPIClient(clientConn)
 	c.IdentityAPIClient = identity.NewAPIClient(clientConn)

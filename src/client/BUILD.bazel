@@ -44,6 +44,7 @@ go_library(
         "//src/pjs",
         "//src/pps",
         "//src/proxy",
+        "//src/storage",
         "//src/task",
         "//src/transaction",
         "//src/version",

@@ -193,7 +193,7 @@ func (d *driver) getFile(ctx context.Context, file *pfs.File, pathRange *pfs.Pat
 	}
 	glob := pfsfile.CleanPath(file.Path)
 	opts := []SourceOption{
-		WithPrefix(globLiteralPrefix(glob)),
+		WithPrefix(storage.GlobLiteralPrefix(glob)),
 		WithDatum(file.Datum),
 	}
 	var upper string
@@ -451,7 +451,7 @@ func (d *driver) globFile(ctx context.Context, commit *pfs.Commit, glob string, 
 	}
 	glob = pfsfile.CleanPath(glob)
 	opts := []SourceOption{
-		WithPrefix(globLiteralPrefix(glob)),
+		WithPrefix(storage.GlobLiteralPrefix(glob)),
 	}
 	if pathRange != nil {
 		opts = append(opts, WithPathRange(pathRange))
@@ -547,7 +547,7 @@ func (d *driver) createFileSet(ctx context.Context, cb func(*fileset.UnorderedWr
 	var id *fileset.ID
 	if err := d.storage.Filesets.WithRenewer(ctx, defaultTTL, func(ctx context.Context, renewer *fileset.Renewer) error {
 		var err error
-		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb, fileset.WithCompact(d.env.StorageConfig.StorageCompactionMaxFanIn))
+		id, err = withUnorderedWriter(ctx, d.storage, renewer, cb)
 		return err
 	}); err != nil {
 		return nil, err
