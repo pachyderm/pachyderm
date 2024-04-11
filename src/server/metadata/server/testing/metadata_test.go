@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmputil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
@@ -420,5 +421,33 @@ func TestEditMetadata(t *testing.T) {
 			`/edit #3: check permissions on repo.*robot:mallory is not authorized/`,
 		}
 		require.NoDiff(t, want, strings.Split(err.Error(), "\n"), []cmp.Option{cmputil.RegexpStrings()})
+	})
+
+	t.Run("cluster", func(t *testing.T) {
+		// Right now, only cluster admins can edit cluster metadata; so we edit metadata
+		// with the root client and read it back with an unprivileged client.
+		op := &metadata.Edit_AddKey_{
+			AddKey: &metadata.Edit_AddKey{
+				Key:   "production",
+				Value: "true",
+			},
+		}
+		_, err := root.MetadataClient.EditMetadata(root.Ctx(), &metadata.EditMetadataRequest{
+			Edits: []*metadata.Edit{
+				{
+					Target: &metadata.Edit_Cluster{},
+					Op:     op,
+				},
+			},
+		})
+		if err != nil {
+			t.Errorf("edit cluster metadata: %v", err)
+		}
+		want := map[string]string{"production": "true"}
+		ci, err := mallory.AdminAPIClient.InspectCluster(mallory.Ctx(), &admin.InspectClusterRequest{})
+		if err != nil {
+			t.Errorf("inspect cluster: %v", err)
+		}
+		require.NoDiff(t, want, ci.GetMetadata(), nil)
 	})
 }

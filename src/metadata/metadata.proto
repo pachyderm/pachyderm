@@ -7,6 +7,10 @@ import "pfs/pfs.proto";
 
 import "protoextensions/validate.proto";
 
+// ClusterPicker selects a cluster.  Since clusters will never "cascade", there is only one cluster
+// that can be selected, the one running this API server.
+message ClusterPicker {}
+
 // Edit represents editing one piece of metadata.
 message Edit {
   // target is the object whose metadata will be edited.
@@ -20,6 +24,8 @@ message Edit {
     pfs_v2.BranchPicker branch = 3 [(validate.rules).message.required = true];
     // repo targets a repo's metadata.
     pfs_v2.RepoPicker repo = 4 [(validate.rules).message.required = true];
+    // cluster targets the cluster's metadata.
+    ClusterPicker cluster = 5 [(validate.rules).message.required = true];
   }
 
   // Replace is an operation that replaces metadata.

@@ -24,7 +24,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	var commands []*cobra.Command
 
 	editMetadata := &cobra.Command{
-		Use:   `{{alias}} [<object type: project|repo|branch|commit> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
+		Use:   `{{alias}} [<object type: cluster|project|repo|branch|commit> <object picker> <operation: add|edit|delete|set> <data: key=value, key, '{"key":"value","key2":"value2"}'>]...`,
 		Short: "Edits an object's metadata",
 		Long:  "Edits an object's metadata.",
 		Run: cmdutil.Run(func(cmd *cobra.Command, args []string) error {
@@ -116,6 +116,8 @@ func parseEditMetadataCmdline(args []string, defaultProject string) (*metadata.E
 			edit.Target = &metadata.Edit_Repo{
 				Repo: &rp,
 			}
+		case "cluster":
+			edit.Target = &metadata.Edit_Cluster{}
 		default:
 			errors.JoinInto(&errs, errors.Errorf("arg set %d: unknown object type %q", i, kind))
 			continue
