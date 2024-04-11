@@ -156,7 +156,7 @@ func (s ActivationScope) String() string {
 // ActivateAuthEverywhere activates auth, and PPS and PFS auth, in a single transaction.  It is only
 // exposed publicly for testing; do not call it from outside this package.
 func (a *apiServer) ActivateAuthEverywhere(ctx context.Context, scopes []ActivationScope, rootToken string) error {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
 		log.Debug(ctx, "attempting to activate auth")
 		if _, err := a.activateInTransaction(ctx, txCtx, &auth.ActivateRequest{
 			RootToken: rootToken,
@@ -478,7 +478,7 @@ func (a *apiServer) hasClusterRole(ctx context.Context, username string, role st
 // Activate implements the protobuf auth.Activate RPC
 func (a *apiServer) Activate(ctx context.Context, req *auth.ActivateRequest) (*auth.ActivateResponse, error) {
 	var resp *auth.ActivateResponse
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
 		var err error
 		resp, err = a.activateInTransaction(ctx, txCtx, req)
 		return err
@@ -551,7 +551,7 @@ func (a *apiServer) RotateRootToken(ctx context.Context, req *auth.RotateRootTok
 		return nil, errors.New("RotateRootToken() is disabled when the root token is configured in the environment")
 	}
 	var resp *auth.RotateRootTokenResponse
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
 		var err error
 		resp, err = a.rotateRootTokenInTransaction(txCtx, req)
 		return err
@@ -807,7 +807,7 @@ func (a *apiServer) Authorize(
 	req *auth.AuthorizeRequest,
 ) (resp *auth.AuthorizeResponse, retErr error) {
 	var response *auth.AuthorizeResponse
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.AuthorizeInTransaction(txnCtx, req)
 		return err
@@ -823,7 +823,7 @@ func (a *apiServer) GetPermissionsForPrincipal(ctx context.Context, req *auth.Ge
 		permissions[auth.Permission(p)] = true
 	}
 	var request *authorizeRequest
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		request, err = a.evaluateRoleBindingInTransaction(txnCtx, req.Principal, req.Resource, permissions)
 		return err
@@ -1171,7 +1171,7 @@ func (a *apiServer) GetRoleBindingInTransaction(
 // GetRoleBinding implements the protobuf auth.GetRoleBinding RPC
 func (a *apiServer) GetRoleBinding(ctx context.Context, req *auth.GetRoleBindingRequest) (resp *auth.GetRoleBindingResponse, retErr error) {
 	var response *auth.GetRoleBindingResponse
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		response, err = a.GetRoleBindingInTransaction(txnCtx, req)
 		return err
@@ -1236,7 +1236,7 @@ func (a *apiServer) GetOIDCLogin(ctx context.Context, req *auth.GetOIDCLoginRequ
 
 // RevokeAuthToken implements the protobuf auth.RevokeAuthToken RPC
 func (a *apiServer) RevokeAuthToken(ctx context.Context, req *auth.RevokeAuthTokenRequest) (resp *auth.RevokeAuthTokenResponse, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		resp, retErr = a.RevokeAuthTokenInTransaction(txnCtx, req)
 		return retErr
 	}); err != nil {
@@ -1781,7 +1781,7 @@ func (a *apiServer) insertAuthToken(ctx context.Context, tokenHash string, subje
 
 // TODO(acohen4): replace this function with what's implemented in postgres-integration once it lands
 func (a *apiServer) insertAuthTokenNoTTL(ctx context.Context, tokenHash string, subject string) error {
-	return a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		err := a.insertAuthTokenNoTTLInTransaction(txnCtx, tokenHash, subject)
 		return err
 	})

@@ -58,7 +58,7 @@ func newAPIServer(ctx context.Context, env Env) (*apiServer, error) {
 // ActivateAuth implements the protobuf pfs.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, request *pfs.ActivateAuthRequest) (response *pfs.ActivateAuthResponse, retErr error) {
 	var resp *pfs.ActivateAuthResponse
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, request)
 		if err != nil {
@@ -135,7 +135,7 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 	request.Repo.EnsureProject()
 	var repoInfo *pfs.RepoInfo
 	var size int64
-	if err := a.env.TxnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		repoInfo, err = a.InspectRepoInTransaction(ctx, txnCtx, request)
 		if err != nil {
@@ -156,9 +156,9 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 // ListRepo implements the protobuf pfs.ListRepo RPC
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	var repos []*pfs.RepoInfo
-	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(txnCxt *txncontext.TransactionContext) error {
+	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
-		repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects, request.Page)
+		repos, err = a.driver.listRepoInTransaction(ctx, txnCtx, true, request.Type, request.Projects, request.Page)
 		return errors.Wrap(err, "listRepoInTransaction")
 	}); err != nil {
 		return errors.Wrap(err, "WithReadContext")
@@ -290,7 +290,7 @@ func (a *apiServer) ListCommit(request *pfs.ListCommitRequest, respServer pfs.AP
 }
 
 func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitRequest) (*pfs.SquashCommitResponse, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.squashCommit(ctx, txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
@@ -299,7 +299,7 @@ func (a *apiServer) SquashCommit(ctx context.Context, request *pfs.SquashCommitR
 }
 
 func (a *apiServer) DropCommit(ctx context.Context, request *pfs.DropCommitRequest) (*pfs.DropCommitResponse, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommit(ctx, txnCtx, request.Commit, request.Recursive)
 	}); err != nil {
 		return nil, err
@@ -354,7 +354,7 @@ func (a *apiServer) SquashCommitSet(ctx context.Context, request *pfs.SquashComm
 
 // DropCommitSet implements the protobuf pfs.DropCommitSet RPC
 func (a *apiServer) DropCommitSet(ctx context.Context, request *pfs.DropCommitSetRequest) (response *emptypb.Empty, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.dropCommitSet(ctx, txnCtx, request.CommitSet)
 	}); err != nil {
 		return nil, err
@@ -443,7 +443,7 @@ func (a *apiServer) ListBranch(request *pfs.ListBranchRequest, srv pfs.API_ListB
 	if request.Repo == nil {
 		return a.driver.listBranch(srv.Context(), request.Reverse, srv.Send)
 	}
-	return a.env.TxnEnv.WithReadContext(srv.Context(), func(txnCtx *txncontext.TransactionContext) error {
+	return a.env.TxnEnv.WithReadContext(srv.Context(), func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.listBranchInTransaction(srv.Context(), txnCtx, request.Repo, request.Reverse, srv.Send)
 	})
 }
@@ -525,7 +525,7 @@ func (a *apiServer) ListProject(request *pfs.ListProjectRequest, srv pfs.API_Lis
 
 // DeleteProject implements the protobuf pfs.DeleteProject RPC
 func (a *apiServer) DeleteProject(ctx context.Context, request *pfs.DeleteProjectRequest) (*emptypb.Empty, error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.driver.deleteProject(ctx, txnCtx, request.Project, request.Force)
 	}); err != nil {
 		return nil, err
@@ -764,7 +764,7 @@ func (a *apiServer) Fsck(request *pfs.FsckRequest, fsckServer pfs.API_FsckServer
 	var err error
 	if request.GetZombieAll() {
 		if err := dbutil.WithTx(fsckServer.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-			return a.driver.txnEnv.WithWriteContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
+			return a.driver.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCxt *txncontext.TransactionContext) error {
 				// list meta repos as a proxy for finding pipelines
 				repos, err = a.driver.listRepoInTransaction(ctx, txnCxt, false, pfs.MetaRepoType, nil, nil)
 				return errors.Wrap(err, "list repos in tx by meta repo type")
@@ -845,7 +845,7 @@ func (a *apiServer) ShardFileSet(ctx context.Context, req *pfs.ShardFileSetReque
 }
 
 func (a *apiServer) AddFileSet(ctx context.Context, req *pfs.AddFileSetRequest) (_ *emptypb.Empty, retErr error) {
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.AddFileSetInTransaction(ctx, txnCtx, req)
 	}); err != nil {
 		return nil, err
@@ -991,7 +991,7 @@ func (a *apiServer) ReposSummary(ctx context.Context, request *pfs.ReposSummaryR
 			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
 		}
 	}
-	if err := a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		repos, err := a.driver.listRepoInTransaction(ctx, txnCtx, true, "user", projects, nil)
 		if err != nil {
 			return errors.Wrap(err, "list repos")

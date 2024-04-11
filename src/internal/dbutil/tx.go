@@ -3,6 +3,7 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -146,7 +147,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() error {
-		ctx, cf := pctx.WithCancel(ctx)
+		ctx, cf := pctx.WithCancel(pctx.Child(ctx, fmt.Sprintf("WithTx(%d)", attempts)))
 		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
