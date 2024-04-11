@@ -1219,7 +1219,7 @@ func TestPutFileIntoOpenCommit(t *testing.T) {
 	commit1, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "master", commit1.Id))
 
 	require.YesError(t, env.PachClient.PutFile(commit1, "foo", strings.NewReader("foo\n")))
 
@@ -1565,7 +1565,7 @@ func TestInspectCommit(t *testing.T) {
 	fileContent := "foo\n"
 	require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader(fileContent)))
 
-	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
+	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, repo, "", commit.Id)
 	require.NoError(t, err)
 	tStarted := commitInfo.Started.AsTime()
 	require.Equal(t, commit, commitInfo.Commit)
@@ -1575,9 +1575,9 @@ func TestInspectCommit(t *testing.T) {
 	require.Nil(t, commitInfo.Finished)
 	finished := time.Now()
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 
-	commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id)
+	commitInfo, err = env.PachClient.WaitCommit(pfs.DefaultProjectName, repo, "", commit.Id)
 	require.NoError(t, err)
 	tStarted = commitInfo.Started.AsTime()
 	tFinished := commitInfo.Finished.AsTime()
@@ -1603,7 +1603,7 @@ func TestInspectCommitWait(t *testing.T) {
 		return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id)
 	})
 
-	commitInfo, err := env.PachClient.WaitCommit(pfs.DefaultProjectName, commit.Branch.Repo.Name, commit.Branch.Name, commit.Id)
+	commitInfo, err := env.PachClient.WaitCommit(pfs.DefaultProjectName, commit.Repo.Name, "", commit.Id)
 	require.NoError(t, err)
 	require.NotNil(t, commitInfo.Finished)
 
@@ -1637,7 +1637,7 @@ func TestDropCommitSet(t *testing.T) {
 
 	require.NoError(t, env.PachClient.DropCommitSet(commit2.Id))
 
-	_, err = env.PachClient.InspectCommit(project, repo, commit2.Branch.Name, commit2.Id)
+	_, err = env.PachClient.InspectCommit(project, repo, "", commit2.Id)
 	require.YesError(t, err)
 
 	// Check that the head has been set to the parent
@@ -2165,7 +2165,7 @@ func TestCommitBranch(t *testing.T) {
 	// Now make a commit on the master branch, which should trigger a downstream commit on each of the two branches
 	masterCommit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "input", "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "input", masterCommit.Branch.Name, masterCommit.Id))
+	require.NoError(t, finishCommit(env.PachClient, "input", "", masterCommit.Id))
 	// Check that the commit in output1 has the information and provenance we expect
 	commitInfo, err := env.PachClient.InspectCommit(pfs.DefaultProjectName, "output1", "master", "")
 	require.NoError(t, err)

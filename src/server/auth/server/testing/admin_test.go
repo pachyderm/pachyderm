@@ -330,7 +330,7 @@ func TestFSAdminFixBrokenRepo(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 1, tu.CommitCnt(t, rootClient, repo)) // check that a new commit was created
 }
 
@@ -669,7 +669,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.NoError(t, robotClient2.CreateRepo(pfs.DefaultProjectName, repo))
 	commit, err := robotClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err) // admin privs means robotUser can commit
-	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// robotUser adds alice to the repo, and checks that the ACL is updated
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
@@ -677,7 +677,7 @@ func TestRobotUserAdmin(t *testing.T) {
 	require.Equal(t, tu.BuildBindings(tu.Robot(robotUser2), auth.RepoOwnerRole, alice, auth.RepoWriterRole), tu.GetRepoRoleBinding(robotClient.Ctx(), t, robotClient, pfs.DefaultProjectName, repo))
 	commit, err = aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	_, err = robotClient.Deactivate(robotClient.Ctx(), &auth.DeactivateRequest{})
 	require.NoError(t, err)

@@ -102,7 +102,7 @@ func (pj *pendingJob) load() error {
 			return errors.EnsureStack(err)
 		}
 		if metaCI.Origin.Kind == pfs.OriginKind_AUTO {
-			outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, pj.baseMetaCommit.Branch.Name, pj.baseMetaCommit.Id)
+			outputCI, err := pachClient.InspectCommit(pj.baseMetaCommit.Repo.Project.GetName(), pj.baseMetaCommit.Repo.Name, "", pj.baseMetaCommit.Id)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
