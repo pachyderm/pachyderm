@@ -34,6 +34,23 @@ type TestLoki struct {
 
 // New starts a new Loki instance on the local machine.
 func New(ctx context.Context, tmp string) (*TestLoki, error) {
+	var errs error
+	attempts := 5
+	for i := 0; i < attempts; i++ {
+		log.Debug(ctx, "attempting to start loki", log.RetryAttempt(i, attempts))
+		l, err := buildAndStart(ctx, tmp)
+		if err != nil {
+			errors.JoinInto(&errs, errors.Wrapf(err, "startup attempt %d", i))
+			continue
+		}
+		if err == nil {
+			return l, nil
+		}
+	}
+	return nil, errors.Wrapf(errs, "loki failed to start after %d attempts", attempts)
+}
+
+func buildAndStart(ctx context.Context, tmp string) (*TestLoki, error) {
 	bin, ok := bazel.FindBinary("//tools/loki", "loki")
 	if !ok {
 		log.Debug(ctx, "can't find //tools/loki via bazel, using loki in $PATH")
