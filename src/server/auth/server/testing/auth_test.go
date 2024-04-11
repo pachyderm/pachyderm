@@ -2096,7 +2096,7 @@ func TestPutFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(aliceClient, repo, "", commit.Id))
 	check()
 }
 
@@ -2157,7 +2157,7 @@ func TestGetFileURL(t *testing.T) {
 		}
 	}
 	check()
-	require.NoError(t, finishCommit(aliceClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(aliceClient, repo, "", commit.Id))
 	check()
 }
 

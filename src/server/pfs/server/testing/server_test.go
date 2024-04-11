@@ -1420,7 +1420,7 @@ func TestDeleteRepoProvenance(t *testing.T) {
 
 	commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, "A", "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, "A", commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, "A", "", commit.Id))
 
 	// Delete the provenance repo; that should fail.
 	require.YesError(t, env.PachClient.DeleteRepo(pfs.DefaultProjectName, "A", false))
@@ -1600,7 +1600,7 @@ func TestInspectCommitWait(t *testing.T) {
 	var eg errgroup.Group
 	eg.Go(func() error {
 		time.Sleep(2 * time.Second)
-		return finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id)
+		return finishCommit(env.PachClient, repo, "", commit.Id)
 	})
 
 	commitInfo, err := env.PachClient.WaitCommit(pfs.DefaultProjectName, commit.Repo.Name, "", commit.Id)
@@ -1790,7 +1790,7 @@ func TestStartCommitWithUnfinishedParent(t *testing.T) {
 	// fails because the parent commit has not been finished
 	require.YesError(t, err)
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
 	_, err = env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 }
@@ -2527,7 +2527,7 @@ func TestPutFile2(t *testing.T) {
 	require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, env.PachClient.PutFile(commit1, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 	require.NoError(t, env.PachClient.PutFile(masterCommit, "file", strings.NewReader("buzz\n"), client.WithAppendPutFile()))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
 
 	expected := "foo\nbar\nbuzz\n"
 	buffer := &bytes.Buffer{}
@@ -2554,13 +2554,13 @@ func TestPutFile2(t *testing.T) {
 
 	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit3.Id))
 	require.NoError(t, env.PachClient.CreateBranch(pfs.DefaultProjectName, repo, "foo", "", commit3.Id, nil))
 
 	commit4, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "foo")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit4, "file", strings.NewReader("foo\nbar\nbuzz\n"), client.WithAppendPutFile()))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit4.Branch.Name, commit4.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit4.Id))
 
 	// commit 3 should have remained unchanged
 	buffer.Reset()
@@ -2716,7 +2716,7 @@ func TestInspectFile3(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, fileInfo)
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit1.Id))
 
 	fi, err := env.PachClient.InspectFile(commit1, "foo/bar")
 	require.NoError(t, err)
@@ -2731,7 +2731,7 @@ func TestInspectFile3(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, fileInfo)
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit2.Id))
 
 	fi, err = env.PachClient.InspectFile(commit2, "foo")
 	require.NoError(t, err)
@@ -2741,7 +2741,7 @@ func TestInspectFile3(t *testing.T) {
 	commit3, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit3, "bar", strings.NewReader(fileContent3)))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit3.Branch.Name, commit3.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit3.Id))
 	fi, err = env.PachClient.InspectFile(commit3, "bar")
 	require.NoError(t, err)
 	require.NotNil(t, fi)

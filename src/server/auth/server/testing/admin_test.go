@@ -623,7 +623,7 @@ func TestGroupRoleBinding(t *testing.T) {
 	// test that alice can commit to the repo
 	commit, err := aliceClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 }
 
 // TestRobotUserAdmin tests that robot users can
