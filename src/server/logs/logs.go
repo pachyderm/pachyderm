@@ -2,9 +2,14 @@ package logs
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"time"
+
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/structpb"
 
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -12,7 +17,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	ilogs "github.com/pachyderm/pachyderm/v2/src/internal/logs"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 type ResponsePublisher interface {
@@ -31,6 +39,8 @@ var (
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
 	ErrPublish    = errors.New("error publishing")
 	ErrBadRequest = errors.New("bad request")
+	// ErrLogFormat returned if log line does not match requested log format
+	ErrLogFormat = errors.New("error invalid log format")
 )
 
 type logDirection string
@@ -40,6 +50,148 @@ const (
 	backwardLogDirection logDirection = "backward"
 )
 
+var lokiQuery string
+
+func handlePipelineJob(ctx context.Context, query *logs.PipelineJobLogQuery) ([]ilogs.LineMatcher, error) {
+	if query == nil || query.GetPipeline == nil {
+		return nil, nil
+	}
+	matcher, err := ilogs.PipelineJobMatcher(query.GetPipeline().GetProject(), query.GetPipeline().GetPipeline(), query.GetJob())
+	if err != nil {
+		return nil, err
+	}
+	return []ilogs.LineMatcher{matcher}, nil
+}
+
+func handlePipeline(ctx context.Context, query *logs.PipelineLogQuery) ([]ilogs.LineMatcher, error) {
+	if query == nil {
+		return nil, nil
+	}
+	matcher, err := ilogs.PipelineMatcher(query.GetProject(), query.GetPipeline())
+	if err != nil {
+		return nil, err
+	}
+	return []ilogs.LineMatcher{matcher}, nil
+}
+
+func handleUserLogQuery(ctx context.Context, query *logs.UserLogQuery) ([]ilogs.LineMatcher, error) {
+	if query == nil {
+		return nil, nil
+	}
+	matchers := []ilogs.LineMatcher{}
+
+	matcher, err := ilogs.ProjectMatcher(query.GetProject())
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, matcher)
+
+	moreMatchers, err := handlePipeline(ctx, query.GetPipeline())
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, moreMatchers...)
+
+	matcher, err = ilogs.DatumMatcher(query.GetDatum())
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, matcher)
+
+	matcher, err = ilogs.JobMatcher(query.GetJob())
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, matcher)
+
+	moreMatchers, err = handlePipelineJob(ctx, query.GetPipelineJob())
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, moreMatchers...)
+
+	return matchers, nil
+}
+
+func handleAdminLogQuery(ctx context.Context, query *logs.AdminLogQuery) ([]ilogs.LineMatcher, error) {
+	if query == nil {
+		return nil, nil
+	}
+
+	switch query.AdminType.(type) {
+	case *logs.AdminLogQuery_Logql:
+		lokiQuery = query.GetLogql()
+	case *logs.AdminLogQuery_Pod:
+		lokiQuery = query.GetPod()
+	case *logs.AdminLogQuery_PodContainer:
+		lokiQuery = query.GetPodContainer().GetPod()
+	case *logs.AdminLogQuery_App:
+		lokiQuery = query.GetApp()
+	case *logs.AdminLogQuery_Master:
+		matcher, err := ilogs.MasterMatcher(query.GetStorage().GetProject(), query.GetStorage().GetPipeline())
+		if err != nil {
+			return nil, err
+		}
+		return []ilogs.LineMatcher{matcher}, nil
+	case *logs.AdminLogQuery_Storage:
+		matcher, err := ilogs.StorageMatcher(query.GetStorage().GetProject(), query.GetStorage().GetPipeline())
+		if err != nil {
+			return nil, err
+		}
+		return []ilogs.LineMatcher{matcher}, nil
+	case *logs.AdminLogQuery_User:
+		return handleUserLogQuery(ctx, query.GetUser())
+	}
+
+	return nil, nil
+
+}
+
+func handleQuery(ctx context.Context, query *logs.LogQuery) ([]ilogs.LineMatcher, error) {
+
+	if query == nil {
+		return nil, nil
+	}
+
+	log.Info(ctx, "handleQuery: entry")
+	switch queryType := query.QueryType.(type) {
+	case *logs.LogQuery_User:
+		log.Info(ctx, fmt.Sprintf("handleQuery: got user query type %T", queryType))
+		return handleUserLogQuery(ctx, query.GetUser())
+	case *logs.LogQuery_Admin:
+		log.Info(ctx, fmt.Sprintf("handleQuery: got admin query type %v", queryType))
+		return handleAdminLogQuery(ctx, query.GetAdmin())
+	}
+
+	log.Info(ctx, fmt.Sprintf("handleQuery: got unknown query type"))
+	return nil, errors.Errorf("unexpected query type")
+
+}
+
+func handleFilters(ctx context.Context, filters *logs.LogFilter) ([]ilogs.LineMatcher, error) {
+	if filters == nil {
+		return nil, nil
+	}
+	matchers := []ilogs.LineMatcher{}
+
+	matcher, err := ilogs.LogLevelMatcher(uint32(filters.Level))
+	if err != nil {
+		return nil, err
+	}
+	matchers = append(matchers, matcher)
+
+	if filters.Regex != nil {
+		matcher, err := ilogs.RegexMatcher(filters.Regex.Pattern, filters.Regex.Negate)
+		if err != nil {
+			return nil, err
+		}
+		matchers = append(matchers, matcher)
+	}
+
+	return matchers, nil
+
+}
+
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
@@ -48,6 +200,18 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if request == nil {
 		request = &logs.GetLogsRequest{}
 	}
+
+	lineMatchers := []ilogs.LineMatcher{}
+
+	matchers, err := handleQuery(ctx, request.Query)
+	if err != nil {
+	}
+	lineMatchers = append(lineMatchers, matchers...)
+
+	matchers, err = handleFilters(ctx, request.Filter)
+	if err != nil {
+	}
+	lineMatchers = append(lineMatchers, matchers...)
 
 	filter := request.Filter
 	if filter == nil {
@@ -84,7 +248,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	adapter := newAdapter(publisher, request.LogFormat)
+	adapter := newAdapter(publisher, request.LogFormat, lineMatchers)
 	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
@@ -151,14 +315,16 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 type adapter struct {
 	responsePublisher ResponsePublisher
 	logFormat         logs.LogFormat
+  lineMatchers      []ilogs.LineMatcher
 	first, last       loki.Entry
 	gotFirst          bool
 }
 
-func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
+func newAdapter(p ResponsePublisher, f logs.LogFormat, matchers []ilogs.LineMatcher) *adapter {
 	return &adapter{
 		responsePublisher: p,
 		logFormat:         f,
+    lineMatchers: matchers,
 	}
 }
 
@@ -179,14 +345,83 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 					LogType: &logs.LogMessage_Verbatim{
 						Verbatim: &logs.VerbatimLogMessage{
 							Line: []byte(entry.Line),
+              Timestamp: timestamppb.New(entry.Timestamp),
 						},
 					},
 				},
 			},
-		}
+    }
+    case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
+      resp = &logs.GetLogsResponse{
+        ResponseType: &logs.GetLogsResponse_Log{
+          Log: &logs.LogMessage{
+            LogType: &logs.LogMessage_Json{
+              Json: &logs.ParsedJSONLogMessage{
+                Verbatim: &logs.VerbatimLogMessage{
+                  Line:      []byte(entry.Line),
+                  Timestamp: timestamppb.New(entry.Timestamp),
+                },
+                NativeTimestamp: timestamppb.New(entry.Timestamp),
+              },
+            },
+          },
+        },
+      }
+      jsonStruct := new(structpb.Struct)
+      if err := jsonStruct.UnmarshalJSON([]byte(entry.Line)); err != nil {
+        log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+      } else {
+        resp.GetLog().GetJson().Object = jsonStruct
+      }
+      ppsLog := new(pps.LogMessage)
+      m := protojson.UnmarshalOptions{
+        AllowPartial:   true,
+        DiscardUnknown: true,
+      }
+      if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
+        log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+      } else {
+        resp.GetLog().GetJson().PpsLogMessage = ppsLog
+      }
+    case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
+      ppsLog := new(pps.LogMessage)
+      m := protojson.UnmarshalOptions{
+        AllowPartial:   true,
+        DiscardUnknown: true,
+      }
+      if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
+        return errors.Wrapf(ErrLogFormat, "log line cannot be formatted as %v", a.logFormat, zap.String("line", entry.Line))
+      }
+      resp = &logs.GetLogsResponse{
+        ResponseType: &logs.GetLogsResponse_Log{
+          Log: &logs.LogMessage{
+            LogType: &logs.LogMessage_PpsLogMessage{
+              PpsLogMessage: ppsLog,
+            },
+          },
+        },
+      }
 	default:
 		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
 	}
+
+  logFields := new(ilogs.LogFields)
+  json.Unmarshal([]byte(entry.Line), logFields)
+
+  if len(a.lineMatchers) == 0 {
+    if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+      return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+    }
+  }
+
+  for _, matcher := range a.lineMatchers {
+    if matcher([]byte(entry.Line), logFields) {
+      if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+        return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+      }
+      break
+    }
+  }
 
 	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
