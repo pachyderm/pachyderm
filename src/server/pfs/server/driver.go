@@ -1670,7 +1670,7 @@ func (d *driver) walkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.
 		return errors.Wrap(err, "walk commit subvenance in transaction")
 	}
 	for _, commit := range commits {
-		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := cb(commit.CommitInfo); err != nil {

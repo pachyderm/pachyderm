@@ -168,7 +168,6 @@ func addCommitProvenance(tx *pachsql.Tx, from, to int) error {
 }
 
 // GetCommitWithIDProvenance returns the full provenance of a commit, i.e. all commits that it either directly or transitively depends on.
-// It accepts a GraphOption opts....
 func GetCommitWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
 	commits, err := getCommitProvenance(ctx, ext, startId, opts...)
 	if err != nil {
@@ -199,7 +198,7 @@ func getCommitProvenance(ctx context.Context, ext sqlx.ExtContext, commitId Comm
 		    SELECT from_id, to_id, 1 as depth
 		    FROM pfs.commit_provenance
 		    WHERE from_id = $1
-		  UNION ALL
+		UNION ALL
 		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
 		    FROM prov p
 		    JOIN pfs.commit_provenance cp ON cp.from_id = p.to_id
@@ -236,7 +235,6 @@ func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit
 }
 
 // GetCommitWithIDSubvenance returns the full provenance of a commits, i.e. all commits that it either directly or transitively depends on.
-// It accepts a GraphOption opts....
 func GetCommitWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
 	commits, err := getCommitSubvenance(ctx, ext, startId, opts...)
 	if err != nil {
@@ -267,7 +265,7 @@ func getCommitSubvenance(ctx context.Context, ext sqlx.ExtContext, commitId Comm
 		    SELECT from_id, to_id, 1 as depth
 		    FROM pfs.commit_provenance
 		    WHERE to_id = $1
-		  UNION ALL
+		UNION ALL
 		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
 		    FROM subv s
 		    JOIN pfs.commit_provenance cp ON s.from_id = cp.to_id
