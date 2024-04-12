@@ -18,6 +18,12 @@
             "title": "Edit Metadata Request",
             "description": "EditMetadataRequest is a sequence of edits to apply to metadata."
         },
+        "metadata.ClusterPicker": {
+            "additionalProperties": false,
+            "type": "object",
+            "title": "Cluster Picker",
+            "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster that can be selected, the one running this API server."
+        },
         "metadata.Edit": {
             "properties": {
                 "project": {
@@ -39,6 +45,11 @@
                     "$ref": "#/definitions/pfs_v2.RepoPicker",
                     "additionalProperties": false,
                     "description": "repo targets a repo's metadata."
+                },
+                "cluster": {
+                    "$ref": "#/definitions/metadata.ClusterPicker",
+                    "additionalProperties": false,
+                    "description": "cluster targets the cluster's metadata."
                 },
                 "replace": {
                     "$ref": "#/definitions/metadata.Edit.Replace",
@@ -82,6 +93,11 @@
                 {
                     "required": [
                         "repo"
+                    ]
+                },
+                {
+                    "required": [
+                        "cluster"
                     ]
                 },
                 {

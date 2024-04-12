@@ -72,7 +72,7 @@ func TopologicalSort(cis []*pfs.CommitInfo) []*pfs.CommitInfo {
 
 func (d *driver) inspectCommitSetImmediate(ctx context.Context, commitset *pfs.CommitSet, cb func(*pfs.CommitInfo) error) error {
 	var commitInfos []*pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitInfos, err = d.inspectCommitSetImmediateTx(ctx, txnCtx, commitset, true)
 		return err

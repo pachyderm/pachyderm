@@ -3,15 +3,19 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/pachyderm/pachyderm/v2/src/admin"
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/weblinker"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/version"
@@ -24,6 +28,7 @@ type Env struct {
 	Config    *pachconfig.Configuration
 	PFSServer pfs.APIServer
 	Paused    bool
+	DB        *pachsql.DB
 }
 
 // APIServer represents an APIServer
@@ -58,6 +63,7 @@ func NewAPIServer(env Env) APIServer {
 			},
 		},
 		pfsServer: env.PFSServer,
+		db:        env.DB,
 	}
 }
 
@@ -65,15 +71,17 @@ type apiServer struct {
 	admin.UnsafeAPIServer
 	clusterInfo *admin.ClusterInfo
 	pfsServer   pfs.APIServer
+	db          *pachsql.DB
 }
 
 const (
-	msgNoVersionReq        = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
-	msgClientTooOld        = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
-	msgServerTooOld        = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
-	fmtServerIsPreview     = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
-	fmtClientIsPreview     = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
-	fmtInspectProjectError = "WARNING: Could not inspect project %q: %v"
+	msgNoVersionReq            = "WARNING: The client used to connect to Pachyderm did not send its version, which means that it is likely too old.  Please upgrade it."
+	msgClientTooOld            = "WARNING: The client used to connect to Pachyderm is much older than the server; please upgrade the client."
+	msgServerTooOld            = "WARNING: The client used to connect to Pachyderm is much newer than the server; please use a version of the client that matches the server."
+	fmtServerIsPreview         = "WARNING: The client used to connect to Pachyderm is not the same version as the server; only %s is compatible because the server is running a pre-release version."
+	fmtClientIsPreview         = "WARNING: The client used to connect to Pachyderm is a pre-release version not compatible with the server; please use a released version compatible with %s."
+	fmtInspectProjectError     = "WARNING: Could not inspect project %q: %v"
+	fmtGetClusterMetadataError = "WARNING: Could not get cluster metadata: %v"
 )
 
 func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectClusterRequest) (*admin.ClusterInfo, error) {
@@ -91,7 +99,7 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 	if clientVersion == nil {
 		log.Info(ctx, "version skew: client called InspectCluster without sending its version; it is probably outdated and needs to be upgraded")
 		response.Warnings = append(response.Warnings, msgNoVersionReq)
-		return response, nil
+		clientVersion = serverVersion // now skip the rest of the version checks
 	}
 
 	if err := versionpb.IsCompatible(clientVersion, serverVersion); err != nil {
@@ -122,5 +130,24 @@ func (a *apiServer) InspectCluster(ctx context.Context, request *admin.InspectCl
 			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtInspectProjectError, request.GetCurrentProject(), err))
 		}
 	}
+
+	if a.db != nil {
+		if err := dbutil.WithTx(ctx, a.db, func(ctx context.Context, tx *pachsql.Tx) error {
+			// Since InspectCluster is on the critical path for every command, bound the
+			// time we spend waiting for the database.
+			ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+			md, err := coredb.GetClusterMetadata(ctx, tx)
+			if err != nil {
+				return errors.Wrap(err, "get cluster metadata")
+			}
+			response.Metadata = md
+			return nil
+		}); err != nil {
+			response.Metadata = nil // Since the transaction might have rolled back, we can't trust the metadata added above.
+			response.Warnings = append(response.Warnings, fmt.Sprintf(fmtGetClusterMetadataError, err))
+		}
+	}
+
 	return response, nil
 }

@@ -6287,6 +6287,13 @@
         "webResources": {
           "$ref": "#/definitions/admin_v2WebResource",
           "description": "Any HTTP links that the client might want to be aware of."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cluster-level metadata."
         }
       }
     },
@@ -6726,6 +6733,7 @@
         "CLUSTER_LIST_SECRETS",
         "SECRET_DELETE",
         "SECRET_INSPECT",
+        "CLUSTER_EDIT_CLUSTER_METADATA",
         "CLUSTER_DELETE_ALL",
         "REPO_READ",
         "REPO_WRITE",
@@ -7356,7 +7364,7 @@
     "debug_v2TraceChunk": {
       "type": "object",
       "properties": {
-        "bytes": {
+        "content": {
           "type": "string",
           "format": "byte"
         }
@@ -8215,6 +8223,10 @@
         }
       }
     },
+    "metadataClusterPicker": {
+      "type": "object",
+      "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server."
+    },
     "metadataEdit": {
       "type": "object",
       "properties": {
@@ -8233,6 +8245,10 @@
         "repo": {
           "$ref": "#/definitions/pfs_v2RepoPicker",
           "description": "repo targets a repo's metadata."
+        },
+        "cluster": {
+          "$ref": "#/definitions/metadataClusterPicker",
+          "description": "cluster targets the cluster's metadata."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",

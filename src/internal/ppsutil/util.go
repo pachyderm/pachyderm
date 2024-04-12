@@ -445,7 +445,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 
 func FindPipelineSpecCommit(ctx context.Context, pfsServer pfsserver.APIServer, txnEnv transactionenv.TransactionEnv, pipeline *pps.Pipeline) (*pfs.Commit, error) {
 	var commit *pfs.Commit
-	if err := txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) (err error) {
+	if err := txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) (err error) {
 		commit, err = FindPipelineSpecCommitInTransaction(ctx, txnCtx, pfsServer, pipeline, "")
 		return
 	}); err != nil {

@@ -68,9 +68,9 @@ func NewSTM(ctx context.Context, c *v3.Client, apply func(STM) error) (*v3.TxnRe
 	return newSTMSerializable(ctx, c, apply, false)
 }
 
-// NewDryrunSTM intiates a new STM operation, but the final commit is skipped.
+// NewDryRunSTM intiates a new STM operation, but the final commit is skipped.
 // It uses a serializable model.
-func NewDryrunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) error {
+func NewDryRunSTM(ctx context.Context, c *v3.Client, apply func(STM) error) error {
 	_, err := newSTMSerializable(ctx, c, apply, true)
 	return err
 }

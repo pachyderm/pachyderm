@@ -35,10 +35,11 @@ import (
 
 // TestPachdOptions allow a testpachd to be customized.
 type TestPachdOption struct {
-	noLogToFile  bool // A flag to turn off the LogToFileOption when it's the default.
-	MutateEnv    func(env *Env)
-	MutateConfig func(config *pachconfig.PachdFullConfiguration)
-	MutatePachd  func(full *Full)
+	noLogToFile   bool // A flag to turn off the LogToFileOption when it's the default.
+	MutateContext func(ctx context.Context) context.Context
+	MutateEnv     func(env *Env)
+	MutateConfig  func(config *pachconfig.PachdFullConfiguration)
+	MutatePachd   func(full *Full)
 }
 
 // NoLogToFileOption is an option that disable's NewTestPachd's default behavior of logging pachd
@@ -85,6 +86,7 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 			return logger.Core()
 		})))
 	}
+	ctx = mutateContext(ctx, opts...)
 
 	dbcfg := dockertestenv.NewTestDBConfig(t)
 	db := testutil.OpenDB(t, dbcfg.PGBouncer.DBOptions()...)
@@ -122,6 +124,15 @@ func NewTestPachd(t testing.TB, opts ...TestPachdOption) *client.APIClient {
 	require.NoError(t, err)
 	require.NoErrorWithinTRetry(t, 5*time.Second, func() error { return pachClient.Health() })
 	return pachClient
+}
+
+func mutateContext(ctx context.Context, opts ...TestPachdOption) context.Context {
+	for _, o := range opts {
+		if o.MutateContext != nil {
+			ctx = o.MutateContext(ctx)
+		}
+	}
+	return ctx
 }
 
 func newTestPachd(env Env, opts []TestPachdOption) *Full {
@@ -162,6 +173,9 @@ func newTestPachd(env Env, opts []TestPachdOption) *Full {
 // handler frees all ephemeral resources associated with the instance.
 func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *cleanup.Cleaner, error) {
 	cleaner := new(cleanup.Cleaner)
+
+	// setup context
+	ctx = mutateContext(ctx, opts...)
 
 	// tmpdir
 	tmpdir, err := os.MkdirTemp("", "testpachd-")
@@ -207,6 +221,7 @@ func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *clean
 	etcdConfig := embed.NewConfig()
 	etcdConfig.Dir = path.Join(tmpdir, "etcd_data")
 	etcdConfig.WalDir = path.Join(tmpdir, "etcd_wal")
+	etcdConfig.UnsafeNoFsync = true
 	etcdConfig.MaxTxnOps = 10000
 	etcdConfig.InitialElectionTickAdvance = false
 	etcdConfig.TickMs = 10

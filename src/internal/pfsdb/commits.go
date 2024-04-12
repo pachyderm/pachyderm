@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"go.uber.org/zap"
 
 	"github.com/jmoiron/sqlx"
@@ -245,7 +246,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		Metadata:       jsonMap{Data: commitInfo.Metadata},
+		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
@@ -650,7 +651,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		Metadata:       jsonMap{Data: commitInfo.Metadata},
+		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
 	}
 	query := updateCommit
 	res, err := tx.NamedExecContext(ctx, query, update)

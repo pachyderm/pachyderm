@@ -9,12 +9,14 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/enterprise"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
+	storageserver "github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth/server"
 	eprsserver "github.com/pachyderm/pachyderm/v2/src/server/enterprise/server"
 	pfs_server "github.com/pachyderm/pachyderm/v2/src/server/pfs/server"
 	pps_server "github.com/pachyderm/pachyderm/v2/src/server/pps/server"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 )
 
 // sidecarBuilder builds a sidecar-mode pachd instance.
@@ -44,12 +46,25 @@ func (sb *sidecarBuilder) registerPFSServer(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	apiServer, err := pfs_server.NewAPIServer(*env)
+	apiServer, err := pfs_server.NewAPIServer(ctx, *env)
 	if err != nil {
 		return err
 	}
 	sb.forGRPCServer(func(s *grpc.Server) { pfs.RegisterAPIServer(s, apiServer) })
 	sb.env.SetPfsServer(apiServer)
+	return nil
+}
+
+func (sb *sidecarBuilder) registerStorageServer(ctx context.Context) error {
+	env, err := StorageEnv(sb.env)
+	if err != nil {
+		return err
+	}
+	server, err := storageserver.New(ctx, *env)
+	if err != nil {
+		return err
+	}
+	sb.forGRPCServer(func(s *grpc.Server) { storage.RegisterFilesetServer(s, server) })
 	return nil
 }
 
@@ -105,6 +120,7 @@ func (sb *sidecarBuilder) buildAndRun(ctx context.Context) error {
 		sb.initInternalServer,
 		sb.registerAuthServer,
 		sb.registerPFSServer,
+		sb.registerStorageServer,
 		sb.registerPPSServer,
 		sb.registerEnterpriseServer,
 		sb.registerTransactionServer,

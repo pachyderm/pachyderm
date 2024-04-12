@@ -9,5 +9,6 @@ func Migrate(state migrations.State) migrations.State {
 		Apply("Add metadata to projects", addMetadataToProjects, migrations.Squash).
 		Apply("Add metadata to commits", addMetadataToCommits, migrations.Squash).
 		Apply("Add metadata to branches", addMetadataToBranches, migrations.Squash).
-		Apply("Add metadata to repos", addMetadataToRepos, migrations.Squash)
+		Apply("Add metadata to repos", addMetadataToRepos, migrations.Squash).
+		Apply("Add cluster metadata table", addClusterMetadata, migrations.Squash)
 }

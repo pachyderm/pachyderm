@@ -521,6 +521,7 @@ go_library(
         "storage/ShardFilesetResponse.schema.json",
         "debug_v2/LokiArgs.schema.json",
         "debug_v2/ProfileArgs.schema.json",
+        "metadata/ClusterPicker.schema.json",
     ],
     importpath = "github.com/pachyderm/pachyderm/v2/src/internal/jsonschema",
     visibility = ["//src:__subpackages__"],

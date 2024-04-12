@@ -273,6 +273,7 @@ func init() {
 				auth.Permission_CLUSTER_DELETE_ALL,
 				auth.Permission_CLUSTER_ENTERPRISE_PAUSE,
 				auth.Permission_CLUSTER_SET_DEFAULTS,
+				auth.Permission_CLUSTER_EDIT_CLUSTER_METADATA,
 			}),
 	})
 }
