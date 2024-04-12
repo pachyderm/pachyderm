@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -154,6 +155,19 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 				return errors.Wrap(err, "pfs master")
 			}
 			*outMaster = master
+			return nil
+		},
+	}
+}
+func initStorageServer(out **storage.Server, env func() storage.Env) setupStep {
+	return setupStep{
+		Name: "initStorageServer",
+		Fn: func(ctx context.Context) error {
+			s, err := storage.New(ctx, env())
+			if err != nil {
+				return err
+			}
+			*out = s
 			return nil
 		},
 	}

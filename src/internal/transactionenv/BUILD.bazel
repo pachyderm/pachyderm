@@ -12,6 +12,7 @@ go_library(
         "//src/internal/dbutil",
         "//src/internal/errors",
         "//src/internal/pachsql",
+        "//src/internal/pctx",
         "//src/internal/transactionenv/txncontext",
         "//src/pfs",
         "//src/pps",

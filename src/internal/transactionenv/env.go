@@ -12,6 +12,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
@@ -321,13 +322,13 @@ func (env *TransactionEnv) WithTransaction(ctx context.Context, cb func(Transact
 		appendTxn := newAppendTransaction(ctx, activeTxn, env)
 		return cb(appendTxn)
 	}
-	return env.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return env.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		directTxn := NewDirectTransaction(ctx, env, txnCtx)
 		return cb(directTxn)
 	})
 }
 
-func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb func(*txncontext.TransactionContext) error) error {
+func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb func(ctx context.Context, txnCtx *txncontext.TransactionContext) error) error {
 	txnCtx, err := txncontext.New(ctx, sqlTx, env.getAuth())
 	if err != nil {
 		return err
@@ -341,7 +342,7 @@ func (env *TransactionEnv) attemptTx(ctx context.Context, sqlTx *pachsql.Tx, cb 
 		txnCtx.PpsJobFinisher = env.getPPS().NewJobFinisher(txnCtx)
 	}
 
-	err = cb(txnCtx)
+	err = cb(ctx, txnCtx)
 	if err != nil {
 		return err
 	}
@@ -359,7 +360,8 @@ func (env *TransactionEnv) waitReady(ctx context.Context) error {
 
 // WithWriteContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads and writes on the current cluster state.
-func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(ctx context.Context, txnCtx *txncontext.TransactionContext) error) error {
+	ctx = pctx.Child(ctx, "WithWriteContext")
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
@@ -371,11 +373,12 @@ func (env *TransactionEnv) WithWriteContext(ctx context.Context, cb func(*txncon
 // WithReadContext will call the given callback with a txncontext.TransactionContext
 // which can be used to perform reads of the current cluster state. If the
 // transaction is used to perform any writes, they will be silently discarded.
-func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(*txncontext.TransactionContext) error) error {
+func (env *TransactionEnv) WithReadContext(ctx context.Context, cb func(ctx context.Context, txnCtx *txncontext.TransactionContext) error) error {
+	ctx = pctx.Child(ctx, "WithReadContext")
 	if err := env.waitReady(ctx); err != nil {
 		return err
 	}
-	return col.NewDryrunSQLTx(ctx, env.db, func(sqlTx *pachsql.Tx) error {
+	return col.NewDryRunSQLTx(ctx, env.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		return env.attemptTx(ctx, sqlTx, cb)
 	})
 }

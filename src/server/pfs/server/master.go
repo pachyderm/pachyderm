@@ -260,7 +260,7 @@ func (d *driver) runCronTrigger(ctx context.Context, branch *pfs.Branch) error {
 		case <-ctx.Done():
 			return errors.EnsureStack(context.Cause(ctx))
 		}
-		if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		if err := d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 			trigBI, err := d.inspectBranchInTransaction(ctx, txnCtx, branchInfo.Branch.Repo.NewBranch(branchInfo.Trigger.Branch))
 			if err != nil {
 				return err
@@ -394,7 +394,7 @@ func (d *driver) compactTotalFileSet(ctx context.Context, compactor *compactor, 
 
 func (d *driver) finalizeCommit(ctx context.Context, commitWithID *pfsdb.CommitWithID, validationError string, details *pfs.CommitInfo_Details, totalId *fileset.ID) error {
 	return log.LogStep(ctx, "finalizeCommit", func(ctx context.Context) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 			commitInfo, err := pfsdb.GetCommit(ctx, txnCtx.SqlTx, commitWithID.ID)
 			if err != nil {
 				return errors.Wrap(err, "refresh commitInfo")
