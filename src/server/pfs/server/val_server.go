@@ -241,7 +241,7 @@ func (a *validatedAPIServer) FindCommits(request *pfs.FindCommitsRequest, srv pf
 // WalkCommitProvenance implements the protobuf pfs.WalkCommitProvenance RPC
 func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvenanceRequest, srv pfs.API_WalkCommitProvenanceServer) error {
 	ctx := srv.Context()
-	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return errors.Wrap(err, "walk commit provenance")
@@ -257,7 +257,7 @@ func (a *validatedAPIServer) WalkCommitProvenance(request *pfs.WalkCommitProvena
 // WalkCommitSubvenance implements the protobuf pfs.WalkCommitSubvenance RPC
 func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvenanceRequest, srv pfs.API_WalkCommitSubvenanceServer) error {
 	ctx := srv.Context()
-	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		commits, err := a.pickCommits(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return errors.Wrap(err, "walk commit subvenance")
@@ -273,7 +273,7 @@ func (a *validatedAPIServer) WalkCommitSubvenance(request *pfs.WalkCommitSubvena
 // WalkBranchProvenance implements the protobuf pfs.WalkBranchProvenance RPC
 func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvenanceRequest, srv pfs.API_WalkBranchProvenanceServer) error {
 	ctx := srv.Context()
-	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return err
@@ -289,7 +289,7 @@ func (a *validatedAPIServer) WalkBranchProvenance(request *pfs.WalkBranchProvena
 // WalkBranchSubvenance implements the protobuf pfs.WalkBranchSubvenance RPC
 func (a *validatedAPIServer) WalkBranchSubvenance(request *pfs.WalkBranchSubvenanceRequest, srv pfs.API_WalkBranchSubvenanceServer) error {
 	ctx := srv.Context()
-	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return errors.Wrap(a.driver.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		branches, err := a.pickBranches(ctx, txnCtx.SqlTx, request.Start)
 		if err != nil {
 			return err
