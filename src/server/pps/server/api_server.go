@@ -352,7 +352,7 @@ const (
 // authorizePipelineOp checks if the user indicated by 'ctx' is authorized
 // to perform 'operation' on the pipeline in 'info'
 func (a *apiServer) authorizePipelineOp(ctx context.Context, operation pipelineOperation, input *pps.Input, projectName, outputName string) error {
-	return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.authorizePipelineOpInTransaction(ctx, txnCtx, operation, input, projectName, outputName)
 	})
 }
@@ -917,7 +917,7 @@ func (a *apiServer) DeleteJob(ctx context.Context, request *pps.DeleteJobRequest
 		return nil, errors.New("job cannot be nil")
 	}
 	ensurePipelineProject(request.Job.Pipeline)
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return a.deleteJobInTransaction(ctx, txnCtx, request)
 	}); err != nil {
 		return nil, err
@@ -2189,7 +2189,7 @@ func getExpectedNumWorkers(pipelineInfo *pps.PipelineInfo) (int, error) {
 func (a *apiServer) RerunPipeline(ctx context.Context, request *pps.RerunPipelineRequest) (response *emptypb.Empty, err error) {
 	metricsFn := metrics.ReportUserAction(ctx, a.reporter, "RerunPipeline")
 	defer func(start time.Time) { metricsFn(start, err) }(time.Now())
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		info, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.GetPipeline())
 		if err != nil {
 			return errors.Wrapf(err, "inspect pipeline %q", request.GetPipeline().String())
@@ -2852,7 +2852,7 @@ func (a *apiServer) InspectPipeline(ctx context.Context, request *pps.InspectPip
 // call this instead of making an RPC.
 func (a *apiServer) inspectPipeline(ctx context.Context, pipeline *pps.Pipeline, details bool) (*pps.PipelineInfo, error) {
 	var info *pps.PipelineInfo
-	if err := a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		info, err = a.InspectPipelineInTransaction(ctx, txnCtx, pipeline)
 		return err
@@ -2994,7 +2994,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 	}
 
 	loadPipelineAtCommit := func(pi *pps.PipelineInfo, commitSetID string) error { // mutates pi
-		return a.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+		return a.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 			key, err := ppsutil.FindPipelineSpecCommitInTransaction(ctx, txnCtx, a.env.PFSServer, pi.Pipeline, commitSetID)
 			if err != nil {
 				return errors.Wrapf(err, "couldn't find up to date spec for pipeline %q", pi.Pipeline)
@@ -3086,7 +3086,7 @@ func (a *apiServer) deletePipeline(ctx context.Context, request *pps.DeletePipel
 	}
 	// perform the rest of the deletion in a transaction
 	var deleteErr error
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var deleteRepos []*pfs.Repo
 		deleteRepos, deleteErr = a.deletePipelineInTransaction(ctx, txnCtx, request)
 		if deleteErr != nil {
@@ -3258,7 +3258,7 @@ func (a *apiServer) DeletePipelines(ctx context.Context, request *pps.DeletePipe
 		}
 
 	}
-	if err := a.env.TxnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var rs []*pfs.Repo
 		for _, p := range ps {
 			deleteRepos, err := a.deletePipelineInTransaction(ctx, txnCtx, &pps.DeletePipelineRequest{Pipeline: p, KeepRepo: request.KeepRepo})
@@ -3281,7 +3281,7 @@ func (a *apiServer) StartPipeline(ctx context.Context, request *pps.StartPipelin
 	}
 	ensurePipelineProject(request.Pipeline)
 
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		pipelineInfo, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline)
 		if err != nil {
 			return err
@@ -3328,7 +3328,7 @@ func (a *apiServer) StopPipeline(ctx context.Context, request *pps.StopPipelineR
 		return nil, errors.New("request.Pipeline cannot be nil")
 	}
 	ensurePipelineProject(request.Pipeline)
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		if pipelineInfo, err := a.InspectPipelineInTransaction(ctx, txnCtx, request.Pipeline); err == nil {
 			// check if the caller is authorized to update this pipeline
 			// don't pass in the input - stopping the pipeline means they won't be read anymore,
@@ -3583,7 +3583,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, request *emptypb.Empty) (resp
 // ActivateAuth implements the protobuf pps.ActivateAuth RPC
 func (a *apiServer) ActivateAuth(ctx context.Context, req *pps.ActivateAuthRequest) (*pps.ActivateAuthResponse, error) {
 	var resp *pps.ActivateAuthResponse
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		resp, err = a.ActivateAuthInTransaction(ctx, txnCtx, req)
 		return err
@@ -4003,7 +4003,7 @@ func (a *apiServer) SetClusterDefaults(ctx context.Context, req *pps.SetClusterD
 		return &resp, nil
 	}
 
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		if err := a.clusterDefaults.ReadWrite(txnCtx.SqlTx).Put("", &ppsdb.ClusterDefaultsWrapper{Json: req.GetClusterDefaultsJson()}); err != nil {
 			return err
 		}
@@ -4124,7 +4124,7 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 		return &resp, nil
 	}
 
-	if err := a.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := a.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		if err := a.projectDefaults.ReadWrite(txnCtx.SqlTx).Put(req.GetProject().String(), &ppsdb.ProjectDefaultsWrapper{Json: req.GetProjectDefaultsJson()}); err != nil {
 			return err
 		}

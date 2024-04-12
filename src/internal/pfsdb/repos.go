@@ -15,6 +15,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/watch/postgres"
@@ -37,7 +38,7 @@ const (
 			repo.metadata,
 			repo.created_at,
 			repo.updated_at
-		FROM pfs.repos repo 
+		FROM pfs.repos repo
 			JOIN core.projects project ON repo.project_id = project.id
 			LEFT JOIN pfs.branches branch ON branch.repo_id = repo.id
 	`
@@ -199,7 +200,7 @@ func UpsertRepo(ctx context.Context, tx *pachsql.Tx, repo *pfs.RepoInfo) (RepoID
 		ON CONFLICT (name, type, project_id) DO UPDATE SET description=EXCLUDED.description, metadata=EXCLUDED.metadata
 		RETURNING id
 		`,
-		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, jsonMap{repo.Metadata},
+		repo.Repo.Name, repo.Repo.Type, repo.Repo.Project.Name, repo.Description, pgjsontypes.StringMap{Data: repo.Metadata},
 	).Scan(&repoID); err != nil {
 		return 0, errors.Wrap(err, "upsert repo")
 	}

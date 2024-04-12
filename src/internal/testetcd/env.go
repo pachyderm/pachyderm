@@ -58,6 +58,10 @@ func NewEnv(rctx context.Context, t testing.TB) *Env {
 	etcdConfig.Dir = path.Join(env.Directory, "etcd_data")
 	etcdConfig.WalDir = path.Join(env.Directory, "etcd_wal")
 
+	// Disable fsync, because it makes parallel tests perform poorly, and we don't need the data
+	// to be durable.
+	etcdConfig.UnsafeNoFsync = true
+
 	// Speed up initial election, hopefully this has no other impact since there
 	// is only one etcd instance
 	etcdConfig.InitialElectionTickAdvance = false

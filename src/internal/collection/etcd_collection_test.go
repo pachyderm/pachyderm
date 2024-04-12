@@ -66,7 +66,7 @@ func TestEtcdCollections(suite *testing.T) {
 	watchTests(ctx, suite, newCollection)
 }
 
-func TestDryrun(t *testing.T) {
+func TestDryRun(t *testing.T) {
 	t.Parallel()
 	ctx := pctx.TestContext(t)
 	env := testetcd.NewEnv(ctx, t)
@@ -77,7 +77,7 @@ func TestDryrun(t *testing.T) {
 	job := &pps.JobInfo{
 		Job: client.NewJob(pfs.DefaultProjectName, "p1", "j1"),
 	}
-	err := col.NewDryrunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
+	err := col.NewDryRunSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
 		return errors.EnsureStack(jobInfos.ReadWrite(stm).Put(ppsdb.JobKey(job.Job), job))
 	})
 	require.NoError(t, err)

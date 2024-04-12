@@ -1,4 +1,5 @@
-package pfsdb
+// Package pgjsontypes contains types for interacting with JSON objects in Postgres.
+package pgjsontypes
 
 import (
 	"database/sql"
@@ -8,20 +9,20 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 )
 
-// jsonMap wraps a map[string]string that is stored as JSONB in the database.  While structs can be
+// StringMap wraps a map[string]string that is stored as JSONB in the database.  While structs can be
 // directly inserted into JSONB columns by the pgx driver, a raw map[string]string cannot be.
-type jsonMap struct {
+type StringMap struct {
 	Data map[string]string
 }
 
-var _ sql.Scanner = (*jsonMap)(nil)
-var _ driver.Valuer = (*jsonMap)(nil)
+var _ sql.Scanner = (*StringMap)(nil)
+var _ driver.Valuer = (*StringMap)(nil)
 
 // Scan implements database/sql.Scanner.
-func (c *jsonMap) Scan(src any) error {
+func (c *StringMap) Scan(src any) error {
 	content, ok := src.([]byte)
 	if !ok {
-		return errors.Errorf("jsonMap scan source is %T, not []byte", src)
+		return errors.Errorf("StringMap scan source is %T, not []byte", src)
 	}
 	// Postgres won't let us constrain the type of the JSONB column to map[string]string. (It
 	// will let us constrain it to type 'object', so it's guaranteed to always be a map of
@@ -39,7 +40,7 @@ func (c *jsonMap) Scan(src any) error {
 	// "[1, 2, 3]"} is still string -> string in JSON, not string -> array.
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(content, &raw); err != nil {
-		return errors.Wrap(err, "unmarshal database JSON passed to a jsonMap into map[string]RawMessage")
+		return errors.Wrap(err, "unmarshal database JSON passed to a StringMap into map[string]RawMessage")
 	}
 	c.Data = make(map[string]string)
 	for k, rawValue := range raw {
@@ -53,16 +54,16 @@ func (c *jsonMap) Scan(src any) error {
 }
 
 // Value implements database/sql/driver.Valuer.
-func (c jsonMap) Value() (driver.Value, error) {
-	// This has a non-pointer receiver because it's easy to accidentally insert jsonMap{...}
-	// instead of &jsonMap{...}.  If you do that, then it will marshal this struct to JSON
+func (c StringMap) Value() (driver.Value, error) {
+	// This has a non-pointer receiver because it's easy to accidentally insert StringMap{...}
+	// instead of &StringMap{...}.  If you do that, then it will marshal this struct to JSON
 	// automatically, instead of marshalling the underlying data.
 	if c.Data == nil || len(c.Data) == 0 {
 		return []byte(`{}`), nil
 	}
 	content, err := json.Marshal(c.Data)
 	if err != nil {
-		return nil, errors.Wrap(err, "marshal jsonMap Data to JSON")
+		return nil, errors.Wrap(err, "marshal StringMap Data to JSON")
 	}
 	return content, nil
 }

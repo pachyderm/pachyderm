@@ -221,6 +221,7 @@ func BuildTestPachd(ctx context.Context, opts ...TestPachdOption) (*Full, *clean
 	etcdConfig := embed.NewConfig()
 	etcdConfig.Dir = path.Join(tmpdir, "etcd_data")
 	etcdConfig.WalDir = path.Join(tmpdir, "etcd_wal")
+	etcdConfig.UnsafeNoFsync = true
 	etcdConfig.MaxTxnOps = 10000
 	etcdConfig.InitialElectionTickAdvance = false
 	etcdConfig.TickMs = 10

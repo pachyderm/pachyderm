@@ -1,4 +1,4 @@
-load("@rules_go//go:def.bzl", "go_library")
+load("@rules_go//go:def.bzl", "go_library", "go_test")
 
 go_library(
     name = "dbutil",
@@ -25,5 +25,18 @@ go_library(
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
         "@org_uber_go_zap//:zap",
+    ],
+)
+
+go_test(
+    name = "dbutil_test",
+    srcs = ["tx_test.go"],
+    deps = [
+        ":dbutil",
+        "//src/internal/dockertestenv",
+        "//src/internal/errors",
+        "//src/internal/pachsql",
+        "//src/internal/pctx",
+        "//src/internal/require",
     ],
 )
