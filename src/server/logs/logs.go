@@ -252,7 +252,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	adapter := newAdapter(publisher, request.LogFormat)
 	adapter := newAdapter(publisher, request.LogFormat, lineMatchers)
 	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
