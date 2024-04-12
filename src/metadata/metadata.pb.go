@@ -22,6 +22,46 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ClusterPicker selects a cluster.  Since clusters will never "cascade", there is only one cluster
+// that can be selected, the one running this API server.
+type ClusterPicker struct {
+	state         protoimpl.MessageState
+	sizeCache     protoimpl.SizeCache
+	unknownFields protoimpl.UnknownFields
+}
+
+func (x *ClusterPicker) Reset() {
+	*x = ClusterPicker{}
+	if protoimpl.UnsafeEnabled {
+		mi := &file_metadata_metadata_proto_msgTypes[0]
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		ms.StoreMessageInfo(mi)
+	}
+}
+
+func (x *ClusterPicker) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClusterPicker) ProtoMessage() {}
+
+func (x *ClusterPicker) ProtoReflect() protoreflect.Message {
+	mi := &file_metadata_metadata_proto_msgTypes[0]
+	if protoimpl.UnsafeEnabled && x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClusterPicker.ProtoReflect.Descriptor instead.
+func (*ClusterPicker) Descriptor() ([]byte, []int) {
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{0}
+}
+
 // Edit represents editing one piece of metadata.
 type Edit struct {
 	state         protoimpl.MessageState
@@ -36,6 +76,7 @@ type Edit struct {
 	//	*Edit_Commit
 	//	*Edit_Branch
 	//	*Edit_Repo
+	//	*Edit_Cluster
 	Target isEdit_Target `protobuf_oneof:"target"`
 	// op is the operation to perform on the target object's metadata.
 	//
@@ -51,7 +92,7 @@ type Edit struct {
 func (x *Edit) Reset() {
 	*x = Edit{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[0]
+		mi := &file_metadata_metadata_proto_msgTypes[1]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -64,7 +105,7 @@ func (x *Edit) String() string {
 func (*Edit) ProtoMessage() {}
 
 func (x *Edit) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[0]
+	mi := &file_metadata_metadata_proto_msgTypes[1]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -77,7 +118,7 @@ func (x *Edit) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit.ProtoReflect.Descriptor instead.
 func (*Edit) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{0}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{1}
 }
 
 func (m *Edit) GetTarget() isEdit_Target {
@@ -111,6 +152,13 @@ func (x *Edit) GetBranch() *pfs.BranchPicker {
 func (x *Edit) GetRepo() *pfs.RepoPicker {
 	if x, ok := x.GetTarget().(*Edit_Repo); ok {
 		return x.Repo
+	}
+	return nil
+}
+
+func (x *Edit) GetCluster() *ClusterPicker {
+	if x, ok := x.GetTarget().(*Edit_Cluster); ok {
+		return x.Cluster
 	}
 	return nil
 }
@@ -174,6 +222,11 @@ type Edit_Repo struct {
 	Repo *pfs.RepoPicker `protobuf:"bytes,4,opt,name=repo,proto3,oneof"`
 }
 
+type Edit_Cluster struct {
+	// cluster targets the cluster's metadata.
+	Cluster *ClusterPicker `protobuf:"bytes,5,opt,name=cluster,proto3,oneof"`
+}
+
 func (*Edit_Project) isEdit_Target() {}
 
 func (*Edit_Commit) isEdit_Target() {}
@@ -181,6 +234,8 @@ func (*Edit_Commit) isEdit_Target() {}
 func (*Edit_Branch) isEdit_Target() {}
 
 func (*Edit_Repo) isEdit_Target() {}
+
+func (*Edit_Cluster) isEdit_Target() {}
 
 type isEdit_Op interface {
 	isEdit_Op()
@@ -227,7 +282,7 @@ type EditMetadataRequest struct {
 func (x *EditMetadataRequest) Reset() {
 	*x = EditMetadataRequest{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[1]
+		mi := &file_metadata_metadata_proto_msgTypes[2]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -240,7 +295,7 @@ func (x *EditMetadataRequest) String() string {
 func (*EditMetadataRequest) ProtoMessage() {}
 
 func (x *EditMetadataRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[1]
+	mi := &file_metadata_metadata_proto_msgTypes[2]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -253,7 +308,7 @@ func (x *EditMetadataRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditMetadataRequest.ProtoReflect.Descriptor instead.
 func (*EditMetadataRequest) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{1}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *EditMetadataRequest) GetEdits() []*Edit {
@@ -273,7 +328,7 @@ type EditMetadataResponse struct {
 func (x *EditMetadataResponse) Reset() {
 	*x = EditMetadataResponse{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[2]
+		mi := &file_metadata_metadata_proto_msgTypes[3]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -286,7 +341,7 @@ func (x *EditMetadataResponse) String() string {
 func (*EditMetadataResponse) ProtoMessage() {}
 
 func (x *EditMetadataResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[2]
+	mi := &file_metadata_metadata_proto_msgTypes[3]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -299,7 +354,7 @@ func (x *EditMetadataResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EditMetadataResponse.ProtoReflect.Descriptor instead.
 func (*EditMetadataResponse) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{2}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{3}
 }
 
 // Replace is an operation that replaces metadata.
@@ -315,7 +370,7 @@ type Edit_Replace struct {
 func (x *Edit_Replace) Reset() {
 	*x = Edit_Replace{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[3]
+		mi := &file_metadata_metadata_proto_msgTypes[4]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -328,7 +383,7 @@ func (x *Edit_Replace) String() string {
 func (*Edit_Replace) ProtoMessage() {}
 
 func (x *Edit_Replace) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[3]
+	mi := &file_metadata_metadata_proto_msgTypes[4]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -341,7 +396,7 @@ func (x *Edit_Replace) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit_Replace.ProtoReflect.Descriptor instead.
 func (*Edit_Replace) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{0, 0}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{1, 0}
 }
 
 func (x *Edit_Replace) GetReplacement() map[string]string {
@@ -366,7 +421,7 @@ type Edit_AddKey struct {
 func (x *Edit_AddKey) Reset() {
 	*x = Edit_AddKey{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[4]
+		mi := &file_metadata_metadata_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -379,7 +434,7 @@ func (x *Edit_AddKey) String() string {
 func (*Edit_AddKey) ProtoMessage() {}
 
 func (x *Edit_AddKey) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[4]
+	mi := &file_metadata_metadata_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -392,7 +447,7 @@ func (x *Edit_AddKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit_AddKey.ProtoReflect.Descriptor instead.
 func (*Edit_AddKey) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{0, 1}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{1, 1}
 }
 
 func (x *Edit_AddKey) GetKey() string {
@@ -424,7 +479,7 @@ type Edit_EditKey struct {
 func (x *Edit_EditKey) Reset() {
 	*x = Edit_EditKey{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[5]
+		mi := &file_metadata_metadata_proto_msgTypes[6]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -437,7 +492,7 @@ func (x *Edit_EditKey) String() string {
 func (*Edit_EditKey) ProtoMessage() {}
 
 func (x *Edit_EditKey) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[5]
+	mi := &file_metadata_metadata_proto_msgTypes[6]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -450,7 +505,7 @@ func (x *Edit_EditKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit_EditKey.ProtoReflect.Descriptor instead.
 func (*Edit_EditKey) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{0, 2}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{1, 2}
 }
 
 func (x *Edit_EditKey) GetKey() string {
@@ -480,7 +535,7 @@ type Edit_DeleteKey struct {
 func (x *Edit_DeleteKey) Reset() {
 	*x = Edit_DeleteKey{}
 	if protoimpl.UnsafeEnabled {
-		mi := &file_metadata_metadata_proto_msgTypes[6]
+		mi := &file_metadata_metadata_proto_msgTypes[7]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		ms.StoreMessageInfo(mi)
 	}
@@ -493,7 +548,7 @@ func (x *Edit_DeleteKey) String() string {
 func (*Edit_DeleteKey) ProtoMessage() {}
 
 func (x *Edit_DeleteKey) ProtoReflect() protoreflect.Message {
-	mi := &file_metadata_metadata_proto_msgTypes[6]
+	mi := &file_metadata_metadata_proto_msgTypes[7]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -506,7 +561,7 @@ func (x *Edit_DeleteKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Edit_DeleteKey.ProtoReflect.Descriptor instead.
 func (*Edit_DeleteKey) Descriptor() ([]byte, []int) {
-	return file_metadata_metadata_proto_rawDescGZIP(), []int{0, 3}
+	return file_metadata_metadata_proto_rawDescGZIP(), []int{1, 3}
 }
 
 func (x *Edit_DeleteKey) GetKey() string {
@@ -524,21 +579,26 @@ var file_metadata_metadata_proto_rawDesc = []byte{
 	0x61, 0x74, 0x61, 0x1a, 0x0d, 0x70, 0x66, 0x73, 0x2f, 0x70, 0x66, 0x73, 0x2e, 0x70, 0x72, 0x6f,
 	0x74, 0x6f, 0x1a, 0x1e, 0x70, 0x72, 0x6f, 0x74, 0x6f, 0x65, 0x78, 0x74, 0x65, 0x6e, 0x73, 0x69,
 	0x6f, 0x6e, 0x73, 0x2f, 0x76, 0x61, 0x6c, 0x69, 0x64, 0x61, 0x74, 0x65, 0x2e, 0x70, 0x72, 0x6f,
-	0x74, 0x6f, 0x22, 0xc7, 0x06, 0x0a, 0x04, 0x45, 0x64, 0x69, 0x74, 0x12, 0x3b, 0x0a, 0x07, 0x70,
-	0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e, 0x70,
-	0x66, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x50, 0x69, 0x63,
-	0x6b, 0x65, 0x72, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52,
-	0x07, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x38, 0x0a, 0x06, 0x63, 0x6f, 0x6d, 0x6d,
-	0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x70, 0x66, 0x73, 0x5f, 0x76,
-	0x32, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42, 0x08,
-	0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x06, 0x63, 0x6f, 0x6d, 0x6d,
-	0x69, 0x74, 0x12, 0x38, 0x0a, 0x06, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x18, 0x03, 0x20, 0x01,
-	0x28, 0x0b, 0x32, 0x14, 0x2e, 0x70, 0x66, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x42, 0x72, 0x61, 0x6e,
-	0x63, 0x68, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02,
-	0x10, 0x01, 0x48, 0x00, 0x52, 0x06, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x12, 0x32, 0x0a, 0x04,
-	0x72, 0x65, 0x70, 0x6f, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x70, 0x66, 0x73,
-	0x5f, 0x76, 0x32, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42, 0x08,
-	0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x04, 0x72, 0x65, 0x70, 0x6f,
+	0x74, 0x6f, 0x22, 0x0f, 0x0a, 0x0d, 0x43, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x50, 0x69, 0x63,
+	0x6b, 0x65, 0x72, 0x22, 0x86, 0x07, 0x0a, 0x04, 0x45, 0x64, 0x69, 0x74, 0x12, 0x3b, 0x0a, 0x07,
+	0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x18, 0x01, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x15, 0x2e,
+	0x70, 0x66, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x50, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x50, 0x69,
+	0x63, 0x6b, 0x65, 0x72, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00,
+	0x52, 0x07, 0x70, 0x72, 0x6f, 0x6a, 0x65, 0x63, 0x74, 0x12, 0x38, 0x0a, 0x06, 0x63, 0x6f, 0x6d,
+	0x6d, 0x69, 0x74, 0x18, 0x02, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x70, 0x66, 0x73, 0x5f,
+	0x76, 0x32, 0x2e, 0x43, 0x6f, 0x6d, 0x6d, 0x69, 0x74, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42,
+	0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x06, 0x63, 0x6f, 0x6d,
+	0x6d, 0x69, 0x74, 0x12, 0x38, 0x0a, 0x06, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x18, 0x03, 0x20,
+	0x01, 0x28, 0x0b, 0x32, 0x14, 0x2e, 0x70, 0x66, 0x73, 0x5f, 0x76, 0x32, 0x2e, 0x42, 0x72, 0x61,
+	0x6e, 0x63, 0x68, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01,
+	0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x06, 0x62, 0x72, 0x61, 0x6e, 0x63, 0x68, 0x12, 0x32, 0x0a,
+	0x04, 0x72, 0x65, 0x70, 0x6f, 0x18, 0x04, 0x20, 0x01, 0x28, 0x0b, 0x32, 0x12, 0x2e, 0x70, 0x66,
+	0x73, 0x5f, 0x76, 0x32, 0x2e, 0x52, 0x65, 0x70, 0x6f, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42,
+	0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x04, 0x72, 0x65, 0x70,
+	0x6f, 0x12, 0x3d, 0x0a, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72, 0x18, 0x05, 0x20, 0x01,
+	0x28, 0x0b, 0x32, 0x17, 0x2e, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x43, 0x6c,
+	0x75, 0x73, 0x74, 0x65, 0x72, 0x50, 0x69, 0x63, 0x6b, 0x65, 0x72, 0x42, 0x08, 0xfa, 0x42, 0x05,
+	0x8a, 0x01, 0x02, 0x10, 0x01, 0x48, 0x00, 0x52, 0x07, 0x63, 0x6c, 0x75, 0x73, 0x74, 0x65, 0x72,
 	0x12, 0x3c, 0x0a, 0x07, 0x72, 0x65, 0x70, 0x6c, 0x61, 0x63, 0x65, 0x18, 0x0a, 0x20, 0x01, 0x28,
 	0x0b, 0x32, 0x16, 0x2e, 0x6d, 0x65, 0x74, 0x61, 0x64, 0x61, 0x74, 0x61, 0x2e, 0x45, 0x64, 0x69,
 	0x74, 0x2e, 0x52, 0x65, 0x70, 0x6c, 0x61, 0x63, 0x65, 0x42, 0x08, 0xfa, 0x42, 0x05, 0x8a, 0x01,
@@ -607,39 +667,41 @@ func file_metadata_metadata_proto_rawDescGZIP() []byte {
 	return file_metadata_metadata_proto_rawDescData
 }
 
-var file_metadata_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_metadata_metadata_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_metadata_metadata_proto_goTypes = []interface{}{
-	(*Edit)(nil),                 // 0: metadata.Edit
-	(*EditMetadataRequest)(nil),  // 1: metadata.EditMetadataRequest
-	(*EditMetadataResponse)(nil), // 2: metadata.EditMetadataResponse
-	(*Edit_Replace)(nil),         // 3: metadata.Edit.Replace
-	(*Edit_AddKey)(nil),          // 4: metadata.Edit.AddKey
-	(*Edit_EditKey)(nil),         // 5: metadata.Edit.EditKey
-	(*Edit_DeleteKey)(nil),       // 6: metadata.Edit.DeleteKey
-	nil,                          // 7: metadata.Edit.Replace.ReplacementEntry
-	(*pfs.ProjectPicker)(nil),    // 8: pfs_v2.ProjectPicker
-	(*pfs.CommitPicker)(nil),     // 9: pfs_v2.CommitPicker
-	(*pfs.BranchPicker)(nil),     // 10: pfs_v2.BranchPicker
-	(*pfs.RepoPicker)(nil),       // 11: pfs_v2.RepoPicker
+	(*ClusterPicker)(nil),        // 0: metadata.ClusterPicker
+	(*Edit)(nil),                 // 1: metadata.Edit
+	(*EditMetadataRequest)(nil),  // 2: metadata.EditMetadataRequest
+	(*EditMetadataResponse)(nil), // 3: metadata.EditMetadataResponse
+	(*Edit_Replace)(nil),         // 4: metadata.Edit.Replace
+	(*Edit_AddKey)(nil),          // 5: metadata.Edit.AddKey
+	(*Edit_EditKey)(nil),         // 6: metadata.Edit.EditKey
+	(*Edit_DeleteKey)(nil),       // 7: metadata.Edit.DeleteKey
+	nil,                          // 8: metadata.Edit.Replace.ReplacementEntry
+	(*pfs.ProjectPicker)(nil),    // 9: pfs_v2.ProjectPicker
+	(*pfs.CommitPicker)(nil),     // 10: pfs_v2.CommitPicker
+	(*pfs.BranchPicker)(nil),     // 11: pfs_v2.BranchPicker
+	(*pfs.RepoPicker)(nil),       // 12: pfs_v2.RepoPicker
 }
 var file_metadata_metadata_proto_depIdxs = []int32{
-	8,  // 0: metadata.Edit.project:type_name -> pfs_v2.ProjectPicker
-	9,  // 1: metadata.Edit.commit:type_name -> pfs_v2.CommitPicker
-	10, // 2: metadata.Edit.branch:type_name -> pfs_v2.BranchPicker
-	11, // 3: metadata.Edit.repo:type_name -> pfs_v2.RepoPicker
-	3,  // 4: metadata.Edit.replace:type_name -> metadata.Edit.Replace
-	4,  // 5: metadata.Edit.add_key:type_name -> metadata.Edit.AddKey
-	5,  // 6: metadata.Edit.edit_key:type_name -> metadata.Edit.EditKey
-	6,  // 7: metadata.Edit.delete_key:type_name -> metadata.Edit.DeleteKey
-	0,  // 8: metadata.EditMetadataRequest.edits:type_name -> metadata.Edit
-	7,  // 9: metadata.Edit.Replace.replacement:type_name -> metadata.Edit.Replace.ReplacementEntry
-	1,  // 10: metadata.API.EditMetadata:input_type -> metadata.EditMetadataRequest
-	2,  // 11: metadata.API.EditMetadata:output_type -> metadata.EditMetadataResponse
-	11, // [11:12] is the sub-list for method output_type
-	10, // [10:11] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	9,  // 0: metadata.Edit.project:type_name -> pfs_v2.ProjectPicker
+	10, // 1: metadata.Edit.commit:type_name -> pfs_v2.CommitPicker
+	11, // 2: metadata.Edit.branch:type_name -> pfs_v2.BranchPicker
+	12, // 3: metadata.Edit.repo:type_name -> pfs_v2.RepoPicker
+	0,  // 4: metadata.Edit.cluster:type_name -> metadata.ClusterPicker
+	4,  // 5: metadata.Edit.replace:type_name -> metadata.Edit.Replace
+	5,  // 6: metadata.Edit.add_key:type_name -> metadata.Edit.AddKey
+	6,  // 7: metadata.Edit.edit_key:type_name -> metadata.Edit.EditKey
+	7,  // 8: metadata.Edit.delete_key:type_name -> metadata.Edit.DeleteKey
+	1,  // 9: metadata.EditMetadataRequest.edits:type_name -> metadata.Edit
+	8,  // 10: metadata.Edit.Replace.replacement:type_name -> metadata.Edit.Replace.ReplacementEntry
+	2,  // 11: metadata.API.EditMetadata:input_type -> metadata.EditMetadataRequest
+	3,  // 12: metadata.API.EditMetadata:output_type -> metadata.EditMetadataResponse
+	12, // [12:13] is the sub-list for method output_type
+	11, // [11:12] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_metadata_metadata_proto_init() }
@@ -649,7 +711,7 @@ func file_metadata_metadata_proto_init() {
 	}
 	if !protoimpl.UnsafeEnabled {
 		file_metadata_metadata_proto_msgTypes[0].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Edit); i {
+			switch v := v.(*ClusterPicker); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -661,7 +723,7 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[1].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EditMetadataRequest); i {
+			switch v := v.(*Edit); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -673,7 +735,7 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[2].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*EditMetadataResponse); i {
+			switch v := v.(*EditMetadataRequest); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -685,7 +747,7 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[3].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Edit_Replace); i {
+			switch v := v.(*EditMetadataResponse); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -697,7 +759,7 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[4].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Edit_AddKey); i {
+			switch v := v.(*Edit_Replace); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -709,7 +771,7 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*Edit_EditKey); i {
+			switch v := v.(*Edit_AddKey); i {
 			case 0:
 				return &v.state
 			case 1:
@@ -721,6 +783,18 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 		file_metadata_metadata_proto_msgTypes[6].Exporter = func(v interface{}, i int) interface{} {
+			switch v := v.(*Edit_EditKey); i {
+			case 0:
+				return &v.state
+			case 1:
+				return &v.sizeCache
+			case 2:
+				return &v.unknownFields
+			default:
+				return nil
+			}
+		}
+		file_metadata_metadata_proto_msgTypes[7].Exporter = func(v interface{}, i int) interface{} {
 			switch v := v.(*Edit_DeleteKey); i {
 			case 0:
 				return &v.state
@@ -733,11 +807,12 @@ func file_metadata_metadata_proto_init() {
 			}
 		}
 	}
-	file_metadata_metadata_proto_msgTypes[0].OneofWrappers = []interface{}{
+	file_metadata_metadata_proto_msgTypes[1].OneofWrappers = []interface{}{
 		(*Edit_Project)(nil),
 		(*Edit_Commit)(nil),
 		(*Edit_Branch)(nil),
 		(*Edit_Repo)(nil),
+		(*Edit_Cluster)(nil),
 		(*Edit_Replace_)(nil),
 		(*Edit_AddKey_)(nil),
 		(*Edit_EditKey_)(nil),
@@ -749,7 +824,7 @@ func file_metadata_metadata_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: file_metadata_metadata_proto_rawDesc,
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

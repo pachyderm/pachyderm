@@ -14,6 +14,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/dbutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"github.com/pachyderm/pachyderm/v2/src/internal/randutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
 	"github.com/pachyderm/pachyderm/v2/src/internal/uuid"
@@ -305,7 +306,7 @@ func UpsertBranch(ctx context.Context, tx *pachsql.Tx, branchInfo *pfs.BranchInf
 		branchInfo.Branch.Repo.Type,
 		branchInfo.Branch.Name,
 		CommitKey(branchInfo.Head),
-		jsonMap{Data: branchInfo.Metadata},
+		pgjsontypes.StringMap{Data: branchInfo.Metadata},
 	).Scan(&branchID); err != nil {
 		return 0, errors.Wrap(err, "could not create branch")
 	}
@@ -526,7 +527,7 @@ func GetBranchSubvenance(ctx context.Context, ext sqlx.ExtContext, id BranchID) 
 // CreateBranchProvenance creates a provenance relationship between two branches.
 func CreateDirectBranchProvenance(ctx context.Context, ext sqlx.ExtContext, from, to BranchID) error {
 	if _, err := ext.ExecContext(ctx, `
-		INSERT INTO pfs.branch_provenance(from_id, to_id)	
+		INSERT INTO pfs.branch_provenance(from_id, to_id)
 		VALUES ($1, $2)
 		ON CONFLICT DO NOTHING
 	`, from, to); err != nil {

@@ -1,0 +1,19 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "pgjsontypes",
+    srcs = ["pgjsontypes.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes",
+    visibility = ["//src:__subpackages__"],
+    deps = ["//src/internal/errors"],
+)
+
+go_test(
+    name = "pgjsontypes_test",
+    srcs = ["pgjsontypes_test.go"],
+    embed = [":pgjsontypes"],
+    deps = [
+        "@com_github_google_go_cmp//cmp",
+        "@com_github_google_go_cmp//cmp/cmpopts",
+    ],
+)

@@ -9,6 +9,13 @@ import (
 	zapcore "go.uber.org/zap/zapcore"
 )
 
+func (x *ClusterPicker) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+	if x == nil {
+		return nil
+	}
+	return nil
+}
+
 func (x *Edit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -17,6 +24,11 @@ func (x *Edit) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	enc.AddObject("commit", x.GetCommit())
 	enc.AddObject("branch", x.GetBranch())
 	enc.AddObject("repo", x.GetRepo())
+	if obj, ok := interface{}(x.GetCluster()).(zapcore.ObjectMarshaler); ok {
+		enc.AddObject("cluster", obj)
+	} else {
+		enc.AddReflected("cluster", x.GetCluster())
+	}
 	if obj, ok := interface{}(x.GetReplace()).(zapcore.ObjectMarshaler); ok {
 		enc.AddObject("replace", obj)
 	} else {

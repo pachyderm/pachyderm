@@ -3,6 +3,7 @@ package dbutil
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"strings"
 	"time"
 
@@ -81,6 +82,8 @@ var (
 	}, []string{"outcome"})
 )
 
+type noNestedTransactions struct{}
+
 type withTxConfig struct {
 	sql.TxOptions
 	backoff.BackOff
@@ -116,6 +119,9 @@ func WithBackOff(bo backoff.BackOff) WithTxOption {
 // The transaction is committed IFF cb returns nil.
 // If cb returns an error the transaction is rolled back.
 func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, tx *pachsql.Tx) error, opts ...WithTxOption) error {
+	if ctx.Value(noNestedTransactions{}) != nil {
+		log.DPanic(ctx, "attempt to nest transactions", zap.Stack("stack"))
+	}
 	backoffStrategy := backoff.NewExponentialBackOff()
 	backoffStrategy.InitialInterval = 1 * time.Millisecond
 	backoffStrategy.MaxElapsedTime = 0
@@ -141,7 +147,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 
 	txStartedMetric.Inc()
 	err := backoff.RetryUntilCancel(ctx, func() error {
-		ctx, cf := pctx.WithCancel(ctx)
+		ctx, cf := pctx.WithCancel(pctx.Child(ctx, fmt.Sprintf("WithTx(%d)", attempts)))
 		defer cf()
 		underlyingTxStartedMetric.Inc()
 		attempts++
@@ -178,7 +184,7 @@ func WithTx(ctx context.Context, db *pachsql.DB, cb func(cbCtx context.Context, 
 }
 
 func tryTxFunc(ctx context.Context, tx *pachsql.Tx, cb func(cbCtx context.Context, tx *pachsql.Tx) error) error {
-	if err := cb(ctx, tx); err != nil {
+	if err := cb(context.WithValue(ctx, noNestedTransactions{}, true), tx); err != nil {
 		if rbErr := tx.Rollback(); rbErr != nil {
 			underlyingTxFinishMetric.WithLabelValues("rollback_failed").Inc()
 			log.Info(ctx, "tryTxFunc encountered an error on rollback", zap.Error(rbErr))

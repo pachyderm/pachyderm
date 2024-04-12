@@ -37,6 +37,13 @@
                     "$ref": "#/definitions/admin_v2.WebResource",
                     "additionalProperties": false,
                     "description": "Any HTTP links that the client might want to be aware of."
+                },
+                "metadata": {
+                    "additionalProperties": {
+                        "type": "string"
+                    },
+                    "type": "object",
+                    "description": "Cluster-level metadata."
                 }
             },
             "additionalProperties": false,
