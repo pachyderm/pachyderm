@@ -612,6 +612,10 @@ jobs:
             else
               make docker-build VERSION=${v} VERSION_ADDITIONAL=${v:index}
             fi
+      - persist_to_workspace:
+          root: ../
+          paths:
+            - dist-pach/docker/pachd_linux_*
       - run:
           name: Push docker
           command: |-
@@ -1180,10 +1184,10 @@ jobs:
             if [[ $CIRCLE_TAG == *"-"* ]];
             then
                 echo "git tag has - assuming prerelease."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes --prerelease
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_amd64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz  --generate-notes --prerelease
             else
                 echo "regular release."
-                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* --generate-notes
+                gh release create --draft ${CIRCLE_TAG} --title ${CIRCLE_TAG:1} ./cr-release-packages/local_template/*.yaml ./dist-pach/pachctl/pachctl_${CIRCLE_TAG:1}* ./dist-pach/docker/pachyderm_*_linux_arm64.tar.gz ./dist-pach/docker/pachyderm_*linux_arm64.tar.gz --generate-notes
             fi
   console-release-draft:
     docker:
@@ -1868,6 +1872,7 @@ workflows:
           filters: *only-release-tags
           requires:
             - build-pachctl-bin
+            - build-docker-images
             - helm-build
       - jupyter-extension-test:
           matrix:

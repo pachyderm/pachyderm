@@ -67,6 +67,21 @@ archives:
     - format: binary
       builds:
           - pachctl
+    - id: pach-archives
+      builds:
+          - pachd
+          - worker
+          - worker_init
+      format_overrides:
+          - goos: linux
+            format: tar.gz
+      wrap_in_directory: true
+      name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+      files:
+          - pachd*/pachd
+          - worker_init*/worker_init
+          - worker*/worker
+          - dex-assets/*
 
 checksum:
     disable: true
