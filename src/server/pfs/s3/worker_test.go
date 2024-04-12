@@ -250,7 +250,7 @@ func TestWorkerDriver(t *testing.T) {
 		putListFileTestObject(t, mf, "rootdir/subdir/", 2)
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, inputMasterCommit.Branch.Name, inputMasterCommit.Id))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, "", inputMasterCommit.Id))
 
 	// create a develop branch on the input repo
 	inputDevelopCommit, err := pachClient.StartCommit(pfs.DefaultProjectName, inputRepo, "develop")
@@ -265,7 +265,7 @@ func TestWorkerDriver(t *testing.T) {
 		}
 		return nil
 	}))
-	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, inputDevelopCommit.Branch.Name, inputDevelopCommit.Id))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, inputRepo, "", inputDevelopCommit.Id))
 
 	// create the output branch
 	outputBranch := "master"

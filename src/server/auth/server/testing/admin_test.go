@@ -108,7 +108,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -147,7 +147,7 @@ func TestSuperAdminRWO(t *testing.T) {
 	// bob can write to the repo
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL
@@ -208,7 +208,7 @@ func TestFSAdminRWO(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 
 	// bob cannot read from the repo
 	buf := &bytes.Buffer{}
@@ -247,7 +247,7 @@ func TestFSAdminRWO(t *testing.T) {
 	// bob can write to the repo
 	commit, err = bobClient.StartCommit(pfs.DefaultProjectName, repoName, "master")
 	require.NoError(t, err)
-	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, commit.Branch.Name, commit.Id))
+	require.NoError(t, bobClient.FinishCommit(pfs.DefaultProjectName, repoName, "", commit.Id))
 	require.Equal(t, 2, tu.CommitCnt(t, aliceClient, repo)) // check that a new commit was created
 
 	// bob can update the repo's ACL

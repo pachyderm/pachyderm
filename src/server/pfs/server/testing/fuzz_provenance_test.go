@@ -118,7 +118,7 @@ OpLoop:
 					continue
 				}
 				require.NoError(t, finishCommit(env.PachClient,
-					info.Commit.Branch.Repo.Name, info.Commit.Branch.Name, commit.Id))
+					info.Commit.Repo.Name, "", commit.Id))
 			}
 			commits = append(commits, commit)
 		case squashCommitSet:
