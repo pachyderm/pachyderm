@@ -84,10 +84,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 	limit := int(filter.Limit)
-	if limit == 0 {
-		limit = math.MaxInt
-		//limit = 2000000
-	}
 
 	adapter := newAdapter(publisher, request.LogFormat)
 	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), limit, start, end, direction, adapter); err != nil {
@@ -151,6 +147,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
+// An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
 	logFormat         logs.LogFormat
@@ -197,6 +194,8 @@ func (a *adapter) Publish(ctx context.Context, entry loki.Entry) error {
 	return nil
 }
 
+// A nullPublisher doesn’t publish entries, but it remembers the last one, in
+// order to calculate a hint.
 type nullPublisher struct {
 	last loki.Entry
 }

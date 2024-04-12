@@ -7,6 +7,7 @@ package logs
 import (
 	"context"
 	"fmt"
+	"math"
 	"sort"
 	"time"
 
@@ -48,6 +49,9 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 		total        int
 		lastEntry    []loki.Entry
 	)
+	if limit == 0 {
+		limit = math.MaxInt
+	}
 	var i int
 	for total < limit {
 		i++
