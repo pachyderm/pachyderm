@@ -54,7 +54,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter = new(logs.LogFilter)
 		request.Filter = filter
 	}
-	if filter.Limit+1 > math.MaxInt {
+	if filter.Limit > math.MaxInt {
 		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
 	}
 	switch {
@@ -83,15 +83,14 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		direction = backwardLogDirection
 		start, end = end, start
 	}
-	limit := int(filter.Limit)
 
 	adapter := newAdapter(publisher, request.LogFormat)
-	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), limit, start, end, direction, adapter); err != nil {
+	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter)
+			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -110,12 +109,13 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		var np = new(nullPublisher)
-		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, np)
+		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+			older = e
+			return nil
+		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
-		older = np.last
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
 			Newer: proto.Clone(request).(*logs.GetLogsRequest),
@@ -162,7 +162,7 @@ func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
 	}
 }
 
-func (a *adapter) Publish(ctx context.Context, entry loki.Entry) error {
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
@@ -191,16 +191,5 @@ func (a *adapter) Publish(ctx context.Context, entry loki.Entry) error {
 	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-	return nil
-}
-
-// A nullPublisher doesn’t publish entries, but it remembers the last one, in
-// order to calculate a hint.
-type nullPublisher struct {
-	last loki.Entry
-}
-
-func (n *nullPublisher) Publish(ctx context.Context, e loki.Entry) error {
-	n.last = e
 	return nil
 }
