@@ -252,6 +252,7 @@ use_repo(
     "com_google_cloud_go_profiler",
     "com_google_cloud_go_storage",
     "dev_gocloud",
+    "in_gopkg_yaml_v2",
     "in_gopkg_yaml_v3",
     "io_etcd_go_etcd_api_v3",
     "io_etcd_go_etcd_client_v3",

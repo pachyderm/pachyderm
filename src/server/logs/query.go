@@ -38,14 +38,25 @@ func (err ErrInvalidBatchSize) RecommendedBatchSize() int {
 // License: Apache 2.0 <URL:https://github.com/grafana/loki/blob/3c78579676562b06e73791d71fcf6e3abf50a014/LICENSE>.
 func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, start, end time.Time, direction logDirection, publish func(context.Context, loki.Entry) error) (err error) {
 	var (
-		// FIXME: query server …
-		batchSize    = 5000
+		batchSize    int
 		resultLength int
 		total        int
 		lastEntry    []loki.Entry
 	)
 	if limit == 0 {
 		limit = math.MaxInt
+	}
+	// query server to get the maximum batch size it supports
+	if config, err := client.QueryConfig(ctx); err != nil {
+		return errors.Wrap(err, "querying config")
+	} else {
+		limits, ok := config["limits_config"].(map[any]any)
+		if !ok {
+			return errors.Wrapf(err, "unknown limits config type %T", config["limits_config"])
+		}
+		if batchSize, ok = limits["max_entries_limit_per_query"].(int); !ok {
+			return errors.Wrapf(err, "unknown max_entries_limit_per_query type %T", limits["max_entries_limit_per_query"])
+		}
 	}
 	var i int
 	for total < limit {

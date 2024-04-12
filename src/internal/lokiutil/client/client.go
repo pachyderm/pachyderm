@@ -13,19 +13,22 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+	"golang.org/x/net/websocket"
+	"gopkg.in/yaml.v2"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/backoff"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	"github.com/pachyderm/pachyderm/v2/src/internal/promutil"
-	"go.uber.org/zap"
-	"golang.org/x/net/websocket"
 )
 
 // ** Why this is here **
 // We use a stripped down version of the loki client as importing
 // the main client locks us to old module deps like k8s.io/client-go
-var (
+const (
 	queryRangePath = "/loki/api/v1/query_range"
+	configPath     = "/config"
 )
 
 // Client holds configuration for the loki
@@ -68,39 +71,56 @@ func (c *Client) QueryRange(ctx context.Context, queryStr string, limit int, sta
 func (c *Client) doQuery(ctx context.Context, path string, query string, quiet bool) (*QueryResponse, error) {
 	var err error
 	var r QueryResponse
-
-	if err = c.doRequest(ctx, path, query, quiet, &r); err != nil {
-		return nil, err
+	body, err := c.doRequest(ctx, path, query, quiet)
+	if err != nil {
+		return nil, errors.Wrap(err, "doing request")
+	}
+	defer body.Close()
+	if err := json.NewDecoder(body).Decode(&r); err != nil {
+		return nil, errors.Wrap(err, "decoding")
 	}
 
 	return &r, nil
 }
 
-func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool, out interface{}) error {
+func (c *Client) QueryConfig(ctx context.Context) (map[string]any, error) {
+	var output map[string]any
+	body, err := c.doRequest(ctx, configPath, "", false)
+	if err != nil {
+		return nil, errors.Wrap(err, "doing request")
+	}
+	defer body.Close()
+	if err := yaml.NewDecoder(body).Decode(&output); err != nil {
+		errors.Wrap(err, "decoding")
+	}
+	return output, nil
+}
+
+func (c *Client) doRequest(ctx context.Context, path, query string, quiet bool) (io.ReadCloser, error) {
 	us, err := buildURL(c.Address, path, query)
 	if err != nil {
-		return err
+		return nil, errors.Wrap(err, "building URL")
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", us, nil)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "creating request")
 	}
 
 	resp, err := lokiClient.Do(req)
 	if err != nil {
-		return errors.EnsureStack(err)
+		return nil, errors.Wrap(err, "doing request")
 	}
-	defer resp.Body.Close()
 
 	if resp.StatusCode >= http.StatusBadRequest {
 		body, err := io.ReadAll(resp.Body)
+		resp.Body.Close()
 		if err != nil {
-			return errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q); additionally, reading body: %v", resp.Status, body, err))
+			return nil, errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q); additionally, reading body: %v", resp.Status, body, err))
 		}
-		return errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q)", resp.Status, body))
+		return nil, errors.EnsureStack(errors.Errorf("error response from loki: %v (body: %q)", resp.Status, body))
 	}
-	return errors.EnsureStack(json.NewDecoder(resp.Body).Decode(out))
+	return resp.Body, nil
 }
 
 func buildURL(u, p, q string) (string, error) {
