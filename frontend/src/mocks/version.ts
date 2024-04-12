@@ -11,7 +11,7 @@ export const mockGetVersionInfo = () =>
         ctx.json({
           major: 0,
           minor: 0,
-          micro: 0,
+          micro: 1,
           additional: '',
           gitCommit: '',
           gitTreeModified: '',

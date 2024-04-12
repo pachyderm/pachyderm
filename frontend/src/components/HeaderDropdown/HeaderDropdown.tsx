@@ -22,9 +22,16 @@ const HeaderDropdown: React.FC<HeaderDropdownProps> = ({errorPage}) => {
   const {enterpriseActive} = useEnterpriseActive(errorPage);
   const {version} = useVersion({enabled: !errorPage});
   const consoleVersion = getReleaseVersion();
-  const pachdVersionString = version
-    ? `${version.major}.${version.minor}.${version.micro}${version.additional}`
-    : 'unknown';
+
+  let pachdVersionString = '';
+
+  if (version?.major === 0 && version?.minor === 0 && version?.micro === 0) {
+    pachdVersionString = version.gitCommit || 'unknown';
+  } else {
+    pachdVersionString = version
+      ? `${version.major}.${version.minor}.${version.micro}${version.additional}`
+      : 'unknown';
+  }
   const emailLinkWithPrefill = `${EMAIL_SUPPORT}?subject=Console%20Support&body=Console%20version:%20${consoleVersion}%0APachd%20version:%20${pachdVersionString}`;
 
   const onDropdownMenuSelect = (id: string) => {
