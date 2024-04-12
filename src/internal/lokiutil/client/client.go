@@ -91,7 +91,7 @@ func (c *Client) QueryConfig(ctx context.Context) (map[string]any, error) {
 	}
 	defer body.Close()
 	if err := yaml.NewDecoder(body).Decode(&output); err != nil {
-		errors.Wrap(err, "decoding")
+		return nil, errors.Wrap(err, "decoding")
 	}
 	return output, nil
 }
