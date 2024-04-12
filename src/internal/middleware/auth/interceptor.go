@@ -12,7 +12,6 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	"google.golang.org/grpc/peer"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -329,24 +328,17 @@ type Interceptor struct {
 	getAuthServer func() authserver.APIServer
 }
 
-func peerNameOrUnknown(ctx context.Context) string {
-	if p, ok := peer.FromContext(ctx); ok {
-		return p.Addr.String()
-	}
-	return "<unknown ip>"
-}
-
 // InterceptUnary applies authentication rules to unary RPCs
 func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied unary call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied unary call", zap.Error(err))
 		return nil, err
 	}
 
@@ -362,13 +354,13 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 	ctx := stream.Context()
 	a, ok := authHandlers[info.FullMethod]
 	if !ok {
-		log.Error(ctx, "no auth function defined", zap.String("fullMethod", info.FullMethod))
+		log.DPanic(ctx, "no auth function defined")
 		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
 	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied streaming call", zap.String("fullMethod", info.FullMethod), zap.String("username", nameOrUnauthenticated(username)), zap.String("remoteAddress", peerNameOrUnknown(ctx)))
+		log.Info(ctx, "denied streaming call", zap.Error(err))
 		return err
 	}
 
@@ -377,11 +369,4 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		stream = ServerStreamWrapper{stream, newCtx}
 	}
 	return handler(srv, stream)
-}
-
-func nameOrUnauthenticated(name string) string {
-	if name == "" {
-		return "unauthenticated"
-	}
-	return name
 }
