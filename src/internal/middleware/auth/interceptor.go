@@ -8,10 +8,10 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	authserver "github.com/pachyderm/pachyderm/v2/src/server/auth"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/metadata"
 )
 
 // authHandlers is a mapping of RPCs to authorization levels required to access them.
@@ -294,32 +294,12 @@ func NewInterceptor(getAuthServer func() authserver.APIServer) *Interceptor {
 
 // we use ServerStreamWrapper to set the stream's Context with added values
 type ServerStreamWrapper struct {
-	stream grpc.ServerStream
-	ctx    context.Context
+	grpc.ServerStream
+	ctx context.Context
 }
 
 func (s ServerStreamWrapper) Context() context.Context {
 	return s.ctx
-}
-
-func (s ServerStreamWrapper) SetHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SetHeader(md))
-}
-
-func (s ServerStreamWrapper) SendHeader(md metadata.MD) error {
-	return errors.EnsureStack(s.stream.SendHeader(md))
-}
-
-func (s ServerStreamWrapper) SetTrailer(md metadata.MD) {
-	s.stream.SetTrailer(md)
-}
-
-func (s ServerStreamWrapper) SendMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.SendMsg(m))
-}
-
-func (s ServerStreamWrapper) RecvMsg(m interface{}) error {
-	return errors.EnsureStack(s.stream.RecvMsg(m))
 }
 
 // Interceptor checks the authentication metadata in unary and streaming RPCs
@@ -336,9 +316,9 @@ func (i *Interceptor) InterceptUnary(ctx context.Context, req interface{}, info 
 		return nil, errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied unary call", zap.Error(err))
+		log.Info(ctx, "denied unary call", zap.Error(err), zap.String("user", username))
 		return nil, err
 	}
 
@@ -358,9 +338,9 @@ func (i *Interceptor) InterceptStream(srv interface{}, stream grpc.ServerStream,
 		return errors.Errorf("no auth function for %q, this is a bug", info.FullMethod)
 	}
 
-	username, err := a(ctx, i.getAuthServer(), info.FullMethod)
+	username, err := a(pctx.Child(ctx, "checkAuth"), i.getAuthServer(), info.FullMethod)
 	if err != nil {
-		log.Info(ctx, "denied streaming call", zap.Error(err))
+		log.Info(ctx, "denied streaming call", zap.Error(err), zap.String("user", username))
 		return err
 	}
 

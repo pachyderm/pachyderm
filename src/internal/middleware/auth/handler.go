@@ -60,10 +60,10 @@ func clusterPermissions(permissions ...auth.Permission) authHandler {
 		}
 
 		if resp.Authorized {
-			return "", nil
+			return resp.Principal, nil
 		}
 
-		return "", &auth.ErrNotAuthorized{
+		return resp.Principal, &auth.ErrNotAuthorized{
 			Subject:  resp.Principal,
 			Resource: &auth.Resource{Type: auth.ResourceType_CLUSTER},
 			Required: permissions,
@@ -95,7 +95,7 @@ func AsInternalUser(ctx context.Context, username string) context.Context {
 	whoami := auth.InternalPrefix + strings.TrimPrefix(username, auth.InternalPrefix)
 	return pctx.Child(
 		context.WithValue(ctx, whoAmIResultKey, whoami),
-		"AsInternalUser",
+		"",
 		pctx.WithFields(zap.String("user", whoami)),
 	)
 }
