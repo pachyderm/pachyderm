@@ -89,7 +89,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit+1), start, end, direction)
+	logQL, err := toLogQL(request)
+	if err != nil {
+		return errors.Wrap(err, "cannot convert request to LogQL")
+	}
+	entries, err := doQuery(ctx, c, logQL, int(filter.Limit+1), start, end, direction)
 	if err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
@@ -119,7 +123,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			}
 		}
 		// request a record immediately prior to the page
-		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection)
+		entries, err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection)
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
@@ -180,4 +184,33 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 
 	return nil
+}
+
+func toLogQL(request *logs.GetLogsRequest) (string, error) {
+	if request == nil {
+		return "", errors.New("nil request")
+	}
+	query := request.Query
+	if query == nil {
+		return "", errors.New("nil query")
+	}
+	switch query := query.QueryType.(type) {
+	case *logs.LogQuery_User:
+		switch query := query.User.GetUserType().(type) {
+		case *logs.UserLogQuery_Datum:
+			datum := query.Datum
+			return fmt.Sprintf(`{container=~"user|storage"} | json | datumId=%q or datum=%q`, datum, datum), nil
+		default:
+			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+		}
+	case *logs.LogQuery_Admin:
+		switch query := query.Admin.GetAdminType().(type) {
+		case *logs.AdminLogQuery_Logql:
+			return query.Logql, nil
+		default:
+			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+		}
+	default:
+		return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+	}
 }
