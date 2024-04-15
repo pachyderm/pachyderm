@@ -398,8 +398,15 @@ use_repo(oci, "distroless", "pause", "zot_amd64", "zot_arm64")
 # Python
 python = use_extension("@rules_python//python/extensions:python.bzl", "python")
 python.toolchain(
+    python_version = "3.12",
+)
+
+# Set python3.9 as default since we are targeting backwards-compatibility.
+python.toolchain(
+    is_default = True,
     python_version = "3.9",
 )
+use_repo(python, "python_3_12", "python_3_9")
 
 # Load in both the strict and dev requirements for the jupyter extension.
 pip = use_extension("@rules_python//python/extensions:pip.bzl", "pip")
@@ -416,3 +423,12 @@ pip.parse(
     requirements_lock = "//jupyter-extension:requirements-dev-lock.txt",
 )
 use_repo(pip, "jupyter-pip-requirements", "jupyter-pip-requirements-dev")
+
+bazel_dep(name = "rules_poetry", version = "0.3.3")
+
+poetry = use_extension("@rules_poetry//python:extensions.bzl", "poetry")
+poetry.parse(
+    name = "poetry",
+    lock = "@//python-sdk:poetry.lock",
+)
+use_repo(poetry, "poetry")

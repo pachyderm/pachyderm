@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "91b5303d658a0f60c85138366f0abda65e7f6d301895151627dc3cd5b4a44147",
+  "moduleFileHash": "97bba034d0c83aade86408f64fe7e4cecd6edbf6661f395d31af62ab7d52af67",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -694,18 +694,34 @@
             "line": 399,
             "column": 23
           },
-          "imports": {},
+          "imports": {
+            "python_3_12": "python_3_12",
+            "python_3_9": "python_3_9"
+          },
           "devImports": [],
           "tags": [
             {
               "tagName": "toolchain",
               "attributeValues": {
-                "python_version": "3.9"
+                "python_version": "3.12"
               },
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
                 "line": 400,
+                "column": 17
+              }
+            },
+            {
+              "tagName": "toolchain",
+              "attributeValues": {
+                "is_default": true,
+                "python_version": "3.9"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 405,
                 "column": 17
               }
             }
@@ -719,7 +735,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 405,
+            "line": 412,
             "column": 20
           },
           "imports": {
@@ -738,7 +754,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 406,
+                "line": 413,
                 "column": 10
               }
             },
@@ -754,8 +770,39 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 411,
+                "line": 418,
                 "column": 10
+              }
+            }
+          ],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        },
+        {
+          "extensionBzlFile": "@rules_poetry//python:extensions.bzl",
+          "extensionName": "poetry",
+          "usingModule": "<root>",
+          "location": {
+            "file": "@@//:MODULE.bazel",
+            "line": 429,
+            "column": 23
+          },
+          "imports": {
+            "poetry": "poetry"
+          },
+          "devImports": [],
+          "tags": [
+            {
+              "tagName": "parse",
+              "attributeValues": {
+                "name": "poetry",
+                "lock": "@//python-sdk:poetry.lock"
+              },
+              "devDependency": false,
+              "location": {
+                "file": "@@//:MODULE.bazel",
+                "line": 430,
+                "column": 13
               }
             }
           ],
@@ -772,6 +819,7 @@
         "rules_oci": "rules_oci@1.5.1",
         "rules_python": "rules_python@0.31.0",
         "buildifier_prebuilt": "buildifier_prebuilt@6.4.0",
+        "rules_poetry": "rules_poetry@0.3.3",
         "bazel_tools": "bazel_tools@_",
         "local_config_platform": "local_config_platform@_"
       }
@@ -1492,6 +1540,55 @@
             "https://bcr.bazel.build/modules/buildifier_prebuilt/6.4.0/patches/module_dot_bazel_version.patch": "sha256-FpUp/q4zJ2H12lwezrYaPUGLY2rr1XoWpiDRaE19udw="
           },
           "remote_patch_strip": 0
+        }
+      }
+    },
+    "rules_poetry@0.3.3": {
+      "name": "rules_poetry",
+      "version": "0.3.3",
+      "key": "rules_poetry@0.3.3",
+      "repoName": "rules_poetry",
+      "executionPlatformsToRegister": [],
+      "toolchainsToRegister": [],
+      "extensionUsages": [
+        {
+          "extensionBzlFile": "@rules_poetry//python:extensions.bzl",
+          "extensionName": "internal_deps",
+          "usingModule": "rules_poetry@0.3.3",
+          "location": {
+            "file": "https://bcr.bazel.build/modules/rules_poetry/0.3.3/MODULE.bazel",
+            "line": 10,
+            "column": 30
+          },
+          "imports": {
+            "rules_poetry_deps": "rules_poetry_deps",
+            "rules_poetry_pip": "rules_poetry_pip"
+          },
+          "devImports": [],
+          "tags": [],
+          "hasDevUseExtension": false,
+          "hasNonDevUseExtension": true
+        }
+      ],
+      "deps": {
+        "bazel_skylib": "bazel_skylib@1.5.0",
+        "platforms": "platforms@0.0.8",
+        "bazel_tools": "bazel_tools@_",
+        "local_config_platform": "local_config_platform@_"
+      },
+      "repoSpec": {
+        "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+        "ruleClassName": "http_archive",
+        "attributes": {
+          "urls": [
+            "https://github.com/oxidase/rules_poetry/releases/download/v0.3.3/rules_poetry-0.3.3.tar.gz"
+          ],
+          "integrity": "sha256-ZjpWgaoEdn69xFQlusTuqoM4+8CYNlWTbOlcZGlKGf0=",
+          "strip_prefix": "rules_poetry-0.3.3",
+          "remote_patches": {
+            "https://bcr.bazel.build/modules/rules_poetry/0.3.3/patches/module_dot_bazel_version.patch": "sha256-agJcrqyHT9OMlHCfEHTyd8hVmPjNgl/4Q/iHkc7CJDc="
+          },
+          "remote_patch_strip": 1
         }
       }
     },
@@ -11711,6 +11808,84 @@
             "rules_oci~",
             "bazel_skylib",
             "bazel_skylib~"
+          ]
+        ]
+      }
+    },
+    "@@rules_poetry~//python:extensions.bzl%internal_deps": {
+      "general": {
+        "bzlTransitiveDigest": "0mADOagKvQt5/8J+0LJGMkhieSqklORIHaFYYXyyx8U=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "rules_poetry_pip": {
+            "bzlFile": "@@bazel_tools//tools/build_defs/repo:http.bzl",
+            "ruleClassName": "http_archive",
+            "attributes": {
+              "url": "https://files.pythonhosted.org/packages/8a/6a/19e9fe04fca059ccf770861c7d5721ab4c2aebc539889e97c7977528a53b/pip-24.0-py3-none-any.whl",
+              "sha256": "ba0d021a166865d2265246961bec0152ff124de910c5cc39f1156ce3fa7c69dc",
+              "type": "zip",
+              "patches": [
+                "@@rules_poetry~//python:patches/scripts_executable.patch"
+              ],
+              "auth_patterns": {},
+              "netrc": "",
+              "build_file_content": "py_library(\n    name = \"pkg\",\n    srcs = glob(include=[\"**/*.py\"]),\n    data = glob(include=[\"**/*\"], exclude=[\n        \"bin/**/*\",\n        \"**/*.py\",\n        \"**/*.pyc\",\n        \"**/* *\",\n        \"**/*.dist-info/RECORD\",\n    ]),\n    visibility = [\"//visibility:public\"],\n    imports = [\".\"],\n)\n"
+            }
+          },
+          "rules_poetry_deps": {
+            "bzlFile": "@@rules_poetry~//python:repositories.bzl",
+            "ruleClassName": "poetry_deps_repo",
+            "attributes": {
+              "output": "site-packages",
+              "deps": [
+                "@@rules_poetry~~internal_deps~rules_poetry_pip//:BUILD.bazel"
+              ]
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_poetry~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_poetry~",
+            "rules_poetry",
+            "rules_poetry~"
+          ]
+        ]
+      }
+    },
+    "@@rules_poetry~//python:extensions.bzl%poetry": {
+      "general": {
+        "bzlTransitiveDigest": "0mADOagKvQt5/8J+0LJGMkhieSqklORIHaFYYXyyx8U=",
+        "recordedFileInputs": {},
+        "recordedDirentsInputs": {},
+        "envVariables": {},
+        "generatedRepoSpecs": {
+          "poetry": {
+            "bzlFile": "@@rules_poetry~//python/private:poetry_venv.bzl",
+            "ruleClassName": "poetry_venv",
+            "attributes": {
+              "lock": "@@//python-sdk:poetry.lock",
+              "generate_extras": true,
+              "platforms": {}
+            }
+          }
+        },
+        "recordedRepoMappingEntries": [
+          [
+            "rules_poetry~",
+            "bazel_tools",
+            "bazel_tools"
+          ],
+          [
+            "rules_poetry~",
+            "rules_poetry",
+            "rules_poetry~"
           ]
         ]
       }
@@ -23160,23 +23335,6 @@
               "ignore_root_user_error": false
             }
           },
-          "python_3_11_host": {
-            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
-            "ruleClassName": "host_toolchain",
-            "attributes": {
-              "python_version": "3.11.7",
-              "user_repository_name": "python_3_11",
-              "platforms": [
-                "aarch64-apple-darwin",
-                "aarch64-unknown-linux-gnu",
-                "ppc64le-unknown-linux-gnu",
-                "s390x-unknown-linux-gnu",
-                "x86_64-apple-darwin",
-                "x86_64-pc-windows-msvc",
-                "x86_64-unknown-linux-gnu"
-              ]
-            }
-          },
           "python_3_11_aarch64-unknown-linux-gnu": {
             "bzlFile": "@@rules_python~//python:repositories.bzl",
             "ruleClassName": "python_repository",
@@ -23193,6 +23351,246 @@
               "strip_prefix": "python",
               "coverage_tool": "",
               "ignore_root_user_error": false
+            }
+          },
+          "pythons_hub": {
+            "bzlFile": "@@rules_python~//python/private/bzlmod:pythons_hub.bzl",
+            "ruleClassName": "hub_repo",
+            "attributes": {
+              "default_python_version": "3.9",
+              "toolchain_prefixes": [
+                "_0000_python_3_12_",
+                "_0001_python_3_11_",
+                "_0002_python_3_9_"
+              ],
+              "toolchain_python_versions": [
+                "3.12",
+                "3.11",
+                "3.9"
+              ],
+              "toolchain_set_python_version_constraints": [
+                "True",
+                "True",
+                "False"
+              ],
+              "toolchain_user_repository_names": [
+                "python_3_12",
+                "python_3_11",
+                "python_3_9"
+              ]
+            }
+          },
+          "python_3_12_x86_64-pc-windows-msvc": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "fd5a9e0f41959d0341246d3643f2b8794f638adc0cec8dd5e1b6465198eae08a",
+              "patches": [],
+              "platform": "x86_64-pc-windows-msvc",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-x86_64-pc-windows-msvc-shared-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-x86_64-pc-windows-msvc-shared-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_12_x86_64-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "74e330b8212ca22fd4d9a2003b9eec14892155566738febc8e5e572f267b9472",
+              "patches": [],
+              "platform": "x86_64-unknown-linux-gnu",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-x86_64-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-x86_64-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_9_host": {
+            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "ruleClassName": "host_toolchain",
+            "attributes": {
+              "python_version": "3.9.18",
+              "user_repository_name": "python_3_9",
+              "platforms": [
+                "aarch64-apple-darwin",
+                "aarch64-unknown-linux-gnu",
+                "ppc64le-unknown-linux-gnu",
+                "s390x-unknown-linux-gnu",
+                "x86_64-apple-darwin",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu"
+              ]
+            }
+          },
+          "python_3_12_aarch64-apple-darwin": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "f93f8375ca6ac0a35d58ff007043cbd3a88d9609113f1cb59cf7c8d215f064af",
+              "patches": [],
+              "platform": "aarch64-apple-darwin",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-aarch64-apple-darwin-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-aarch64-apple-darwin-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_9_ppc64le-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "101c38b22fb2f5a0945156da4259c8e9efa0c08de9d7f59afa51e7ce6e22a1cc",
+              "patches": [],
+              "platform": "ppc64le-unknown-linux-gnu",
+              "python_version": "3.9.18",
+              "release_filename": "20231002/cpython-3.9.18+20231002-ppc64le-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-ppc64le-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_12_s390x-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "60631211c701f8d2c56e5dd7b154e68868128a019b9db1d53a264f56c0d4aee2",
+              "patches": [],
+              "platform": "s390x-unknown-linux-gnu",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-s390x-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-s390x-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_12_aarch64-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "236533ef20e665007a111c2f36efb59c87ae195ad7dca223b6dc03fb07064f0b",
+              "patches": [],
+              "platform": "aarch64-unknown-linux-gnu",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-aarch64-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-aarch64-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_11_ppc64le-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "b44e1b74afe75c7b19143413632c4386708ae229117f8f950c2094e9681d34c7",
+              "patches": [],
+              "platform": "ppc64le-unknown-linux-gnu",
+              "python_version": "3.11.7",
+              "release_filename": "20240107/cpython-3.11.7+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.11.7+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_9_x86_64-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "f3ff38b1ccae7dcebd8bbf2e533c9a984fac881de0ffd1636fbb61842bd924de",
+              "patches": [],
+              "platform": "x86_64-unknown-linux-gnu",
+              "python_version": "3.9.18",
+              "release_filename": "20231002/cpython-3.9.18+20231002-x86_64-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-x86_64-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_12_host": {
+            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "ruleClassName": "host_toolchain",
+            "attributes": {
+              "python_version": "3.12.1",
+              "user_repository_name": "python_3_12",
+              "platforms": [
+                "aarch64-apple-darwin",
+                "aarch64-unknown-linux-gnu",
+                "ppc64le-unknown-linux-gnu",
+                "s390x-unknown-linux-gnu",
+                "x86_64-apple-darwin",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu"
+              ]
+            }
+          },
+          "python_3_9_s390x-unknown-linux-gnu": {
+            "bzlFile": "@@rules_python~//python:repositories.bzl",
+            "ruleClassName": "python_repository",
+            "attributes": {
+              "sha256": "eee31e55ffbc1f460d7b17f05dd89e45a2636f374a6f8dc29ea13d0497f7f586",
+              "patches": [],
+              "platform": "s390x-unknown-linux-gnu",
+              "python_version": "3.9.18",
+              "release_filename": "20231002/cpython-3.9.18+20231002-s390x-unknown-linux-gnu-install_only.tar.gz",
+              "urls": [
+                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-s390x-unknown-linux-gnu-install_only.tar.gz"
+              ],
+              "distutils_content": "",
+              "strip_prefix": "python",
+              "coverage_tool": "",
+              "ignore_root_user_error": false
+            }
+          },
+          "python_3_11_host": {
+            "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
+            "ruleClassName": "host_toolchain",
+            "attributes": {
+              "python_version": "3.11.7",
+              "user_repository_name": "python_3_11",
+              "platforms": [
+                "aarch64-apple-darwin",
+                "aarch64-unknown-linux-gnu",
+                "ppc64le-unknown-linux-gnu",
+                "s390x-unknown-linux-gnu",
+                "x86_64-apple-darwin",
+                "x86_64-pc-windows-msvc",
+                "x86_64-unknown-linux-gnu"
+              ]
             }
           },
           "python_3_9": {
@@ -23228,29 +23626,6 @@
               "strip_prefix": "python",
               "coverage_tool": "",
               "ignore_root_user_error": false
-            }
-          },
-          "pythons_hub": {
-            "bzlFile": "@@rules_python~//python/private/bzlmod:pythons_hub.bzl",
-            "ruleClassName": "hub_repo",
-            "attributes": {
-              "default_python_version": "3.9",
-              "toolchain_prefixes": [
-                "_0000_python_3_11_",
-                "_0001_python_3_9_"
-              ],
-              "toolchain_python_versions": [
-                "3.11",
-                "3.9"
-              ],
-              "toolchain_set_python_version_constraints": [
-                "True",
-                "False"
-              ],
-              "toolchain_user_repository_names": [
-                "python_3_11",
-                "python_3_9"
-              ]
             }
           },
           "python_3_11_x86_64-pc-windows-msvc": {
@@ -23289,12 +23664,12 @@
               "ignore_root_user_error": false
             }
           },
-          "python_3_9_host": {
+          "python_3_12": {
             "bzlFile": "@@rules_python~//python/private:toolchains_repo.bzl",
-            "ruleClassName": "host_toolchain",
+            "ruleClassName": "toolchain_aliases",
             "attributes": {
-              "python_version": "3.9.18",
-              "user_repository_name": "python_3_9",
+              "python_version": "3.12.1",
+              "user_repository_name": "python_3_12",
               "platforms": [
                 "aarch64-apple-darwin",
                 "aarch64-unknown-linux-gnu",
@@ -23324,17 +23699,17 @@
               "ignore_root_user_error": false
             }
           },
-          "python_3_9_ppc64le-unknown-linux-gnu": {
+          "python_3_12_x86_64-apple-darwin": {
             "bzlFile": "@@rules_python~//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
-              "sha256": "101c38b22fb2f5a0945156da4259c8e9efa0c08de9d7f59afa51e7ce6e22a1cc",
+              "sha256": "eca96158c1568dedd9a0b3425375637a83764d1fa74446438293089a8bfac1f8",
               "patches": [],
-              "platform": "ppc64le-unknown-linux-gnu",
-              "python_version": "3.9.18",
-              "release_filename": "20231002/cpython-3.9.18+20231002-ppc64le-unknown-linux-gnu-install_only.tar.gz",
+              "platform": "x86_64-apple-darwin",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-x86_64-apple-darwin-install_only.tar.gz",
               "urls": [
-                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-ppc64le-unknown-linux-gnu-install_only.tar.gz"
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-x86_64-apple-darwin-install_only.tar.gz"
               ],
               "distutils_content": "",
               "strip_prefix": "python",
@@ -23377,24 +23752,6 @@
               ]
             }
           },
-          "python_3_11_ppc64le-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
-            "ruleClassName": "python_repository",
-            "attributes": {
-              "sha256": "b44e1b74afe75c7b19143413632c4386708ae229117f8f950c2094e9681d34c7",
-              "patches": [],
-              "platform": "ppc64le-unknown-linux-gnu",
-              "python_version": "3.11.7",
-              "release_filename": "20240107/cpython-3.11.7+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz",
-              "urls": [
-                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.11.7+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz"
-              ],
-              "distutils_content": "",
-              "strip_prefix": "python",
-              "coverage_tool": "",
-              "ignore_root_user_error": false
-            }
-          },
           "python_3_11_x86_64-apple-darwin": {
             "bzlFile": "@@rules_python~//python:repositories.bzl",
             "ruleClassName": "python_repository",
@@ -23418,6 +23775,7 @@
             "ruleClassName": "multi_toolchain_aliases",
             "attributes": {
               "python_versions": {
+                "3.12": "python_3_12",
                 "3.9": "python_3_9",
                 "3.11": "python_3_11"
               }
@@ -23441,35 +23799,17 @@
               "ignore_root_user_error": false
             }
           },
-          "python_3_9_x86_64-unknown-linux-gnu": {
+          "python_3_12_ppc64le-unknown-linux-gnu": {
             "bzlFile": "@@rules_python~//python:repositories.bzl",
             "ruleClassName": "python_repository",
             "attributes": {
-              "sha256": "f3ff38b1ccae7dcebd8bbf2e533c9a984fac881de0ffd1636fbb61842bd924de",
+              "sha256": "78051f0d1411ee62bc2af5edfccf6e8400ac4ef82887a2affc19a7ace6a05267",
               "patches": [],
-              "platform": "x86_64-unknown-linux-gnu",
-              "python_version": "3.9.18",
-              "release_filename": "20231002/cpython-3.9.18+20231002-x86_64-unknown-linux-gnu-install_only.tar.gz",
+              "platform": "ppc64le-unknown-linux-gnu",
+              "python_version": "3.12.1",
+              "release_filename": "20240107/cpython-3.12.1+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz",
               "urls": [
-                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-x86_64-unknown-linux-gnu-install_only.tar.gz"
-              ],
-              "distutils_content": "",
-              "strip_prefix": "python",
-              "coverage_tool": "",
-              "ignore_root_user_error": false
-            }
-          },
-          "python_3_9_s390x-unknown-linux-gnu": {
-            "bzlFile": "@@rules_python~//python:repositories.bzl",
-            "ruleClassName": "python_repository",
-            "attributes": {
-              "sha256": "eee31e55ffbc1f460d7b17f05dd89e45a2636f374a6f8dc29ea13d0497f7f586",
-              "patches": [],
-              "platform": "s390x-unknown-linux-gnu",
-              "python_version": "3.9.18",
-              "release_filename": "20231002/cpython-3.9.18+20231002-s390x-unknown-linux-gnu-install_only.tar.gz",
-              "urls": [
-                "https://github.com/indygreg/python-build-standalone/releases/download/20231002/cpython-3.9.18+20231002-s390x-unknown-linux-gnu-install_only.tar.gz"
+                "https://github.com/indygreg/python-build-standalone/releases/download/20240107/cpython-3.12.1+20240107-ppc64le-unknown-linux-gnu-install_only.tar.gz"
               ],
               "distutils_content": "",
               "strip_prefix": "python",

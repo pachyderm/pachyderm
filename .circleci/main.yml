@@ -1320,16 +1320,21 @@ jobs:
             stable=$(if [[ "$CIRCLE_TAG" == *"-"* ]]; then echo 0; else echo 1; fi;)
             ./etc/build/update_homebrew.sh ${CIRCLE_TAG:1} ${stable}
   python-sdk-build:
-    executor: python
+    resource_class: large
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
           path: ~/project
-      - setup_remote_docker
-      - install-poetry
+      - run:
+          name: "Install Python dependencies"
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
       - run:
           name: build
-          command: poetry build
+          command: |
+            source .venv/bin/activate
+            poetry build
       - persist_to_workspace:
           root: .
           paths:
@@ -1354,73 +1359,60 @@ jobs:
           command: docker push pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1
   test-python-sdk:
     resource_class: xlarge
-    machine:
-      image: << pipeline.parameters.machine_image >>
+    docker:
+      - image: << pipeline.parameters.ci_runner_image >>
     working_directory: ~/project/python-sdk
     steps:
       - checkout:
           path: ~/project
-      - install-minikube
-      - install-helm
-      - install-kubectl
-      - start-minikube-large
-      - attach_workspace:
-          at: ./
+      - run: sudo apt-get update && sudo apt-get install libcurl4-openssl-dev libssl-dev
+      - run:
+          name: Install kubectl
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //tools/kubectl:install
       - run:
           name: Install pachctl
-          command: |
-            sudo mv ./dist-pach/pachctl/pachctl_linux_amd64_v1/pachctl /usr/local/bin/pachctl
-      - install-poetry
-      - run: #Note: --no-ansi https://github.com/python-poetry/poetry/issues/7184
-          name: Install Python Dependencies with Poetry
-          command: poetry --no-ansi install
-      - wait-for-minikube
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/server/cmd/pachctl:install
       - run:
-          name: Install minio
-          command: kubectl apply -f ../etc/testing/minio.yaml
+          name: Setup k8s cluster
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- create-cluster local --starting-port=30100 --test-namespaces=1
       - run:
-          name: Install pach
+          name: Install pachd with auth
           command: |
-            helm install pachd ../etc/helm/pachyderm \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=AMAZON \
-              --set pachd.storage.gocdkEnabled=true \
-              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
-              --set pachd.storage.amazon.id=minioadmin \
-              --set pachd.storage.amazon.secret=minioadmin \
-              --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1}
-            kubectl create namespace enterprise --dry-run=client -o yaml | kubectl apply -f -
-            helm install pachd-enterprise ../etc/helm/pachyderm \
-              --namespace enterprise \
-              --set deployTarget=custom \
-              --set pachd.storage.backend=AMAZON \
-              --set pachd.storage.gocdkEnabled=true \
-              --set pachd.storage.storageURL="s3://pachyderm-test?endpoint=minio.default.svc.cluster.local:9000&disableSSL=true&region=dummy-region" \
-              --set pachd.storage.amazon.id=minioadmin \
-              --set pachd.storage.amazon.secret=minioadmin \
-              --set proxy.service.type=NodePort \
-              --set pachd.image.tag=${CIRCLE_SHA1} \
-              --set proxy.service.httpNodePort=30081 \
-              --set pachd.enterpriseLicenseKey=${ENT_ACT_CODE} \
-              --set pachd.rootToken=roottoken1234
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push --namespace=test-namespace-1 -v
+            mv ${HOME}/.pachyderm/config.json ${HOME}/.pachyderm/auth_config.json
       - run:
-          name: Wait for pach # need to wait before testing kubectl as pach is not visible to kubectl yet
+          name: Watch pachd with auth logs
+          command: kubectl logs --namespace=test-namespace-1 -l suite=pachyderm -f
+          background: true
+      - run:
+          name: Install pachd without auth
           command: |
-            sleep 20
-            kubectl wait -A --for=condition=ready pod -l app=pachd --timeout=5m
-            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30080"; do sleep 5; done
-            until poetry run pachyderm-sdk-check-connection "$(minikube ip):30081"; do sleep 5; done
+            export XDG_CONFIG_HOME=${PWD}/../etc/testing/python-test-helm-values
+            bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} //src/testing/pachdev -- push -v
+      - run:
+          name: Watch pachd without auth logs
+          command: kubectl logs --namespace=default -l suite=pachyderm -f
+          background: true
+      - run:
+          name: "Install Python dependencies"
+          command: bazel run --config=remotecache --remote_header=x-buildbuddy-api-key=${BUILDBUDDY_API_KEY} :venv
+      - run:
+          name: Debug
+          command: |
+            cat ${HOME}/.pachyderm/config.json 
+            cat ${HOME}/.pachyderm/auth_config.json
       - run:
           name: Run Tests
           command: |
+            source .venv/bin/activate
             PACH_PYTHON_TEST_HOST="$(minikube ip)" \
             PACH_PYTHON_TEST_PORT="30080" \
             PACH_PYTHON_TEST_PORT_ENTERPRISE="30081" \
             PACH_PYTHON_AUTH_TOKEN="roottoken1234" \
             ENTERPRISE_CODE_ENV=${ENT_ACT_CODE} \
             PYTHON_SDK_TESTING_IMAGE=pachyderm/python-sdk-ci-testing:$CIRCLE_SHA1 \
-            poetry run pytest -vvv pachyderm_sdk tests
+            pytest -vvv pachyderm_sdk tests
   python-sdk-test-publish:
     executor: python
     working_directory: ~/project/python-sdk

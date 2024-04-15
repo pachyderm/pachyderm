@@ -1,0 +1,30 @@
+load("@rules_pyvenv//:venv.bzl", "py_venv")
+load("@rules_poetry//python:poetry.bzl", "poetry_update")
+
+poetry_update(
+    name = "update_lock",
+    lock = "poetry.lock",
+    toml = "pyproject.toml",
+)
+
+exports_files(["poetry.lock"])
+
+py_venv(
+    name = "venv",
+    venv_location = "python-sdk/.venv",
+    deps = [
+        "@poetry//:betterproto",
+        "@poetry//:black",
+        "@poetry//:certifi",
+        "@poetry//:grpc-interceptor",
+        "@poetry//:grpcio",
+        "@poetry//:pandas",
+        "@poetry//:pdoc3",
+        "@poetry//:pytest",
+        "@poetry//:pytest-black-ng",
+        "@poetry//:python-dotenv",
+    ],
+    extra_pip_commands = [
+        "install poetry==1.7.1"
+    ],
+)
