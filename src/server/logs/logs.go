@@ -54,14 +54,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter = new(logs.LogFilter)
 		request.Filter = filter
 	}
-	if filter.Limit+1 > math.MaxInt {
+	if filter.Limit > math.MaxInt {
 		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
 	}
-	if filter.Limit == 0 {
-		filter.Limit = 100
-	}
-	// retrieve one extra record for paging
-	filter.Limit++
 	switch {
 	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
 		now := time.Now()
@@ -89,13 +84,13 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit+1), start, end, direction)
-	if err != nil {
+	adapter := newAdapter(publisher, request.LogFormat)
+	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			entries, err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction)
+			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -105,26 +100,21 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 	if request.WantPagingHint {
 		var newer, older loki.Entry
-		if len(entries) > 1 {
-			switch direction {
-			case forwardLogDirection:
-				var l = len(entries) - 1
-				newer = entries[l]
-				entries = entries[:l]
-			case backwardLogDirection:
-				newer = entries[0]
-				entries = entries[1:]
-			default:
-				return errors.Errorf("invalid direction %q", direction)
-			}
+		switch direction {
+		case forwardLogDirection:
+			newer = adapter.last
+		case backwardLogDirection:
+			newer = adapter.first
+		default:
+			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		entries, err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection)
+		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+			older = e
+			return nil
+		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
-		}
-		if len(entries) > 0 {
-			older = entries[len(entries)-1]
 		}
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
@@ -142,7 +132,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
 			}
 			if !newer.Timestamp.IsZero() {
-				hint.Newer.Filter.TimeRange.Until = timestamppb.New(older.Timestamp.Add(delta))
+				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Timestamp.Add(delta))
 			}
 		}
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
@@ -153,31 +143,53 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.WithStack(fmt.Errorf("%w paging hint: %w", ErrPublish, err))
 		}
 	}
-	for _, entry := range entries {
-		var resp *logs.GetLogsResponse
-		switch request.LogFormat {
-		case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-			return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-		case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-			resp = &logs.GetLogsResponse{
-				ResponseType: &logs.GetLogsResponse_Log{
-					Log: &logs.LogMessage{
-						LogType: &logs.LogMessage_Verbatim{
-							Verbatim: &logs.VerbatimLogMessage{
-								Line: []byte(entry.Line),
-							},
+
+	return nil
+}
+
+// An adapter publishes log entries to a ResponsePublisher in a specified format.
+type adapter struct {
+	responsePublisher ResponsePublisher
+	logFormat         logs.LogFormat
+	first, last       loki.Entry
+	gotFirst          bool
+}
+
+func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
+	return &adapter{
+		responsePublisher: p,
+		logFormat:         f,
+	}
+}
+
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+	if !a.gotFirst {
+		a.gotFirst = true
+		a.first = entry
+	}
+	a.last = entry
+	var resp *logs.GetLogsResponse
+	switch a.logFormat {
+	case logs.LogFormat_LOG_FORMAT_UNKNOWN:
+		return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
+	case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
+		resp = &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					LogType: &logs.LogMessage_Verbatim{
+						Verbatim: &logs.VerbatimLogMessage{
+							Line: []byte(entry.Line),
 						},
 					},
 				},
-			}
-		default:
-			return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
+			},
 		}
-
-		if err := publisher.Publish(ctx, resp); err != nil {
-			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-		}
+	default:
+		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
 	}
 
+	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	}
 	return nil
 }

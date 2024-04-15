@@ -1,6 +1,6 @@
 {
   "lockFileVersion": 6,
-  "moduleFileHash": "91b5303d658a0f60c85138366f0abda65e7f6d301895151627dc3cd5b4a44147",
+  "moduleFileHash": "568e7d43327241e219ccefaacdff563d031352e4fce2985bb8bf79bf1869ab3c",
   "flags": {
     "cmdRegistries": [
       "https://bcr.bazel.build/"
@@ -169,6 +169,7 @@
             "com_google_cloud_go_profiler": "com_google_cloud_go_profiler",
             "com_google_cloud_go_storage": "com_google_cloud_go_storage",
             "dev_gocloud": "dev_gocloud",
+            "in_gopkg_yaml_v2": "in_gopkg_yaml_v2",
             "in_gopkg_yaml_v3": "in_gopkg_yaml_v3",
             "io_etcd_go_etcd_api_v3": "io_etcd_go_etcd_api_v3",
             "io_etcd_go_etcd_client_v3": "io_etcd_go_etcd_client_v3",
@@ -523,7 +524,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 287,
+            "line": 288,
             "column": 32
           },
           "imports": {
@@ -606,7 +607,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 361,
+            "line": 362,
             "column": 20
           },
           "imports": {
@@ -631,7 +632,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 364,
+                "line": 365,
                 "column": 9
               }
             },
@@ -649,7 +650,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 375,
+                "line": 376,
                 "column": 9
               }
             },
@@ -663,7 +664,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 386,
+                "line": 387,
                 "column": 9
               }
             },
@@ -677,7 +678,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 391,
+                "line": 392,
                 "column": 9
               }
             }
@@ -691,7 +692,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 399,
+            "line": 400,
             "column": 23
           },
           "imports": {},
@@ -705,7 +706,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 400,
+                "line": 401,
                 "column": 17
               }
             }
@@ -719,7 +720,7 @@
           "usingModule": "<root>",
           "location": {
             "file": "@@//:MODULE.bazel",
-            "line": 405,
+            "line": 406,
             "column": 20
           },
           "imports": {
@@ -738,7 +739,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 406,
+                "line": 407,
                 "column": 10
               }
             },
@@ -754,7 +755,7 @@
               "devDependency": false,
               "location": {
                 "file": "@@//:MODULE.bazel",
-                "line": 411,
+                "line": 412,
                 "column": 10
               }
             }
@@ -3946,7 +3947,7 @@
       "general": {
         "bzlTransitiveDigest": "D1+rhhbwX4ufoTmeUVxDpPg+Sknv3QzVXZnyK2zOjj4=",
         "recordedFileInputs": {
-          "@@//go.mod": "4f3094314167139a89d45f55611dbbf4930f106320b090809de3fdc484dccbc7",
+          "@@//go.mod": "1b0eec7d9fb69542885759723e31b2c1780cf2ca45e9809de0c002ac53197acf",
           "@@rules_go~//go.mod": "de22304b720f7f61350ec1c9739de6c0a1b1103fd22bfeb6e92c6c843ddc6d6e",
           "@@gazelle~//go.sum": "7c4460e8ecb5dd8691a51d4fa2e9e4751108b933636497ce46db499fc2e7a88d",
           "@@jsonnet_go~//go.mod": "35238699c0cd09f5e79619863a0014f01129615f811c8a30239b80e8e3a58145",
@@ -10054,7 +10055,8 @@
             "com_github_alessio_shellescape",
             "com_github_fsnotify_fsnotify",
             "com_github_google_shlex",
-            "com_github_opencontainers_image_spec"
+            "com_github_opencontainers_image_spec",
+            "in_gopkg_yaml_v2"
           ],
           "explicitRootModuleDirectDevDeps": [],
           "useAllRepos": "NO",
