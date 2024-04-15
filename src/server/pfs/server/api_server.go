@@ -157,16 +157,14 @@ func (a *apiServer) InspectRepo(ctx context.Context, request *pfs.InspectRepoReq
 func (a *apiServer) ListRepo(request *pfs.ListRepoRequest, srv pfs.API_ListRepoServer) (retErr error) {
 	var repos []*pfs.RepoInfo
 	var err error
-	if err := errors.Wrap(dbutil.WithTx(srv.Context(), a.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return a.driver.txnEnv.WithReadContext(ctx, func(txnCxt *txncontext.TransactionContext) error {
-			repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
-			if err != nil {
-				return err
-			}
-			return nil
-		})
-	}, dbutil.WithReadOnly()), "list repo"); err != nil {
-		return err
+	if err := a.driver.txnEnv.WithReadContext(srv.Context(), func(txnCxt *txncontext.TransactionContext) error {
+		repos, err = a.driver.listRepoInTransaction(srv.Context(), txnCxt, true, request.Type, request.Projects)
+		if err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		return errors.Wrap(err, "list repo")
 	}
 	for _, repo := range repos {
 		if err := errors.Wrap(srv.Send(repo), "sending repo"); err != nil {
