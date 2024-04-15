@@ -350,7 +350,7 @@ func projectMasterListObjectsPaginated(t *testing.T, pachClient *client.APIClien
 		return nil
 	}))
 
-	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, pachClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	endTime := time.Now().Add(time.Duration(5) * time.Minute)
 
