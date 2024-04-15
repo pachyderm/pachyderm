@@ -2579,7 +2579,7 @@ func TestPutFileBranchCommitID(t *testing.T) {
 	repo := "test"
 	require.NoError(t, env.PachClient.CreateRepo(pfs.DefaultProjectName, repo))
 
-	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "", "master"), "foo", strings.NewReader("foo\n"), client.WithAppendPutFile())
+	err := env.PachClient.PutFile(client.NewCommit(pfs.DefaultProjectName, repo, "foo", ""), "foo", strings.NewReader("foo\n"), client.WithAppendPutFile())
 	require.NoError(t, err)
 }
 
