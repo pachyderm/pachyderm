@@ -6986,7 +6986,8 @@ type PipelinesSummaryRequest struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Projects []*pfs.ProjectPicker `protobuf:"bytes,1,rep,name=projects,proto3" json:"projects,omitempty"` // a PipelinesSummary will be returned for every specified project
+	// a PipelinesSummary will be returned for each of the requests projects
+	Projects []*pfs.ProjectPicker `protobuf:"bytes,1,rep,name=projects,proto3" json:"projects,omitempty"`
 }
 
 func (x *PipelinesSummaryRequest) Reset() {
@@ -7033,7 +7034,8 @@ type PipelinesSummaryResponse struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Summaries []*PipelinesSummary `protobuf:"bytes,1,rep,name=summaries,proto3" json:"summaries,omitempty"` // pipeline summaries for the requested projects
+	// the pipeline summaries for the requested projects
+	Summaries []*PipelinesSummary `protobuf:"bytes,1,rep,name=summaries,proto3" json:"summaries,omitempty"`
 }
 
 func (x *PipelinesSummaryResponse) Reset() {

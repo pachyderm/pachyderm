@@ -1323,11 +1323,15 @@ class SetProjectDefaultsResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class PipelinesSummaryRequest(betterproto.Message):
     projects: List["_pfs__.ProjectPicker"] = betterproto.message_field(1)
+    """
+    a PipelinesSummary will be returned for each of the requests projects
+    """
 
 
 @dataclass(eq=False, repr=False)
 class PipelinesSummaryResponse(betterproto.Message):
     summaries: List["PipelinesSummary"] = betterproto.message_field(1)
+    """the pipeline summaries for the requested projects"""
 
 
 @dataclass(eq=False, repr=False)

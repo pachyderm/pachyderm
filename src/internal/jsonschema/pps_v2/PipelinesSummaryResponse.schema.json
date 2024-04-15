@@ -10,7 +10,7 @@
                     },
                     "additionalProperties": false,
                     "type": "array",
-                    "description": "pipeline summaries for the requested projects"
+                    "description": "the pipeline summaries for the requested projects"
                 }
             },
             "additionalProperties": false,

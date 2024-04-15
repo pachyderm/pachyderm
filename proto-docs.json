@@ -21782,7 +21782,7 @@
           "fields": [
             {
               "name": "projects",
-              "description": "a PipelinesSummary will be returned for every specified project",
+              "description": "a PipelinesSummary will be returned for each of the requests projects",
               "label": "repeated",
               "type": "ProjectPicker",
               "longType": "pfs_v2.ProjectPicker",
@@ -21806,7 +21806,7 @@
           "fields": [
             {
               "name": "summaries",
-              "description": "pipeline summaries for the requested projects",
+              "description": "the pipeline summaries for the requested projects",
               "label": "repeated",
               "type": "PipelinesSummary",
               "longType": "PipelinesSummary",

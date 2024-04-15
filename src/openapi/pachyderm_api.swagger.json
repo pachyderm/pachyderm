@@ -11495,7 +11495,7 @@
             "type": "object",
             "$ref": "#/definitions/pfs_v2ProjectPicker"
           },
-          "title": "a PipelinesSummary will be returned for every specified project"
+          "title": "a PipelinesSummary will be returned for each of the requests projects"
         }
       }
     },
@@ -11508,7 +11508,7 @@
             "type": "object",
             "$ref": "#/definitions/pps_v2PipelinesSummary"
           },
-          "title": "pipeline summaries for the requested projects"
+          "title": "the pipeline summaries for the requested projects"
         }
       }
     },
