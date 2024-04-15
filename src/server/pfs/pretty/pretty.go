@@ -208,14 +208,13 @@ Defaults: {{ .DefaultsJson }}
 
 // PrintCommitInfo pretty-prints commit info.
 func PrintCommitInfo(w io.Writer, commitInfo *pfs.CommitInfo, fullTimestamps bool) {
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Project)
+	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Project)
 	// Repo.String() returns "<project>/<repo>"" but we want to print the project name as a separate column.
-	if commitInfo.Commit.Branch.Repo.Type == pfs.UserRepoType {
-		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Repo.Name)
+	if commitInfo.Commit.Repo.Type == pfs.UserRepoType {
+		fmt.Fprintf(w, "%s\t", commitInfo.Commit.Repo.Name)
 	} else {
-		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Branch.Repo.Name, commitInfo.Commit.Branch.Repo.Type)
+		fmt.Fprintf(w, "%s.%s\t", commitInfo.Commit.Repo.Name, commitInfo.Commit.Repo.Type)
 	}
-	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Branch.Name)
 	fmt.Fprintf(w, "%s\t", commitInfo.Commit.Id)
 	if commitInfo.Finished == nil {
 		fmt.Fprintf(w, "-\t")
