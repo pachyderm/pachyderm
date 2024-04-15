@@ -411,7 +411,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	err = aliceClient.PutFile(commit, "/file1", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, aliceClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// make sure the pipeline runs
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -447,7 +447,7 @@ func TestPreActivationPipelinesKeepRunningAfterActivation(t *testing.T) {
 	require.NoError(t, err)
 	err = rootClient.PutFile(commit, "/file2", strings.NewReader("test data"))
 	require.NoError(t, err)
-	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, rootClient.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// make sure the pipeline still runs (i.e. it's not running as alice)
 	require.NoErrorWithinT(t, 60*time.Second, func() error {
@@ -595,7 +595,7 @@ func TestRobotUserACL(t *testing.T) {
 	// test that the robot can commit to alice's repo
 	commit, err = robotClient.StartCommit(pfs.DefaultProjectName, repo2, "master")
 	require.NoError(t, err)
-	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo2, commit.Branch.Name, commit.Id))
+	require.NoError(t, robotClient.FinishCommit(pfs.DefaultProjectName, repo2, "", commit.Id))
 }
 
 // TestGroupRoleBinding tests that a group can be added to a role binding
