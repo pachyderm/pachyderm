@@ -1700,7 +1700,7 @@ func TestDropCommitSetFinished(t *testing.T) {
 	commit, err := env.PachClient.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, env.PachClient.PutFile(commit, "foo", strings.NewReader("foo\n")))
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 
 	commitInfos, err := env.PachClient.ListCommit(repoProto, repoProto.NewCommit("master", ""), nil, 0)
 	require.NoError(t, err)
@@ -1740,7 +1740,7 @@ func TestBasicFile(t *testing.T) {
 	data := "data"
 	require.NoError(t, env.PachClient.PutFile(commit, file, strings.NewReader(data)))
 
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 
 	var b bytes.Buffer
 	require.NoError(t, env.PachClient.GetFile(commit, "file", &b))
@@ -5732,7 +5732,7 @@ func TestWalkFile(t *testing.T) {
 		require.Equal(t, len(expectedPaths), i)
 	}
 	checks()
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 	checks()
 }
 
@@ -5837,7 +5837,7 @@ func TestPutFileURL(t *testing.T) {
 		require.True(t, fileInfo.SizeBytes > 0)
 	}
 	check()
-	require.NoError(t, finishCommit(env.PachClient, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, finishCommit(env.PachClient, repo, "", commit.Id))
 	check()
 }
 
