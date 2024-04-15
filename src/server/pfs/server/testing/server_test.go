@@ -92,13 +92,12 @@ func finishCommitSet(pachClient *client.APIClient, id string) error {
 		return err
 	}
 	for _, ci := range cis {
-		branch := ci.Commit.Branch
-		if err := pachClient.FinishCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+		if err := pachClient.FinishCommit(pfs.DefaultProjectName, ci.Commit.Repo.Name, "", id); err != nil {
 			if !pfsserver.IsCommitFinishedErr(err) {
 				return err
 			}
 		}
-		if _, err := pachClient.WaitCommit(pfs.DefaultProjectName, branch.Repo.Name, branch.Name, id); err != nil {
+		if _, err := pachClient.WaitCommit(pfs.DefaultProjectName, ci.Commit.Repo.Name, "", id); err != nil {
 			return err
 		}
 	}
@@ -5499,7 +5498,7 @@ func TestSquashAndDropCommit(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, 1, len(cis))
 			for _, ci := range cis {
-				require.NotEqual(t, downstream, ci.Commit.Branch.Repo.Name)
+				require.NotEqual(t, downstream, ci.Commit.Repo.Name)
 			}
 		}
 	})
