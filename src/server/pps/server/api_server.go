@@ -4151,6 +4151,9 @@ func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSumm
 		default:
 			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
 		}
+		// NOTE: there's a potential time-of-check/time-of-use issue here since we check access
+		// to the project and emit its pipelines in different transactions. This is done in other areas
+		// of the code today and is acceptable. The info returned here is also purely summaritive.
 		if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, project, auth.Permission_PROJECT_LIST_REPO); err != nil {
 			return nil, errors.Wrapf(err, "not authorized to list repos of project %q", project.String())
 		}

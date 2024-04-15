@@ -1028,11 +1028,13 @@ message SetProjectDefaultsResponse {
 }
 
 message PipelinesSummaryRequest {
-  repeated pfs_v2.ProjectPicker projects = 1; // a PipelinesSummary will be returned for every specified project
+  // a PipelinesSummary will be returned for each of the requests projects
+  repeated pfs_v2.ProjectPicker projects = 1;
 }
 
 message PipelinesSummaryResponse {
-  repeated PipelinesSummary summaries = 1; // pipeline summaries for the requested projects
+  // the pipeline summaries for the requested projects
+  repeated PipelinesSummary summaries = 1;
 }
 
 message PipelinesSummary {
