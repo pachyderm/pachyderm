@@ -43,7 +43,6 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 func (l *FakeServer) serveConfig(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, `limits_config:
   max_entries_limit_per_query: 5000`)
-	return
 }
 
 func (l *FakeServer) serveQuery(w http.ResponseWriter, r *http.Request) {
