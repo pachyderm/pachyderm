@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -126,6 +127,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 				addLogQLRequest(req, `{pod=~".+"}`)
 			}
 
+			// always ask for paging hints
+			req.WantPagingHint = true
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -151,8 +154,17 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					fmt.Println(resp.GetLog().GetJson().GetVerbatim().GetLine())
 				case *logs.LogMessage_Verbatim:
 					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
+				case nil:
+					hint := resp.GetPagingHint()
+					if hint == nil {
+						fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %v\n`", resp)
+						continue
+					}
+					// printing to stderr in order to keep stdout clean
+					fmt.Fprintln(os.Stderr, toPachctl(cmd, args, hint))
 				default:
 					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", log)
+					continue
 				}
 
 			}
@@ -166,4 +178,39 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
 	commands = append(commands, logsCmd)
 	return commands
+}
+
+func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
+	var result string
+
+	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
+		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
+	}
+	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
+		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
+	}
+	for flag, arg := range flags {
+		result += " --" + flag + " " + arg
+	}
+	return result
+}
+
+func toPachctl(cmd *cobra.Command, args []string, hint *logs.PagingHint) string {
+	var flags = make(map[string]string)
+	older := cmd.CommandPath()
+	newer := cmd.CommandPath()
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if !cmd.Flag(flag.Name).Changed {
+			return
+		}
+		flags[flag.Name] = flag.Value.String()
+	})
+
+	older += toFlags(flags, hint.GetOlder())
+	newer += toFlags(flags, hint.GetNewer())
+	for _, arg := range args {
+		older += " " + arg
+		newer += " " + arg
+	}
+	return fmt.Sprintf("Older logs are available with %s\nNewer logs are available with %s", older, newer)
 }
