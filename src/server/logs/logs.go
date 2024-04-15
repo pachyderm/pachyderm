@@ -157,7 +157,7 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 	}
 	query := request.Query
 	if query == nil {
-		return "", errors.New("nil query")
+		return "", nil
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
@@ -173,7 +173,7 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 		case *logs.AdminLogQuery_Logql:
 			return query.Logql, nil
 		default:
-			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+			return "", nil
 		}
 	default:
 		return "", errors.Wrapf(ErrUnimplemented, "%T", query)
