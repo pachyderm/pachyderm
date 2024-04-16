@@ -621,8 +621,8 @@ func (n *loopbackNode) download(ctx context.Context, origPath string, state file
 	if !ok {
 		return errors.WithStack(fmt.Errorf("[download] can't find mount named %s", name))
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
 	commit := client.NewCommit(projectName, repoName, branch, commitID)
 	filePath := filepath.Join(parts[1:]...)
 	// ListFile callback function
@@ -736,8 +736,8 @@ func (n *loopbackNode) commit(name string) (string, error) {
 		// worth spamming the logs with this
 		return "", nil
 	}
-	projectName := ro.File.Commit.Branch.Repo.Project.GetName()
-	repoName := ro.File.Commit.Branch.Repo.Name
+	projectName := ro.File.Commit.Repo.Project.GetName()
+	repoName := ro.File.Commit.Repo.Name
 	branch := n.root().branch(name)
 	if branch == "" {
 		commitId := n.root().getRepoOptionCommit(repoName)

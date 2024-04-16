@@ -68,7 +68,7 @@ func (o *Options) getBranches() map[string]string {
 		return result
 	}
 	for name, opts := range o.RepoOptions {
-		if opts.File.Commit.Branch.Name != "" {
+		if opts.File.Commit.Branch != nil && opts.File.Commit.Branch.Name != "" {
 			result[name] = opts.File.Commit.Branch.Name
 		}
 	}
