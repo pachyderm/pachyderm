@@ -123,7 +123,9 @@ const createCustomFileBrowser = (
               '',
             );
             requestAPI(
-              'download/' + downloadPath + '/' + itemPath,
+              `download/${downloadPath}/${itemPath}?branch_uri=${
+                getMountedRepo()?.mountedBranch.uri
+              }`,
               'PUT',
             ).catch((e) => {
               showErrorMessage('Download Error', e.response.statusText);

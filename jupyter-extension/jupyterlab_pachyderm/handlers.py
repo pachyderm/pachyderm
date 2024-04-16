@@ -491,7 +491,13 @@ class ExploreDownloadHandler(BaseHandler):
     @tornado.web.authenticated
     async def put(self, path):
         try:
-            self.pfs_manager.download_file(path=path)
+            branch_uri = self.get_query_argument(
+                "branch_uri", default=None
+            )
+            branch: pfs.Branch = None
+            if branch_uri:
+                branch = pfs.Branch.from_uri(branch_uri)
+            self.pfs_manager.download_file(path=path, branch=branch)
         except FileExistsError:
             raise tornado.web.HTTPError(
                 status_code=400,
