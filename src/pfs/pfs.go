@@ -166,6 +166,14 @@ func (bi *BranchInfo) NilBranch() {
 	}
 }
 
+func (csi *CommitSetInfo) NilBranch() {
+	if csi != nil {
+		for _, ci := range csi.Commits {
+			ci.NilBranch()
+		}
+	}
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
