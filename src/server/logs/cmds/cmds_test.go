@@ -183,7 +183,7 @@ func TestGetLogs_pipeline_noauth(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --pipeline {{.PipelineName}} | match "24 quux"`,
+		pachctl logs2 | match "24 quux"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
@@ -243,7 +243,7 @@ func TestGetLogs_pipeline_user(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --pipeline {{.PipelineName}} | match "64 foo"`,
+		pachctl logs2 | match "64 foo"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
@@ -300,7 +300,7 @@ func TestGetLogs_project_noauth(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --project {{.ProjectName}} | match "16 {{.TestName}}"`,
+		pachctl logs2 | match "16 {{.TestName}}"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
@@ -361,7 +361,7 @@ func TestGetLogs_project_user(t *testing.T) {
 			"autoscaling": false
 		}
 		EOF
-		pachctl logs2 --project {{.ProjectName}} | match "8 {{.TestName}}"`,
+		pachctl logs2 | match "8 {{.TestName}}"`,
 		"ProjectName", pfs.DefaultProjectName,
 		"RepoName", "input",
 		"PipelineName", "pipeline",
