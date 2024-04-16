@@ -81,9 +81,7 @@ export class MountPlugin implements IMountPlugin {
     this._widgetTracker = widgetTracker;
 
     // Setup Poller signals.
-    // this._poller.reposSignal.connect(this.verifyBrowserPath);
     this._poller.reposSignal.connect(this.refresh);
-    // this._poller.mountedRepoSignal.connect(this.verifyBrowserPath);
     this._poller.mountedRepoSignal.connect(this.refresh);
     this._poller.mountedRepoSignal.connect(this.saveMountedReposList);
     this._poller.mountedRepoSignal.connect(
@@ -151,7 +149,7 @@ export class MountPlugin implements IMountPlugin {
                 <Explore
                   repos={repos || this._poller.repos}
                   mountedRepo={mountedRepo || this._poller.mountedRepo}
-                  updateMountedRepo={this._poller.updateMountedRepo.bind(this)} // TODO is bind this necessary?
+                  updateMountedRepo={this._poller.updateMountedRepo.bind(this)}
                 />
               )}
             </UseSignal>

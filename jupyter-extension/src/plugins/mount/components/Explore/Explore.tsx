@@ -7,11 +7,7 @@ import {DropdownCombobox} from '../../../../utils/components/DropdownCombobox/Dr
 type ExploreProps = {
   repos: Repos;
   mountedRepo: MountedRepo | null;
-  updateMountedRepo: (
-    repo: Repo | null,
-    mountedBranch: Branch | null,
-    mountDefaultBranch?: boolean,
-  ) => void;
+  updateMountedRepo: (repo: Repo | null, mountedBranch: Branch | null) => void;
 };
 
 const Explore: React.FC<ExploreProps> = ({
@@ -49,7 +45,7 @@ const Explore: React.FC<ExploreProps> = ({
               return;
             }
 
-            updateMountedRepo(repo, null, true);
+            updateMountedRepo(repo, null);
           })();
         }}
       />

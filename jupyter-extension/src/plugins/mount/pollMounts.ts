@@ -12,23 +12,29 @@ import {
 import {ServerConnection} from '@jupyterlab/services';
 
 export class PollMounts {
+  static MOUNTED_REPO_LOCAL_STORAGE_KEY = 'mountedRepo';
+
   constructor(name: string) {
     this.name = name;
 
-    const mountedRepoString = localStorage.getItem('mountedRepo');
+    const mountedRepoString = localStorage.getItem(
+      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+    );
     if (!mountedRepoString) {
       return;
     }
 
-    // TODO: Catch error from parsing here here.
-    const mountedRepo: MountedRepo = JSON.parse(mountedRepoString);
-    this.mountedRepo = mountedRepo;
+    try {
+      const mountedRepo: MountedRepo = JSON.parse(mountedRepoString);
+      this.mountedRepo = mountedRepo;
+    } catch (e) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+    }
   }
   readonly name: string;
 
   private _repos: Repos = {};
   private _mountedRepo: MountedRepo | null = null;
-
   private _config: AuthConfig = {
     pachd_address: '',
   };
@@ -118,9 +124,14 @@ export class PollMounts {
   updateMountedRepo = (
     repo: Repo | null,
     mountedBranch: Branch | null,
-    mountDefaultBranch?: boolean,
   ): void => {
-    if (mountDefaultBranch && repo) {
+    if (repo === null) {
+      localStorage.removeItem(PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY);
+      this.mountedRepo = null;
+      return;
+    }
+
+    if (!mountedBranch) {
       mountedBranch = repo?.branches[0] || null;
       for (const branch of repo.branches) {
         if (branch.name === 'master') {
@@ -129,17 +140,14 @@ export class PollMounts {
       }
     }
 
-    if (repo === null || mountedBranch === null) {
-      localStorage.removeItem('mountedRepo');
-      this.mountedRepo = null;
-      return;
-    }
-
     this.mountedRepo = {
       mountedBranch,
       repo,
     };
-    localStorage.setItem('mountedRepo', JSON.stringify(this.mountedRepo));
+    localStorage.setItem(
+      PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
+      JSON.stringify(this.mountedRepo),
+    );
   };
 
   refresh = async (): Promise<void> => {
