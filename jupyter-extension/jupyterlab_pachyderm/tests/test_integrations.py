@@ -162,9 +162,11 @@ async def test_download_file(
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
+    url_params = {'branch_uri': f'{repos[0]}@master'}
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
+    url_params = {'branch_uri': f'{repos[1]}@master'}
     r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     local_path = tmp_path / repos[1]
@@ -172,6 +174,7 @@ async def test_download_file(
     assert local_path.is_dir()
     assert len(list(local_path.iterdir())) == 2
 
+    url_params = {'branch_uri': f'{repos[1]}@master'}
     r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
