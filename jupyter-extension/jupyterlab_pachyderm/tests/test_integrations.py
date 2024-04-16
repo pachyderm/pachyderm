@@ -39,145 +39,19 @@ def pachyderm_resources():
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
 
-async def test_list_mounts(pachyderm_resources, http_client: AsyncClient):
+async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
 
-    payload = {"mounts": [{"name": "mount1", "repo": repos[0], "branch": "master"}]}
-    r = await http_client.put("_mount", json=payload)
-    assert r.status_code == 200, r.text
-
-    r = await http_client.get("mounts")
+    r = await http_client.get("repos")
     assert r.status_code == 200, r.text
 
     resp = r.json()
-    assert len(resp["mounted"]) == 1
-    for mount_info in resp["mounted"]:
-        assert mount_info.keys() == {"name", "repo", "branch", "project"}
-
-    for _repo_info in resp["unmounted"]:
-        assert _repo_info["repo"] in repos
-        assert _repo_info.keys() == {"authorization", "branches", "repo", "project"}
-        for _branch in _repo_info["branches"]:
-            assert _branch in branches
-    assert len(resp["unmounted"]) == len(repos)
-
-
-async def test_mount(pachyderm_resources, http_client: AsyncClient):
-    repos, _, files = pachyderm_resources
-
-    to_mount = {
-        "mounts": [
-            {
-                "name": repos[0],
-                "repo": repos[0],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-            {
-                "name": repos[0] + "_dev",
-                "repo": repos[0],
-                "branch": "dev",
-                "project": DEFAULT_PROJECT,
-            },
-            {
-                "name": repos[1],
-                "repo": repos[1],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-        ]
-    }
-    r = await http_client.put("/_mount", json=to_mount)
-    assert r.status_code == 200, r.text
-
-    resp = r.json()
-    assert len(resp["mounted"]) == 3
-    mounted_names = [mount["name"] for mount in resp["mounted"]]
-    assert len(resp["unmounted"]) == 2
-    for repo in r.json()["unmounted"]:
-        if repo["repo"] == repos[1]:
-            branches = repo["branches"]
-            assert len(branches) == 1
-    for repo in r.json()["unmounted"]:
-        if repo["repo"] == repos[2]:
-            branches = repo["branches"]
-            assert len(branches) == 2
-
-    r = await http_client.get("/pfs")
-    assert r.status_code == 200, r.text
-    resp = r.json()
-    assert len(resp["content"]) == 3
-    assert sorted([c["name"] for c in resp["content"]]) == sorted(mounted_names)
-
-    r = await http_client.put("/_mount", json=to_mount)
-    assert r.status_code == 400, r.text
-
-    r = await http_client.put("/_unmount_all")
-    assert r.status_code == 200, r.text
-    assert r.json()["mounted"] == []
-    assert len(r.json()["unmounted"]) == 3
-
-    r = await http_client.get("/pfs")
-    assert r.status_code == 200, r.text
-    assert len(r.json()["content"]) == 0
-
-
-async def test_unmount(pachyderm_resources, http_client: AsyncClient):
-    repos, branches, files = pachyderm_resources
-
-    to_mount = {
-        "mounts": [
-            {
-                "name": repos[0],
-                "repo": repos[0],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-            {
-                "name": repos[0] + "_dev",
-                "repo": repos[0],
-                "branch": "dev",
-                "project": DEFAULT_PROJECT,
-            },
-        ]
-    }
-    r = await http_client.put("/_mount", json=to_mount)
-    assert r.status_code == 200, r.text
-    assert len(r.json()["mounted"]) == 2
-    assert len(r.json()["unmounted"]) == 2
-
-    r = await http_client.get(f"/pfs/{repos[0]}")
-    assert r.status_code == 200, r.text
-    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
-
-    r = await http_client.get(f"/pfs/{repos[0]}_dev")
-    assert r.status_code == 200, r.text
-    assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
-
-    r = await http_client.put("/_unmount", json={"mounts": [repos[0] + "_dev"]})
-    assert r.status_code == 200, r.text
-    assert len(r.json()["mounted"]) == 1
-    assert len(r.json()["unmounted"]) == 3
-    for repo in r.json()["unmounted"]:
-        if repo["repo"] == repos[0]:
-            branches = repo["branches"]
-            assert len(branches) == 1
-
-    r = await http_client.put("/_unmount", json={"mounts": [repos[0]]})
-    assert r.status_code == 200, r.text
-    assert len(r.json()["mounted"]) == 0
-    assert len(r.json()["unmounted"]) == 3
-    for repo in r.json()["unmounted"]:
-        if repo["repo"] == repos[0]:
-            branches = repo["branches"]
-            assert len(branches) == 2
-
-    r = await http_client.get("/pfs")
-    assert r.status_code == 200, r.text
-    assert len(r.json()["content"]) == 0
-
-    r = await http_client.put(f"/_unmount", json={"mounts": [repos[0]]})
-    assert r.status_code == 400, r.text
+    assert len(resp) == 3
+    for repo_uri in resp:
+        repo = resp[repo_uri]
+        assert repo.name in repos
+        for branch in repo.branches:
+            assert branch.name in branches
 
 
 async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
@@ -193,19 +67,18 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
         ]
     }
 
-    # Mount images repo on master branch for pfs calls
-    r = await http_client.put("/_mount", json=to_mount)
-    assert r.status_code == 200, r.text
 
     # Assert default parameters return all
-    r = await http_client.get("/pfs/images")
+    url_params = {'branch_uri': f"{repos[0]}@master"}
+
+    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}"")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
     assert sorted([c["name"] for c in r["content"]]) == sorted(files)
 
     # Assert pagination_marker=None and number=1 returns file1
-    url_params = {'number': 1}
+    url_params['number'] = 1
     r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
@@ -213,10 +86,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     assert r["content"][0]["name"] == 'file1'
 
     # Assert pagination_marker=file1 and number=1 returns file2
-    url_params = {
-        'number': 1,
-        'pagination_marker': 'default/images@master:/file1.py'
-    }
+    url_params['pagination_marker'] = 'default/images@master:/file1.py'
     r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
@@ -284,31 +154,6 @@ async def test_download_file(
     pfs_manager = app.settings.get("pfs_contents_manager")
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
-
-    to_mount = {
-        "mounts": [
-            {
-                "name": repos[0],
-                "repo": repos[0],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-            {
-                "name": repos[0] + "_dev",
-                "repo": repos[0],
-                "branch": "dev",
-                "project": DEFAULT_PROJECT,
-            },
-            {
-                "name": repos[1],
-                "repo": repos[1],
-                "branch": "master",
-                "project": DEFAULT_PROJECT,
-            },
-        ]
-    }
-    r = await http_client.put("/_mount", json=to_mount)
-    assert r.status_code == 200, r.text
 
     r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
     assert r.status_code == 200, r.text
@@ -453,9 +298,6 @@ async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     r = await http_client.get("/view_datum/test_name_2")
     assert r.status_code == 200, r.text
     assert sorted([c["name"] for c in r.json()["content"]]) == sorted(files)
-
-    r = await http_client.put("/_unmount_all")
-    assert r.status_code == 200, r.text
 
 
 async def test_download_datum(pachyderm_resources, http_client: AsyncClient):
