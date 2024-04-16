@@ -13,7 +13,6 @@ describe('mount', () => {
   it('file browser should show correct breadcrumbs', () => {
     cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('images').dblclick();
-
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
       .invoke('text')
@@ -24,7 +23,9 @@ describe('mount', () => {
     cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
     cy.findByTestId('Branch-DropdownCombobox-input').click();
     cy.findByTestId('Branch-DropdownCombobox-li-branch').click();
-    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('branch').dblclick();
+    cy.get('#jupyterlab-pachyderm-browser-pfs')
+      .findByText('images_branch')
+      .dblclick();
     cy.get('#jupyterlab-pachyderm-browser-pfs')
       .findAllByText('branch.png')
       .should('have.length', 1);
