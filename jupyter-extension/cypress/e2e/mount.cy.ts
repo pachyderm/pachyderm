@@ -25,7 +25,9 @@ describe('mount', () => {
     cy.findByTestId('Branch-DropdownCombobox-input').click();
     cy.findByTestId('Branch-DropdownCombobox-li-branch').click();
     cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('branch').dblclick();
-    cy.get('#jupyterlab-pachyderm-browser-pfs').findAllByText('branch.png').should('have.length', 1);
+    cy.get('#jupyterlab-pachyderm-browser-pfs')
+      .findAllByText('branch.png')
+      .should('have.length', 1);
   });
 
   it('should open mounted directory in the file browser on click', () => {
