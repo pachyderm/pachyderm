@@ -1337,10 +1337,19 @@ class PipelinesSummaryResponse(betterproto.Message):
 @dataclass(eq=False, repr=False)
 class PipelinesSummary(betterproto.Message):
     project: "_pfs__.Project" = betterproto.message_field(1)
+    """the project the PipelinesSummary corresponds to"""
+
     active_pipelines: int = betterproto.int64_field(2)
+    """count of active pipelines"""
+
     paused_pipelines: int = betterproto.int64_field(3)
+    """count of paused pipelines"""
+
     failed_pipelines: int = betterproto.int64_field(4)
+    """count of failed pipelines"""
+
     unhealthy_pipelines: int = betterproto.int64_field(5)
+    """count of pipelines with a failed latest job"""
 
 
 class ApiStub:

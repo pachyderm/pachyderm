@@ -7082,11 +7082,16 @@ type PipelinesSummary struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Project            *pfs.Project `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`                                                  // the project the PipelinesSummary corresponds to
-	ActivePipelines    int64        `protobuf:"varint,2,opt,name=active_pipelines,json=activePipelines,proto3" json:"active_pipelines,omitempty"`          // count of active pipelines
-	PausedPipelines    int64        `protobuf:"varint,3,opt,name=paused_pipelines,json=pausedPipelines,proto3" json:"paused_pipelines,omitempty"`          // count of paused pipelines
-	FailedPipelines    int64        `protobuf:"varint,4,opt,name=failed_pipelines,json=failedPipelines,proto3" json:"failed_pipelines,omitempty"`          // count of failed pipelines
-	UnhealthyPipelines int64        `protobuf:"varint,5,opt,name=unhealthy_pipelines,json=unhealthyPipelines,proto3" json:"unhealthy_pipelines,omitempty"` // count of pipelines with a failed latest job
+	// the project the PipelinesSummary corresponds to
+	Project *pfs.Project `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`
+	// count of active pipelines
+	ActivePipelines int64 `protobuf:"varint,2,opt,name=active_pipelines,json=activePipelines,proto3" json:"active_pipelines,omitempty"`
+	// count of paused pipelines
+	PausedPipelines int64 `protobuf:"varint,3,opt,name=paused_pipelines,json=pausedPipelines,proto3" json:"paused_pipelines,omitempty"`
+	// count of failed pipelines
+	FailedPipelines int64 `protobuf:"varint,4,opt,name=failed_pipelines,json=failedPipelines,proto3" json:"failed_pipelines,omitempty"`
+	// count of pipelines with a failed latest job
+	UnhealthyPipelines int64 `protobuf:"varint,5,opt,name=unhealthy_pipelines,json=unhealthyPipelines,proto3" json:"unhealthy_pipelines,omitempty"`
 }
 
 func (x *PipelinesSummary) Reset() {
