@@ -202,6 +202,5 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 	}); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-
 	return nil
 }
