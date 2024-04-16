@@ -686,7 +686,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					return err
 				}
 
-				repo := toCommit.Branch.Repo
+				repo := toCommit.Repo
 
 				var fromCommit *pfs.Commit
 				if from != "" {

@@ -178,7 +178,7 @@ func TestCreatePipeline(t *testing.T) {
 	commit1, err := c.StartCommit(projectName, dataRepoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(projectName, dataRepoName, "", commit1.Id))
 
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	require.NoError(t, c.CreatePipeline(projectName,
@@ -206,7 +206,7 @@ func TestCreatePipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 	var commitRepos []*pfs.Repo
 	for _, info := range commitInfos {
-		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+		commitRepos = append(commitRepos, info.Commit.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(projectName, dataRepoName))
 	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(projectName, pipeline, pfs.SpecRepoType))
@@ -215,7 +215,7 @@ func TestCreatePipeline(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(projectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(projectName, pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -300,7 +300,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 
 	var output *pfs.CommitInfo
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(projectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(projectName, pipeline)) {
 			output = info
 			break
 		}
@@ -363,7 +363,7 @@ func TestCrossProjectPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 	var commitRepos []*pfs.Repo
 	for _, info := range commitInfos {
-		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+		commitRepos = append(commitRepos, info.Commit.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(inputProjectName, dataRepoName))
 	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pipelineProjectName, pipeline, pfs.SpecRepoType))
@@ -372,7 +372,7 @@ func TestCrossProjectPipeline(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pipelineProjectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(pipelineProjectName, pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -1984,7 +1984,7 @@ func TestProvenance(t *testing.T) {
 	require.Equal(t, 7, len(commitInfos)) // input repo plus spec/output/meta for b and c pipelines
 
 	for _, ci := range commitInfos {
-		if ci.Commit.Branch.Repo.Name == cPipeline && ci.Commit.Branch.Repo.Type == pfs.UserRepoType {
+		if ci.Commit.Repo.Name == cPipeline && ci.Commit.Repo.Type == pfs.UserRepoType {
 			require.Equal(t, int64(0), ci.Details.SizeBytes)
 		}
 	}
@@ -2333,7 +2333,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
 		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	}
-	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", commit.Branch.Name, commit.Id, nil))
+	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", "dev", commit.Id, nil))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -8583,7 +8583,7 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'finish commit'",
 	})
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "master", commit.Id)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -8599,7 +8599,7 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'finish commit' that overwrites",
 	})
 	require.NoError(t, err)
-	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id)
+	commitInfo, err = c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'finish commit' that overwrites", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -10646,7 +10646,7 @@ func TestNonrootPipeline(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 	var commitRepos []*pfs.Repo
 	for _, info := range commitInfos {
-		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+		commitRepos = append(commitRepos, info.Commit.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(pfs.DefaultProjectName, dataRepo))
 	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType))
@@ -10655,7 +10655,7 @@ func TestNonrootPipeline(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -11274,7 +11274,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 	var commitRepos []*pfs.Repo
 	for _, info := range commitInfos {
-		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+		commitRepos = append(commitRepos, info.Commit.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(pfs.DefaultProjectName, dataRepo))
 	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType))
@@ -11283,7 +11283,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}
@@ -11322,7 +11322,7 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 	require.Equal(t, 4, len(commitInfos))
 	var commitRepos []*pfs.Repo
 	for _, info := range commitInfos {
-		commitRepos = append(commitRepos, info.Commit.Branch.Repo)
+		commitRepos = append(commitRepos, info.Commit.Repo)
 	}
 	require.EqualOneOf(t, commitRepos[:2], client.NewRepo(pfs.DefaultProjectName, dataRepo))
 	require.EqualOneOf(t, commitRepos[:2], client.NewSystemRepo(pfs.DefaultProjectName, pipeline, pfs.SpecRepoType))
@@ -11331,7 +11331,7 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 
 	var buf bytes.Buffer
 	for _, info := range commitInfos {
-		if proto.Equal(info.Commit.Branch.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
+		if proto.Equal(info.Commit.Repo, client.NewRepo(pfs.DefaultProjectName, pipeline)) {
 			require.NoError(t, c.GetFile(info.Commit, "file", &buf))
 			require.Equal(t, "foo", buf.String())
 		}

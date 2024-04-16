@@ -201,17 +201,14 @@ func TestBucketNameToCommit(t *testing.T) {
 		if c.Id != cc.Id {
 			t.Errorf("%s: mismatched commit IDs: %s ≠ %s", b, c.Id, cc.Id)
 		}
-		if c.Branch.Name != cc.Branch.Name {
-			t.Errorf("%s: mismatched branch names: %s ≠ %s", b, c.Branch.Name, cc.Branch.Name)
+		if c.Repo.Name != cc.Repo.Name {
+			t.Errorf("%s: mismatched repo names: %s ≠ %s", b, c.Repo.Name, cc.Repo.Name)
 		}
-		if c.Branch.Repo.Name != cc.Branch.Repo.Name {
-			t.Errorf("%s: mismatched repo names: %s ≠ %s", b, c.Branch.Repo.Name, cc.Branch.Repo.Name)
+		if c.Repo.Type != cc.Repo.Type {
+			t.Errorf("%s: mismatched repo types: %s ≠ %s", b, c.Repo.Type, cc.Repo.Type)
 		}
-		if c.Branch.Repo.Type != cc.Branch.Repo.Type {
-			t.Errorf("%s: mismatched repo types: %s ≠ %s", b, c.Branch.Repo.Type, cc.Branch.Repo.Type)
-		}
-		if c.Branch.Repo.Project.Name != cc.Branch.Repo.Project.Name {
-			t.Errorf("%s: mismatched project names: %s ≠ %s", b, c.Branch.Repo.Project.Name, cc.Branch.Repo.Project.Name)
+		if c.Repo.Project.Name != cc.Repo.Project.Name {
+			t.Errorf("%s: mismatched project names: %s ≠ %s", b, c.Repo.Project.Name, cc.Repo.Project.Name)
 		}
 	}
 }
