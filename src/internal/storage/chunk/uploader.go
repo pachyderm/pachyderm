@@ -36,7 +36,11 @@ type Uploader struct {
 }
 
 func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, cb UploadFunc) *Uploader {
+<<<<<<< HEAD
 	ctx = pctx.Child(ctx, "uploader")
+=======
+	pctx.Child(ctx, "uploader")
+>>>>>>> 11c68b70ba ([PFS-221] Add child contexts throughout storage layer.)
 	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL), s.pool)
 	return &Uploader{
 		ctx:       ctx,

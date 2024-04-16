@@ -40,6 +40,7 @@ func NewPrefetcher(storage *Storage, fileSet FileSet, upper string) FileSet {
 func (p *prefetcher) Iterate(ctx context.Context, cb func(File) error, opts ...index.Option) error {
 	ctx = pctx.Child(ctx, "prefetcher")
 	ctx, cancel := pctx.WithCancel(ctx)
+	ctx = pctx.Child(ctx, "prefetcher")
 	defer cancel()
 	taskChain := taskchain.New(ctx, semaphore.NewWeighted(int64(p.storage.prefetchLimit)))
 	fetchChunk := func(ref *chunk.DataRef, files []File) error {
