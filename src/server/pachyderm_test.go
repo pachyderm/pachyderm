@@ -272,7 +272,7 @@ func TestPipelineWithSubprocesses(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "foo", strings.NewReader("foo"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit1, "bar", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(projectName, dataRepoName, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(projectName, dataRepoName, "", commit1.Id))
 
 	pipeline := tu.UniqueString("TestPipelineWS")
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -332,7 +332,7 @@ func TestCrossProjectPipeline(t *testing.T) {
 	commit1, err := c.StartCommit(inputProjectName, dataRepoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(inputProjectName, dataRepoName, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(inputProjectName, dataRepoName, "", commit1.Id))
 
 	pipelineProjectName := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreateProject(pipelineProjectName))
@@ -417,7 +417,7 @@ func TestRepoSize(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	// wait for everything to be processed
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
@@ -473,7 +473,7 @@ func TestPFSPipeline(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -517,7 +517,7 @@ func TestPipelineWithParallelism(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -569,7 +569,7 @@ func TestPipelineWithLargeFiles(t *testing.T) {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fileContent), client.WithAppendPutFile()))
 		fileContents = append(fileContents, fileContent)
 	}
-	require.NoError(t, c.FinishCommit(project, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(project, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -622,7 +622,7 @@ func TestDatumDedup(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -630,7 +630,7 @@ func TestDatumDedup(t *testing.T) {
 
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 
 	// Since we did not change the datum, the datum should not be processed
 	// again, which means that the job should complete instantly.
@@ -667,7 +667,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -683,7 +683,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(commit2, "file"))
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("bar"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 
 	commitInfos, err = c.WaitCommitSetAll(commit2.Id)
 	require.NoError(t, err)
@@ -699,7 +699,7 @@ func TestPipelineInputDataModification(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteFile(commit3, "file"))
 	require.NoError(t, c.PutFile(commit3, "file2", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit3.Branch.Name, commit3.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit3.Id))
 
 	commitInfos, err = c.WaitCommitSetAll(commit3.Id)
 	require.NoError(t, err)
@@ -749,7 +749,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "dirA/file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit1, "dirB/file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -763,7 +763,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "dirA/file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 
 	commitInfos, err = c.WaitCommitSetAll(commit2.Id)
 	require.NoError(t, err)
@@ -777,7 +777,7 @@ func TestMultipleInputsFromTheSameBranch(t *testing.T) {
 	commit3, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit3, "dirB/file", strings.NewReader("buzz\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit3.Branch.Name, commit3.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit3.Id))
 
 	commitInfos, err = c.WaitCommitSetAll(commit3.Id)
 	require.NoError(t, err)
@@ -1352,7 +1352,7 @@ func TestPipelineJobHasAuthToken(t *testing.T) {
 	commit, err := rc.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, rc.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, rc.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, rc.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	port := c.GetAddress().Port
 	pipeline := tu.UniqueString("pipeline")
@@ -1403,7 +1403,7 @@ func TestPipelineFailure(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -1529,7 +1529,7 @@ func TestInputFailure(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	pipeline1 := tu.UniqueString("pipeline1")
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -1783,7 +1783,7 @@ func TestLazyPipelinePropagation(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	_, err = c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -1972,12 +1972,12 @@ func TestProvenance(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "", commit1.Id))
 
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "", commit2.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit2.Id)
 	require.NoError(t, err)
@@ -2076,13 +2076,13 @@ func TestProvenance2(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "bfile", strings.NewReader("foo\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit1, "cfile", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "", commit1.Id))
 
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "bfile", strings.NewReader("bar\n"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit2, "cfile", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "", commit2.Id))
 
 	_, err = c.WaitCommit(pfs.DefaultProjectName, dPipeline, "", commit2.Id)
 	require.NoError(t, err)
@@ -2163,7 +2163,7 @@ func TestStopPipelineExtraCommit(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, aRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, aRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -2227,7 +2227,7 @@ func TestWaitJobSet(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, sourceRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, sourceRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, sourceRepo, "", commit.Id))
 
 		commitInfos, err := c.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
@@ -2294,7 +2294,7 @@ func TestWaitJobSetFailures(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file%d", i), strings.NewReader("foo\n"), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 		jobInfos, err := c.WaitJobSetAll(commit.Id, false)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(jobInfos))
@@ -2331,7 +2331,7 @@ func TestWaitCommitSetAfterCreatePipeline(t *testing.T) {
 		commit, err = c.StartCommit(pfs.DefaultProjectName, repo, "dev")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader(fmt.Sprintf("foo%d\n", i)), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	}
 	require.NoError(t, c.CreateBranch(pfs.DefaultProjectName, repo, "master", commit.Branch.Name, commit.Id, nil))
 
@@ -2367,7 +2367,7 @@ func TestRecreatePipeline(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	pipeline := tu.UniqueString("pipeline")
 	createPipeline := func() {
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -2408,7 +2408,7 @@ func TestDeletePipeline(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, uuid.NewWithoutDashes(), strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 	pipelines := []string{tu.UniqueString("TestDeletePipeline1"), tu.UniqueString("TestDeletePipeline2")}
 	createPipelines := func() {
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -2581,7 +2581,7 @@ func TestUpdatePipelineThatHasNoOutput(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	pipeline := tu.UniqueString("pipeline")
 	require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -2656,7 +2656,7 @@ func TestAcceptReturnCode(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
@@ -2704,7 +2704,7 @@ func TestPrettyPrinting(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
@@ -2763,7 +2763,7 @@ func TestAuthPrettyPrinting(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
@@ -2816,7 +2816,7 @@ func TestDeleteAll(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
 	require.NoError(t, c.DeleteAll(c.Ctx()))
@@ -2867,7 +2867,7 @@ func TestRecursiveCp(t *testing.T) {
 			strings.NewReader(strings.Repeat("foo\n", 10000)),
 		))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
 }
@@ -3122,7 +3122,7 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 		commitInfos, err := c.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(commitInfos))
@@ -3136,7 +3136,7 @@ func TestUpdatePipelineWithInProgressCommitsAndStats(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(i), strings.NewReader("foo"), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	}
 	// wait for jobs to start before updating
 	require.NoError(t, backoff.Retry(func() error {
@@ -3190,7 +3190,7 @@ func TestPipelineCheckStatusExceededExpectedDuration(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, "file"+strconv.Itoa(commitNum), strings.NewReader("foo"), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	}
 	flushJob(1)
 	time.Sleep(10 * time.Second)
@@ -3489,14 +3489,14 @@ func TestUpdatePipelineRunningJob(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit2, fmt.Sprintf("file-%d", i+numFiles), strings.NewReader(""), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 
 	b := backoff.NewTestingBackOff()
 	require.NoError(t, backoff.Retry(func() error {
@@ -3724,7 +3724,7 @@ func TestStopPipeline(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	// wait for 10 seconds and check that no new commit has been outputted
 	time.Sleep(10 * time.Second)
@@ -4125,7 +4125,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
@@ -4139,7 +4139,7 @@ func TestPipelineWithFullObjects(t *testing.T) {
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 	commitInfos, err = c.WaitCommitSetAll(commit2.Id)
 	require.NoError(t, err)
 	require.Equal(t, 4, len(commitInfos))
@@ -4165,13 +4165,13 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	// Do second commit to repo
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 
 	// create pipeline
 	pipelineName := tu.UniqueString("pipeline")
@@ -4219,7 +4219,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "foo", strings.NewReader("foo")))
 	require.NoError(t, c.PutFile(commit, "dir1/bar", strings.NewReader("bar")))
 	require.NoError(t, c.PutFile(commit, "dir2/foo", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	check := func(input *pps.Input) {
 		pipelineName := tu.UniqueString("pipeline")
@@ -4566,7 +4566,7 @@ func TestJobDeletion(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	_, err = c.WaitCommitSetAll(commit.Id)
 	require.NoError(t, err)
@@ -4612,17 +4612,17 @@ func TestStopJob(t *testing.T) {
 	commit1, err := c.StartCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(project, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(project, dataRepo, "", commit1.Id))
 
 	commit2, err := c.StartCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(project, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(project, dataRepo, "", commit2.Id))
 
 	commit3, err := c.StartCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit3, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(project, dataRepo, commit3.Branch.Name, commit3.Id))
+	require.NoError(t, c.FinishCommit(project, dataRepo, "", commit3.Id))
 
 	jobInfos, err := c.ListJob(project, pipelineName, nil, -1, true)
 	require.NoError(t, err)
@@ -5088,7 +5088,7 @@ func TestDatumStatusRestart(t *testing.T) {
 	commit1, err := c.StartCommit(project, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(project, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(project, dataRepo, "", commit1.Id))
 
 	// get the job status
 	jobs, err := c.ListJob(project, pipeline, nil, -1, true)
@@ -5769,7 +5769,7 @@ func TestPipelineLargeOutput(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -6596,7 +6596,7 @@ func TestPipelineOnStatsBranch(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	pipeline1, pipeline2 := tu.UniqueString("TestPipelineOnStatsBranch1"), tu.UniqueString("TestPipelineOnStatsBranch2")
 	_, err = c.PpsAPIClient.CreatePipeline(context.Background(),
@@ -6670,7 +6670,7 @@ func TestSkippedDatums(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	jis, err := c.WaitJobSetAll(commit1.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
@@ -6684,7 +6684,7 @@ func TestSkippedDatums(t *testing.T) {
 	commit2, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "file2", strings.NewReader("bar\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 	jis, err = c.WaitJobSetAll(commit2.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
@@ -6774,7 +6774,7 @@ func TestMetaRepoContents(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "foo", strings.NewReader("foo\n")))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	jis, err := c.WaitJobSetAll(commit1.Id, false)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(jis))
@@ -6786,7 +6786,7 @@ func TestMetaRepoContents(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit2, "bar", strings.NewReader("bar\n")))
 	require.NoError(t, c.DeleteFile(commit2, "/foo"))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit2.Id))
 	_, err = c.WaitJobSetAll(commit2.Id, false)
 	require.NoError(t, err)
 	assertMetaContents(commit2.Id, "bar")
@@ -7381,7 +7381,7 @@ func TestListJobTruncated(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -7448,7 +7448,7 @@ func TestListJobSetPaged(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 		commitInfos, err := c.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 7, len(commitInfos))
@@ -7665,7 +7665,7 @@ func TestListJobPaged(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 		require.NoError(t, err)
 		require.NoError(t, c.PutFile(commit, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 		commitInfos, err := c.WaitCommitSetAll(commit.Id)
 		require.NoError(t, err)
 		require.Equal(t, 4, len(commitInfos))
@@ -7762,7 +7762,7 @@ func TestPipelineEnvVarAlias(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%d", i), strings.NewReader(fmt.Sprintf("%d", i)), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -7858,7 +7858,7 @@ func TestPipelineEnvVarGroupBy(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "a-2", strings.NewReader("foo")))
 	require.NoError(t, c.PutFile(commit, "b-1", strings.NewReader("foo")))
 	require.NoError(t, c.PutFile(commit, "b-2", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// create pipeline
 	pipeline := tu.UniqueString("pipeline")
@@ -7904,7 +7904,7 @@ func TestService(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file1", strings.NewReader("foo")))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	annotations := map[string]string{"foo": "bar"}
 
@@ -8127,7 +8127,7 @@ func TestDatumSetSpec(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	t.Run("number", func(t *testing.T) {
 		pipeline := tu.UniqueString("TestDatumSetSpec")
@@ -8215,7 +8215,7 @@ func TestLongDatums(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file%d", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -8244,7 +8244,7 @@ func TestPipelineWithDatumTimeout(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	timeout := 20
 	pipeline := tu.UniqueString("pipeline")
 	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
@@ -8310,7 +8310,7 @@ func TestListDatumDuringJob(t *testing.T) {
 		require.NoError(t, c.PutFile(commit1, fileName, strings.NewReader("foo")))
 	}
 
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	timeout := 20
 	pipeline := tu.UniqueString("TestListDatumDuringJob_pipeline")
 	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
@@ -8395,7 +8395,7 @@ func TestPipelineWithDatumTimeoutControl(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	timeout := 20
 	pipeline := tu.UniqueString("pipeline")
@@ -8451,7 +8451,7 @@ func TestPipelineWithJobTimeout(t *testing.T) {
 	for i := 0; i < numFiles; i++ {
 		require.NoError(t, c.PutFile(commit1, fmt.Sprintf("file-%v", i), strings.NewReader("foo"), client.WithAppendPutFile()))
 	}
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	timeout := 20
 	pipeline := tu.UniqueString("pipeline")
 	duration, err := time.ParseDuration(fmt.Sprintf("%vs", timeout))
@@ -8513,7 +8513,7 @@ func TestPipelineEmptyInput(t *testing.T) {
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 	pipeline := tu.UniqueString("TestPipelineEmptyInput")
 	_, err = c.PpsAPIClient.CreatePipeline(
 		context.Background(),
@@ -8569,8 +8569,8 @@ func TestCommitDescription(t *testing.T) {
 		Description: "test commit description in 'start commit'",
 	})
 	require.NoError(t, err)
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
-	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id)
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
+	commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id)
 	require.NoError(t, err)
 	require.Equal(t, "test commit description in 'start commit'", commitInfo.Description)
 	require.NoError(t, pfspretty.PrintDetailedCommitInfo(os.Stdout, pfspretty.NewPrintableCommitInfo(commitInfo)))
@@ -8651,7 +8651,7 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "/time", strings.NewReader("600"), client.WithAppendPutFile()))
 	require.NoError(t, c.PutFile(commit, "/data", strings.NewReader("commit data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 
 	// Create sleep + copy pipeline
 	pipeline := tu.UniqueString("pipeline")
@@ -8712,7 +8712,7 @@ func TestCancelJob(t *testing.T) {
 	require.NoError(t, c.PutFile(commit2, "/time", strings.NewReader("1"), client.WithAppendPutFile()))
 	require.NoError(t, c.DeleteFile(commit2, "/data"))
 	require.NoError(t, c.PutFile(commit2, "/data", strings.NewReader("commit 2 data"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit2.Branch.Name, commit2.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit2.Id))
 
 	// Flush commit2, and make sure the output is as expected
 	commitInfo, err := c.WaitCommit(pfs.DefaultProjectName, pipeline, "master", commit2.Id)
@@ -8762,7 +8762,7 @@ func TestCancelManyJobs(t *testing.T) {
 		commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
 		require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo")))
 		require.NoError(t, err)
-		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, commit.Branch.Name, commit.Id))
+		require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "", commit.Id))
 		commits = append(commits, commit)
 	}
 
@@ -8941,7 +8941,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	commit, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	jis, err := c.WaitJobSetAll(commit.Id, false)
 	require.NoError(t, err)
@@ -8964,7 +8964,7 @@ func TestStatsDeleteAll(t *testing.T) {
 	commit, err = c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit.Branch.Name, commit.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
 
 	jis, err = c.WaitJobSetAll(commit.Id, false)
 	require.NoError(t, err)
@@ -10283,7 +10283,7 @@ func testDebug(t *testing.T, c *client.APIClient, projectName, repoName string) 
 	commit1, err := c.StartCommit(projectName, repoName, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(projectName, repoName, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(projectName, repoName, "", commit1.Id))
 
 	commitInfos, err := c.WaitCommitSetAll(commit1.Id)
 	require.NoError(t, err)
@@ -10609,7 +10609,7 @@ func TestNonrootPipeline(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 
 	pipeline := tu.UniqueString("TestNonrootPipeline")
 	_, err = c.PpsAPIClient.CreatePipeline(
@@ -11257,7 +11257,7 @@ func TestSimplePipelineNonRoot(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	req := basicPipelineReq(pipeline, dataRepo)
 	req.Transform.User = "65534"
@@ -11304,7 +11304,7 @@ func TestSimplePipelinePodPatchNonRoot(t *testing.T) {
 	commit1, err := c.StartCommit(pfs.DefaultProjectName, dataRepo, "master")
 	require.NoError(t, err)
 	require.NoError(t, c.PutFile(commit1, "file", strings.NewReader("foo"), client.WithAppendPutFile()))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, commit1.Branch.Name, commit1.Id))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit1.Id))
 	pipeline := tu.UniqueString("TestSimplePipeline")
 	req := basicPipelineReq(pipeline, dataRepo)
 
