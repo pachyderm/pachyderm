@@ -116,6 +116,54 @@
               "isoneof": false,
               "oneofdecl": "",
               "defaultValue": ""
+            },
+            {
+              "name": "metadata",
+              "description": "Cluster-level metadata.",
+              "label": "repeated",
+              "type": "MetadataEntry",
+              "longType": "ClusterInfo.MetadataEntry",
+              "fullType": "admin_v2.ClusterInfo.MetadataEntry",
+              "ismap": true,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            }
+          ]
+        },
+        {
+          "name": "MetadataEntry",
+          "longName": "ClusterInfo.MetadataEntry",
+          "fullName": "admin_v2.ClusterInfo.MetadataEntry",
+          "description": "",
+          "hasExtensions": false,
+          "hasFields": true,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": [
+            {
+              "name": "key",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
+              "name": "value",
+              "description": "",
+              "label": "",
+              "type": "string",
+              "longType": "string",
+              "fullType": "string",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
             }
           ]
         },
@@ -463,6 +511,11 @@
             {
               "name": "SECRET_INSPECT",
               "number": "146",
+              "description": ""
+            },
+            {
+              "name": "CLUSTER_EDIT_CLUSTER_METADATA",
+              "number": "151",
               "description": ""
             },
             {
@@ -3833,7 +3886,7 @@
           "extensions": [],
           "fields": [
             {
-              "name": "bytes",
+              "name": "content",
               "description": "",
               "label": "",
               "type": "BytesValue",
@@ -10061,6 +10114,17 @@
       "extensions": [],
       "messages": [
         {
+          "name": "ClusterPicker",
+          "longName": "ClusterPicker",
+          "fullName": "metadata.ClusterPicker",
+          "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server.",
+          "hasExtensions": false,
+          "hasFields": false,
+          "hasOneofs": false,
+          "extensions": [],
+          "fields": []
+        },
+        {
           "name": "Edit",
           "longName": "Edit",
           "fullName": "metadata.Edit",
@@ -10137,6 +10201,26 @@
               "type": "RepoPicker",
               "longType": "pfs_v2.RepoPicker",
               "fullType": "pfs_v2.RepoPicker",
+              "ismap": false,
+              "isoneof": true,
+              "oneofdecl": "target",
+              "defaultValue": "",
+              "options": {
+                "validate.rules": [
+                  {
+                    "name": "message.required",
+                    "value": true
+                  }
+                ]
+              }
+            },
+            {
+              "name": "cluster",
+              "description": "cluster targets the cluster's metadata.",
+              "label": "",
+              "type": "ClusterPicker",
+              "longType": "ClusterPicker",
+              "fullType": "metadata.ClusterPicker",
               "ismap": false,
               "isoneof": true,
               "oneofdecl": "target",

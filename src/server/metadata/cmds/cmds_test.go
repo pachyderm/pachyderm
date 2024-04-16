@@ -446,6 +446,13 @@ func TestEditMetadata(t *testing.T) {
 			`,
 		},
 		{
+			name: "cluster",
+			code: `
+				pachctl edit metadata cluster . set '{"key":"value"}'
+				pachctl inspect cluster --raw | match '"key":[[:space:]]+"value"'
+			`,
+		},
+		{
 			name: "all",
 			code: `
 				pachctl inspect project default

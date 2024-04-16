@@ -5,6 +5,7 @@ go_test(
     size = "small",
     srcs = ["metadata_test.go"],
     deps = [
+        "//src/admin",
         "//src/auth",
         "//src/internal/cmputil",
         "//src/internal/dockertestenv",

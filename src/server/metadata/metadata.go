@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/internal/coredb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv/txncontext"
@@ -12,6 +13,7 @@ import (
 )
 
 type Auth interface {
+	CheckClusterIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, p ...auth.Permission) error
 	CheckRepoIsAuthorizedInTransaction(txnCtx *txncontext.TransactionContext, repo *pfs.Repo, p ...auth.Permission) error
 }
 
@@ -115,6 +117,20 @@ func editInTx(ctx context.Context, tc *txncontext.TransactionContext, authServer
 		}
 		if _, err := pfsdb.UpsertRepo(ctx, tc.SqlTx, r.RepoInfo); err != nil {
 			return errors.Wrapf(err, "update repo %q", r.GetRepo().Key())
+		}
+	case *metadata.Edit_Cluster:
+		if err := authServer.CheckClusterIsAuthorizedInTransaction(tc, auth.Permission_CLUSTER_EDIT_CLUSTER_METADATA); err != nil {
+			return errors.Wrap(err, "check cluster permissions")
+		}
+		md, err := coredb.GetClusterMetadata(ctx, tc.SqlTx)
+		if err != nil {
+			return errors.Wrap(err, "get cluster metadata")
+		}
+		if err := editMetadata(edit, &md); err != nil {
+			return errors.Wrap(err, "edit cluster metadata")
+		}
+		if err := coredb.UpdateClusterMetadata(ctx, tc.SqlTx, md); err != nil {
+			return errors.Wrap(err, "update cluster metadata")
 		}
 	default:
 		return errors.Errorf("unknown target %v", edit.GetTarget())

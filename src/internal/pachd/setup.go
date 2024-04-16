@@ -19,6 +19,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/profileutil"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/tracing"
 	"github.com/pachyderm/pachyderm/v2/src/metadata"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
@@ -158,6 +159,19 @@ func initPFSAPIServer(out *pfs.APIServer, outMaster **pfs_server.Master, env fun
 		},
 	}
 }
+func initStorageServer(out **storage.Server, env func() storage.Env) setupStep {
+	return setupStep{
+		Name: "initStorageServer",
+		Fn: func(ctx context.Context) error {
+			s, err := storage.New(ctx, env())
+			if err != nil {
+				return err
+			}
+			*out = s
+			return nil
+		},
+	}
+}
 
 func initPPSAPIServer(out *pps.APIServer, env func() pps_server.Env) setupStep {
 	return setupStep{
@@ -219,13 +233,16 @@ func initMetadataServer(out *metadata.APIServer, env func() metadata_server.Env)
 // reg is called to register functions with the server.
 func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener, reg func(gs grpc.ServiceRegistrar)) func(ctx context.Context) error {
 	return func(ctx context.Context) error {
-		loggingInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		baseContextInterceptor := log_interceptor.NewBaseContextInterceptor(ctx)
+		loggingInterceptor := log_interceptor.NewLoggingInterceptor(ctx)
+		loggingInterceptor.Level = log.DebugLevel
 		gs := grpc.NewServer(
 			grpc.ChainUnaryInterceptor(
 				errorsmw.UnaryServerInterceptor,
 				version_middleware.UnaryServerInterceptor,
 				tracing.UnaryServerInterceptor(),
 				authInterceptor.InterceptUnary,
+				baseContextInterceptor.UnaryServerInterceptor,
 				loggingInterceptor.UnaryServerInterceptor,
 				validation.UnaryServerInterceptor,
 			),
@@ -234,6 +251,7 @@ func newServeGRPC(authInterceptor *auth_interceptor.Interceptor, l net.Listener,
 				version_middleware.StreamServerInterceptor,
 				tracing.StreamServerInterceptor(),
 				authInterceptor.InterceptStream,
+				baseContextInterceptor.StreamServerInterceptor,
 				loggingInterceptor.StreamServerInterceptor,
 				validation.StreamServerInterceptor,
 			),

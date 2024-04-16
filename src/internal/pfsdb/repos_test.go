@@ -5,25 +5,24 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
-
-	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
-	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/pachyderm/pachyderm/v2/src/pfs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/clusterstate"
 	"github.com/pachyderm/pachyderm/v2/src/internal/dockertestenv"
+	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
+	"github.com/pachyderm/pachyderm/v2/src/internal/protoutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testetcd"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil/random"
-	"github.com/pachyderm/pachyderm/v2/src/pfs"
 )
 
 const (
@@ -383,7 +382,7 @@ func testRepoPicker() *pfs.RepoPicker {
 func TestPickRepo(t *testing.T) {
 	t.Parallel()
 	namePicker := testRepoPicker()
-	badRepoPicker := deepcopy.Copy(namePicker).(*pfs.RepoPicker)
+	badRepoPicker := proto.Clone(namePicker).(*pfs.RepoPicker)
 	badRepoPicker.GetName().Name = "does not exist"
 	repo := testRepo(testRepoName, testRepoType)
 	ctx := pctx.TestContext(t)

@@ -72,6 +72,7 @@ export const useConfig = (
           );
         } else {
           updateConfig(response);
+          setShouldShowAddressInput(false);
         }
       } else {
         setErrorMessage(
