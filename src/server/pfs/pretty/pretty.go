@@ -421,5 +421,5 @@ func CompactPrintCommitSafe(c *pfs.Commit) string {
 // CompactPrintFile renders 'f' as a compact string, e.g.
 // "myrepo@master:/my/file"
 func CompactPrintFile(f *pfs.File) string {
-	return fmt.Sprintf("%s@%s:%s", f.Commit.Branch.Repo, f.Commit.Id, f.Path)
+	return fmt.Sprintf("%s@%s:%s", f.Commit.Repo, f.Commit.Id, f.Path)
 }
