@@ -249,9 +249,5 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-
-	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
-		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-	}
 	return nil
 }
