@@ -71,7 +71,7 @@ async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     # Assert default parameters return all
     url_params = {'branch_uri': f"{repos[0]}@master"}
 
-    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}"")
+    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     r = r.json()
     assert len(r["content"]) == 2
