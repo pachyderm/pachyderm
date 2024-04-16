@@ -117,16 +117,7 @@ export class MountDrive implements Contents.IDrive {
     this.setupScrollingHandler();
 
     const url = URLExt.join(this._path, localPath);
-
-    // Add the branch_uri to all subsequent requests to the backend.
-    if (!options) {
-      options = {};
-    }
-    const branch_uri = this._getMountedRepo()?.mountedBranch.uri;
-    if (branch_uri) {
-      console.log('branch_uri', branch_uri);
-      options.branch_uri = branch_uri;
-    }
+    const branchUri = this._getMountedRepo()?.mountedBranch.uri;
 
     // If we have cached content return that
     if (localPath === this._cache.key && localPath) {
@@ -153,8 +144,8 @@ export class MountDrive implements Contents.IDrive {
       const shallowOptions: {content: string; branch_uri?: string} = {
         content: '0',
       };
-      if (options.branch_uri) {
-        shallowOptions.branch_uri = branch_uri;
+      if (branchUri) {
+        shallowOptions.branch_uri = branchUri;
       }
       shallowResponse = await this._get(url, shallowOptions);
     } catch (e) {
@@ -182,7 +173,7 @@ export class MountDrive implements Contents.IDrive {
       ...options,
       number: PAGINATION_NUMBER,
       content,
-      branch_uri: options.branch_uri,
+      branch_uri: branchUri,
     };
     this._loading.emit(true);
     await this._fetchNextPage(null, now, url, getOptions);
