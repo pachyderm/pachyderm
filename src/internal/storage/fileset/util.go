@@ -3,6 +3,7 @@ package fileset
 import (
 	"archive/tar"
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"path"
 	"strings"
@@ -99,6 +100,7 @@ type Iterator struct {
 type iterFunc = func(ctx context.Context, cb func(File) error, opts ...index.Option) error
 
 func NewIterator(ctx context.Context, iter iterFunc, opts ...index.Option) *Iterator {
+	ctx = pctx.Child(ctx, "imperativeIterator")
 	fileChan := make(chan File)
 	errChan := make(chan error, 1)
 	go func() {

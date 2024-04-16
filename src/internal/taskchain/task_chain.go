@@ -2,6 +2,7 @@ package taskchain
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -22,6 +23,7 @@ type TaskChain struct {
 
 // New creates a new task chain.
 func New(ctx context.Context, sem *semaphore.Weighted) *TaskChain {
+	ctx = pctx.Child(ctx, "taskChain")
 	eg, errCtx := errgroup.WithContext(ctx)
 	prevChan := make(chan struct{})
 	close(prevChan)

@@ -39,6 +39,7 @@ type Writer struct {
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
+	pctx.Child(ctx, "indexWriter")
 	ctx, cancel := pctx.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,

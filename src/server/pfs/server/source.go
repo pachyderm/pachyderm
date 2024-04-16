@@ -79,7 +79,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
-	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
+	iter := fileset.NewIterator(pctx.Child(ctx, "directoryIterator"), s.fileSet.Iterate, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
