@@ -94,7 +94,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
