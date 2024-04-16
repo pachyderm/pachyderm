@@ -9,7 +9,6 @@ import {
   CrossInputSpec,
   CurrentDatumResponse,
   DownloadPath,
-  ListMountsResponse,
   MountDatumResponse,
   PfsInput,
 } from 'plugins/mount/types';
@@ -25,7 +24,6 @@ export type useDatumResponse = {
   callNextDatum: () => Promise<void>;
   callPrevDatum: () => Promise<void>;
   callDownloadDatum: () => Promise<void>;
-  callUnmountAll: () => Promise<void>;
   errorMessage: string;
   initialInputSpec: JSONObject;
 };
@@ -211,30 +209,6 @@ export const useDatum = (
     setLoading(false);
   };
 
-  const callUnmountAll = async () => {
-    setLoading(true);
-
-    try {
-      open('');
-      await requestAPI<ListMountsResponse>('_unmount_all', 'PUT');
-      open('');
-      await pollRefresh();
-      setCurrDatum({
-        id: '',
-        idx: -1,
-        num_datums: 0,
-        all_datums_received: false,
-      });
-      setShouldShowCycler(false);
-      setShouldShowDownload(false);
-    } catch (e) {
-      console.log(e);
-    }
-
-    setErrorMessage('');
-    setLoading(false);
-  };
-
   return {
     loading,
     shouldShowCycler,
@@ -246,7 +220,6 @@ export const useDatum = (
     callNextDatum,
     callPrevDatum,
     callDownloadDatum,
-    callUnmountAll,
     errorMessage,
     initialInputSpec,
   };

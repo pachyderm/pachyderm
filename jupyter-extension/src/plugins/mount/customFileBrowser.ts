@@ -14,6 +14,7 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
+import {MountedRepo} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -22,6 +23,7 @@ const createCustomFileBrowser = (
   path: string,
   downloadPath: string,
   nameSuffix: string,
+  getMountedRepo: () => MountedRepo | null,
 ): FileBrowser => {
   const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
@@ -32,6 +34,7 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
+    getMountedRepo,
   );
   manager.services.contents.addDrive(drive);
 
@@ -129,9 +132,41 @@ const createCustomFileBrowser = (
         },
       });
 
+      commands.addCommand('open-pachyderm-sdk', {
+        mnemonic: 0,
+        execute: () => {
+          window
+            ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
+            ?.focus();
+        },
+      });
+
+      commands.addCommand('open-determined', {
+        label: 'Copy Pachyderm File URI',
+        icon: 'fa fa-link',
+        mnemonic: 0,
+        execute: () => {
+          app.commands.execute('apputils:notify', {
+            message: 'Pachyderm File URI copied to clipboard.',
+            type: 'success',
+            options: {
+              autoClose: 10000, // 10 seconds
+              actions: [
+                {
+                  label: 'Open Pachyderm SDK Docs',
+                  commandId: 'open-pachyderm-sdk',
+                  displayType: 'link',
+                },
+              ],
+            },
+          });
+        },
+      });
+
       const menu = new Menu({commands});
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
+      menu.addItem({command: 'open-determined'});
       menu.addItem({command: 'file-download'});
 
       const browserContent = dirListing.node.getElementsByClassName(
