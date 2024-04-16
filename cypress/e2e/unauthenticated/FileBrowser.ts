@@ -4,6 +4,31 @@ describe('FileBrowser', () => {
     cy.visit('/');
   });
 
+  describe('File search', () => {
+    beforeEach(() => {
+      cy.multiLineExec(
+        `pachctl create repo images
+        pachctl put file images@master:one.png -f cypress/fixtures/liberty.png
+        pachctl put file images@master:a/b/c/one/one.png -f cypress/fixtures/liberty.png
+        pachctl put file images@master:two.png -f cypress/fixtures/liberty.png
+        `,
+      ).visit('/');
+    });
+
+    after(() => {
+      cy.deleteReposAndPipelines();
+    });
+
+    it('should search for a file', () => {
+      cy.visit('/lineage/default/repos/images/latest');
+
+      cy.findByRole('textbox').type('one');
+      cy.findByText('/one.png');
+      cy.findByText('/a/b/c/one/');
+      cy.findByText('/a/b/c/one/one.png');
+    });
+  });
+
   describe('Display and version history', () => {
     beforeEach(() => {
       cy.multiLineExec(
@@ -11,7 +36,7 @@ describe('FileBrowser', () => {
         pachctl put file images@master:image1.png -f cypress/fixtures/liberty.png
         pachctl put file images@master:image1.png -f cypress/fixtures/AT-AT.png
         pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
-        pachctl delete file images@test:image1.png        
+        pachctl delete file images@test:image1.png
         pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
         pachctl put file images@test:image1.png -f cypress/fixtures/AT-AT.png
         pachctl put file images@test:image1.png -f cypress/fixtures/liberty.png
@@ -35,7 +60,8 @@ describe('FileBrowser', () => {
       }).click();
 
       // look at master commits
-      cy.findAllByRole('listitem').should('have.length', 2);
+      cy.findByTestId('CommitSelect__button').click();
+      cy.findAllByRole('menuitem').should('have.length', 2);
 
       // change branch to test
       cy.findByRole('button', {
@@ -45,7 +71,8 @@ describe('FileBrowser', () => {
         name: /test/i,
       }).click();
 
-      cy.findAllByTestId('CommitList__listItem').should('have.length', 6);
+      cy.findByTestId('CommitSelect__button').click();
+      cy.findAllByRole('menuitem').should('have.length', 6);
     });
 
     it('should display version history for selected file', () => {
@@ -58,8 +85,7 @@ describe('FileBrowser', () => {
         name: /test/i,
       }).click();
 
-      cy.findByTestId('SidePanel__closeLeft').click();
-      cy.findByText('image1.png').click();
+      cy.findAllByText('image1.png').last().click();
       cy.findByRole('button', {
         name: 'Load older file versions',
       }).click();

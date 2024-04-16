@@ -191,6 +191,23 @@ const repoQueryKeys = {
     path,
     args,
   ],
+  filesSearch: ({
+    projectId,
+    repoId,
+    commitId,
+    pattern,
+  }: {
+    projectId?: string;
+    repoId?: string;
+    commitId?: string;
+    pattern: string;
+  }) => [
+    ...queryKeys.repo({projectId, repoId}),
+    'commit',
+    commitId,
+    'pattern',
+    pattern,
+  ],
   filesNextPrevious: ({
     projectId,
     repoId,

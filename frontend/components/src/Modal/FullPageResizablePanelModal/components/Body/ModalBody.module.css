@@ -1,0 +1,19 @@
+.base {
+  margin: 1rem 1rem 0 1rem;
+  width: inherit;
+  background-color: var(--white);
+  border-radius: 3px 3px 0 0;
+  border: 1px solid var(--border-grey);
+  border-bottom: none;
+  box-shadow: 2px 2px 8px var(--dropshadow-grey);
+  transition:
+    margin-left 0.1s ease-out,
+    margin-left 0.1s ease-out;
+  overflow-y: hidden;
+}
+
+@media (--medium-viewport) {
+  .base {
+    margin-left: 4rem;
+  }
+}

@@ -10,7 +10,12 @@ import {setupServer} from 'msw/node';
 import React from 'react';
 
 import {Empty} from '@dash-frontend/api/googleTypes';
-import {FileInfo, ListFileRequest} from '@dash-frontend/api/pfs';
+import {
+  CommitInfo,
+  FileInfo,
+  ListCommitRequest,
+  ListFileRequest,
+} from '@dash-frontend/api/pfs';
 import {
   mockEmptyCommitDiff,
   mockEmptyGetAuthorize,
@@ -25,6 +30,9 @@ import {
   mockEmptyInspectPipeline,
   mockGetVersionInfo,
   mockGetImageCommitsNoBranch,
+  inspectCommit,
+  COMMIT_INFO_4A,
+  COMMIT_INFO_C4,
 } from '@dash-frontend/mocks';
 import {click, withContextProviders} from '@dash-frontend/testHelpers';
 
@@ -56,30 +64,25 @@ describe('File Browser', () => {
     server.use(mockGetImageCommits());
     server.use(mockGetEnterpriseInfoInactive());
     server.use(mockEmptyInspectPipeline());
+    server.use(inspectCommit());
   });
 
   afterAll(() => server.close());
 
   describe('Left Panel', () => {
-    it('should select the latest commit', async () => {
+    it('should select the latest commit when url contains no commit ID', async () => {
       window.history.replaceState(
         {},
         '',
         '/project/default/repos/images/latest',
       );
       render(<FileBrowser />);
-      const selectedCommit = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[0];
 
-      expect(selectedCommit).toHaveClass('selected');
-      expect(selectedCommit).toHaveTextContent(
-        '4a83c74809664f899261baccdb47cd90',
-      );
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      expect(await screen.findByTestId('LeftPanel_crumb')).toHaveTextContent(
-        'Commit: 4a83c7...',
-      );
+      expect(
+        await screen.findByTestId('CommitSelect__button'),
+      ).toHaveTextContent(/jul 24, 2023; 17:58 4a83c7/i);
     });
 
     it('should select the correct commit from the url', async () => {
@@ -91,18 +94,53 @@ describe('File Browser', () => {
       );
       render(<FileBrowser />);
 
-      const selectedCommit = (
-        await screen.findAllByTestId('CommitList__listItem')
-      )[2];
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      expect(selectedCommit).toHaveClass('selected');
-      expect(selectedCommit).toHaveTextContent(
-        'c43fffd650a24b40b7d9f1bf90fcfdbe',
+      expect(
+        await screen.findByTestId('CommitSelect__button'),
+      ).toHaveTextContent(/jul 24, 2023; 17:58 c43fff/i);
+    });
+
+    it('should allow users to switch branches and default to all commits for the /latest path', async () => {
+      server.use(mockGetBranches());
+      server.use(
+        rest.post<ListCommitRequest, Empty, CommitInfo[]>(
+          '/api/pfs_v2.API/ListCommit',
+          async (req, res, ctx) => {
+            const body = await req.json();
+            if (body.to?.branch?.name === 'test') {
+              return res(ctx.json([COMMIT_INFO_4A]));
+            }
+            return res(ctx.json([COMMIT_INFO_C4]));
+          },
+        ),
       );
 
-      expect(await screen.findByTestId('LeftPanel_crumb')).toHaveTextContent(
-        'Commit: c43fff...',
+      window.history.replaceState(
+        {},
+        '',
+        '/lineage/default/repos/images/latest',
       );
+      render(<FileBrowser />);
+
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      expect(
+        await screen.findByTestId('CommitSelect__button'),
+      ).toHaveTextContent(/jul 24, 2023; 17:58 c43fff/i);
+
+      const dropdown = screen.getByRole('button', {
+        name: /viewing all commits/i,
+      });
+
+      await click(dropdown);
+      await click(await screen.findByText('test'));
+      expect(dropdown).toHaveTextContent('test');
+
+      expect(window.location.search).toBe('?branchId=test');
+      await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
+      expect(
+        await screen.findByTestId('CommitSelect__button'),
+      ).toHaveTextContent(/jul 24, 2023; 17:58 4a83c7/i);
     });
   });
 
@@ -113,7 +151,9 @@ describe('File Browser', () => {
       expect(await screen.findByText('added mako')).toBeInTheDocument();
       expect(await screen.findByText('images')).toBeInTheDocument();
       expect(await screen.findByText('repo of images')).toBeInTheDocument();
-      await click(screen.getByText('cats'));
+      const folders = screen.getAllByText('cats');
+      expect(folders).toHaveLength(2);
+      await click(folders[0]);
       expect(await screen.findByText('added mako')).toBeInTheDocument();
       expect(await screen.findByText('images')).toBeInTheDocument();
       expect(await screen.findByText('repo of images')).toBeInTheDocument();
@@ -124,7 +164,9 @@ describe('File Browser', () => {
 
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
 
-      await click(screen.getByText('AT-AT.png'));
+      const files = screen.getAllByText('AT-AT.png');
+      expect(files).toHaveLength(2);
+      await click(files[0]);
       expect(await screen.findByText('File Versions')).toBeInTheDocument();
       expect(
         await screen.findByRole('button', {
@@ -208,9 +250,9 @@ describe('File Browser', () => {
       );
       render(<FileBrowser />);
       await waitForElementToBeRemoved(() => screen.queryAllByRole('status'));
-      expect(
-        screen.getByText('This commit is currently open'),
-      ).toBeInTheDocument();
+      expect(screen.getAllByText('This commit is currently open')).toHaveLength(
+        2,
+      );
     });
 
     it('should display a message if the selected commit empty', async () => {

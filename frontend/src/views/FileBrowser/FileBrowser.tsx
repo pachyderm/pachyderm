@@ -9,7 +9,7 @@ import RepoDetails from '@dash-frontend/views/Project/components/ProjectSidebar/
 import {fileBrowserRoute} from '@dash-frontend/views/Project/utils/routes';
 import {
   LoadingDots,
-  FullPagePanelModal,
+  FullPageResizablePanelModal,
   Button,
   ArrowLeftSVG,
   Pager,
@@ -65,9 +65,21 @@ const FileBrowser: React.FC = () => {
   return (
     <>
       <BrandedTitle title="Files" />
-      <FullPagePanelModal show={isOpen} onHide={handleHide}>
-        <LeftPanel selectedCommitId={selectedCommitId} />
-        <FullPagePanelModal.Body>
+      <FullPageResizablePanelModal
+        show={isOpen}
+        onHide={handleHide}
+        autoSaveId="FileBrowser"
+      >
+        <FullPageResizablePanelModal.Panel defaultSize={25} minSize={20}>
+          <LeftPanel
+            selectedCommitId={selectedCommitId}
+            isCommitOpen={isCommitOpen}
+          />
+        </FullPageResizablePanelModal.Panel>
+
+        <FullPageResizablePanelModal.PanelResizeHandle />
+
+        <FullPageResizablePanelModal.Body defaultSize={50} minSize={25}>
           <div className={styles.base}>
             <FileHeader
               commitId={selectedCommitId}
@@ -76,7 +88,7 @@ const FileBrowser: React.FC = () => {
             {!fileToPreview && !loading && (
               <div className={styles.header}>
                 <div data-testid="FileBrowser__title">
-                  <h6>
+                  <h6 className={styles.contentHeader}>
                     {isRoot
                       ? 'Commit files for'
                       : `Folder: ${filePath.slice(0, -1)}`}
@@ -109,7 +121,7 @@ const FileBrowser: React.FC = () => {
                     {isCommitOpen ? (
                       <EmptyState
                         title="This commit is currently open"
-                        message="Your data is being processed, and will be available to preview after the commit has been closed. Please finish the commit to browse these files."
+                        message="Your data is being processed and will be available to preview after the commit has been closed."
                       />
                     ) : (
                       <>
@@ -148,11 +160,17 @@ const FileBrowser: React.FC = () => {
               </>
             )}
           </div>
-        </FullPagePanelModal.Body>
-        <FullPagePanelModal.RightPanel>
+        </FullPageResizablePanelModal.Body>
+        <FullPageResizablePanelModal.PanelResizeHandle />
+        <FullPageResizablePanelModal.Panel
+          defaultSize={25}
+          minSize={20}
+          showClose
+          onClose={handleHide}
+        >
           {!isDirectory ? <FileHistory /> : <RepoDetails />}
-        </FullPagePanelModal.RightPanel>
-      </FullPagePanelModal>
+        </FullPageResizablePanelModal.Panel>
+      </FullPageResizablePanelModal>
     </>
   );
 };

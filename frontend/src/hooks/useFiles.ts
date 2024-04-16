@@ -22,6 +22,7 @@ type UseFiles = {
 export const useFiles = (
   {projectName, repoName, commitId, path, args}: UseFiles,
   enabled = true,
+  refetchInterval: number | false = false,
 ) => {
   const {
     data,
@@ -35,6 +36,7 @@ export const useFiles = (
       path,
       args,
     }),
+    refetchInterval,
     enabled: enabled,
     throwOnError: (e) => !isUnknown(e),
     queryFn: () => {

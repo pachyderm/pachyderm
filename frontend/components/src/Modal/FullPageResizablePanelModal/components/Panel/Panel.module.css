@@ -1,0 +1,18 @@
+.rightHeading {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  height: 3.5rem;
+  border-bottom: 1px solid var(--border-grey);
+  padding: 0 1rem;
+}
+
+.children {
+  height: 100%;
+  overflow-y: hidden;
+}
+
+.panel {
+  background-color: var(--white);
+  box-shadow: 2px 2px 8px var(--dropshadow-grey);
+}

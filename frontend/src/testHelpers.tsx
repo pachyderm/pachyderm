@@ -83,6 +83,10 @@ export const upload: typeof userEvent.upload = async (...args) => {
   await act(() => userEvent.upload(...args));
 };
 
+export const keyboard: typeof userEvent.keyboard = async (...args) => {
+  return await act(() => userEvent.keyboard(...args));
+};
+
 // NOTE: The return type doesn't match userEvent.type,
 // as our "type" command always returns a promise, whereas
 // theirs only returns a promise if the input arguments contain a

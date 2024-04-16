@@ -78,6 +78,7 @@
     "react-helmet": "6.1.0",
     "react-hook-form": "7.48.2",
     "react-markdown": "8.0.7",
+    "react-resizable-panels": "^2.0.13",
     "react-router": "5.3.4",
     "react-router-dom": "5.3.4",
     "react-transition-group": "4.4.5",

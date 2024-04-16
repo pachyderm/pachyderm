@@ -1,0 +1,19 @@
+.shortcuts {
+  float: right;
+  margin-top: 0.75rem;
+  padding-right: 0.5rem;
+  user-select: none;
+}
+
+.info {
+  margin-left: 0.25rem;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+}
+
+.arrow {
+  margin-left: 1rem;
+}

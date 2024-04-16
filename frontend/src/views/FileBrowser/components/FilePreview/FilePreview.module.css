@@ -3,6 +3,7 @@
   position: relative;
   padding: 0 1rem;
   height: calc(100vh - var(--header-height) - var(--subheader-height));
+  overflow-y: auto;
 }
 
 .header {
@@ -13,8 +14,10 @@
   display: inline-flex;
   width: 100%;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
   margin-top: 1rem;
+  column-gap: 1rem;
+  text-align: left;
 }
 
 .metaData {
@@ -39,4 +42,8 @@
   max-height: calc(
     100vh - var(--header-height) - var(--subheader-height) - 8.25rem
   );
+}
+
+.filePath {
+  word-break: break-all;
 }

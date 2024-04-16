@@ -12,7 +12,9 @@ import {
   StartCommitRequest,
   Commit,
   FinishCommitRequest,
+  InspectCommitRequest,
 } from '@dash-frontend/api/pfs';
+import {RequestError} from '@dash-frontend/api/utils/error';
 import {getISOStringFromUnix} from '@dash-frontend/lib/dateTime';
 import generateId from '@dash-frontend/lib/generateId';
 
@@ -272,6 +274,31 @@ export const mockDiffFile = () => {
             },
           },
         ]),
+      );
+    },
+  );
+};
+
+export const inspectCommit = () => {
+  return rest.post<InspectCommitRequest, Empty, CommitInfo | RequestError>(
+    '/api/pfs_v2.API/InspectCommit',
+    async (req, res, ctx) => {
+      const body = await req.json();
+      if (body.commit.id === '4a83c74809664f899261baccdb47cd90') {
+        return res(ctx.json(COMMIT_INFO_4A));
+      } else if (body.commit.id === 'c43fffd650a24b40b7d9f1bf90fcfdbe') {
+        return res(ctx.json(COMMIT_INFO_C4));
+      } else if (body.commit.id === '4eb1aa567dab483f93a109db4641ee75') {
+        return res(ctx.json(COMMIT_INFO_4E));
+      }
+
+      return res(
+        ctx.status(404),
+        ctx.json({
+          code: 5,
+          message: 'not found',
+          details: [],
+        }),
       );
     },
   );

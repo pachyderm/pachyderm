@@ -39,10 +39,11 @@ const useCommitsListFilters = () => {
   const reverseOrder = sortFilter === 'Created: Oldest';
 
   useEffect(() => {
-    const {selectedRepos} = searchParams;
+    const {selectedRepos, branchId} = searchParams;
     getNewSearchParamsAndGo({
       sortBy: sortFilter,
-      selectedRepos: selectedRepos,
+      selectedRepos,
+      branchId,
     });
   }, [sortFilter, getNewSearchParamsAndGo, searchParams]);
 

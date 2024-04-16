@@ -87,7 +87,9 @@ const FilePreview = ({file}: FilePreviewProps) => {
             </Description>
           </div>
           <div className={styles.description}>
-            <Description term="File Path">{file.file?.path}</Description>
+            <Description term="File Path" className={styles.filePath}>
+              {file.file?.path}
+            </Description>
           </div>
         </Group>
       </div>

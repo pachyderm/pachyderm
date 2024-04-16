@@ -10,4 +10,15 @@
   margin-bottom: 2.25rem;
   display: inline-flex;
   justify-content: space-between;
+  column-gap: 1rem;
+}
+
+.contentHeader {
+  word-break: break-all;
+}
+
+@-moz-document url-prefix() {
+  .contentHeader {
+    word-break: normal;
+  }
 }

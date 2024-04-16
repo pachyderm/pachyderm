@@ -11,7 +11,7 @@ type UseCommitsArgs = {
   branchName?: string;
   cursor?: string;
   commitIdCursor?: string;
-  number: number;
+  number?: number;
   reverse?: boolean;
 };
 

@@ -15,7 +15,11 @@ import {
 
 import styles from './BranchSelect.module.css';
 
-const BranchSelect: React.FC = () => {
+type BranchSelectProps = {
+  buttonType?: React.ComponentProps<typeof Dropdown.Button>['buttonType'];
+};
+
+const BranchSelect = ({buttonType}: BranchSelectProps) => {
   const browserHistory = useHistory();
   const {projectId, repoId} = useUrlState();
   const {getUpdatedSearchParams, searchParams} = useUrlQueryState();
@@ -57,7 +61,7 @@ const BranchSelect: React.FC = () => {
 
   return (
     <Dropdown className={styles.base}>
-      <Dropdown.Button>
+      <Dropdown.Button buttonType={buttonType}>
         {searchParams.branchId || 'Viewing all commits'}
       </Dropdown.Button>
       <Dropdown.Menu className={styles.menu}>

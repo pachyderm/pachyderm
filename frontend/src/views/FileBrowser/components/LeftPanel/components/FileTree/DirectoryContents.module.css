@@ -1,0 +1,70 @@
+ul,
+li {
+  list-style-type: none;
+  padding-left: unset;
+}
+
+.base {
+  overflow: visible;
+  width: 100%;
+}
+
+.nested {
+  margin-left: 0.75rem;
+  border-left: 1px solid var(--border-grey);
+}
+
+.file {
+  display: flex;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  min-width: 10rem;
+}
+
+.directory {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  min-width: 10rem;
+}
+
+.file:hover,
+.directory:hover,
+.active {
+  background-color: var(--background-green-lighter);
+  border-color: var(--success-green);
+}
+
+.name {
+  margin-left: 6px;
+  user-select: none;
+}
+
+.link,
+.link:hover,
+.link:active,
+.link:focus,
+.link:visited {
+  display: flex;
+  color: var(--black);
+  align-items: center;
+  min-height: 30px;
+}
+
+.fileLimitReached {
+  display: flex;
+  align-items: center;
+  padding-left: 3px;
+  height: 30px;
+}
+
+.warningIcon,
+.warningIcon:hover {
+  margin-right: 0.25rem;
+  color: var(--pachyderm-orange);
+}
+
+.noFiles {
+  padding: 1rem;
+}

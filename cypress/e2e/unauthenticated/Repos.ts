@@ -108,7 +108,7 @@ describe('Repos', () => {
     cy.findByRole('link', {name: 'Previous Commits'}).click();
 
     cy.findAllByText('initial images').should('exist');
-    cy.findByText('image_store').should('exist');
+    cy.findAllByText('image_store').should('have.length', 2).should('exist');
   });
 
   it('should allow a user to upload images and not append files, and view differences between commits', () => {
@@ -208,7 +208,7 @@ describe('Repos', () => {
     cy.findByText('Inspect commit').click();
 
     cy.findByText('Commit files for');
-    cy.findByText('liberty.png');
+    cy.findAllByText('liberty.png').last();
     cy.findByText('Added');
 
     // table filters are kept on close

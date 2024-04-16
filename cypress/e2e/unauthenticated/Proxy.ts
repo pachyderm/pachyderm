@@ -14,8 +14,7 @@ describe('Proxy', () => {
       echo "hello, this is a text file" | pachctl put file images@master:data.txt -f -
       `,
     ).visit('/lineage/default/repos/images/latest');
-    cy.findByTestId('SidePanel__closeLeft').click();
-    cy.findByText('data.txt').click();
+    cy.findAllByText('data.txt').last().click();
 
     cy.findByText('hello, this is a text file').should('exist');
   });

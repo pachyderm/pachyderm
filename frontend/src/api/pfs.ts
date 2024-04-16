@@ -21,10 +21,11 @@ import {
   FileInfo,
   StartCommitRequest,
   FinishCommitRequest,
+  GlobFileRequest,
 } from '@dash-frontend/generated/proto/pfs/pfs.pb';
 
 import {pps, pfs} from './base/api';
-import {RequestError} from './utils/error';
+import {isAbortSignalError, RequestError} from './utils/error';
 import {getHeaders, getRequestOptions} from './utils/requestHeaders';
 
 export const inspectProject = async (req: InspectProjectRequest) => {
@@ -216,6 +217,33 @@ export const listFilesPaged = async (args: ListFileRequest) => {
     files,
     cursor: nextCursor,
   };
+};
+
+export const globFile = async (req: GlobFileRequest, limit: number) => {
+  const files: FileInfo[] = [];
+  const controller = new AbortController();
+
+  try {
+    await pfs.GlobFile(
+      req,
+      (file) => {
+        if (files.length < limit) {
+          files.push(file);
+        } else {
+          controller.abort();
+        }
+      },
+      {...getRequestOptions(), signal: controller.signal},
+    );
+  } catch (error) {
+    if (isAbortSignalError(error)) {
+      return files;
+    }
+
+    throw error;
+  }
+
+  return files;
 };
 
 export type EncodeArchiveUrlRequest = {

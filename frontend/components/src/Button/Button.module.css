@@ -189,3 +189,18 @@
 .quaternary:not(:disabled):focus-visible {
   border-color: transparent;
 }
+
+.input {
+  color: var(--pachyderm-black);
+  border: 1px solid var(--border-grey);
+  background-color: var(--white);
+}
+
+.input:not(:disabled):hover:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+.input:not(:disabled):focus-visible {
+  border-color: transparent;
+}

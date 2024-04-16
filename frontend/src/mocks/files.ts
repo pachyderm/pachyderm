@@ -166,7 +166,7 @@ export const mockImagesFiles = () =>
         body.file.commit.repo.name === 'images' &&
         body.file.commit.id === '4a83c74809664f899261baccdb47cd90'
       ) {
-        if (body.file.path === '/cats/') {
+        if (body.file.path === 'cats/' || body.file.path === '/cats/') {
           return res(ctx.json([]));
         }
         return res(ctx.json(MOCK_IMAGES_FILES));
