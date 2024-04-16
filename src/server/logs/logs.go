@@ -30,8 +30,6 @@ var (
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
 	ErrPublish = errors.New("error publishing")
-	// ErrLogFormat returned if log line does not match requested log format
-	ErrLogFormat = errors.New("error invalid log format")
 	// ErrBadRequest indicates that the client made an erroneous request.
 	ErrBadRequest = errors.New("bad request")
 )
