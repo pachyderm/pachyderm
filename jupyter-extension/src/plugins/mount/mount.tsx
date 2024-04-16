@@ -83,10 +83,13 @@ export class MountPlugin implements IMountPlugin {
     // Setup Poller signals.
     this._poller.reposSignal.connect(this.refresh);
     this._poller.mountedRepoSignal.connect(this.refresh);
-    this._poller.mountedRepoSignal.connect(this.saveMountedReposList);
+    this._poller.mountedRepoSignal.connect(this.updateMountedRepoInputSpec);
     this._poller.mountedRepoSignal.connect(
       this.resetDirectoryOnMountedRepoChange,
     );
+
+    // Call this initially to setup the input spec from localStorage if need be.
+    this.updateMountedRepoInputSpec();
 
     // This is used to detect if the config goes bad (pachd address changes)
     this._poller.healthSignal.connect((_, healthCheck) => {
@@ -375,21 +378,8 @@ export class MountPlugin implements IMountPlugin {
     await this._datumBrowser.model.refresh();
   };
 
-  saveMountedReposList = (): void => {
-    const mountedRepo = this._poller.mountedRepo;
-    if (mountedRepo === null) {
-      this._repoViewInputSpec = {};
-      return;
-    }
-
-    this._repoViewInputSpec = {
-      pfs: {
-        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${mountedRepo.mountedBranch.name}`,
-        repo: mountedRepo.repo.uri,
-        glob: '/',
-      },
-    };
-
+  updateMountedRepoInputSpec = (): void => {
+    this._repoViewInputSpec = this._poller.getMountedRepoInputSpec();
     this._saveInputSpecSignal.emit(this._repoViewInputSpec);
   };
 

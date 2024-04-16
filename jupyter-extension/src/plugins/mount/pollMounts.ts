@@ -8,6 +8,8 @@ import {
   Repo,
   MountedRepo,
   Branch,
+  CrossInputSpec,
+  PfsInput,
 } from './types';
 import {ServerConnection} from '@jupyterlab/services';
 
@@ -148,6 +150,26 @@ export class PollMounts {
       PollMounts.MOUNTED_REPO_LOCAL_STORAGE_KEY,
       JSON.stringify(this.mountedRepo),
     );
+  };
+
+  getMountedRepoInputSpec = (): CrossInputSpec | PfsInput => {
+    const mountedRepo = this.mountedRepo;
+    if (mountedRepo === null) {
+      return {};
+    }
+
+    let repo = mountedRepo.repo.name;
+    if (mountedRepo.repo.project !== 'default') {
+      repo = `${mountedRepo.repo.project}_name`;
+    }
+
+    return {
+      pfs: {
+        name: `${mountedRepo.repo.project}_${mountedRepo.repo.name}_${mountedRepo.mountedBranch.name}`,
+        repo,
+        glob: '/*',
+      },
+    };
   };
 
   refresh = async (): Promise<void> => {
