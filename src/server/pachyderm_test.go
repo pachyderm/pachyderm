@@ -11697,3 +11697,91 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 		}
 	})
 }
+
+func TestPipelinesSummary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	repo := "input"
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	type PipState int
+	const (
+		Active PipState = iota
+		Unhealthy
+		Paused
+		Failed
+	)
+	createPipeline := func(project, name string, state PipState) {
+		cmd := []string{"cp", "-r", "/pfs/in", "/pfs/out"}
+		switch state {
+		case Unhealthy:
+			cmd = []string{"exit 1"}
+		case Failed:
+			cmd = nil
+		}
+		require.NoError(t, c.CreatePipeline(
+			project,
+			name,
+			"", /* default image*/
+			cmd,
+			nil, /* stdin */
+			nil, /* spec */
+			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+			"",    /* output */
+			false, /* update */
+		))
+		if state == Paused {
+			require.NoError(t, c.StopPipeline(project, name))
+		}
+		_, err := c.WaitCommit(project, name, "master", "")
+		require.NoError(t, err)
+	}
+	projects := []string{"a", "b"}
+	for _, prj := range projects {
+		require.NoError(t, c.CreateProject(prj))
+	}
+	pips := []string{"A", "B", "C", "D", "E"}
+	for _, prj := range projects {
+		for i, pip := range pips {
+			var state PipState = Active
+			if i == 0 {
+				state = Unhealthy
+			} else if i == 1 {
+				state = Paused
+			} else if i == 2 {
+				state = Failed
+			}
+			createPipeline(prj, pip, state)
+		}
+	}
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+	for _, tc := range [][]string{
+		{},
+		{"a"},
+		{"b"},
+		{"b", "a"},
+	} {
+		var pickers []*pfs.ProjectPicker
+		for _, project := range tc {
+			pickers = append(pickers, &pfs.ProjectPicker{
+				Picker: &pfs.ProjectPicker_Name{Name: project},
+			})
+		}
+		resp, err := c.PipelinesSummary(pctx.TestContext(t),
+			&pps.PipelinesSummaryRequest{Projects: pickers})
+		require.NoError(t, err)
+		require.Len(t, resp.Summaries, len(tc))
+		for i, project := range tc {
+			require.Equal(t, project, resp.Summaries[i].Project.Name)
+			require.Equal(t, int64(3), resp.Summaries[i].ActivePipelines) // unhealthy pipelines are still active
+			require.Equal(t, int64(1), resp.Summaries[i].PausedPipelines)
+			require.Equal(t, int64(1), resp.Summaries[i].FailedPipelines)
+			require.Equal(t, int64(1), resp.Summaries[i].UnhealthyPipelines)
+		}
+	}
+}

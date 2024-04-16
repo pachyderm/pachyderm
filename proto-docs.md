@@ -522,6 +522,9 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinesSummary](#pps_v2-PipelinesSummary)
+    - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
+    - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -8522,6 +8525,55 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-PipelinesSummary"></a>
+
+### PipelinesSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | the project the PipelinesSummary corresponds to |
+| active_pipelines | [int64](#int64) |  | count of active pipelines |
+| paused_pipelines | [int64](#int64) |  | count of paused pipelines |
+| failed_pipelines | [int64](#int64) |  | count of failed pipelines |
+| unhealthy_pipelines | [int64](#int64) |  | count of pipelines with a failed latest job |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryRequest"></a>
+
+### PipelinesSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a PipelinesSummary will be returned for each of the requests projects |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryResponse"></a>
+
+### PipelinesSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [PipelinesSummary](#pps_v2-PipelinesSummary) | repeated | the pipeline summaries for the requested projects |
+
+
+
+
+
+
 <a name="pps_v2-ProcessStats"></a>
 
 ### ProcessStats
@@ -9310,6 +9362,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
 | GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
 | SetProjectDefaults | [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest) | [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse) | SetProjectDefaults sets the defaults for a particular project. |
+| PipelinesSummary | [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest) | [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse) | PipelinesSummary summarizes the pipelines for each requested project. |
 
  
 
