@@ -160,7 +160,6 @@ func (x *GetLogsRequest) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	enc.AddBool("tail", x.Tail)
 	enc.AddBool("want_paging_hint", x.WantPagingHint)
-	enc.AddString("log_format", x.LogFormat.String())
 	return nil
 }
 
@@ -198,24 +197,6 @@ func (x *PagingHint) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
-	if x == nil {
-		return nil
-	}
-	if obj, ok := interface{}(x.GetVerbatim()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("verbatim", obj)
-	} else {
-		enc.AddReflected("verbatim", x.GetVerbatim())
-	}
-	if obj, ok := interface{}(x.GetJson()).(zapcore.ObjectMarshaler); ok {
-		enc.AddObject("json", obj)
-	} else {
-		enc.AddReflected("json", x.GetJson())
-	}
-	enc.AddObject("pps_log_message", x.GetPpsLogMessage())
-	return nil
-}
-
 func (x *VerbatimLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
@@ -225,7 +206,7 @@ func (x *VerbatimLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	return nil
 }
 
-func (x *ParsedJSONLogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
+func (x *LogMessage) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	if x == nil {
 		return nil
 	}
