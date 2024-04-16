@@ -4,6 +4,7 @@ from jupyter_server.services.contents.filemanager import FileContentsManager
 import mimetypes
 from pachyderm_sdk import Client
 from pachyderm_sdk.api import pfs, pps, auth
+from pachyderm_sdk.api.pfs import Branch, Repo
 import os
 from pathlib import Path
 from tornado import web
@@ -172,7 +173,7 @@ def _download_file(client: Client, file: pfs.File, destination: Path):
             f"Downloading {file.path} which is unsupported file type {fileinfo.file_type}"
         )
 
-
+# THIS NEEDS TO CHANGE
 def _default_name(branch: pfs.Branch) -> str:
     name = branch.repo.name
     if branch.repo.project.name and branch.repo.project.name != "default":
@@ -181,91 +182,31 @@ def _default_name(branch: pfs.Branch) -> str:
         name = f"{name}_{branch.name}"
     return name
 
-
 class PFSManager(FileContentsManager):
-    # changes from mount-server impl:
-    #  - branch name will always be present in the dir name, even if master.
-    #    this is to get around the edge case where you have a repo that is
-    #    the prefix of another repo plus a branch name
-
-    class Mount(typing.TypedDict):
-        name: str
-        repo: str
-        project: str
-        branch: str
-
     class Repo(typing.TypedDict):
-        repo: str
+        name: str
         project: str
-        authorization: str
-        branches: typing.List[str]
+        uri: str
+        branches: typing.List[Branch]
+
+    class Branch(typing.TypedDict):
+        name: str
+        uri: str
 
     def __init__(self, client: Client, **kwargs):
         self._client = client
-        # maintain a dict/list of repos we have "mounted"
-        self._mounted = dict()
         super().__init__(**kwargs)
 
-    def mount_repo(
-        self, repo: str, branch: str, project: str = "default", name: str = None
-    ):
-        branch_uri = f"{project}/{repo}@{branch}"
-        mounted_branch = pfs.Branch.from_uri(branch_uri)
-        name = name or _default_name(mounted_branch)
-        if name in self._mounted:
-            raise ValueError(f"attempted to mount as {name} which is already mounted.")
-        self._mounted[name] = mounted_branch
-
-    def unmount_repo(self, name: str):
-        if name not in self._mounted:
-            raise ValueError(f"attempted to unmount {name} which was not mounted.")
-        del self._mounted[name]
-
-    def unmount_all(self):
-        self._mounted.clear()
-
-    def _get_auth_str(self, auth_info: pfs.AuthInfo) -> str:
-        if not auth_info:
-            return "off"
-        if auth.Permission.REPO_WRITE in auth_info.permissions:
-            return "write"
-        if (
-            auth.Permission.REPO_READ in auth_info.permissions
-            and auth.Permission.REPO_LIST_COMMIT in auth_info.permissions
-            and auth.Permission.REPO_LIST_BRANCH in auth_info.permissions
-            and auth.Permission.REPO_LIST_FILE in auth_info.permissions
-        ):
-            return "read"
-        return "none"
-
-    def list_mounts(self) -> dict:
-        mounted: list[self.Mount] = []
-        repo_info = {
+    def list_repos(self) -> typing.List[Repo]:
+        return {
             r.repo.as_uri(): self.Repo(
-                repo=r.repo.name,
+                name=r.repo.name,
                 project=r.repo.project.name,
-                authorization=self._get_auth_str(r.auth_info),
-                branches=[b.name for b in r.branches],
+                uri=r.repo.as_uri(),
+                branches=[self.Branch(name=b.name, uri=b.as_uri()) for b in r.branches],
             )
             for r in self._client.pfs.list_repo()
         }
-
-        for (name, branch) in self._mounted.items():
-            mounted.append(
-                self.Mount(
-                    name=name,
-                    repo=branch.repo.name,
-                    project=branch.repo.project.name,
-                    branch=branch.name,
-                )
-            )
-            repo_info[branch.repo.as_uri()]["branches"].remove(branch.name)
-            if len(repo_info[branch.repo.as_uri()]["branches"]) == 0:
-                del repo_info[branch.repo.as_uri()]
-
-        unmounted = [r for r in repo_info.values()]
-
-        return {"mounted": mounted, "unmounted": unmounted}
 
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
@@ -280,16 +221,13 @@ class PFSManager(FileContentsManager):
         return str(Path(*Path(path).parts[1:]))
 
     # returns None for empty path, i.e. the top-level directory
-    def _get_file_from_path(self, path: str) -> pfs.File:
+    def _get_file_from_path(self, path: str, branch: pfs.Branch) -> pfs.File:
         name = self._get_name(path)
         if not name:
             return None
 
-        if name not in self._mounted:
-            raise FileNotFoundError(f"{name} not mounted")
-
         path_str = self._get_path(path)
-        file_uri = f"{self._mounted[name]}:/{path_str}"
+        file_uri = f"{branch.as_uri()}:/{path_str}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
@@ -329,32 +267,30 @@ class PFSManager(FileContentsManager):
             return True
         return self._client.pfs.path_exists(file=file)
 
-    def _get_repo_models(self) -> typing.List[ContentModel]:
-        models = []
-        for repo, branch in self._mounted.items():
-            time = self._client.pfs.inspect_commit(
-                commit=pfs.Commit(branch=branch, repo=branch.repo)
-            ).started
-            models.append(
-                ContentModel(
-                    name=repo,
-                    path=repo,
-                    type="directory",
-                    created=time,
-                    last_modified=time,
-                    content=None,
-                    mimetype=None,
-                    format=None,
-                    writable=False,
-                    file_uri=None,
-                )
+    # TODO: change this to get repo_model??? maybe just yeet it?
+    def _get_repo_models(self, branch: pfs.Branch) -> typing.List[ContentModel]:
+        time = self._client.pfs.inspect_commit(
+            commit=pfs.Commit(branch=branch, repo=branch.repo)
+        ).started
+        return [
+            ContentModel(
+                name=_default_name(branch),
+                path=_default_name(branch),
+                type="directory",
+                created=time,
+                last_modified=time,
+                content=None,
+                mimetype=None,
+                format=None,
+                writable=False,
+                file_uri=None,
             )
-        return models
+        ]
 
-    def _get_toplevel_model(self, content: bool) -> ContentModel:
+    def _get_toplevel_model(self, content: bool, branch: pfs.Branch) -> ContentModel:
         if content:
             format = "json"
-            content_model = self._get_repo_models()
+            content_model = self._get_repo_models(branch=branch)
         else:
             format = None
             content_model = None
@@ -371,8 +307,8 @@ class PFSManager(FileContentsManager):
             file_uri=None,
         )
 
-    def _get_empty_repo_model(self, name: str, content: bool):
-        repo = self._client.pfs.inspect_repo(repo=self._mounted[name].repo)
+    def _get_empty_repo_model(self, name: str, content: bool, branch: pfs.Branch):
+        repo = self._client.pfs.inspect_repo(repo=branch.repo)
         return ContentModel(
             name=name,
             path=name,
@@ -389,6 +325,7 @@ class PFSManager(FileContentsManager):
     def get(
         self,
         path,
+        branch: pfs.Branch,
         content=True,
         type=None,
         format=None,
@@ -402,11 +339,16 @@ class PFSManager(FileContentsManager):
                 reason="bad type",
             )
 
-        file = self._get_file_from_path(path=path)
+        # Show an empty toplevel model if no branch is specified
+        if branch is None:
+            return self._get_toplevel_model(content=False, branch=branch)
 
+        file = self._get_file_from_path(path=path, branch=branch)
+
+        # TODO: probably remove this? do we need a single top level domain from this...
         if file is None:
             # show top-level dir
-            return self._get_toplevel_model(content=content)
+            return self._get_toplevel_model(content=content, branch=branch)
 
         try:
             fileinfo = self._client.pfs.inspect_file(file=file)
@@ -417,7 +359,7 @@ class PFSManager(FileContentsManager):
                 or err.code() == grpc.StatusCode.UNKNOWN
             ) and not self._get_path(path=path):
                 return self._get_empty_repo_model(
-                    name=self._get_name(path), content=content
+                    name=self._get_name(path), content=content, branch=branch
                 )
             else:
                 raise err
@@ -638,8 +580,9 @@ class DatumManager(FileContentsManager):
                         f"Attempting to download invalid file type {fileinfo.file_type}"
                     )
 
+            # TODO: figureeeee out whats going on here!
             for dir in os.listdir(PFS_MOUNT_DIR):
-                os.unlink(Path(PFS_MOUNT_DIR, dir))
+                Path(PFS_MOUNT_DIR, dir).unlink(missing_ok=True)
 
             for dir in os.listdir(download_dir):
                 os.symlink(
@@ -686,7 +629,7 @@ class DatumManager(FileContentsManager):
             if fileinfo.file_type == pfs.FileType.DIR:
                 self._dirs.add(str(path))
 
-    def _get_file_from_path(self, path: str) -> pfs.File:
+    def _get_file_from_path(self, path: str, branch: pfs.Branch) -> pfs.File:
         path = path.strip("/")
         if not path:
             return None
@@ -699,7 +642,7 @@ class DatumManager(FileContentsManager):
         else:
             pach_path = str(Path(*parts[1:]))
 
-        file_uri = f"{commit_uri}:{pach_path}"
+        file_uri = f"{branch.as_uri()}:{pach_path}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
