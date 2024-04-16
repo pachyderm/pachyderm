@@ -173,6 +173,7 @@ def _download_file(client: Client, file: pfs.File, destination: Path):
             f"Downloading {file.path} which is unsupported file type {fileinfo.file_type}"
         )
 
+
 def _default_name(branch: pfs.Branch) -> str:
     name = branch.repo.name
     if branch.repo.project.name and branch.repo.project.name != "default":
@@ -577,9 +578,8 @@ class DatumManager(FileContentsManager):
                         f"Attempting to download invalid file type {fileinfo.file_type}"
                     )
 
-            # TODO: figureeeee out whats going on here!
             for dir in os.listdir(PFS_MOUNT_DIR):
-                Path(PFS_MOUNT_DIR, dir).unlink(missing_ok=True)
+                os.unlink(Path(PFS_MOUNT_DIR, dir))
 
             for dir in os.listdir(download_dir):
                 os.symlink(
