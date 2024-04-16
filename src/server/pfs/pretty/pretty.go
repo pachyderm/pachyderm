@@ -342,8 +342,7 @@ func NewPrintableCommitInfo(ci *pfs.CommitInfo) *PrintableCommitInfo {
 // PrintDetailedCommitInfo pretty-prints detailed commit info.
 func PrintDetailedCommitInfo(w io.Writer, commitInfo *PrintableCommitInfo) error {
 	template, err := template.New("CommitInfo").Funcs(funcMap).Parse(
-		`Commit: {{.Commit.Branch.Repo.Name}}@{{.Commit.Id}}
-Original Branch: {{.Commit.Branch.Name}}{{if .Description}}
+		`Commit: {{.Commit.Repo.Name}}@{{.Commit.Id}}
 Description: {{.Description}}{{end}}{{if .ParentCommit}}
 Parent: {{.ParentCommit.Id}}{{end}}{{if .FullTimestamps}}
 Started: {{prettyTime .Started}}{{else}}
