@@ -7,17 +7,11 @@ import {DropdownCombobox} from '../../../../utils/components/DropdownCombobox/Dr
 type ExploreProps = {
   repos: Repos;
   mountedRepo: MountedRepo | null;
-  updateMountedRepo: (repo: Repo | null, mountedBranch: Branch | null) => void;
-};
-
-const getDefaultBranch = (repo: Repo): Branch => {
-  for (const branch of repo.branches) {
-    if (branch.name === 'master') {
-      return branch;
-    }
-  }
-
-  return repo.branches[0];
+  updateMountedRepo: (
+    repo: Repo | null,
+    mountedBranch: Branch | null,
+    mountDefaultBranch?: boolean,
+  ) => void;
 };
 
 const Explore: React.FC<ExploreProps> = ({
@@ -29,9 +23,6 @@ const Explore: React.FC<ExploreProps> = ({
   if (!mountedRepo && Object.keys(repos).length === 0) {
     return <></>;
   }
-
-  console.log(repos, mountedRepo);
-  console.log(mountedRepo?.repo.branches.map((branch) => branch.name));
 
   return (
     <div className="pachyderm-explore-view">
@@ -48,9 +39,7 @@ const Explore: React.FC<ExploreProps> = ({
             }
 
             const repo = repos[repoUri];
-            const defaultBranch = getDefaultBranch(repo);
-
-            if (!defaultBranch) {
+            if (repo.branches.length === 0) {
               updateMountedRepo(null, null);
               showErrorMessage(
                 'No Branches',
@@ -60,7 +49,7 @@ const Explore: React.FC<ExploreProps> = ({
               return;
             }
 
-            updateMountedRepo(repo, defaultBranch);
+            updateMountedRepo(repo, null, true);
           })();
         }}
       />

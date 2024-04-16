@@ -118,7 +118,17 @@ export class PollMounts {
   updateMountedRepo = (
     repo: Repo | null,
     mountedBranch: Branch | null,
+    mountDefaultBranch?: boolean,
   ): void => {
+    if (mountDefaultBranch && repo) {
+      mountedBranch = repo?.branches[0] || null;
+      for (const branch of repo.branches) {
+        if (branch.name === 'master') {
+          mountedBranch = branch;
+        }
+      }
+    }
+
     if (repo === null || mountedBranch === null) {
       localStorage.removeItem('mountedRepo');
       this.mountedRepo = null;

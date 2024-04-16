@@ -173,7 +173,6 @@ def _download_file(client: Client, file: pfs.File, destination: Path):
             f"Downloading {file.path} which is unsupported file type {fileinfo.file_type}"
         )
 
-# THIS NEEDS TO CHANGE
 def _default_name(branch: pfs.Branch) -> str:
     name = branch.repo.name
     if branch.repo.project.name and branch.repo.project.name != "default":
@@ -267,7 +266,6 @@ class PFSManager(FileContentsManager):
             return True
         return self._client.pfs.path_exists(file=file)
 
-    # TODO: change this to get repo_model??? maybe just yeet it?
     def _get_repo_models(self, branch: pfs.Branch) -> typing.List[ContentModel]:
         time = self._client.pfs.inspect_commit(
             commit=pfs.Commit(branch=branch, repo=branch.repo)
@@ -345,7 +343,6 @@ class PFSManager(FileContentsManager):
 
         file = self._get_file_from_path(path=path, branch=branch)
 
-        # TODO: probably remove this? do we need a single top level domain from this...
         if file is None:
             # show top-level dir
             return self._get_toplevel_model(content=content, branch=branch)
