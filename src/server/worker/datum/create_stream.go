@@ -187,7 +187,7 @@ func streamingCreateInputs(
 			fsidChan := make(chan string)
 			go streamingCreate(egCtx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)
 			for fsid := range fsidChan {
-				if err := renewer.Add(ctx, fsid); err != nil {
+				if err := renewer.Add(egCtx, fsid); err != nil {
 					return errors.Wrap(err, "renew file set")
 				}
 				childrenFsidChans[i] <- fsid
@@ -310,21 +310,20 @@ func getTasksForNewShard(
 // output = [[a1, b2, c1], [a1, b2, c2], [a2, b2, c1], [a2, b2, c2]]
 //
 // The b2 shard associated with addedInput 1 is used in all permutations.
-func shardPermute(input [][]string, addedInput int, index int, result []string, output *[][]string) {
-	if index == len(input) {
-		temp := make([]string, len(result))
-		copy(temp, result)
+func shardPermute(inputsShards [][]string, addedInput int, index int, result []string, output *[][]string) {
+	if index == len(inputsShards) {
+		temp := append([]string(nil), result...)
 		*output = append(*output, temp)
 		return
 	}
 	if index == addedInput {
-		result[index] = input[index][len(input[index])-1]
-		shardPermute(input, addedInput, index+1, result, output)
+		result[index] = inputsShards[index][len(inputsShards[index])-1]
+		shardPermute(inputsShards, addedInput, index+1, result, output)
 		return
 	}
-	for i := 0; i < len(input[index]); i++ {
-		result[index] = input[index][i]
-		shardPermute(input, addedInput, index+1, result, output)
+	for i := 0; i < len(inputsShards[index]); i++ {
+		result[index] = inputsShards[index][i]
+		shardPermute(inputsShards, addedInput, index+1, result, output)
 	}
 }
 

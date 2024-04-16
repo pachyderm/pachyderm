@@ -1,67 +1,50 @@
 package datum
 
 import (
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 )
 
 func TestCartesianProduct(t *testing.T) {
 	inputsShards := [][]string{
-		{"a", "b", "c"},
-		{"1", "2"},
-		{"x", "y"},
+		{"a1", "a2", "a3"},
+		{"b1", "b2"},
+		{"c1", "c2"},
 	}
 
 	permutations := cartesianProduct(inputsShards, 0)
 	require.Equal(t, 4, len(permutations))
+	for _, p := range permutations {
+		sort.Strings(p)
+	}
 	expected := [][]string{
-		{"c", "1", "x"},
-		{"c", "1", "y"},
-		{"c", "2", "x"},
-		{"c", "2", "y"},
+		{"a3", "b1", "c1"},
+		{"a3", "b1", "c2"},
+		{"a3", "b2", "c1"},
+		{"a3", "b2", "c2"},
 	}
-	for _, e := range expected {
-		require.True(t, sliceExistsInSlices(e, permutations))
-	}
+	op := cmpopts.SortSlices(func(a, b []string) bool {
+		return strings.Join(a, "") < strings.Join(b, "")
+	})
+	require.NoDiff(t, expected, permutations, []cmp.Option{op})
 
 	permutations = cartesianProduct(inputsShards, 1)
 	require.Equal(t, 6, len(permutations))
+	for _, p := range permutations {
+		sort.Strings(p)
+	}
 	expected = [][]string{
-		{"a", "2", "x"},
-		{"a", "2", "y"},
-		{"b", "2", "x"},
-		{"b", "2", "y"},
-		{"c", "2", "x"},
-		{"c", "2", "y"},
+		{"a1", "b2", "c1"},
+		{"a1", "b2", "c2"},
+		{"a2", "b2", "c1"},
+		{"a2", "b2", "c2"},
+		{"a3", "b2", "c1"},
+		{"a3", "b2", "c2"},
 	}
-	for _, e := range expected {
-		require.True(t, sliceExistsInSlices(e, permutations))
-	}
-}
-
-func slicesEqualUnordered(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	count := make(map[string]int)
-	for _, v := range a {
-		count[v]++
-	}
-	for _, v := range b {
-		count[v]--
-		if count[v] < 0 {
-			return false
-		}
-	}
-	return true
-}
-
-func sliceExistsInSlices(s []string, slices [][]string) bool {
-	for _, slice := range slices {
-		if slicesEqualUnordered(s, slice) {
-			return true
-		}
-	}
-	return false
+	require.NoDiff(t, expected, permutations, []cmp.Option{op})
 }

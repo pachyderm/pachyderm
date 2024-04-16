@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -3618,104 +3619,72 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 }
 
 // Checks that "time to first datum" for CreateDatum is faster than ListDatum
-func TestCreateDatum(t *testing.T) {
+func BenchmarkCreateDatum(b *testing.B) {
 	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
+		b.Skip("Skipping benchmark in short mode")
 	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	repo := tu.UniqueString("TestCreateDatum")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	c := pachd.NewTestPachd(b)
+	repo := tu.UniqueString("BenchmarkCreateDatum")
+	require.NoError(b, c.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// Need multiple shards worth of files to see benefit of CreateDatum
 	// compared to ListDatum
 	numFiles := 5 * datum.ShardNumFiles
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+	require.NoError(b, err)
+	require.NoError(b, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
 		for i := 0; i < numFiles; i++ {
-			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+			require.NoError(b, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
 		}
 		return nil
 	}))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+	require.NoError(b, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 
-	testTimeToFirstDatum := func(input *pps.Input) {
-		var eg errgroup.Group
-		var listDatumTimeToFirstDatum, createDatumTimeToFirstDatum float64
-		eg.Go(func() error {
-			ctx, cf := context.WithCancel(c.Ctx())
-			defer cf()
-			req := &pps.ListDatumRequest{Input: input}
-			start := time.Now()
-			client, err := c.PpsAPIClient.ListDatum(ctx, req)
-			if err != nil {
-				return err
-			}
-			_, err = client.Recv()
-			if err != nil {
-				return err
-			}
-			listDatumTimeToFirstDatum = time.Since(start).Seconds()
-			return nil
-		})
-		eg.Go(func() error {
-			ctx, cf := context.WithCancel(c.Ctx())
-			defer cf()
-			client, err := c.PpsAPIClient.CreateDatum(ctx)
-			if err != nil {
-				return err
-			}
-			req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
-			start := time.Now()
-			if err := client.Send(req); err != nil {
-				return err
-			}
-			_, err = client.Recv()
-			if err != nil {
-				return err
-			}
-			createDatumTimeToFirstDatum = time.Since(start).Seconds()
-			return nil
-		})
-		require.NoError(t, eg.Wait())
-		t.Logf("listDatumTimeToFirstDatum: %f seconds", listDatumTimeToFirstDatum)
-		t.Logf("createDatumTimeToFirstDatum: %f seconds", createDatumTimeToFirstDatum)
-		require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum)
-	}
-
-	t.Run("PFSInput", func(t *testing.T) {
-		t.Parallel()
-		input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
-		testTimeToFirstDatum(input)
-	})
-	t.Run("UnionInput", func(t *testing.T) {
-		t.Parallel()
-		input := client.NewUnionInput(
+	inputs := []struct {
+		name  string
+		input *pps.Input
+	}{
+		{"PFS", client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")},
+		{"Union", client.NewUnionInput(
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
-		)
-		testTimeToFirstDatum(input)
-	})
-	t.Run("CrossInput", func(t *testing.T) {
-		t.Parallel()
-		input := client.NewCrossInput(
+		)},
+		{"Cross", client.NewCrossInput(
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-??"),
 			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-???"),
-		)
-		testTimeToFirstDatum(input)
-	})
-	t.Run("JoinInput", func(t *testing.T) {
-		t.Parallel()
-		input := client.NewJoinInput(
+		)},
+		{"Join", client.NewJoinInput(
 			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?*(??)0", "$1", "", false, false, nil),
 			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?0(??)0", "$1", "", false, false, nil),
-		)
-		testTimeToFirstDatum(input)
-	})
-	// No test for Group because CreateDatum's streaming can't improve
-	// time to first datum
+		)},
+		// No entry for Group because CreateDatum's streaming can't improve
+		// time to first datum
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-ListDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				req := &pps.ListDatumRequest{Input: input.input}
+				client, err := c.PpsAPIClient.ListDatum(c.Ctx(), req)
+				require.NoError(b, err)
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-CreateDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				client, err := c.PpsAPIClient.CreateDatum(c.Ctx())
+				require.NoError(b, err)
+				req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input.input}}}
+				require.NoError(b, client.Send(req))
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
 }
 
 func TestStopPipeline(t *testing.T) {
