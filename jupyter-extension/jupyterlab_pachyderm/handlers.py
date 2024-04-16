@@ -118,32 +118,6 @@ class ReposHandler(BaseHandler):
                 reason=f"Error listing mounts: {e}.",
             )
 
-class MountDatumsHandler(BaseHandler):
-    @tornado.web.authenticated
-    async def put(self):
-        try:
-            body = self.get_json_body()
-            self.datum_manager.mount_datums(input_dict=body)
-            response = self.datum_manager.datum_state()
-            get_logger().debug(f"Mount datums: {response}")
-            self.finish(response)
-        except ValueError as e:
-            get_logger().error(
-                f"Error mounting datums with invalid input {body}", exc_info=True
-            )
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 400),
-                reason=f"Error mounting datums with invalid input {body}: {e}.",
-            )
-        except Exception as e:
-            get_logger().error(
-                f"Error mounting datums with input {body}", exc_info=True
-            )
-            raise tornado.web.HTTPError(
-                status_code=getattr(e, "code", 500),
-                reason=f"Error mounting datums with input {body}: {e}.",
-            )
-
 
 class DatumNextHandler(BaseHandler):
     @tornado.web.authenticated
