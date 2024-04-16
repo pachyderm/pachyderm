@@ -8532,6 +8532,13 @@
             "$ref": "#/definitions/pfs_v2Commit"
           }
         },
+        "directSubvenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2Commit"
+          }
+        },
         "error": {
           "type": "string"
         },

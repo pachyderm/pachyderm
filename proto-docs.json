@@ -11476,6 +11476,18 @@
               "defaultValue": ""
             },
             {
+              "name": "direct_subvenance",
+              "description": "",
+              "label": "repeated",
+              "type": "Commit",
+              "longType": "Commit",
+              "fullType": "pfs_v2.Commit",
+              "ismap": false,
+              "isoneof": false,
+              "oneofdecl": "",
+              "defaultValue": ""
+            },
+            {
               "name": "error",
               "description": "",
               "label": "",

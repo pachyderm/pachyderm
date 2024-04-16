@@ -726,6 +726,15 @@ func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row
 	if err != nil {
 		return nil, errors.Wrap(err, "get provenance for commit")
 	}
+	subvenantCommits, err := getCommitSubvenance(ctx, extCtx, row.ID)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit subvenance")
+	}
+	var commits []*pfs.Commit
+	for _, commit := range subvenantCommits {
+		commits = append(commits, commit.Pb())
+	}
+	commitInfo.DirectSubvenance = commits
 	return commitInfo, err
 }
 

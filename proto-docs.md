@@ -5197,6 +5197,7 @@ CommitInfo is the main data structure representing a commit in postgres
 | finishing | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | finished | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | direct_provenance | [Commit](#pfs_v2-Commit) | repeated |  |
+| direct_subvenance | [Commit](#pfs_v2-Commit) | repeated |  |
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
