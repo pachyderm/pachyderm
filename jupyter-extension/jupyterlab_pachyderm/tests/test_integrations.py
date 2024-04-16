@@ -49,9 +49,9 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
     assert len(resp) == 3
     for repo_uri in resp:
         repo = resp[repo_uri]
-        assert repo.name in repos
-        for branch in repo.branches:
-            assert branch.name in branches
+        assert repo['name'] in repos
+        for branch in repo['branches']:
+            assert branch['name'] in branches
 
 
 async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
@@ -155,23 +155,24 @@ async def test_download_file(
     assert pfs_manager is not None
     pfs_manager.root_dir = str(tmp_path)
 
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
+    url_params = {'branch_uri': f'{repos[0]}@master'}
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     local_file = tmp_path / files[0]
     assert local_file.exists()
     assert local_file.read_text() == "some data"
 
-    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}")
+    r = await http_client.put(f"/download/explore/{repos[0]}/{files[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
-    r = await http_client.put(f"/download/explore/{repos[1]}")
+    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 200, r.text
     local_path = tmp_path / repos[1]
     assert local_path.exists()
     assert local_path.is_dir()
     assert len(list(local_path.iterdir())) == 2
 
-    r = await http_client.put(f"/download/explore/{repos[1]}")
+    r = await http_client.put(f"/download/explore/{repos[1]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
 
