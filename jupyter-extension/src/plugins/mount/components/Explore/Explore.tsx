@@ -59,13 +59,8 @@ const Explore: React.FC<ExploreProps> = ({
           placeholder="branch"
           onSelectedItemChange={(mountedBranchName) => {
             (async () => {
-              // This error should never occur, but just in case reset the explore view.
+              // When clicking the dropdown that causes the selected item to be cleared. We should do nothing in that case.
               if (!mountedBranchName) {
-                showErrorMessage(
-                  'Explore View Reset',
-                  'A branch should have been selected, but was not. Resetting explore view.',
-                );
-                updateMountedRepo(null, null);
                 return;
               }
 
@@ -77,11 +72,10 @@ const Explore: React.FC<ExploreProps> = ({
                 }
               }
 
-              // This error should never occur, but just in case reset the explore view.
               if (!mountedBranch) {
                 showErrorMessage(
                   'Explore View Reset',
-                  'A branch should be mounted, but was not. Resetting Explore view.',
+                  'A branch that was removed was selected. Resetting explore view.',
                 );
                 updateMountedRepo(null, null);
                 return;

@@ -17,16 +17,15 @@ describe('mount', () => {
     cy.get('[id="pachyderm-mount"] div.jp-FileBrowser-crumbs')
       .first()
       .invoke('text')
-      .should('eq', '/ pfs/images');
+      .should('eq', '/ pfs/images/');
   });
 
   it("should correctly mount a repo's branch", () => {
     cy.findByTestId('ProjectRepo-DropdownCombobox-li-default/images').click();
-    cy.wait(1000);
     cy.findByTestId('Branch-DropdownCombobox-input').click();
     cy.findByTestId('Branch-DropdownCombobox-li-branch').click();
-    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('images').dblclick();
-    cy.findAllByText('branch.png').should('have.length', 1);
+    cy.get('#jupyterlab-pachyderm-browser-pfs').findByText('branch').dblclick();
+    cy.get('#jupyterlab-pachyderm-browser-pfs').findAllByText('branch.png').should('have.length', 1);
   });
 
   it('should open mounted directory in the file browser on click', () => {
