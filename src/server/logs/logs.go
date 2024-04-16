@@ -86,12 +86,16 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 
 	var adapter = adapter{responsePublisher: publisher}
-	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
+	logQL, err := toLogQL(request)
+	if err != nil {
+		return errors.Wrap(err, "cannot convert request to LogQL")
+	}
+	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -110,7 +114,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
 			older = e
 			return nil
 		})
@@ -146,6 +150,35 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 
 	return nil
+}
+
+func toLogQL(request *logs.GetLogsRequest) (string, error) {
+	if request == nil {
+		return "", errors.New("nil request")
+	}
+	query := request.Query
+	if query == nil {
+		return "", nil
+	}
+	switch query := query.QueryType.(type) {
+	case *logs.LogQuery_User:
+		switch query := query.User.GetUserType().(type) {
+		case *logs.UserLogQuery_Datum:
+			datum := query.Datum
+			return fmt.Sprintf(`{container=~"user|storage"} | json | datumId=%q or datum=%q`, datum, datum), nil
+		default:
+			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+		}
+	case *logs.LogQuery_Admin:
+		switch query := query.Admin.GetAdminType().(type) {
+		case *logs.AdminLogQuery_Logql:
+			return query.Logql, nil
+		default:
+			return "", nil
+		}
+	default:
+		return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+	}
 }
 
 type ResponsePublisher interface {
