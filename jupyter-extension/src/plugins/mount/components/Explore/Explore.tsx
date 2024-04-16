@@ -59,8 +59,13 @@ const Explore: React.FC<ExploreProps> = ({
           placeholder="branch"
           onSelectedItemChange={(mountedBranchName) => {
             (async () => {
-              // Should never happen...
+              // This error should never occur, but just in case reset the explore view.
               if (!mountedBranchName) {
+                showErrorMessage(
+                  'Explore View Reset',
+                  'A branch should have been selected, but was not. Resetting explore view.',
+                );
+                updateMountedRepo(null, null);
                 return;
               }
 
@@ -71,8 +76,14 @@ const Explore: React.FC<ExploreProps> = ({
                   break;
                 }
               }
+
+              // This error should never occur, but just in case reset the explore view.
               if (!mountedBranch) {
-                // TODO: throw  error here maybe??
+                showErrorMessage(
+                  'Explore View Reset',
+                  'A branch should be mounted, but was not. Resetting Explore view.',
+                );
+                updateMountedRepo(null, null);
                 return;
               }
 

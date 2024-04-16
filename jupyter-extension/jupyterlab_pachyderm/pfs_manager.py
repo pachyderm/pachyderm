@@ -182,6 +182,7 @@ def _default_name(branch: pfs.Branch) -> str:
         name = f"{name}_{branch.name}"
     return name
 
+
 class PFSManager(FileContentsManager):
     class Repo(typing.TypedDict):
         name: str
