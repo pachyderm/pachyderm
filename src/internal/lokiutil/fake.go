@@ -40,7 +40,12 @@ func mustParseQuerystringInt64(r *http.Request, field string) int64 {
 	return x
 }
 
-func (l *FakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (l *FakeServer) serveConfig(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprintln(w, `limits_config:
+  max_entries_limit_per_query: 5000`)
+}
+
+func (l *FakeServer) serveQuery(w http.ResponseWriter, r *http.Request) {
 	// Simulate the bug where Loki server hangs due to large logs.
 	l.Page++
 	if l.SleepAtPage > 0 && l.Page >= l.SleepAtPage {
@@ -139,5 +144,16 @@ func (l *FakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	if _, err := w.Write(content); err != nil {
 		panic(err)
+	}
+}
+
+func (l *FakeServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	switch r.URL.Path {
+	case "/config":
+		l.serveConfig(w, r)
+	case "/loki/api/v1/query_range":
+		l.serveQuery(w, r)
+	default:
+		http.Error(w, fmt.Sprintf("invalid path %s", r.URL.Path), http.StatusNotFound)
 	}
 }

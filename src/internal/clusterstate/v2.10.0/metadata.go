@@ -38,3 +38,22 @@ func addMetadataToRepos(ctx context.Context, env migrations.Env) error {
 	}
 	return nil
 }
+
+func addClusterMetadata(ctx context.Context, env migrations.Env) error {
+	tx := env.Tx
+	// This adds a cluster metadata table that can only have one row.  The PRIMARY KEY NOT NULL
+	// constraint on onlyonerow means that there can only be two rows, one true and one false.
+	// The CHECK constraint ensures that there can only be a row with the primary key true.
+	// This limits the table to one row; since Pachyderm only addresses one cluster, this is the
+	// right number of rows for storing cluster metadata.  Don't delete this row unless you're
+	// deleting cluster metadata entirely, however, as the rest of the code assumes it exists.
+	if _, err := tx.ExecContext(ctx, `CREATE TABLE core.cluster_metadata (
+		onlyonerow BOOLEAN PRIMARY KEY NOT NULL DEFAULT true,
+		metadata JSONB NOT NULL DEFAULT '{}',
+		CONSTRAINT onlyonerow CHECK (onlyonerow=true)
+	);
+	INSERT INTO core.cluster_metadata (onlyonerow, metadata) VALUES (true, '{}')`); err != nil {
+		return errors.Wrap(err, "add core.cluster_metadata table and first row")
+	}
+	return nil
+}

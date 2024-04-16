@@ -3,6 +3,7 @@ package logs
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"go.uber.org/zap"
@@ -11,11 +12,12 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
-	"github.com/pachyderm/pachyderm/v2/src/logs"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 type ResponsePublisher interface {
@@ -35,14 +37,21 @@ var (
 	ErrPublish = errors.New("error publishing")
 	// ErrLogFormat returned if log line does not match requested log format
 	ErrLogFormat = errors.New("error invalid log format")
+	// ErrBadRequest indicates that the client made an erroneous request.
+	ErrBadRequest = errors.New("bad request")
+)
+
+type logDirection string
+
+const (
+	forwardLogDirection  logDirection = "forward"
+	backwardLogDirection logDirection = "backward"
 )
 
 // GetLogs gets logs according its request and publishes them.  The pattern is
 // similar to that used when handling an HTTP request.
 func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, publisher ResponsePublisher) error {
-	if err := validateGetLogsRequest(request); err != nil {
-		return errors.Wrap(err, "invalid GetLogs request")
-	}
+	var direction = forwardLogDirection
 
 	if request == nil {
 		request = &logs.GetLogsRequest{}
@@ -52,6 +61,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if filter == nil {
 		filter = new(logs.LogFilter)
 		request.Filter = filter
+	}
+	if filter.Limit > math.MaxInt {
+		return errors.Wrapf(ErrBadRequest, "limit %d > maxint", filter.Limit)
 	}
 	switch {
 	case filter.TimeRange == nil || (filter.TimeRange.From == nil && filter.TimeRange.Until == nil):
@@ -66,16 +78,71 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
 	}
 
+	c, err := ls.GetLokiClient()
+	if err != nil {
+		return errors.Wrap(err, "loki client error")
+	}
+	start := filter.TimeRange.From.AsTime()
+	end := filter.TimeRange.Until.AsTime()
+	if start.Equal(end) {
+		return errors.Errorf("start equals end (%v)", start)
+	}
+	if start.After(end) {
+		direction = backwardLogDirection
+		start, end = end, start
+	}
+
+	adapter := newAdapter(publisher, request.LogFormat)
+	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
+		var invalidBatchSizeErr ErrInvalidBatchSize
+		switch {
+		case errors.As(err, &invalidBatchSizeErr):
+			// try to requery
+			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			if err != nil {
+				return errors.Wrap(err, "invalid batch size requery failed")
+			}
+		default:
+			return errors.Wrap(err, "doQuery failed")
+		}
+	}
 	if request.WantPagingHint {
+		var newer, older loki.Entry
+		switch direction {
+		case forwardLogDirection:
+			newer = adapter.last
+		case backwardLogDirection:
+			newer = adapter.first
+		default:
+			return errors.Errorf("invalid direction %q", direction)
+		}
+		// request a record immediately prior to the page
+		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+			older = e
+			return nil
+		})
+		if err != nil {
+			return errors.Wrap(err, "hint doQuery failed")
+		}
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
 			Newer: proto.Clone(request).(*logs.GetLogsRequest),
 		}
-		from, until := request.Filter.TimeRange.From.AsTime(), request.Filter.TimeRange.Until.AsTime()
-		hint.Older.Filter.TimeRange.From = timestamppb.New(from.Add(from.Sub(until)))
-		hint.Older.Filter.TimeRange.Until = timestamppb.New(from)
-		hint.Newer.Filter.TimeRange.From = timestamppb.New(until)
-		hint.Newer.Filter.TimeRange.Until = timestamppb.New(until.Add(until.Sub(from)))
+		if !older.Timestamp.IsZero() {
+			hint.Older.Filter.TimeRange.Until = timestamppb.New(older.Timestamp)
+		}
+		if !newer.Timestamp.IsZero() {
+			hint.Newer.Filter.TimeRange.From = timestamppb.New(newer.Timestamp)
+		}
+		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
+			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
+			if !older.Timestamp.IsZero() {
+				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
+			}
+			if !newer.Timestamp.IsZero() {
+				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Timestamp.Add(delta))
+			}
+		}
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
 			ResponseType: &logs.GetLogsResponse_PagingHint{
 				PagingHint: hint,
@@ -85,106 +152,106 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 
-	c, err := ls.GetLokiClient()
-	if err != nil {
-		return errors.Wrap(err, "loki client error")
-	}
-	resp, err := c.QueryRange(ctx, request.GetQuery().GetAdmin().GetLogql(), int(filter.GetLimit()), filter.GetTimeRange().GetFrom().AsTime(), filter.GetTimeRange().GetUntil().AsTime(), "forward", 0, 0, true)
-	if err != nil {
-		return errors.Wrap(err, "Loki QueryRange")
-	}
-	streams, ok := resp.Data.Result.(loki.Streams)
-	if !ok {
-		return errors.Errorf("resp.Data.Result must be of type loghttp.Streams, not %T, to call ForEachStream on it", resp.Data.Result)
-	}
-	for _, s := range streams {
-		for _, e := range s.Entries {
-			var resp *logs.GetLogsResponse
-			switch request.LogFormat {
-			case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-				return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-			case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-				resp = &logs.GetLogsResponse{
-					ResponseType: &logs.GetLogsResponse_Log{
-						Log: &logs.LogMessage{
-							LogType: &logs.LogMessage_Verbatim{
-								Verbatim: &logs.VerbatimLogMessage{
-									Line:      []byte(e.Line),
-									Timestamp: timestamppb.New(e.Timestamp),
-								},
-							},
-						},
-					},
-				}
-			case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
-				resp = &logs.GetLogsResponse{
-					ResponseType: &logs.GetLogsResponse_Log{
-						Log: &logs.LogMessage{
-							LogType: &logs.LogMessage_Json{
-								Json: &logs.ParsedJSONLogMessage{
-									Verbatim: &logs.VerbatimLogMessage{
-										Line:      []byte(e.Line),
-										Timestamp: timestamppb.New(e.Timestamp),
-									},
-									NativeTimestamp: timestamppb.New(e.Timestamp),
-								},
-							},
-						},
-					},
-				}
-				jsonStruct := new(structpb.Struct)
-				if err := jsonStruct.UnmarshalJSON([]byte(e.Line)); err != nil {
-					log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", e.Line))
-				} else {
-					resp.GetLog().GetJson().Object = jsonStruct
-				}
-				ppsLog := new(pps.LogMessage)
-				m := protojson.UnmarshalOptions{
-					AllowPartial:   true,
-					DiscardUnknown: true,
-				}
-				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
-					log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", e.Line))
-				} else {
-					resp.GetLog().GetJson().PpsLogMessage = ppsLog
-				}
-			case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
-				ppsLog := new(pps.LogMessage)
-				m := protojson.UnmarshalOptions{
-					AllowPartial:   true,
-					DiscardUnknown: true,
-				}
-				if err := m.Unmarshal([]byte(e.Line), ppsLog); err != nil {
-					return errors.Wrapf(ErrLogFormat, "log line cannot be formatted as %v", request.LogFormat, zap.String("line", e.Line))
-				}
-				resp = &logs.GetLogsResponse{
-					ResponseType: &logs.GetLogsResponse_Log{
-						Log: &logs.LogMessage{
-							LogType: &logs.LogMessage_PpsLogMessage{
-								PpsLogMessage: ppsLog,
-							},
-						},
-					},
-				}
-			default:
-				return errors.Wrapf(ErrUnimplemented, "%v not supported", request.LogFormat)
-			}
-
-			if err := publisher.Publish(ctx, resp); err != nil {
-				return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-			}
-		}
-	}
-
 	return nil
 }
 
-func validateGetLogsRequest(request *logs.GetLogsRequest) error {
-	if request.GetWantPagingHint() {
-		// TODO(CORE-2189): actually need to have logs to implement the logic with limits
-		if request.GetFilter().GetLimit() > 0 {
-			return errors.Wrap(ErrUnimplemented, "paging hints with limit > 0")
+// An adapter publishes log entries to a ResponsePublisher in a specified format.
+type adapter struct {
+	responsePublisher ResponsePublisher
+	logFormat         logs.LogFormat
+	first, last       loki.Entry
+	gotFirst          bool
+}
+
+func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
+	return &adapter{
+		responsePublisher: p,
+		logFormat:         f,
+	}
+}
+
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+	if !a.gotFirst {
+		a.gotFirst = true
+		a.first = entry
+	}
+	var resp *logs.GetLogsResponse
+	switch a.logFormat {
+	case logs.LogFormat_LOG_FORMAT_UNKNOWN:
+		return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
+	case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
+		resp = &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					LogType: &logs.LogMessage_Verbatim{
+						Verbatim: &logs.VerbatimLogMessage{
+							Line:      []byte(entry.Line),
+							Timestamp: timestamppb.New(entry.Timestamp),
+						},
+					},
+				},
+			},
 		}
+	case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
+		resp = &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					LogType: &logs.LogMessage_Json{
+						Json: &logs.ParsedJSONLogMessage{
+							Verbatim: &logs.VerbatimLogMessage{
+								Line:      []byte(entry.Line),
+								Timestamp: timestamppb.New(entry.Timestamp),
+							},
+							NativeTimestamp: timestamppb.New(entry.Timestamp),
+						},
+					},
+				},
+			},
+		}
+		jsonStruct := new(structpb.Struct)
+		if err := jsonStruct.UnmarshalJSON([]byte(entry.Line)); err != nil {
+			log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+		} else {
+			resp.GetLog().GetJson().Object = jsonStruct
+		}
+		ppsLog := new(pps.LogMessage)
+		m := protojson.UnmarshalOptions{
+			AllowPartial:   true,
+			DiscardUnknown: true,
+		}
+		if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
+			log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+		} else {
+			resp.GetLog().GetJson().PpsLogMessage = ppsLog
+		}
+	case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
+		ppsLog := new(pps.LogMessage)
+		m := protojson.UnmarshalOptions{
+			AllowPartial:   true,
+			DiscardUnknown: true,
+		}
+		if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
+			return errors.Wrapf(ErrLogFormat, "log line cannot be formatted as %v", a.logFormat, zap.String("line", entry.Line))
+		}
+		resp = &logs.GetLogsResponse{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					LogType: &logs.LogMessage_PpsLogMessage{
+						PpsLogMessage: ppsLog,
+					},
+				},
+			},
+		}
+	default:
+		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
+	}
+
+	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	}
+
+	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
 	return nil
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachconfig"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
+	"github.com/pachyderm/pachyderm/v2/src/internal/storage"
 	"github.com/pachyderm/pachyderm/v2/src/internal/task"
 	"github.com/pachyderm/pachyderm/v2/src/internal/transactionenv"
 	"github.com/pachyderm/pachyderm/v2/src/license"
@@ -130,6 +131,7 @@ func (fb *fullBuilder) buildAndRun(ctx context.Context) error {
 		fb.maybeRegisterIdentityServer,
 		fb.registerAuthServer,
 		fb.registerPFSServer,
+		fb.registerStorageServer,
 		fb.registerPPSServer,
 		fb.registerTransactionServer,
 		fb.registerAdminServer,
@@ -193,6 +195,7 @@ type Full struct {
 	txnSrv        transaction.APIServer
 	authSrv       auth.APIServer
 	pfsSrv        pfs.APIServer
+	storageSrv    *storage.Server
 	ppsSrv        pps.APIServer
 	metadataSrv   metadata.APIServer
 	adminSrv      admin.APIServer
@@ -296,6 +299,13 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				GetPPSServer: func() ppsiface.APIServer { return pd.ppsSrv.(pps_server.APIServer) },
 			}
 		}),
+		initStorageServer(&pd.storageSrv, func() storage.Env {
+			return storage.Env{
+				DB:     env.DB,
+				Bucket: env.Bucket,
+				Config: config.StorageConfiguration,
+			}
+		}),
 		initPPSAPIServer(&pd.ppsSrv, func() pps_server.Env {
 			return pps_server.Env{
 				AuthServer:        pd.authSrv.(auth_server.APIServer),
@@ -346,6 +356,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 					},
 					PFSServer: pd.pfsSrv,
 					Paused:    false,
+					DB:        env.DB,
 				})
 				return nil
 			},

@@ -9,8 +9,6 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
-
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
@@ -714,11 +712,10 @@ func commitsMatch(t *testing.T, expected, actual *pfs.CommitInfo) {
 	require.NoDiff(t, want, got, []cmp.Option{protocmp.Transform()})
 }
 
-func testCommit(ctx context.Context, t *testing.T, tx *pachsql.Tx, repoName string) *pfs.CommitInfo {
+func testCommitWithCommitKey(ctx context.Context, t *testing.T, tx *pachsql.Tx, repoName, commitKey string) *pfs.CommitInfo {
 	repoInfo := testRepo(repoName, testRepoType)
 	var commitInfo *pfs.CommitInfo
-	id := random.String(32)
-	commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Id: id}
+	commit := &pfs.Commit{Repo: repoInfo.Repo, Branch: &pfs.Branch{Repo: repoInfo.Repo, Name: "master"}, Id: commitKey}
 	commitInfo = &pfs.CommitInfo{
 		Commit:      commit,
 		Description: "fake commit",
@@ -730,6 +727,10 @@ func testCommit(ctx context.Context, t *testing.T, tx *pachsql.Tx, repoName stri
 	_, err := pfsdb.UpsertRepo(ctx, tx, repoInfo)
 	require.NoError(t, err, "should be able to create repo")
 	return commitInfo
+}
+
+func testCommit(ctx context.Context, t *testing.T, tx *pachsql.Tx, repoName string) *pfs.CommitInfo {
+	return testCommitWithCommitKey(ctx, t, tx, repoName, random.String(32))
 }
 
 func createBranch(ctx context.Context, t *testing.T, tx *pachsql.Tx, commit *pfs.Commit) {
@@ -762,7 +763,7 @@ func testPickCommitByID(t *testing.T) {
 			},
 		},
 	}
-	badCommitPicker := deepcopy.Copy(globalIDPicker).(*pfs.CommitPicker)
+	badCommitPicker := proto.Clone(globalIDPicker).(*pfs.CommitPicker)
 	badCommitPicker.Picker.(*pfs.CommitPicker_Id).Id.Id = "does not exist"
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)
