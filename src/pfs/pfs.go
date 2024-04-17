@@ -122,6 +122,50 @@ func (c *Commit) AccessRepo() *Repo {
 	return c.GetBranch().GetRepo()
 }
 
+func (c *Commit) NilBranchName() {
+	if c != nil && c.Branch != nil {
+		c.Branch.Name = ""
+	}
+}
+
+func (ci *CommitInfo) NilBranchName() {
+	if ci != nil {
+		ci.Commit.NilBranchName()
+		ci.ParentCommit.NilBranchName()
+	}
+}
+
+func (f *File) NilBranchName() {
+	if f != nil {
+		f.Commit.NilBranchName()
+	}
+}
+
+func (fi *FileInfo) NilBranchName() {
+	if fi != nil {
+		fi.File.NilBranchName()
+	}
+}
+
+func (dfr *DiffFileResponse) NilBranchName() {
+	if dfr != nil {
+		dfr.OldFile.NilBranchName()
+		dfr.NewFile.NilBranchName()
+	}
+}
+
+func (cf *CopyFile) NilBranchName() {
+	if cf != nil {
+		cf.Src.NilBranchName()
+	}
+}
+
+func (bi *BranchInfo) NilBranchName() {
+	if bi != nil {
+		bi.Head.NilBranchName()
+	}
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
