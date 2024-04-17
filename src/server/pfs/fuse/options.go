@@ -95,11 +95,11 @@ func (o *Options) validate(c *client.APIClient) error {
 	}
 	for _, opts := range o.RepoOptions {
 		if opts.Write {
-			if uuid.IsUUIDWithoutDashes(opts.File.Commit.Branch.Name) {
-				branch := ""
-				if opts.File.Commit.Branch != nil {
-					branch = opts.File.Commit.Branch.GetName()
-				}
+			branch := ""
+			if opts.File.Commit.Branch != nil {
+				branch = opts.File.Commit.Branch.GetName()
+			}
+			if uuid.IsUUIDWithoutDashes(branch) {
 				return errors.Errorf("can't mount commit %s@%s as %s in Write mode (mount a branch instead)", opts.File.Commit.Repo.Name, branch, opts.Name)
 			}
 			bi, err := c.InspectBranch(opts.File.Commit.Branch.Repo.Project.GetName(), opts.File.Commit.Repo.Name, opts.File.Commit.Branch.Name)
