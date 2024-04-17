@@ -225,7 +225,6 @@ func TestGetProjectLogs(t *testing.T) {
 	defer fakeLoki.Close()
 	publisher = new(testPublisher)
 	require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_User{
 				User: &logs.UserLogQuery{
