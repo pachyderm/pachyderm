@@ -24,13 +24,6 @@ export enum LogLevel {
   LOG_LEVEL_ERROR = "LOG_LEVEL_ERROR",
 }
 
-export enum LogFormat {
-  LOG_FORMAT_UNKNOWN = "LOG_FORMAT_UNKNOWN",
-  LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-  LOG_FORMAT_PARSED_JSON = "LOG_FORMAT_PARSED_JSON",
-  LOG_FORMAT_PPS_LOGMESSAGE = "LOG_FORMAT_PPS_LOGMESSAGE",
-}
-
 
 type BaseLogQuery = {
 }
@@ -89,7 +82,6 @@ export type GetLogsRequest = {
   filter?: LogFilter
   tail?: boolean
   wantPagingHint?: boolean
-  logFormat?: LogFormat
 }
 
 
@@ -104,19 +96,12 @@ export type PagingHint = {
   newer?: GetLogsRequest
 }
 
-
-type BaseLogMessage = {
-}
-
-export type LogMessage = BaseLogMessage
-  & OneOf<{ verbatim: VerbatimLogMessage; json: ParsedJSONLogMessage; ppsLogMessage: Pps_v2Pps.LogMessage }>
-
 export type VerbatimLogMessage = {
   line?: Uint8Array
   timestamp?: GoogleProtobufTimestamp.Timestamp
 }
 
-export type ParsedJSONLogMessage = {
+export type LogMessage = {
   verbatim?: VerbatimLogMessage
   object?: GoogleProtobufStruct.Struct
   nativeTimestamp?: GoogleProtobufTimestamp.Timestamp

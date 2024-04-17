@@ -6,19 +6,19 @@ import (
 	"math"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
-
-type ResponsePublisher interface {
-	// Publish publishes a single GetLogsResponse to the client.
-	Publish(context.Context, *logs.GetLogsResponse) error
-}
 
 // LogService implements the core logs functionality.
 type LogService struct {
@@ -29,7 +29,8 @@ var (
 	// ErrUnimplemented is returned whenever requested functionality is planned but unimplemented.
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
-	ErrPublish    = errors.New("error publishing")
+	ErrPublish = errors.New("error publishing")
+	// ErrBadRequest indicates that the client made an erroneous request.
 	ErrBadRequest = errors.New("bad request")
 )
 
@@ -84,11 +85,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
+	var adapter = adapter{responsePublisher: publisher}
 	logQL, err := toLogQL(request)
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	adapter := newAdapter(publisher, request.LogFormat)
 	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
@@ -182,48 +183,58 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 	}
 }
 
+type ResponsePublisher interface {
+	// Publish publishes a single GetLogsResponse to the client.
+	Publish(context.Context, *logs.GetLogsResponse) error
+}
+
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
-	logFormat         logs.LogFormat
 	first, last       loki.Entry
 	gotFirst          bool
 }
 
-func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
-	return &adapter{
-		responsePublisher: p,
-		logFormat:         f,
-	}
-}
-
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+	var ts *timestamppb.Timestamp
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
 	}
-	a.last = entry
-	var resp *logs.GetLogsResponse
-	switch a.logFormat {
-	case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-		return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-	case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-		resp = &logs.GetLogsResponse{
-			ResponseType: &logs.GetLogsResponse_Log{
-				Log: &logs.LogMessage{
-					LogType: &logs.LogMessage_Verbatim{
-						Verbatim: &logs.VerbatimLogMessage{
-							Line: []byte(entry.Line),
-						},
-					},
-				},
-			},
+	object := new(structpb.Struct)
+	if err := object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+		object = nil
+	} else if val := object.Fields["time"].GetStringValue(); val != "" {
+		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+			ts = timestamppb.New(t)
 		}
-	default:
-		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
+	}
+	ppsLogMessage := new(pps.LogMessage)
+	m := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
+	if err := m.Unmarshal([]byte(entry.Line), ppsLogMessage); err != nil {
+		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+		ppsLogMessage = nil
+	} else if ppsLogMessage.Ts != nil {
+		ts = ppsLogMessage.Ts
 	}
 
-	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
+		ResponseType: &logs.GetLogsResponse_Log{
+			Log: &logs.LogMessage{
+				Verbatim: &logs.VerbatimLogMessage{
+					Line:      []byte(entry.Line),
+					Timestamp: timestamppb.New(entry.Timestamp),
+				},
+				NativeTimestamp: ts,
+				Object:          object,
+				PpsLogMessage:   ppsLogMessage,
+			},
+		},
+	}); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
 	return nil
