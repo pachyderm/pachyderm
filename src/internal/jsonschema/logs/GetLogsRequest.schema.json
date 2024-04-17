@@ -17,16 +17,6 @@
                 },
                 "wantPagingHint": {
                     "type": "boolean"
-                },
-                "logFormat": {
-                    "enum": [
-                        "LOG_FORMAT_UNKNOWN",
-                        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-                        "LOG_FORMAT_PARSED_JSON",
-                        "LOG_FORMAT_PPS_LOGMESSAGE"
-                    ],
-                    "type": "string",
-                    "title": "Log Format"
                 }
             },
             "additionalProperties": false,

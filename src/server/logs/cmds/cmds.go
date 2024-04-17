@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -104,7 +103,6 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 
 			var req = new(logs.GetLogsRequest)
-			req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:  timestamppb.New(time.Time(from)),
@@ -143,18 +141,11 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					}
 					break
 				}
-				switch log := resp.GetLog().GetLogType().(type) {
-				case *logs.LogMessage_PpsLogMessage:
-					b, err := protojson.Marshal(resp.GetLog().GetPpsLogMessage())
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "ERROR: cannot marshal %v\n", resp.GetLog().GetPpsLogMessage())
-					}
-					fmt.Println(string(b))
-				case *logs.LogMessage_Json:
-					fmt.Println(resp.GetLog().GetJson().GetVerbatim().GetLine())
-				case *logs.LogMessage_Verbatim:
+
+				switch resp.ResponseType.(type) {
+				case *logs.GetLogsResponse_Log:
 					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
-				case nil:
+				case *logs.GetLogsResponse_PagingHint:
 					hint := resp.GetPagingHint()
 					if hint == nil {
 						fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %v\n`", resp)
@@ -163,10 +154,8 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					// printing to stderr in order to keep stdout clean
 					fmt.Fprintln(os.Stderr, toPachctl(cmd, args, hint))
 				default:
-					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", log)
-					continue
+					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", resp)
 				}
-
 			}
 		},
 		Use: "logs2",

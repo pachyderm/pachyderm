@@ -9,24 +9,17 @@ import (
 
 	"go.uber.org/zap"
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/types/known/structpb"
-
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	"github.com/pachyderm/pachyderm/v2/src/logs"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	ilogs "github.com/pachyderm/pachyderm/v2/src/internal/logs"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
-
-type ResponsePublisher interface {
-	// Publish publishes a single GetLogsResponse to the client.
-	Publish(context.Context, *logs.GetLogsResponse) error
-}
 
 // LogService implements the core logs functionality.
 type LogService struct {
@@ -37,7 +30,8 @@ var (
 	// ErrUnimplemented is returned whenever requested functionality is planned but unimplemented.
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
-	ErrPublish    = errors.New("error publishing")
+	ErrPublish = errors.New("error publishing")
+	// ErrBadRequest indicates that the client made an erroneous request.
 	ErrBadRequest = errors.New("bad request")
 	// ErrLogFormat returned if log line does not match requested log format
 	ErrLogFormat = errors.New("error invalid log format")
@@ -53,7 +47,7 @@ const (
 var lokiQuery string
 
 func handlePipelineJob(ctx context.Context, query *logs.PipelineJobLogQuery) ([]ilogs.LineMatcher, error) {
-	if query == nil || query.GetPipeline == nil {
+	if query == nil || query.GetPipeline() == nil {
 		return nil, nil
 	}
 	matcher, err := ilogs.PipelineJobMatcher(query.GetPipeline().GetProject(), query.GetPipeline().GetPipeline(), query.GetJob())
@@ -248,11 +242,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
+	var adapter = adapter{responsePublisher: publisher, lineMatchers: lineMatchers}
 	logQL, err := toLogQL(request)
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	adapter := newAdapter(publisher, request.LogFormat, lineMatchers)
 	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
@@ -344,117 +338,76 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 	}
 }
 
+type ResponsePublisher interface {
+	// Publish publishes a single GetLogsResponse to the client.
+	Publish(context.Context, *logs.GetLogsResponse) error
+}
+
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
-	logFormat         logs.LogFormat
-  lineMatchers      []ilogs.LineMatcher
 	first, last       loki.Entry
 	gotFirst          bool
-}
-
-func newAdapter(p ResponsePublisher, f logs.LogFormat, matchers []ilogs.LineMatcher) *adapter {
-	return &adapter{
-		responsePublisher: p,
-		logFormat:         f,
-    lineMatchers: matchers,
-	}
+	lineMatchers      []ilogs.LineMatcher
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+	var ts *timestamppb.Timestamp
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
 	}
-	a.last = entry
-	var resp *logs.GetLogsResponse
-	switch a.logFormat {
-	case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-		return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-	case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-		resp = &logs.GetLogsResponse{
-			ResponseType: &logs.GetLogsResponse_Log{
-				Log: &logs.LogMessage{
-					LogType: &logs.LogMessage_Verbatim{
-						Verbatim: &logs.VerbatimLogMessage{
-							Line: []byte(entry.Line),
-              Timestamp: timestamppb.New(entry.Timestamp),
-						},
-					},
-				},
-			},
-    }
-    case logs.LogFormat_LOG_FORMAT_PARSED_JSON:
-      resp = &logs.GetLogsResponse{
-        ResponseType: &logs.GetLogsResponse_Log{
-          Log: &logs.LogMessage{
-            LogType: &logs.LogMessage_Json{
-              Json: &logs.ParsedJSONLogMessage{
-                Verbatim: &logs.VerbatimLogMessage{
-                  Line:      []byte(entry.Line),
-                  Timestamp: timestamppb.New(entry.Timestamp),
-                },
-                NativeTimestamp: timestamppb.New(entry.Timestamp),
-              },
-            },
-          },
-        },
-      }
-      jsonStruct := new(structpb.Struct)
-      if err := jsonStruct.UnmarshalJSON([]byte(entry.Line)); err != nil {
-        log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-      } else {
-        resp.GetLog().GetJson().Object = jsonStruct
-      }
-      ppsLog := new(pps.LogMessage)
-      m := protojson.UnmarshalOptions{
-        AllowPartial:   true,
-        DiscardUnknown: true,
-      }
-      if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
-        log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
-      } else {
-        resp.GetLog().GetJson().PpsLogMessage = ppsLog
-      }
-    case logs.LogFormat_LOG_FORMAT_PPS_LOGMESSAGE:
-      ppsLog := new(pps.LogMessage)
-      m := protojson.UnmarshalOptions{
-        AllowPartial:   true,
-        DiscardUnknown: true,
-      }
-      if err := m.Unmarshal([]byte(entry.Line), ppsLog); err != nil {
-        return errors.Wrapf(ErrLogFormat, "log line cannot be formatted as %v", a.logFormat, zap.String("line", entry.Line))
-      }
-      resp = &logs.GetLogsResponse{
-        ResponseType: &logs.GetLogsResponse_Log{
-          Log: &logs.LogMessage{
-            LogType: &logs.LogMessage_PpsLogMessage{
-              PpsLogMessage: ppsLog,
-            },
-          },
-        },
-      }
-	default:
-		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
+	object := new(structpb.Struct)
+	if err := object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+		object = nil
+	} else if val := object.Fields["time"].GetStringValue(); val != "" {
+		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+			ts = timestamppb.New(t)
+		}
+	}
+	ppsLogMessage := new(pps.LogMessage)
+	m := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
+	if err := m.Unmarshal([]byte(entry.Line), ppsLogMessage); err != nil {
+		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+		ppsLogMessage = nil
+	} else if ppsLogMessage.Ts != nil {
+		ts = ppsLogMessage.Ts
 	}
 
-  logFields := new(ilogs.LogFields)
-  json.Unmarshal([]byte(entry.Line), logFields)
+	logFields := new(ilogs.LogFields)
+	json.Unmarshal([]byte(entry.Line), logFields)
 
-  if len(a.lineMatchers) == 0 {
-    if err := a.responsePublisher.Publish(ctx, resp); err != nil {
-      return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-    }
+  resp := &logs.GetLogsResponse{
+    ResponseType: &logs.GetLogsResponse_Log{
+      Log: &logs.LogMessage{
+        Verbatim: &logs.VerbatimLogMessage{
+          Line:      []byte(entry.Line),
+          Timestamp: timestamppb.New(entry.Timestamp),
+        },
+        NativeTimestamp: ts,
+        Object:          object,
+        PpsLogMessage:   ppsLogMessage,
+      },
+    },
   }
+	if len(a.lineMatchers) == 0 {
+		if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+			return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+		}
+	}
 
-  for _, matcher := range a.lineMatchers {
-    if matcher([]byte(entry.Line), logFields) {
-      if err := a.responsePublisher.Publish(ctx, resp); err != nil {
-        return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
-      }
-      break
-    }
-  }
+	for _, matcher := range a.lineMatchers {
+		if matcher([]byte(entry.Line), logFields) {
+			if err := a.responsePublisher.Publish(ctx, resp); err != nil {
+				return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+			}
+			break
+		}
+	}
 
 	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
