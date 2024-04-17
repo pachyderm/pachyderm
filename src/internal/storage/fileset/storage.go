@@ -251,8 +251,8 @@ func (s *Storage) getPrimitives(ctx context.Context, ids []ID) ([]*Primitive, er
 // Concat always returns the ID of a primitive fileset.
 func (s *Storage) Concat(ctx context.Context, ids []ID, ttl time.Duration) (*ID, error) {
 	var size int64
-	additive := index.NewWriter(pctx.Child(ctx, "additiveIndexWriter"), s.chunks, "additive-index-writer")
-	deletive := index.NewWriter(pctx.Child(ctx, "deletiveIndexWriter"), s.chunks, "deletive-index-writer")
+	additive := index.NewWriter(pctx.Child(ctx, "additive"), s.chunks, "additive-index-writer")
+	deletive := index.NewWriter(pctx.Child(ctx, "deletive"), s.chunks, "deletive-index-writer")
 	for _, id := range ids {
 		md, err := s.store.Get(ctx, id)
 		if err != nil {

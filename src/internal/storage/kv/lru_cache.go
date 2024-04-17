@@ -2,6 +2,8 @@ package kv
 
 import (
 	"context"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"sync"
 
 	"github.com/hashicorp/golang-lru/v2/simplelru"
@@ -34,13 +36,16 @@ func NewLRUCache(slow, fast Store, size int) *LRUCache {
 }
 
 func (c *LRUCache) Get(ctx context.Context, key []byte, buf []byte) (int, error) {
+	pctx.Child(ctx, "lruCache", pctx.WithCounter("hits", 0), pctx.WithCounter("misses", 0))
 	// note that we don't need a lock here because stores are thread-safe and Put/Deletes are atomic.
 	n, err := c.fast.Get(ctx, key, buf)
 	if err == nil {
 		// cache hit
+		meters.Inc(ctx, "hits", 1)
 		return n, nil
 	}
 	// cache miss
+	meters.Inc(ctx, "misses", 1)
 	n, err = c.slow.Get(ctx, key, buf)
 	if err != nil {
 		return 0, err

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	fmt "fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 
 	"github.com/docker/go-units"
@@ -54,6 +56,10 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 
 // Iterate iterates over the lowest level (file type) indexes.
 func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
+	ctx = pctx.Child(ctx, "indexReader.Iterate",
+		pctx.WithCounter("skippedIndices", 0),
+		pctx.WithCounter("readFiles", 0),
+		pctx.WithCounter("traversedRanges", 0))
 	if r.topIdx == nil {
 		return nil
 	}
@@ -61,19 +67,24 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	traverseCb := func(idx *Index) (bool, error) {
 		if idx.File != nil {
 			if atEnd(idx.Path, r.filter) {
+				meters.Inc(ctx, "skippedIndices", 1)
 				if !peek {
 					return false, errutil.ErrBreak
 				}
 				peek = false
 			}
 			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
+				meters.Inc(ctx, "skippedIndices", 1)
 				return false, nil
 			}
+			meters.Inc(ctx, "readFiles", 1)
 			return false, cb(idx)
 		}
 		if !atStart(idx.Range.LastPath, r.filter) {
+			meters.Inc(ctx, "skippedIndices", 1)
 			return false, nil
 		}
+		meters.Inc(ctx, "traversedRanges", 1)
 		return true, nil
 	}
 	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)
@@ -214,6 +225,9 @@ type ShardConfig struct {
 // A subtree is traversed only when a split point exists within it, which we know based on the NumFiles and SizeBytes
 // values at the root of each subtree.
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
+	ctx = pctx.Child(ctx, "indexReader.Shards",
+		pctx.WithCounter("traversedRanges", 0),
+		pctx.WithCounter("skippedIndices", 0))
 	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
 		return []*PathRange{{}}, nil
 	}
@@ -231,10 +245,12 @@ func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
 			sizeBytes = 0
 		}
 		if idx.Range != nil && (numFiles+idx.NumFiles > r.shardConfig.NumFiles || sizeBytes+idx.SizeBytes > r.shardConfig.SizeBytes) {
+			meters.Inc(ctx, "traversedRanges", 1)
 			return true, nil
 		}
 		numFiles += idx.NumFiles
 		sizeBytes += idx.SizeBytes
+		meters.Inc(ctx, "skippedIndices", 1)
 		return false, nil
 	}
 	_, err := r.traverse(ctx, r.topIdx, []byte{}, traverseCb)

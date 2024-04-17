@@ -63,13 +63,14 @@ func NewStorage(store kv.Store, db *pachsql.DB, tracker track.Tracker, opts ...S
 
 // NewReader creates a new Reader.
 func (s *Storage) NewReader(ctx context.Context, dataRefs []*DataRef, opts ...ReaderOption) *Reader {
-	pctx.Child(ctx, "chunkReader")
+	ctx = pctx.Child(ctx, "chunkReader")
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	defaultOpts := []ReaderOption{WithPrefetchLimit(s.prefetchLimit)}
 	return newReader(ctx, s, client, dataRefs, append(defaultOpts, opts...)...)
 }
 
 func (s *Storage) NewDataReader(ctx context.Context, dataRef *DataRef) *DataReader {
+	ctx = pctx.Child(ctx, "chunkLazyDataReader")
 	client := NewClient(s.store, s.db, s.tracker, nil, s.pool)
 	return newDataReader(ctx, s, client, dataRef, 0)
 }
