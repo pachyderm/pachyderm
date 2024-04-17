@@ -89,7 +89,8 @@ func TestGetLogsHint(t *testing.T) {
 
 			// GetLogs without a hint request should not return hints.
 			publisher = new(testPublisher)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP}, publisher), "GetLogs should succeed")
+
+			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{}, publisher), "GetLogs should succeed")
 			for _, r := range publisher.responses {
 				_, ok := r.ResponseType.(*logs.GetLogsResponse_PagingHint)
 				require.False(t, ok, "paging hints should not be returned when unasked for")
@@ -99,7 +100,6 @@ func TestGetLogsHint(t *testing.T) {
 			// GetLogs with a hint request should return a hint.
 			publisher = new(testPublisher)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 				WantPagingHint: true,
 			}, publisher), "GetLogs must succeed")
 			require.True(t, len(publisher.responses) > 0, "there must be at least one response")
@@ -117,7 +117,6 @@ func TestGetLogsHint(t *testing.T) {
 			until := time.Now()
 			from := until.Add(-1 * time.Second)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 				WantPagingHint: true,
 				Filter: &logs.LogFilter{
 					TimeRange: &logs.TimeRangeLogFilter{
@@ -144,7 +143,6 @@ func TestGetLogsHint(t *testing.T) {
 
 			publisher = new(testPublisher)
 			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				LogFormat:      logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 				WantPagingHint: true,
 				Filter:         &logs.LogFilter{Limit: 100}}, publisher),
 				"GetLogs with both a limit and a hint request should work")
@@ -185,7 +183,6 @@ func TestGetDatumLogs(t *testing.T) {
 	defer fakeLoki.Close()
 	publisher = new(testPublisher)
 	require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-		LogFormat: logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP,
 		Query: &logs.LogQuery{
 			QueryType: &logs.LogQuery_User{
 				User: &logs.UserLogQuery{

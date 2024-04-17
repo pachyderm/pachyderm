@@ -6,42 +6,6 @@
             "properties": {
                 "verbatim": {
                     "$ref": "#/definitions/logs.VerbatimLogMessage",
-                    "additionalProperties": false
-                },
-                "json": {
-                    "$ref": "#/definitions/logs.ParsedJSONLogMessage",
-                    "additionalProperties": false
-                },
-                "ppsLogMessage": {
-                    "$ref": "#/definitions/pps_v2.LogMessage",
-                    "additionalProperties": false
-                }
-            },
-            "additionalProperties": false,
-            "type": "object",
-            "oneOf": [
-                {
-                    "required": [
-                        "verbatim"
-                    ]
-                },
-                {
-                    "required": [
-                        "json"
-                    ]
-                },
-                {
-                    "required": [
-                        "pps_log_message"
-                    ]
-                }
-            ],
-            "title": "Log Message"
-        },
-        "logs.ParsedJSONLogMessage": {
-            "properties": {
-                "verbatim": {
-                    "$ref": "#/definitions/logs.VerbatimLogMessage",
                     "additionalProperties": false,
                     "description": "The verbatim line from Loki"
                 },
@@ -63,7 +27,7 @@
             },
             "additionalProperties": false,
             "type": "object",
-            "title": "Parsed JSON Log Message"
+            "title": "Log Message"
         },
         "logs.VerbatimLogMessage": {
             "properties": {

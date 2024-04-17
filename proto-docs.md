@@ -278,7 +278,6 @@
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
     - [PagingHint](#logs-PagingHint)
-    - [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage)
     - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
     - [PipelineLogQuery](#logs-PipelineLogQuery)
     - [PodContainer](#logs-PodContainer)
@@ -287,7 +286,6 @@
     - [UserLogQuery](#logs-UserLogQuery)
     - [VerbatimLogMessage](#logs-VerbatimLogMessage)
   
-    - [LogFormat](#logs-LogFormat)
     - [LogLevel](#logs-LogLevel)
   
     - [API](#logs-API)
@@ -4484,7 +4482,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | filter | [LogFilter](#logs-LogFilter) |  |  |
 | tail | [bool](#bool) |  |  |
 | want_paging_hint | [bool](#bool) |  |  |
-| log_format | [LogFormat](#logs-LogFormat) |  |  |
 
 
 
@@ -4533,9 +4530,10 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  |  |
-| json | [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage) |  |  |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  |  |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
+| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4568,24 +4566,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | ----- | ---- | ----- | ----------- |
 | older | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
 | newer | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
-
-
-
-
-
-
-<a name="logs-ParsedJSONLogMessage"></a>
-
-### ParsedJSONLogMessage
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
-| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
-| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4707,20 +4687,6 @@ Only returns &#34;user&#34; logs
 
 
  
-
-
-<a name="logs-LogFormat"></a>
-
-### LogFormat
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| LOG_FORMAT_UNKNOWN | 0 | error |
-| LOG_FORMAT_VERBATIM_WITH_TIMESTAMP | 1 |  |
-| LOG_FORMAT_PARSED_JSON | 2 |  |
-| LOG_FORMAT_PPS_LOGMESSAGE | 3 |  |
-
 
 
 <a name="logs-LogLevel"></a>

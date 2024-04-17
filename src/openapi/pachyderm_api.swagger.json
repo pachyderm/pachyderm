@@ -8041,9 +8041,6 @@
         },
         "wantPagingHint": {
           "type": "boolean"
-        },
-        "logFormat": {
-          "$ref": "#/definitions/logsLogFormat"
         }
       }
     },
@@ -8077,17 +8074,6 @@
         }
       }
     },
-    "logsLogFormat": {
-      "type": "string",
-      "enum": [
-        "LOG_FORMAT_UNKNOWN",
-        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-        "LOG_FORMAT_PARSED_JSON",
-        "LOG_FORMAT_PPS_LOGMESSAGE"
-      ],
-      "default": "LOG_FORMAT_UNKNOWN",
-      "title": "- LOG_FORMAT_UNKNOWN: error"
-    },
     "logsLogLevel": {
       "type": "string",
       "enum": [
@@ -8101,13 +8087,21 @@
       "type": "object",
       "properties": {
         "verbatim": {
-          "$ref": "#/definitions/logsVerbatimLogMessage"
+          "$ref": "#/definitions/logsVerbatimLogMessage",
+          "title": "The verbatim line from Loki"
         },
-        "json": {
-          "$ref": "#/definitions/logsParsedJSONLogMessage"
+        "object": {
+          "type": "object",
+          "title": "A raw JSON parse of the entire line"
+        },
+        "nativeTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "title": "If a parseable timestamp was found in `fields`"
         },
         "ppsLogMessage": {
-          "$ref": "#/definitions/pps_v2LogMessage"
+          "$ref": "#/definitions/pps_v2LogMessage",
+          "title": "For code that wants to filter on pipeline/job/etc"
         }
       }
     },
@@ -8130,28 +8124,6 @@
         },
         "newer": {
           "$ref": "#/definitions/logsGetLogsRequest"
-        }
-      }
-    },
-    "logsParsedJSONLogMessage": {
-      "type": "object",
-      "properties": {
-        "verbatim": {
-          "$ref": "#/definitions/logsVerbatimLogMessage",
-          "title": "The verbatim line from Loki"
-        },
-        "object": {
-          "type": "object",
-          "title": "A raw JSON parse of the entire line"
-        },
-        "nativeTimestamp": {
-          "type": "string",
-          "format": "date-time",
-          "title": "If a parseable timestamp was found in `fields`"
-        },
-        "ppsLogMessage": {
-          "$ref": "#/definitions/pps_v2LogMessage",
-          "title": "For code that wants to filter on pipeline/job/etc"
         }
       }
     },
