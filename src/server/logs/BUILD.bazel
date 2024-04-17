@@ -27,6 +27,7 @@ go_test(
         "//src/internal/lokiutil/client",
         "//src/internal/pctx",
         "//src/internal/require",
+        "//src/internal/testutil",
         "//src/logs",
         "@org_golang_google_protobuf//types/known/timestamppb",
     ],
