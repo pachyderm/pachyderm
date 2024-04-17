@@ -28,6 +28,7 @@ go_library(
         "//src/internal/errors",
         "//src/internal/errutil",
         "//src/internal/log",
+        "//src/internal/meters",
         "//src/internal/miscutil",
         "//src/internal/pacherr",
         "//src/internal/pachhash",
