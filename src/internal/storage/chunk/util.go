@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"encoding/base64"
 	"path/filepath"
 	"testing"
 
@@ -41,4 +42,8 @@ func NewDataRef(chunkRef *DataRef, chunkBytes []byte, offset, size int64) *DataR
 	dataRef.OffsetBytes = offset
 	dataRef.SizeBytes = size
 	return dataRef
+}
+
+func Base64Hash(dataRef *DataRef) string {
+	return base64.StdEncoding.EncodeToString(dataRef.Hash)
 }

@@ -3,6 +3,7 @@ package index
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"sync"
 
@@ -40,10 +41,10 @@ type Writer struct {
 
 // NewWriter create a new Writer.
 func NewWriter(ctx context.Context, chunks *chunk.Storage, tmpID string) *Writer {
-	ctx = pctx.Child(ctx, "indexWriter",
+	ctx = pctx.Child(ctx, fmt.Sprintf("indexWriter(%s)", tmpID),
 		pctx.WithCounter("indices", 0),
 		pctx.WithCounter("levels", 0),
-		pctx.WithCounter("bytes", 0))
+		pctx.WithCounter("tx_bytes", 0))
 	ctx, cancel := pctx.WithCancel(ctx)
 	return &Writer{
 		ctx:    ctx,
@@ -87,7 +88,7 @@ func (w *Writer) writeIndex(idx *Index, level int) error {
 
 func (w *Writer) setupLevel(idx *Index, level int) {
 	if level == w.numLevels() {
-		batcher := w.chunks.NewBatcher(pctx.Child(w.ctx, "levelBatcher"), w.tmpID, DefaultBatchThreshold, chunk.WithChunkCallback(w.callback(level)))
+		batcher := w.chunks.NewBatcher(w.ctx, w.tmpID, DefaultBatchThreshold, chunk.WithChunkCallback(w.callback(level)))
 		w.createLevel(&levelWriter{
 			buf:      &bytes.Buffer{},
 			batcher:  batcher,

@@ -126,7 +126,7 @@ func (mfr *MergeFileReader) Hash(ctx context.Context) ([]byte, error) {
 	var hashes [][]byte
 	size := index.SizeBytes(mfr.idx)
 	if size >= DefaultBatchThreshold {
-		uploader := mfr.chunks.NewUploader(pctx.Child(ctx, "chunkUploaderResolver"), "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
+		uploader := mfr.chunks.NewUploader(ctx, "chunk-uploader-resolver", true, func(_ interface{}, dataRefs []*chunk.DataRef) error {
 			for _, dataRef := range dataRefs {
 				hashes = append(hashes, dataRef.Hash)
 			}

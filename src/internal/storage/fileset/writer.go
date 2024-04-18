@@ -3,7 +3,6 @@ package fileset
 import (
 	"bytes"
 	"context"
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"io"
 	"sync/atomic"
 	"time"
@@ -40,8 +39,8 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 	for _, opt := range opts {
 		opt(w)
 	}
-	w.additive = index.NewWriter(pctx.Child(ctx, "additive"), storage.chunks, "additive-index-writer")
-	w.uploader = storage.chunks.NewUploader(pctx.Child(ctx, "chunk"), "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
+	w.additive = index.NewWriter(ctx, storage.chunks, "additive-index-writer")
+	w.uploader = storage.chunks.NewUploader(ctx, "chunk-uploader", false, func(meta interface{}, dataRefs []*chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		idx.File.DataRefs = dataRefs
 		idx.NumFiles = 1
@@ -50,8 +49,8 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additive.WriteIndex(idx)
 	})
-	w.additiveBatched = index.NewWriter(pctx.Child(ctx, "additiveBatched"), storage.chunks, "additive-batched-index-writer")
-	w.batcher = storage.chunks.NewBatcher(pctx.Child(ctx, "chunk"), "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
+	w.additiveBatched = index.NewWriter(ctx, storage.chunks, "additive-batched-index-writer")
+	w.batcher = storage.chunks.NewBatcher(ctx, "chunk-batcher", w.batchThreshold, chunk.WithEntryCallback(func(meta interface{}, dataRef *chunk.DataRef) error {
 		idx := meta.(*index.Index)
 		if dataRef != nil {
 			idx.File.DataRefs = []*chunk.DataRef{dataRef}
@@ -62,7 +61,7 @@ func newWriter(ctx context.Context, storage *Storage, opts ...WriterOption) *Wri
 		atomic.AddInt64(&w.sizeBytes, size)
 		return w.additiveBatched.WriteIndex(idx)
 	}))
-	w.deletive = index.NewWriter(pctx.Child(ctx, "deletive"), storage.chunks, "deletive-index-writer")
+	w.deletive = index.NewWriter(ctx, storage.chunks, "deletive-index-writer")
 	return w
 }
 

@@ -2,6 +2,7 @@ package chunk
 
 import (
 	"context"
+	"fmt"
 	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"io"
 
@@ -36,7 +37,7 @@ type Uploader struct {
 }
 
 func (s *Storage) NewUploader(ctx context.Context, name string, noUpload bool, cb UploadFunc) *Uploader {
-	ctx = pctx.Child(ctx, "uploader")
+	ctx = pctx.Child(ctx, fmt.Sprintf("uploader(%s)", name))
 	client := NewClient(s.store, s.db, s.tracker, NewRenewer(ctx, s.tracker, name, defaultChunkTTL), s.pool)
 	return &Uploader{
 		ctx:       ctx,
@@ -182,7 +183,7 @@ func (u *Uploader) CopyByReference(meta interface{}, dataRefs []*DataRef) error 
 
 func upload(ctx context.Context, client Client, chunkBytes []byte, pointsTo []ID, noUpload bool) (*DataRef, error) {
 	ctx = pctx.Child(ctx, "upload", pctx.WithCounter("bytes", 0))
-	meters.Inc(ctx, "bytes", len(chunkBytes))
+	meters.Inc(ctx, "tx_bytes", len(chunkBytes))
 	md := Metadata{
 		Size:     len(chunkBytes),
 		PointsTo: pointsTo,

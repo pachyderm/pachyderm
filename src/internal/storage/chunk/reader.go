@@ -3,6 +3,8 @@ package chunk
 import (
 	"bytes"
 	"context"
+	"fmt"
+	"github.com/pachyderm/pachyderm/v2/src/internal/meters"
 	"io"
 	"time"
 
@@ -103,7 +105,8 @@ type DataReader struct {
 
 func newDataReader(ctx context.Context, s *Storage, client Client, dataRef *DataRef, offset int64) *DataReader {
 	return &DataReader{
-		ctx:      ctx,
+		ctx: pctx.Child(ctx, fmt.Sprintf("dataReader('%s')", Base64Hash(dataRef)),
+			pctx.WithCounter("tx_bytes", 0)),
 		client:   client,
 		memCache: s.memCache,
 		pool:     s.pool,
@@ -118,6 +121,7 @@ func (dr *DataReader) Read(data []byte) (int, error) {
 		return 0, err
 	}
 	n, err := dr.r.Read(data)
+	meters.Inc(dr.ctx, "tx_bytes", n)
 	return n, errors.EnsureStack(err)
 }
 

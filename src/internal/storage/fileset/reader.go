@@ -3,7 +3,6 @@ package fileset
 import (
 	"context"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"go.uber.org/zap"
 	"io"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
@@ -57,7 +56,7 @@ func (r *Reader) withPrimitive(ctx context.Context, cb func(ctx context.Context,
 	if err != nil {
 		return err
 	}
-	ctx = pctx.Child(ctx, "", pctx.WithFields(zap.Object("startIdx", prim.Additive)))
+	ctx = pctx.Child(ctx, "", pctx.WithFields(LogIndex(prim.Additive, "startIdx")))
 	return cb(ctx, prim)
 }
 
