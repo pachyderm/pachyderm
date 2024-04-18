@@ -180,6 +180,40 @@ func TestGetCommitWithIDProvenance(t *testing.T) {
 	})
 }
 
+func TestCommitDirectSubvenance(t *testing.T) {
+	commits := make(map[int]*pfsdb.CommitWithID)
+	size := 7
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			for i := 1; i <= size; i++ { // row ID in postgres starts at 1.
+				commit := testCommitWithCommitKey(ctx, t, tx, fmt.Sprintf("r%d", i), fmt.Sprintf("c%d", i))
+				id, err := pfsdb.CreateCommit(ctx, tx, commit)
+				require.NoError(t, err, "should be able to create commit")
+				commits[i] = &pfsdb.CommitWithID{
+					ID:         id,
+					CommitInfo: commit,
+				}
+			}
+			// create a DAG that resembles a complete binary tree. Children are in the provenance of their parent.
+			for i := 1; i <= size/2; i++ {
+				leftChildIndex, rightChildIndex := 2*i, 2*i+1
+				commits[i].DirectProvenance = []*pfs.Commit{commits[leftChildIndex].Commit, commits[rightChildIndex].Commit}
+				createCommitProvenance(ctx, t, tx, commits[i].ID, commits[i].DirectProvenance)
+			}
+			for i := 1; i <= size; i++ {
+				c, err := pfsdb.GetCommit(ctx, tx, commits[i].ID)
+				require.NoError(t, err)
+				if i == 1 {
+					require.Equal(t, len(c.DirectSubvenance), 0)
+				} else {
+					require.Equal(t, len(c.DirectSubvenance), 1)
+					require.Equal(t, commits[i/2].Commit.Key(), c.DirectSubvenance[0].Key())
+				}
+			}
+		})
+	})
+}
+
 func createCommitProvenance(ctx context.Context, t *testing.T, tx *pachsql.Tx, fromId pfsdb.CommitID, provenantCommits []*pfs.Commit) {
 	createCommitProvenanceFromRows(ctx, t, tx, fromId, getProvenantCommitRows(ctx, t, tx, provenantCommits))
 }
