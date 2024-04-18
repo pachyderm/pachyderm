@@ -213,6 +213,22 @@ Cypress.Commands.add('setupProject', (projectTemplate) => {
   });
 });
 
+Cypress.Commands.add('deleteProjectReposAndPipelines', (project: string) => {
+  cy.visit('/');
+  return (
+    cy
+      .exec(`pachctl delete pipeline --all --force --project ${project}`, {
+        failOnNonZeroExit: false,
+      })
+      .exec(`pachctl delete repo --all --force --project ${project}`, {
+        failOnNonZeroExit: false,
+      })
+      .exec(`pachctl delete project ${project} -f`, {
+        failOnNonZeroExit: false,
+      })
+  );
+});
+
 Cypress.Commands.add('deleteReposAndPipelines', () => {
   cy.visit('/');
   return (

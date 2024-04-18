@@ -6,11 +6,14 @@ import {Vertex} from '@dash-frontend/lib/DAG/convertPipelinesAndReposToVertices'
 import {NodeType} from '@dash-frontend/lib/types';
 
 import {checkCronInputs} from '../checkCronInputs';
+import {getUnixSecondsFromISOString} from '../dateTime';
 
 import {
   generateVertexId,
   flattenPipelineInput,
   VertexIdentifierType,
+  egressNodeName,
+  jobEgressType,
 } from './DAGhelpers';
 
 const derivePipelineType = (details?: JobInfoDetails) => {
@@ -68,13 +71,13 @@ export const getProjectGlobalIdVertices = async (
       };
     });
 
+    const projectName = job.job?.pipeline?.project?.name || '';
+    const pipelineName = job.job?.pipeline?.name || '';
+
     const pipelineVertex: Vertex = {
-      id: generateVertexId(
-        job.job?.pipeline?.project?.name || '',
-        job.job?.pipeline?.name || '',
-      ),
-      project: job.job?.pipeline?.project?.name || '',
-      name: job.job?.pipeline?.name || '',
+      id: generateVertexId(projectName, pipelineName),
+      project: projectName,
+      name: pipelineName,
       parents: inputs,
       type: derivePipelineType(job.details),
       access: true,
@@ -85,7 +88,38 @@ export const getProjectGlobalIdVertices = async (
       hasCronInput: checkCronInputs(job.details?.input),
     };
 
-    return [...acc, ...inputRepoVertices, pipelineVertex];
+    if (!egressNodeName(job.details?.egress))
+      return [...acc, ...inputRepoVertices, pipelineVertex];
+
+    // Egress nodes are a visual representation of a pipeline setting that is
+    // unique to our DAG, so we want to append a identifier to the name to have it
+    // differ from the pipeline name.
+
+    const egressName = egressNodeName(job.details?.egress);
+
+    const egressNode: Vertex = {
+      id: generateVertexId(projectName, `${pipelineName}.egress`),
+      project: projectName,
+      name: egressName || '',
+      type: NodeType.EGRESS,
+      egressType: jobEgressType(job.details),
+      access: true,
+      parents: [
+        {
+          id: generateVertexId(projectName, pipelineName),
+          project: projectName,
+          name: pipelineName,
+          type: VertexIdentifierType.DEFAULT,
+        },
+      ],
+      state: undefined,
+      jobState: undefined,
+      nodeState: undefined,
+      jobNodeState: undefined,
+      createdAt: getUnixSecondsFromISOString(job?.created),
+    };
+
+    return [...acc, ...inputRepoVertices, pipelineVertex, egressNode];
   }, []);
 
   return uniqBy(vertices, (v) => v.id);

@@ -7,6 +7,7 @@ import {
   Egress,
   Input,
   PipelineInfoDetails,
+  JobInfoDetails,
 } from '@dash-frontend/api/pps';
 import {getUnixSecondsFromISOString} from '@dash-frontend/lib/dateTime';
 
@@ -22,6 +23,15 @@ export const egressNodeName = (egress?: EgressInput) => {
       egress.sqlDatabase?.url ||
       egress.objectStorage?.url
     );
+  }
+};
+export const jobEgressType = (details?: JobInfoDetails) => {
+  if (details?.egress) {
+    if (details.egress.objectStorage) {
+      return EgressType.STORAGE;
+    } else if (details.egress.sqlDatabase) {
+      return EgressType.DB;
+    }
   }
 };
 
