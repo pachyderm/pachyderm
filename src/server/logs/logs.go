@@ -117,9 +117,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) (bool, error) {
 			older = e
-			return nil
+			return false, nil
 		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
@@ -215,7 +215,7 @@ type adapter struct {
 	pass              func(*logs.LogMessage) bool
 }
 
-func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	var msg = &logs.LogMessage{
 		Verbatim: &logs.VerbatimLogMessage{
 			Line:      []byte(entry.Line),
@@ -248,14 +248,14 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 	}
 
 	if a.pass != nil && !a.pass(msg) {
-		return nil
+		return true, nil
 	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
 			Log: msg,
 		},
 	}); err != nil {
-		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-	return nil
+	return false, nil
 }
