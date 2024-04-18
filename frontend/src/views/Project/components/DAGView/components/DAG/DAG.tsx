@@ -12,7 +12,6 @@ import {
   REPO_GRADIENT_MASK,
   TOP_ROUNDED_BUTTON_PATH,
 } from '../../../../constants/nodeSizes';
-import {SIDENAV_PADDING} from '../../hooks/useDAGView';
 import HoveredNodeProvider from '../../providers/HoveredNodeProvider';
 import HoverStats from '../HoverStats';
 
@@ -22,7 +21,7 @@ import styles from './DAG.module.css';
 import useDag from './hooks/useDag';
 
 const DAG_TOP_PADDING = 30;
-const DAG_SIDE_PADDING = SIDENAV_PADDING;
+const DAG_SIDE_PADDING = 184;
 const HIDE_DETAILS_THRESHOLD = 0.6;
 const SIMPLE_DAG_THRESHOLD = 0.3;
 
@@ -37,20 +36,17 @@ const MARKERS = [
 
 type DagProps = {
   data: Dags | undefined;
-  svgSize: {
-    height: number;
-    width: number;
-  };
   rotateDag: () => void;
   forceFullRender?: boolean;
   dagDirection: DagDirection;
+  dagRef: React.RefObject<SVGSVGElement>;
 };
 
 const DAG: React.FC<DagProps> = ({
   data,
-  svgSize,
   forceFullRender = false,
   dagDirection,
+  dagRef,
 }) => {
   const {
     translateX,
@@ -80,7 +76,9 @@ const DAG: React.FC<DagProps> = ({
         id="Svg"
         className={styles.base}
         preserveAspectRatio="xMinYMid meet"
-        viewBox={`0 0 ${svgSize.width} ${svgSize.height}`}
+        ref={dagRef}
+        width="100%"
+        height="100%"
       >
         <defs>
           {MARKERS.map((marker) => (

@@ -14,10 +14,6 @@
   left: 1rem;
 }
 
-.padding .base {
-  bottom: 4.125rem;
-}
-
 .border {
   display: flex;
   align-items: center;

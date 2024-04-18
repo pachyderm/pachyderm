@@ -10,8 +10,11 @@
 
 .base {
   width: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .dagContainer {
   position: relative;
+  flex: 1;
 }

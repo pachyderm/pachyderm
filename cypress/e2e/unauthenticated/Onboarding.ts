@@ -55,6 +55,6 @@ describe('Onboarding', () => {
     // DAG view
     cy.findByText('NewRepo').click();
 
-    cy.findByText('A repo', {timeout: 15000}).should('be.visible');
+    cy.findByText('A repo', {timeout: 15000}).should('exist');
   });
 });

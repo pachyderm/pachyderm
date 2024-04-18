@@ -54,13 +54,13 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
     rotateDag,
     dagDirection,
     sliderZoomValue,
-    svgSize,
     zoomOut,
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
     graphExtents,
     projectName,
     searchParams,
+    dagRef,
   } = useDAGView(NODE_WIDTH, NODE_HEIGHT, dags, loading);
   const {isOpen: isSidebarOpen, sidebarSize} = useSidebarInfo();
   const {renderAndDownloadCanvas, downloadCanvas} = useCanvasDownload(
@@ -270,8 +270,8 @@ const DAGView: React.FC<DAGViewProps> = ({dags, loading, error}) => {
         dagDirection={dagDirection}
         data={dags}
         rotateDag={rotateDag}
-        svgSize={svgSize}
         forceFullRender={renderAndDownloadCanvas}
+        dagRef={dagRef}
       />
       {isOpen && <CreateRepoModal show={isOpen} onHide={closeModal} />}
     </View>

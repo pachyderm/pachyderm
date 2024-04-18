@@ -13,6 +13,7 @@ import {
 
 import useCurrentProject from '@dash-frontend/hooks/useCurrentProject';
 import useLocalProjectSettings from '@dash-frontend/hooks/useLocalProjectSettings';
+import {DEFAULT_SIDEBAR_SIZE} from '@dash-frontend/hooks/useSidebarInfo';
 import useUrlQueryState from '@dash-frontend/hooks/useUrlQueryState';
 import useUrlState from '@dash-frontend/hooks/useUrlState';
 import {DagDirection, Node, Dags} from '@dash-frontend/lib/types';
@@ -21,13 +22,10 @@ import {NODE_HEIGHT, NODE_WIDTH} from '../../../constants/nodeSizes';
 
 import useDAGRouteController from './useDAGRouteController';
 
-const SIDEBAR_WIDTH = 384;
-const MIN_DAG_HEIGHT = 300;
-const DAG_TOP_PADDING = 130;
-export const SIDENAV_PADDING = 184;
 export const MAX_SCALE_VALUE = 1.5;
 const CENTER_SCALE_VALUE = 1;
 const DEFAULT_MINIMUM_SCALE_VALUE = 0.6;
+const DAG_CONTROLS_HEIGHT = 65;
 
 interface DagState {
   interacted: boolean;
@@ -75,10 +73,7 @@ export const useDAGView = (
   dags: Dags | undefined,
   loading: boolean,
 ) => {
-  const [svgSize, setSvgSize] = useState({
-    height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
-    width: window.innerWidth - SIDENAV_PADDING,
-  });
+  const dagRef = useRef<SVGSVGElement>(null);
   const {selectedNode} = useDAGRouteController();
   const {searchParams} = useUrlQueryState();
   const {pipelineId, repoId, projectId} = useUrlState();
@@ -88,6 +83,11 @@ export const useDAGView = (
   );
   const [skipCenterOnSelect, setSkipCenterOnSelectSetting] =
     useLocalProjectSettings({projectId, key: 'skip_center_on_select'});
+  const [sidebarWidthSetting] = useLocalProjectSettings({
+    projectId,
+    key: 'sidebar_width',
+  });
+  const sidebarSize = Number(sidebarWidthSetting || DEFAULT_SIDEBAR_SIZE);
   const [dagState, dispatch] = useReducer(dagReducer, {
     interacted: false,
     reset: false,
@@ -140,23 +140,36 @@ export const useDAGView = (
     return dagSize > 0 ? svgMeasurement / dagSize : 1;
   };
 
-  const startScale = useMemo(() => {
+  // get the scale needed to display the entire dag within the svg container
+  const getMinimumScale = useCallback(() => {
     const {xMax, yMax} = graphExtents;
+    if (dagRef.current) {
+      const svgSize = dagRef.current?.getBoundingClientRect() || {
+        width: 0,
+        height: 0,
+      };
 
-    const xScale = getScale(svgSize.width, xMax, nodeWidth);
-    const yScale = getScale(svgSize.height, yMax, nodeHeight);
-    return Math.min(xScale, yScale, MAX_SCALE_VALUE);
-  }, [graphExtents, nodeHeight, nodeWidth, svgSize]);
+      const xScale = getScale(svgSize?.width, xMax, nodeWidth);
+      const yScale = getScale(
+        svgSize?.height - DAG_CONTROLS_HEIGHT,
+        yMax,
+        nodeHeight,
+      );
+      return Math.min(xScale, yScale, MAX_SCALE_VALUE);
+    } else return 1;
+  }, [graphExtents, nodeHeight, nodeWidth, dagRef]);
 
   const applyZoom = useCallback(
     (event: D3ZoomEvent<SVGSVGElement, unknown>) => {
       const {transform} = event;
 
-      select<SVGGElement, unknown>('#Dags').attr(
-        'transform',
-        transform.toString(),
-      );
-      setSliderZoomValue(transform.k);
+      if (!isNaN(transform.k)) {
+        select<SVGGElement, unknown>('#Dags').attr(
+          'transform',
+          transform.toString(),
+        );
+        setSliderZoomValue(transform.k);
+      }
 
       // capture interaction for mousewheel and panning events
       if (event.sourceEvent) dispatch({type: 'PAN'});
@@ -165,47 +178,42 @@ export const useDAGView = (
   );
 
   const centerDag = useCallback(() => {
-    if (zoomRef.current) {
+    if (zoomRef.current && dagRef.current) {
       const svg = select<SVGSVGElement, unknown>('#Svg');
       const horizontal = dagDirection === DagDirection.RIGHT;
       const {xMin, xMax, yMin, yMax} = graphExtents;
+      const svgSize = dagRef.current?.getBoundingClientRect();
+      const startScale = getMinimumScale();
+
+      const verticalDAGYTranslate =
+        nodeHeight * startScale > DAG_CONTROLS_HEIGHT
+          ? nodeHeight * startScale
+          : DAG_CONTROLS_HEIGHT;
 
       const yTranslate = horizontal
-        ? svgSize.height / 2 - ((yMin + yMax) / 2) * startScale - nodeHeight
-        : nodeHeight * startScale;
+        ? (svgSize.height + DAG_CONTROLS_HEIGHT) / 2 -
+          ((yMin + yMax) / 2) * startScale
+        : verticalDAGYTranslate;
 
       const xTranslate = horizontal
-        ? nodeWidth / 2
+        ? (nodeWidth * startScale) / 2
         : svgSize.width / 2 - ((xMin + xMax) / 2) * startScale;
+
       // translate to center of svg and align based on direction
       const transform = zoomIdentity
-        .translate(
-          xTranslate < 0 ? xTranslate : xTranslate,
-          yTranslate < 0 ? yTranslate : yTranslate,
-        )
+        .translate(xTranslate, yTranslate)
         .scale(startScale);
 
       // zoom.transform does not obey the constraints set on panning and zooming,
       // if constraints are added this should be updated to use one of the methods that obeys them.
       svg.transition().duration(250).call(zoomRef.current.transform, transform);
-
       setSliderZoomValue(startScale);
     }
-  }, [dagDirection, graphExtents, nodeHeight, nodeWidth, startScale, svgSize]);
-
-  // set window resize listener for svg parent size
-  useEffect(() => {
-    const resizeSvg = () =>
-      setSvgSize({
-        height: Math.max(MIN_DAG_HEIGHT, window.innerHeight - DAG_TOP_PADDING),
-        width: window.innerWidth - SIDENAV_PADDING,
-      });
-    window.addEventListener('resize', resizeSvg, true);
-    return () => window.removeEventListener('resize', resizeSvg);
-  }, []);
+  }, [dagDirection, getMinimumScale, graphExtents, nodeHeight, nodeWidth]);
 
   //initialize zoom and set minimum scale as dags update
   useEffect(() => {
+    const startScale = getMinimumScale();
     if (!zoomRef.current) {
       zoomRef.current = d3Zoom<SVGSVGElement, unknown>().on('zoom', applyZoom);
     }
@@ -221,7 +229,7 @@ export const useDAGView = (
     setMinScale(Math.min(startScale, DEFAULT_MINIMUM_SCALE_VALUE));
     // need to re-apply this effect when loading changes, so that the
     // zoomRef can be updated to reflect the new DAG scale
-  }, [startScale, svgSize.height, svgSize.width, applyZoom, loading]);
+  }, [applyZoom, loading, getMinimumScale, centerDag]);
 
   // center dag or apply last translation if interacted with when dags update
   useEffect(() => {
@@ -264,9 +272,15 @@ export const useDAGView = (
 
       if (x && y && zoomRef.current && !loading && interacted && !reset) {
         const svg = select<SVGSVGElement, unknown>('#Svg');
+        const svgSize = dagRef.current
+          ? dagRef.current?.getBoundingClientRect()
+          : {
+              width: 0,
+              height: 0,
+            };
 
         const selectedNodeCenterX =
-          (svgSize.width - SIDEBAR_WIDTH) / 2 -
+          (svgSize.width - sidebarSize) / 2 -
           (x + nodeWidth / 2) * CENTER_SCALE_VALUE;
         const selectedNodeCenterY =
           svgSize.height / 2 - (y + nodeHeight / 2) * CENTER_SCALE_VALUE;
@@ -288,12 +302,13 @@ export const useDAGView = (
     nodeHeight,
     nodeWidth,
     selectedNode,
-    svgSize,
     interacted,
     reset,
     skipCenterOnSelect,
     currentProject?.project?.name,
     dags?.nodes,
+    sidebarWidthSetting,
+    sidebarSize,
   ]);
 
   // reset interaction on empty canvas
@@ -361,12 +376,12 @@ export const useDAGView = (
     rotateDag,
     dagDirection,
     sliderZoomValue,
-    svgSize,
     zoomOut,
     skipCenterOnSelect,
     handleChangeCenterOnSelect,
     graphExtents,
     projectName: currentProject?.project?.name,
     searchParams,
+    dagRef,
   };
 };

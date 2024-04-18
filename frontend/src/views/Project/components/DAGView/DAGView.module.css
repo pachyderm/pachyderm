@@ -4,7 +4,9 @@
 }
 
 .topSection {
+  position: absolute;
   display: inline-flex;
+  pointer-events: none;
   justify-content: space-between;
   width: 100%;
   padding: 1rem;
@@ -13,6 +15,7 @@
 .canvasControls {
   display: inline-flex;
   align-items: center;
+  pointer-events: all;
   margin-bottom: 0.125rem;
   border-radius: 3px;
   filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.1));

@@ -118,8 +118,6 @@ const HoverStats: React.FC<HoverStatsProps> = ({
   const [debouncedValue, setDebouncedValue] = useState('');
   const {hoveredNode} = useHoveredNode();
   const prevHoveredNode = usePreviousValue(hoveredNode);
-  const {searchParams} = useUrlQueryState();
-  const globalId = searchParams.globalIdFilter;
 
   useEffect(() => {
     if (hoveredNode === '') {
@@ -154,9 +152,8 @@ const HoverStats: React.FC<HoverStatsProps> = ({
           (!isRepo(node.type) && !(node.type === NodeType.EGRESS))),
     );
 
-  // TODO: remove padding when FRON-1442 is complete
   return (
-    <div className={classNames({[styles.padding]: globalId})}>
+    <div>
       {foundLink && <LinkStats key={foundLink.id} link={foundLink} />}
       {foundNode && (
         <NodeStats
