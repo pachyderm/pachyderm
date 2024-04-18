@@ -167,7 +167,7 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 			datum := query.Datum
 			return fmt.Sprintf(`{container=~"user|storage"} | json | datumId=%q or datum=%q`, datum, datum), nil
 		case *logs.UserLogQuery_Project:
-			return fmt.Sprintf(`{container=~"user"} | json | projectName=%q`, query.Project), nil
+			return fmt.Sprintf(`{projectName="%q"}`, query.Project), nil
 		default:
 			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
 		}
