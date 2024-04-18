@@ -85,8 +85,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	var adapter = adapter{responsePublisher: publisher}
-	logQL, err := toLogQL(request)
+	var (
+		adapter = adapter{responsePublisher: publisher}
+		logQL   string
+	)
+	logQL, adapter.pass, err = compileRequest(request)
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
@@ -152,31 +155,50 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
-func toLogQL(request *logs.GetLogsRequest) (string, error) {
+func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage) bool, error) {
 	if request == nil {
-		return "", errors.New("nil request")
+		return "", nil, errors.New("nil request")
 	}
 	query := request.Query
 	if query == nil {
-		return "", nil
+		return "", nil, nil
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
 		switch query := query.User.GetUserType().(type) {
 		case *logs.UserLogQuery_Datum:
-			return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %s`, query.Datum), nil
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, query.Datum), func(msg *logs.LogMessage) bool {
+				if msg.GetPpsLogMessage().GetDatumId() == query.Datum {
+					return true
+				}
+				ff := msg.GetObject().GetFields()
+				if ff != nil {
+					v, ok := ff["datumId"]
+					if ok {
+						if v.GetStringValue() == query.Datum {
+							return true
+						} else {
+							fmt.Println("QQQ v", v.GetStringValue())
+						}
+					} else {
+						fmt.Println("QQQ fields", ff)
+					}
+				}
+
+				return false
+			}, nil
 		default:
-			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+			return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 		}
 	case *logs.LogQuery_Admin:
 		switch query := query.Admin.GetAdminType().(type) {
 		case *logs.AdminLogQuery_Logql:
-			return query.Logql, nil
+			return query.Logql, nil, nil
 		default:
-			return "", nil
+			return "", nil, nil
 		}
 	default:
-		return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
 }
 
@@ -190,7 +212,7 @@ type adapter struct {
 	responsePublisher ResponsePublisher
 	first, last       loki.Entry
 	gotFirst          bool
-	filter            func(*logs.LogMessage) bool
+	pass              func(*logs.LogMessage) bool
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
@@ -225,6 +247,9 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
 		msg.NativeTimestamp = msg.PpsLogMessage.Ts
 	}
 
+	if a.pass != nil && !a.pass(msg) {
+		return nil
+	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
 			Log: msg,
