@@ -191,46 +191,44 @@ type adapter struct {
 	responsePublisher ResponsePublisher
 	first, last       loki.Entry
 	gotFirst          bool
+	filter            func(*logs.LogMessage) bool
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
-	var ts *timestamppb.Timestamp
+	var msg = &logs.LogMessage{
+		Verbatim: &logs.VerbatimLogMessage{
+			Line:      []byte(entry.Line),
+			Timestamp: timestamppb.New(entry.Timestamp),
+		},
+	}
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
 	}
-	object := new(structpb.Struct)
-	if err := object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+	msg.Object = new(structpb.Struct)
+	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
 		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-		object = nil
-	} else if val := object.Fields["time"].GetStringValue(); val != "" {
+		msg.Object = nil
+	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
 		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-			ts = timestamppb.New(t)
+			msg.NativeTimestamp = timestamppb.New(t)
 		}
 	}
-	ppsLogMessage := new(pps.LogMessage)
+	msg.PpsLogMessage = new(pps.LogMessage)
 	m := protojson.UnmarshalOptions{
 		AllowPartial:   true,
 		DiscardUnknown: true,
 	}
-	if err := m.Unmarshal([]byte(entry.Line), ppsLogMessage); err != nil {
+	if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
 		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
-		ppsLogMessage = nil
-	} else if ppsLogMessage.Ts != nil {
-		ts = ppsLogMessage.Ts
+		msg.PpsLogMessage = nil
+	} else if msg.PpsLogMessage.Ts != nil {
+		msg.NativeTimestamp = msg.PpsLogMessage.Ts
 	}
 
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
-			Log: &logs.LogMessage{
-				Verbatim: &logs.VerbatimLogMessage{
-					Line:      []byte(entry.Line),
-					Timestamp: timestamppb.New(entry.Timestamp),
-				},
-				NativeTimestamp: ts,
-				Object:          object,
-				PpsLogMessage:   ppsLogMessage,
-			},
+			Log: msg,
 		},
 	}); err != nil {
 		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
