@@ -54,12 +54,18 @@ func NewReader(chunks *chunk.Storage, cache *Cache, topIdx *Index, opts ...Optio
 	return r
 }
 
-// Iterate iterates over the lowest level (file type) indexes.
-func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
-	ctx = pctx.Child(ctx, "indexReader.Iterate",
+// ctxWithMetrics returns a child context with relevant reader metrics.
+func ctxWithMetrics(ctx context.Context) context.Context {
+	return pctx.Child(ctx, "indexReader.Iterate",
 		pctx.WithCounter("skippedIndices", 0),
 		pctx.WithCounter("readFiles", 0),
-		pctx.WithCounter("traversedRanges", 0))
+		pctx.WithCounter("traversedRanges", 0),
+		pctx.WithCounter("chunks", 0))
+}
+
+// Iterate iterates over the lowest level (file type) indexes.
+func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
+	ctx = ctxWithMetrics(ctx)
 	if r.topIdx == nil {
 		return nil
 	}
@@ -145,6 +151,7 @@ func (r *Reader) getChunk(ctx context.Context, idx *Index, w io.Writer) error {
 		return r.cache.Get(ctx, chunkRef, r.filter, w)
 	}
 	cr := r.chunks.NewReader(ctx, []*chunk.DataRef{idx.Range.ChunkRef})
+	meters.Inc(ctx, "chunks", 1)
 	return cr.Get(w)
 }
 
@@ -225,9 +232,7 @@ type ShardConfig struct {
 // A subtree is traversed only when a split point exists within it, which we know based on the NumFiles and SizeBytes
 // values at the root of each subtree.
 func (r *Reader) Shards(ctx context.Context) ([]*PathRange, error) {
-	ctx = pctx.Child(ctx, "indexReader.Shards",
-		pctx.WithCounter("traversedRanges", 0),
-		pctx.WithCounter("skippedIndices", 0))
+	ctx = ctxWithMetrics(ctx)
 	if r.topIdx == nil || (r.topIdx.NumFiles == 0 && r.topIdx.SizeBytes == 0) {
 		return []*PathRange{{}}, nil
 	}
