@@ -224,7 +224,7 @@ func TestPipelineLogs(t *testing.T) {
 	}
 	hash, err := base64.StdEncoding.DecodeString("Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU=")
 	if err != nil {
-		t.Fatalf("base64 error")
+		t.Fatalf("base64 error: %v", err)
 	}
 	messageTexts := []string{
 		"/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment. 1",
@@ -240,6 +240,14 @@ func TestPipelineLogs(t *testing.T) {
 		now.Add(3 * time.Second),
 	}
 	pipelineLogs := []*testloki.Log{
+		{
+			Time: time.Date(2024, 04, 16, 21, 10, 36, 717965399, time.UTC),
+			Labels: map[string]string{
+				"app":   "pachd",
+				"suite": "pachyderm",
+			},
+			Message: `{"severity":"info","time":"2024-04-16T21:10:36.717965399Z","caller":"pachd/main.go:40","message":"pachd: starting","mode":"full"}`,
+		},
 		{
 			Time:    ts[0],
 			Labels:  labels,
@@ -268,17 +276,6 @@ func TestPipelineLogs(t *testing.T) {
 				Log: &logs.LogMessage{
 					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234151650, time.UTC)),
 					Verbatim: &logs.VerbatimLogMessage{
-						Line:      []byte(pipelineLogs[0].Message),
-						Timestamp: timestamppb.New(pipelineLogs[0].Time),
-					},
-				},
-			},
-		},
-		{
-			ResponseType: &logs.GetLogsResponse_Log{
-				Log: &logs.LogMessage{
-					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234183251, time.UTC)),
-					Verbatim: &logs.VerbatimLogMessage{
 						Line:      []byte(pipelineLogs[1].Message),
 						Timestamp: timestamppb.New(pipelineLogs[1].Time),
 					},
@@ -288,7 +285,7 @@ func TestPipelineLogs(t *testing.T) {
 		{
 			ResponseType: &logs.GetLogsResponse_Log{
 				Log: &logs.LogMessage{
-					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234186851, time.UTC)),
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234183251, time.UTC)),
 					Verbatim: &logs.VerbatimLogMessage{
 						Line:      []byte(pipelineLogs[2].Message),
 						Timestamp: timestamppb.New(pipelineLogs[2].Time),
@@ -299,7 +296,7 @@ func TestPipelineLogs(t *testing.T) {
 		{
 			ResponseType: &logs.GetLogsResponse_Log{
 				Log: &logs.LogMessage{
-					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234188451, time.UTC)),
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234186851, time.UTC)),
 					Verbatim: &logs.VerbatimLogMessage{
 						Line:      []byte(pipelineLogs[3].Message),
 						Timestamp: timestamppb.New(pipelineLogs[3].Time),
@@ -307,9 +304,21 @@ func TestPipelineLogs(t *testing.T) {
 				},
 			},
 		},
+		{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234188451, time.UTC)),
+					Verbatim: &logs.VerbatimLogMessage{
+						Line:      []byte(pipelineLogs[4].Message),
+						Timestamp: timestamppb.New(pipelineLogs[4].Time),
+					},
+				},
+			},
+		},
 	}
 
-	for i, log := range pipelineLogs {
+	for i := range wants {
+		log := pipelineLogs[i+1] // the 0th piece of testdata should not be returned.
 		object := new(structpb.Struct)
 		if err := object.UnmarshalJSON([]byte(log.Message)); err != nil {
 			t.Fatalf("failed to unmarshal json into protobuf Struct, %q, %q", err, log.Message)
