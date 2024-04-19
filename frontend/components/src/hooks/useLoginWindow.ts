@@ -44,6 +44,11 @@ const useLoginWindow = ({onSuccess = noop}: UseLoginWindowProps = {}) => {
       const nonce = getRandomString(20);
       const features = `width=${500},height=${500},left=${x},top=${y}`;
 
+      window.localStorage.setItem(
+        `${nonce}_original_page`,
+        window.location.pathname + window.location.search,
+      );
+
       let url = `${authUrl}?${[
         `client_id=${clientId}`,
         `redirect_uri=${openWindow ? redirect : `${redirect}?inline=true`}`,
