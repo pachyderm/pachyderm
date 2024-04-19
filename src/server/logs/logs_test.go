@@ -18,6 +18,7 @@ import (
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
+	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
 )
 
 type testPublisher struct {
@@ -194,5 +195,46 @@ func TestGetDatumLogs(t *testing.T) {
 		},
 	}, publisher), "GetLogs should succeed")
 	require.True(t, foundQuery, "datum LogQL query should be found")
+
+}
+
+func TestGetProjectLogs(t *testing.T) {
+	var (
+		ctx             = pctx.TestContext(t)
+		foundQuery      bool
+		projectName     = testutil.UniqueString("projectName")
+		datumMiddleware = func(next http.Handler) http.Handler {
+			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+				q := req.URL.Query()
+				if q := q.Get("query"); q != "" {
+					if strings.Contains(q, fmt.Sprintf(`projectName="%s"`, projectName)) {
+						foundQuery = true
+					}
+				}
+				next.ServeHTTP(rw, req)
+			})
+		}
+		fakeLoki = httptest.NewServer(datumMiddleware(&lokiutil.FakeServer{}))
+		ls       = logservice.LogService{
+			GetLokiClient: func() (*loki.Client, error) {
+				return &loki.Client{Address: fakeLoki.URL}, nil
+			},
+		}
+		publisher *testPublisher
+	)
+	defer fakeLoki.Close()
+	publisher = new(testPublisher)
+	require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_User{
+				User: &logs.UserLogQuery{
+					UserType: &logs.UserLogQuery_Project{
+						Project: projectName,
+					},
+				},
+			},
+		},
+	}, publisher), "GetLogs should succeed")
+	require.True(t, foundQuery, "project LogQL query should be found")
 
 }

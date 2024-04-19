@@ -98,6 +98,13 @@
                     "additionalProperties": false,
                     "type": "array"
                 },
+                "directSubvenance": {
+                    "items": {
+                        "$ref": "#/definitions/pfs_v2.Commit"
+                    },
+                    "additionalProperties": false,
+                    "type": "array"
+                },
                 "error": {
                     "type": "string"
                 },

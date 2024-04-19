@@ -35,6 +35,7 @@ go_test(
         "//src/internal/lokiutil/client",
         "//src/internal/pctx",
         "//src/internal/require",
+        "//src/internal/testutil",
         "//src/logs",
         "//src/pps",
         "@com_github_google_go_cmp//cmp",

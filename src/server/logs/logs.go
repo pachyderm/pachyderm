@@ -177,11 +177,7 @@ func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage
 					if ok {
 						if v.GetStringValue() == query.Datum {
 							return true
-						} else {
-							fmt.Println("QQQ v", v.GetStringValue())
 						}
-					} else {
-						fmt.Println("QQQ fields", ff)
 					}
 				}
 

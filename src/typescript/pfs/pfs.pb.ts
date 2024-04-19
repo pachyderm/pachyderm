@@ -196,6 +196,7 @@ export type CommitInfo = {
   finishing?: GoogleProtobufTimestamp.Timestamp
   finished?: GoogleProtobufTimestamp.Timestamp
   directProvenance?: Commit[]
+  directSubvenance?: Commit[]
   error?: string
   sizeBytesUpperBound?: string
   details?: CommitInfoDetails
