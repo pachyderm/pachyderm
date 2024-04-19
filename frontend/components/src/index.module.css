@@ -40,12 +40,13 @@
   --pachyderm-green: #5ba3b1;
   --banner-green: #19caaa;
   --success-green: #00dbb4;
+  --selected-green: #00a486;
   --icon-green: #118873;
-  --background-green-light: #ecfbf7;
-  --background-green-lighter: #f0f6f8;
   --background-blue: #ecf5f7;
   --background-blue-light: #f7fbfb;
+  --background-blue-light-active: #bdd4e0;
   --background-blue-table: #f0f6f8;
+  --hover-blue: #7e99a7;
 
   --pachyderm-red: #bf444f;
   --error-red: #e02020;
