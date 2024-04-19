@@ -33,6 +33,7 @@ go_test(
         "//src/internal/errors",
         "//src/internal/lokiutil",
         "//src/internal/lokiutil/client",
+        "//src/internal/lokiutil/testloki",
         "//src/internal/pctx",
         "//src/internal/require",
         "//src/logs",

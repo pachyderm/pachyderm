@@ -163,6 +163,10 @@ func toLogQL(request *logs.GetLogsRequest) (string, error) {
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
 		switch query := query.User.GetUserType().(type) {
+		case *logs.UserLogQuery_Pipeline:
+			pipeline := query.Pipeline.Pipeline
+			project := query.Pipeline.Project
+			return fmt.Sprintf(`{app =~ "pipeline", suite = "pachyderm"} | json | projectName=%q and pipelineName=%q`, project, pipeline), nil
 		case *logs.UserLogQuery_Datum:
 			datum := query.Datum
 			return fmt.Sprintf(`{container=~"user|storage"} | json | datumId=%q or datum=%q`, datum, datum), nil
