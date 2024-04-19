@@ -166,6 +166,13 @@ func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
 		switch query := query.User.GetUserType().(type) {
+		case *logs.UserLogQuery_Pipeline:
+			pipeline := query.Pipeline.Pipeline
+			project := query.Pipeline.Project
+			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
+				func(lm *logs.LogMessage) bool {
+					return true
+				}, nil
 		case *logs.UserLogQuery_Datum:
 			return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, query.Datum), func(msg *logs.LogMessage) bool {
 				if msg.GetPpsLogMessage().GetDatumId() == query.Datum {
