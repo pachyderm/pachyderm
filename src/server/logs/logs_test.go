@@ -2,27 +2,27 @@ package logs_test
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
-	"encoding/base64"
 
+	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
-	"google.golang.org/protobuf/types/known/timestamppb"
-  "google.golang.org/protobuf/testing/protocmp"
-  "github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
-	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/testloki"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
@@ -214,144 +214,144 @@ func TestPipelineLogs(t *testing.T) {
 			t.Fatalf("clean up loki: %v", err)
 		}
 	})
-  labels := map[string]string{
-    "app": "pipeline",
-    "component": "worker",
-    "pipelineName": "edges",
-    "pipelineProject": "default",
-    "pipelineVersion": "1",
-    "suite": "pachyderm",
-  }
-  hash, err := base64.StdEncoding.DecodeString("Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU=")
-  if err != nil {
-    t.Fatalf("base64 error")
-  }
-  messageTexts := []string{
-    "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment. 1",
-    "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.') 2",
-    "/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment. 3",
-    "  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.') 4",
-  }
-  now := time.Now().Add(-(time.Duration(len(messageTexts)) + 1) * time.Second)
-  ts := []time.Time{
-    now,
-    now.Add(time.Second),
-    now.Add(2 * time.Second),
-    now.Add(3 * time.Second),
-  }
-  pipelineLogs := []*testloki.Log{
-    {
-      Time: ts[0],
-      Labels: labels,
-      Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234151650Z","message":"` + messageTexts[0] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
-    },
-    {
-      Time: ts[1],
-      Labels: labels,
-      Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234183251Z","message":"` + messageTexts[1] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
-    },
-    {
-      Time: ts[2],
-      Labels: labels,
-      Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234186851Z","message":"` + messageTexts[2] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
-    },
-    {
-      Time: ts[3],
-      Labels: labels,
-      Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234188451Z","message":"` + messageTexts[3] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
-    },
-  }
+	labels := map[string]string{
+		"app":             "pipeline",
+		"component":       "worker",
+		"pipelineName":    "edges",
+		"pipelineProject": "default",
+		"pipelineVersion": "1",
+		"suite":           "pachyderm",
+	}
+	hash, err := base64.StdEncoding.DecodeString("Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU=")
+	if err != nil {
+		t.Fatalf("base64 error")
+	}
+	messageTexts := []string{
+		"/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment. 1",
+		"  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.') 2",
+		"/usr/local/lib/python3.4/dist-packages/matplotlib/font_manager.py:273: UserWarning: Matplotlib is building the font cache using fc-list. This may take a moment. 3",
+		"  warnings.warn('Matplotlib is building the font cache using fc-list. This may take a moment.') 4",
+	}
+	now := time.Now().Add(-(time.Duration(len(messageTexts)) + 1) * time.Second)
+	ts := []time.Time{
+		now,
+		now.Add(time.Second),
+		now.Add(2 * time.Second),
+		now.Add(3 * time.Second),
+	}
+	pipelineLogs := []*testloki.Log{
+		{
+			Time:    ts[0],
+			Labels:  labels,
+			Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234151650Z","message":"` + messageTexts[0] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
+		},
+		{
+			Time:    ts[1],
+			Labels:  labels,
+			Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234183251Z","message":"` + messageTexts[1] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
+		},
+		{
+			Time:    ts[2],
+			Labels:  labels,
+			Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234186851Z","message":"` + messageTexts[2] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
+		},
+		{
+			Time:    ts[3],
+			Labels:  labels,
+			Message: `{"severity":"info","ts":"2024-04-16T21:10:37.234188451Z","message":"` + messageTexts[3] + `","workerId":"default-edges-v1-8sx6n","projectName":"default","pipelineName":"edges","jobId":"c4cae897bc914bd4bdb6262db038ff15","data":[{"path":"/liberty.jpg","hash":"Vp/ZEXxcM96lYfLUnnuaFECJ1j4tuvla7TsY6XGF7qU="}],"datumId":"cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1","user":true,"stream":"stderr"}`,
+		},
+	}
 
-  wants := []*logs.GetLogsResponse{
-    &logs.GetLogsResponse{
-      ResponseType: &logs.GetLogsResponse_Log{
-        Log: &logs.LogMessage{
-          NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234151650, time.UTC)),
-          Verbatim: &logs.VerbatimLogMessage{
-            Line: []byte(pipelineLogs[0].Message),
-            Timestamp: timestamppb.New(pipelineLogs[0].Time),
-          },
-        },
-      },
-    },
-    &logs.GetLogsResponse{
-      ResponseType: &logs.GetLogsResponse_Log{
-        Log: &logs.LogMessage{
-          NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234183251, time.UTC)),
-          Verbatim: &logs.VerbatimLogMessage{
-            Line: []byte(pipelineLogs[1].Message),
-            Timestamp: timestamppb.New(pipelineLogs[1].Time),
-          },
-        },
-      },
-    },
-    &logs.GetLogsResponse{
-      ResponseType: &logs.GetLogsResponse_Log{
-        Log: &logs.LogMessage{
-          NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234186851, time.UTC)),
-          Verbatim: &logs.VerbatimLogMessage{
-            Line: []byte(pipelineLogs[2].Message),
-            Timestamp: timestamppb.New(pipelineLogs[2].Time),
-          },
-        },
-      },
-    },
-    &logs.GetLogsResponse{
-      ResponseType: &logs.GetLogsResponse_Log{
-        Log: &logs.LogMessage{
-          NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234188451, time.UTC)),
-          Verbatim: &logs.VerbatimLogMessage{
-            Line: []byte(pipelineLogs[3].Message),
-            Timestamp: timestamppb.New(pipelineLogs[3].Time),
-          },
-        },
-      },
-    },
-  }
+	wants := []*logs.GetLogsResponse{
+		{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234151650, time.UTC)),
+					Verbatim: &logs.VerbatimLogMessage{
+						Line:      []byte(pipelineLogs[0].Message),
+						Timestamp: timestamppb.New(pipelineLogs[0].Time),
+					},
+				},
+			},
+		},
+		{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234183251, time.UTC)),
+					Verbatim: &logs.VerbatimLogMessage{
+						Line:      []byte(pipelineLogs[1].Message),
+						Timestamp: timestamppb.New(pipelineLogs[1].Time),
+					},
+				},
+			},
+		},
+		{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234186851, time.UTC)),
+					Verbatim: &logs.VerbatimLogMessage{
+						Line:      []byte(pipelineLogs[2].Message),
+						Timestamp: timestamppb.New(pipelineLogs[2].Time),
+					},
+				},
+			},
+		},
+		{
+			ResponseType: &logs.GetLogsResponse_Log{
+				Log: &logs.LogMessage{
+					NativeTimestamp: timestamppb.New(time.Date(2024, 04, 16, 21, 10, 37, 234188451, time.UTC)),
+					Verbatim: &logs.VerbatimLogMessage{
+						Line:      []byte(pipelineLogs[3].Message),
+						Timestamp: timestamppb.New(pipelineLogs[3].Time),
+					},
+				},
+			},
+		},
+	}
 
-  for i, log := range pipelineLogs {
-    object := new(structpb.Struct)
-    if err := object.UnmarshalJSON([]byte(log.Message)); err != nil {
-      t.Fatalf("failed to unmarshal json into protobuf Struct, %q, %q", err, log.Message)
-    }
-    wants[i].GetLog().Object = object
-    wants[i].GetLog().PpsLogMessage = &pps.LogMessage{
-      ProjectName: "default",
-      PipelineName: "edges",
-      JobId: "c4cae897bc914bd4bdb6262db038ff15",
-      WorkerId: "default-edges-v1-8sx6n",
-      DatumId: "cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1",
-      Data: []*pps.InputFile{{Path: "/liberty.jpg", Hash: hash}},
-      User: true,
-      Ts: wants[i].GetLog().NativeTimestamp,
-      Message: messageTexts[i],
-    }
-    if err := aloki.AddLog(ctx, log); err != nil {
-      t.Fatalf("add log: %v", err)
-    }
-  }
+	for i, log := range pipelineLogs {
+		object := new(structpb.Struct)
+		if err := object.UnmarshalJSON([]byte(log.Message)); err != nil {
+			t.Fatalf("failed to unmarshal json into protobuf Struct, %q, %q", err, log.Message)
+		}
+		wants[i].GetLog().Object = object
+		wants[i].GetLog().PpsLogMessage = &pps.LogMessage{
+			ProjectName:  "default",
+			PipelineName: "edges",
+			JobId:        "c4cae897bc914bd4bdb6262db038ff15",
+			WorkerId:     "default-edges-v1-8sx6n",
+			DatumId:      "cef4a52be60465b328ea783037b6c46531ad7cc9f4e190f9c0e548f473cd1fd1",
+			Data:         []*pps.InputFile{{Path: "/liberty.jpg", Hash: hash}},
+			User:         true,
+			Ts:           wants[i].GetLog().NativeTimestamp,
+			Message:      messageTexts[i],
+		}
+		if err := aloki.AddLog(ctx, log); err != nil {
+			t.Fatalf("add log: %v", err)
+		}
+	}
 	ctx, c := context.WithTimeout(ctx, 10*time.Second)
 
-  ls := logservice.LogService{
-    GetLokiClient: func() (*loki.Client, error) {
-      return aloki.Client, nil
-    },
-  }
-  publisher := new(testPublisher)
-  require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-    Query: &logs.LogQuery{
-      QueryType: &logs.LogQuery_User{
-        User: &logs.UserLogQuery{
-          UserType: &logs.UserLogQuery_Pipeline{
-            Pipeline: &logs.PipelineLogQuery{
-              Project: "default",
-              Pipeline: "edges",
-            },
-          },
-        },
-      },
-    },
-  }, publisher), "GetLogs should succeed")
-  c()
-  require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
+	ls := logservice.LogService{
+		GetLokiClient: func() (*loki.Client, error) {
+			return aloki.Client, nil
+		},
+	}
+	publisher := new(testPublisher)
+	require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
+		Query: &logs.LogQuery{
+			QueryType: &logs.LogQuery_User{
+				User: &logs.UserLogQuery{
+					UserType: &logs.UserLogQuery_Pipeline{
+						Pipeline: &logs.PipelineLogQuery{
+							Project:  "default",
+							Pipeline: "edges",
+						},
+					},
+				},
+			},
+		},
+	}, publisher), "GetLogs should succeed")
+	c()
+	require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
 }
