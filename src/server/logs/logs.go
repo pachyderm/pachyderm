@@ -183,6 +183,8 @@ func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage
 
 				return false
 			}, nil
+		case *logs.UserLogQuery_Project:
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline",projectName=%q}`, query.Project), nil, nil
 		default:
 			return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 		}
