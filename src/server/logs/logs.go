@@ -85,8 +85,11 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	var adapter = adapter{responsePublisher: publisher}
-	logQL, err := toLogQL(request)
+	var (
+		adapter = adapter{responsePublisher: publisher}
+		logQL   string
+	)
+	logQL, adapter.pass, err = compileRequest(request)
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
@@ -114,9 +117,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) (bool, error) {
 			older = e
-			return nil
+			return false, nil
 		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
@@ -152,34 +155,48 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
-func toLogQL(request *logs.GetLogsRequest) (string, error) {
+func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage) bool, error) {
 	if request == nil {
-		return "", errors.New("nil request")
+		return "", nil, errors.New("nil request")
 	}
 	query := request.Query
 	if query == nil {
-		return "", nil
+		return "", nil, nil
 	}
 	switch query := query.QueryType.(type) {
 	case *logs.LogQuery_User:
 		switch query := query.User.GetUserType().(type) {
 		case *logs.UserLogQuery_Datum:
-			datum := query.Datum
-			return fmt.Sprintf(`{container=~"user|storage"} | json | datumId=%q or datum=%q`, datum, datum), nil
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, query.Datum), func(msg *logs.LogMessage) bool {
+				if msg.GetPpsLogMessage().GetDatumId() == query.Datum {
+					return true
+				}
+				ff := msg.GetObject().GetFields()
+				if ff != nil {
+					v, ok := ff["datumId"]
+					if ok {
+						if v.GetStringValue() == query.Datum {
+							return true
+						}
+					}
+				}
+
+				return false
+			}, nil
 		case *logs.UserLogQuery_Project:
-			return fmt.Sprintf(`{projectName=%q}`, query.Project), nil
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline",projectName=%q}`, query.Project), nil, nil
 		default:
-			return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+			return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 		}
 	case *logs.LogQuery_Admin:
 		switch query := query.Admin.GetAdminType().(type) {
 		case *logs.AdminLogQuery_Logql:
-			return query.Logql, nil
+			return query.Logql, nil, nil
 		default:
-			return "", nil
+			return "", nil, nil
 		}
 	default:
-		return "", errors.Wrapf(ErrUnimplemented, "%T", query)
+		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
 }
 
@@ -193,49 +210,50 @@ type adapter struct {
 	responsePublisher ResponsePublisher
 	first, last       loki.Entry
 	gotFirst          bool
+	pass              func(*logs.LogMessage) bool
 }
 
-func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
-	var ts *timestamppb.Timestamp
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
+	var msg = &logs.LogMessage{
+		Verbatim: &logs.VerbatimLogMessage{
+			Line:      []byte(entry.Line),
+			Timestamp: timestamppb.New(entry.Timestamp),
+		},
+	}
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
 	}
-	object := new(structpb.Struct)
-	if err := object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+	msg.Object = new(structpb.Struct)
+	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
 		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-		object = nil
-	} else if val := object.Fields["time"].GetStringValue(); val != "" {
+		msg.Object = nil
+	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
 		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-			ts = timestamppb.New(t)
+			msg.NativeTimestamp = timestamppb.New(t)
 		}
 	}
-	ppsLogMessage := new(pps.LogMessage)
+	msg.PpsLogMessage = new(pps.LogMessage)
 	m := protojson.UnmarshalOptions{
 		AllowPartial:   true,
 		DiscardUnknown: true,
 	}
-	if err := m.Unmarshal([]byte(entry.Line), ppsLogMessage); err != nil {
+	if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
 		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
-		ppsLogMessage = nil
-	} else if ppsLogMessage.Ts != nil {
-		ts = ppsLogMessage.Ts
+		msg.PpsLogMessage = nil
+	} else if msg.PpsLogMessage.Ts != nil {
+		msg.NativeTimestamp = msg.PpsLogMessage.Ts
 	}
 
+	if a.pass != nil && !a.pass(msg) {
+		return true, nil
+	}
 	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
 		ResponseType: &logs.GetLogsResponse_Log{
-			Log: &logs.LogMessage{
-				Verbatim: &logs.VerbatimLogMessage{
-					Line:      []byte(entry.Line),
-					Timestamp: timestamppb.New(entry.Timestamp),
-				},
-				NativeTimestamp: ts,
-				Object:          object,
-				PpsLogMessage:   ppsLogMessage,
-			},
+			Log: msg,
 		},
 	}); err != nil {
-		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
-	return nil
+	return false, nil
 }

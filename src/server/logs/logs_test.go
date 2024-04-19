@@ -166,7 +166,7 @@ func TestGetDatumLogs(t *testing.T) {
 			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				q := req.URL.Query()
 				if q := q.Get("query"); q != "" {
-					if strings.Contains(q, `datumId="12d0b112f8deea684c4530693545901608bfb088d564d3c68dddaf2a02d446f5"`) && strings.Contains(q, `datum="12d0b112f8deea684c4530693545901608bfb088d564d3c68dddaf2a02d446f5"`) {
+					if strings.Contains(q, `"12d0b112f8deea684c4530693545901608bfb088d564d3c68dddaf2a02d446f5"`) {
 						foundQuery = true
 					}
 				}
