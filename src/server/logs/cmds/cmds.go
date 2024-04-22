@@ -205,6 +205,9 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 		result += " --to " + shellescape.Quote(until.AsTime().Format(time.RFC3339Nano))
 	}
 	for flag, arg := range flags {
+		if flag == "from" || flag == "to" {
+			continue
+		}
 		result += " --" + flag + " " + shellescape.Quote(arg)
 	}
 	return result
