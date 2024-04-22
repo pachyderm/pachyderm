@@ -36,13 +36,15 @@ describe('mount', () => {
     cy.findAllByText('liberty.png').first().rightclick();
     cy.get('ul.lm-Menu-content.p-Menu-content')
       .children()
-      .should('have.length', 3)
+      .should('have.length', 4)
       .first()
       .should('have.text', 'Open')
       .next()
       .should('have.text', 'Copy Path')
       .next()
-      .should('have.text', 'Download');
+      .should('have.text', 'Download')
+      .next()
+      .should('have.text', 'Copy Pachyderm File URI');
   });
 
   it('file browser should have loading attribute', () => {
