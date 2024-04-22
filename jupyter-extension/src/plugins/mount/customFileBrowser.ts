@@ -14,6 +14,7 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
+import {IPachydermModel} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -145,6 +146,7 @@ const createCustomFileBrowser = (
           if (navigator.clipboard && window.isSecureContext) {
             let fileUris = '';
             each(browser.selectedItems(), (item) => {
+              item = item as IPachydermModel;
               fileUris += `${item.file_uri}\n`;
             });
             navigator.clipboard.writeText(fileUris);
@@ -164,6 +166,7 @@ const createCustomFileBrowser = (
             });
           } else {
             each(browser.selectedItems(), (item) => {
+              item = item as IPachydermModel;
               app.commands.execute('apputils:notify', {
                 message: item.file_uri,
                 type: 'success',
