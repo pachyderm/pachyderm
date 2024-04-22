@@ -129,10 +129,80 @@ const createCustomFileBrowser = (
         },
       });
 
+      app.commands.addCommand('open-pachyderm-sdk', {
+        execute: () => {
+          window
+            ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
+            ?.focus();
+        },
+      });
+
+      commands.addCommand('open-determined', {
+        label: 'Copy Pachyderm File URI',
+        icon: 'fa fa-link',
+        mnemonic: 0,
+        execute: () => {
+          if (navigator.clipboard && window.isSecureContext) {
+            let fileUris = '';
+            each(browser.selectedItems(), (item) => {
+              fileUris += `${item.file_uri}\n`
+            });
+            // navigator.clipboard.writeText(fileUris);
+            app.commands.execute('apputils:notify', {
+              message: 'Pachyderm File URI copied to clipboard.',
+              type: 'success',
+              options: {
+                autoClose: 10000, // 10 seconds
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          } else {
+            each(browser.selectedItems(), (item) => {
+              app.commands.execute('apputils:notify', {
+                message: item.file_uri,
+                type: 'success',
+                options: {
+                  autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                  actions: [
+                    {
+                      label: 'Open Pachyderm SDK Docs',
+                      commandId: 'open-pachyderm-sdk',
+                      displayType: 'link',
+                    },
+                  ],
+                },
+              });
+            });
+            // Notifications have around a 400 character restriction. This should likely workaround the problem of too many urls overloading that limit
+            app.commands.execute('apputils:notify', {
+              message: `Pachyderm File URI could not be copied to clipboard due to browser clipboard restrictions.`,
+              type: 'warning',
+              options: {
+                autoClose: false, // disable autoclose since the user needs to copy the url manually.
+                actions: [
+                  {
+                    label: 'Open Pachyderm SDK Docs',
+                    commandId: 'open-pachyderm-sdk',
+                    displayType: 'link',
+                  },
+                ],
+              },
+            });
+          }
+        },
+      });
+
       const menu = new Menu({commands});
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
       menu.addItem({command: 'file-download'});
+      menu.addItem({command: 'open-determined'})
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
