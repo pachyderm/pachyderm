@@ -209,6 +209,13 @@ class PFSManager(FileContentsManager):
             for r in self._client.pfs.list_repo()
         }
 
+    def branch_exists(self, branch: pfs.Branch) -> bool:
+        try:
+            self._client.pfs.inspect_branch(branch=branch)
+        except:
+            return False
+        return True
+
     def _get_name(self, path: str) -> str:
         path = path.lstrip("/")
         if not path:

@@ -223,43 +223,49 @@ class PFSHandler(ContentsHandler):
         Serves files rooted at PFS_MOUNT_DIR instead of the default content manager's root_dir
         The reason for this is that we want the ability to serve the browser files rooted outside of the default root_dir without overriding it.
         """
-        path = path or ""
-        type = self.get_query_argument("type", default=None)
-        if type not in {None, "directory", "file", "notebook"}:
-            raise tornado.web.HTTPError(400, "Type %r is invalid" % type)
-        format = self.get_query_argument("format", default=None)
-        if format not in {None, "text", "base64"}:
-            raise tornado.web.HTTPError(400, "Format %r is invalid" % format)
-        content = self.get_query_argument("content", default="1")
-        if content not in {"0", "1"}:
-            raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
-        content = bool(int(content))
-        pagination_marker = None
-        pagination_marker_uri = self.get_query_argument(
-            "pagination_marker", default=None
-        )
-        if pagination_marker_uri:
-            pagination_marker = pfs.File.from_uri(pagination_marker_uri)
-        number = int(self.get_query_argument("number", default="100"))
-        branch_uri = self.get_query_argument(
-            "branch_uri", default=None
-        )
-        branch: pfs.Branch = None
-        if branch_uri:
-            branch = pfs.Branch.from_uri(branch_uri)
+        try:
+            path = path or ""
+            type = self.get_query_argument("type", default=None)
+            if type not in {None, "directory", "file", "notebook"}:
+                raise tornado.web.HTTPError(400, "Type %r is invalid" % type)
+            format = self.get_query_argument("format", default=None)
+            if format not in {None, "text", "base64"}:
+                raise tornado.web.HTTPError(400, "Format %r is invalid" % format)
+            content = self.get_query_argument("content", default="1")
+            if content not in {"0", "1"}:
+                raise tornado.web.HTTPError(400, "Content %r is invalid" % content)
+            content = bool(int(content))
+            pagination_marker = None
+            pagination_marker_uri = self.get_query_argument(
+                "pagination_marker", default=None
+            )
+            if pagination_marker_uri:
+                pagination_marker = pfs.File.from_uri(pagination_marker_uri)
+            number = int(self.get_query_argument("number", default="100"))
+            branch_uri = self.get_query_argument(
+                "branch_uri", default=None
+            )
+            branch: pfs.Branch = None
+            if branch_uri:
+                branch = pfs.Branch.from_uri(branch_uri)
+                if not self.pfs_manager.branch_exists(branch=branch):
+                    raise ValueError("branch_uri does not exist")
 
-        model = self.pfs_manager.get(
-            path=path,
-            branch=branch,
-            type=type,
-            format=format,
-            content=content,
-            pagination_marker=pagination_marker,
-            number=number,
-        )
-        validate_model(model, expect_content=content)
-        self._finish_model(model, location=False)
-
+            model = self.pfs_manager.get(
+                path=path,
+                branch=branch,
+                type=type,
+                format=format,
+                content=content,
+                pagination_marker=pagination_marker,
+                number=number,
+            )
+            validate_model(model, expect_content=content)
+            self._finish_model(model, location=False)
+        except ValueError as e:
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
+        except Exception as e:
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
 
 class ViewDatumHandler(ContentsHandler):
     @property
@@ -495,8 +501,12 @@ class ExploreDownloadHandler(BaseHandler):
                 "branch_uri", default=None
             )
             branch: pfs.Branch = None
+            if not branch_uri:
+                raise ValueError("branch_uri must be defined to download")
             if branch_uri:
                 branch = pfs.Branch.from_uri(branch_uri)
+                if not self.pfs_manager.branch_exists(branch=branch):
+                    raise ValueError("branch_uri does not exist")
             self.pfs_manager.download_file(path=path, branch=branch)
         except FileExistsError:
             raise tornado.web.HTTPError(
@@ -504,9 +514,9 @@ class ExploreDownloadHandler(BaseHandler):
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
         except ValueError as e:
-            raise tornado.web.HTTPError(status_code=400, reason=e)
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
-            raise tornado.web.HTTPError(status_code=500, reason=e)
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
 
@@ -521,9 +531,9 @@ class TestDownloadHandler(BaseHandler):
                 reason=f"Downloading {Path(path).name} which already exists in the current working directory",
             )
         except ValueError as e:
-            raise tornado.web.HTTPError(status_code=400, reason=e)
+            raise tornado.web.HTTPError(status_code=400, reason=repr(e))
         except Exception as e:
-            raise tornado.web.HTTPError(status_code=500, reason=e)
+            raise tornado.web.HTTPError(status_code=500, reason=repr(e))
         await self.finish()
 
 

@@ -53,6 +53,12 @@ async def test_list_repos(pachyderm_resources, http_client: AsyncClient):
         for branch in repo['branches']:
             assert branch['name'] in branches
 
+async def test_pfs_invalid_branch_uri(pachyderm_resources, http_client: AsyncClient):
+    repos, _, _ = pachyderm_resources
+
+    url_params = {'branch_uri': f'fake@repo/fakebranch'}
+    r = await http_client.get(f"/pfs/images?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 400, r.text
 
 async def test_pfs_pagination(pachyderm_resources, http_client: AsyncClient):
     repos, _, files = pachyderm_resources
@@ -185,7 +191,7 @@ async def test_download_file_invalid_branch_uri(
 ):
     repos, _, _ = pachyderm_resources
 
-    url_params = {'branch_uri': f'fake@branch'}
+    url_params = {'branch_uri': f'fake@repo/fakebranch'}
     r = await http_client.put(f"/download/explore/{repos[0]}?{urllib.parse.urlencode(url_params)}")
     assert r.status_code == 400, r.text
 
