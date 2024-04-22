@@ -1597,17 +1597,6 @@ func (m *GetLogsRequest) validate(all bool) error {
 
 	// no validation rules for WantPagingHint
 
-	if _, ok := _GetLogsRequest_LogFormat_NotInLookup[m.GetLogFormat()]; ok {
-		err := GetLogsRequestValidationError{
-			field:  "LogFormat",
-			reason: "value must not be in list [LOG_FORMAT_UNKNOWN]",
-		}
-		if !all {
-			return err
-		}
-		errors = append(errors, err)
-	}
-
 	if len(errors) > 0 {
 		return GetLogsRequestMultiError(errors)
 	}
@@ -1685,10 +1674,6 @@ var _ interface {
 	Cause() error
 	ErrorName() string
 } = GetLogsRequestValidationError{}
-
-var _GetLogsRequest_LogFormat_NotInLookup = map[LogFormat]struct{}{
-	0: {},
-}
 
 // Validate checks the field values on GetLogsResponse with the rules defined
 // in the proto definition for this message. If any rules are violated, the
@@ -2034,233 +2019,6 @@ var _ interface {
 	ErrorName() string
 } = PagingHintValidationError{}
 
-// Validate checks the field values on LogMessage with the rules defined in the
-// proto definition for this message. If any rules are violated, the first
-// error encountered is returned, or nil if there are no violations.
-func (m *LogMessage) Validate() error {
-	return m.validate(false)
-}
-
-// ValidateAll checks the field values on LogMessage with the rules defined in
-// the proto definition for this message. If any rules are violated, the
-// result is a list of violation errors wrapped in LogMessageMultiError, or
-// nil if none found.
-func (m *LogMessage) ValidateAll() error {
-	return m.validate(true)
-}
-
-func (m *LogMessage) validate(all bool) error {
-	if m == nil {
-		return nil
-	}
-
-	var errors []error
-
-	switch v := m.LogType.(type) {
-	case *LogMessage_Verbatim:
-		if v == nil {
-			err := LogMessageValidationError{
-				field:  "LogType",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
-		if all {
-			switch v := interface{}(m.GetVerbatim()).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "Verbatim",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "Verbatim",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(m.GetVerbatim()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return LogMessageValidationError{
-					field:  "Verbatim",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	case *LogMessage_Json:
-		if v == nil {
-			err := LogMessageValidationError{
-				field:  "LogType",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
-		if all {
-			switch v := interface{}(m.GetJson()).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "Json",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "Json",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(m.GetJson()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return LogMessageValidationError{
-					field:  "Json",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	case *LogMessage_PpsLogMessage:
-		if v == nil {
-			err := LogMessageValidationError{
-				field:  "LogType",
-				reason: "oneof value cannot be a typed-nil",
-			}
-			if !all {
-				return err
-			}
-			errors = append(errors, err)
-		}
-
-		if all {
-			switch v := interface{}(m.GetPpsLogMessage()).(type) {
-			case interface{ ValidateAll() error }:
-				if err := v.ValidateAll(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "PpsLogMessage",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			case interface{ Validate() error }:
-				if err := v.Validate(); err != nil {
-					errors = append(errors, LogMessageValidationError{
-						field:  "PpsLogMessage",
-						reason: "embedded message failed validation",
-						cause:  err,
-					})
-				}
-			}
-		} else if v, ok := interface{}(m.GetPpsLogMessage()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return LogMessageValidationError{
-					field:  "PpsLogMessage",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	default:
-		_ = v // ensures v is used
-	}
-
-	if len(errors) > 0 {
-		return LogMessageMultiError(errors)
-	}
-
-	return nil
-}
-
-// LogMessageMultiError is an error wrapping multiple validation errors
-// returned by LogMessage.ValidateAll() if the designated constraints aren't met.
-type LogMessageMultiError []error
-
-// Error returns a concatenation of all the error messages it wraps.
-func (m LogMessageMultiError) Error() string {
-	var msgs []string
-	for _, err := range m {
-		msgs = append(msgs, err.Error())
-	}
-	return strings.Join(msgs, "; ")
-}
-
-// AllErrors returns a list of validation violation errors.
-func (m LogMessageMultiError) AllErrors() []error { return m }
-
-// LogMessageValidationError is the validation error returned by
-// LogMessage.Validate if the designated constraints aren't met.
-type LogMessageValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e LogMessageValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e LogMessageValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e LogMessageValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e LogMessageValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e LogMessageValidationError) ErrorName() string { return "LogMessageValidationError" }
-
-// Error satisfies the builtin error interface
-func (e LogMessageValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sLogMessage.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = LogMessageValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = LogMessageValidationError{}
-
 // Validate checks the field values on VerbatimLogMessage with the rules
 // defined in the proto definition for this message. If any rules are
 // violated, the first error encountered is returned, or nil if there are no violations.
@@ -2394,22 +2152,22 @@ var _ interface {
 	ErrorName() string
 } = VerbatimLogMessageValidationError{}
 
-// Validate checks the field values on ParsedJSONLogMessage with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the first error encountered is returned, or nil if there are no violations.
-func (m *ParsedJSONLogMessage) Validate() error {
+// Validate checks the field values on LogMessage with the rules defined in the
+// proto definition for this message. If any rules are violated, the first
+// error encountered is returned, or nil if there are no violations.
+func (m *LogMessage) Validate() error {
 	return m.validate(false)
 }
 
-// ValidateAll checks the field values on ParsedJSONLogMessage with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, the result is a list of violation errors wrapped in
-// ParsedJSONLogMessageMultiError, or nil if none found.
-func (m *ParsedJSONLogMessage) ValidateAll() error {
+// ValidateAll checks the field values on LogMessage with the rules defined in
+// the proto definition for this message. If any rules are violated, the
+// result is a list of violation errors wrapped in LogMessageMultiError, or
+// nil if none found.
+func (m *LogMessage) ValidateAll() error {
 	return m.validate(true)
 }
 
-func (m *ParsedJSONLogMessage) validate(all bool) error {
+func (m *LogMessage) validate(all bool) error {
 	if m == nil {
 		return nil
 	}
@@ -2420,7 +2178,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		switch v := interface{}(m.GetVerbatim()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "Verbatim",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2428,7 +2186,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 			}
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "Verbatim",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2437,7 +2195,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		}
 	} else if v, ok := interface{}(m.GetVerbatim()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ParsedJSONLogMessageValidationError{
+			return LogMessageValidationError{
 				field:  "Verbatim",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -2449,7 +2207,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		switch v := interface{}(m.GetObject()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "Object",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2457,7 +2215,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 			}
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "Object",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2466,7 +2224,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		}
 	} else if v, ok := interface{}(m.GetObject()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ParsedJSONLogMessageValidationError{
+			return LogMessageValidationError{
 				field:  "Object",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -2478,7 +2236,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		switch v := interface{}(m.GetNativeTimestamp()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "NativeTimestamp",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2486,7 +2244,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 			}
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "NativeTimestamp",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2495,7 +2253,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		}
 	} else if v, ok := interface{}(m.GetNativeTimestamp()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ParsedJSONLogMessageValidationError{
+			return LogMessageValidationError{
 				field:  "NativeTimestamp",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -2507,7 +2265,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		switch v := interface{}(m.GetPpsLogMessage()).(type) {
 		case interface{ ValidateAll() error }:
 			if err := v.ValidateAll(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "PpsLogMessage",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2515,7 +2273,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 			}
 		case interface{ Validate() error }:
 			if err := v.Validate(); err != nil {
-				errors = append(errors, ParsedJSONLogMessageValidationError{
+				errors = append(errors, LogMessageValidationError{
 					field:  "PpsLogMessage",
 					reason: "embedded message failed validation",
 					cause:  err,
@@ -2524,7 +2282,7 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 		}
 	} else if v, ok := interface{}(m.GetPpsLogMessage()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ParsedJSONLogMessageValidationError{
+			return LogMessageValidationError{
 				field:  "PpsLogMessage",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -2533,19 +2291,18 @@ func (m *ParsedJSONLogMessage) validate(all bool) error {
 	}
 
 	if len(errors) > 0 {
-		return ParsedJSONLogMessageMultiError(errors)
+		return LogMessageMultiError(errors)
 	}
 
 	return nil
 }
 
-// ParsedJSONLogMessageMultiError is an error wrapping multiple validation
-// errors returned by ParsedJSONLogMessage.ValidateAll() if the designated
-// constraints aren't met.
-type ParsedJSONLogMessageMultiError []error
+// LogMessageMultiError is an error wrapping multiple validation errors
+// returned by LogMessage.ValidateAll() if the designated constraints aren't met.
+type LogMessageMultiError []error
 
 // Error returns a concatenation of all the error messages it wraps.
-func (m ParsedJSONLogMessageMultiError) Error() string {
+func (m LogMessageMultiError) Error() string {
 	var msgs []string
 	for _, err := range m {
 		msgs = append(msgs, err.Error())
@@ -2554,11 +2311,11 @@ func (m ParsedJSONLogMessageMultiError) Error() string {
 }
 
 // AllErrors returns a list of validation violation errors.
-func (m ParsedJSONLogMessageMultiError) AllErrors() []error { return m }
+func (m LogMessageMultiError) AllErrors() []error { return m }
 
-// ParsedJSONLogMessageValidationError is the validation error returned by
-// ParsedJSONLogMessage.Validate if the designated constraints aren't met.
-type ParsedJSONLogMessageValidationError struct {
+// LogMessageValidationError is the validation error returned by
+// LogMessage.Validate if the designated constraints aren't met.
+type LogMessageValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -2566,24 +2323,22 @@ type ParsedJSONLogMessageValidationError struct {
 }
 
 // Field function returns field value.
-func (e ParsedJSONLogMessageValidationError) Field() string { return e.field }
+func (e LogMessageValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e ParsedJSONLogMessageValidationError) Reason() string { return e.reason }
+func (e LogMessageValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e ParsedJSONLogMessageValidationError) Cause() error { return e.cause }
+func (e LogMessageValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e ParsedJSONLogMessageValidationError) Key() bool { return e.key }
+func (e LogMessageValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e ParsedJSONLogMessageValidationError) ErrorName() string {
-	return "ParsedJSONLogMessageValidationError"
-}
+func (e LogMessageValidationError) ErrorName() string { return "LogMessageValidationError" }
 
 // Error satisfies the builtin error interface
-func (e ParsedJSONLogMessageValidationError) Error() string {
+func (e LogMessageValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -2595,14 +2350,14 @@ func (e ParsedJSONLogMessageValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sParsedJSONLogMessage.%s: %s%s",
+		"invalid %sLogMessage.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = ParsedJSONLogMessageValidationError{}
+var _ error = LogMessageValidationError{}
 
 var _ interface {
 	Field() string
@@ -2610,4 +2365,4 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = ParsedJSONLogMessageValidationError{}
+} = LogMessageValidationError{}

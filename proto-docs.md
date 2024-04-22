@@ -278,7 +278,6 @@
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
     - [PagingHint](#logs-PagingHint)
-    - [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage)
     - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
     - [PipelineLogQuery](#logs-PipelineLogQuery)
     - [PodContainer](#logs-PodContainer)
@@ -287,7 +286,6 @@
     - [UserLogQuery](#logs-UserLogQuery)
     - [VerbatimLogMessage](#logs-VerbatimLogMessage)
   
-    - [LogFormat](#logs-LogFormat)
     - [LogLevel](#logs-LogLevel)
   
     - [API](#logs-API)
@@ -522,6 +520,9 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinesSummary](#pps_v2-PipelinesSummary)
+    - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
+    - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -4481,7 +4482,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | filter | [LogFilter](#logs-LogFilter) |  |  |
 | tail | [bool](#bool) |  |  |
 | want_paging_hint | [bool](#bool) |  |  |
-| log_format | [LogFormat](#logs-LogFormat) |  |  |
 
 
 
@@ -4530,9 +4530,10 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  |  |
-| json | [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage) |  |  |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  |  |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
+| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4565,24 +4566,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | ----- | ---- | ----- | ----------- |
 | older | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
 | newer | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
-
-
-
-
-
-
-<a name="logs-ParsedJSONLogMessage"></a>
-
-### ParsedJSONLogMessage
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
-| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
-| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4704,20 +4687,6 @@ Only returns &#34;user&#34; logs
 
 
  
-
-
-<a name="logs-LogFormat"></a>
-
-### LogFormat
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| LOG_FORMAT_UNKNOWN | 0 | error |
-| LOG_FORMAT_VERBATIM_WITH_TIMESTAMP | 1 |  |
-| LOG_FORMAT_PARSED_JSON | 2 |  |
-| LOG_FORMAT_PPS_LOGMESSAGE | 3 |  |
-
 
 
 <a name="logs-LogLevel"></a>
@@ -5194,6 +5163,7 @@ CommitInfo is the main data structure representing a commit in postgres
 | finishing | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | finished | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | direct_provenance | [Commit](#pfs_v2-Commit) | repeated |  |
+| direct_subvenance | [Commit](#pfs_v2-Commit) | repeated |  |
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
@@ -8522,6 +8492,55 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-PipelinesSummary"></a>
+
+### PipelinesSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | the project the PipelinesSummary corresponds to |
+| active_pipelines | [int64](#int64) |  | count of active pipelines |
+| paused_pipelines | [int64](#int64) |  | count of paused pipelines |
+| failed_pipelines | [int64](#int64) |  | count of failed pipelines |
+| unhealthy_pipelines | [int64](#int64) |  | count of pipelines with a failed latest job |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryRequest"></a>
+
+### PipelinesSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a PipelinesSummary will be returned for each of the requests projects |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryResponse"></a>
+
+### PipelinesSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [PipelinesSummary](#pps_v2-PipelinesSummary) | repeated | the pipeline summaries for the requested projects |
+
+
+
+
+
+
 <a name="pps_v2-ProcessStats"></a>
 
 ### ProcessStats
@@ -9310,6 +9329,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
 | GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
 | SetProjectDefaults | [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest) | [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse) | SetProjectDefaults sets the defaults for a particular project. |
+| PipelinesSummary | [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest) | [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse) | PipelinesSummary summarizes the pipelines for each requested project. |
 
  
 

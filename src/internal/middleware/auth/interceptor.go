@@ -253,6 +253,7 @@ var authHandlers = map[string]authHandler{
 	"/pps_v2.API/SetClusterDefaults": authDisabledOr(clusterPermissions(auth.Permission_CLUSTER_SET_DEFAULTS)),
 	"/pps_v2.API/GetProjectDefaults": authDisabledOr(authenticated),
 	"/pps_v2.API/SetProjectDefaults": authDisabledOr(authenticated),
+	"/pps_v2.API/PipelinesSummary":   authDisabledOr(authenticated),
 
 	//
 	// TransactionAPI

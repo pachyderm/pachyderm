@@ -260,6 +260,13 @@ func (x *CommitInfo) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 		return nil
 	}
 	enc.AddArray("direct_provenance", zapcore.ArrayMarshalerFunc(direct_provenanceArrMarshaller))
+	direct_subvenanceArrMarshaller := func(enc zapcore.ArrayEncoder) error {
+		for _, v := range x.DirectSubvenance {
+			enc.AppendObject(v)
+		}
+		return nil
+	}
+	enc.AddArray("direct_subvenance", zapcore.ArrayMarshalerFunc(direct_subvenanceArrMarshaller))
 	enc.AddString("error", x.Error)
 	enc.AddInt64("size_bytes_upper_bound", x.SizeBytesUpperBound)
 	enc.AddObject("details", x.Details)

@@ -4139,3 +4139,67 @@ func (a *apiServer) SetProjectDefaults(ctx context.Context, req *pps.SetProjectD
 	}
 	return &resp, nil
 }
+
+// PipelinesSummary implements the protobuf pps.PipelinesSummary RPC
+func (a *apiServer) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	var projects []*pfs.Project
+	for _, p := range req.Projects {
+		var project *pfs.Project
+		switch p.Picker.(type) {
+		case *pfs.ProjectPicker_Name:
+			project = &pfs.Project{Name: p.GetName()}
+		default:
+			return nil, errors.Errorf("project picker is of an unknown type: %T", p.Picker)
+		}
+		// NOTE: there's a potential time-of-check/time-of-use issue here since we check access
+		// to the project and emit its pipelines in different transactions. This is done in other areas
+		// of the code today and is acceptable. The info returned here is also purely summaritive.
+		if err := a.env.AuthServer.CheckProjectIsAuthorized(ctx, project, auth.Permission_PROJECT_LIST_REPO); err != nil {
+			return nil, errors.Wrapf(err, "not authorized to list repos of project %q", project.String())
+		}
+		projects = append(projects, project)
+	}
+	projectsMap := make(map[string]struct{})
+	for _, p := range projects {
+		projectsMap[p.String()] = struct{}{}
+	}
+	summaries := make(map[string]*pps.PipelinesSummary)
+	resp := &pps.PipelinesSummaryResponse{}
+	if err := ppsutil.ListPipelineInfo(ctx, a.pipelines, nil, 0, func(pi *pps.PipelineInfo) error {
+		project := pi.Pipeline.Project
+		var summary *pps.PipelinesSummary
+		var ok bool
+		if summary, ok = summaries[project.String()]; !ok {
+			if _, ok := projectsMap[project.String()]; ok {
+				summary = &pps.PipelinesSummary{Project: project}
+				summaries[project.String()] = summary
+			} else {
+				return nil
+			}
+		}
+		if pi.State == pps.PipelineState_PIPELINE_FAILURE {
+			summary.FailedPipelines++
+		} else if pi.State == pps.PipelineState_PIPELINE_PAUSED {
+			summary.PausedPipelines++
+		} else { // catch all includes crashing state
+			summary.ActivePipelines++
+		}
+		if err := a.getLatestJobState(ctx, pi); err != nil {
+			return errors.Wrapf(err, "get latest job state for pipeline: %s", pi.Pipeline.String())
+		}
+		if pi.LastJobState == pps.JobState_JOB_KILLED ||
+			pi.LastJobState == pps.JobState_JOB_FAILURE ||
+			pi.LastJobState == pps.JobState_JOB_UNRUNNABLE {
+			summary.UnhealthyPipelines++
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	for _, p := range projects {
+		if summary, ok := summaries[p.String()]; ok {
+			resp.Summaries = append(resp.Summaries, summary)
+		}
+	}
+	return resp, nil
+}

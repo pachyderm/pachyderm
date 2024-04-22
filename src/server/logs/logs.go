@@ -6,19 +6,19 @@ import (
 	"math"
 	"time"
 
+	"go.uber.org/zap"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/logs"
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
+	"github.com/pachyderm/pachyderm/v2/src/internal/log"
 	loki "github.com/pachyderm/pachyderm/v2/src/internal/lokiutil/client"
 )
-
-type ResponsePublisher interface {
-	// Publish publishes a single GetLogsResponse to the client.
-	Publish(context.Context, *logs.GetLogsResponse) error
-}
 
 // LogService implements the core logs functionality.
 type LogService struct {
@@ -29,7 +29,8 @@ var (
 	// ErrUnimplemented is returned whenever requested functionality is planned but unimplemented.
 	ErrUnimplemented = errors.New("unimplemented")
 	// ErrPublish is returned whenever publishing fails (say, due to a closed client).
-	ErrPublish    = errors.New("error publishing")
+	ErrPublish = errors.New("error publishing")
+	// ErrBadRequest indicates that the client made an erroneous request.
 	ErrBadRequest = errors.New("bad request")
 )
 
@@ -84,13 +85,20 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		start, end = end, start
 	}
 
-	adapter := newAdapter(publisher, request.LogFormat)
-	if err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), int(filter.Limit), start, end, direction, adapter.publish); err != nil {
+	var (
+		adapter = adapter{responsePublisher: publisher}
+		logQL   string
+	)
+	logQL, adapter.pass, err = compileRequest(request)
+	if err != nil {
+		return errors.Wrap(err, "cannot convert request to LogQL")
+	}
+	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -109,9 +117,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, request.GetQuery().GetAdmin().GetLogql(), 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) error {
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) (bool, error) {
 			older = e
-			return nil
+			return false, nil
 		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
@@ -147,49 +155,112 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	return nil
 }
 
-// An adapter publishes log entries to a ResponsePublisher in a specified format.
-type adapter struct {
-	responsePublisher ResponsePublisher
-	logFormat         logs.LogFormat
-	first, last       loki.Entry
-	gotFirst          bool
-}
+func compileRequest(request *logs.GetLogsRequest) (string, func(*logs.LogMessage) bool, error) {
+	if request == nil {
+		return "", nil, errors.New("nil request")
+	}
+	query := request.Query
+	if query == nil {
+		return "", nil, nil
+	}
+	switch query := query.QueryType.(type) {
+	case *logs.LogQuery_User:
+		switch query := query.User.GetUserType().(type) {
+		case *logs.UserLogQuery_Pipeline:
+			pipeline := query.Pipeline.Pipeline
+			project := query.Pipeline.Project
+			return fmt.Sprintf(`{app="pipeline",suite="pachyderm",pipelineProject=%q,pipelineName=%q}`, project, pipeline),
+				func(lm *logs.LogMessage) bool {
+					return true
+				}, nil
+		case *logs.UserLogQuery_Datum:
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline"} |= %q`, query.Datum), func(msg *logs.LogMessage) bool {
+				if msg.GetPpsLogMessage().GetDatumId() == query.Datum {
+					return true
+				}
+				ff := msg.GetObject().GetFields()
+				if ff != nil {
+					v, ok := ff["datumId"]
+					if ok {
+						if v.GetStringValue() == query.Datum {
+							return true
+						}
+					}
+				}
 
-func newAdapter(p ResponsePublisher, f logs.LogFormat) *adapter {
-	return &adapter{
-		responsePublisher: p,
-		logFormat:         f,
+				return false
+			}, nil
+		case *logs.UserLogQuery_Project:
+			return fmt.Sprintf(`{suite="pachyderm",app="pipeline",projectName=%q}`, query.Project), nil, nil
+		default:
+			return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
+		}
+	case *logs.LogQuery_Admin:
+		switch query := query.Admin.GetAdminType().(type) {
+		case *logs.AdminLogQuery_Logql:
+			return query.Logql, nil, nil
+		default:
+			return "", nil, nil
+		}
+	default:
+		return "", nil, errors.Wrapf(ErrUnimplemented, "%T", query)
 	}
 }
 
-func (a *adapter) publish(ctx context.Context, entry loki.Entry) error {
+type ResponsePublisher interface {
+	// Publish publishes a single GetLogsResponse to the client.
+	Publish(context.Context, *logs.GetLogsResponse) error
+}
+
+// An adapter publishes log entries to a ResponsePublisher in a specified format.
+type adapter struct {
+	responsePublisher ResponsePublisher
+	first, last       loki.Entry
+	gotFirst          bool
+	pass              func(*logs.LogMessage) bool
+}
+
+func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
+	var msg = &logs.LogMessage{
+		Verbatim: &logs.VerbatimLogMessage{
+			Line:      []byte(entry.Line),
+			Timestamp: timestamppb.New(entry.Timestamp),
+		},
+	}
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = entry
 	}
-	a.last = entry
-	var resp *logs.GetLogsResponse
-	switch a.logFormat {
-	case logs.LogFormat_LOG_FORMAT_UNKNOWN:
-		return errors.Wrap(ErrUnimplemented, "unknown log format not supported")
-	case logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP:
-		resp = &logs.GetLogsResponse{
-			ResponseType: &logs.GetLogsResponse_Log{
-				Log: &logs.LogMessage{
-					LogType: &logs.LogMessage_Verbatim{
-						Verbatim: &logs.VerbatimLogMessage{
-							Line: []byte(entry.Line),
-						},
-					},
-				},
-			},
+	msg.Object = new(structpb.Struct)
+	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+		log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+		msg.Object = nil
+	} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
+		if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+			msg.NativeTimestamp = timestamppb.New(t)
 		}
-	default:
-		return errors.Wrapf(ErrUnimplemented, "%v not supported", a.logFormat)
+	}
+	msg.PpsLogMessage = new(pps.LogMessage)
+	m := protojson.UnmarshalOptions{
+		AllowPartial:   true,
+		DiscardUnknown: true,
+	}
+	if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
+		log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+		msg.PpsLogMessage = nil
+	} else if msg.PpsLogMessage.Ts != nil {
+		msg.NativeTimestamp = msg.PpsLogMessage.Ts
 	}
 
-	if err := a.responsePublisher.Publish(ctx, resp); err != nil {
-		return errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	if a.pass != nil && !a.pass(msg) {
+		return true, nil
 	}
-	return nil
+	if err := a.responsePublisher.Publish(ctx, &logs.GetLogsResponse{
+		ResponseType: &logs.GetLogsResponse_Log{
+			Log: msg,
+		},
+	}); err != nil {
+		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
+	}
+	return false, nil
 }

@@ -327,6 +327,7 @@ class CommitInfo(betterproto.Message):
     finishing: datetime = betterproto.message_field(7)
     finished: datetime = betterproto.message_field(8)
     direct_provenance: List["Commit"] = betterproto.message_field(13)
+    direct_subvenance: List["Commit"] = betterproto.message_field(15)
     error: str = betterproto.string_field(10)
     size_bytes_upper_bound: int = betterproto.int64_field(11)
     details: "CommitInfoDetails" = betterproto.message_field(12)

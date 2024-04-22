@@ -1642,6 +1642,7 @@ type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest
 type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 type getProjectDefaultsFunc func(context.Context, *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error)
 type setProjectDefaultsFunc func(context.Context, *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error)
+type pipelinesSummaryFunc func(context.Context, *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1687,6 +1688,7 @@ type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
 type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 type mockGetProjectDefaults struct{ handler getProjectDefaultsFunc }
 type mockSetProjectDefaults struct{ handler setProjectDefaultsFunc }
+type mockPipelinesSummary struct{ handler pipelinesSummaryFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1732,6 +1734,7 @@ func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handle
 func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 func (mock *mockGetProjectDefaults) Use(cb getProjectDefaultsFunc) { mock.handler = cb }
 func (mock *mockSetProjectDefaults) Use(cb setProjectDefaultsFunc) { mock.handler = cb }
+func (mock *mockPipelinesSummary) Use(cb pipelinesSummaryFunc)     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	pps.UnsafeAPIServer
@@ -1782,6 +1785,7 @@ type mockPPSServer struct {
 	SetClusterDefaults           mockSetClusterDefaults
 	GetProjectDefaults           mockGetProjectDefaults
 	SetProjectDefaults           mockSetProjectDefaults
+	PipelinesSummary             mockPipelinesSummary
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -2037,6 +2041,12 @@ func (api *ppsServerAPI) SetProjectDefaults(ctx context.Context, req *pps.SetPro
 		return api.mock.SetProjectDefaults.handler(ctx, req)
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.SetProjectDefaults")
+}
+func (api *ppsServerAPI) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	if api.mock.PipelinesSummary.handler != nil {
+		return api.mock.PipelinesSummary.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.PipelinesSummary")
 }
 
 /* Transaction Server Mocks */

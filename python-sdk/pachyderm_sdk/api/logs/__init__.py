@@ -29,15 +29,6 @@ class LogLevel(betterproto.Enum):
     LOG_LEVEL_ERROR = 2
 
 
-class LogFormat(betterproto.Enum):
-    LOG_FORMAT_UNKNOWN = 0
-    """error"""
-
-    LOG_FORMAT_VERBATIM_WITH_TIMESTAMP = 1
-    LOG_FORMAT_PARSED_JSON = 2
-    LOG_FORMAT_PPS_LOGMESSAGE = 3
-
-
 @dataclass(eq=False, repr=False)
 class LogQuery(betterproto.Message):
     user: "UserLogQuery" = betterproto.message_field(1, group="query_type")
@@ -141,7 +132,6 @@ class GetLogsRequest(betterproto.Message):
     filter: "LogFilter" = betterproto.message_field(2)
     tail: bool = betterproto.bool_field(3)
     want_paging_hint: bool = betterproto.bool_field(4)
-    log_format: "LogFormat" = betterproto.enum_field(5)
 
 
 @dataclass(eq=False, repr=False)
@@ -157,22 +147,13 @@ class PagingHint(betterproto.Message):
 
 
 @dataclass(eq=False, repr=False)
-class LogMessage(betterproto.Message):
-    verbatim: "VerbatimLogMessage" = betterproto.message_field(1, group="log_type")
-    json: "ParsedJsonLogMessage" = betterproto.message_field(2, group="log_type")
-    pps_log_message: "_pps__.LogMessage" = betterproto.message_field(
-        3, group="log_type"
-    )
-
-
-@dataclass(eq=False, repr=False)
 class VerbatimLogMessage(betterproto.Message):
     line: bytes = betterproto.bytes_field(1)
     timestamp: datetime = betterproto.message_field(2)
 
 
 @dataclass(eq=False, repr=False)
-class ParsedJsonLogMessage(betterproto.Message):
+class LogMessage(betterproto.Message):
     verbatim: "VerbatimLogMessage" = betterproto.message_field(1)
     """The verbatim line from Loki"""
 
@@ -201,8 +182,7 @@ class ApiStub:
         query: "LogQuery" = None,
         filter: "LogFilter" = None,
         tail: bool = False,
-        want_paging_hint: bool = False,
-        log_format: "LogFormat" = None
+        want_paging_hint: bool = False
     ) -> Iterator["GetLogsResponse"]:
 
         request = GetLogsRequest()
@@ -212,7 +192,6 @@ class ApiStub:
             request.filter = filter
         request.tail = tail
         request.want_paging_hint = want_paging_hint
-        request.log_format = log_format
 
         for response in self.__rpc_get_logs(request):
             yield response
