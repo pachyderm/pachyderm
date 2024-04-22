@@ -139,7 +139,7 @@ func streamingCreateUnion(
 // Creates a slice of channels for each child input. Each channel will receive file set id shards
 func initChildrenFsidChans(num int) []chan string {
 	childrenFsidChans := make([]chan string, num)
-	for i := range num {
+	for i := 0; i < num; i++ {
 		childrenFsidChans[i] = make(chan string)
 	}
 	return childrenFsidChans
@@ -183,6 +183,8 @@ func streamingCreateInputs(
 ) {
 	eg, egCtx := errgroup.WithContext(ctx)
 	for i, input := range inputs {
+		i := i
+		input := input
 		eg.Go(func() error {
 			fsidChan := make(chan string)
 			go streamingCreate(egCtx, c, taskDoer, input, fsidChan, errChan, requestDatumsChan)

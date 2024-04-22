@@ -165,7 +165,7 @@ func TestCreateDatum(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
 		receivedDatums := make(map[string]bool)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 1, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path] = true
 		}
@@ -176,12 +176,12 @@ func TestCreateDatum(t *testing.T) {
 		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, remaining, n)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 1, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path] = true
 		}
 
-		for i := range numFiles {
+		for i := 0; i < numFiles; i++ {
 			_, ok := receivedDatums[fmt.Sprintf("/file%d", i)]
 			require.True(t, ok, fmt.Sprintf("datum with path /file%d not received", i))
 		}
@@ -199,7 +199,7 @@ func TestCreateDatum(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ppsserver.DefaultDatumBatchSize, n)
 		receivedDatums := make(map[string]int)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 1, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path]++
 		}
@@ -210,12 +210,12 @@ func TestCreateDatum(t *testing.T) {
 		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, remaining, n)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 1, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path]++
 		}
 
-		for i := range numFiles {
+		for i := 0; i < numFiles; i++ {
 			count, ok := receivedDatums[fmt.Sprintf("/file%d", i)]
 			require.True(t, ok, fmt.Sprintf("datum with path /file%d not received", i))
 			require.Equal(t, 2, count, fmt.Sprintf("datum with path /file%d received %d times; expected 2", i, count))
@@ -234,7 +234,7 @@ func TestCreateDatum(t *testing.T) {
 		n, err := grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.NoError(t, err)
 		require.Equal(t, 50, n)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 2, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path]++
 			receivedDatums[dis[i].Data[1].File.Path]++
@@ -245,13 +245,13 @@ func TestCreateDatum(t *testing.T) {
 		n, err = grpcutil.Read[*pps.DatumInfo](datumClient, dis)
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 50, n)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 2, len(dis[i].Data))
 			receivedDatums[dis[i].Data[0].File.Path]++
 			receivedDatums[dis[i].Data[1].File.Path]++
 		}
 
-		for i := range 10 {
+		for i := 0; i < 10; i++ {
 			count, ok := receivedDatums[fmt.Sprintf("/file%d", i)]
 			require.True(t, ok, fmt.Sprintf("datum with path /file%d not received", i))
 			require.Equal(t, 20, count, fmt.Sprintf("datum with path /file%d received %d times; expected 20", i, count))
@@ -270,7 +270,7 @@ func TestCreateDatum(t *testing.T) {
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 10, n)
 		receivedDatums := make(map[string]bool)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.Equal(t, 2, len(dis[i].Data))
 			var shorter, longer string
 			if len(dis[i].Data[0].File.Path) < len(dis[i].Data[1].File.Path) {
@@ -283,7 +283,7 @@ func TestCreateDatum(t *testing.T) {
 			require.Equal(t, shorter[5], longer[6])
 			receivedDatums[string(shorter[5])] = true
 		}
-		for i := range 10 {
+		for i := 0; i < 10; i++ {
 			require.True(t, receivedDatums[strconv.Itoa(i)])
 		}
 	})
@@ -300,15 +300,14 @@ func TestCreateDatum(t *testing.T) {
 		require.True(t, stream.IsEOS(err))
 		require.Equal(t, 10, n)
 		receivedDatums := make(map[string]bool)
-		for i := range n {
+		for i := 0; i < n; i++ {
 			require.True(t, len(dis[i].Data) >= 2)
-			for j := range len(dis[i].Data) {
+			for j := 0; j < len(dis[i].Data); j++ {
 				require.Equal(t, dis[i].Data[0].File.Path[5], dis[i].Data[j].File.Path[5])
 			}
 			receivedDatums[string(dis[i].Data[0].File.Path[5])] = true
 		}
-		t.Log(receivedDatums)
-		for i := range 10 {
+		for i := 0; i < 10; i++ {
 			require.True(t, receivedDatums[strconv.Itoa(i)], fmt.Sprintf("datum with prefix /file%d not received", i))
 		}
 	})
