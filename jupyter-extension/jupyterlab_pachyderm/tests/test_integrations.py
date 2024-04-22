@@ -179,6 +179,16 @@ async def test_download_file(
     assert r.status_code == 400, r.text
 
 
+async def test_download_file_invalid_branch_uri(
+    pachyderm_resources,
+    http_client: AsyncClient,
+):
+    repos, _, _ = pachyderm_resources
+
+    url_params = {'branch_uri': f'fake@branch'}
+    r = await http_client.put(f"/download/explore/{repos[0]}?{urllib.parse.urlencode(url_params)}")
+    assert r.status_code == 400, r.text
+
 async def test_mount_datums(pachyderm_resources, http_client: AsyncClient):
     repos, branches, files = pachyderm_resources
     input_spec = {

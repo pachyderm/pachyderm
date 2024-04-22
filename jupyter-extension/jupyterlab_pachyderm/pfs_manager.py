@@ -627,7 +627,7 @@ class DatumManager(FileContentsManager):
             if fileinfo.file_type == pfs.FileType.DIR:
                 self._dirs.add(str(path))
 
-    def _get_file_from_path(self, path: str, branch: pfs.Branch) -> pfs.File:
+    def _get_file_from_path(self, path: str) -> pfs.File:
         path = path.strip("/")
         if not path:
             return None
@@ -640,7 +640,7 @@ class DatumManager(FileContentsManager):
         else:
             pach_path = str(Path(*parts[1:]))
 
-        file_uri = f"{branch.as_uri()}:{pach_path}"
+        file_uri = f"{commit_uri}:{pach_path}"
         return pfs.File.from_uri(file_uri)
 
     def download_file(self, path: str):
