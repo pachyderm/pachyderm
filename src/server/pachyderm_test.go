@@ -4206,7 +4206,7 @@ func TestPipelineWithExistingInputCommits(t *testing.T) {
 }
 
 func TestPipelineThatSymlinks(t *testing.T) {
-	t.Parallel()
+	//t.Parallel()
 	c, _ := minikubetestenv.AcquireCluster(t)
 
 	// create repos
@@ -4220,7 +4220,7 @@ func TestPipelineThatSymlinks(t *testing.T) {
 	require.NoError(t, c.PutFile(commit, "dir1/bar", strings.NewReader("bar")))
 	require.NoError(t, c.PutFile(commit, "dir2/foo", strings.NewReader("foo")))
 	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, dataRepo, "", commit.Id))
-
+	fmt.Println("1 Reached")
 	check := func(input *pps.Input) {
 		pipelineName := tu.UniqueString("pipeline")
 		require.NoError(t, c.CreatePipeline(pfs.DefaultProjectName,
@@ -4248,13 +4248,16 @@ func TestPipelineThatSymlinks(t *testing.T) {
 			"",
 			false,
 		))
-
+		fmt.Println("2 Reached")
 		commitInfo, err := c.InspectCommit(pfs.DefaultProjectName, pipelineName, "master", "")
-		require.NoError(t, err)
+		require.NoError(t, err) ///////////
+		fmt.Println("After inspecte commit")
 		commitInfos, err := c.WaitCommitSetAll(commitInfo.Commit.Id)
+		fmt.Printf("the error is +%v\n", err)
 		require.NoError(t, err)
+		fmt.Printf("the len is: %d", len(commitInfos))
 		require.Equal(t, 4, len(commitInfos))
-
+		fmt.Println("3 Reached")
 		// Check that the output files are identical to the input files.
 		buffer := bytes.Buffer{}
 		outputCommit := client.NewCommit(pfs.DefaultProjectName, pipelineName, "master", commitInfo.Commit.Id)
@@ -4272,19 +4275,23 @@ func TestPipelineThatSymlinks(t *testing.T) {
 		buffer.Reset()
 		require.NoError(t, c.GetFile(outputCommit, "dir3/dir4/foobar", &buffer))
 		require.Equal(t, "foobar\n", buffer.String())
+		fmt.Println("4 Reached")
 	}
 
 	// Check normal pipeline.
 	input := client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/")
 	check(input)
+	fmt.Println("4 Reached")
 	// Check pipeline with empty files.
 	input = client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/")
 	input.Pfs.EmptyFiles = true
 	check(input)
+	fmt.Println("5 Reached")
 	// Check pipeline with lazy files.
 	input = client.NewPFSInput(pfs.DefaultProjectName, dataRepo, "/")
 	input.Pfs.Lazy = true
 	check(input)
+	fmt.Println("6 Reached")
 }
 
 // TestChainedPipelines tracks https://github.com/pachyderm/pachyderm/v2/issues/797
