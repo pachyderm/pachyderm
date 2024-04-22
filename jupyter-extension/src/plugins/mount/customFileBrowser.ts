@@ -130,13 +130,17 @@ const createCustomFileBrowser = (
         },
       });
 
-      app.commands.addCommand('open-pachyderm-sdk', {
-        execute: () => {
-          window
-            ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
-            ?.focus();
-        },
-      });
+      // We need to register this as an app command, but because this function is called multiple times we only want to register it once.
+      // This command must be registered as an app command to work with notification commandIds
+      if (!app.commands.hasCommand('open-pachyderm-sdk')) {
+        app.commands.addCommand('open-pachyderm-sdk', {
+          execute: () => {
+            window
+              ?.open('https://docs.pachyderm.com/latest/sdk/', '_blank')
+              ?.focus();
+          },
+        });
+      }
 
       commands.addCommand('open-determined', {
         label: 'Copy Pachyderm File URI',
@@ -229,6 +233,7 @@ const createCustomFileBrowser = (
       });
     }
   } catch (e) {
+    console.log(e)
     console.log('Failed to edit default browser.');
   }
 
