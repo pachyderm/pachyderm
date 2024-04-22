@@ -233,7 +233,6 @@ const createCustomFileBrowser = (
       });
     }
   } catch (e) {
-    console.log(e)
     console.log('Failed to edit default browser.');
   }
 
