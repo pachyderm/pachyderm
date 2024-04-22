@@ -146,8 +146,7 @@ const createCustomFileBrowser = (
           if (navigator.clipboard && window.isSecureContext) {
             let fileUris = '';
             each(browser.selectedItems(), (item) => {
-              item = item as IPachydermModel;
-              fileUris += `${item.file_uri}\n`;
+              fileUris += `${(item as IPachydermModel).file_uri}\n`;
             });
             navigator.clipboard.writeText(fileUris);
             app.commands.execute('apputils:notify', {
@@ -168,7 +167,7 @@ const createCustomFileBrowser = (
             each(browser.selectedItems(), (item) => {
               item = item as IPachydermModel;
               app.commands.execute('apputils:notify', {
-                message: item.file_uri,
+                message: (item as IPachydermModel).file_uri,
                 type: 'success',
                 options: {
                   autoClose: false, // disable autoclose since the user needs to copy the url manually.
