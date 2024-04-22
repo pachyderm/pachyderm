@@ -125,28 +125,8 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 					Timestamp: timestamppb.New(entry.Timestamp),
 				},
 			}
-			msg.Object = new(structpb.Struct)
-			if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
-				log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
-				msg.Object = nil
-			} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
-				if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
-					msg.NativeTimestamp = timestamppb.New(t)
-				}
-			}
-			msg.PpsLogMessage = new(pps.LogMessage)
-			m := protojson.UnmarshalOptions{
-				AllowPartial:   true,
-				DiscardUnknown: true,
-			}
-			if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
-				log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
-				msg.PpsLogMessage = nil
-			} else if msg.PpsLogMessage.Ts != nil {
-				msg.NativeTimestamp = msg.PpsLogMessage.Ts
-			}
 
-			older = msg.NativeTimestamp.AsTime()
+			older = msg.Verbatim.Timestamp.AsTime()
 			return false, nil
 		})
 		if err != nil {
@@ -290,8 +270,8 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	}
 	if !a.gotFirst {
 		a.gotFirst = true
-		a.first = msg.NativeTimestamp.AsTime()
+		a.first = msg.Verbatim.Timestamp.AsTime()
 	}
-	a.last = msg.NativeTimestamp.AsTime()
+	a.last = msg.Verbatim.Timestamp.AsTime()
 	return false, nil
 }

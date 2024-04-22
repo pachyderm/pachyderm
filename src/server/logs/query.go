@@ -58,9 +58,7 @@ func doQuery(ctx context.Context, client *loki.Client, logQL string, limit int, 
 			return errors.Wrapf(err, "unknown max_entries_limit_per_query type %T", limits["max_entries_limit_per_query"])
 		}
 	}
-	var i int
 	for total < limit {
-		i++
 		bs := batchSize
 		// We want to truncate the batch size if the remaining number
 		// of items needed to reach the limit is less than the batch size
