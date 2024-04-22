@@ -75,6 +75,11 @@ func (it *streamingDatumIterator) Iterate(cb func(*Meta) error) error {
 		// to create more.
 		if len(it.metaBuffer) == 0 {
 			select {
+			// TODO: Possibly requesting more datums than necessary, as we
+			// keep asking on the channel until a file set ID is read. Extra
+			// requests arise from fact that it's unknown how many file sets
+			// will be returned over fsidChan for each request over
+			// requestDatumsChan.
 			case it.requestDatumsChan <- struct{}{}:
 			case fsid, ok := <-it.fsidChan:
 				if !ok {
