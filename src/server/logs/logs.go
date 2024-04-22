@@ -107,7 +107,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 	}
 	if request.WantPagingHint {
-		var newer, older loki.Entry
+		var newer, older time.Time
 		switch direction {
 		case forwardLogDirection:
 			newer = adapter.last
@@ -117,30 +117,60 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, e loki.Entry) (bool, error) {
-			older = e
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
+
+			var msg = &logs.LogMessage{
+				Verbatim: &logs.VerbatimLogMessage{
+					Line:      []byte(entry.Line),
+					Timestamp: timestamppb.New(entry.Timestamp),
+				},
+			}
+			msg.Object = new(structpb.Struct)
+			if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
+				log.Error(ctx, "failed to unmarshal json into protobuf Struct", zap.Error(err), zap.String("line", entry.Line))
+				msg.Object = nil
+			} else if val := msg.Object.Fields["time"].GetStringValue(); val != "" {
+				if t, err := time.Parse(time.RFC3339Nano, val); err == nil {
+					msg.NativeTimestamp = timestamppb.New(t)
+				}
+			}
+			msg.PpsLogMessage = new(pps.LogMessage)
+			m := protojson.UnmarshalOptions{
+				AllowPartial:   true,
+				DiscardUnknown: true,
+			}
+			if err := m.Unmarshal([]byte(entry.Line), msg.PpsLogMessage); err != nil {
+				log.Error(ctx, "failed to unmarshal json into PpsLogMessage", zap.Error(err), zap.String("line", entry.Line))
+				msg.PpsLogMessage = nil
+			} else if msg.PpsLogMessage.Ts != nil {
+				msg.NativeTimestamp = msg.PpsLogMessage.Ts
+			}
+
+			older = msg.NativeTimestamp.AsTime()
 			return false, nil
 		})
 		if err != nil {
 			return errors.Wrap(err, "hint doQuery failed")
 		}
+		if older.IsZero() {
+			older = request.GetFilter().TimeRange.From.AsTime()
+		}
+		if newer.IsZero() {
+			newer = request.GetFilter().TimeRange.Until.AsTime()
+		}
 		hint := &logs.PagingHint{
 			Older: proto.Clone(request).(*logs.GetLogsRequest),
 			Newer: proto.Clone(request).(*logs.GetLogsRequest),
 		}
-		if !older.Timestamp.IsZero() {
-			hint.Older.Filter.TimeRange.Until = timestamppb.New(older.Timestamp)
-		}
-		if !newer.Timestamp.IsZero() {
-			hint.Newer.Filter.TimeRange.From = timestamppb.New(newer.Timestamp)
-		}
+		hint.Older.Filter.TimeRange.Until = timestamppb.New(older)
+		hint.Newer.Filter.TimeRange.From = timestamppb.New(newer)
 		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
 			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
-			if !older.Timestamp.IsZero() {
-				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Timestamp.Add(-delta))
+			if !older.IsZero() {
+				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Add(-delta))
 			}
-			if !newer.Timestamp.IsZero() {
-				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Timestamp.Add(delta))
+			if !newer.IsZero() {
+				hint.Newer.Filter.TimeRange.Until = timestamppb.New(newer.Add(delta))
 			}
 		}
 		if err := publisher.Publish(ctx, &logs.GetLogsResponse{
@@ -215,7 +245,7 @@ type ResponsePublisher interface {
 // An adapter publishes log entries to a ResponsePublisher in a specified format.
 type adapter struct {
 	responsePublisher ResponsePublisher
-	first, last       loki.Entry
+	first, last       time.Time
 	gotFirst          bool
 	pass              func(*logs.LogMessage) bool
 }
@@ -226,10 +256,6 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 			Line:      []byte(entry.Line),
 			Timestamp: timestamppb.New(entry.Timestamp),
 		},
-	}
-	if !a.gotFirst {
-		a.gotFirst = true
-		a.first = entry
 	}
 	msg.Object = new(structpb.Struct)
 	if err := msg.Object.UnmarshalJSON([]byte(entry.Line)); err != nil {
@@ -262,5 +288,10 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	}); err != nil {
 		return false, errors.WithStack(fmt.Errorf("%w response with parsed json object: %w", ErrPublish, err))
 	}
+	if !a.gotFirst {
+		a.gotFirst = true
+		a.first = msg.NativeTimestamp.AsTime()
+	}
+	a.last = msg.NativeTimestamp.AsTime()
 	return false, nil
 }

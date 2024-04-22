@@ -7,6 +7,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/alessio/shellescape"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
@@ -14,11 +15,12 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
+	"github.com/pachyderm/pachyderm/v2/src/logs"
+
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
 	"github.com/pachyderm/pachyderm/v2/src/internal/cmdutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/config"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachctl"
-	"github.com/pachyderm/pachyderm/v2/src/logs"
 )
 
 func isAdmin(ctx context.Context, client *client.APIClient) (bool, error) {
@@ -197,13 +199,13 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 	var result string
 
 	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
-		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
+		result += " --from " + shellescape.Quote(from.AsTime().Format(time.RFC3339Nano))
 	}
 	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
-		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
+		result += " --to " + shellescape.Quote(until.AsTime().Format(time.RFC3339Nano))
 	}
 	for flag, arg := range flags {
-		result += " --" + flag + " " + arg
+		result += " --" + flag + " " + shellescape.Quote(arg)
 	}
 	return result
 }
