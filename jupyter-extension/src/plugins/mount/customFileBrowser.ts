@@ -145,9 +145,9 @@ const createCustomFileBrowser = (
           if (navigator.clipboard && window.isSecureContext) {
             let fileUris = '';
             each(browser.selectedItems(), (item) => {
-              fileUris += `${item.file_uri}\n`
+              fileUris += `${item.file_uri}\n`;
             });
-            // navigator.clipboard.writeText(fileUris);
+            navigator.clipboard.writeText(fileUris);
             app.commands.execute('apputils:notify', {
               message: 'Pachyderm File URI copied to clipboard.',
               type: 'success',
@@ -181,7 +181,8 @@ const createCustomFileBrowser = (
             });
             // Notifications have around a 400 character restriction. This should likely workaround the problem of too many urls overloading that limit
             app.commands.execute('apputils:notify', {
-              message: `Pachyderm File URI could not be copied to clipboard due to browser clipboard restrictions.`,
+              message:
+                'Pachyderm File URI could not be copied to clipboard due to browser clipboard restrictions.',
               type: 'warning',
               options: {
                 autoClose: false, // disable autoclose since the user needs to copy the url manually.
@@ -202,7 +203,7 @@ const createCustomFileBrowser = (
       menu.addItem({command: 'file-open'});
       menu.addItem({command: 'copy-path'});
       menu.addItem({command: 'file-download'});
-      menu.addItem({command: 'open-determined'})
+      menu.addItem({command: 'open-determined'});
 
       const browserContent = dirListing.node.getElementsByClassName(
         'jp-DirListing-content',
