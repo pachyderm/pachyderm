@@ -219,7 +219,7 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 		result += fmt.Sprintf(" --offset %d", offset)
 	}
 	for flag, arg := range flags {
-		if flag == "from" || flag == "to" {
+		if flag == "from" || flag == "to" || flag == "offset" {
 			continue
 		}
 		result += " --" + flag + " " + shellescape.Quote(arg)
