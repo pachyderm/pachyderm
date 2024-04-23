@@ -1,0 +1,19 @@
+{{- if .Values.determined.genai }}
+{{- if (and .Values.determined.genai.version (not .Values.determined.genai.sharedPVCName)) }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "determined.genai.PVCName" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ include "determined.genai.PVCName" . }}
+    release: {{ .Release.Name }}
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: {{ required  "A valid .Values.determined.genai.generatedPVC.storageSize entry is required if a .Values.determined.genai.sharedPVCName is not specified" (and .Values.determined.genai.generatedPVC .Values.determined.genai.generatedPVC.storageSize) }}
+  storageClassName: {{ required  "A valid .Values.determined.genai.generatedPVC.storageClassName entry is required if a .Values.determined.genai.sharedPVCName is not specified" .Values.determined.genai.generatedPVC.storageClassName }}
+{{ end }}
+{{ end }}

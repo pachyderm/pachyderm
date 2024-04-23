@@ -15,20 +15,6 @@ export type MountSettings = {
   defaultPipelineImage: string;
 };
 
-export type Mount = {
-  name: string;
-  repo: string;
-  project: string;
-  branch: string;
-};
-
-export type Repo = {
-  repo: string;
-  project: string;
-  authorization: authorization;
-  branches: string[];
-};
-
 export type PfsInput = {
   pfs: {
     name?: string;
@@ -65,9 +51,25 @@ export type MountDatumResponse = {
   all_datums_received: boolean;
 };
 
-export type ListMountsResponse = {
-  mounted: {[key: string]: Mount};
-  unmounted: {[key: string]: Repo};
+export type Repo = {
+  name: string;
+  project: string;
+  uri: string;
+  branches: Branch[];
+};
+
+export type Branch = {
+  name: string;
+  uri: string;
+};
+
+export type Repos = {
+  [uri: string]: Repo;
+};
+
+export type MountedRepo = {
+  mountedBranch: Branch;
+  repo: Repo;
 };
 
 export type Project = {
@@ -77,13 +79,6 @@ export type Project = {
 export type ProjectAuthInfo = {
   permissions: number[];
   roles: string[];
-};
-
-export type ProjectInfo = {
-  project: Project;
-  description: string;
-  auth_info: ProjectAuthInfo;
-  created_at: string;
 };
 
 export type HealthCheck = {
@@ -97,8 +92,8 @@ export type AuthConfig = {
 };
 
 export interface IMountPlugin {
-  mountedRepos: Mount[];
-  unmountedRepos: Repo[];
+  repos: Repos;
+  mountedRepo: MountedRepo | null;
   layout: TabPanel;
   ready: Promise<void>;
 }

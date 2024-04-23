@@ -253,7 +253,7 @@ func (l *TestLoki) AddLog(ctx context.Context, lg *Log) (retErr error) {
 	defer errors.Close(&retErr, res.Body, "close body")
 	if res.StatusCode/100 != 2 {
 		body, _ := io.ReadAll(res.Body)
-		return errors.Wrapf(err, "unexpected response status %v: %v", res.StatusCode, body)
+		return errors.Errorf("unexpected response status %v: %v", res.StatusCode, string(body))
 	}
 	return nil
 }
