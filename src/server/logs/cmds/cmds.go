@@ -96,6 +96,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		logQL, pipeline string
 		project         = pachCtx.Project
 		datum           string
+		app             string
 		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
 		to              = cmdutil.TimeFlag(time.Now())
 	)
@@ -125,25 +126,31 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			switch {
 			case cmd.Flag("logql").Changed:
-				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed || cmd.Flag("datum").Changed {
+				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed || cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
-				if cmd.Flag("datum").Changed {
+				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
-				if cmd.Flag("datum").Changed {
+				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
 					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addProjectRequest(req, project)
 			case cmd.Flag("datum").Changed:
+				if cmd.Flag("app").Changed {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
+					os.Exit(1)
+				}
 				addDatumRequest(req, datum)
+			case cmd.Flag("app").Changed:
+				addLogQLRequest(req, fmt.Sprintf(`{app=%q}`, app))
 			case isAdmin:
 				addLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
@@ -189,6 +196,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
 	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
+	logsCmd.Flags().StringVar(&app, "app", app, "App for service query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
 	commands = append(commands, logsCmd)
