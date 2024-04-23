@@ -194,9 +194,7 @@ class Egress(betterproto.Message):
     object_storage: "_pfs__.ObjectStorageEgress" = betterproto.message_field(
         2, group="target"
     )
-    sql_database: "_pfs__.SqlDatabaseEgress" = betterproto.message_field(
-        3, group="target"
-    )
+    sql_database: "_pfs__.SqlDatabaseEgress" = betterproto.message_field(3, group="target")
 
 
 @dataclass(eq=False, repr=False)
@@ -1050,9 +1048,7 @@ class ListPipelineRequest(betterproto.Message):
     def __post_init__(self) -> None:
         super().__post_init__()
         if self.is_set("details"):
-            warnings.warn(
-                "ListPipelineRequest.details is deprecated", DeprecationWarning
-            )
+            warnings.warn("ListPipelineRequest.details is deprecated", DeprecationWarning)
 
 
 @dataclass(eq=False, repr=False)
@@ -1602,7 +1598,7 @@ class ApiStub:
         jq_filter: str = "",
         pagination_marker: datetime = None,
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["JobInfo"]:
         projects = projects or []
         input_commit = input_commit or []
@@ -1633,7 +1629,7 @@ class ApiStub:
         pagination_marker: datetime = None,
         number: int = 0,
         reverse: bool = False,
-        jq_filter: str = ""
+        jq_filter: str = "",
     ) -> Iterator["JobSetInfo"]:
         projects = projects or []
 
@@ -1662,9 +1658,7 @@ class ApiStub:
         for response in self.__rpc_subscribe_job(request):
             yield response
 
-    def delete_job(
-        self, *, job: "Job" = None
-    ) -> "betterproto_lib_google_protobuf.Empty":
+    def delete_job(self, *, job: "Job" = None) -> "betterproto_lib_google_protobuf.Empty":
 
         request = DeleteJobRequest()
         if job is not None:
@@ -1699,7 +1693,7 @@ class ApiStub:
         filter: "ListDatumRequestFilter" = None,
         pagination_marker: str = "",
         number: int = 0,
-        reverse: bool = False
+        reverse: bool = False,
     ) -> Iterator["DatumInfo"]:
 
         request = ListDatumRequest()
@@ -1784,7 +1778,7 @@ class ApiStub:
         sidecar_resource_requests: "ResourceSpec" = None,
         dry_run: bool = False,
         determined: "Determined" = None,
-        maximum_expected_uptime: timedelta = None
+        maximum_expected_uptime: timedelta = None,
     ) -> "betterproto_lib_google_protobuf.Empty":
         tolerations = tolerations or []
 
@@ -1852,7 +1846,7 @@ class ApiStub:
         create_pipeline_request_json: str = "",
         dry_run: bool = False,
         update: bool = False,
-        reprocess: bool = False
+        reprocess: bool = False,
     ) -> "CreatePipelineV2Response":
 
         request = CreatePipelineV2Request()
@@ -1883,7 +1877,7 @@ class ApiStub:
         jq_filter: str = "",
         commit_set: "_pfs__.CommitSet" = None,
         projects: Optional[List["_pfs__.Project"]] = None,
-        page: "PipelinePage" = None
+        page: "PipelinePage" = None,
     ) -> Iterator["PipelineInfo"]:
         projects = projects or []
 
@@ -1910,7 +1904,7 @@ class ApiStub:
         all: bool = False,
         force: bool = False,
         keep_repo: bool = False,
-        must_exist: bool = False
+        must_exist: bool = False,
     ) -> "betterproto_lib_google_protobuf.Empty":
 
         request = DeletePipelineRequest()
@@ -1929,7 +1923,7 @@ class ApiStub:
         projects: Optional[List["_pfs__.Project"]] = None,
         force: bool = False,
         keep_repo: bool = False,
-        all: bool = False
+        all: bool = False,
     ) -> "DeletePipelinesResponse":
         projects = projects or []
 
@@ -1968,7 +1962,7 @@ class ApiStub:
         *,
         pipeline: "Pipeline" = None,
         provenance: Optional[List["_pfs__.Commit"]] = None,
-        job_id: str = ""
+        job_id: str = "",
     ) -> "betterproto_lib_google_protobuf.Empty":
         provenance = provenance or []
 
@@ -2053,7 +2047,7 @@ class ApiStub:
         follow: bool = False,
         tail: int = 0,
         use_loki_backend: bool = False,
-        since: timedelta = None
+        since: timedelta = None,
     ) -> Iterator["LogMessage"]:
         data_filters = data_filters or []
 
@@ -2093,7 +2087,7 @@ class ApiStub:
         data_failed: int = 0,
         data_recovered: int = 0,
         data_total: int = 0,
-        stats: "ProcessStats" = None
+        stats: "ProcessStats" = None,
     ) -> "betterproto_lib_google_protobuf.Empty":
 
         request = UpdateJobStateRequest()
@@ -2120,7 +2114,7 @@ class ApiStub:
         seed: int = 0,
         parallelism: int = 0,
         pod_patch: str = "",
-        state_id: str = ""
+        state_id: str = "",
     ) -> "RunLoadTestResponse":
 
         request = RunLoadTestRequest()
@@ -2194,7 +2188,7 @@ class ApiStub:
         regenerate: bool = False,
         reprocess: bool = False,
         dry_run: bool = False,
-        cluster_defaults_json: str = ""
+        cluster_defaults_json: str = "",
     ) -> "SetClusterDefaultsResponse":
 
         request = SetClusterDefaultsRequest()
@@ -2222,7 +2216,7 @@ class ApiStub:
         regenerate: bool = False,
         reprocess: bool = False,
         dry_run: bool = False,
-        project_defaults_json: str = ""
+        project_defaults_json: str = "",
     ) -> "SetProjectDefaultsResponse":
 
         request = SetProjectDefaultsRequest()
