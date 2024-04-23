@@ -13,6 +13,10 @@
                     "type": "string",
                     "description": "Can be null",
                     "format": "date-time"
+                },
+                "offset": {
+                    "type": "integer",
+                    "description": "Offset from which to return results"
                 }
             },
             "additionalProperties": false,

@@ -132,6 +132,7 @@ func (x *TimeRangeLogFilter) MarshalLogObject(enc zapcore.ObjectEncoder) error {
 	}
 	protoextensions.AddTimestamp(enc, "from", x.From)
 	protoextensions.AddTimestamp(enc, "until", x.Until)
+	enc.AddUint64("offset", x.Offset)
 	return nil
 }
 

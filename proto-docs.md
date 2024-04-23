@@ -4646,6 +4646,7 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | ----- | ---- | ----- | ----------- |
 | from | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
 | until | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | Can be null |
+| offset | [uint64](#uint64) |  | Offset from which to return results |
 
 
 

@@ -70,6 +70,7 @@ export type LogFilter = {
 export type TimeRangeLogFilter = {
   from?: GoogleProtobufTimestamp.Timestamp
   until?: GoogleProtobufTimestamp.Timestamp
+  offset?: string
 }
 
 export type RegexLogFilter = {

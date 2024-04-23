@@ -119,6 +119,9 @@ class TimeRangeLogFilter(betterproto.Message):
     until: datetime = betterproto.message_field(2)
     """Can be null"""
 
+    offset: int = betterproto.uint64_field(3)
+    """Offset from which to return results"""
+
 
 @dataclass(eq=False, repr=False)
 class RegexLogFilter(betterproto.Message):

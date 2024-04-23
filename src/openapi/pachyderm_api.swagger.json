@@ -8183,6 +8183,11 @@
           "type": "string",
           "format": "date-time",
           "title": "Can be null"
+        },
+        "offset": {
+          "type": "string",
+          "format": "uint64",
+          "title": "Offset from which to return results"
         }
       }
     },
