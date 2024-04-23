@@ -99,9 +99,10 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		to              = cmdutil.TimeFlag(time.Now())
 	)
 	logsCmd := &cobra.Command{
-		// TODO(CORE-2200): remove references to “new.”
-		Short: "New logs functionality",
-		Long:  "Query Pachyderm using new log service.",
+		// TODO(CORE-2200): Remove references to “new” and unhide.
+		Hidden: true,
+		Short:  "New logs functionality",
+		Long:   "Query Pachyderm using new log service.",
 		Run: func(cmd *cobra.Command, args []string) {
 			client, err := pachctlCfg.NewOnUserMachine(cmd.Context(), false)
 			if err != nil {
