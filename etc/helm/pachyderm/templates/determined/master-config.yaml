@@ -192,8 +192,8 @@ stringData:
       {{- if .Values.determined.taskContainerDefaults.gpuPodSpec }}
       gpu_pod_spec: {{ .Values.determined.taskContainerDefaults.gpuPodSpec | toJson }}
       {{- end }}
-      {{- if .Values.taskContainerDefaults.startupHook }}
-      startup_hook: {{ .Values.taskContainerDefaults.startupHook | quote}}
+      {{- if .Values.determined.taskContainerDefaults.startupHook }}
+      startup_hook: {{ .Values.determined.taskContainerDefaults.startupHook | quote}}
       {{- end }}
       {{- if .Values.determined.taskContainerDefaults.logPolicies }}
       log_policies:
