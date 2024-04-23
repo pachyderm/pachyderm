@@ -461,6 +461,9 @@ const Node: React.FC<NodeProps> = ({
     );
   }
 
+  const pipelineOrJobFailure =
+    node.nodeState === NodeState.ERROR || node.jobNodeState === NodeState.ERROR;
+
   return (
     <g
       id={groupName}
@@ -474,10 +477,9 @@ const Node: React.FC<NodeProps> = ({
         className={classNames(styles.node, {
           [styles.detailedError]:
             !showSimple && node.nodeState === NodeState.ERROR,
-          [styles.pipelineSimplifiedBox]:
-            showSimple && node.jobNodeState !== NodeState.ERROR,
+          [styles.pipelineSimplifiedBox]: showSimple && !pipelineOrJobFailure,
           [styles.pipelineSimplifiedBoxError]:
-            showSimple && node.jobNodeState === NodeState.ERROR,
+            showSimple && pipelineOrJobFailure,
           [styles.noShadow]: showSimple,
         })}
         rx={showSimple ? SIMPLE_BORDER_RADIUS : BORDER_RADIUS}
