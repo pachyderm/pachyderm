@@ -18,3 +18,5 @@ pachd:
   enterpriseLicenseKey: ""
   oauthClientID: "enterprise-pach"
   oauthRedirectURI: "http://localhost:31657/authorization-code/callback"
+  storage:
+    storageURL: s3://blah

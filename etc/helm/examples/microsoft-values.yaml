@@ -5,6 +5,7 @@ deployTarget: MICROSOFT
 
 pachd:
   storage:
+    storageURL: az://pachyderm-test
     microsoft:
       container: "foo"
       id: "bar"
