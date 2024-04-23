@@ -35,7 +35,7 @@ func Test(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) conte
 func TestParallel(ctx context.Context, t testing.TB, opts ...zaptest.LoggerOption) context.Context {
 	lvl := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	opts = append(opts,
-		zaptest.WrapOptions(zap.AddCaller(), zap.AddCallerSkip(1)),
+		zaptest.WrapOptions(zap.AddCaller(), zap.AddCallerSkip(1), zap.Development()),
 		zaptest.Level(lvl),
 	)
 	l := zaptest.NewLogger(t, opts...)

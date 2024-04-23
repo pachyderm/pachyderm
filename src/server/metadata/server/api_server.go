@@ -37,7 +37,7 @@ func NewMetadataServer(env Env) *APIServer {
 // any fail, the entire operation fails.
 func (s *APIServer) EditMetadata(ctx context.Context, req *metadatapb.EditMetadataRequest) (*metadatapb.EditMetadataResponse, error) {
 	res := &metadatapb.EditMetadataResponse{}
-	if err := s.env.TxnEnv.WithWriteContext(ctx, func(tc *txncontext.TransactionContext) error {
+	if err := s.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, tc *txncontext.TransactionContext) error {
 		if err := metadata.EditMetadataInTransaction(ctx, tc, s.env.Auth, req); err != nil {
 			return err
 		}

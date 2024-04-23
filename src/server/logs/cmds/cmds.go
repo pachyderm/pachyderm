@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/auth"
@@ -76,11 +76,25 @@ func addProjectRequest(req *logs.GetLogsRequest, project string) {
 	}
 }
 
+func addDatumRequest(req *logs.GetLogsRequest, datum string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_User{
+			User: &logs.UserLogQuery{
+				UserType: &logs.UserLogQuery_Datum{
+					Datum: datum,
+				},
+			},
+		},
+	}
+}
+
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var (
 		commands        []*cobra.Command
 		logQL, pipeline string
 		project         = pachCtx.Project
+		datum           string
+		app             string
 		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
 		to              = cmdutil.TimeFlag(time.Now())
 	)
@@ -103,7 +117,6 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 
 			var req = new(logs.GetLogsRequest)
-			req.LogFormat = logs.LogFormat_LOG_FORMAT_VERBATIM_WITH_TIMESTAMP
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
 				From:  timestamppb.New(time.Time(from)),
@@ -111,21 +124,39 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			}
 			switch {
 			case cmd.Flag("logql").Changed:
-				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed {
-					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE] may be set")
+				if cmd.Flag("project").Changed || cmd.Flag("pipeline").Changed || cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
 					os.Exit(1)
 				}
 				addLogQLRequest(req, logQL)
 			case cmd.Flag("pipeline").Changed:
+				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
+					os.Exit(1)
+				}
 				addPipelineRequest(req, project, pipeline)
 			case cmd.Flag("project").Changed:
+				if cmd.Flag("datum").Changed || cmd.Flag("app").Changed {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
+					os.Exit(1)
+				}
 				addProjectRequest(req, project)
+			case cmd.Flag("datum").Changed:
+				if cmd.Flag("app").Changed {
+					fmt.Fprintln(os.Stderr, "only one of [--logQL | --project PROJECT --pipeline PIPELINE | --datum DATUM] may be set")
+					os.Exit(1)
+				}
+				addDatumRequest(req, datum)
+			case cmd.Flag("app").Changed:
+				addLogQLRequest(req, fmt.Sprintf(`{app=%q}`, app))
 			case isAdmin:
 				addLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
 				addLogQLRequest(req, `{pod=~".+"}`)
 			}
 
+			// always ask for paging hints
+			req.WantPagingHint = true
 			resp, err := client.LogsClient.GetLogs(client.Ctx(), req)
 			if err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -140,21 +171,21 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					}
 					break
 				}
-				switch log := resp.GetLog().GetLogType().(type) {
-				case *logs.LogMessage_PpsLogMessage:
-					b, err := protojson.Marshal(resp.GetLog().GetPpsLogMessage())
-					if err != nil {
-						fmt.Fprintf(os.Stderr, "ERROR: cannot marshal %v\n", resp.GetLog().GetPpsLogMessage())
-					}
-					fmt.Println(string(b))
-				case *logs.LogMessage_Json:
-					fmt.Println(resp.GetLog().GetJson().GetVerbatim().GetLine())
-				case *logs.LogMessage_Verbatim:
-					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
-				default:
-					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", log)
-				}
 
+				switch resp.ResponseType.(type) {
+				case *logs.GetLogsResponse_Log:
+					fmt.Println(string(resp.GetLog().GetVerbatim().GetLine()))
+				case *logs.GetLogsResponse_PagingHint:
+					hint := resp.GetPagingHint()
+					if hint == nil {
+						fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %v\n`", resp)
+						continue
+					}
+					// printing to stderr in order to keep stdout clean
+					fmt.Fprintln(os.Stderr, toPachctl(cmd, args, hint))
+				default:
+					fmt.Fprintf(os.Stderr, "ERROR: do not know how to handle %T\n`", resp)
+				}
 			}
 		},
 		Use: "logs2",
@@ -162,8 +193,45 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&logQL, "logql", "", "LogQL query")
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
+	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
+	logsCmd.Flags().StringVar(&app, "app", app, "App for service query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
 	commands = append(commands, logsCmd)
 	return commands
+}
+
+func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
+	var result string
+
+	if from := hint.GetFilter().GetTimeRange().GetFrom(); !from.AsTime().IsZero() {
+		flags["from"] = from.AsTime().Format(time.RFC3339Nano)
+	}
+	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
+		flags["to"] = until.AsTime().Format(time.RFC3339Nano)
+	}
+	for flag, arg := range flags {
+		result += " --" + flag + " " + arg
+	}
+	return result
+}
+
+func toPachctl(cmd *cobra.Command, args []string, hint *logs.PagingHint) string {
+	var flags = make(map[string]string)
+	older := cmd.CommandPath()
+	newer := cmd.CommandPath()
+	cmd.Flags().Visit(func(flag *pflag.Flag) {
+		if !cmd.Flag(flag.Name).Changed {
+			return
+		}
+		flags[flag.Name] = flag.Value.String()
+	})
+
+	older += toFlags(flags, hint.GetOlder())
+	newer += toFlags(flags, hint.GetNewer())
+	for _, arg := range args {
+		older += " " + arg
+		newer += " " + arg
+	}
+	return fmt.Sprintf("Older logs are available with %s\nNewer logs are available with %s", older, newer)
 }

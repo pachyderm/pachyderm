@@ -61,7 +61,7 @@ func DoOne(ctx context.Context, doer Doer, input *anypb.Any) (*anypb.Any, error)
 
 // DoBatch executes a batch of tasks.
 func DoBatch(ctx context.Context, doer Doer, inputs []*anypb.Any, cb CollectFunc) error {
-	var eg errgroup.Group
+	eg, ctx := errgroup.WithContext(ctx)
 	inputChan := make(chan *anypb.Any)
 	eg.Go(func() error {
 		return errors.EnsureStack(doer.Do(ctx, inputChan, cb))

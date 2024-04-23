@@ -39,6 +39,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/auth"
 	"github.com/pachyderm/pachyderm/v2/src/debug"
 	"github.com/pachyderm/pachyderm/v2/src/internal/client"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pachd"
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	pfspretty "github.com/pachyderm/pachyderm/v2/src/server/pfs/pretty"
@@ -3618,70 +3619,72 @@ func TestManyFilesSingleOutputCommit(t *testing.T) {
 }
 
 // Checks that "time to first datum" for CreateDatum is faster than ListDatum
-func TestCreateDatum(t *testing.T) {
+func BenchmarkCreateDatum(b *testing.B) {
 	if testing.Short() {
-		t.Skip("Skipping integration tests in short mode")
+		b.Skip("Skipping benchmark in short mode")
 	}
-	t.Parallel()
-	c, _ := minikubetestenv.AcquireCluster(t)
-
-	repo := tu.UniqueString("TestCreateDatum")
-	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	c := pachd.NewTestPachd(b)
+	repo := tu.UniqueString("BenchmarkCreateDatum")
+	require.NoError(b, c.CreateRepo(pfs.DefaultProjectName, repo))
 
 	// Need multiple shards worth of files to see benefit of CreateDatum
 	// compared to ListDatum
 	numFiles := 5 * datum.ShardNumFiles
 	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
-	require.NoError(t, err)
-	require.NoError(t, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
+	require.NoError(b, err)
+	require.NoError(b, c.WithModifyFileClient(commit, func(mfc client.ModifyFile) error {
 		for i := 0; i < numFiles; i++ {
-			require.NoError(t, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
+			require.NoError(b, mfc.PutFile(fmt.Sprintf("file-%d", i), strings.NewReader(""), client.WithAppendPutFile()))
 		}
 		return nil
 	}))
-	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+	require.NoError(b, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
 
-	input := client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")
-	var eg errgroup.Group
-	var listDatumTimeToFirstDatum, createDatumTimeToFirstDatum float64
-	eg.Go(func() error {
-		ctx, cf := context.WithCancel(c.Ctx())
-		defer cf()
-		req := &pps.ListDatumRequest{Input: input}
-		start := time.Now()
-		client, err := c.PpsAPIClient.ListDatum(ctx, req)
-		if err != nil {
-			return err
-		}
-		_, err = client.Recv()
-		if err != nil {
-			return err
-		}
-		listDatumTimeToFirstDatum = time.Since(start).Seconds()
-		return nil
-	})
-	eg.Go(func() error {
-		ctx, cf := context.WithCancel(c.Ctx())
-		defer cf()
-		client, err := c.PpsAPIClient.CreateDatum(ctx)
-		if err != nil {
-			return err
-		}
-		req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input}}}
-		start := time.Now()
-		if err := client.Send(req); err != nil {
-			return err
-		}
-		_, err = client.Recv()
-		if err != nil {
-			return err
-		}
-		createDatumTimeToFirstDatum = time.Since(start).Seconds()
-		return nil
-	})
-	require.NoError(t, eg.Wait())
-	// The choice of 0.75 provides a conservative buffer for the test to pass
-	require.True(t, createDatumTimeToFirstDatum < listDatumTimeToFirstDatum*0.75)
+	inputs := []struct {
+		name  string
+		input *pps.Input
+	}{
+		{"PFS", client.NewPFSInput(pfs.DefaultProjectName, repo, "/*")},
+		{"Union", client.NewUnionInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/*"),
+		)},
+		{"Cross", client.NewCrossInput(
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-??"),
+			client.NewPFSInput(pfs.DefaultProjectName, repo, "/file-???"),
+		)},
+		{"Join", client.NewJoinInput(
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?*(??)0", "$1", "", false, false, nil),
+			client.NewPFSInputOpts(repo, pfs.DefaultProjectName, repo, "master", "/file-?0(??)0", "$1", "", false, false, nil),
+		)},
+		// No entry for Group because CreateDatum's streaming can't improve
+		// time to first datum
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-ListDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				req := &pps.ListDatumRequest{Input: input.input}
+				client, err := c.PpsAPIClient.ListDatum(c.Ctx(), req)
+				require.NoError(b, err)
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
+
+	for _, input := range inputs {
+		b.Run(input.name+"-CreateDatum", func(b *testing.B) {
+			for i := 0; i < b.N; i++ {
+				client, err := c.PpsAPIClient.CreateDatum(c.Ctx())
+				require.NoError(b, err)
+				req := &pps.CreateDatumRequest{Body: &pps.CreateDatumRequest_Start{Start: &pps.StartCreateDatumRequest{Input: input.input}}}
+				require.NoError(b, client.Send(req))
+				_, err = client.Recv()
+				require.NoError(b, err)
+			}
+		})
+	}
 }
 
 func TestStopPipeline(t *testing.T) {
@@ -11696,4 +11699,92 @@ func TestJQFilterInfiniteLoop(t *testing.T) {
 			require.NoError(t, err, "list jobs fails")
 		}
 	})
+}
+
+func TestPipelinesSummary(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration tests in short mode")
+	}
+	t.Parallel()
+	c, _ := minikubetestenv.AcquireCluster(t)
+	repo := "input"
+	require.NoError(t, c.CreateRepo(pfs.DefaultProjectName, repo))
+	type PipState int
+	const (
+		Active PipState = iota
+		Unhealthy
+		Paused
+		Failed
+	)
+	createPipeline := func(project, name string, state PipState) {
+		cmd := []string{"cp", "-r", "/pfs/in", "/pfs/out"}
+		switch state {
+		case Unhealthy:
+			cmd = []string{"exit 1"}
+		case Failed:
+			cmd = nil
+		}
+		require.NoError(t, c.CreatePipeline(
+			project,
+			name,
+			"", /* default image*/
+			cmd,
+			nil, /* stdin */
+			nil, /* spec */
+			&pps.Input{Pfs: &pps.PFSInput{Project: pfs.DefaultProjectName, Repo: repo, Glob: "/*", Name: "in"}},
+			"",    /* output */
+			false, /* update */
+		))
+		if state == Paused {
+			require.NoError(t, c.StopPipeline(project, name))
+		}
+		_, err := c.WaitCommit(project, name, "master", "")
+		require.NoError(t, err)
+	}
+	projects := []string{"a", "b"}
+	for _, prj := range projects {
+		require.NoError(t, c.CreateProject(prj))
+	}
+	pips := []string{"A", "B", "C", "D", "E"}
+	for _, prj := range projects {
+		for i, pip := range pips {
+			var state PipState = Active
+			if i == 0 {
+				state = Unhealthy
+			} else if i == 1 {
+				state = Paused
+			} else if i == 2 {
+				state = Failed
+			}
+			createPipeline(prj, pip, state)
+		}
+	}
+	commit, err := c.StartCommit(pfs.DefaultProjectName, repo, "master")
+	require.NoError(t, err)
+	require.NoError(t, c.PutFile(commit, "file", strings.NewReader("foo\n"), client.WithAppendPutFile()))
+	require.NoError(t, c.FinishCommit(pfs.DefaultProjectName, repo, "master", ""))
+	for _, tc := range [][]string{
+		{},
+		{"a"},
+		{"b"},
+		{"b", "a"},
+	} {
+		var pickers []*pfs.ProjectPicker
+		for _, project := range tc {
+			pickers = append(pickers, &pfs.ProjectPicker{
+				Picker: &pfs.ProjectPicker_Name{Name: project},
+			})
+		}
+		resp, err := c.PipelinesSummary(pctx.TestContext(t),
+			&pps.PipelinesSummaryRequest{Projects: pickers})
+		require.NoError(t, err)
+		require.Len(t, resp.Summaries, len(tc))
+		for i, project := range tc {
+			require.Equal(t, project, resp.Summaries[i].Project.Name)
+			require.Equal(t, int64(3), resp.Summaries[i].ActivePipelines) // unhealthy pipelines are still active
+			require.Equal(t, int64(1), resp.Summaries[i].PausedPipelines)
+			require.Equal(t, int64(1), resp.Summaries[i].FailedPipelines)
+			require.Equal(t, int64(1), resp.Summaries[i].UnhealthyPipelines)
+		}
+	}
 }

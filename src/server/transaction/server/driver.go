@@ -45,7 +45,7 @@ func (d *driver) batchTransaction(ctx context.Context, req []*transaction.Transa
 		return nil, errors.Wrap(err, "run pre-transaction operations")
 	}
 	var result *transaction.TransactionInfo
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		// Because we're building and running the entire transaction atomically here,
 		// there is no need to persist the TransactionInfo to the collection
 		info := &transaction.TransactionInfo{
@@ -95,7 +95,7 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 }
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id))
 	})
 }
@@ -180,7 +180,7 @@ func (d *driver) runTransaction(ctx context.Context, txnCtx *txncontext.Transact
 }
 
 func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
-	return d.updateTransaction(ctx, true, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
+	return d.updateTransaction(ctx, true, txn, func(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
 		info, err := d.runTransaction(ctx, txnCtx, info)
 		if err != nil {
 			return info, err
@@ -213,7 +213,7 @@ func (d *driver) appendTransaction(
 	// We do a dryrun of the transaction to
 	// 1. make sure the appended request is valid
 	// 2. Capture the result of the request to be returned
-	return d.updateTransaction(ctx, false, txn, func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
+	return d.updateTransaction(ctx, false, txn, func(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error) {
 		if restarted {
 			info.Requests = append(info.Requests, items...)
 		}
@@ -227,14 +227,14 @@ func (d *driver) updateTransaction(
 	ctx context.Context,
 	writeTxn bool,
 	txn *transaction.Transaction,
-	f func(txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
+	f func(ctx context.Context, txnCtx *txncontext.TransactionContext, info *transaction.TransactionInfo, restarted bool) (*transaction.TransactionInfo, error),
 ) (*transaction.TransactionInfo, error) {
 	// we want to respect ErrBreak, so we have to smuggle some information out of the transaction
 	var gotBreak bool
 	// local info will hold a version of the transaction with any modifications needed to get the current version to run
 	// it will only be written to the collection after the update operation is successful
 	var localInfo *transaction.TransactionInfo
-	attempt := func(txnCtx *txncontext.TransactionContext) error {
+	attempt := func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		storedInfo := new(transaction.TransactionInfo)
 		var err error
 		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, storedInfo); err != nil {
@@ -246,7 +246,7 @@ func (d *driver) updateTransaction(
 			localInfo = storedInfo
 		}
 		// update local info even if there was an error
-		localInfo, err = f(txnCtx, localInfo, restarted)
+		localInfo, err = f(ctx, txnCtx, localInfo, restarted)
 		if err != nil && errors.Is(err, errutil.ErrBreak) {
 			gotBreak = true
 			return nil
@@ -257,7 +257,7 @@ func (d *driver) updateTransaction(
 
 	// prefetch transaction info and add data to refresher ahead of time
 	var prefetch transaction.TransactionInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, &prefetch))
 	}); err != nil {
 		return nil, err

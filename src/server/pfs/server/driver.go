@@ -105,13 +105,16 @@ func newDriver(ctx context.Context, env Env) (*driver, error) {
 		commits:    commits,
 		branches:   branches,
 	}
-	storageEnv := storage.Env{DB: env.DB}
+	storageEnv := storage.Env{
+		DB:     env.DB,
+		Config: env.StorageConfig,
+	}
 	if env.Bucket != nil {
 		storageEnv.Bucket = env.Bucket
 	} else {
 		storageEnv.ObjectStore = env.ObjectClient
 	}
-	storageSrv, err := storage.New(ctx, storageEnv, env.StorageConfig)
+	storageSrv, err := storage.New(ctx, storageEnv)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +322,7 @@ func (d *driver) listRepoInTransaction(ctx context.Context, txnCtx *txncontext.T
 
 func (d *driver) deleteRepos(ctx context.Context, projects []*pfs.Project, force bool) ([]*pfs.Repo, error) {
 	var deleted []*pfs.Repo
-	if err := d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		deleted, err = d.deleteReposInTransaction(ctx, txnCtx, projects, force)
 		return err
@@ -521,7 +524,7 @@ func (d *driver) canDeleteRepo(ctx context.Context, txnCtx *txncontext.Transacti
 }
 
 func (d *driver) createProject(ctx context.Context, req *pfs.CreateProjectRequest) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		return d.createProjectInTransaction(ctx, txnCtx, req)
 	})
 }
@@ -723,23 +726,21 @@ func (d *driver) getCompactedDiffFileSet(ctx context.Context, commit *pfs.Commit
 // The ProjectInfo provided to the closure is repurposed on each invocation, so it's the client's responsibility to clone the ProjectInfo if desired
 func (d *driver) listProject(ctx context.Context, cb func(*pfs.ProjectInfo) error) error {
 	authIsActive := true
-	return errors.Wrap(dbutil.WithTx(ctx, d.env.DB, func(ctx context.Context, tx *pachsql.Tx) error {
-		return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
-			return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
-				if authIsActive {
-					resp, err := d.env.Auth.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
-					if err != nil {
-						if errors.Is(err, auth.ErrNotActivated) {
-							// Avoid unnecessary subsequent Auth API calls.
-							authIsActive = false
-							return cb(proj)
-						}
-						return errors.Wrapf(err, "getting permissions for project %s", proj.Project)
+	return errors.Wrap(d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
+		return d.listProjectInTransaction(ctx, txnCtx, func(proj *pfs.ProjectInfo) error {
+			if authIsActive {
+				resp, err := d.env.Auth.GetPermissionsInTransaction(txnCtx, &auth.GetPermissionsRequest{Resource: proj.GetProject().AuthResource()})
+				if err != nil {
+					if errors.Is(err, auth.ErrNotActivated) {
+						// Avoid unnecessary subsequent Auth API calls.
+						authIsActive = false
+						return cb(proj)
 					}
-					proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+					return errors.Wrapf(err, "getting permissions for project %s", proj.Project)
 				}
-				return cb(proj)
-			})
+				proj.AuthInfo = &pfs.AuthInfo{Permissions: resp.Permissions, Roles: resp.Roles}
+			}
+			return cb(proj)
 		})
 	}), "list projects")
 }
@@ -1110,7 +1111,7 @@ func (d *driver) inspectCommit(ctx context.Context, commit *pfs.Commit, wait pfs
 // inspectProcessingCommits waits for the commit to be FINISHING or FINISHED.
 func (d *driver) inspectProcessingCommits(ctx context.Context, commitInfo *pfs.CommitInfo, wait pfs.CommitState) (*pfs.CommitInfo, error) {
 	var commitID pfsdb.CommitID
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitID, err = pfsdb.GetCommitID(ctx, txnCtx.SqlTx, commitInfo.Commit)
 		if err != nil {
@@ -1169,7 +1170,7 @@ func (d *driver) resolveCommitWithAuth(ctx context.Context, commit *pfs.Commit) 
 	}
 	// Resolve the commit in case it specifies a branch head or commit ancestry
 	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitInfo, err = d.resolveCommit(ctx, txnCtx.SqlTx, commit)
 		return err
@@ -1312,7 +1313,7 @@ func (d *driver) getCommit(ctx context.Context, commit *pfs.Commit) (*pfs.Commit
 
 	// Check if the commitID is a branch name
 	var commitInfo *pfs.CommitInfo
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		commitInfo, err = d.resolveCommit(ctx, txnCtx.SqlTx, commit)
 		return err
@@ -1644,6 +1645,42 @@ func (d *driver) dropCommit(ctx context.Context, txnCtx *txncontext.TransactionC
 	return nil
 }
 
+func (d *driver) walkCommitProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitProvenanceRequest,
+	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
+	commits, err := pfsdb.GetCommitWithIDProvenance(ctx, txnCtx.SqlTx, startId,
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
+	if err != nil {
+		return errors.Wrap(err, "walk commit provenance in transaction")
+	}
+	for _, commit := range commits {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := cb(commit.CommitInfo); err != nil {
+			return errors.Wrap(err, "walk commit provenance in transaction")
+		}
+	}
+	return nil
+}
+
+func (d *driver) walkCommitSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkCommitSubvenanceRequest,
+	startId pfsdb.CommitID, cb func(commitInfo *pfs.CommitInfo) error) error {
+	commits, err := pfsdb.GetCommitWithIDSubvenance(ctx, txnCtx.SqlTx, startId,
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxCommits))
+	if err != nil {
+		return errors.Wrap(err, "walk commit subvenance in transaction")
+	}
+	for _, commit := range commits {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, commit.Commit.Repo, auth.Permission_REPO_INSPECT_COMMIT); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := cb(commit.CommitInfo); err != nil {
+			return errors.Wrap(err, "walk commit subvenance in transaction")
+		}
+	}
+	return nil
+}
+
 // fillNewBranches helps create the upstream branches on which a branch is provenant, if they don't exist.
 // TODO(provenance): consider removing this functionality
 func (d *driver) fillNewBranches(ctx context.Context, txnCtx *txncontext.TransactionContext, branch *pfs.Branch, provenance []*pfs.Branch) error {
@@ -1866,7 +1903,7 @@ func (d *driver) createBranch(ctx context.Context, txnCtx *txncontext.Transactio
 
 func (d *driver) inspectBranch(ctx context.Context, branch *pfs.Branch) (*pfs.BranchInfo, error) {
 	branchInfo := &pfs.BranchInfo{}
-	if err := d.txnEnv.WithReadContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		var err error
 		branchInfo, err = d.inspectBranchInTransaction(ctx, txnCtx, branch)
 		return err
@@ -1998,8 +2035,44 @@ func (d *driver) deleteBranch(ctx context.Context, txnCtx *txncontext.Transactio
 	return pfsdb.DeleteBranch(ctx, txnCtx.SqlTx, branchInfoWithID, force)
 }
 
+func (d *driver) walkBranchProvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchProvenanceRequest,
+	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
+	branches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, txnCtx.SqlTx, startId,
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
+	if err != nil {
+		return errors.Wrap(err, "walk branch provenance in transaction")
+	}
+	for _, branch := range branches {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := cb(branch.BranchInfo); err != nil {
+			return errors.Wrap(err, "walk branch provenance in transaction")
+		}
+	}
+	return nil
+}
+
+func (d *driver) walkBranchSubvenanceTx(ctx context.Context, txnCtx *txncontext.TransactionContext, request *WalkBranchSubvenanceRequest,
+	startId pfsdb.BranchID, cb func(branchInfo *pfs.BranchInfo) error) error {
+	branches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, txnCtx.SqlTx, startId,
+		pfsdb.WithMaxDepth(request.MaxDepth), pfsdb.WithLimit(request.MaxBranches))
+	if err != nil {
+		return errors.Wrap(err, "walk branch subvenance in transaction")
+	}
+	for _, branch := range branches {
+		if err := d.env.Auth.CheckRepoIsAuthorizedInTransaction(txnCtx, branch.Branch.Repo, auth.Permission_REPO_LIST_BRANCH); err != nil {
+			return errors.EnsureStack(err)
+		}
+		if err := cb(branch.BranchInfo); err != nil {
+			return errors.Wrap(err, "walk branch subvenance transaction")
+		}
+	}
+	return nil
+}
+
 func (d *driver) deleteAll(ctx context.Context) error {
-	return d.txnEnv.WithWriteContext(ctx, func(txnCtx *txncontext.TransactionContext) error {
+	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		if _, err := d.deleteReposInTransaction(ctx, txnCtx, nil /* projects */, true /* force */); err != nil {
 			return errors.Wrap(err, "could not delete all repos")
 		}

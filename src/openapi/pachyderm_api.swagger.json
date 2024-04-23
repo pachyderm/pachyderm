@@ -5512,6 +5512,36 @@
         ]
       }
     },
+    "/pps_v2.API/PipelinesSummary": {
+      "post": {
+        "summary": "PipelinesSummary summarizes the pipelines for each requested project.",
+        "operationId": "API_PipelinesSummary",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/pps_v2PipelinesSummaryResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/rpcStatus"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/pps_v2PipelinesSummaryRequest"
+            }
+          }
+        ]
+      }
+    },
     "/proxy.API/Listen": {
       "post": {
         "summary": "Listen streams database events.\nIt signals that it is internally set up by sending an initial empty ListenResponse.",
@@ -6287,6 +6317,13 @@
         "webResources": {
           "$ref": "#/definitions/admin_v2WebResource",
           "description": "Any HTTP links that the client might want to be aware of."
+        },
+        "metadata": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Cluster-level metadata."
         }
       }
     },
@@ -6726,6 +6763,7 @@
         "CLUSTER_LIST_SECRETS",
         "SECRET_DELETE",
         "SECRET_INSPECT",
+        "CLUSTER_EDIT_CLUSTER_METADATA",
         "CLUSTER_DELETE_ALL",
         "REPO_READ",
         "REPO_WRITE",
@@ -8003,9 +8041,6 @@
         },
         "wantPagingHint": {
           "type": "boolean"
-        },
-        "logFormat": {
-          "$ref": "#/definitions/logsLogFormat"
         }
       }
     },
@@ -8039,17 +8074,6 @@
         }
       }
     },
-    "logsLogFormat": {
-      "type": "string",
-      "enum": [
-        "LOG_FORMAT_UNKNOWN",
-        "LOG_FORMAT_VERBATIM_WITH_TIMESTAMP",
-        "LOG_FORMAT_PARSED_JSON",
-        "LOG_FORMAT_PPS_LOGMESSAGE"
-      ],
-      "default": "LOG_FORMAT_UNKNOWN",
-      "title": "- LOG_FORMAT_UNKNOWN: error"
-    },
     "logsLogLevel": {
       "type": "string",
       "enum": [
@@ -8063,13 +8087,21 @@
       "type": "object",
       "properties": {
         "verbatim": {
-          "$ref": "#/definitions/logsVerbatimLogMessage"
+          "$ref": "#/definitions/logsVerbatimLogMessage",
+          "title": "The verbatim line from Loki"
         },
-        "json": {
-          "$ref": "#/definitions/logsParsedJSONLogMessage"
+        "object": {
+          "type": "object",
+          "title": "A raw JSON parse of the entire line"
+        },
+        "nativeTimestamp": {
+          "type": "string",
+          "format": "date-time",
+          "title": "If a parseable timestamp was found in `fields`"
         },
         "ppsLogMessage": {
-          "$ref": "#/definitions/pps_v2LogMessage"
+          "$ref": "#/definitions/pps_v2LogMessage",
+          "title": "For code that wants to filter on pipeline/job/etc"
         }
       }
     },
@@ -8092,28 +8124,6 @@
         },
         "newer": {
           "$ref": "#/definitions/logsGetLogsRequest"
-        }
-      }
-    },
-    "logsParsedJSONLogMessage": {
-      "type": "object",
-      "properties": {
-        "verbatim": {
-          "$ref": "#/definitions/logsVerbatimLogMessage",
-          "title": "The verbatim line from Loki"
-        },
-        "object": {
-          "type": "object",
-          "title": "A raw JSON parse of the entire line"
-        },
-        "nativeTimestamp": {
-          "type": "string",
-          "format": "date-time",
-          "title": "If a parseable timestamp was found in `fields`"
-        },
-        "ppsLogMessage": {
-          "$ref": "#/definitions/pps_v2LogMessage",
-          "title": "For code that wants to filter on pipeline/job/etc"
         }
       }
     },
@@ -8215,6 +8225,10 @@
         }
       }
     },
+    "metadataClusterPicker": {
+      "type": "object",
+      "description": "ClusterPicker selects a cluster.  Since clusters will never \"cascade\", there is only one cluster\nthat can be selected, the one running this API server."
+    },
     "metadataEdit": {
       "type": "object",
       "properties": {
@@ -8233,6 +8247,10 @@
         "repo": {
           "$ref": "#/definitions/pfs_v2RepoPicker",
           "description": "repo targets a repo's metadata."
+        },
+        "cluster": {
+          "$ref": "#/definitions/metadataClusterPicker",
+          "description": "cluster targets the cluster's metadata."
         },
         "replace": {
           "$ref": "#/definitions/EditReplace",
@@ -8480,6 +8498,13 @@
           "format": "date-time"
         },
         "directProvenance": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2Commit"
+          }
+        },
+        "directSubvenance": {
           "type": "array",
           "items": {
             "type": "object",
@@ -11410,6 +11435,61 @@
       ],
       "default": "PIPELINE_STATE_UNKNOWN",
       "description": " - PIPELINE_STARTING: There is a PipelineInfo + spec commit, but no RC\nThis happens when a pipeline has been created but not yet picked up by a\nPPS server.\n - PIPELINE_RUNNING: A pipeline has a spec commit and a service + RC\nThis is the normal state of a pipeline.\n - PIPELINE_RESTARTING: Equivalent to STARTING (there is a PipelineInfo + commit, but no RC)\nAfter some error caused runPipeline to exit, but before the pipeline is\nre-run. This is when the exponential backoff is in effect.\n - PIPELINE_FAILURE: The pipeline has encountered unrecoverable errors and is no longer being\nretried. It won't leave this state until the pipeline is updated.\n - PIPELINE_PAUSED: The pipeline has been explicitly paused by the user (the pipeline spec's\nStopped field should be true if the pipeline is in this state)\n - PIPELINE_STANDBY: The pipeline is fully functional, but there are no commits to process.\n - PIPELINE_CRASHING: The pipeline's workers are crashing, or failing to come up, this may\nresolve itself, the pipeline may make progress while in this state if the\nproblem is only being experienced by some workers."
+    },
+    "pps_v2PipelinesSummary": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "$ref": "#/definitions/pfs_v2Project",
+          "title": "the project the PipelinesSummary corresponds to"
+        },
+        "activePipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of active pipelines"
+        },
+        "pausedPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of paused pipelines"
+        },
+        "failedPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of failed pipelines"
+        },
+        "unhealthyPipelines": {
+          "type": "string",
+          "format": "int64",
+          "title": "count of pipelines with a failed latest job"
+        }
+      }
+    },
+    "pps_v2PipelinesSummaryRequest": {
+      "type": "object",
+      "properties": {
+        "projects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pfs_v2ProjectPicker"
+          },
+          "title": "a PipelinesSummary will be returned for each of the requests projects"
+        }
+      }
+    },
+    "pps_v2PipelinesSummaryResponse": {
+      "type": "object",
+      "properties": {
+        "summaries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/pps_v2PipelinesSummary"
+          },
+          "title": "the pipeline summaries for the requested projects"
+        }
+      }
     },
     "pps_v2ProcessStats": {
       "type": "object",

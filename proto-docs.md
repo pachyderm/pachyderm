@@ -5,6 +5,7 @@
 
 - [admin/admin.proto](#admin_admin-proto)
     - [ClusterInfo](#admin_v2-ClusterInfo)
+    - [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry)
     - [InspectClusterRequest](#admin_v2-InspectClusterRequest)
     - [WebResource](#admin_v2-WebResource)
   
@@ -277,7 +278,6 @@
     - [LogMessage](#logs-LogMessage)
     - [LogQuery](#logs-LogQuery)
     - [PagingHint](#logs-PagingHint)
-    - [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage)
     - [PipelineJobLogQuery](#logs-PipelineJobLogQuery)
     - [PipelineLogQuery](#logs-PipelineLogQuery)
     - [PodContainer](#logs-PodContainer)
@@ -286,12 +286,12 @@
     - [UserLogQuery](#logs-UserLogQuery)
     - [VerbatimLogMessage](#logs-VerbatimLogMessage)
   
-    - [LogFormat](#logs-LogFormat)
     - [LogLevel](#logs-LogLevel)
   
     - [API](#logs-API)
   
 - [metadata/metadata.proto](#metadata_metadata-proto)
+    - [ClusterPicker](#metadata-ClusterPicker)
     - [Edit](#metadata-Edit)
     - [Edit.AddKey](#metadata-Edit-AddKey)
     - [Edit.DeleteKey](#metadata-Edit-DeleteKey)
@@ -520,6 +520,9 @@
     - [PipelineInfo.Details](#pps_v2-PipelineInfo-Details)
     - [PipelineInfos](#pps_v2-PipelineInfos)
     - [PipelinePage](#pps_v2-PipelinePage)
+    - [PipelinesSummary](#pps_v2-PipelinesSummary)
+    - [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest)
+    - [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse)
     - [ProcessStats](#pps_v2-ProcessStats)
     - [ProjectDefaults](#pps_v2-ProjectDefaults)
     - [RenderTemplateRequest](#pps_v2-RenderTemplateRequest)
@@ -748,6 +751,23 @@
 | proxy_tls | [bool](#bool) |  | True if Pachyderm is served over TLS (HTTPS). |
 | paused | [bool](#bool) |  | True if this pachd is in &#34;paused&#34; mode. |
 | web_resources | [WebResource](#admin_v2-WebResource) |  | Any HTTP links that the client might want to be aware of. |
+| metadata | [ClusterInfo.MetadataEntry](#admin_v2-ClusterInfo-MetadataEntry) | repeated | Cluster-level metadata. |
+
+
+
+
+
+
+<a name="admin_v2-ClusterInfo-MetadataEntry"></a>
+
+### ClusterInfo.MetadataEntry
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| key | [string](#string) |  |  |
+| value | [string](#string) |  |  |
 
 
 
@@ -1757,6 +1777,7 @@ Permission represents the ability to perform a given operation on a Resource
 | CLUSTER_LIST_SECRETS | 144 |  |
 | SECRET_DELETE | 145 |  |
 | SECRET_INSPECT | 146 |  |
+| CLUSTER_EDIT_CLUSTER_METADATA | 151 |  |
 | CLUSTER_DELETE_ALL | 138 |  |
 | REPO_READ | 200 |  |
 | REPO_WRITE | 201 |  |
@@ -4461,7 +4482,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | filter | [LogFilter](#logs-LogFilter) |  |  |
 | tail | [bool](#bool) |  |  |
 | want_paging_hint | [bool](#bool) |  |  |
-| log_format | [LogFormat](#logs-LogFormat) |  |  |
 
 
 
@@ -4510,9 +4530,10 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 
 | Field | Type | Label | Description |
 | ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  |  |
-| json | [ParsedJSONLogMessage](#logs-ParsedJSONLogMessage) |  |  |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  |  |
+| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
+| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
+| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
+| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4545,24 +4566,6 @@ Note: Updates of the enterprise-server field are not allowed. In the worst case,
 | ----- | ---- | ----- | ----------- |
 | older | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
 | newer | [GetLogsRequest](#logs-GetLogsRequest) |  |  |
-
-
-
-
-
-
-<a name="logs-ParsedJSONLogMessage"></a>
-
-### ParsedJSONLogMessage
-
-
-
-| Field | Type | Label | Description |
-| ----- | ---- | ----- | ----------- |
-| verbatim | [VerbatimLogMessage](#logs-VerbatimLogMessage) |  | The verbatim line from Loki |
-| object | [google.protobuf.Struct](#google-protobuf-Struct) |  | A raw JSON parse of the entire line |
-| native_timestamp | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  | If a parseable timestamp was found in `fields` |
-| pps_log_message | [pps_v2.LogMessage](#pps_v2-LogMessage) |  | For code that wants to filter on pipeline/job/etc |
 
 
 
@@ -4686,20 +4689,6 @@ Only returns &#34;user&#34; logs
  
 
 
-<a name="logs-LogFormat"></a>
-
-### LogFormat
-
-
-| Name | Number | Description |
-| ---- | ------ | ----------- |
-| LOG_FORMAT_UNKNOWN | 0 | error |
-| LOG_FORMAT_VERBATIM_WITH_TIMESTAMP | 1 |  |
-| LOG_FORMAT_PARSED_JSON | 2 |  |
-| LOG_FORMAT_PPS_LOGMESSAGE | 3 |  |
-
-
-
 <a name="logs-LogLevel"></a>
 
 ### LogLevel
@@ -4737,6 +4726,17 @@ Only returns &#34;user&#34; logs
 
 
 
+<a name="metadata-ClusterPicker"></a>
+
+### ClusterPicker
+ClusterPicker selects a cluster.  Since clusters will never &#34;cascade&#34;, there is only one cluster
+that can be selected, the one running this API server.
+
+
+
+
+
+
 <a name="metadata-Edit"></a>
 
 ### Edit
@@ -4749,6 +4749,7 @@ Edit represents editing one piece of metadata.
 | commit | [pfs_v2.CommitPicker](#pfs_v2-CommitPicker) |  | commit targets a commit&#39;s metadata. |
 | branch | [pfs_v2.BranchPicker](#pfs_v2-BranchPicker) |  | branch targets a branch&#39;s metadata. |
 | repo | [pfs_v2.RepoPicker](#pfs_v2-RepoPicker) |  | repo targets a repo&#39;s metadata. |
+| cluster | [ClusterPicker](#metadata-ClusterPicker) |  | cluster targets the cluster&#39;s metadata. |
 | replace | [Edit.Replace](#metadata-Edit-Replace) |  | replace replaces a target&#39;s metadata with a new metadata mapping. |
 | add_key | [Edit.AddKey](#metadata-Edit-AddKey) |  | add_key adds a new key to the target object&#39;s metadata. |
 | edit_key | [Edit.EditKey](#metadata-Edit-EditKey) |  | edit_key adds or changes a key in the target object&#39;s metadata. |
@@ -5162,6 +5163,7 @@ CommitInfo is the main data structure representing a commit in postgres
 | finishing | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | finished | [google.protobuf.Timestamp](#google-protobuf-Timestamp) |  |  |
 | direct_provenance | [Commit](#pfs_v2-Commit) | repeated |  |
+| direct_subvenance | [Commit](#pfs_v2-Commit) | repeated |  |
 | error | [string](#string) |  |  |
 | size_bytes_upper_bound | [int64](#int64) |  |  |
 | details | [CommitInfo.Details](#pfs_v2-CommitInfo-Details) |  |  |
@@ -8490,6 +8492,55 @@ potentially expensive operations.
 
 
 
+<a name="pps_v2-PipelinesSummary"></a>
+
+### PipelinesSummary
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| project | [pfs_v2.Project](#pfs_v2-Project) |  | the project the PipelinesSummary corresponds to |
+| active_pipelines | [int64](#int64) |  | count of active pipelines |
+| paused_pipelines | [int64](#int64) |  | count of paused pipelines |
+| failed_pipelines | [int64](#int64) |  | count of failed pipelines |
+| unhealthy_pipelines | [int64](#int64) |  | count of pipelines with a failed latest job |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryRequest"></a>
+
+### PipelinesSummaryRequest
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| projects | [pfs_v2.ProjectPicker](#pfs_v2-ProjectPicker) | repeated | a PipelinesSummary will be returned for each of the requests projects |
+
+
+
+
+
+
+<a name="pps_v2-PipelinesSummaryResponse"></a>
+
+### PipelinesSummaryResponse
+
+
+
+| Field | Type | Label | Description |
+| ----- | ---- | ----- | ----------- |
+| summaries | [PipelinesSummary](#pps_v2-PipelinesSummary) | repeated | the pipeline summaries for the requested projects |
+
+
+
+
+
+
 <a name="pps_v2-ProcessStats"></a>
 
 ### ProcessStats
@@ -9278,6 +9329,7 @@ TolerationOperator relates a Toleration&#39;s key to its value.
 | SetClusterDefaults | [SetClusterDefaultsRequest](#pps_v2-SetClusterDefaultsRequest) | [SetClusterDefaultsResponse](#pps_v2-SetClusterDefaultsResponse) | SetClusterDefaults returns the current cluster defaults. |
 | GetProjectDefaults | [GetProjectDefaultsRequest](#pps_v2-GetProjectDefaultsRequest) | [GetProjectDefaultsResponse](#pps_v2-GetProjectDefaultsResponse) | GetProjectDefaults returns the defaults for a particular project. |
 | SetProjectDefaults | [SetProjectDefaultsRequest](#pps_v2-SetProjectDefaultsRequest) | [SetProjectDefaultsResponse](#pps_v2-SetProjectDefaultsResponse) | SetProjectDefaults sets the defaults for a particular project. |
+| PipelinesSummary | [PipelinesSummaryRequest](#pps_v2-PipelinesSummaryRequest) | [PipelinesSummaryResponse](#pps_v2-PipelinesSummaryResponse) | PipelinesSummary summarizes the pipelines for each requested project. |
 
  
 

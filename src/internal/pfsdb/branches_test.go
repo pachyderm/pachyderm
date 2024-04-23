@@ -6,16 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
-	"github.com/pulumi/pulumi/sdk/v3/go/common/util/deepcopy"
-
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pachsql"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/pfsdb"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/stream"
@@ -148,6 +147,60 @@ func TestBranchUpsert(t *testing.T) {
 			gotBranchInfo3, err := pfsdb.GetBranchInfo(ctx, tx, id2)
 			require.NoError(t, err)
 			require.NoDiff(t, branchInfo, gotBranchInfo3, compareBranchOpts())
+		})
+	})
+}
+
+func TestBranchInfoWithIDProvenance(t *testing.T) {
+	t.Parallel()
+	size := 10
+	branches := make(map[int]*pfsdb.BranchInfoWithID)
+	withDB(t, func(ctx context.Context, t *testing.T, db *pachsql.DB) {
+		withTx(t, ctx, db, func(ctx context.Context, tx *pachsql.Tx) {
+			for i := 1; i <= size; i++ { // row ID in postgres starts at 1.
+				commit := testCommit(ctx, t, tx, fmt.Sprintf("r%d", i))
+				_, err := pfsdb.CreateCommit(ctx, tx, commit)
+				require.NoError(t, err, "should be able to create commit")
+				branch := &pfs.BranchInfo{
+					Branch: &pfs.Branch{
+						Name: "master",
+						Repo: commit.Commit.Repo,
+					},
+					Head: commit.Commit,
+				}
+				if i > 1 { // make every branch provenant on the branch before it.
+					branch.DirectProvenance = []*pfs.Branch{branches[i-1].Branch}
+				}
+				id, err := pfsdb.UpsertBranch(ctx, tx, branch)
+				require.NoError(t, err, "should be able to upsert branch")
+				branches[i] = &pfsdb.BranchInfoWithID{
+					ID:         id,
+					BranchInfo: branch,
+				}
+			}
+			provenantBranches, err := pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), size-1)
+			for _, branch := range provenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found provenant branch should exist in map of created branches")
+			}
+			subvenantBranches, err := pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1))
+			require.NoError(t, err, "should be able to get branch info with subvenance")
+			require.Equal(t, len(subvenantBranches), size-1)
+			for _, branch := range subvenantBranches {
+				_, ok := branches[int(branch.ID)]
+				require.True(t, ok, "found subvenant branch should exist in map of created branches")
+			}
+			// test options
+			maxDepth := uint64(5)
+			provenantBranches, err = pfsdb.GetBranchInfoWithIDProvenance(ctx, tx, pfsdb.BranchID(size), pfsdb.WithMaxDepth(maxDepth))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(provenantBranches), int(maxDepth))
+			limit := uint64(2)
+			subvenantBranches, err = pfsdb.GetBranchInfoWithIDSubvenance(ctx, tx, pfsdb.BranchID(1), pfsdb.WithLimit(limit))
+			require.NoError(t, err, "should be able to get branch info with provenance")
+			require.Equal(t, len(subvenantBranches), int(limit))
 		})
 	})
 }
@@ -560,7 +613,7 @@ func testBranchPicker() *pfs.BranchPicker {
 func TestPickBranch(t *testing.T) {
 	t.Parallel()
 	namePicker := testBranchPicker()
-	badBranchPicker := deepcopy.Copy(namePicker).(*pfs.BranchPicker)
+	badBranchPicker := proto.Clone(namePicker).(*pfs.BranchPicker)
 	badBranchPicker.GetName().Name = "does not exist"
 	ctx := pctx.TestContext(t)
 	db := newTestDB(t, ctx)

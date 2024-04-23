@@ -8,6 +8,7 @@ import (
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errutil"
 	"github.com/pachyderm/pachyderm/v2/src/internal/log"
+	"github.com/pachyderm/pachyderm/v2/src/internal/pgjsontypes"
 	"go.uber.org/zap"
 
 	"github.com/jmoiron/sqlx"
@@ -73,34 +74,56 @@ const (
 			error=:error,
 			metadata=:metadata
 		WHERE int_id=:int_id;`
-	getCommit = `
-		SELECT DISTINCT
-    		commit.int_id,
-    		commit.commit_id,
-    		commit.commit_set_id,
-    		commit.branch_id,
-    		commit.origin,
-    		commit.description,
-    		commit.start_time,
-    		commit.finishing_time,
-    		commit.finished_time,
-    		commit.compacting_time_s,
-    		commit.validating_time_s,
-    		commit.error,
-    		commit.size,
-    		commit.metadata,
-    		commit.created_at,
-    		commit.updated_at,
-    		commit.repo_id AS "repo.id",
-    		repo.name AS "repo.name",
-    		repo.type AS "repo.type",
-    		project.name AS "repo.project.name",
-    		branch.name as branch_name
+	commitFields = `
+		commit.int_id,
+		commit.commit_id,
+		commit.commit_set_id,
+		commit.branch_id,
+		commit.origin,
+		commit.description,
+		commit.start_time,
+		commit.finishing_time,
+		commit.finished_time,
+		commit.compacting_time_s,
+		commit.validating_time_s,
+		commit.error,
+		commit.size,
+		commit.created_at,
+		commit.updated_at,
+		commit.metadata,
+		commit.repo_id AS "repo.id",
+		repo.name AS "repo.name",
+		repo.type AS "repo.type",
+		project.name AS "repo.project.name",
+		branch.name as branch_name`
+	commitFieldsGroupBy = `
+		commit.int_id,
+		commit.commit_id,
+		commit.commit_set_id,
+		commit.branch_id,
+		commit.origin,
+		commit.description,
+		commit.start_time,
+		commit.finishing_time,
+		commit.finished_time,
+		commit.compacting_time_s,
+		commit.validating_time_s,
+		commit.error,
+		commit.size,
+		commit.created_at,
+		commit.updated_at,
+		commit.metadata,
+		commit.repo_id,
+		repo.name,
+		repo.type,
+		project.name,
+		branch.name`
+	getCommit = "SELECT DISTINCT " + commitFields +
+		`
 		FROM pfs.commits commit
 		JOIN pfs.repos repo ON commit.repo_id = repo.id
 		JOIN core.projects project ON repo.project_id = project.id
-		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
-		`
+		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id`
 	getParentCommit = getCommit + `
 		JOIN pfs.commit_ancestry ancestry ON ancestry.parent = commit.int_id`
 	getChildCommit = getCommit + `
@@ -245,7 +268,7 @@ func CreateCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInf
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		Metadata:       jsonMap{Data: commitInfo.Metadata},
+		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
 	}
 	// It would be nice to use a named query here, but sadly there is no NamedQueryRowContext. Additionally,
 	// we run into errors when using named statements: (named statement already exists).
@@ -574,35 +597,6 @@ func forEachCommitAncestorUntilRoot(ctx context.Context, tx *pachsql.Tx, startId
 	}
 }
 
-func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
-	id, err := GetCommitID(ctx, tx, commit)
-	if err != nil {
-		return nil, err
-	}
-	var commitStrs []string
-	if err := tx.SelectContext(ctx, &commitStrs, `
-		WITH RECURSIVE subv(from_id, to_id) AS (
-		    SELECT from_id, to_id
-		    FROM pfs.commit_provenance
-		    WHERE to_id = $1
-		  UNION ALL
-		    SELECT cp.from_id, cp.to_id
-		    FROM subv s
-		    JOIN pfs.commit_provenance cp ON s.from_id = cp.to_id
-		)
-		SELECT DISTINCT commit_id
-		FROM subv s
-		JOIN pfs.commits c ON s.from_id = c.int_id
-	`, id); err != nil {
-		return nil, errors.Wrap(err, "could not get commit subvenance")
-	}
-	var commits []*pfs.Commit
-	for _, commitStr := range commitStrs {
-		commits = append(commits, ParseCommit(commitStr))
-	}
-	return commits, nil
-}
-
 // UpsertCommit will attempt to insert a commit and its ancestry relationships.
 // If the commit already exists, it will update its description.
 func UpsertCommit(ctx context.Context, tx *pachsql.Tx, commitInfo *pfs.CommitInfo, opts ...AncestryOpt) (CommitID, error) {
@@ -650,7 +644,7 @@ func UpdateCommit(ctx context.Context, tx *pachsql.Tx, id CommitID, commitInfo *
 		ValidatingTime: pbutil.DurationPbToBigInt(commitInfo.Details.ValidatingTime),
 		Size:           commitInfo.Details.SizeBytes,
 		Error:          commitInfo.Error,
-		Metadata:       jsonMap{Data: commitInfo.Metadata},
+		Metadata:       pgjsontypes.StringMap{Data: commitInfo.Metadata},
 	}
 	query := updateCommit
 	res, err := tx.NamedExecContext(ctx, query, update)
@@ -732,6 +726,15 @@ func getCommitInfoFromCommitRow(ctx context.Context, extCtx sqlx.ExtContext, row
 	if err != nil {
 		return nil, errors.Wrap(err, "get provenance for commit")
 	}
+	subvenantCommits, err := getCommitSubvenance(ctx, extCtx, row.ID, WithMaxDepth(1))
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit subvenance")
+	}
+	var commits []*pfs.Commit
+	for _, commit := range subvenantCommits {
+		commits = append(commits, commit.Pb())
+	}
+	commitInfo.DirectSubvenance = commits
 	return commitInfo, err
 }
 

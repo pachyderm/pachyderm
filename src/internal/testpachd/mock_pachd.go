@@ -23,6 +23,7 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/pfs"
 	"github.com/pachyderm/pachyderm/v2/src/pps"
 	"github.com/pachyderm/pachyderm/v2/src/proxy"
+	"github.com/pachyderm/pachyderm/v2/src/storage"
 	"github.com/pachyderm/pachyderm/v2/src/task"
 	"github.com/pachyderm/pachyderm/v2/src/transaction"
 
@@ -1528,6 +1529,75 @@ func (api *pfsServerAPI) ReposSummary(ctx context.Context, req *pfs.ReposSummary
 	return nil, errors.Errorf("unhandled pachd mock pfs.ReposSummary")
 }
 
+/* Storage Server Mocks */
+
+type createFilesetFunc func(storage.Fileset_CreateFilesetServer) error
+type readFilesetFunc func(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetServer) error
+type renewFilesetFunc func(context.Context, *storage.RenewFilesetRequest) (*emptypb.Empty, error)
+type composeFilesetFunc func(context.Context, *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error)
+type shardFilesetFunc func(context.Context, *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error)
+
+type mockCreateFileset struct{ handler createFilesetFunc }
+type mockReadFileset struct{ handler readFilesetFunc }
+type mockRenewFileset struct{ handler renewFilesetFunc }
+type mockComposeFileset struct{ handler composeFilesetFunc }
+type mockShardFileset struct{ handler shardFilesetFunc }
+
+func (mock *mockCreateFileset) Use(cb createFilesetFunc)   { mock.handler = cb }
+func (mock *mockReadFileset) Use(cb readFilesetFunc)       { mock.handler = cb }
+func (mock *mockRenewFileset) Use(cb renewFilesetFunc)     { mock.handler = cb }
+func (mock *mockComposeFileset) Use(cb composeFilesetFunc) { mock.handler = cb }
+func (mock *mockShardFileset) Use(cb shardFilesetFunc)     { mock.handler = cb }
+
+type storageServerAPI struct {
+	storage.UnimplementedFilesetServer
+	mock *mockStorageServer
+}
+
+type mockStorageServer struct {
+	api            storageServerAPI
+	CreateFileset  mockCreateFileset
+	ReadFileset    mockReadFileset
+	RenewFileset   mockRenewFileset
+	ComposeFileset mockComposeFileset
+	ShardFileset   mockShardFileset
+}
+
+func (api *storageServerAPI) CreateFileset(server storage.Fileset_CreateFilesetServer) error {
+	if api.mock.CreateFileset.handler != nil {
+		return api.mock.CreateFileset.handler(server)
+	}
+	return errors.Errorf("unhandled pachd mock storage.CreateFileset")
+}
+
+func (api *storageServerAPI) ReadFileset(request *storage.ReadFilesetRequest, server storage.Fileset_ReadFilesetServer) error {
+	if api.mock.ReadFileset.handler != nil {
+		return api.mock.ReadFileset.handler(request, server)
+	}
+	return errors.Errorf("unhandled pachd mock storage.ReadFileset")
+}
+
+func (api *storageServerAPI) RenewFileset(ctx context.Context, request *storage.RenewFilesetRequest) (*emptypb.Empty, error) {
+	if api.mock.RenewFileset.handler != nil {
+		return api.mock.RenewFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.RenewFileset")
+}
+
+func (api *storageServerAPI) ComposeFileset(ctx context.Context, request *storage.ComposeFilesetRequest) (*storage.ComposeFilesetResponse, error) {
+	if api.mock.ComposeFileset.handler != nil {
+		return api.mock.ComposeFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.ComposeFileset")
+}
+
+func (api *storageServerAPI) ShardFileset(ctx context.Context, request *storage.ShardFilesetRequest) (*storage.ShardFilesetResponse, error) {
+	if api.mock.ShardFileset.handler != nil {
+		return api.mock.ShardFileset.handler(ctx, request)
+	}
+	return nil, errors.Errorf("unhandled pachd mock storage.ShardFileset")
+}
+
 /* PPS Server Mocks */
 
 type inspectJobFunc func(context.Context, *pps.InspectJobRequest) (*pps.JobInfo, error)
@@ -1572,6 +1642,7 @@ type getClusterDefaultsFunc func(context.Context, *pps.GetClusterDefaultsRequest
 type setClusterDefaultsFunc func(context.Context, *pps.SetClusterDefaultsRequest) (*pps.SetClusterDefaultsResponse, error)
 type getProjectDefaultsFunc func(context.Context, *pps.GetProjectDefaultsRequest) (*pps.GetProjectDefaultsResponse, error)
 type setProjectDefaultsFunc func(context.Context, *pps.SetProjectDefaultsRequest) (*pps.SetProjectDefaultsResponse, error)
+type pipelinesSummaryFunc func(context.Context, *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error)
 
 type mockInspectJob struct{ handler inspectJobFunc }
 type mockListJob struct{ handler listJobFunc }
@@ -1617,6 +1688,7 @@ type mockGetClusterDefaults struct{ handler getClusterDefaultsFunc }
 type mockSetClusterDefaults struct{ handler setClusterDefaultsFunc }
 type mockGetProjectDefaults struct{ handler getProjectDefaultsFunc }
 type mockSetProjectDefaults struct{ handler setProjectDefaultsFunc }
+type mockPipelinesSummary struct{ handler pipelinesSummaryFunc }
 
 func (mock *mockInspectJob) Use(cb inspectJobFunc)                       { mock.handler = cb }
 func (mock *mockListJob) Use(cb listJobFunc)                             { mock.handler = cb }
@@ -1662,6 +1734,7 @@ func (mock *mockGetClusterDefaults) Use(cb getClusterDefaultsFunc) { mock.handle
 func (mock *mockSetClusterDefaults) Use(cb setClusterDefaultsFunc) { mock.handler = cb }
 func (mock *mockGetProjectDefaults) Use(cb getProjectDefaultsFunc) { mock.handler = cb }
 func (mock *mockSetProjectDefaults) Use(cb setProjectDefaultsFunc) { mock.handler = cb }
+func (mock *mockPipelinesSummary) Use(cb pipelinesSummaryFunc)     { mock.handler = cb }
 
 type ppsServerAPI struct {
 	pps.UnsafeAPIServer
@@ -1712,6 +1785,7 @@ type mockPPSServer struct {
 	SetClusterDefaults           mockSetClusterDefaults
 	GetProjectDefaults           mockGetProjectDefaults
 	SetProjectDefaults           mockSetProjectDefaults
+	PipelinesSummary             mockPipelinesSummary
 }
 
 func (api *ppsServerAPI) InspectJob(ctx context.Context, req *pps.InspectJobRequest) (*pps.JobInfo, error) {
@@ -1968,6 +2042,12 @@ func (api *ppsServerAPI) SetProjectDefaults(ctx context.Context, req *pps.SetPro
 	}
 	return nil, errors.Errorf("unhandled pachd mock pps.SetProjectDefaults")
 }
+func (api *ppsServerAPI) PipelinesSummary(ctx context.Context, req *pps.PipelinesSummaryRequest) (*pps.PipelinesSummaryResponse, error) {
+	if api.mock.PipelinesSummary.handler != nil {
+		return api.mock.PipelinesSummary.handler(ctx, req)
+	}
+	return nil, errors.Errorf("unhandled pachd mock pps.PipelinesSummary")
+}
 
 /* Transaction Server Mocks */
 
@@ -2161,6 +2241,7 @@ type MockPachd struct {
 	Addr net.Addr
 
 	PFS           mockPFSServer
+	Storage       mockStorageServer
 	PPS           mockPPSServer
 	Auth          mockAuthServer
 	GetAuthServer func() authserver.APIServer
@@ -2197,6 +2278,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	ctx, mock.cancel = pctx.WithCancel(ctx)
 
 	mock.PFS.api.mock = &mock.PFS
+	mock.Storage.api.mock = &mock.Storage
 	mock.PPS.api.mock = &mock.PPS
 	mock.Auth.api.mock = &mock.Auth
 	mock.Transaction.api.mock = &mock.Transaction
@@ -2269,6 +2351,7 @@ func NewMockPachd(ctx context.Context, port uint16, options ...InterceptorOption
 	auth.RegisterAPIServer(server.Server, &mock.Auth.api)
 	enterprise.RegisterAPIServer(server.Server, &mock.Enterprise.api)
 	pfs.RegisterAPIServer(server.Server, &mock.PFS.api)
+	storage.RegisterFilesetServer(server.Server, &mock.Storage.api)
 	pps.RegisterAPIServer(server.Server, &mock.PPS.api)
 	transaction.RegisterAPIServer(server.Server, &mock.Transaction.api)
 	version.RegisterAPIServer(server.Server, &mock.Version.api)

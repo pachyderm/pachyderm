@@ -51,7 +51,7 @@ TODO
 
 ### STM
 
-The `STM` can be constructed via `NewSTM` (or `NewDryrunSTM`, which will not commit changes).  This code is copied from the etcd library in order to extend it.  It is a relatively common problem that etcd transactions will get too large and be rejected by etcd.  While the etcd config can be adjusted to increase the limit on transaction size, this can only do so much.  For any arbitrarily-large transactions, you may need to find a way to break it up into pieces of a controlled size.
+The `STM` can be constructed via `NewSTM` (or `NewDryRunSTM`, which will not commit changes).  This code is copied from the etcd library in order to extend it.  It is a relatively common problem that etcd transactions will get too large and be rejected by etcd.  While the etcd config can be adjusted to increase the limit on transaction size, this can only do so much.  For any arbitrarily-large transactions, you may need to find a way to break it up into pieces of a controlled size.
 
 ## Postgres
 
@@ -66,7 +66,7 @@ The `sqlx.Tx` can be constructed via `NewSQLTx`.  This will occupy a sql session
 A table will be created for each postgres collection.  Construction of the collection will check that the table exists, as well as all relevant triggers and indexes.  If any are missing, they will be created.
 
 The `model` struct exists to mirror the columns in the database for reading results from `sqlx` into a struct:
- * `CreatedAt` (golang) -> `createdat` (postgres) - the timestamp at which the item was created 
+ * `CreatedAt` (golang) -> `createdat` (postgres) - the timestamp at which the item was created
  * `UpdatedAt` (golang) -> `updatedat` (postgres) - the timestamp at which the item was last modified
  * `Version` (golang) -> `version` (postgres) - the version of pachyderm which serialized the protobuf
  * `Key` (golang) -> `key` (postgres) - the primary key for the item

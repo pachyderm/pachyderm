@@ -166,3 +166,121 @@ func addCommitProvenance(tx *pachsql.Tx, from, to int) error {
 	_, err := tx.Exec(stmt, from, to)
 	return errors.Wrapf(err, "add commit provenance")
 }
+
+// GetCommitWithIDProvenance returns the full provenance of a commit, i.e. all commits that it either directly or transitively depends on.
+func GetCommitWithIDProvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
+	commits, err := getCommitProvenance(ctx, ext, startId, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit with id provenance")
+	}
+	var commitWithIDs []*CommitWithID
+	for _, commit := range commits {
+		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
+		if err != nil {
+			return nil, errors.Wrap(err, "get commit with id provenance")
+		}
+		commitWithIDs = append(commitWithIDs, &CommitWithID{
+			ID:         commit.ID,
+			CommitInfo: commitInfo,
+		})
+	}
+	return commitWithIDs, nil
+}
+
+func getCommitProvenance(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*Commit, error) {
+	graphOpts := defaultGraphOptions()
+	for _, opt := range opts {
+		opt(graphOpts)
+	}
+	var commits []*Commit
+	if err := sqlx.SelectContext(ctx, ext, &commits, `
+		WITH RECURSIVE prov(from_id, to_id) AS (
+		    SELECT from_id, to_id, 1 as depth
+		    FROM pfs.commit_provenance
+		    WHERE from_id = $1
+		UNION ALL
+		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
+		    FROM prov p
+		    JOIN pfs.commit_provenance cp ON cp.from_id = p.to_id
+			WHERE depth < $2
+		)
+		SELECT`+commitFields+`
+		FROM prov p
+		JOIN pfs.commits commit ON p.to_id = commit.int_id
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
+		GROUP BY `+commitFieldsGroupBy+`
+		ORDER BY MIN(depth) ASC
+        LIMIT $3`, commitId, graphOpts.maxDepth, graphOpts.limit); err != nil {
+		return nil, errors.Wrap(err, "could not get commit provenance")
+	}
+	return commits, nil
+}
+
+func GetCommitSubvenance(ctx context.Context, tx *pachsql.Tx, commit *pfs.Commit) ([]*pfs.Commit, error) {
+	id, err := GetCommitID(ctx, tx, commit)
+	if err != nil {
+		return nil, err
+	}
+	subvenantCommits, err := getCommitSubvenance(ctx, tx, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit subvenance")
+	}
+	var commits []*pfs.Commit
+	for _, commit := range subvenantCommits {
+		commits = append(commits, commit.Pb())
+	}
+	return commits, nil
+}
+
+// GetCommitWithIDSubvenance returns the full provenance of a commits, i.e. all commits that it either directly or transitively depends on.
+func GetCommitWithIDSubvenance(ctx context.Context, ext sqlx.ExtContext, startId CommitID, opts ...GraphOption) ([]*CommitWithID, error) {
+	commits, err := getCommitSubvenance(ctx, ext, startId, opts...)
+	if err != nil {
+		return nil, errors.Wrap(err, "get commit with id subvenance")
+	}
+	var commitWithIDs []*CommitWithID
+	for _, commit := range commits {
+		commitInfo, err := getCommitInfoFromCommitRow(ctx, ext, commit)
+		if err != nil {
+			return nil, errors.Wrap(err, "get commit with id subvenance")
+		}
+		commitWithIDs = append(commitWithIDs, &CommitWithID{
+			ID:         commit.ID,
+			CommitInfo: commitInfo,
+		})
+	}
+	return commitWithIDs, nil
+}
+
+func getCommitSubvenance(ctx context.Context, ext sqlx.ExtContext, commitId CommitID, opts ...GraphOption) ([]*Commit, error) {
+	graphOpts := defaultGraphOptions()
+	for _, opt := range opts {
+		opt(graphOpts)
+	}
+	var commits []*Commit
+	if err := sqlx.SelectContext(ctx, ext, &commits, `
+		WITH RECURSIVE subv(from_id, to_id) AS (
+		    SELECT from_id, to_id, 1 as depth
+		    FROM pfs.commit_provenance
+		    WHERE to_id = $1
+		UNION ALL
+		    SELECT DISTINCT cp.from_id, cp.to_id, depth+1
+		    FROM subv s
+		    JOIN pfs.commit_provenance cp ON s.from_id = cp.to_id
+			WHERE depth < $2
+		)
+		SELECT`+commitFields+` 
+		FROM subv s
+		JOIN pfs.commits commit ON s.from_id = commit.int_id
+		JOIN pfs.repos repo ON commit.repo_id = repo.id
+		JOIN core.projects project ON repo.project_id = project.id
+		LEFT JOIN pfs.branches branch ON commit.branch_id = branch.id
+		GROUP BY `+commitFieldsGroupBy+`
+		ORDER BY MIN(depth) ASC
+        LIMIT $3`, commitId, graphOpts.maxDepth, graphOpts.limit); err != nil {
+		return nil, errors.Wrap(err, "could not get commit subvenance")
+	}
+	return commits, nil
+}

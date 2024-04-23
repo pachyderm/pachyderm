@@ -7,6 +7,7 @@ go_library(
     visibility = ["//visibility:public"],
     deps = [
         "//src/internal/cmdutil",
+        "//src/internal/errors",
         "//src/internal/pachctl",
         "@com_github_spf13_cobra//:cobra",
     ],
