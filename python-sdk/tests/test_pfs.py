@@ -382,7 +382,7 @@ class TestModifyFile:
 
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
-        assert not client.pfs.path_exists(file=pfs.File(commit=commit, path="/file1.dat"))
+        assert not client.pfs.path_exists(file=pfs.File(commit=commit2, path="/file1.dat"))
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):
