@@ -374,7 +374,7 @@ class TestModifyFile:
     @staticmethod
     def test_delete_file(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
-        branch = pfs.Branch(repo=repo, name="default")
+        branch = pfs.Branch(repo=repo, name="master")
 
         with client.pfs.commit(branch=branch) as commit1:
             file = commit1.put_file_from_bytes(path="/file1.dat", data=b"DATA")
@@ -382,7 +382,7 @@ class TestModifyFile:
 
         with client.pfs.commit(branch=branch) as commit2:
             commit2.delete_file(path="/file1.dat")
-        assert not client.pfs.path_exists(file=pfs.File.from_uri(f"{commit2}:/file1.dat"))
+        assert not client.pfs.path_exists(file=pfs.File(commit=commit, path="/file1.dat"))
 
     @staticmethod
     def test_walk_file(client: TestClient, default_project: bool):
