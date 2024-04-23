@@ -283,7 +283,7 @@ func TestPipelineLogs(t *testing.T) {
 	}
 	pipelineLogs := []*testloki.Log{
 		{
-			Time: time.Date(2024, 04, 16, 21, 10, 36, 717965399, time.UTC),
+			Time: now,
 			Labels: map[string]string{
 				"app":   "pachd",
 				"suite": "pachyderm",
@@ -377,11 +377,14 @@ func TestPipelineLogs(t *testing.T) {
 			Ts:           wants[i].GetLog().NativeTimestamp,
 			Message:      messageTexts[i],
 		}
+	}
+	for _, log := range pipelineLogs {
 		if err := aloki.AddLog(ctx, log); err != nil {
 			t.Fatalf("add log: %v", err)
 		}
 	}
-	ctx, c := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
 
 	ls := logservice.LogService{
 		GetLokiClient: func() (*loki.Client, error) {
@@ -403,6 +406,5 @@ func TestPipelineLogs(t *testing.T) {
 			},
 		},
 	}, publisher), "GetLogs should succeed")
-	c()
 	require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
 }
