@@ -93,12 +93,12 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	if err != nil {
 		return errors.Wrap(err, "cannot convert request to LogQL")
 	}
-	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, direction, adapter.publish); err != nil {
+	if err = doQuery(ctx, c, logQL, int(filter.Limit), start, end, uint(filter.TimeRange.Offset), direction, adapter.publish); err != nil {
 		var invalidBatchSizeErr ErrInvalidBatchSize
 		switch {
 		case errors.As(err, &invalidBatchSizeErr):
 			// try to requery
-			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, direction, adapter.publish)
+			err = doQuery(ctx, c, logQL, invalidBatchSizeErr.RecommendedBatchSize(), start, end, 0, direction, adapter.publish)
 			if err != nil {
 				return errors.Wrap(err, "invalid batch size requery failed")
 			}
@@ -117,7 +117,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			return errors.Errorf("invalid direction %q", direction)
 		}
 		// request a record immediately prior to the page
-		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
+		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, 0, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
 
 			var msg = &logs.LogMessage{
 				Verbatim: &logs.VerbatimLogMessage{
@@ -144,6 +144,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		}
 		hint.Older.Filter.TimeRange.Until = timestamppb.New(older)
 		hint.Newer.Filter.TimeRange.From = timestamppb.New(newer)
+		hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
 		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
 			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
 			if !older.IsZero() {
@@ -228,6 +229,7 @@ type adapter struct {
 	first, last       time.Time
 	gotFirst          bool
 	pass              func(*logs.LogMessage) bool
+	offset            uint
 }
 
 func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
@@ -271,6 +273,11 @@ func (a *adapter) publish(ctx context.Context, entry loki.Entry) (bool, error) {
 	if !a.gotFirst {
 		a.gotFirst = true
 		a.first = msg.Verbatim.Timestamp.AsTime()
+	}
+	if a.last.Equal(msg.Verbatim.Timestamp.AsTime()) {
+		a.offset++
+	} else {
+		a.offset = 0
 	}
 	a.last = msg.Verbatim.Timestamp.AsTime()
 	return false, nil

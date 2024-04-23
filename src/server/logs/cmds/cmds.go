@@ -98,6 +98,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 		datum           string
 		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
 		to              = cmdutil.TimeFlag(time.Now())
+		offset          uint
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): remove references to “new.”
@@ -120,8 +121,9 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 			var req = new(logs.GetLogsRequest)
 			req.Filter = new(logs.LogFilter)
 			req.Filter.TimeRange = &logs.TimeRangeLogFilter{
-				From:  timestamppb.New(time.Time(from)),
-				Until: timestamppb.New(time.Time(to)),
+				From:   timestamppb.New(time.Time(from)),
+				Until:  timestamppb.New(time.Time(to)),
+				Offset: uint64(offset),
 			}
 			switch {
 			case cmd.Flag("logql").Changed:
@@ -191,6 +193,7 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
+	logsCmd.Flags().UintVar(&offset, "offset", offset, "Number of logs to skip at beginning of time range.")
 	commands = append(commands, logsCmd)
 	return commands
 }
@@ -203,6 +206,9 @@ func toFlags(flags map[string]string, hint *logs.GetLogsRequest) string {
 	}
 	if until := hint.GetFilter().GetTimeRange().GetUntil(); !until.AsTime().IsZero() {
 		result += " --to " + shellescape.Quote(until.AsTime().Format(time.RFC3339Nano))
+	}
+	if offset := hint.GetFilter().GetTimeRange().GetOffset(); offset != 0 {
+		result += fmt.Sprintf(" --offset %d", offset)
 	}
 	for flag, arg := range flags {
 		if flag == "from" || flag == "to" {
