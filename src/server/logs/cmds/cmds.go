@@ -88,15 +88,56 @@ func addDatumRequest(req *logs.GetLogsRequest, datum string) {
 	}
 }
 
+func addPodRequest(req *logs.GetLogsRequest, pod string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_Admin{
+			Admin: &logs.AdminLogQuery{
+				AdminType: &logs.AdminLogQuery_Pod{
+					Pod: pod,
+				},
+			},
+		},
+	}
+}
+
+func addPodContainerRequest(req *logs.GetLogsRequest, pod, container string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_Admin{
+			Admin: &logs.AdminLogQuery{
+				AdminType: &logs.AdminLogQuery_PodContainer{
+					PodContainer: &logs.PodContainer{
+						Container: container,
+						Pod:       pod,
+					},
+				},
+			},
+		},
+	}
+}
+
+func addAppRequest(req *logs.GetLogsRequest, app string) {
+	req.Query = &logs.LogQuery{
+		QueryType: &logs.LogQuery_Admin{
+			Admin: &logs.AdminLogQuery{
+				AdminType: &logs.AdminLogQuery_App{
+					App: app,
+				},
+			},
+		},
+	}
+}
+
 func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command {
 	var (
 		commands        []*cobra.Command
 		logQL, pipeline string
 		project         = pachCtx.Project
 		datum           string
-		app             string
 		from            = cmdutil.TimeFlag(time.Now().Add(-700 * time.Hour))
 		to              = cmdutil.TimeFlag(time.Now())
+		pod             string
+		container       string
+		app             string
 	)
 	logsCmd := &cobra.Command{
 		// TODO(CORE-2200): Remove references to “new” and unhide.
@@ -148,8 +189,31 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 					os.Exit(1)
 				}
 				addDatumRequest(req, datum)
+			case !cmd.Flag("pod").Changed && cmd.Flag("container").Changed:
+				if !isAdmin {
+					fmt.Fprintln(os.Stderr, "only users with the ClusterAdmin role can view logs by pod.")
+					os.Exit(1)
+				}
+				fmt.Fprintln(os.Stderr, "to specify --container, specifying --pod is required.")
+				os.Exit(1)
+			case cmd.Flag("pod").Changed && cmd.Flag("container").Changed:
+				if !isAdmin {
+					fmt.Fprintln(os.Stderr, "only users with the ClusterAdmin role can view logs by pod.")
+					os.Exit(1)
+				}
+				addPodContainerRequest(req, pod, container)
+			case cmd.Flag("pod").Changed:
+				if !isAdmin {
+					fmt.Fprintln(os.Stderr, "only users with the ClusterAdmin role can view logs by pod.")
+					os.Exit(1)
+				}
+				addPodRequest(req, pod)
 			case cmd.Flag("app").Changed:
-				addLogQLRequest(req, fmt.Sprintf(`{app=%q}`, app))
+				if !isAdmin {
+					fmt.Fprintln(os.Stderr, "only users with the ClusterAdmin role can view logs by pod.")
+					os.Exit(1)
+				}
+				addAppRequest(req, app)
 			case isAdmin:
 				addLogQLRequest(req, `{suite="pachyderm"}`)
 			default:
@@ -195,9 +259,11 @@ func Cmds(pachCtx *config.Context, pachctlCfg *pachctl.Config) []*cobra.Command 
 	logsCmd.Flags().StringVar(&project, "project", project, "Project for pipeline query.")
 	logsCmd.Flags().StringVar(&pipeline, "pipeline", pipeline, "Pipeline for pipeline query.")
 	logsCmd.Flags().StringVar(&datum, "datum", datum, "Datum for datum query.")
-	logsCmd.Flags().StringVar(&app, "app", app, "App for service query.")
 	logsCmd.Flags().Var(&from, "from", "Return logs at or after this time.")
 	logsCmd.Flags().Var(&to, "to", "Return logs before  this time.")
+	logsCmd.Flags().StringVar(&pod, "pod", pod, "Pod in the cluster.")
+	logsCmd.Flags().StringVar(&container, "container", container, "Container name belonging to the pod specified in the --pod argument.")
+	logsCmd.Flags().StringVar(&app, "app", app, "Return logs for all pods with a certain value for the label 'app'.")
 	commands = append(commands, logsCmd)
 	return commands
 }
