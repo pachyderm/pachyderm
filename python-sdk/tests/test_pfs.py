@@ -374,7 +374,7 @@ class TestModifyFile:
     @staticmethod
     def test_delete_file(client: TestClient, default_project: bool):
         repo = client.new_repo(default_project)
-        branch = pfs.Branch(repo=repo, name="master")
+        branch = pfs.Branch(repo=repo, name="default")
 
         with client.pfs.commit(branch=branch) as commit1:
             file = commit1.put_file_from_bytes(path="/file1.dat", data=b"DATA")
