@@ -21,7 +21,10 @@ def pachyderm_resources():
     files = ["file1", "file2"]
 
     client = Client.from_config()
-    client.pfs.delete_all()
+    for repo in repos:
+        for branch in branches:
+            client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
+        client.pfs.delete_repo(repo=pfs.Repo(name=repo))
 
     for repo in repos:
         client.pfs.create_repo(repo=pfs.Repo(name=repo))
@@ -34,10 +37,10 @@ def pachyderm_resources():
                 c.wait()
 
     yield repos, branches, files
-
     for repo in repos:
+        for branch in branches:
+            client.pfs.delete_branch(branch=pfs.Branch.from_uri(f"{repo}@{branch}"))
         client.pfs.delete_repo(repo=pfs.Repo(name=repo))
-
 
 async def test_list_mounts(pachyderm_resources, http_client: AsyncClient):
     repos, branches, _ = pachyderm_resources
