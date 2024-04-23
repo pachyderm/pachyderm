@@ -61,6 +61,11 @@ spec:
             mountPath: {{ include "determined.secretPath" . }}
             readOnly: true
           {{ end }}
+          {{- range $index, $manager := .Values.determined.additional_resource_managers }}
+          - name: additionalrm-kubeconfig{{ $index }}
+            mountPath: {{ include "determined.secretPath" . }}{{ $index }}/
+            readOnly: true
+          {{- end }}
           {{- if .Values.determined.db.certResourceName }}
           - name: database-cert
             mountPath: {{ include "determined.secretPath" . }}
@@ -128,6 +133,11 @@ spec:
         - name: tls-secret
           secret:
             secretName: {{ .Values.determined.tlsSecret }}
+        {{- end }}
+        {{- range $index, $manager := .Values.determined.additional_resource_managers }}
+        - name: additionalrm-kubeconfig{{ $index }}
+          secret:
+            secretName: {{ required "for each additional_resource_managers, resource_manager.kubeconfig_secret_name must be specified" $manager.resource_manager.kubeconfig_secret_name }}
         {{- end }}
         {{- if .Values.determined.db.sslMode }}
         - name: database-cert

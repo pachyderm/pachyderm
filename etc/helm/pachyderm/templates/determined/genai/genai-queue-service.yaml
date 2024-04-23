@@ -1,0 +1,20 @@
+{{- if .Values.determined.genai }}
+{{- if .Values.determined.genai.version }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: genai-queue-service-{{ .Release.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: genai-{{ .Release.Name }}
+    release: {{ .Release.Name }}
+spec:
+  ports:
+  - port: {{ required "A valid Values.determined.genai.messageQueuePort entry required!" .Values.determined.genai.messageQueuePort }}
+    targetPort: {{ .Values.determined.genai.messageQueuePort }}
+    protocol: TCP
+  type: ClusterIP
+  selector:
+    app: genai-{{ .Release.Name }}
+{{ end }}
+{{ end }}

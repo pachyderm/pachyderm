@@ -63,7 +63,7 @@ global:
 
 determined:
   enabled: false
-  detVersion: "0.27.1"
+  detVersion: "0.31.0"
   # The image registry to be used to pull the Master image.
   # Determined OSS edition uses the determinedai repository in DockerHub.
   imageRegistry: determinedai
@@ -98,8 +98,8 @@ determined:
 
     # default images for CPU and GPU environments
 
-    cpuImage: "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-f66cbce"
-    gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-f66cbce"
+    cpuImage: "determinedai/environments:py-3.9-pytorch-1.12-tf-2.11-cpu-079eb6d"
+  gpuImage: "determinedai/environments:cuda-11.3-pytorch-1.12-tf-2.11-gpu-079eb6d"
 
   # Install Determined enterprise edition.
   enterpriseEdition: false
@@ -125,6 +125,8 @@ determined:
   # WARNING
   # The first installation must run with the createNonNamespacedObjects flag set to true to ensure
   # the non-namespaced objects are created.
+  # When deploying multiple namespaces within the same shared cluster, this should be set to false
+  # with helm overrides.
   createNonNamespacedObjects: true
 
   # Integration with Pachyderm. Change the pachyderm address only if determined and pachyderm are deployed in different namespaces.
@@ -187,7 +189,8 @@ determined:
     authenticationClaim: ""
     scimAuthenticationAttribute: ""
     autoProvisionUsers: false
-    groupsClaimName: ""
+    groupsAttributeName: ""
+    displayNameAttributeName: ""
 
   # scim (EE-only) enables System for Cross-domain Identity Management (SCIM) integration, which is
   # only available if enterpriseEdition is true. It allows administrators to easily and securely
@@ -250,7 +253,7 @@ determined:
     # storage beyond initial testing as most Kubernetes cluster nodes do not have a shared file
     # system.
     type: shared_fs
-    hostPath: /checkpoints
+    hostPath: /tmp/checkpoints
     # By default, shared_fs is not mounted to the server pod. Change this to true to enable checkpoint downloads from the server.
     mountToServer: false
 
@@ -325,6 +328,31 @@ determined:
     # cpuImage:
     # gpuImage:
 
+    # Configure an inline script that will be executed as part of the task setup process that will install
+    # the Pachyderm notebook extension in det launched notebooks.
+    startupHook: |
+      if [ "$PACHD_ADDRESS" != "" ] && [ "$SKIP_PACHYDERM_INSTALL" != "true" ] && ["$DET_TASK_TYPE" = "NOTEBOOK"]; then
+          proxy_dns=$(echo $PACHD_ADDRESS | sed 's/grpc:\/\/pachd/pachyderm-proxy/' | sed 's/:30650//') 
+          version=$(curl -skLX POST -H "Content-Type: application/json" $proxy_dns/api/versionpb_v2.API/GetVersion | sed -n 's/.*"major":\([0-9]*\), "minor":\([0-9]*\), "micro":\([0-9]*\).*/\1.\2.\3/p')
+          pip install jupyterlab-pachyderm==$version
+          # Detect the architecture
+          architecture=$(uname -m)
+          case $architecture in
+              x86_64)
+                  echo "Detected AMD64 architecture"
+                  curl -L "https://github.com/pachyderm/pachyderm/releases/download/v${version}/pachctl_${version}_linux_amd64.tar.gz" | tar -xzv --strip-components=1 -C ../
+                  ;;
+              arm64 | aarch64)
+                  echo "Detected ARM64 architecture"
+                  curl -L "https://github.com/pachyderm/pachyderm/releases/download/v${version}/pachctl_${version}_linux_arm64.tar.gz" | tar -xzv --strip-components=1 -C ../
+                  ;;
+              *)
+                  echo "Unsupported architecture: $architecture, set SKIP_PACHYDERM_INSTALL=true to skip pachyderm installation"
+                  exit 1
+                  ;;
+          esac
+      fi
+
   ## Configure whether we collect anonymous information about the usage of Determined.
   telemetry:
     enabled: true
@@ -346,6 +374,7 @@ determined:
   ## This behavior is disabled by default.
   # notebookTimeout: 1800
 
+  ## deprecated, use initialUserPassword instead.
   # defaultPassword sets the password for the admin and determined user accounts.
   # defaultPassword:
 
@@ -387,6 +416,22 @@ determined:
     - pool_name: default
   # defaultAuxResourcePool: default
   # defaultComputeResourcePool: default
+
+  ## Configure the initial user password for the cluster
+  # initialUserPassword
+
+  # additional_resource_managers:
+  #   - resource_manager:
+  #       type: kubernetes
+  #       max_slots_per_pod: 1
+  #       name: determined-multirm-1
+  #       namespace: default
+  #       kubeconfig_secret_name: additionalrm
+  #       kubeconfig_secret_value: config
+  #       determined_master_ip: 10.11.12.13
+  #       determined_master_port: 8080
+  #     resource_pools:
+  #       - pool_name: additional_pool
 
 console:
   # enabled controls whether the console manifests are created or not.
