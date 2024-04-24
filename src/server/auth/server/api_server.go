@@ -370,7 +370,7 @@ func (a *apiServer) getClusterRoleBinding(ctx context.Context) (*auth.RoleBindin
 	}
 
 	var binding auth.RoleBinding
-	if err := a.roleBindings.ReadOnly(ctx).Get(auth.ClusterRoleBindingKey, &binding); err != nil {
+	if err := a.roleBindings.ReadOnly(ctx).Get(ctx, auth.ClusterRoleBindingKey, &binding); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, auth.ErrNotActivated
 		}
@@ -1402,7 +1402,7 @@ func removeFromSet(set map[string]bool, elems ...string) map[string]bool {
 func (a *apiServer) getGroups(ctx context.Context, subject string) ([]string, error) {
 	members := a.members.ReadOnly(ctx)
 	var groupsProto auth.Groups
-	if err := members.Get(subject, &groupsProto); err != nil {
+	if err := members.Get(ctx, subject, &groupsProto); err != nil {
 		if col.IsErrNotFound(err) {
 			return []string{}, nil
 		}

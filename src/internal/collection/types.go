@@ -109,7 +109,7 @@ type EtcdReadWriteCollection interface {
 
 	// TTL returns the amount of time that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
-	TTL(key string) (int64, error)
+	TTL(ctx context.Context, key string) (int64, error)
 	// PutTTL is the same as Put except that the object is removed after
 	// TTL seconds.
 	// WARNING: using PutTTL with a collection that has secondary indices
@@ -117,15 +117,15 @@ type EtcdReadWriteCollection interface {
 	// but not exactly the same time as the documents.
 	PutTTL(ctx context.Context, key string, val proto.Message, ttl int64) error
 
-	DeleteAllPrefix(prefix string) error
+	DeleteAllPrefix(ctx context.Context, prefix string) error
 }
 
 // ReadOnlyCollection is a collection interface that only supports read ops.
 type ReadOnlyCollection interface {
-	Get(key interface{}, val proto.Message) error
-	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
+	Get(ctx context.Context, key interface{}, val proto.Message) error
+	GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 	List(val proto.Message, opts *Options, f func(string) error) error
-	Count() (int64, error)
+	Count(ctx context.Context) (int64, error)
 	Watch(opts ...watch.Option) (watch.Watcher, error)
 	WatchF(f func(*watch.Event) error, opts ...watch.Option) error
 	WatchOne(key interface{}, opts ...watch.Option) (watch.Watcher, error)
@@ -140,7 +140,7 @@ type PostgresReadOnlyCollection interface {
 	// GetUniqueByIndex is identical to GetByIndex except it is an error if
 	// exactly one row is not found.
 	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
-	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+	GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error
 }
 
 type EtcdReadOnlyCollection interface {
@@ -149,10 +149,5 @@ type EtcdReadOnlyCollection interface {
 	// TTL returns the number of seconds that 'key' will continue to exist in the
 	// collection, or '0' if 'key' will remain in the collection indefinitely
 	// TODO: TTL might be unused
-	TTL(key string) (int64, error)
-	// CountRev returns the number of items in the collection at a specific
-	// revision, it's only in EtcdReadOnlyCollection because only etcd has
-	// revs.
-	// TODO: CountRev might be unused
-	CountRev(int64) (int64, int64, error)
+	TTL(ctx context.Context, key string) (int64, error)
 }

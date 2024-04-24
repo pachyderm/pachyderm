@@ -69,7 +69,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 		t.Fatal("could not migrate test item:", err)
 	}
 	var item col.TestItem
-	if err := testCol.ReadOnly(ctx).Get("foo", &item); err != nil {
+	if err := testCol.ReadOnly(ctx).Get(ctx, "foo", &item); err != nil {
 		t.Error("could not read migrated item:", err)
 	}
 	if item.Id != "foo" {
@@ -78,7 +78,7 @@ func TestMigratePostgreSQLCollection(t *testing.T) {
 	if item.Value != "bar quux" {
 		t.Errorf("%q ≠ %q", item.Value, "bar quux")
 	}
-	if err := testCol.ReadOnly(ctx).Get("foo1", &item); err != nil {
+	if err := testCol.ReadOnly(ctx).Get(ctx, "foo1", &item); err != nil {
 		if !col.IsErrNotFound(err) {
 			t.Error("could not try to get migrated item:", err)
 		}

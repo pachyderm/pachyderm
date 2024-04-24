@@ -187,7 +187,7 @@ func collectionTests(
 			subsuite.Run("ErrNotFound", func(t *testing.T) {
 				t.Parallel()
 				testProto := &col.TestItem{}
-				err := defaultRead.Get("baz", testProto)
+				err := defaultRead.Get(ctx, "baz", testProto)
 				require.True(t, errors.Is(err, col.ErrNotFound{}), "Incorrect error: %v", err)
 				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 			})
@@ -195,7 +195,7 @@ func collectionTests(
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
 				testProto := &col.TestItem{}
-				require.NoError(t, defaultRead.Get("5", testProto))
+				require.NoError(t, defaultRead.Get(ctx, "5", testProto))
 				require.Equal(t, "5", testProto.Id)
 			})
 		})
@@ -206,7 +206,7 @@ func collectionTests(
 			subsuite.Run("Empty", func(t *testing.T) {
 				t.Parallel()
 				testProto := &col.TestItem{}
-				err := emptyRead.GetByIndex(TestSecondaryIndex, "foo", testProto, col.DefaultOptions(), func(key string) error {
+				err := emptyRead.GetByIndex(ctx, TestSecondaryIndex, "foo", testProto, col.DefaultOptions(), func(key string) error {
 					return errors.New("GetByIndex callback should not have been called for an empty collection")
 				})
 				require.NoError(t, err)
@@ -216,7 +216,7 @@ func collectionTests(
 				t.Parallel()
 				testProto := &col.TestItem{}
 				keys := []string{}
-				err := defaultRead.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+				err := defaultRead.GetByIndex(ctx, TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					require.Equal(t, testProto.Id, key)
 					require.Equal(t, testProto.Value, originalValue)
 					keys = append(keys, key)
@@ -232,7 +232,7 @@ func collectionTests(
 			subsuite.Run("NoResults", func(t *testing.T) {
 				t.Parallel()
 				testProto := &col.TestItem{}
-				err := defaultRead.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
+				err := defaultRead.GetByIndex(ctx, TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an index value with no rows")
 				})
 				require.NoError(t, err)
@@ -241,7 +241,7 @@ func collectionTests(
 			subsuite.Run("InvalidIndex", func(t *testing.T) {
 				t.Parallel()
 				t.Skip("etcd collections do not validate their indexes")
-				err := defaultRead.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
+				err := defaultRead.GetByIndex(ctx, &col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
 					return errors.New("GetByIndex callback should not have been called when using an invalid index")
 				})
 				require.YesError(t, err)
@@ -276,7 +276,7 @@ func collectionTests(
 				for idxVal, ids := range expected {
 					testProto := &col.TestItem{}
 					keys := []string{}
-					err := partitionedRead.GetByIndex(TestSecondaryIndex, idxVal, testProto, col.DefaultOptions(), func(key string) error {
+					err := partitionedRead.GetByIndex(ctx, TestSecondaryIndex, idxVal, testProto, col.DefaultOptions(), func(key string) error {
 						require.Equal(t, testProto.Id, key)
 						require.Equal(t, testProto.Value, idxVal)
 						keys = append(keys, key)
@@ -443,11 +443,11 @@ func collectionTests(
 			subsuite.Parallel()
 			subsuite.Run("Success", func(t *testing.T) {
 				t.Parallel()
-				count, err := defaultRead.Count()
+				count, err := defaultRead.Count(ctx)
 				require.NoError(t, err)
 				require.Equal(t, int64(10), count)
 
-				count, err = emptyRead.Count()
+				count, err = emptyRead.Count(ctx)
 				require.NoError(t, err)
 				require.Equal(t, int64(0), count)
 			})
@@ -513,7 +513,7 @@ func collectionTests(
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Deleted: idRange(0, defaultCollectionSize)})
 
-				count, err := readOnly.Count()
+				count, err := readOnly.Count(ctx)
 				require.NoError(t, err)
 				require.Equal(t, int64(0), count)
 			})
@@ -939,7 +939,7 @@ func collectionTests(
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Deleted: idRange(0, 10)})
-				count, err := readOnly.Count()
+				count, err := readOnly.Count(ctx)
 				require.NoError(t, err)
 				require.Equal(t, int64(0), count)
 			})

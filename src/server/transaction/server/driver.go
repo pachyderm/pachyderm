@@ -89,7 +89,7 @@ func (d *driver) startTransaction(ctx context.Context) (*transaction.Transaction
 
 func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transaction) (*transaction.TransactionInfo, error) {
 	info := &transaction.TransactionInfo{}
-	if err := d.transactions.ReadOnly(ctx).Get(txn.Id, info); err != nil {
+	if err := d.transactions.ReadOnly(ctx).Get(ctx, txn.Id, info); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	return info, nil

@@ -82,7 +82,7 @@ func TestDryRun(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	err = jobInfos.ReadOnly(context.Background()).Get("j1", job)
+	err = jobInfos.ReadOnly(context.Background()).Get(ctx, "j1", job)
 	require.True(t, col.IsErrNotFound(err))
 }
 
@@ -129,7 +129,7 @@ func TestDeletePrefix(t *testing.T) {
 		job := &pps.JobInfo{}
 		rw := jobInfos.ReadWrite(stm)
 
-		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
+		if err := rw.DeleteAllPrefix(ctx, "default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
@@ -145,7 +145,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		if err := rw.DeleteAllPrefix("default/p@prefix"); err != nil {
+		if err := rw.DeleteAllPrefix(ctx, "default/p@prefix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
@@ -168,7 +168,7 @@ func TestDeletePrefix(t *testing.T) {
 			return errors.EnsureStack(err)
 		}
 
-		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
+		if err := rw.DeleteAllPrefix(ctx, "default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
@@ -188,11 +188,11 @@ func TestDeletePrefix(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	ro := jobInfos.ReadOnly(ctx)
-	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j1.Job), job)))
-	require.NoError(t, ro.Get(ppsdb.JobKey(j2.Job), job))
+	require.True(t, col.IsErrNotFound(ro.Get(ctx, ppsdb.JobKey(j1.Job), job)))
+	require.NoError(t, ro.Get(ctx, ppsdb.JobKey(j2.Job), job))
 	require.Equal(t, j2, job)
-	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j3.Job), job)))
-	require.NoError(t, ro.Get(ppsdb.JobKey(j4.Job), job))
+	require.True(t, col.IsErrNotFound(ro.Get(ctx, ppsdb.JobKey(j3.Job), job)))
+	require.NoError(t, ro.Get(ctx, ppsdb.JobKey(j4.Job), job))
 	require.Equal(t, j4, job)
 }
 
@@ -232,7 +232,7 @@ func TestIndex(t *testing.T) {
 
 	job := &pps.JobInfo{}
 	i := 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j1.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(ctx, pipelineIndex, j1.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j1, job)
@@ -246,7 +246,7 @@ func TestIndex(t *testing.T) {
 	}))
 
 	i = 1
-	require.NoError(t, ro.GetByIndex(pipelineIndex, j3.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
+	require.NoError(t, ro.GetByIndex(ctx, pipelineIndex, j3.Job.Pipeline.Name, job, col.DefaultOptions(), func(string) error {
 		switch i {
 		case 1:
 			require.Equal(t, j3, job)
@@ -320,7 +320,7 @@ func TestTTL(t *testing.T) {
 	var actualTTL int64
 	_, err = col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		actualTTL, err = clxn.ReadWrite(stm).TTL(ctx, "key")
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
@@ -342,7 +342,7 @@ func TestTTLExpire(t *testing.T) {
 
 	time.Sleep((TTL + 1) * time.Second)
 	value := &wrapperspb.BoolValue{}
-	err = clxn.ReadOnly(ctx).Get("key", value)
+	err = clxn.ReadOnly(ctx).Get(ctx, "key", value)
 	require.NotNil(t, err)
 	require.True(t, errutil.IsNotFoundError(err))
 }
@@ -364,7 +364,7 @@ func TestTTLExtend(t *testing.T) {
 	var actualTTL int64
 	_, err = col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		actualTTL, err = clxn.ReadWrite(stm).TTL(ctx, "key")
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)
@@ -379,7 +379,7 @@ func TestTTLExtend(t *testing.T) {
 
 	_, err = col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		var err error
-		actualTTL, err = clxn.ReadWrite(stm).TTL("key")
+		actualTTL, err = clxn.ReadWrite(stm).TTL(ctx, "key")
 		return errors.EnsureStack(err)
 	})
 	require.NoError(t, err)

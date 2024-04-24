@@ -124,6 +124,7 @@ func (sd *stateDriver) ListPipelineInfo(ctx context.Context, f func(*pps.Pipelin
 func (sd *stateDriver) GetPipelineInfo(ctx context.Context, pipeline *pps.Pipeline, version int) (*pps.PipelineInfo, error) {
 	var pipelineInfo pps.PipelineInfo
 	if err := sd.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+		ctx,
 		ppsdb.PipelinesVersionIndex,
 		ppsdb.VersionKey(pipeline, uint64(version)),
 		&pipelineInfo); err != nil {
@@ -158,7 +159,7 @@ func (sd *stateDriver) loadLatestPipelineInfo(ctx context.Context, pipeline *pps
 	if err != nil {
 		return errors.Wrapf(err, "could not find spec commit for pipeline %q", pipeline)
 	}
-	if err := sd.pipelines.ReadOnly(ctx).Get(specCommit, message); err != nil {
+	if err := sd.pipelines.ReadOnly(ctx).Get(ctx, specCommit, message); err != nil {
 		return errors.Wrapf(err, "could not retrieve pipeline info for %q", pipeline)
 	}
 	return nil

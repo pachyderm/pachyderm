@@ -467,7 +467,7 @@ func (a *apiServer) InspectJob(ctx context.Context, request *pps.InspectJobReque
 	// TODO: there's a race condition between this check and the watch below where
 	// a deleted job could make this block forever.
 	jobInfo := &pps.JobInfo{}
-	if err := jobs.Get(ppsdb.JobKey(request.Job), jobInfo); err != nil {
+	if err := jobs.Get(ctx, ppsdb.JobKey(request.Job), jobInfo); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	if request.Wait {
@@ -548,7 +548,7 @@ func (a *apiServer) InspectJobSet(request *pps.InspectJobSetRequest, server pps.
 			// Load all the jobs eagerly to avoid a nested query
 			pipelines := []*pps.Pipeline{}
 			jobInfo := &pps.JobInfo{}
-			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(ppsdb.JobsJobSetIndex, request.JobSet.Id, jobInfo, col.DefaultOptions(), func(string) error {
+			if err := a.jobs.ReadOnly(pachClient.Ctx()).GetByIndex(pachClient.Ctx(), ppsdb.JobsJobSetIndex, request.JobSet.Id, jobInfo, col.DefaultOptions(), func(string) error {
 				pipelines = append(pipelines, jobInfo.Job.Pipeline)
 				return nil
 			}); err != nil {
@@ -711,6 +711,7 @@ func (a *apiServer) getJobDetails(ctx context.Context, jobInfo *pps.JobInfo) err
 	// previous jobs running.
 	pipelineInfo := &pps.PipelineInfo{}
 	if err := a.pipelines.ReadOnly(ctx).GetUniqueByIndex(
+		ctx,
 		ppsdb.PipelinesVersionIndex,
 		ppsdb.VersionKey(jobInfo.Job.Pipeline, jobInfo.PipelineVersion),
 		pipelineInfo); err != nil {
@@ -859,7 +860,7 @@ func (a *apiServer) ListJob(request *pps.ListJobRequest, resp pps.API_ListJobSer
 		opts.Order = col.SortAscend
 	}
 	if pipeline != nil {
-		err = jobs.GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
+		err = jobs.GetByIndex(ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(pipeline), jobInfo, opts, _f)
 	} else {
 		err = jobs.List(jobInfo, opts, _f)
 	}
@@ -1461,7 +1462,7 @@ func (a *apiServer) GetLogs(request *pps.GetLogsRequest, apiGetLogsServer pps.AP
 			// If user provides a job, lookup the pipeline from the JobInfo, and then
 			// get the pipeline RC
 			jobInfo := &pps.JobInfo{}
-			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
+			err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
 			if err != nil {
 				return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 			}
@@ -1611,7 +1612,7 @@ func (a *apiServer) getLogsLoki(ctx context.Context, request *pps.GetLogsRequest
 		// If user provides a job, lookup the pipeline from the JobInfo, and then
 		// get the pipeline RC
 		jobInfo := &pps.JobInfo{}
-		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(ppsdb.JobKey(request.Job), jobInfo)
+		err = a.jobs.ReadOnly(apiGetLogsServer.Context()).Get(apiGetLogsServer.Context(), ppsdb.JobKey(request.Job), jobInfo)
 		if err != nil {
 			return errors.Wrapf(err, "could not get job information for \"%s\"", request.Job.Id)
 		}
@@ -2963,6 +2964,7 @@ func (a *apiServer) getLatestJobState(ctx context.Context, info *pps.PipelineInf
 	opts.Limit = 1
 	var job pps.JobInfo
 	err := a.jobs.ReadOnly(ctx).GetByIndex(
+		ctx,
 		ppsdb.JobsPipelineIndex,
 		ppsdb.JobsPipelineKey(info.Pipeline),
 		&job,
@@ -3862,7 +3864,7 @@ func newMessageFilterFunc(jqFilter string, projects []*pfs.Project) (func(contex
 
 func (a *apiServer) GetClusterDefaults(ctx context.Context, req *pps.GetClusterDefaultsRequest) (*pps.GetClusterDefaultsResponse, error) {
 	var clusterDefaults ppsdb.ClusterDefaultsWrapper
-	if err := a.clusterDefaults.ReadOnly(ctx).Get("", &clusterDefaults); err != nil {
+	if err := a.clusterDefaults.ReadOnly(ctx).Get(ctx, "", &clusterDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read cluster defaults", err)
 		}
@@ -4031,7 +4033,7 @@ func (a *apiServer) GetProjectDefaults(ctx context.Context, req *pps.GetProjectD
 	if _, err := a.env.PFSServer.InspectProject(ctx, &pfs.InspectProjectRequest{Project: req.Project}); err != nil {
 		return nil, err
 	}
-	if err := a.projectDefaults.ReadOnly(ctx).Get(req.Project.String(), &projectDefaults); err != nil {
+	if err := a.projectDefaults.ReadOnly(ctx).Get(ctx, req.Project.String(), &projectDefaults); err != nil {
 		if !errors.As(err, &col.ErrNotFound{}) {
 			return nil, unknownError(ctx, "could not read project defaults", err)
 		}

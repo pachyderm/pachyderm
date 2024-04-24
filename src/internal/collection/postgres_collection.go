@@ -209,11 +209,11 @@ func (c *postgresCollection) get(ctx context.Context, key string, q sqlx.Queryer
 	return result, nil
 }
 
-func (c *postgresReadOnlyCollection) Get(key interface{}, val proto.Message) error {
+func (c *postgresReadOnlyCollection) Get(ctx context.Context, key interface{}, val proto.Message) error {
 	var result *model
 	var err error
 	err = c.withKey(key, func(rawKey string) error {
-		result, err = c.get(c.ctx, rawKey, c.db)
+		result, err = c.get(ctx, rawKey, c.db)
 		return err
 	})
 	if err != nil {
@@ -261,8 +261,8 @@ func (c *postgresCollection) getByIndex(ctx context.Context, q sqlx.ExtContext, 
 
 // NOTE: Internally, GetByIndex scans the collection over multiple transactions,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(c.ctx, c.db, index, indexVal, val, opts, f)
+func (c *postgresReadOnlyCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(ctx, c.db, index, indexVal, val, opts, f)
 }
 
 // NOTE: Internally, GetByIndex scans the collection using multiple queries,
@@ -288,8 +288,8 @@ func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtCon
 	return nil
 }
 
-func (c *postgresReadOnlyCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
-	return c.getUniqueByIndex(c.ctx, c.db, index, indexVal, val)
+func (c *postgresReadOnlyCollection) GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(ctx, c.db, index, indexVal, val)
 }
 
 func (c *postgresReadWriteCollection) GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error {
@@ -505,9 +505,9 @@ func (c *postgresReadWriteCollection) List(ctx context.Context, val proto.Messag
 	})
 }
 
-func (c *postgresReadOnlyCollection) Count() (int64, error) {
+func (c *postgresReadOnlyCollection) Count(ctx context.Context) (int64, error) {
 	query := fmt.Sprintf("select count(*) from collections.%s", c.table)
-	row := c.db.QueryRowContext(c.ctx, query)
+	row := c.db.QueryRowContext(ctx, query)
 
 	var result int64
 	err := row.Scan(&result)

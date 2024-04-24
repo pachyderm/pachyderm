@@ -158,7 +158,7 @@ func (a *apiServer) heartbeatRoutine(ctx context.Context) {
 func (a *apiServer) heartbeatIfConfigured(ctx context.Context) error {
 	// If we can't get the license server address, skip heartbeating
 	var config ec.EnterpriseConfig
-	if err := a.configCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+	if err := a.configCol.ReadOnly(ctx).Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return lc.ErrNotActivated
 		}

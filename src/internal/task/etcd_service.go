@@ -64,7 +64,7 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 	var claim Claim
 	return errors.EnsureStack(etcdCols.taskCol.ReadOnly(ctx).List(&taskData, col.DefaultOptions(), func(key string) error {
 		var claimed bool
-		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(key, &claim) == nil {
+		if taskData.State == State_RUNNING && etcdCols.claimCol.ReadOnly(ctx).Get(ctx, key, &claim) == nil {
 			claimed = true
 		}
 		return cb(namespace, group, &taskData, claimed)
@@ -73,7 +73,7 @@ func (es *etcdService) List(ctx context.Context, namespace, group string, cb fun
 
 func (es *etcdService) Count(ctx context.Context, namespace string) (int64, error) {
 	etcdCols := newNamespaceEtcd(es.etcdClient, es.etcdPrefix, namespace)
-	return etcdCols.taskCol.ReadOnly(ctx).Count()
+	return etcdCols.taskCol.ReadOnly(ctx).Count(ctx)
 }
 
 type namespaceEtcd struct {
@@ -181,10 +181,10 @@ func (ed *etcdDoer) Do(ctx context.Context, inputChan chan *anypb.Any, cb Collec
 		})
 		defer func() {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(prefix); err != nil {
+				if err := ed.taskCol.ReadWrite(stm).DeleteAllPrefix(ctx, prefix); err != nil {
 					return errors.EnsureStack(err)
 				}
-				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(prefix))
+				return errors.EnsureStack(ed.claimCol.ReadWrite(stm).DeleteAllPrefix(ctx, prefix))
 			}); err != nil {
 				log.Info(ctx, "errored deleting tasks with the prefix", zap.String("prefix", prefix), zap.Error(err))
 			}

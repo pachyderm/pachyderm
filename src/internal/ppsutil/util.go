@@ -435,7 +435,7 @@ func GetWorkerPipelineInfo(pachClient *client.APIClient, db *pachsql.DB, l col.P
 	// the pipeline in the image of a different verison.
 	specCommit := client.NewSystemRepo(pipeline.Project.GetName(), pipeline.Name, pfs.SpecRepoType).
 		NewCommit("master", specCommitID)
-	if err := pipelines.ReadOnly(ctx).Get(specCommit, pipelineInfo); err != nil {
+	if err := pipelines.ReadOnly(ctx).Get(ctx, specCommit, pipelineInfo); err != nil {
 		return nil, errors.EnsureStack(err)
 	}
 	pachClient.SetAuthToken(pipelineInfo.AuthToken)
@@ -508,6 +508,7 @@ func ListPipelineInfo(ctx context.Context,
 	opts := col.DefaultOptions()
 	if filter != nil {
 		if err := pipelines.ReadOnly(ctx).GetByIndex(
+			ctx,
 			ppsdb.PipelinesNameIndex,
 			ppsdb.PipelinesNameKey(filter),
 			p,

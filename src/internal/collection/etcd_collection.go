@@ -245,7 +245,7 @@ func (c *etcdReadWriteCollection) Put(ctx context.Context, maybeKey interface{},
 	return c.PutTTL(ctx, key, val, 0)
 }
 
-func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
+func (c *etcdReadWriteCollection) TTL(ctx context.Context, key string) (int64, error) {
 	ttl, err := c.stm.TTL(c.path(key))
 	if IsErrNotFound(err) {
 		return ttl, ErrNotFound{Type: c.prefix, Key: key}
@@ -414,7 +414,7 @@ func (c *etcdReadWriteCollection) DeleteAll(ctx context.Context) error {
 	return nil
 }
 
-func (c *etcdReadWriteCollection) DeleteAllPrefix(prefix string) error {
+func (c *etcdReadWriteCollection) DeleteAllPrefix(ctx context.Context, prefix string) error {
 	c.stm.DelAll(path.Join(c.prefix, prefix) + "/")
 	return nil
 }
@@ -426,8 +426,8 @@ type etcdReadOnlyCollection struct {
 
 // get is an internal wrapper around etcdClient.Get that wraps the call in a
 // trace
-func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *etcd.GetResponse, retErr error) {
-	span, ctx := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/Get",
+func (c *etcdReadOnlyCollection) get(ctx context.Context, key string, opts ...etcd.OpOption) (resp *etcd.GetResponse, retErr error) {
+	span, ctx := tracing.AddSpanToAnyExisting(ctx, "/etcd.RO/Get",
 		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -437,7 +437,7 @@ func (c *etcdReadOnlyCollection) get(key string, opts ...etcd.OpOption) (resp *e
 	return resp, errors.EnsureStack(err)
 }
 
-func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) error {
+func (c *etcdReadOnlyCollection) Get(ctx context.Context, maybeKey interface{}, val proto.Message) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
@@ -445,7 +445,7 @@ func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) er
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	resp, err := c.get(c.path(key))
+	resp, err := c.get(ctx, c.path(key))
 	if err != nil {
 		return err
 	}
@@ -457,7 +457,7 @@ func (c *etcdReadOnlyCollection) Get(maybeKey interface{}, val proto.Message) er
 	return errors.EnsureStack(proto.Unmarshal(resp.Kvs[0].Value, val))
 }
 
-func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
+func (c *etcdReadOnlyCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(key string) error) error {
 	span, _ := tracing.AddSpanToAnyExisting(c.ctx, "/etcd.RO/GetByIndex", "col", c.prefix, "index", index, "indexVal", indexVal)
 	defer tracing.FinishAnySpan(span)
 	if atomic.LoadInt64(&index.limit) == 0 {
@@ -465,7 +465,7 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val p
 	}
 	return c.list(c.indexDir(index, indexVal), &index.limit, opts, func(kv *mvccpb.KeyValue) error {
 		key := path.Base(string(kv.Key))
-		if err := c.Get(key, val); err != nil {
+		if err := c.Get(ctx, key, val); err != nil {
 			if IsErrNotFound(err) {
 				// In cases where we changed how certain objects are
 				// indexed, we could end up in a situation where the
@@ -478,8 +478,8 @@ func (c *etcdReadOnlyCollection) GetByIndex(index *Index, indexVal string, val p
 	})
 }
 
-func (c *etcdReadOnlyCollection) TTL(key string) (int64, error) {
-	resp, err := c.get(c.path(key))
+func (c *etcdReadOnlyCollection) TTL(ctx context.Context, key string) (int64, error) {
+	resp, err := c.get(ctx, c.path(key))
 	if err != nil {
 		return 0, err
 	}
@@ -524,20 +524,12 @@ var (
 	countOpts = []etcd.OpOption{etcd.WithPrefix(), etcd.WithCountOnly()}
 )
 
-func (c *etcdReadOnlyCollection) Count() (int64, error) {
-	resp, err := c.get(c.prefix, countOpts...)
+func (c *etcdReadOnlyCollection) Count(ctx context.Context) (int64, error) {
+	resp, err := c.get(ctx, c.prefix, countOpts...)
 	if err != nil {
 		return 0, err
 	}
 	return resp.Count, err
-}
-
-func (c *etcdReadOnlyCollection) CountRev(rev int64) (int64, int64, error) {
-	resp, err := c.get(c.prefix, append(countOpts, etcd.WithRev(rev))...)
-	if err != nil {
-		return 0, 0, err
-	}
-	return resp.Count, resp.Header.Revision, err
 }
 
 // Watch a collection, returning the current content of the collection as
@@ -608,7 +600,7 @@ func (c *etcdReadOnlyCollection) WatchByIndex(index *Index, val string, opts ...
 					// pass along the error
 					return ev.Err
 				case watch.EventPut:
-					resp, err := c.get(c.path(path.Base(string(ev.Key))))
+					resp, err := c.get(c.ctx, c.path(path.Base(string(ev.Key))))
 					if err != nil {
 						return err
 					}

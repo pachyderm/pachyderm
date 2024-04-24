@@ -109,7 +109,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				return errors.EnsureStack(err)
 			})
 			require.NoError(t, err)
-			count, err := emptyRead(ctx).Count()
+			count, err := emptyRead(ctx).Count(ctx)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), count)
 		})

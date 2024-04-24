@@ -79,7 +79,7 @@ func EnterpriseConfigPostgresMigration(ctx context.Context, tx *pachsql.Tx, etcd
 func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.EnterpriseConfig, error) {
 	etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
 	var config ec.EnterpriseConfig
-	if err := etcdConfigCol.ReadOnly(ctx).Get(configKey, &config); err != nil {
+	if err := etcdConfigCol.ReadOnly(ctx).Get(ctx, configKey, &config); err != nil {
 		if col.IsErrNotFound(err) {
 			return nil, nil
 		}
