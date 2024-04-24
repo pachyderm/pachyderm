@@ -210,12 +210,12 @@ func TestGetProjectLogs(t *testing.T) {
 	var (
 		ctx             = pctx.TestContext(t)
 		foundQuery      bool
-		projectName     = testutil.UniqueString("projectName")
+		projectName     = testutil.UniqueString("pipelineProject")
 		datumMiddleware = func(next http.Handler) http.Handler {
 			return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 				q := req.URL.Query()
 				if q := q.Get("query"); q != "" {
-					if strings.Contains(q, fmt.Sprintf(`projectName="%s"`, projectName)) {
+					if strings.Contains(q, fmt.Sprintf(`pipelineProject="%s"`, projectName)) {
 						foundQuery = true
 					}
 				}
@@ -261,6 +261,7 @@ func TestPipelineLogs(t *testing.T) {
 	labels := map[string]string{
 		"app":             "pipeline",
 		"component":       "worker",
+		"container":       "user",
 		"pipelineName":    "edges",
 		"pipelineProject": "default",
 		"pipelineVersion": "1",

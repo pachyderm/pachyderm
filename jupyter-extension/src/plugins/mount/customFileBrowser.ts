@@ -14,6 +14,7 @@ import {each} from '@lumino/algorithm';
 import {MountDrive} from './mountDrive';
 import {MOUNT_BROWSER_PREFIX} from './mount';
 import {requestAPI} from '../../handler';
+import {MountedRepo} from './types';
 
 const createCustomFileBrowser = (
   app: JupyterFrontEnd,
@@ -22,6 +23,7 @@ const createCustomFileBrowser = (
   path: string,
   downloadPath: string,
   nameSuffix: string,
+  getMountedRepo: () => MountedRepo | null,
 ): FileBrowser => {
   const id = `jupyterlab-pachyderm-browser-${nameSuffix}`;
   const drive = new MountDrive(
@@ -32,6 +34,7 @@ const createCustomFileBrowser = (
     async () => {
       await browser.model.cd();
     },
+    getMountedRepo,
   );
   manager.services.contents.addDrive(drive);
 
@@ -120,7 +123,9 @@ const createCustomFileBrowser = (
               '',
             );
             requestAPI(
-              'download/' + downloadPath + '/' + itemPath,
+              `download/${downloadPath}/${itemPath}?branch_uri=${
+                getMountedRepo()?.mountedBranch.uri
+              }`,
               'PUT',
             ).catch((e) => {
               showErrorMessage('Download Error', e.response.statusText);

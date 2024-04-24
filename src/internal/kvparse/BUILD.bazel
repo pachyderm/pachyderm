@@ -1,0 +1,26 @@
+load("@rules_go//go:def.bzl", "go_library", "go_test")
+
+go_library(
+    name = "kvparse",
+    srcs = ["kvparse.go"],
+    importpath = "github.com/pachyderm/pachyderm/v2/src/internal/kvparse",
+    visibility = ["//src:__subpackages__"],
+    deps = [
+        "//src/internal/errors",
+        "//src/internal/kvparse/kvgrammar",
+        "@com_github_alecthomas_participle_v2//:participle",
+        "@com_github_alecthomas_participle_v2//lexer",
+    ],
+)
+
+go_test(
+    name = "kvparse_test",
+    srcs = ["kvparse_test.go"],
+    data = glob(["testdata/**"]),
+    embed = [":kvparse"],
+    deps = [
+        "//src/internal/cmputil",
+        "//src/internal/require",
+        "@com_github_google_go_cmp//cmp",
+    ],
+)

@@ -456,6 +456,7 @@ func NewFull(env Env, config pachconfig.PachdFullConfiguration) *Full {
 				var err error
 				pd.logsSrv, err = logs_server.NewAPIServer(logs_server.Env{
 					GetLokiClient: env.GetLokiClient,
+					AuthServer:    pd.authSrv.(auth_server.APIServer),
 				})
 				if err != nil {
 					return errors.Wrap(err, "logs_server.NewAPIServer")
