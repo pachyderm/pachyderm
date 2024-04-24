@@ -426,6 +426,13 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  nil,
 		},
+		"a log in window should return that log": {
+			logs:  []time.Duration{time.Second * 2},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 2},
+		},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -495,6 +502,11 @@ func TestGetLogs_offset(t *testing.T) {
 			}, publisher), "GetLogs should succeed")
 			if len(publisher.responses) != len(tc.want) {
 				t.Fatalf("got %d responses; want %d", len(publisher.responses), len(tc.want))
+			}
+			for i := range tc.want {
+				if want, got := now.Add(tc.want[i]), publisher.responses[i].GetLog().GetVerbatim().GetTimestamp().AsTime(); !want.Equal(got) {
+					t.Errorf("expected item %d to be %v; got %v", i, want, got)
+				}
 			}
 		})
 	}
