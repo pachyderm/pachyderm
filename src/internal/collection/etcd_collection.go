@@ -139,7 +139,7 @@ func (r *Renewer) Put(ctx context.Context, key string, val proto.Message) error 
 			etcdCollection: r.collection,
 			stm:            stm,
 		}
-		return col.putLease(key, val, r.lease)
+		return col.putLease(ctx, key, val, r.lease)
 	})
 	return err
 }
@@ -254,12 +254,12 @@ func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 }
 
 func (c *etcdReadWriteCollection) PutTTL(ctx context.Context, key string, val proto.Message, ttl int64) error {
-	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+	return c.put(ctx, key, val, func(key string, val string, ptr uintptr) error {
 		return errors.EnsureStack(c.stm.Put(key, val, ttl, ptr))
 	})
 }
 
-func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc func(string, string, uintptr) error) error {
+func (c *etcdReadWriteCollection) put(ctx context.Context, key string, val proto.Message, putFunc func(string, string, uintptr) error) error {
 	if strings.Contains(key, indexIdentifier) {
 		return errors.Errorf("cannot put key %q which contains reserved string %q", key, indexIdentifier)
 	}
@@ -291,7 +291,7 @@ func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc fun
 		for _, index := range c.indexes {
 			indexPath := c.getIndexPath(val, index, key)
 			// If we can get the original value, we remove the original indexes
-			if err := c.Get(pctx.TODO(), key, clone); err == nil {
+			if err := c.Get(ctx, key, clone); err == nil {
 				originalIndexPath := c.getIndexPath(clone, index, key)
 				if originalIndexPath != indexPath {
 					c.stm.Del(originalIndexPath)
@@ -311,14 +311,14 @@ func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc fun
 	return putFunc(c.path(key), string(bytes), ptr)
 }
 
-func (c *etcdReadWriteCollection) putLease(key string, val proto.Message, lease etcd.LeaseID) error {
-	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+func (c *etcdReadWriteCollection) putLease(ctx context.Context, key string, val proto.Message, lease etcd.LeaseID) error {
+	return c.put(ctx, key, val, func(key string, val string, ptr uintptr) error {
 		return errors.EnsureStack(c.stm.PutLease(key, val, lease, ptr))
 	})
 }
 
-func (c *etcdReadWriteCollection) putIgnoreLease(key string, val proto.Message) error {
-	return c.put(key, val, func(key string, val string, ptr uintptr) error {
+func (c *etcdReadWriteCollection) putIgnoreLease(ctx context.Context, key string, val proto.Message) error {
+	return c.put(ctx, key, val, func(key string, val string, ptr uintptr) error {
 		return errors.EnsureStack(c.stm.PutIgnoreLease(key, val, ptr))
 	})
 }
@@ -334,7 +334,7 @@ func (c *etcdReadWriteCollection) Update(ctx context.Context, maybeKey interface
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	if err := c.Get(pctx.TODO(), key, val); err != nil {
+	if err := c.Get(ctx, key, val); err != nil {
 		if IsErrNotFound(err) {
 			return ErrNotFound{Type: c.prefix, Key: key}
 		}
@@ -343,7 +343,7 @@ func (c *etcdReadWriteCollection) Update(ctx context.Context, maybeKey interface
 	if err := f(); err != nil {
 		return err
 	}
-	return c.putIgnoreLease(key, val)
+	return c.putIgnoreLease(ctx, key, val)
 }
 
 // Upsert is like Update but 'key' is not required to be present
