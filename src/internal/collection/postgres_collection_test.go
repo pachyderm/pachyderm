@@ -103,7 +103,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			t.Parallel()
 			err := emptyWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				err := pgrw.GetByIndex(TestSecondaryIndex, "foo", &col.TestItem{}, col.DefaultOptions(), func(string) error {
+				err := pgrw.GetByIndex(ctx, TestSecondaryIndex, "foo", &col.TestItem{}, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an empty collection")
 				})
 				return errors.EnsureStack(err)
@@ -120,7 +120,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(ctx, TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					require.Equal(t, testProto.Id, key)
 					require.Equal(t, testProto.Value, originalValue)
 					keys = append(keys, key)
@@ -141,7 +141,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				err := pgrw.GetByIndex(TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
+				err := pgrw.GetByIndex(ctx, TestSecondaryIndex, changedValue, testProto, col.DefaultOptions(), func(string) error {
 					return errors.New("GetByIndex callback should not have been called for an index value with no rows")
 				})
 				return errors.EnsureStack(err)
@@ -154,7 +154,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			t.Parallel()
 			err := defaultWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				err := pgrw.GetByIndex(&col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(ctx, &col.Index{}, "", &col.TestItem{}, col.DefaultOptions(), func(key string) error {
 					return errors.New("GetByIndex callback should not have been called when using an invalid index")
 				})
 				return errors.EnsureStack(err)
@@ -172,7 +172,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 			err := defaultWriter(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 				testProto := &col.TestItem{}
 				pgrw := rw.(col.PostgresReadWriteCollection)
-				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
+				err := pgrw.GetByIndex(ctx, TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					outerKeys = append(outerKeys, testProto.Id)
 					if err := pgrw.Get(ctx, innerID, testProto); err != nil {
 						return errors.EnsureStack(err)

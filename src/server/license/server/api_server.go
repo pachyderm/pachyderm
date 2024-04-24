@@ -253,7 +253,7 @@ func (a *apiServer) DeleteAll(ctx context.Context, req *lc.DeleteAllRequest) (re
 	}
 
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		err := a.license.ReadWrite(sqlTx).Delete(licenseRecordKey)
+		err := a.license.ReadWrite(sqlTx).Delete(ctx, licenseRecordKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

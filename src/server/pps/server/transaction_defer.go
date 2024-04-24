@@ -81,7 +81,7 @@ func (t *JobStopper) StopJob(commit *pfs.Commit) {
 func (t *JobStopper) Run(ctx context.Context) error {
 	for _, commitset := range t.commitsets {
 		jobInfo := &pps.JobInfo{}
-		if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commitset.Id, jobInfo, col.DefaultOptions(), func(string) error {
+		if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ctx, ppsdb.JobsJobSetIndex, commitset.Id, jobInfo, col.DefaultOptions(), func(string) error {
 			return t.a.stopJob(ctx, t.txnCtx, jobInfo.Job, "output commit removed")
 		}); err != nil {
 			return errors.EnsureStack(err)
@@ -96,7 +96,7 @@ func (t *JobStopper) Run(ctx context.Context) error {
 		job := cache[pfsdb.CommitKey(commit)]
 		if job == nil {
 			jobInfo := &pps.JobInfo{}
-			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ppsdb.JobsJobSetIndex, commit.Id, jobInfo, col.DefaultOptions(), func(string) error {
+			if err := t.a.jobs.ReadWrite(t.txnCtx.SqlTx).GetByIndex(ctx, ppsdb.JobsJobSetIndex, commit.Id, jobInfo, col.DefaultOptions(), func(string) error {
 				if _, ok := cache[pfsdb.CommitKey(jobInfo.OutputCommit)]; ok {
 					cache[pfsdb.CommitKey(jobInfo.OutputCommit)] = proto.Clone(jobInfo.Job).(*pps.Job)
 				}

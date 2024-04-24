@@ -347,7 +347,7 @@ func (c *etcdReadWriteCollection) Update(ctx context.Context, maybeKey interface
 }
 
 // Upsert is like Update but 'key' is not required to be present
-func (c *etcdReadWriteCollection) Upsert(maybeKey interface{}, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Upsert(ctx context.Context, maybeKey interface{}, val proto.Message, f func() error) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
@@ -355,16 +355,16 @@ func (c *etcdReadWriteCollection) Upsert(maybeKey interface{}, val proto.Message
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	if err := c.Get(pctx.TODO(), key, val); err != nil && !IsErrNotFound(err) {
+	if err := c.Get(ctx, key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(pctx.TODO(), key, val)
+	return c.Put(ctx, key, val)
 }
 
-func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message) error {
+func (c *etcdReadWriteCollection) Create(ctx context.Context, maybeKey interface{}, val proto.Message) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
@@ -380,10 +380,10 @@ func (c *etcdReadWriteCollection) Create(maybeKey interface{}, val proto.Message
 	if err == nil {
 		return ErrExists{Type: c.prefix, Key: key}
 	}
-	return c.Put(pctx.TODO(), key, val)
+	return c.Put(ctx, key, val)
 }
 
-func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
+func (c *etcdReadWriteCollection) Delete(ctx context.Context, maybeKey interface{}) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
@@ -395,7 +395,7 @@ func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(pctx.TODO(), key, val); err == nil {
+			if err := c.Get(ctx, key, val); err == nil {
 				indexPath := c.getIndexPath(val, index, key)
 				c.stm.Del(indexPath)
 			}
@@ -405,7 +405,7 @@ func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
 	return nil
 }
 
-func (c *etcdReadWriteCollection) DeleteAll() error {
+func (c *etcdReadWriteCollection) DeleteAll(ctx context.Context) error {
 	// Delete indexes
 	for _, index := range c.indexes {
 		c.stm.DelAll(c.indexRoot(index))

@@ -267,8 +267,8 @@ func (c *postgresReadOnlyCollection) GetByIndex(index *Index, indexVal string, v
 
 // NOTE: Internally, GetByIndex scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadWriteCollection) GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
-	return c.getByIndex(context.Background(), c.tx, index, indexVal, val, opts, f)
+func (c *postgresReadWriteCollection) GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error {
+	return c.getByIndex(ctx, c.tx, index, indexVal, val, opts, f)
 }
 
 func (c *postgresCollection) getUniqueByIndex(ctx context.Context, q sqlx.ExtContext, index *Index, indexVal string, val proto.Message) error {
@@ -292,8 +292,8 @@ func (c *postgresReadOnlyCollection) GetUniqueByIndex(index *Index, indexVal str
 	return c.getUniqueByIndex(c.ctx, c.db, index, indexVal, val)
 }
 
-func (c *postgresReadWriteCollection) GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error {
-	return c.getUniqueByIndex(context.Background(), c.tx, index, indexVal, val)
+func (c *postgresReadWriteCollection) GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error {
+	return c.getUniqueByIndex(ctx, c.tx, index, indexVal, val)
 }
 
 func orderToSQL(order etcd.SortOrder) (string, error) {
@@ -494,8 +494,8 @@ func (c *postgresReadOnlyCollection) List(val proto.Message, opts *Options, f fu
 
 // NOTE: Internally, List scans the collection using multiple queries,
 // making this method susceptible to inconsistent reads
-func (c *postgresReadWriteCollection) List(val proto.Message, opts *Options, f func(string) error) error {
-	ctx, cf := pctx.WithCancel(context.Background())
+func (c *postgresReadWriteCollection) List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error {
+	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
 	return c.postgresCollection.list(ctx, nil, opts, c.tx, func(m *model) error {
 		if err := proto.Unmarshal(m.Proto, val); err != nil {
@@ -796,31 +796,31 @@ func (c *postgresReadWriteCollection) insert(ctx context.Context, key string, va
 	return nil
 }
 
-func (c *postgresReadWriteCollection) Upsert(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(pctx.TODO(), key, val); err != nil && !IsErrNotFound(err) {
+func (c *postgresReadWriteCollection) Upsert(ctx context.Context, key interface{}, val proto.Message, f func() error) error {
+	if err := c.Get(ctx, key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
 	if err := f(); err != nil {
 		return err
 	}
-	return c.Put(pctx.TODO(), key, val)
+	return c.Put(ctx, key, val)
 }
 
-func (c *postgresReadWriteCollection) Create(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Create(ctx context.Context, key interface{}, val proto.Message) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.insert(pctx.TODO(), rawKey, val, false)
+		return c.insert(ctx, rawKey, val, false)
 	})
 }
 
-func (c *postgresReadWriteCollection) Delete(key interface{}) error {
+func (c *postgresReadWriteCollection) Delete(ctx context.Context, key interface{}) error {
 	return c.withKey(key, func(rawKey string) error {
-		return c.delete(rawKey)
+		return c.delete(ctx, rawKey)
 	})
 }
 
-func (c *postgresReadWriteCollection) delete(key string) error {
+func (c *postgresReadWriteCollection) delete(ctx context.Context, key string) error {
 	query := fmt.Sprintf("delete from collections.%s where key = $1", c.table)
-	res, err := c.tx.Exec(query, key)
+	res, err := c.tx.ExecContext(ctx, query, key)
 	if err != nil {
 		return c.mapSQLError(err, key)
 	}
@@ -833,17 +833,17 @@ func (c *postgresReadWriteCollection) delete(key string) error {
 	return nil
 }
 
-func (c *postgresReadWriteCollection) DeleteAll() error {
+func (c *postgresReadWriteCollection) DeleteAll(ctx context.Context) error {
 	query := fmt.Sprintf("delete from collections.%s", c.table)
-	_, err := c.tx.Exec(query)
+	_, err := c.tx.ExecContext(ctx, query)
 	return c.mapSQLError(err, "")
 }
 
-func (c *postgresReadWriteCollection) DeleteByIndex(index *Index, indexVal string) error {
+func (c *postgresReadWriteCollection) DeleteByIndex(ctx context.Context, index *Index, indexVal string) error {
 	if err := c.validateIndex(index); err != nil {
 		return err
 	}
 	query := fmt.Sprintf("delete from collections.%s where %s = $1", c.table, indexFieldName(index))
-	_, err := c.tx.Exec(query, indexVal)
+	_, err := c.tx.ExecContext(ctx, query, indexVal)
 	return c.mapSQLError(err, "")
 }

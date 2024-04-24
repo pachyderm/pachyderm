@@ -91,7 +91,7 @@ func checkForEtcdRecord(ctx context.Context, etcd *clientv3.Client) (*ec.Enterpr
 func DeleteEnterpriseConfigFromEtcd(ctx context.Context, etcd *clientv3.Client) error {
 	if _, err := col.NewSTM(ctx, etcd, func(stm col.STM) error {
 		etcdConfigCol := col.NewEtcdCollection(etcd, "", nil, &ec.EnterpriseConfig{}, nil, nil)
-		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(configKey))
+		return errors.EnsureStack(etcdConfigCol.ReadWrite(stm).Delete(ctx, configKey))
 	}); err != nil {
 		if !col.IsErrNotFound(err) {
 			return err

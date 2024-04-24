@@ -85,7 +85,7 @@ func (tester *ChannelWatchTester) Write(ctx context.Context, item *col.TestItem)
 func (tester *ChannelWatchTester) Delete(ctx context.Context, id string) {
 	tester.t.Helper()
 	err := tester.writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
-		return errors.EnsureStack(rw.Delete(id))
+		return errors.EnsureStack(rw.Delete(ctx, id))
 	})
 	require.NoError(tester.t, err)
 }
@@ -93,7 +93,7 @@ func (tester *ChannelWatchTester) Delete(ctx context.Context, id string) {
 func (tester *ChannelWatchTester) DeleteAll(ctx context.Context) {
 	tester.t.Helper()
 	err := tester.writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
-		return errors.EnsureStack(rw.DeleteAll())
+		return errors.EnsureStack(rw.DeleteAll(ctx))
 	})
 	require.NoError(tester.t, err)
 }

@@ -223,7 +223,7 @@ func (reg *registry) superviseJob(pj *pendingJob) error {
 					if err := pj.driver.Jobs().ReadWrite(sqlTx).Get(ctx, ppsdb.JobKey(pj.ji.Job), jobInfo); err != nil {
 						return errors.EnsureStack(err)
 					}
-					return errors.EnsureStack(pj.driver.DeleteJob(sqlTx, jobInfo))
+					return errors.EnsureStack(pj.driver.DeleteJob(ctx, sqlTx, jobInfo))
 				}); err != nil && !col.IsErrNotFound(err) {
 					return errors.EnsureStack(err)
 				}

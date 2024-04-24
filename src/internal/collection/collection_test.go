@@ -376,7 +376,7 @@ func collectionTests(
 					for _, k := range createKeys {
 						err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 							testProto := &col.TestItem{Id: k, Value: originalValue}
-							return errors.EnsureStack(rw.Create(k, testProto))
+							return errors.EnsureStack(rw.Create(ctx, k, testProto))
 						})
 						require.NoError(t, err)
 					}
@@ -501,7 +501,7 @@ func collectionTests(
 						return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", oobID)
 					}
 
-					require.NoError(t, rw.DeleteAll())
+					require.NoError(t, rw.DeleteAll(ctx))
 
 					for _, id := range idRange(0, defaultCollectionSize) {
 						if err := rw.Get(ctx, id, testProto); !col.IsErrNotFound(err) {
@@ -526,7 +526,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(newID)
-					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
+					return errors.EnsureStack(rw.Create(ctx, testProto.Id, testProto))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -538,7 +538,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := makeProto(overwriteID)
-					return errors.EnsureStack(rw.Create(testProto.Id, testProto))
+					return errors.EnsureStack(rw.Create(ctx, testProto.Id, testProto))
 				})
 				require.YesError(t, err)
 				require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
@@ -554,11 +554,11 @@ func collectionTests(
 					overwriteID := makeID(6)
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(newID)
-						if err := rw.Create(testProto.Id, testProto); err != nil {
+						if err := rw.Create(ctx, testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(overwriteID)
-						return errors.EnsureStack(rw.Create(testProto.Id, testProto))
+						return errors.EnsureStack(rw.Create(ctx, testProto.Id, testProto))
 					})
 					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
 					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: overwriteID}), "Incorrect error: %v", err)
@@ -568,7 +568,7 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(makeID(10))
-						if err := rw.Create(testProto.Id, testProto); err != nil {
+						if err := rw.Create(ctx, testProto.Id, testProto); err != nil {
 							return errors.EnsureStack(err)
 						}
 						return &TestError{}
@@ -583,13 +583,13 @@ func collectionTests(
 					readOnly, writer := initCollection(ctx, t, newCollection)
 					err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := makeProto(overwriteID)
-						if err := rw.Create(testProto.Id, testProto); err == nil {
+						if err := rw.Create(ctx, testProto.Id, testProto); err == nil {
 							return errors.New("Expected col.ErrExists, but got no error")
 						} else if !col.IsErrExists(err) {
 							return errors.EnsureStack(err)
 						}
 						testProto = makeProto(newID)
-						return errors.EnsureStack(rw.Create(testProto.Id, testProto))
+						return errors.EnsureStack(rw.Create(ctx, testProto.Id, testProto))
 					})
 					require.NoError(t, err)
 					checkDefaultCollection(t, readOnly, RowDiff{Created: []string{newID}})
@@ -651,7 +651,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					if err := rw.Upsert(updateID, testProto, func() error {
+					if err := rw.Upsert(ctx, updateID, testProto, func() error {
 						if err := checkItem(t, testProto, updateID, originalValue); err != nil {
 							return err
 						}
@@ -766,7 +766,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					return errors.EnsureStack(rw.Upsert(newID, testProto, func() error {
+					return errors.EnsureStack(rw.Upsert(ctx, newID, testProto, func() error {
 						if testProto.Id != "" {
 							return errors.Errorf("Upsert of new row modified the ID, new value: %s", testProto.Id)
 						}
@@ -788,7 +788,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					return errors.EnsureStack(rw.Upsert(newID, testProto, func() error {
+					return errors.EnsureStack(rw.Upsert(ctx, newID, testProto, func() error {
 						return &TestError{}
 					}))
 				})
@@ -803,7 +803,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					err := rw.Upsert(overwriteID, testProto, func() error {
+					err := rw.Upsert(ctx, overwriteID, testProto, func() error {
 						if testProto.Id != overwriteID {
 							return errors.Errorf("Upsert of existing row does not pass through the ID, expected: %s, actual: %s", overwriteID, testProto.Id)
 						}
@@ -827,12 +827,12 @@ func collectionTests(
 					existsID := makeID(3)
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Upsert(makeID(6), testProto, func() error {
+						if err := rw.Upsert(ctx, makeID(6), testProto, func() error {
 							return nil
 						}); err != nil {
 							return errors.EnsureStack(err)
 						}
-						return errors.EnsureStack(rw.Create(existsID, testProto))
+						return errors.EnsureStack(rw.Create(ctx, existsID, testProto))
 					})
 					require.True(t, col.IsErrExists(err), "Incorrect error: %v", err)
 					require.True(t, errors.Is(err, col.ErrExists{Type: collectionName, Key: existsID}), "Incorrect error: %v", err)
@@ -842,7 +842,7 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Upsert(makeID(6), testProto, func() error {
+						if err := rw.Upsert(ctx, makeID(6), testProto, func() error {
 							return nil
 						}); err != nil {
 							return errors.EnsureStack(err)
@@ -856,14 +856,14 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Upsert(makeID(5), testProto, func() error {
+						if err := rw.Upsert(ctx, makeID(5), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
 						}); err != nil {
 							return errors.EnsureStack(err)
 						}
 
-						return errors.EnsureStack(rw.Upsert(makeID(6), testProto, func() error {
+						return errors.EnsureStack(rw.Upsert(ctx, makeID(6), testProto, func() error {
 							return &TestError{}
 						}))
 					})
@@ -880,7 +880,7 @@ func collectionTests(
 				deleteID := makeID(3)
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
-					return errors.EnsureStack(rw.Delete(deleteID))
+					return errors.EnsureStack(rw.Delete(ctx, deleteID))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Deleted: []string{deleteID}})
@@ -891,7 +891,7 @@ func collectionTests(
 				notExistsID := makeID(10)
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
-					return errors.EnsureStack(rw.Delete(notExistsID))
+					return errors.EnsureStack(rw.Delete(ctx, notExistsID))
 				})
 				require.YesError(t, err)
 				require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
@@ -906,10 +906,10 @@ func collectionTests(
 					t.Parallel()
 					notExistsID := makeID(10)
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
-						if err := rw.Delete(makeID(6)); err != nil {
+						if err := rw.Delete(ctx, makeID(6)); err != nil {
 							return errors.EnsureStack(err)
 						}
-						return errors.EnsureStack(rw.Delete(notExistsID))
+						return errors.EnsureStack(rw.Delete(ctx, notExistsID))
 					})
 					require.True(t, col.IsErrNotFound(err), "Incorrect error: %v", err)
 					require.True(t, errors.Is(err, col.ErrNotFound{Type: collectionName, Key: notExistsID}), "Incorrect error: %v", err)
@@ -918,7 +918,7 @@ func collectionTests(
 				subsuite.Run("UserError", func(t *testing.T) {
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
-						if err := rw.Delete(makeID(6)); err != nil {
+						if err := rw.Delete(ctx, makeID(6)); err != nil {
 							return errors.EnsureStack(err)
 						}
 						return &TestError{}
@@ -935,7 +935,7 @@ func collectionTests(
 				t.Parallel()
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
-					return errors.EnsureStack(rw.DeleteAll())
+					return errors.EnsureStack(rw.DeleteAll(ctx))
 				})
 				require.NoError(t, err)
 				checkDefaultCollection(t, readOnly, RowDiff{Deleted: idRange(0, 10)})
@@ -947,7 +947,7 @@ func collectionTests(
 			subsuite.Run("TransactionRollback", func(t *testing.T) {
 				t.Parallel()
 				err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
-					if err := rw.DeleteAll(); err != nil {
+					if err := rw.DeleteAll(ctx); err != nil {
 						return errors.EnsureStack(err)
 					}
 					return &TestError{}

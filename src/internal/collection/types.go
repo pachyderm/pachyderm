@@ -81,27 +81,27 @@ type ReadWriteCollection interface {
 	// present in the collection, or a 'Not Found' error is returned
 	Update(ctx context.Context, key interface{}, val proto.Message, f func() error) error
 	// Upsert is like Update but 'key' is not required to be present
-	Upsert(key interface{}, val proto.Message, f func() error) error
-	Create(key interface{}, val proto.Message) error
-	Delete(key interface{}) error
-	DeleteAll() error
+	Upsert(ctx context.Context, key interface{}, val proto.Message, f func() error) error
+	Create(ctx context.Context, key interface{}, val proto.Message) error
+	Delete(ctx context.Context, key interface{}) error
+	DeleteAll(ctx context.Context) error
 }
 
 type PostgresReadWriteCollection interface {
 	ReadWriteCollection
 
-	DeleteByIndex(index *Index, indexVal string) error
+	DeleteByIndex(ctx context.Context, index *Index, indexVal string) error
 	// GetByIndex can have a large impact on database contention if used to retrieve
 	// a large number of rows. Consider using a read-only collection if possible
-	GetByIndex(index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
+	GetByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message, opts *Options, f func(string) error) error
 
 	// GetUniqueByIndex is identical to GetByIndex except it is an error if
 	// exactly one row is not found.
 	// TODO: decide if we should merge this with GetByIndex and use an `Options`.
-	GetUniqueByIndex(index *Index, indexVal string, val proto.Message) error
+	GetUniqueByIndex(ctx context.Context, index *Index, indexVal string, val proto.Message) error
 	// NOTE: List scans the collection over multiple queries,
 	// making this method susceptible to inconsistent reads
-	List(val proto.Message, opts *Options, f func(string) error) error
+	List(ctx context.Context, val proto.Message, opts *Options, f func(string) error) error
 }
 
 type EtcdReadWriteCollection interface {

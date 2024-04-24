@@ -930,7 +930,7 @@ func (a *apiServer) deleteJobInTransaction(ctx context.Context, txnCtx *txnconte
 	if err := a.stopJob(ctx, txnCtx, request.Job, "job deleted"); err != nil {
 		return err
 	}
-	return errors.EnsureStack(a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ppsdb.JobKey(request.Job)))
+	return errors.EnsureStack(a.jobs.ReadWrite(txnCtx.SqlTx).Delete(ctx, ppsdb.JobKey(request.Job)))
 }
 
 // StopJob implements the protobuf pps.StopJob RPC
@@ -2639,7 +2639,7 @@ func (a *apiServer) CreatePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return err
 	}
 	// store the new PipelineInfo in the collection
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).Create(ctx, newPipelineInfo.SpecCommit, newPipelineInfo); err != nil {
 		return errors.EnsureStack(err)
 	}
 
@@ -2821,7 +2821,7 @@ func (a *apiServer) stopAllJobsInPipeline(ctx context.Context, txnCtx *txncontex
 		username = whoami.Username
 	}
 	reason += " for user " + username
-	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
+	err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ctx, ppsdb.JobsTerminalIndex, ppsdb.JobsTerminalKey(pipeline, false), jobInfo, sort, func(string) error {
 		return a.stopJob(ctx, txnCtx, jobInfo.Job, reason)
 	})
 	return errors.EnsureStack(err)
@@ -2940,7 +2940,7 @@ func (a *apiServer) InspectPipelineInTransaction(ctx context.Context, txnCtx *tx
 		if targetVersion < 1 {
 			return nil, errors.Errorf("pipeline %q has only %d versions, not enough to find ancestor %d", pipeline, pipelineInfo.Version, ancestors)
 		}
-		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline, uint64(targetVersion)), pipelineInfo); err != nil {
+		if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetUniqueByIndex(ctx, ppsdb.PipelinesVersionIndex, ppsdb.VersionKey(pipeline, uint64(targetVersion)), pipelineInfo); err != nil {
 			return nil, errors.EnsureStack(err)
 		}
 	}
@@ -3005,7 +3005,7 @@ func (a *apiServer) listPipeline(ctx context.Context, request *pps.ListPipelineR
 				return errors.EnsureStack(err)
 			}
 			var ji pps.JobInfo
-			return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
+			return a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ctx, ppsdb.JobsPipelineIndex, pi.Pipeline.String(), &ji, col.DefaultOptions(), func(string) error {
 				if ji.PipelineVersion > pi.Version {
 					return nil
 				}
@@ -3112,6 +3112,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	// make sure the pipeline exists
 	var foundPipeline bool
 	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).GetByIndex(
+		ctx,
 		ppsdb.PipelinesNameIndex,
 		pipelinesNameKey,
 		&pps.PipelineInfo{},
@@ -3167,7 +3168,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 	// Delete all of the pipeline's jobs - we shouldn't need to worry about any
 	// new jobs since the pipeline has already been stopped.
 	jobInfo := &pps.JobInfo{}
-	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
+	if err := a.jobs.ReadWrite(txnCtx.SqlTx).GetByIndex(ctx, ppsdb.JobsPipelineIndex, ppsdb.JobsPipelineKey(request.Pipeline), jobInfo, col.DefaultOptions(), func(string) error {
 		job := proto.Clone(jobInfo.Job).(*pps.Job)
 		err := a.deleteJobInTransaction(ctx, txnCtx, &pps.DeleteJobRequest{Job: job})
 		if errutil.IsNotFoundError(err) || auth.IsErrNoRoleBinding(err) {
@@ -3178,7 +3179,7 @@ func (a *apiServer) deletePipelineInTransaction(ctx context.Context, txnCtx *txn
 		return nil, errors.EnsureStack(err)
 	}
 	// Delete all past PipelineInfos
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).DeleteByIndex(ctx, ppsdb.PipelinesNameIndex, pipelinesNameKey); err != nil {
 		return nil, errors.Wrapf(err, "collection.Delete")
 	}
 	if !request.KeepRepo {
@@ -3599,7 +3600,7 @@ func (a *apiServer) ActivateAuthInTransaction(ctx context.Context, txnCtx *txnco
 	// Unauthenticated users can't create new pipelines or repos, and users can't
 	// log in while auth is in an intermediate state, so 'pipelines' is exhaustive
 	pi := &pps.PipelineInfo{}
-	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(pi, col.DefaultOptions(), func(string) error {
+	if err := a.pipelines.ReadWrite(txnCtx.SqlTx).List(ctx, pi, col.DefaultOptions(), func(string) error {
 		// 1) Create a new auth token for 'pipeline' and attach it, so that the
 		// pipeline can authenticate as itself when it needs to read input data
 		token, err := a.env.AuthServer.GetPipelineAuthTokenInTransaction(ctx, txnCtx, pi.Pipeline)

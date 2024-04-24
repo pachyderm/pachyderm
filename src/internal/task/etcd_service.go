@@ -249,7 +249,7 @@ func (ed *etcdDoer) withGroup(ctx context.Context, cb func(ctx context.Context, 
 		key := path.Join(ed.group, uuid.NewWithoutDashes())
 		defer func() {
 			if _, err := col.NewSTM(ctx, ed.etcdClient, func(stm col.STM) error {
-				return errors.EnsureStack(ed.groupCol.ReadWrite(stm).Delete(key))
+				return errors.EnsureStack(ed.groupCol.ReadWrite(stm).Delete(ctx, key))
 			}); err != nil {
 				log.Info(ctx, "errored deleting group key", zap.String("key", key), zap.Error(err))
 			}

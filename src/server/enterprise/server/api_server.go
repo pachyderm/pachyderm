@@ -367,7 +367,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 		return nil, errors.New("cannot deactivate paused cluster; unpause first")
 	}
 	if _, err := col.NewSTM(ctx, a.env.EtcdClient, func(stm col.STM) error {
-		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(enterpriseTokenKey)
+		err := a.enterpriseTokenCol.ReadWrite(stm).Delete(ctx, enterpriseTokenKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}
@@ -377,7 +377,7 @@ func (a *apiServer) Deactivate(ctx context.Context, req *ec.DeactivateRequest) (
 	}
 
 	if err := a.env.TxnEnv.WithWriteContext(ctx, func(ctx context.Context, txCtx *txncontext.TransactionContext) error {
-		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(configKey)
+		err := a.configCol.ReadWrite(txCtx.SqlTx).Delete(ctx, configKey)
 		if err != nil && !col.IsErrNotFound(err) {
 			return errors.EnsureStack(err)
 		}

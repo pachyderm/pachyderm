@@ -23,7 +23,7 @@ func Migrate(state migrations.State) migrations.State {
 				return nil
 			}
 			rb := &auth.RoleBinding{}
-			if err := roleBindingsCol.Upsert("PROJECT:default", rb, func() error {
+			if err := roleBindingsCol.Upsert(ctx, "PROJECT:default", rb, func() error {
 				if rb.Entries == nil {
 					rb.Entries = make(map[string]*auth.Roles)
 				}

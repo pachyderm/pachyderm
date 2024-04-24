@@ -97,7 +97,7 @@ func (d *driver) inspectTransaction(ctx context.Context, txn *transaction.Transa
 
 func (d *driver) deleteTransaction(ctx context.Context, txn *transaction.Transaction) error {
 	return d.txnEnv.WithWriteContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Delete(ctx, txn.Id))
 	})
 }
 
@@ -125,7 +125,7 @@ func (d *driver) deleteAll(ctx context.Context, sqlTx *pachsql.Tx, running *tran
 	transactions := d.transactions.ReadWrite(sqlTx)
 	for _, info := range txns {
 		if running == nil || info.Transaction.Id != running.Id {
-			err := transactions.Delete(info.Transaction.Id)
+			err := transactions.Delete(ctx, info.Transaction.Id)
 			if err != nil {
 				return errors.EnsureStack(err)
 			}
@@ -186,7 +186,7 @@ func (d *driver) finishTransaction(ctx context.Context, txn *transaction.Transac
 		if err != nil {
 			return info, err
 		}
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(txn.Id); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Delete(ctx, txn.Id); err != nil {
 			return info, errors.EnsureStack(err)
 		}
 		// no need to update the transaction, since it's gone

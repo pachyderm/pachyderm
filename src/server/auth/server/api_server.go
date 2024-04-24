@@ -586,19 +586,19 @@ func (a *apiServer) rotateRootTokenInTransaction(txCtx *txncontext.TransactionCo
 // Deactivate implements the protobuf auth.Deactivate RPC
 func (a *apiServer) Deactivate(ctx context.Context, req *auth.DeactivateRequest) (resp *auth.DeactivateResponse, retErr error) {
 	if err := dbutil.WithTx(ctx, a.env.DB, func(ctx context.Context, sqlTx *pachsql.Tx) error {
-		if err := a.roleBindings.ReadWrite(sqlTx).DeleteAll(); err != nil {
+		if err := a.roleBindings.ReadWrite(sqlTx).DeleteAll(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 		if err := a.deleteAllAuthTokens(ctx, sqlTx); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := a.members.ReadWrite(sqlTx).DeleteAll(); err != nil {
+		if err := a.members.ReadWrite(sqlTx).DeleteAll(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := a.groups.ReadWrite(sqlTx).DeleteAll(); err != nil {
+		if err := a.groups.ReadWrite(sqlTx).DeleteAll(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := a.authConfig.ReadWrite(sqlTx).DeleteAll(); err != nil {
+		if err := a.authConfig.ReadWrite(sqlTx).DeleteAll(ctx); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return nil
@@ -911,7 +911,7 @@ func (a *apiServer) DeleteRoleBindingInTransaction(ctx context.Context, txnCtx *
 
 	key := authdb.ResourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
-	if err := roleBindings.Delete(key); err != nil {
+	if err := roleBindings.Delete(ctx, key); err != nil {
 		return errors.EnsureStack(err)
 	}
 
@@ -963,7 +963,7 @@ func (a *apiServer) CreateRoleBindingInTransaction(ctx context.Context, txnCtx *
 	// Call Create, this will raise an error if the role binding already exists.
 	key := authdb.ResourceKey(resource)
 	roleBindings := a.roleBindings.ReadWrite(txnCtx.SqlTx)
-	if err := roleBindings.Create(key, bindings); err != nil {
+	if err := roleBindings.Create(ctx, key, bindings); err != nil {
 		return errors.EnsureStack(err)
 	}
 
@@ -1294,7 +1294,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 		groups := a.groups.ReadWrite(sqlTx)
 		var membersProto auth.Users
 		for group := range removeGroups.Groups {
-			if err := groups.Upsert(group, &membersProto, func() error {
+			if err := groups.Upsert(ctx, group, &membersProto, func() error {
 				membersProto.Usernames = removeFromSet(membersProto.Usernames, subject)
 				return nil
 			}); err != nil {
@@ -1304,7 +1304,7 @@ func (a *apiServer) setGroupsForUserInternal(ctx context.Context, subject string
 
 		// Add user to new groups
 		for group := range addGroups {
-			if err := groups.Upsert(group, &membersProto, func() error {
+			if err := groups.Upsert(ctx, group, &membersProto, func() error {
 				membersProto.Usernames = addToSet(membersProto.Usernames, subject)
 				return nil
 			}); err != nil {
@@ -1342,7 +1342,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 		members := a.members.ReadWrite(sqlTx)
 		var groupsProto auth.Groups
 		for _, username := range req.Add {
-			if err := members.Upsert(username, &groupsProto, func() error {
+			if err := members.Upsert(ctx, username, &groupsProto, func() error {
 				groupsProto.Groups = addToSet(groupsProto.Groups, req.Group)
 				return nil
 			}); err != nil {
@@ -1350,7 +1350,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 			}
 		}
 		for _, username := range req.Remove {
-			if err := members.Upsert(username, &groupsProto, func() error {
+			if err := members.Upsert(ctx, username, &groupsProto, func() error {
 				groupsProto.Groups = removeFromSet(groupsProto.Groups, req.Group)
 				return nil
 			}); err != nil {
@@ -1360,7 +1360,7 @@ func (a *apiServer) ModifyMembers(ctx context.Context, req *auth.ModifyMembersRe
 
 		groups := a.groups.ReadWrite(sqlTx)
 		var membersProto auth.Users
-		if err := groups.Upsert(req.Group, &membersProto, func() error {
+		if err := groups.Upsert(ctx, req.Group, &membersProto, func() error {
 			membersProto.Usernames = addToSet(membersProto.Usernames, req.Add...)
 			membersProto.Usernames = removeFromSet(membersProto.Usernames, req.Remove...)
 			return nil

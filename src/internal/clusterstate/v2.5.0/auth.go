@@ -48,7 +48,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// Grant all users the ProjectCreator role at the cluster level
 	clusterRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(clusterRoleBindingKey, clusterRbs, func() error {
+	if err := roleBindingsCol.Upsert(ctx, clusterRoleBindingKey, clusterRbs, func() error {
 		if _, ok := clusterRbs.Entries[allUsersPrincipalKey]; !ok {
 			clusterRbs.Entries[allUsersPrincipalKey] = &auth.Roles{Roles: make(map[string]bool)}
 		}
@@ -61,7 +61,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 	// TODO CORE-1048, grant all users the ProjectWriter role for default project
 	log.Info(ctx, "Creating initial empty role binding for default project")
 	defaultProjectRbs := &auth.RoleBinding{Entries: make(map[string]*auth.Roles)}
-	if err := roleBindingsCol.Upsert(projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
+	if err := roleBindingsCol.Upsert(ctx, projectRoleBindingKeyPrefix+defaultProjectName, defaultProjectRbs, func() error {
 		return nil
 	}); err != nil {
 		return errors.Wrap(err, "could not update default project's role bindings")

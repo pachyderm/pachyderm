@@ -101,7 +101,7 @@ type Driver interface {
 
 	// TODO: provide a more generic interface for modifying jobs, and
 	// some quality-of-life functions for common operations.
-	DeleteJob(*pachsql.Tx, *pps.JobInfo) error
+	DeleteJob(context.Context, *pachsql.Tx, *pps.JobInfo) error
 	UpdateJobState(*pps.Job, pps.JobState, string) error
 
 	GetJobInfo(job *pps.Job) (*pps.JobInfo, error)
@@ -524,8 +524,8 @@ func (d *driver) GetJobInfo(job *pps.Job) (*pps.JobInfo, error) {
 // DeleteJob is identical to updateJobState, except that jobInfo points to a job
 // that should be deleted rather than marked failed.  Jobs may be deleted if
 // their output commit is deleted.
-func (d *driver) DeleteJob(sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
-	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ppsdb.JobKey(jobInfo.Job)))
+func (d *driver) DeleteJob(ctx context.Context, sqlTx *pachsql.Tx, jobInfo *pps.JobInfo) error {
+	return errors.EnsureStack(d.Jobs().ReadWrite(sqlTx).Delete(ctx, ppsdb.JobKey(jobInfo.Job)))
 }
 
 func (d *driver) unlinkData(inputs []*common.Input) error {
