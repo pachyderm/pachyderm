@@ -102,7 +102,7 @@ func PersistAny(ctx context.Context, c *etcd.Client, pipeline *pps.Pipeline) {
 	}
 	if _, err := col.NewSTM(ctx, c, func(stm col.STM) error {
 		tracesCol := TracesCol(c).ReadWrite(stm)
-		return errors.EnsureStack(tracesCol.PutTTL(pipeline.String(), traceProto, int64(duration.Seconds())))
+		return errors.EnsureStack(tracesCol.PutTTL(ctx, pipeline.String(), traceProto, int64(duration.Seconds())))
 	}); err != nil {
 		log.Error(ctx, "could not persist extended trace for pipeline to etcd", zap.String("pipeline", pipeline.GetName()), zap.Error(err))
 	}

@@ -281,7 +281,7 @@ func (d *driver) updateTransaction(
 			var storedInfo transaction.TransactionInfo
 			if err = dbutil.WithTx(ctx, d.db, func(ctx context.Context, sqlTx *pachsql.Tx) error {
 				// Update the existing transaction with the new requests/responses
-				err := d.transactions.ReadWrite(sqlTx).Update(txn.Id, &storedInfo, func() error {
+				err := d.transactions.ReadWrite(sqlTx).Update(ctx, txn.Id, &storedInfo, func() error {
 					if storedInfo.Version != localInfo.Version {
 						return &transactionModifiedError{}
 					}

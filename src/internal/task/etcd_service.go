@@ -389,7 +389,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 				}
 				task := &Task{}
 				_, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-					err := es.taskCol.ReadWrite(stm).Update(taskKey, task, func() error {
+					err := es.taskCol.ReadWrite(stm).Update(ctx, taskKey, task, func() error {
 						if task.State != State_RUNNING {
 							return nil
 						}

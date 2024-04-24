@@ -100,7 +100,7 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 				return errors.EnsureStack(err)
 			}
 			claimed = true
-			return errors.EnsureStack(readWriteC.PutTTL(key, val, DefaultTTL))
+			return errors.EnsureStack(readWriteC.PutTTL(ctx, key, val, DefaultTTL))
 		}
 		claimed = false
 		return nil
@@ -242,7 +242,7 @@ func (c *etcdReadWriteCollection) Put(ctx context.Context, maybeKey interface{},
 	if !ok {
 		return errors.New("key must be a string")
 	}
-	return c.PutTTL(key, val, 0)
+	return c.PutTTL(ctx, key, val, 0)
 }
 
 func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
@@ -253,7 +253,7 @@ func (c *etcdReadWriteCollection) TTL(key string) (int64, error) {
 	return ttl, errors.EnsureStack(err)
 }
 
-func (c *etcdReadWriteCollection) PutTTL(key string, val proto.Message, ttl int64) error {
+func (c *etcdReadWriteCollection) PutTTL(ctx context.Context, key string, val proto.Message, ttl int64) error {
 	return c.put(key, val, func(key string, val string, ptr uintptr) error {
 		return errors.EnsureStack(c.stm.Put(key, val, ttl, ptr))
 	})
@@ -326,7 +326,7 @@ func (c *etcdReadWriteCollection) putIgnoreLease(key string, val proto.Message) 
 // Update reads the current value associated with 'key', calls 'f' to update
 // the value, and writes the new value back to the collection. 'key' must be
 // present in the collection, or a 'Not Found' error is returned
-func (c *etcdReadWriteCollection) Update(maybeKey interface{}, val proto.Message, f func() error) error {
+func (c *etcdReadWriteCollection) Update(ctx context.Context, maybeKey interface{}, val proto.Message, f func() error) error {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")

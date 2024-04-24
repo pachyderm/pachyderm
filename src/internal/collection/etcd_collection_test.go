@@ -313,7 +313,7 @@ func TestTTL(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL(ctx, "key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -336,7 +336,7 @@ func TestTTLExpire(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL(ctx, "key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -357,7 +357,7 @@ func TestTTLExtend(t *testing.T) {
 	clxn := col.NewEtcdCollection(env.EtcdClient, uuidPrefix, nil, &wrapperspb.BoolValue{}, nil, nil)
 	const TTL = 5
 	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, TTL))
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL(ctx, "key", epsilon, TTL))
 	})
 	require.NoError(t, err)
 
@@ -373,7 +373,7 @@ func TestTTLExtend(t *testing.T) {
 	// Put value with new, longer TLL and check that it was set
 	const LongerTTL = 15
 	_, err = col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
-		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL("key", epsilon, LongerTTL))
+		return errors.EnsureStack(clxn.ReadWrite(stm).PutTTL(ctx, "key", epsilon, LongerTTL))
 	})
 	require.NoError(t, err)
 

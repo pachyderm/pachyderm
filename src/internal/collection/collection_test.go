@@ -395,7 +395,7 @@ func collectionTests(
 					for _, k := range modKeys {
 						err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 							testProto := &col.TestItem{}
-							if err := rw.Update(k, testProto, func() error {
+							if err := rw.Update(ctx, k, testProto, func() error {
 								testProto.Value = changedValue
 								return nil
 							}); err != nil {
@@ -675,7 +675,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					return errors.EnsureStack(rw.Update(updateID, testProto, func() error {
+					return errors.EnsureStack(rw.Update(ctx, updateID, testProto, func() error {
 						return &TestError{}
 					}))
 				})
@@ -690,7 +690,7 @@ func collectionTests(
 				readOnly, writer := initCollection(ctx, t, newCollection)
 				err := writer(ctx, func(ctx context.Context, rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					return errors.EnsureStack(rw.Update(notExistsID, testProto, func() error {
+					return errors.EnsureStack(rw.Update(ctx, notExistsID, testProto, func() error {
 						return nil
 					}))
 				})
@@ -707,13 +707,13 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Update(makeID(2), testProto, func() error {
+						if err := rw.Update(ctx, makeID(2), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
 						}); err != nil {
 							return errors.EnsureStack(err)
 						}
-						return errors.EnsureStack(rw.Update(makeID(2), testProto, func() error {
+						return errors.EnsureStack(rw.Update(ctx, makeID(2), testProto, func() error {
 							return &TestError{}
 						}))
 					})
@@ -725,13 +725,13 @@ func collectionTests(
 					notExistsID := makeID(10)
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Update(makeID(3), testProto, func() error {
+						if err := rw.Update(ctx, makeID(3), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
 						}); err != nil {
 							return errors.EnsureStack(err)
 						}
-						return errors.EnsureStack(rw.Update(notExistsID, testProto, func() error {
+						return errors.EnsureStack(rw.Update(ctx, notExistsID, testProto, func() error {
 							testProto.Value = changedValue
 							return nil
 						}))
@@ -744,7 +744,7 @@ func collectionTests(
 					t.Parallel()
 					err := testRollback(t, func(ctx context.Context, rw col.ReadWriteCollection) error {
 						testProto := &col.TestItem{}
-						if err := rw.Update(makeID(6), testProto, func() error {
+						if err := rw.Update(ctx, makeID(6), testProto, func() error {
 							testProto.Value = changedValue
 							return nil
 						}); err != nil {

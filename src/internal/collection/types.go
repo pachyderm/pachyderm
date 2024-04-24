@@ -79,7 +79,7 @@ type ReadWriteCollection interface {
 	// Update reads the current value associated with 'key', calls 'f' to update
 	// the value, and writes the new value back to the collection. 'key' must be
 	// present in the collection, or a 'Not Found' error is returned
-	Update(key interface{}, val proto.Message, f func() error) error
+	Update(ctx context.Context, key interface{}, val proto.Message, f func() error) error
 	// Upsert is like Update but 'key' is not required to be present
 	Upsert(key interface{}, val proto.Message, f func() error) error
 	Create(key interface{}, val proto.Message) error
@@ -115,7 +115,7 @@ type EtcdReadWriteCollection interface {
 	// WARNING: using PutTTL with a collection that has secondary indices
 	// can result in inconsistency, as the indices are removed at roughly
 	// but not exactly the same time as the documents.
-	PutTTL(key string, val proto.Message, ttl int64) error
+	PutTTL(ctx context.Context, key string, val proto.Message, ttl int64) error
 
 	DeleteAllPrefix(prefix string) error
 }

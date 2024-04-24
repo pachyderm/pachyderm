@@ -2840,7 +2840,7 @@ func (a *apiServer) updatePipeline(
 		return errors.Wrap(err, "find pipeline spec commit")
 	}
 
-	return errors.Wrapf(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(key, info, cb), "update pipeline %v", key)
+	return errors.Wrapf(a.pipelines.ReadWrite(txnCtx.SqlTx).Update(ctx, key, info, cb), "update pipeline %v", key)
 }
 
 // InspectPipeline implements the protobuf pps.InspectPipeline RPC

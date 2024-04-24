@@ -716,8 +716,8 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 	return params, nil
 }
 
-func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(pctx.TODO(), key, val); err != nil {
+func (c *postgresReadWriteCollection) Update(ctx context.Context, key interface{}, val proto.Message, f func() error) error {
+	if err := c.Get(ctx, key, val); err != nil {
 		return err
 	}
 	if err := f(); err != nil {
@@ -737,7 +737,7 @@ func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message,
 
 		query := fmt.Sprintf("update collections.%s set %s where key = :key", c.table, strings.Join(updateFields, ", "))
 
-		_, err = c.tx.NamedExec(query, params)
+		_, err = c.tx.NamedExecContext(ctx, query, params)
 		return c.mapSQLError(err, rawKey)
 	})
 }
