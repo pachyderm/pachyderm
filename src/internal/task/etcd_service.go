@@ -366,7 +366,7 @@ func (es *etcdSource) createTaskFunc(ctx context.Context, taskKey string, cb Pro
 		if err := func() error {
 			task := &Task{}
 			if _, err := col.NewSTM(ctx, es.etcdClient, func(stm col.STM) error {
-				return errors.EnsureStack(es.taskCol.ReadWrite(stm).Get(taskKey, task))
+				return errors.EnsureStack(es.taskCol.ReadWrite(stm).Get(ctx, taskKey, task))
 			}); err != nil {
 				return err
 			}

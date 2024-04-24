@@ -143,7 +143,7 @@ func (jf *JobFinisher) Run(ctx context.Context) error {
 			}
 			jobKey := ppsdb.JobKey(client.NewJob(commitInfo.Commit.Repo.Project.GetName(), commitInfo.Commit.Repo.Name, commitInfo.Commit.Id))
 			jobInfo := &pps.JobInfo{}
-			if err := jobs.Get(jobKey, jobInfo); err != nil {
+			if err := jobs.Get(ctx, jobKey, jobInfo); err != nil {
 				// Commits in source repos will not have a job associated with them.
 				if col.IsErrNotFound(err) {
 					continue

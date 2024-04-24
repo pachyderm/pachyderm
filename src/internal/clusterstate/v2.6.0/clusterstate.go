@@ -11,15 +11,15 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/migrations"
 )
 
-func authIsActive(c collection.PostgresReadWriteCollection) bool {
-	return !errors.Is(c.Get("CLUSTER:", &auth.RoleBinding{}), collection.ErrNotFound{})
+func authIsActive(ctx context.Context, c collection.PostgresReadWriteCollection) bool {
+	return !errors.Is(c.Get(ctx, "CLUSTER:", &auth.RoleBinding{}), collection.ErrNotFound{})
 }
 
 func Migrate(state migrations.State) migrations.State {
 	return state.
 		Apply("Grant all users ProjectWriter role for the default project", func(ctx context.Context, env migrations.Env) error {
 			roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(env.Tx)
-			if !authIsActive(roleBindingsCol) {
+			if !authIsActive(ctx, roleBindingsCol) {
 				return nil
 			}
 			rb := &auth.RoleBinding{}

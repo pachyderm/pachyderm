@@ -25,8 +25,8 @@ const (
 	projectCreatorRole = "projectCreator"
 )
 
-func authIsActive(c collection.PostgresReadWriteCollection) bool {
-	return !errors.Is(c.Get(clusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
+func authIsActive(ctx context.Context, c collection.PostgresReadWriteCollection) bool {
+	return !errors.Is(c.Get(ctx, clusterRoleBindingKey, &auth.RoleBinding{}), collection.ErrNotFound{})
 }
 
 // migrateAuth migrates auth to be fully project-aware with a default project.
@@ -42,7 +42,7 @@ func migrateAuth(ctx context.Context, tx *pachsql.Tx) error {
 
 	// If auth is already activated, then run the migrations below because they wouldn't have gotten the new role bindings via activation.
 	roleBindingsCol := authdb.RoleBindingCollection(nil, nil).ReadWrite(tx)
-	if !authIsActive(roleBindingsCol) {
+	if !authIsActive(ctx, roleBindingsCol) {
 		return nil
 	}
 

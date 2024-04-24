@@ -95,7 +95,7 @@ func (c *etcdCollection) Claim(ctx context.Context, key string, val proto.Messag
 	var claimed bool
 	if _, err := NewSTM(ctx, c.etcdClient, func(stm STM) error {
 		readWriteC := c.ReadWrite(stm)
-		if err := readWriteC.Get(key, val); err != nil {
+		if err := readWriteC.Get(ctx, key, val); err != nil {
 			if !IsErrNotFound(err) {
 				return errors.EnsureStack(err)
 			}
@@ -198,12 +198,12 @@ type etcdReadWriteCollection struct {
 	stm STM
 }
 
-func (c *etcdReadWriteCollection) Get(maybeKey interface{}, val proto.Message) (retErr error) {
+func (c *etcdReadWriteCollection) Get(ctx context.Context, maybeKey interface{}, val proto.Message) (retErr error) {
 	key, ok := maybeKey.(string)
 	if !ok {
 		return errors.New("key must be a string")
 	}
-	span, _ := tracing.AddSpanToAnyExisting(c.stm.Context(), "/etcd.RW/Get",
+	span, _ := tracing.AddSpanToAnyExisting(ctx, "/etcd.RW/Get",
 		"col", c.prefix, "key", strings.TrimPrefix(key, c.prefix))
 	defer func() {
 		tracing.TagAnySpan(span, "err", retErr)
@@ -291,7 +291,7 @@ func (c *etcdReadWriteCollection) put(key string, val proto.Message, putFunc fun
 		for _, index := range c.indexes {
 			indexPath := c.getIndexPath(val, index, key)
 			// If we can get the original value, we remove the original indexes
-			if err := c.Get(key, clone); err == nil {
+			if err := c.Get(pctx.TODO(), key, clone); err == nil {
 				originalIndexPath := c.getIndexPath(clone, index, key)
 				if originalIndexPath != indexPath {
 					c.stm.Del(originalIndexPath)
@@ -334,7 +334,7 @@ func (c *etcdReadWriteCollection) Update(maybeKey interface{}, val proto.Message
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	if err := c.Get(key, val); err != nil {
+	if err := c.Get(pctx.TODO(), key, val); err != nil {
 		if IsErrNotFound(err) {
 			return ErrNotFound{Type: c.prefix, Key: key}
 		}
@@ -355,7 +355,7 @@ func (c *etcdReadWriteCollection) Upsert(maybeKey interface{}, val proto.Message
 	if err := watch.CheckType(c.template, val); err != nil {
 		return err
 	}
-	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
+	if err := c.Get(pctx.TODO(), key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
 	if err := f(); err != nil {
@@ -395,7 +395,7 @@ func (c *etcdReadWriteCollection) Delete(maybeKey interface{}) error {
 	if c.indexes != nil && c.template != nil {
 		val := proto.Clone(c.template)
 		for _, index := range c.indexes {
-			if err := c.Get(key, val); err == nil {
+			if err := c.Get(pctx.TODO(), key, val); err == nil {
 				indexPath := c.getIndexPath(val, index, key)
 				c.stm.Del(indexPath)
 			}

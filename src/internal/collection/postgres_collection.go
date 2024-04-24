@@ -678,11 +678,11 @@ type postgresReadWriteCollection struct {
 	tx *pachsql.Tx
 }
 
-func (c *postgresReadWriteCollection) Get(key interface{}, val proto.Message) error {
+func (c *postgresReadWriteCollection) Get(ctx context.Context, key interface{}, val proto.Message) error {
 	var result *model
 	var err error
 	err = c.withKey(key, func(rawKey string) error {
-		result, err = c.get(context.Background(), rawKey, c.tx)
+		result, err = c.get(ctx, rawKey, c.tx)
 		return err
 	})
 	if err != nil {
@@ -717,7 +717,7 @@ func (c *postgresReadWriteCollection) getWriteParams(key string, val proto.Messa
 }
 
 func (c *postgresReadWriteCollection) Update(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(key, val); err != nil {
+	if err := c.Get(pctx.TODO(), key, val); err != nil {
 		return err
 	}
 	if err := f(); err != nil {
@@ -797,7 +797,7 @@ func (c *postgresReadWriteCollection) insert(key string, val proto.Message, upse
 }
 
 func (c *postgresReadWriteCollection) Upsert(key interface{}, val proto.Message, f func() error) error {
-	if err := c.Get(key, val); err != nil && !IsErrNotFound(err) {
+	if err := c.Get(pctx.TODO(), key, val); err != nil && !IsErrNotFound(err) {
 		return err
 	}
 	if err := f(); err != nil {

@@ -74,7 +74,7 @@ type Index struct {
 // ReadWriteCollection is a collection interface that supports read,write and delete
 // operations.
 type ReadWriteCollection interface {
-	Get(key interface{}, val proto.Message) error
+	Get(ctx context.Context, key interface{}, val proto.Message) error
 	Put(key interface{}, val proto.Message) error
 	// Update reads the current value associated with 'key', calls 'f' to update
 	// the value, and writes the new value back to the collection. 'key' must be

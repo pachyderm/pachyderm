@@ -474,7 +474,7 @@ func collectionTests(
 
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					if err := rw.Get(makeID(8), testProto); err != nil {
+					if err := rw.Get(ctx, makeID(8), testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
 					if testProto.Value != originalValue {
@@ -492,19 +492,19 @@ func collectionTests(
 
 				err := writer(ctx, func(rw col.ReadWriteCollection) error {
 					testProto := &col.TestItem{}
-					if err := rw.Get(makeID(1), testProto); err != nil {
+					if err := rw.Get(ctx, makeID(1), testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
 
 					oobID := makeID(10)
-					if err := rw.Get(oobID, testProto); !col.IsErrNotFound(err) {
+					if err := rw.Get(ctx, oobID, testProto); !col.IsErrNotFound(err) {
 						return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", oobID)
 					}
 
 					require.NoError(t, rw.DeleteAll())
 
 					for _, id := range idRange(0, defaultCollectionSize) {
-						if err := rw.Get(id, testProto); !col.IsErrNotFound(err) {
+						if err := rw.Get(ctx, id, testProto); !col.IsErrNotFound(err) {
 							return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", id)
 						}
 					}
@@ -660,7 +660,7 @@ func collectionTests(
 					}); err != nil {
 						return errors.EnsureStack(err)
 					}
-					if err := rw.Get(updateID, testProto); err != nil {
+					if err := rw.Get(ctx, updateID, testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
 					return checkItem(t, testProto, updateID, changedValue)

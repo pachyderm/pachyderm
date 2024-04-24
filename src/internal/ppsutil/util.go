@@ -177,7 +177,7 @@ func SetPipelineState(ctx context.Context, db *pachsql.DB, pipelinesCollection c
 		warn = false
 		pipelines := pipelinesCollection.ReadWrite(sqlTx)
 		pipelineInfo := &pps.PipelineInfo{}
-		if err := pipelines.Get(specCommit, pipelineInfo); err != nil {
+		if err := pipelines.Get(ctx, specCommit, pipelineInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		tracing.TagAnySpan(cbCtx, "old-state", pipelineInfo.State)

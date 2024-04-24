@@ -107,7 +107,7 @@ func TestDeletePrefix(t *testing.T) {
 		Job: client.NewJob(pfs.DefaultProjectName, "p", "Job4"),
 	}
 
-	_, err := col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
+	_, err := col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		rw := jobInfos.ReadWrite(stm)
 		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
 			return errors.EnsureStack(err)
@@ -125,60 +125,60 @@ func TestDeletePrefix(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = col.NewSTM(context.Background(), env.EtcdClient, func(stm col.STM) error {
+	_, err = col.NewSTM(ctx, env.EtcdClient, func(stm col.STM) error {
 		job := &pps.JobInfo{}
 		rw := jobInfos.ReadWrite(stm)
 
 		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.Id)
 		}
-		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.Id)
 		}
-		if err := rw.Get(ppsdb.JobKey(j3.Job), job); err != nil {
+		if err := rw.Get(ctx, ppsdb.JobKey(j3.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
+		if err := rw.Get(ctx, ppsdb.JobKey(j4.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
 
 		if err := rw.DeleteAllPrefix("default/p@prefix"); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.Id)
 		}
-		if err := rw.Get(ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j2.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j2.Job.Id)
 		}
-		if err := rw.Get(ppsdb.JobKey(j3.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j3.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j3.Job.Id)
 		}
-		if err := rw.Get(ppsdb.JobKey(j4.Job), job); err != nil {
+		if err := rw.Get(ctx, ppsdb.JobKey(j4.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
 
 		if err := rw.Put(ppsdb.JobKey(j1.Job), j1); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j1.Job), job); err != nil {
+		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
 
 		if err := rw.DeleteAllPrefix("default/p@prefix/suffix"); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
+		if err := rw.Get(ctx, ppsdb.JobKey(j1.Job), job); !col.IsErrNotFound(err) {
 			return errors.Wrapf(err, "Expected ErrNotFound for key '%s', but got", j1.Job.Id)
 		}
 
 		if err := rw.Put(ppsdb.JobKey(j2.Job), j2); err != nil {
 			return errors.EnsureStack(err)
 		}
-		if err := rw.Get(ppsdb.JobKey(j2.Job), job); err != nil {
+		if err := rw.Get(ctx, ppsdb.JobKey(j2.Job), job); err != nil {
 			return errors.EnsureStack(err)
 		}
 
@@ -187,7 +187,7 @@ func TestDeletePrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	job := &pps.JobInfo{}
-	ro := jobInfos.ReadOnly(context.Background())
+	ro := jobInfos.ReadOnly(ctx)
 	require.True(t, col.IsErrNotFound(ro.Get(ppsdb.JobKey(j1.Job), job)))
 	require.NoError(t, ro.Get(ppsdb.JobKey(j2.Job), job))
 	require.Equal(t, j2, job)

@@ -237,7 +237,7 @@ func (d *driver) updateTransaction(
 	attempt := func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
 		storedInfo := new(transaction.TransactionInfo)
 		var err error
-		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, storedInfo); err != nil {
+		if err := d.transactions.ReadWrite(txnCtx.SqlTx).Get(ctx, txn.Id, storedInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		restarted := localInfo == nil || storedInfo.Version != localInfo.Version
@@ -258,7 +258,7 @@ func (d *driver) updateTransaction(
 	// prefetch transaction info and add data to refresher ahead of time
 	var prefetch transaction.TransactionInfo
 	if err := d.txnEnv.WithReadContext(ctx, func(ctx context.Context, txnCtx *txncontext.TransactionContext) error {
-		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(txn.Id, &prefetch))
+		return errors.EnsureStack(d.transactions.ReadWrite(txnCtx.SqlTx).Get(ctx, txn.Id, &prefetch))
 	}); err != nil {
 		return nil, err
 	}

@@ -506,7 +506,7 @@ func (d *driver) RunUserErrorHandlingCode(
 func (d *driver) UpdateJobState(job *pps.Job, state pps.JobState, reason string) error {
 	return d.NewSQLTx(func(ctx context.Context, sqlTx *pachsql.Tx) error {
 		jobInfo := &pps.JobInfo{}
-		if err := d.Jobs().ReadWrite(sqlTx).Get(ppsdb.JobKey(job), jobInfo); err != nil {
+		if err := d.Jobs().ReadWrite(sqlTx).Get(ctx, ppsdb.JobKey(job), jobInfo); err != nil {
 			return errors.EnsureStack(err)
 		}
 		return errors.EnsureStack(ppsutil.UpdateJobState(d.Pipelines().ReadWrite(sqlTx), d.Jobs().ReadWrite(sqlTx), jobInfo, state, reason))

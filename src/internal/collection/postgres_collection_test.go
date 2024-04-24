@@ -174,7 +174,7 @@ func PostgresCollectionBasicTests(suite *testing.T, newCollection func(context.C
 				pgrw := rw.(col.PostgresReadWriteCollection)
 				err := pgrw.GetByIndex(TestSecondaryIndex, originalValue, testProto, col.DefaultOptions(), func(key string) error {
 					outerKeys = append(outerKeys, testProto.Id)
-					if err := pgrw.Get(innerID, testProto); err != nil {
+					if err := pgrw.Get(ctx, innerID, testProto); err != nil {
 						return errors.EnsureStack(err)
 					}
 					innerKeys = append(innerKeys, testProto.Id)
