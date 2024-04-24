@@ -23,10 +23,10 @@ type Source interface {
 }
 
 type source struct {
-	commitInfo *pfs.CommitInfo
-	fileSet    fileset.FileSet
-	indexOpts  []index.Option
-	upper      string
+	commitInfo                  *pfs.CommitInfo
+	fileSet                     fileset.FileSet
+	dirIndexOpts, fileIndexOpts []index.Option
+	upper                       string
 }
 
 // NewSource creates a Source which emits FileInfos with the information from commit, and the entries return from fileSet.
@@ -38,21 +38,34 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 	s := &source{
 		commitInfo: commitInfo,
 		fileSet:    fileset.NewDirInserter(fs, sc.prefix),
-		indexOpts: []index.Option{
+		dirIndexOpts: []index.Option{
+			index.WithPrefix(sc.prefix),
+			index.WithDatum(sc.datum),
+		},
+		fileIndexOpts: []index.Option{
 			index.WithPrefix(sc.prefix),
 			index.WithDatum(sc.datum),
 		},
 	}
 	if sc.pathRange != nil {
 		s.fileSet = fileset.NewDirInserter(fs, sc.pathRange.Lower)
-		// The upper for the path range is not set to ensure that we
-		// emit directories at the end of the path range. For example,
-		// the files /d1/f1 and /d2/f2 with a path range of [/d1/f1,
-		// /d2/f2) should emit /d1/f1 and /d2/. The upper bound will be
-		// applied within the callback of the iteration.
-		s.indexOpts = append(s.indexOpts, index.WithRange(&index.PathRange{
+		// The directory index options have no upper bound because a
+		// directory may extend past the upper bound of the path range.
+		s.dirIndexOpts = append(s.dirIndexOpts,
+			index.WithRange(&index.PathRange{
+				Lower: sc.pathRange.Lower,
+			}))
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithRange(&index.PathRange{
 			Lower: sc.pathRange.Lower,
+			Upper: sc.pathRange.Upper,
 		}))
+		// WithPeek is set to ensure that we iterate one past the upper
+		// bound of the path range. This is necessary to ensure that
+		// directories at the end of the path range are emitted. The
+		// paths are checked again in the callback to ensure we
+		// terminate if the next directory / file is past the upper
+		// bound.
+		s.fileIndexOpts = append(s.fileIndexOpts, index.WithPeek())
 		s.upper = sc.pathRange.Upper
 	}
 	if sc.filter != nil {
@@ -66,7 +79,7 @@ func NewSource(commitInfo *pfs.CommitInfo, fs fileset.FileSet, opts ...SourceOpt
 func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.File) error) error {
 	ctx, cf := pctx.WithCancel(ctx)
 	defer cf()
-	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.indexOpts...)
+	iter := fileset.NewIterator(ctx, s.fileSet.Iterate, s.dirIndexOpts...)
 	cache := make(map[string]*pfs.FileInfo)
 	err := s.fileSet.Iterate(ctx, func(f fileset.File) error {
 		idx := f.Index()
@@ -103,7 +116,7 @@ func (s *source) Iterate(ctx context.Context, cb func(*pfs.FileInfo, fileset.Fil
 			return errors.EnsureStack(err)
 		}
 		return nil
-	}, s.indexOpts...)
+	}, s.fileIndexOpts...)
 	if errors.Is(err, errutil.ErrBreak) {
 		err = nil
 	}
