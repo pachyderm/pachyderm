@@ -65,9 +65,9 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 			From:  timestamppb.New(now.Add(-700 * time.Hour)),
 			Until: timestamppb.New(now),
 		}
-	case filter.TimeRange.From == nil:
+	case filter.TimeRange.From == nil || filter.TimeRange.From.AsTime().IsZero():
 		filter.TimeRange.From = timestamppb.New(filter.TimeRange.Until.AsTime().Add(-700 * time.Hour))
-	case filter.TimeRange.Until == nil:
+	case filter.TimeRange.Until == nil || filter.TimeRange.Until.AsTime().IsZero():
 		filter.TimeRange.Until = timestamppb.New(filter.TimeRange.From.AsTime().Add(700 * time.Hour))
 	}
 
@@ -140,7 +140,6 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
 		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
 			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
-			fmt.Println("QQQ delta", delta)
 			if !older.IsZero() {
 				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Add(-delta))
 			}
