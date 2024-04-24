@@ -32,6 +32,7 @@ type Reader struct {
 	topIdx      *Index
 	datum       string
 	shardConfig *ShardConfig
+	peek        bool
 }
 
 // NewReader creates a new Reader.
@@ -56,11 +57,15 @@ func (r *Reader) Iterate(ctx context.Context, cb func(*Index) error) error {
 	if r.topIdx == nil {
 		return nil
 	}
+	peek := r.peek
 	traverseCb := func(idx *Index) (bool, error) {
-		if atEnd(idx.Path, r.filter) {
-			return false, errutil.ErrBreak
-		}
 		if idx.File != nil {
+			if atEnd(idx.Path, r.filter) {
+				if !peek {
+					return false, errutil.ErrBreak
+				}
+				peek = false
+			}
 			if !atStart(idx.Path, r.filter) || !(r.datum == "" || r.datum == idx.File.Datum) {
 				return false, nil
 			}
