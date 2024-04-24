@@ -13,9 +13,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"github.com/pachyderm/pachyderm/v2/src/logs"
 	logservice "github.com/pachyderm/pachyderm/v2/src/server/logs"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
+
+	"github.com/pachyderm/pachyderm/v2/src/pps"
 
 	"github.com/pachyderm/pachyderm/v2/src/internal/errors"
 	"github.com/pachyderm/pachyderm/v2/src/internal/lokiutil"
@@ -24,7 +27,6 @@ import (
 	"github.com/pachyderm/pachyderm/v2/src/internal/pctx"
 	"github.com/pachyderm/pachyderm/v2/src/internal/require"
 	"github.com/pachyderm/pachyderm/v2/src/internal/testutil"
-	"github.com/pachyderm/pachyderm/v2/src/pps"
 )
 
 type testPublisher struct {
@@ -407,4 +409,93 @@ func TestPipelineLogs(t *testing.T) {
 		},
 	}, publisher), "GetLogs should succeed")
 	require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
+}
+
+func TestGetLogs_offset(t *testing.T) {
+	type testCase struct {
+		logs        []time.Duration // offsets from time.Now()
+		limit       uint
+		from, until time.Duration // ditto
+		want        []time.Duration
+	}
+	var testCases = map[string]testCase{
+		"no logs in window should return no logs": {
+			logs:  []time.Duration{0},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  nil,
+		},
+	}
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			var (
+				ctx        = pctx.TestContext(t)
+				now        = time.Now()
+				aloki, err = testloki.New(ctx, t.TempDir())
+			)
+			if err != nil {
+				t.Fatalf("new test loki: %v", err)
+			}
+			t.Cleanup(func() {
+				if err := aloki.Close(); err != nil {
+					t.Fatalf("clean up loki: %v", err)
+				}
+			})
+			ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			for i, offset := range tc.logs {
+				var (
+					timestamp = now.Add(offset)
+					pachLog   = &pps.LogMessage{
+						Ts:      timestamppb.New(timestamp),
+						Message: fmt.Sprintf("log %d", i),
+					}
+					b   []byte
+					log = &testloki.Log{
+						Time: timestamp,
+						Labels: map[string]string{
+							"app": "testpach",
+						},
+					}
+					err error
+				)
+				if b, err = protojson.Marshal(pachLog); err != nil {
+					t.Fatal(err)
+				}
+				log.Message = string(b)
+				if err = aloki.AddLog(ctx, log); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ls := logservice.LogService{
+				GetLokiClient: func() (*loki.Client, error) {
+					return aloki.Client, nil
+				},
+			}
+
+			publisher := new(testPublisher)
+			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
+				Filter: &logs.LogFilter{
+					Limit: uint64(tc.limit),
+					TimeRange: &logs.TimeRangeLogFilter{
+						From:  timestamppb.New(now.Add(tc.from)),
+						Until: timestamppb.New(now.Add(tc.until)),
+					},
+				},
+				Query: &logs.LogQuery{
+					QueryType: &logs.LogQuery_Admin{
+						Admin: &logs.AdminLogQuery{
+							AdminType: &logs.AdminLogQuery_Logql{
+								Logql: `{app="testpach"}`,
+							},
+						},
+					},
+				},
+			}, publisher), "GetLogs should succeed")
+			if len(publisher.responses) != len(tc.want) {
+				t.Fatalf("got %d responses; want %d", len(publisher.responses), len(tc.want))
+			}
+		})
+	}
 }
