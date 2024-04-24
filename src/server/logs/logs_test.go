@@ -411,18 +411,139 @@ func TestPipelineLogs(t *testing.T) {
 	require.NoDiff(t, wants, publisher.responses, []cmp.Option{protocmp.Transform()})
 }
 
+type hintCase struct {
+	olderFrom, olderUntil time.Duration
+	newerFrom, newerUntil time.Duration
+}
+type testCase struct {
+	logs        []time.Duration // offsets from time.Now()
+	limit       uint
+	from, until time.Duration // ditto
+	want        []time.Duration
+	wantHint    *hintCase
+}
+
+func TestGetLogs_missingFromUntil(t *testing.T) {
+	var (
+		ctx        = pctx.TestContext(t)
+		now        = time.Now()
+		aloki, err = testloki.New(ctx, t.TempDir(), testloki.WithoutOldSampleRejection, testloki.WithCreationGracePeriod(2*time.Hour))
+		ls         = logservice.LogService{
+			GetLokiClient: func() (*loki.Client, error) {
+				return aloki.Client, nil
+			},
+		}
+
+		publisher = new(testPublisher)
+		req       = &logs.GetLogsRequest{
+			WantPagingHint: true,
+			Filter:         &logs.LogFilter{},
+			Query: &logs.LogQuery{
+				QueryType: &logs.LogQuery_Admin{
+					Admin: &logs.AdminLogQuery{
+						AdminType: &logs.AdminLogQuery_Logql{
+							Logql: `{app="testpach"}`,
+						},
+					},
+				},
+			},
+		}
+		testLogs                 = []time.Duration{-700*time.Hour - time.Second, -1 * time.Hour, -1 * time.Minute, -1 * time.Second, time.Minute, time.Hour}
+		want                     = []time.Duration{-1 * time.Hour, -1 * time.Minute, -1 * time.Second}
+		olderFrom                = -1400 * time.Hour
+		olderUntil time.Duration = -700 * time.Hour
+		newerFrom  time.Duration = 0
+		newerUntil               = 700 * time.Hour
+	)
+	if err != nil {
+		t.Fatalf("new test loki: %v", err)
+	}
+	t.Cleanup(func() {
+		if err := aloki.Close(); err != nil {
+			t.Fatalf("clean up loki: %v", err)
+		}
+	})
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	for i, offset := range testLogs {
+		var (
+			timestamp = now.Add(offset)
+			pachLog   = &pps.LogMessage{
+				Ts:      timestamppb.New(timestamp),
+				Message: fmt.Sprintf("log %d", i),
+			}
+			b   []byte
+			log = &testloki.Log{
+				Time: timestamp,
+				Labels: map[string]string{
+					"app": "testpach",
+				},
+			}
+			err error
+		)
+		if b, err = protojson.Marshal(pachLog); err != nil {
+			t.Fatal(err)
+		}
+		log.Message = string(b)
+		if err = aloki.AddLog(ctx, log); err != nil {
+			t.Fatal(err)
+		}
+	}
+	require.NoError(t, ls.GetLogs(ctx, req, publisher), "GetLogs should succeed")
+	var hints []*logs.PagingHint
+	for _, resp := range publisher.responses {
+		if hint := resp.GetPagingHint(); hint != nil {
+			hints = append(hints, hint)
+		}
+	}
+	if len(publisher.responses)-len(hints) != len(want) {
+		for i, resp := range publisher.responses {
+			t.Logf("resp %d: %v", i, resp.GetLog())
+		}
+		t.Fatalf("got %d responses; want %d", len(publisher.responses)-len(hints), len(want))
+	}
+	if len(hints) == 0 {
+		t.Errorf("wanted hints; got none")
+	}
+	for i, hint := range hints {
+		if hint == nil || (hint.Older == nil && hint.Newer == nil) {
+			t.Errorf("hint %d is empty", i)
+		}
+		// Since we cannot know the server-side time, and the default is
+		// set server side, check that there is a consistent delta.
+		//
+		// NOTE: this assumes that a single hint contains both older and
+		// newer hints; it won’t handle things properly if they are
+		// split up.  Doing that is trickier than it is probably worth
+		// right now.
+		var delta time.Duration
+		if hint.Older != nil {
+			if got, want := hint.Older.Filter.TimeRange.From.AsTime(), now.Add(olderFrom); !got.Equal(want) {
+				delta = want.Sub(got)
+			}
+			if got, want := hint.Older.Filter.TimeRange.Until.AsTime().Add(delta), now.Add(olderUntil); !got.Equal(want) {
+				t.Errorf("wanted older hint until = %v; got %v (Δ %v)", want, got, want.Sub(got))
+			}
+		}
+		if hint.Newer != nil {
+			if got, want := hint.Newer.Filter.TimeRange.From.AsTime().Add(delta), now.Add(newerFrom); !got.Equal(want) {
+				t.Errorf("wanted newer hint from = %v; got %v (Δ %v)", want, got, want.Sub(got))
+			}
+			if got, want := hint.Newer.Filter.TimeRange.Until.AsTime().Add(delta), now.Add(newerUntil); !got.Equal(want) {
+				t.Errorf("wanted newer hint until = %v; got %v (Δ %v)", want, got, want.Sub(got))
+			}
+
+		}
+	}
+	for i := range want {
+		if want, got := now.Add(want[i]), publisher.responses[i].GetLog().GetVerbatim().GetTimestamp().AsTime(); !want.Equal(got) {
+			t.Errorf("expected item %d to be %v; got %v", i, want, got)
+		}
+	}
+
+}
+
 func TestGetLogs_offset(t *testing.T) {
-	type hintCase struct {
-		olderFrom, olderUntil time.Duration
-		newerFrom, newerUntil time.Duration
-	}
-	type testCase struct {
-		logs        []time.Duration // offsets from time.Now()
-		limit       uint
-		from, until time.Duration // ditto
-		want        []time.Duration
-		wantHint    *hintCase
-	}
 	var testCases = map[string]testCase{
 		"no logs in window should return no logs": {
 			logs:  []time.Duration{0},
