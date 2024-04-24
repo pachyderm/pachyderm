@@ -108,14 +108,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 	}
 	if request.WantPagingHint {
 		var newer, older time.Time
-		switch direction {
-		case forwardLogDirection:
-			newer = adapter.last
-		case backwardLogDirection:
-			newer = adapter.first
-		default:
-			return errors.Errorf("invalid direction %q", direction)
-		}
+		newer = end
 		// request a record immediately prior to the page
 		err := doQuery(ctx, c, logQL, 1, start.Add(-700*time.Hour), start, 0, backwardLogDirection, func(ctx context.Context, entry loki.Entry) (bool, error) {
 
@@ -147,6 +140,7 @@ func (ls LogService) GetLogs(ctx context.Context, request *logs.GetLogsRequest, 
 		hint.Newer.Filter.TimeRange.Offset = uint64(adapter.offset) + 1
 		if request.Filter.TimeRange.From != nil && request.Filter.TimeRange.Until != nil {
 			delta := request.Filter.TimeRange.Until.AsTime().Sub(request.Filter.TimeRange.From.AsTime())
+			fmt.Println("QQQ delta", delta)
 			if !older.IsZero() {
 				hint.Older.Filter.TimeRange.From = timestamppb.New(older.Add(-delta))
 			}

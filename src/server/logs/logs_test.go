@@ -445,7 +445,7 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  []time.Duration{time.Second * 2},
 			wantHint: &hintCase{
-				olderFrom:  time.Second * -11,
+				olderFrom:  time.Second * -10,
 				olderUntil: time.Second,
 				newerFrom:  time.Second * 12,
 				newerUntil: time.Second * 23,
@@ -522,14 +522,30 @@ func TestGetLogs_offset(t *testing.T) {
 				req.WantPagingHint = true
 			}
 			require.NoError(t, ls.GetLogs(ctx, req, publisher), "GetLogs should succeed")
-			var hintCount int
+			var hints []*logs.PagingHint
 			for _, resp := range publisher.responses {
-				if resp.GetPagingHint() != nil {
-					hintCount++
+				if hint := resp.GetPagingHint(); hint != nil {
+					hints = append(hints, hint)
 				}
 			}
-			if len(publisher.responses)-hintCount != len(tc.want) {
+			if len(publisher.responses)-len(hints) != len(tc.want) {
 				t.Fatalf("got %d responses; want %d", len(publisher.responses), len(tc.want))
+			}
+			for i, hint := range hints {
+				if hint == nil || (hint.Older == nil && hint.Newer == nil) {
+					t.Errorf("hint %d is empty", i)
+				}
+				if hint.Older != nil {
+					if got, want := hint.Older.Filter.TimeRange.From.AsTime(), now.Add(tc.wantHint.olderFrom); !got.Equal(want) {
+						t.Errorf("wanted older hint from = %v; got %v", want, got)
+					}
+					if got, want := hint.Older.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.olderUntil); !got.Equal(want) {
+						t.Errorf("wanted older hint until = %v; got %v", want, got)
+					}
+					if got, want := hint.Newer.Filter.TimeRange.Until.AsTime(), now.Add(tc.wantHint.newerUntil); !got.Equal(want) {
+						t.Errorf("wanted newer hint until = %v; got %v", want, got)
+					}
+				}
 			}
 			for i := range tc.want {
 				if want, got := now.Add(tc.want[i]), publisher.responses[i].GetLog().GetVerbatim().GetTimestamp().AsTime(); !want.Equal(got) {
