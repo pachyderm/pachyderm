@@ -174,6 +174,17 @@ func (csi *CommitSetInfo) NilBranch() {
 	}
 }
 
+func (fcr *FindCommitsResponse) NilBranch() {
+	if fcr != nil && fcr.Result != nil {
+		switch c := fcr.Result.(type) {
+		case *FindCommitsResponse_LastSearchedCommit:
+			c.LastSearchedCommit.NilBranch()
+		case *FindCommitsResponse_FoundCommit:
+			c.FoundCommit.NilBranch()
+		}
+	}
+}
+
 func (b *Branch) NewCommit(id string) *Commit {
 	return &Commit{
 		Branch: proto.Clone(b).(*Branch),
