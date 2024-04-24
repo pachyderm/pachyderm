@@ -8,6 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go v66.0.0+incompatible
 	github.com/DATA-DOG/go-sqlmock v1.5.0
 	github.com/adrg/xdg v0.4.0
+	github.com/alecthomas/participle/v2 v2.1.1
 	github.com/aws/aws-lambda-go v1.17.0
 	github.com/aws/aws-sdk-go v1.44.68
 	github.com/bazelbuild/rules_go v0.46.0

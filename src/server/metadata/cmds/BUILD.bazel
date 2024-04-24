@@ -9,6 +9,7 @@ go_library(
         "//src/internal/cmdutil",
         "//src/internal/config",
         "//src/internal/errors",
+        "//src/internal/kvparse",
         "//src/internal/pachctl",
         "//src/metadata",
         "//src/pfs",
