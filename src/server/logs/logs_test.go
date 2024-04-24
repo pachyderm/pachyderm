@@ -412,11 +412,16 @@ func TestPipelineLogs(t *testing.T) {
 }
 
 func TestGetLogs_offset(t *testing.T) {
+	type hintCase struct {
+		olderFrom, olderUntil time.Duration
+		newerFrom, newerUntil time.Duration
+	}
 	type testCase struct {
 		logs        []time.Duration // offsets from time.Now()
 		limit       uint
 		from, until time.Duration // ditto
 		want        []time.Duration
+		wantHint    *hintCase
 	}
 	var testCases = map[string]testCase{
 		"no logs in window should return no logs": {
@@ -433,6 +438,19 @@ func TestGetLogs_offset(t *testing.T) {
 			until: time.Second * 12,
 			want:  []time.Duration{time.Second * 2},
 		},
+		"hint works": {
+			logs:  []time.Duration{time.Second * 2},
+			limit: 0,
+			from:  time.Second,
+			until: time.Second * 12,
+			want:  []time.Duration{time.Second * 2},
+			wantHint: &hintCase{
+				olderFrom:  time.Second * -11,
+				olderUntil: time.Second,
+				newerFrom:  time.Second * 12,
+				newerUntil: time.Second * 23,
+			},
+		},
 	}
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -440,6 +458,31 @@ func TestGetLogs_offset(t *testing.T) {
 				ctx        = pctx.TestContext(t)
 				now        = time.Now()
 				aloki, err = testloki.New(ctx, t.TempDir())
+				ls         = logservice.LogService{
+					GetLokiClient: func() (*loki.Client, error) {
+						return aloki.Client, nil
+					},
+				}
+
+				publisher = new(testPublisher)
+				req       = &logs.GetLogsRequest{
+					Filter: &logs.LogFilter{
+						Limit: uint64(tc.limit),
+						TimeRange: &logs.TimeRangeLogFilter{
+							From:  timestamppb.New(now.Add(tc.from)),
+							Until: timestamppb.New(now.Add(tc.until)),
+						},
+					},
+					Query: &logs.LogQuery{
+						QueryType: &logs.LogQuery_Admin{
+							Admin: &logs.AdminLogQuery{
+								AdminType: &logs.AdminLogQuery_Logql{
+									Logql: `{app="testpach"}`,
+								},
+							},
+						},
+					},
+				}
 			)
 			if err != nil {
 				t.Fatalf("new test loki: %v", err)
@@ -475,32 +518,17 @@ func TestGetLogs_offset(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			ls := logservice.LogService{
-				GetLokiClient: func() (*loki.Client, error) {
-					return aloki.Client, nil
-				},
+			if tc.wantHint != nil {
+				req.WantPagingHint = true
 			}
-
-			publisher := new(testPublisher)
-			require.NoError(t, ls.GetLogs(ctx, &logs.GetLogsRequest{
-				Filter: &logs.LogFilter{
-					Limit: uint64(tc.limit),
-					TimeRange: &logs.TimeRangeLogFilter{
-						From:  timestamppb.New(now.Add(tc.from)),
-						Until: timestamppb.New(now.Add(tc.until)),
-					},
-				},
-				Query: &logs.LogQuery{
-					QueryType: &logs.LogQuery_Admin{
-						Admin: &logs.AdminLogQuery{
-							AdminType: &logs.AdminLogQuery_Logql{
-								Logql: `{app="testpach"}`,
-							},
-						},
-					},
-				},
-			}, publisher), "GetLogs should succeed")
-			if len(publisher.responses) != len(tc.want) {
+			require.NoError(t, ls.GetLogs(ctx, req, publisher), "GetLogs should succeed")
+			var hintCount int
+			for _, resp := range publisher.responses {
+				if resp.GetPagingHint() != nil {
+					hintCount++
+				}
+			}
+			if len(publisher.responses)-hintCount != len(tc.want) {
 				t.Fatalf("got %d responses; want %d", len(publisher.responses), len(tc.want))
 			}
 			for i := range tc.want {
@@ -508,6 +536,7 @@ func TestGetLogs_offset(t *testing.T) {
 					t.Errorf("expected item %d to be %v; got %v", i, want, got)
 				}
 			}
+
 		})
 	}
 }
